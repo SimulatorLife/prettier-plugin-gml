@@ -157,6 +157,7 @@ const tsConfig = defineConfig({
 
     rules: {
         "no-unused-vars": "off", // base rule off, we use 'unused-imports' plugin instead
+        "@typescript-eslint/no-unused-vars": "off", // TS version off, we use 'unused-imports' plugin instead
         "unused-imports/no-unused-imports": "error",
         "unused-imports/no-unused-vars": [
             "error",
@@ -171,10 +172,10 @@ const tsConfig = defineConfig({
         "no-prototype-builtins": ["warn"],
         "no-useless-escape": ["error"],
         "no-with": ["error"],
-        "no-undef": ["error"],
+        "no-undef": "off", // TS handles this already, and better
 
         // built-in additions
-        "no-shadow": "error",
+        "no-shadow": "off", // disable base rule, we use the TS version instead
         "no-misleading-character-class": "error",
         "no-loss-of-precision": "error",
         "no-new-native-nonconstructor": "error",
@@ -302,6 +303,9 @@ const tsConfig = defineConfig({
         "@typescript-eslint/no-unsafe-argument": "warn",
         "@typescript-eslint/no-unsafe-call": "warn",
         "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-shadow": "error",
+        "@typescript-eslint/consistent-type-imports": "warn",
+        "@typescript-eslint/switch-exhaustiveness-check": "error",
 
         /* unicorn plugin tweaks beyond the preset */
         "unicorn/no-empty-file": "error",
@@ -317,7 +321,7 @@ const tsConfig = defineConfig({
         "unicorn/no-zero-fractions": "error",
         "unicorn/prevent-abbreviations": "off",
         "unicorn/prefer-code-point": "off", // 'charCodeAt' is more performant than 'codePointAt'
-        "unicorn/no-array-sort": "error",
+        "unicorn/no-array-sort": "off", // can introduce extra allocations and be performance-negative in hot paths
         "unicorn/no-array-callback-reference": "warn",
         "unicorn/prefer-ternary": "warn",
         "unicorn/no-useless-undefined": "warn",
@@ -327,7 +331,7 @@ const tsConfig = defineConfig({
         "unicorn/no-object-as-default-parameter": "error", // Default parameters are re-evaluated on each call, so every call allocates a new object/array
         "unicorn/prefer-single-call": "error",
         "unicorn/prefer-default-parameters": "warn",
-        "unicorn/prefer-top-level-await": "error",
+        "unicorn/prefer-top-level-await": "off", // Preferable for entrypoints, but not for libraries/modules (consider scoping this to CLI files only?)
         "unicorn/prefer-switch": "warn",
         "unicorn/prefer-array-some": "warn",
         "unicorn/no-this-assignment": "error",
@@ -373,6 +377,7 @@ const tsConfig = defineConfig({
         "import/no-mutable-exports": "error",
         "import/no-cycle": ["error", { maxDepth: 3 }],
         "import/newline-after-import": ["error", { count: 1 }],
+        "import/no-extraneous-dependencies": "error",
         "simple-import-sort/imports": "error",
         "simple-import-sort/exports": "error",
 

@@ -41,7 +41,7 @@ const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 // slash after the comment prefix to indicate documentation-style content.
 // These should not be treated as banner decorations even if they contain
 // characters like "**" that would normally be considered decoration.
-const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![\/])/;
+const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![/])/;
 
 function getLineCommentRawText(comment, options: any = {}) {
     if (options.originalText && comment.start && comment.end) {
@@ -278,7 +278,7 @@ function tryPromoteToDocComment(
  * Handles doc-like comment patterns (e.g., "// / text" should become "/// text").
  */
 function tryFormatDocLikeComment(comment, trimmedOriginal: string): string | null {
-    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/);
+    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![/])/);
     if (!docLikeMatch) {
         return null;
     }

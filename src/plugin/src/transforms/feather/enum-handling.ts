@@ -368,17 +368,17 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
             const trimmedRightLength = line.replace(/\s+$/, "").length;
             const startColumn = leadingWhitespace.length;
             const endColumn = Math.max(startColumn, trimmedRightLength - 1);
-            const lineStartIndex = lastIndex;
+            const lineStartOffset = lastIndex;
 
             gm1016Metadata.push({
                 start: {
                     line: lineNumber,
                     column: startColumn,
-                    index: lineStartIndex + startColumn
+                    index: lineStartOffset + startColumn
                 },
                 end: {
                     column: endColumn,
-                    index: lineStartIndex + endColumn
+                    index: lineStartOffset + endColumn
                 }
             });
 

@@ -53,7 +53,7 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
         return `${leadingWhitespace}// ${bannerContent}`;
     }
 
-    const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![\/])/);
+    const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![/])/);
     if (docLikeRawMatch) {
         const remainder = docLikeRawValue.slice(docLikeRawMatch[0].length).trimStart();
         return `${leadingWhitespace}/// ${remainder}`;
@@ -89,7 +89,7 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
         return formatted;
     }
 
-    const docLikeMatch = trimmedFormatted.match(/^\/\/\s+\/(?![\/])/);
+    const docLikeMatch = trimmedFormatted.match(/^\/\/\s+\/(?![/])/);
     if (docLikeMatch) {
         const formattedRemainder = trimmedFormatted.slice(docLikeMatch[0].length).trimStart();
         if (formattedRemainder.startsWith("@")) {

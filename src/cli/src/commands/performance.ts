@@ -436,20 +436,22 @@ function resolveGmlParser() {
     return gmlParserPromise;
 }
 
+async function parseWithDefaultParser(file) {
+    const gmlParser = await resolveGmlParser();
+    gmlParser.parse(file.source, {
+        getComments: false,
+        getLocations: false,
+        simplifyLocations: true,
+        getIdentifierMetadata: false
+    });
+}
+
 function createDefaultParser() {
     if (shouldSkipPerformanceDependencies) {
         return () => Promise.reject(createSkippedPerformanceDependencyError("run parser benchmarks"));
     }
 
-    return async (file) => {
-        const gmlParser = await resolveGmlParser();
-        gmlParser.parse(file.source, {
-            getComments: false,
-            getLocations: false,
-            simplifyLocations: true,
-            getIdentifierMetadata: false
-        });
-    };
+    return parseWithDefaultParser;
 }
 
 let prettierModulePromise = null;
@@ -477,7 +479,11 @@ function resolveNow(now) {
         return now;
     }
 
-    return () => performance.now();
+    return defaultNow;
+}
+
+function defaultNow(): number {
+    return performance.now();
 }
 
 function createBenchmarkResult({ dataset, durations, iterations }) {

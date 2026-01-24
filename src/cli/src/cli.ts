@@ -67,6 +67,10 @@ import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
+function normalizeWriteChunk(chunk: string | Uint8Array, encoding?: BufferEncoding): string {
+    return typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(encoding);
+}
+
 const {
     compactArray,
     createEnumeratedOptionHelpers,
@@ -487,9 +491,6 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     const capturedStderr: Array<string> = [];
     const originalStdoutWrite = process.stdout.write.bind(process.stdout);
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
-
-    const normalizeWriteChunk = (chunk: string | Uint8Array, encoding?: BufferEncoding) =>
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(encoding);
 
     const createCaptureWrite =
         (target: Array<string>): typeof process.stdout.write =>
@@ -2384,12 +2385,14 @@ cliCommandRegistry.registerCommand({
 if (!isCliRunSkipped()) {
     const normalizedArguments = normalizeCommandLineArguments(process.argv.slice(2));
 
-    cliCommandRunner.run(normalizedArguments).catch((error) => {
+    try {
+        await cliCommandRunner.run(normalizedArguments);
+    } catch (error) {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
         });
-    });
+    }
 }
 /**
  * Check equality of ignored file samples by comparing both path and source description.

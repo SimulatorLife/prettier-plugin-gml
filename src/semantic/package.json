@@ -13,7 +13,8 @@
   ],
   "dependencies": {
     "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
+    "@gml-modules/parser": "workspace:*",
+    "@gml-modules/plugin": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

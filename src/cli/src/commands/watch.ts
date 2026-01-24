@@ -74,6 +74,8 @@ interface ExtensionMatcher {
     matches: (fileName: string) => boolean;
 }
 
+const noopAbortListener = () => {};
+
 /**
  * Configuration for file watching behavior.
  * Controls which files to monitor and how to detect changes.
@@ -838,7 +840,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const watchImplementation = watchFactory ?? watch;
 
     return new Promise((resolve) => {
-        let removeAbortListener = () => {};
+        let removeAbortListener = noopAbortListener;
 
         const cleanup = async (exitCode = 0) => {
             if (resolved) {

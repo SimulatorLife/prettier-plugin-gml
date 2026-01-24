@@ -57,6 +57,9 @@ function resolveStringScopeOverride(
     );
 }
 
+const DEFAULT_DECLARATION_ROLE: ScopeRole = Object.freeze({ type: "declaration" });
+const DEFAULT_REFERENCE_ROLE: ScopeRole = Object.freeze({ type: "reference" });
+
 /**
  * Manages lexical and structural scopes, symbol declarations, and references.
  */
@@ -346,15 +349,16 @@ export class ScopeTracker {
     public declare(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = { type: "declaration" }
+        role: ScopeRole | undefined
     ): void {
         if (!this.enabled || !name || !node) {
             return;
         }
 
-        const scope = this.resolveScopeOverride(role.scopeOverride);
+        const normalizedRole = role ?? DEFAULT_DECLARATION_ROLE;
+        const scope = this.resolveScopeOverride(normalizedRole.scopeOverride);
         const scopeId = scope?.id ?? null;
-        const classifications = this.buildClassifications(role, true);
+        const classifications = this.buildClassifications(normalizedRole, true);
 
         const metadata: ScopeSymbolMetadata = {
             name,
@@ -380,12 +384,13 @@ export class ScopeTracker {
     public reference(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = { type: "reference" }
+        role: ScopeRole | undefined
     ): void {
         if (!name || !node) {
             return;
         }
 
+        const normalizedRole = role ?? DEFAULT_REFERENCE_ROLE;
         const scope = this.currentScope();
         const scopeId = scope?.id ?? null;
         const declaration = this.lookup(name);
@@ -396,8 +401,8 @@ export class ScopeTracker {
         }
 
         const combinedRole: ScopeRole = {
-            ...role,
-            tags: [...derivedTags, ...Array.from(role?.tags ?? [])]
+            ...normalizedRole,
+            tags: [...derivedTags, ...Array.from(normalizedRole.tags ?? [])]
         };
 
         const classifications = this.buildClassifications(combinedRole, false);

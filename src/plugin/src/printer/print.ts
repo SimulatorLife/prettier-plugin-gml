@@ -522,8 +522,8 @@ function tryPrintFunctionNode(node, path, options, print) {
                 // climb the AST path to check if the parent or grandparent holds
                 // doc comments that apply to this function, then mark those as
                 // printed to prevent duplication in the output.
-                const parentNode = path.getParentNode();
-                if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
+                const parentNodeForDocComments = path.getParentNode();
+                if (parentNodeForDocComments && parentNodeForDocComments.type === VARIABLE_DECLARATOR) {
                     const grandParentNode = path.getParentNode(1);
                     if (
                         grandParentNode &&
@@ -1561,8 +1561,8 @@ function isDecorativeBlockComment(comment) {
     // unnecessary allocations from map/filter intermediate arrays
     const lines = value.split(/\r?\n/);
     for (const line_ of lines) {
-        const line = line_.replaceAll("\t", "    ");
-        if (Core.isNonEmptyTrimmedString(line) && DECORATIVE_SLASH_LINE_PATTERN.test(line)) {
+        const normalizedLine = line_.replaceAll("\t", "    ");
+        if (Core.isNonEmptyTrimmedString(normalizedLine) && DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
             return true;
         }
     }
@@ -1718,10 +1718,12 @@ function _sanitizeDocOutput(doc) {
     return doc;
 }
 
-export function print(path, options, print) {
+function gmlPrint(path, options, print) {
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }
+
+export { gmlPrint as print };
 
 function getFeatherCommentCallText(node) {
     if (!node || node.type !== "CallExpression") {
@@ -2198,6 +2200,15 @@ function isSimpleCallArgument(node) {
     return false;
 }
 
+function isCallbackArgument(argument) {
+    const argumentType = argument?.type;
+    return (
+        argumentType === "FunctionDeclaration" ||
+        argumentType === "ConstructorDeclaration" ||
+        argumentType === "StructExpression"
+    );
+}
+
 function countLeadingSimpleCallArguments(node) {
     if (!node || !Array.isArray(node.arguments)) {
         return 0;
@@ -2220,14 +2231,6 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     const args = Core.asArray(node?.arguments);
     const parts: any[] = [];
     const trailingArguments = args.slice(simplePrefixLength);
-    const isCallbackArgument = (argument) => {
-        const argumentType = argument?.type;
-        return (
-            argumentType === "FunctionDeclaration" ||
-            argumentType === "ConstructorDeclaration" ||
-            argumentType === "StructExpression"
-        );
-    };
     const firstCallbackIndex = trailingArguments.findIndex(isCallbackArgument);
     const hasTrailingNonCallbackArgument =
         firstCallbackIndex !== -1 &&
@@ -2741,7 +2744,7 @@ function applyTrailingSpacing({
     isTopLevel,
     options,
     syntheticDocByNode,
-    hardline,
+    hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
     suppressFollowingEmptyLine,
@@ -2758,7 +2761,7 @@ function applyTrailingSpacing({
             node,
             options,
             syntheticDocByNode,
-            hardline,
+            hardline: hardlineDoc,
             currentNodeRequiresNewline,
             nodeEndIndex,
             suppressFollowingEmptyLine
@@ -2766,7 +2769,7 @@ function applyTrailingSpacing({
     }
 
     if (isTopLevel) {
-        parts.push(hardline);
+        parts.push(hardlineDoc);
         return false;
     }
 
@@ -2775,7 +2778,7 @@ function applyTrailingSpacing({
         parts,
         node,
         options,
-        hardline,
+        hardline: hardlineDoc,
         nodeEndIndex,
         suppressFollowingEmptyLine,
         syntheticDocComment,
@@ -2792,7 +2795,7 @@ function handleIntermediateTrailingSpacing({
     node,
     options,
     syntheticDocByNode,
-    hardline,
+    hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
     suppressFollowingEmptyLine
@@ -2805,7 +2808,7 @@ function handleIntermediateTrailingSpacing({
         shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro;
 
     if (!shouldSkipStandardHardline) {
-        parts.push(hardline);
+        parts.push(hardlineDoc);
     }
 
     const nextHasSyntheticDoc = nextNode ? syntheticDocByNode.has(nextNode) : false;
@@ -2873,7 +2876,7 @@ function handleIntermediateTrailingSpacing({
     const shouldAddPaddingWithNewline = shouldAddForcedPadding || (currentNodeRequiresNewline && !nextLineEmpty);
 
     if (shouldAddPaddingWithNewline) {
-        parts.push(hardline);
+        parts.push(hardlineDoc);
         previousNodeHadNewlineAddedAfter = true;
     } else if (
         nextLineEmpty &&
@@ -2881,7 +2884,7 @@ function handleIntermediateTrailingSpacing({
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine
     ) {
-        parts.push(hardline);
+        parts.push(hardlineDoc);
     }
 
     return previousNodeHadNewlineAddedAfter;
@@ -2892,7 +2895,7 @@ function handleTerminalTrailingSpacing({
     parts,
     node,
     options,
-    hardline,
+    hardline: hardlineDoc,
     nodeEndIndex,
     suppressFollowingEmptyLine,
     syntheticDocComment,
@@ -2955,7 +2958,7 @@ function handleTerminalTrailingSpacing({
     }
 
     if (shouldPreserveTrailingBlankLine || requiresTrailingPadding) {
-        parts.push(hardline);
+        parts.push(hardlineDoc);
         previousNodeHadNewlineAddedAfter = true;
     }
 
@@ -3861,8 +3864,8 @@ function getFunctionTagParamFromOriginalText(
 
     const docBlock = prefix.slice(lastDocIndex);
     const lines = Core.splitLines(docBlock);
-    for (const line of lines) {
-        const params = Core.extractFunctionTagParams(line);
+    for (const docLine of lines) {
+        const params = Core.extractFunctionTagParams(docLine);
         if (params.length > 0) {
             return paramIndex < params.length ? params[paramIndex] : null;
         }
@@ -4881,19 +4884,19 @@ function collectDocLinesFromSource(functionNode, options) {
     const docLines = [];
 
     for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const line = lines[i].trim();
-        if (line === "") {
+        const trimmedLine = lines[i].trim();
+        if (trimmedLine === "") {
             continue;
         }
 
-        if (line.startsWith("///")) {
-            docLines.unshift(line);
-        } else if (line.startsWith("/*") && line.endsWith("*/")) {
-            const content = line.slice(2, -2).trim();
+        if (trimmedLine.startsWith("///")) {
+            docLines.unshift(trimmedLine);
+        } else if (trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/")) {
+            const content = trimmedLine.slice(2, -2).trim();
             docLines.unshift(`/// ${content}`);
-        } else if (line.startsWith("//")) {
-            if (line.includes("@param") || line.includes("@function")) {
-                docLines.unshift(`/// ${line.replace(/^\/+/u, "").trim()}`);
+        } else if (trimmedLine.startsWith("//")) {
+            if (trimmedLine.includes("@param") || trimmedLine.includes("@function")) {
+                docLines.unshift(`/// ${trimmedLine.replace(/^\/+/u, "").trim()}`);
             }
         } else {
             break;
@@ -4905,8 +4908,8 @@ function collectDocLinesFromSource(functionNode, options) {
 
 function getDocParamOptionality(lines, paramName) {
     for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const line = lines[i];
-        const match = line.match(/\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
+        const docLine = lines[i];
+        const match = docLine.match(/\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
         if (!match) {
             continue;
         }
@@ -6220,7 +6223,7 @@ function expressionIsStringLike(node) {
     }
 
     if (node.type === "Literal") {
-        if (typeof node.value === STRING_TYPE && /^\".*\"$/.test(node.value)) {
+        if (typeof node.value === STRING_TYPE && /^".*"$/.test(node.value)) {
             return true;
         }
 

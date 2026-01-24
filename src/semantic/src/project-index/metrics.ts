@@ -131,9 +131,12 @@ function createMetricsSnapshot(extra: Record<string, unknown> | undefined = {}):
 // summary. Keeping these fallbacks wired like the real implementation protects
 // both the CLI (which logs metrics after each run) and long-lived integrations
 // that rely on the tracker contract remaining stable even when misconfigured.
+const noopTimer = () => {};
+const startNoopTimer = () => noopTimer;
+
 const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     timers: Object.freeze({
-        startTimer: () => () => {},
+        startTimer: startNoopTimer,
         timeAsync: async (_label, callback) => await callback(),
         timeSync: (_label, callback) => callback()
     }),
