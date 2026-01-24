@@ -35,7 +35,7 @@ function createIndexMapper(
         return (index) => index;
     }
 
-    return (index) => {
+    return (index: number) => {
         const precedingInsertions = offsets.filter((offset) => index > offset).length;
         return index - precedingInsertions;
     };

@@ -176,6 +176,7 @@ export interface TranspilationContext {
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
+    totalPatchCount: number;
     websocketServer: PatchBroadcaster | null;
     scriptNames?: Set<string>;
 }
@@ -342,6 +343,7 @@ export function transpileFile(
         }
 
         addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
+        context.totalPatchCount += 1;
 
         const broadcastResult = context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {

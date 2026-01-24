@@ -29,6 +29,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -55,6 +56,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -83,6 +85,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -112,6 +115,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -142,6 +146,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 

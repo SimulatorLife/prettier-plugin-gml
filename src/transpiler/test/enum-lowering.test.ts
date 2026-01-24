@@ -137,3 +137,18 @@ void test("lowerEnumDeclaration uses custom resolver for member names", () => {
 
     strictEqual(result.includes("__enum.PREFIX_ITEM = __value;"), true);
 });
+
+void test("lowerEnumDeclaration quotes enum members with non-identifier names", () => {
+    const result = lowerEnumDeclaration(
+        "SpecialKeys",
+        [
+            { name: "player-name", initializer: null },
+            { name: "level 1", initializer: null }
+        ],
+        visitNode,
+        mockResolveName
+    );
+
+    strictEqual(result.includes('__enum["player-name"] = __value;'), true);
+    strictEqual(result.includes('__enum["level 1"] = __value;'), true);
+});

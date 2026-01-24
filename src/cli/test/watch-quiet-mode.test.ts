@@ -13,6 +13,7 @@ import { after, before, describe, it } from "node:test";
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
+import { connectToHotReloadWebSocket } from "./test-helpers/websocket-client.js";
 
 void describe("Watch command quiet mode", () => {
     let testDir: string;
@@ -46,12 +47,23 @@ void describe("Watch command quiet mode", () => {
             abortSignal: abortController.signal
         });
 
-        // Give it time to start up
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        let websocketClient: Awaited<ReturnType<typeof connectToHotReloadWebSocket>> | null = null;
 
-        // Stop the watcher
-        abortController.abort();
-        await watchPromise;
+        try {
+            websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                connectionTimeoutMs: 1200,
+                retryIntervalMs: 25
+            });
+        } finally {
+            // Stop the watcher
+            abortController.abort();
+
+            if (websocketClient) {
+                await websocketClient.disconnect();
+            }
+
+            await watchPromise;
+        }
 
         // If we get here without errors, the test passes
         assert.ok(true, "Watch command started and stopped successfully in quiet mode");

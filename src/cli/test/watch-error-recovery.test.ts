@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { setTimeout as sleep } from "node:timers/promises";
 
+import { waitForErrorCount, waitForPatchCount } from "./test-helpers/status-polling.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 import { runWatchTest } from "./test-helpers/watch-runner.js";
 
@@ -13,25 +13,22 @@ void describe("Watch command error recovery", () => {
             "watch-error-recovery",
             {
                 websocketServer: false,
-                statusServer: false,
+                statusServer: true,
                 runtimeServer: false
             },
-            async ({ testDir }) => {
-                // Give watch time to start
-                await sleep(200);
-
+            async ({ testDir, baseUrl }) => {
                 // Create a file with invalid GML syntax that will fail transpilation
                 // (The transpiler should fail parsing this)
                 const invalidScript = path.join(testDir, "invalid.gml");
                 await writeFile(invalidScript, "function broken syntax {");
 
-                await sleep(300);
+                await waitForErrorCount(baseUrl, 1);
 
                 // Create a valid file to verify watch continues working
                 const validScript = path.join(testDir, "valid.gml");
                 await writeFile(validScript, "var x = 10;");
 
-                await sleep(300);
+                await waitForPatchCount(baseUrl, 1);
             }
         );
     });
@@ -41,18 +38,15 @@ void describe("Watch command error recovery", () => {
             "watch-error-tracking",
             {
                 websocketServer: false,
-                statusServer: false,
+                statusServer: true,
                 runtimeServer: false
             },
-            async ({ testDir }) => {
-                // Give watch time to start
-                await sleep(200);
-
+            async ({ testDir, baseUrl }) => {
                 // Create multiple files with potential issues
                 await writeFile(path.join(testDir, "script1.gml"), "function bad {");
-                await sleep(200);
+                await waitForErrorCount(baseUrl, 1);
                 await writeFile(path.join(testDir, "script2.gml"), "function also_bad {");
-                await sleep(200);
+                await waitForErrorCount(baseUrl, 2);
 
                 // If we got here without throwing, the watch continued despite errors
                 assert.ok(true, "Watch continued despite transpilation errors");
@@ -65,27 +59,25 @@ void describe("Watch command error recovery", () => {
             "watch-last-patch",
             {
                 websocketServer: false,
-                statusServer: false,
+                statusServer: true,
                 runtimeServer: false
             },
-            async ({ testDir }) => {
-                await sleep(200);
-
+            async ({ testDir, baseUrl }) => {
                 // Create a valid script
                 const scriptPath = path.join(testDir, "test_script.gml");
                 await writeFile(scriptPath, "var x = 10;");
 
-                await sleep(300);
+                await waitForPatchCount(baseUrl, 1);
 
                 // Update with another valid version
                 await writeFile(scriptPath, "var y = 20;");
 
-                await sleep(300);
+                await waitForPatchCount(baseUrl, 2);
 
                 // Try to update with invalid version (should fail but retain last good patch)
                 await writeFile(scriptPath, "function broken {");
 
-                await sleep(300);
+                await waitForErrorCount(baseUrl, 1);
 
                 // Test verifies that watch continues and tracks errors gracefully
                 assert.ok(true, "Last successful patch tracking works");
@@ -98,16 +90,14 @@ void describe("Watch command error recovery", () => {
             "watch-patch-validation",
             {
                 websocketServer: false,
-                statusServer: false,
+                statusServer: true,
                 runtimeServer: false
             },
-            async ({ testDir }) => {
-                await sleep(200);
-
+            async ({ testDir, baseUrl }) => {
                 // Create a valid script
                 await writeFile(path.join(testDir, "script.gml"), "var x = 10;");
 
-                await sleep(300);
+                await waitForPatchCount(baseUrl, 1);
 
                 // If validation fails, it should throw and be caught, allowing watch to continue
                 assert.ok(true, "Patch validation works");
@@ -132,18 +122,16 @@ void describe("Watch command error recovery", () => {
                     "watch-error-stats",
                     {
                         websocketServer: false,
-                        statusServer: false,
+                        statusServer: true,
                         runtimeServer: false,
                         verbose: true
                     },
-                    async ({ testDir }) => {
-                        await sleep(200);
-
+                    async ({ testDir, baseUrl }) => {
                         // Create some files that might error
                         await writeFile(path.join(testDir, "bad1.gml"), "function broken {");
-                        await sleep(200);
+                        await waitForErrorCount(baseUrl, 1);
                         await writeFile(path.join(testDir, "good.gml"), "var x = 10;");
-                        await sleep(200);
+                        await waitForPatchCount(baseUrl, 1);
                     }
                 )
         );

@@ -210,6 +210,7 @@ interface ServerControllers {
 interface WatchLifecycle {
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+    scanComplete: boolean;
 }
 
 /**
@@ -663,10 +664,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         errors: [],
         lastSuccessfulPatches: new Map(),
         maxPatchHistory,
+        totalPatchCount: 0,
         websocketServer: null,
         statusServer: null,
         startTime: Date.now(),
         debouncedHandlers: new Map(),
+        scanComplete: false,
         dependencyTracker
     };
 
@@ -759,6 +762,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 getSnapshot: () => ({
                     uptime: Date.now() - runtimeContext.startTime,
                     patchCount: runtimeContext.metrics.length,
+                    totalPatchCount: runtimeContext.totalPatchCount,
+                    patchHistorySize: runtimeContext.patches.length,
+                    maxPatchHistory: runtimeContext.maxPatchHistory,
                     errorCount: runtimeContext.errors.length,
                     recentPatches: runtimeContext.metrics.slice(-10).map((m) => ({
                         id: m.patchId,
@@ -771,7 +777,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         filePath: path.relative(normalizedPath, e.filePath),
                         error: e.error
                     })),
-                    websocketClients: runtimeContext.websocketServer?.getClientCount() ?? 0
+                    websocketClients: runtimeContext.websocketServer?.getClientCount() ?? 0,
+                    scanComplete: runtimeContext.scanComplete
                 })
             });
 
@@ -1009,6 +1016,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 }
 
                 await performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet);
+                runtimeContext.scanComplete = true;
             })();
         } catch (error) {
             handleWatcherError(error);
