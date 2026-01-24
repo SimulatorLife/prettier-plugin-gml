@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
@@ -82,7 +82,8 @@ export class StructAssignmentMatcher {
             return false;
         }
 
-        return !Core.isNonEmptyArray((node as any).properties);
+        const structNode = node as GameMakerAstNode;
+        return !Core.isNonEmptyArray(structNode.properties);
     }
 
     getStructPropertyAssignmentDetails(statement: unknown, identifierName: string): AssignmentDetails | null {
