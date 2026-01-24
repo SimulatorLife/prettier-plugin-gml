@@ -41,6 +41,16 @@ await test("transpileScript includes source text in result", () => {
     assert.equal(result.sourceText, sourceText);
 });
 
+await test("transpileScript unwraps function bodies without leading blank lines", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+    const result = transpiler.transpileScript({
+        sourceText: "function test() { return 1; }",
+        symbolId: "gml/script/test"
+    });
+
+    assert.equal(result.js_body, "return 1;");
+});
+
 await test("transpileScript includes source path metadata when provided", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileScript({

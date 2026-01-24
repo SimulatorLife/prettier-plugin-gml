@@ -85,36 +85,35 @@ export class GmlTranspiler {
             if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
                 const func = ast.body[0] as unknown as FunctionDeclarationNode;
                 const params = func.params || [];
-                const paramUnpacking = params
-                    .map((p, i) => {
-                        if (typeof p === "string") {
-                            // Should not happen in AST, params are nodes
-                            return "";
-                        }
-                        if (p.type === "Identifier") {
-                            return `var ${p.name} = args[${i}];`;
-                        }
-                        if (p.type === "DefaultParameter") {
-                            const left = p.left;
-                            if (left.type === "Identifier") {
-                                const name = left.name;
-                                if (p.right) {
-                                    const defaultVal = emitter.emit(p.right);
-                                    return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
-                                }
-                                return `var ${name} = args[${i}];`;
+                const paramLines = params.map((p, i) => {
+                    if (typeof p === "string") {
+                        // Should not happen in AST, params are nodes
+                        return null;
+                    }
+                    if (p.type === "Identifier") {
+                        return `var ${p.name} = args[${i}];`;
+                    }
+                    if (p.type === "DefaultParameter") {
+                        const left = p.left;
+                        if (left.type === "Identifier") {
+                            const name = left.name;
+                            if (p.right) {
+                                const defaultVal = emitter.emit(p.right);
+                                return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
                             }
+                            return `var ${name} = args[${i}];`;
                         }
-                        return "";
-                    })
-                    .join("\n");
+                    }
+                    return null;
+                });
+                const paramUnpacking = Core.compactArray(paramLines).join("\n");
 
                 const bodyRaw = emitter.emit(func.body).trim();
                 // Strip surrounding braces if present (BlockStatement)
                 const bodyContent =
                     bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
 
-                jsBody = `${paramUnpacking}\n${bodyContent}`;
+                jsBody = paramUnpacking ? `${paramUnpacking}\n${bodyContent}` : bodyContent;
             } else {
                 jsBody = emitter.emit(ast);
             }
