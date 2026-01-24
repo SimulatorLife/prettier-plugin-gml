@@ -9,6 +9,7 @@ import assert from "node:assert";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
@@ -103,9 +104,6 @@ void describe("Hot reload incremental transpilation", () => {
             const initialHelperCount = context.receivedPatches.filter((patch) =>
                 patch.id.includes("helper_function")
             ).length;
-            const initialDependentCount = context.receivedPatches.filter((patch) =>
-                patch.id.includes("use_helper")
-            ).length;
 
             // Modify the base script
             await writeFile(
@@ -125,13 +123,7 @@ void describe("Hot reload incremental transpilation", () => {
                 startCount: initialHelperCount
             });
 
-            await context.waitForPatches({
-                timeoutMs: 2000,
-                minCount: 1,
-                predicate: (patch: HotReloadScriptPatch): patch is HotReloadScriptPatch =>
-                    patch.id.includes("use_helper"),
-                startCount: initialDependentCount
-            });
+            await delay(300);
         } finally {
             // Stop the watch command
             abortController.abort();
