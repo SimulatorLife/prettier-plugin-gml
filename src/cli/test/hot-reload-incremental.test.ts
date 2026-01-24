@@ -1,8 +1,8 @@
 /**
  * Integration test for incremental transpilation with dependency tracking.
  *
- * Validates that when a file changes, dependent files are automatically
- * retranspiled and patched.
+ * Validates that when a file changes without changing its exported symbol set,
+ * dependent files are not automatically retranspiled.
  */
 
 import assert from "node:assert";
@@ -64,7 +64,7 @@ void describe("Hot reload incremental transpilation", () => {
         }
     });
 
-    void it("should retranspile dependent files when a dependency changes", async () => {
+    void it("should skip dependent retranspilation when definitions are unchanged", async () => {
         const websocketPort = await findAvailablePort();
         const abortController = new AbortController();
 
@@ -97,7 +97,7 @@ void describe("Hot reload incremental transpilation", () => {
             "utf8"
         );
 
-        // Wait for transpilation and dependent file retranspilation
+        // Wait for transpilation and potential dependent file retranspilation
         await new Promise((resolve) => setTimeout(resolve, 3000));
 
         // Stop the watch command
@@ -109,17 +109,18 @@ void describe("Hot reload incremental transpilation", () => {
             // Expected to be aborted
         }
 
-        // Verify that we received patches for both the base file and the dependent file
-        // The base file should be transpiled because it changed
-        // The dependent file should be retranspiled because it depends on base_script
+        // Verify that we received patches for the base file and no extra patch for the dependent file.
+        // The base file should be transpiled because it changed.
+        // The dependent file should not be retranspiled when symbol definitions stay the same.
         assert.ok(context, "WebSocket client should be connected");
         const basePatches = context.receivedPatches.filter((p) => p.id.includes("base_script"));
         const dependentPatches = context.receivedPatches.filter((p) => p.id.includes("dependent_script"));
 
-        assert.ok(basePatches.length > 0, "Should have received at least one patch for base_script");
-        assert.ok(
-            dependentPatches.length > 0,
-            "Should have received at least one patch for dependent_script (retranspiled due to dependency)"
+        assert.ok(basePatches.length >= 2, "Should have received initial and updated patch for base_script");
+        assert.strictEqual(
+            dependentPatches.length,
+            1,
+            "Dependent script should only receive the initial patch when definitions are unchanged"
         );
 
         // Verify the base patch contains the updated value

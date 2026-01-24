@@ -1123,6 +1123,25 @@ async function retranspileDependentFiles(
     });
 }
 
+function areSymbolSetsEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    const leftSet = new Set(left);
+    if (leftSet.size !== right.length) {
+        return false;
+    }
+
+    for (const symbol of right) {
+        if (!leftSet.has(symbol)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 async function processTranspileResult(
     runtimeContext: RuntimeContext,
     filePath: string,
@@ -1134,6 +1153,11 @@ async function processTranspileResult(
         return;
     }
 
+    const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
+    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    const nextDefinitions = result.symbols ?? [];
+    const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
+
     runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
     runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
@@ -1142,7 +1166,15 @@ async function processTranspileResult(
         console.log(`  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`);
     }
 
-    const dependentFiles = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    if (!definitionsChanged) {
+        if (verbose && !quiet && previousDependents.length > 0) {
+            console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
+        }
+        return;
+    }
+
+    const updatedDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    const dependentFiles = Array.from(new Set([...previousDependents, ...updatedDependents]));
     if (dependentFiles.length === 0) {
         return;
     }
