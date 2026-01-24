@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { __private__ } from "../src/identifier-case/asset-rename-executor.js";
+import { __private__, createAssetRenameExecutor } from "../src/identifier-case/asset-rename-executor.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 
 const { ensureWritableDirectory, ensureWritableFile, readJsonFile } = __private__;
@@ -140,6 +141,67 @@ void describe("asset rename executor JSON helpers", () => {
                 name: "TypeError",
                 message: "Resource JSON at /tmp/list.yy must be a plain object."
             }
+        );
+    });
+});
+
+void describe("asset rename executor memory management", () => {
+    const gc = typeof globalThis.gc === "function" ? globalThis.gc : null;
+
+    void it("clears cached JSON payloads after commit to reduce heap usage", { skip: gc === null }, () => {
+        const largePayload = "x".repeat(1024 * 256);
+        const largeJson = JSON.stringify({ name: "demo", payload: largePayload });
+        let readCount = 0;
+        const fsFacade = {
+            readFileSync() {
+                readCount += 1;
+                return largeJson;
+            },
+            accessSync() {},
+            writeFileSync() {},
+            renameSync() {},
+            statSync() {
+                return fs.statSync(process.cwd());
+            },
+            mkdirSync() {},
+            existsSync() {
+                return false;
+            }
+        };
+
+        const executor = createAssetRenameExecutor({
+            projectIndex: { projectRoot: "/project" },
+            fsFacade
+        });
+
+        gc();
+        const baselineHeap = process.memoryUsage().heapUsed;
+        const renameCount = 120;
+        for (let i = 0; i < renameCount; i += 1) {
+            executor.queueRename({
+                resourcePath: `assets/${i}.yy`,
+                toName: "demo"
+            });
+        }
+
+        gc();
+        const cachedHeap = process.memoryUsage().heapUsed;
+        const result = executor.commit();
+        gc();
+        const finalHeap = process.memoryUsage().heapUsed;
+
+        const reclaimedBytes = cachedHeap - finalHeap;
+        const reclaimedMiB = Math.round(reclaimedBytes / 1024 / 1024);
+
+        assert.equal(result.writes.length, 0);
+        assert.ok(readCount > 0);
+        assert.ok(
+            reclaimedBytes > 10 * 1024 * 1024,
+            `Expected heap usage to drop by at least 10 MiB after commit (baseline ${Math.round(
+                baselineHeap / 1024 / 1024
+            )} MiB, cached ${Math.round(cachedHeap / 1024 / 1024)} MiB, final ${Math.round(
+                finalHeap / 1024 / 1024
+            )} MiB, reclaimed ${reclaimedMiB} MiB).`
         );
     });
 });
