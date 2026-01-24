@@ -141,13 +141,12 @@ export async function connectToHotReloadWebSocket(
                 waitOptions.predicate ??
                 ((patch: HotReloadScriptPatch): patch is HotReloadScriptPatch => patch !== undefined);
             const timeoutMs = waitOptions.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS;
-            const startCount =
-                typeof waitOptions.startCount === "number"
-                    ? waitOptions.startCount
-                    : receivedPatches.filter(predicate).length;
+            const currentMatches = receivedPatches.filter(predicate);
+            const startCount = typeof waitOptions.startCount === "number" ? waitOptions.startCount : 0;
+            const targetCount = startCount + minCount;
 
-            if (startCount >= minCount) {
-                return receivedPatches.filter(predicate).slice(-minCount);
+            if (currentMatches.length >= targetCount) {
+                return currentMatches.slice(-minCount);
             }
 
             return new Promise<Array<HotReloadScriptPatch>>((resolve, reject) => {
@@ -162,7 +161,7 @@ export async function connectToHotReloadWebSocket(
 
                 const onPatch = () => {
                     const matches = receivedPatches.filter(predicate);
-                    if (matches.length >= startCount + minCount) {
+                    if (matches.length >= targetCount) {
                         clearTimeout(timeoutId);
                         patchListeners.delete(onPatch);
                         resolve(matches.slice(-minCount));

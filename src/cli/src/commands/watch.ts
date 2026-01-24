@@ -236,6 +236,7 @@ interface RuntimeContext
         ServerControllers,
         WatchLifecycle {
     scriptNames: Set<string>;
+    fileSnapshots: Map<string, number>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
@@ -450,6 +451,7 @@ async function performInitialScan(
         try {
             const content = await readFile(fullPath, "utf8");
             const lines = content.split("\n").length;
+            await updateFileSnapshot(runtimeContext, fullPath);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
@@ -670,6 +672,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         startTime: Date.now(),
         debouncedHandlers: new Map(),
         scanComplete: false,
+        fileSnapshots: new Map(),
         dependencyTracker
     };
 
@@ -957,7 +960,36 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     ...(abortSignal && { signal: abortSignal })
                 },
                 (eventType, filename) => {
-                    if (!filename || !extensionMatcher.matches(filename)) {
+                    if (!filename) {
+                        const unknownKey = `${normalizedPath}::unknown`;
+                        const triggerUnknown = () =>
+                            handleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                                const message = getErrorMessage(error, {
+                                    fallback: "Unknown file processing error"
+                                });
+                                console.error(`Error processing watcher event: ${message}`);
+                            });
+
+                        if (debounceDelay === 0) {
+                            void triggerUnknown();
+                        } else {
+                            let debouncedHandler = runtimeContext.debouncedHandlers.get(unknownKey);
+                            if (!debouncedHandler) {
+                                debouncedHandler = debounce(() => {
+                                    void triggerUnknown();
+                                }, debounceDelay);
+                                runtimeContext.debouncedHandlers.set(unknownKey, debouncedHandler);
+                            }
+                            debouncedHandler(unknownKey, eventType, {
+                                verbose,
+                                quiet,
+                                runtimeContext
+                            });
+                        }
+                        return;
+                    }
+
+                    if (!extensionMatcher.matches(filename)) {
                         return;
                     }
 
@@ -1017,7 +1049,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
                 .then(() => {
                     runtimeContext.scanComplete = true;
-                    return undefined;
+                    return null;
                 })
                 .catch(handleWatcherError);
         } catch (error) {
@@ -1081,6 +1113,9 @@ async function handleFileChange(
         try {
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
+            if (runtimeContext) {
+                await updateFileSnapshot(runtimeContext, filePath);
+            }
 
             if (verbose && !quiet) {
                 console.log(`  ↳ Read ${lines} lines`);
@@ -1112,6 +1147,35 @@ async function handleFileChange(
             console.error(formattedMessage);
         }
     }
+}
+
+async function handleUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    const entries = Array.from(runtimeContext.fileSnapshots.entries());
+    if (entries.length === 0) {
+        return;
+    }
+
+    await runSequentially(entries, async ([filePath, lastModified]) => {
+        try {
+            const stats = await stat(filePath);
+            if (stats.mtimeMs <= lastModified) {
+                return;
+            }
+
+            runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
+            await handleFileChange(filePath, "change", {
+                verbose,
+                quiet,
+                runtimeContext
+            });
+        } catch {
+            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+        }
+    });
 }
 
 async function retranspileDependentFiles(
@@ -1259,6 +1323,7 @@ function getSymbolIdFromFilePath(filePath: string): string {
 
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
+    runtimeContext.fileSnapshots.delete(filePath);
 
     const symbolId = getSymbolIdFromFilePath(filePath);
     const removedPatch = runtimeContext.lastSuccessfulPatches.delete(symbolId);
@@ -1272,6 +1337,15 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     if (verbose && !quiet) {
         const patchMessage = removedPatch ? "cleared cached patch" : "no cached patch found";
         console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
+    }
+}
+
+async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: string): Promise<void> {
+    try {
+        const stats = await stat(filePath);
+        runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
+    } catch {
+        runtimeContext.fileSnapshots.delete(filePath);
     }
 }
 
