@@ -11,7 +11,7 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { type FSWatcher, watch, type WatchListener, type WatchOptions } from "node:fs";
+import { type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -1085,10 +1085,11 @@ async function handleFileChange(
     // rename, treat it as a change and continue to transpile. If the file was
     // removed, bail out early.
     let shouldTranspile = false;
+    let fileStats: Stats | null = null;
 
     if (eventType === "rename") {
         try {
-            await stat(filePath);
+            fileStats = await stat(filePath);
             shouldTranspile = true;
             if (verbose && !quiet) {
                 console.log(`  ↳ File exists (created or renamed)`);
@@ -1110,11 +1111,31 @@ async function handleFileChange(
     // For 'change' events, read the file and transpile it. Also transpile when
     // a 'rename' event left the file in place (see comment above).
     if (eventType === "change" || shouldTranspile) {
+        if (runtimeContext) {
+            if (!fileStats) {
+                fileStats = await readFileStats(filePath);
+            }
+
+            if (fileStats) {
+                const lastModified = runtimeContext.fileSnapshots.get(filePath);
+                if (lastModified !== undefined && fileStats.mtimeMs <= lastModified) {
+                    if (verbose && !quiet) {
+                        console.log("  ↳ Skipping unchanged file");
+                    }
+                    return;
+                }
+            }
+        }
+
         try {
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
             if (runtimeContext) {
-                await updateFileSnapshot(runtimeContext, filePath);
+                if (fileStats) {
+                    runtimeContext.fileSnapshots.set(filePath, fileStats.mtimeMs);
+                } else {
+                    await updateFileSnapshot(runtimeContext, filePath);
+                }
             }
 
             if (verbose && !quiet) {
@@ -1176,6 +1197,14 @@ async function handleUnknownFileChanges(
             cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
         }
     });
+}
+
+async function readFileStats(filePath: string): Promise<Stats | null> {
+    try {
+        return await stat(filePath);
+    } catch {
+        return null;
+    }
 }
 
 async function retranspileDependentFiles(
