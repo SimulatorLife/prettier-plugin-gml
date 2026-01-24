@@ -4,6 +4,12 @@
  */
 import { Core } from "@gml-modules/core";
 
+import {
+    advanceThroughComment,
+    advanceThroughStringLiteral,
+    createStringCommentScanState,
+    tryStartStringOrComment
+} from "../source-text/string-comment-scan.js";
 import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {
@@ -42,90 +48,43 @@ function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number
     return { sanitizedBody, adjustments, removedCount: bodyRemoved };
 }
 
-function skipLineComment(sourceText: string, startIndex: number) {
+function findNextOpenBrace(sourceText: string, startIndex: number) {
     const length = sourceText.length;
+    const state = createStringCommentScanState();
 
-    for (let index = startIndex; index < length; index += 1) {
-        const char = sourceText[index];
-        if (char === "\n" || char === "\r") {
-            return index - 1;
+    for (let index = startIndex; index < length; ) {
+        if (state.stringQuote) {
+            index = advanceThroughStringLiteral(sourceText, index, state);
+            continue;
         }
-    }
 
-    return length - 1;
-}
-
-function skipBlockComment(sourceText: string, startIndex: number) {
-    const length = sourceText.length;
-
-    for (let index = startIndex; index < length - 1; index += 1) {
-        if (sourceText[index] === "*" && sourceText[index + 1] === "/") {
-            return index + 1;
+        if (state.inLineComment || state.inBlockComment) {
+            index = advanceThroughComment(sourceText, length, index, state);
+            continue;
         }
-    }
 
-    return length - 1;
-}
-
-function skipStringLiteral(sourceText: string, startIndex: number) {
-    const length = sourceText.length;
-    const quote = sourceText[startIndex];
-    let index = startIndex + 1;
-
-    while (index < length) {
-        const char = sourceText[index];
-        if (char === "\\") {
+        if (
+            sourceText[index] === "@" &&
+            index + 1 < length &&
+            (sourceText[index + 1] === "'" || sourceText[index + 1] === '"')
+        ) {
+            state.stringQuote = sourceText[index + 1];
+            state.stringEscape = false;
             index += 2;
             continue;
         }
 
-        if (char === quote) {
-            return index;
-        }
-
-        index += 1;
-    }
-
-    return length - 1;
-}
-
-function skipToken(sourceText: string, index: number, length: number) {
-    const char = sourceText[index];
-
-    if (char === '"' || char === "'") {
-        return skipStringLiteral(sourceText, index);
-    }
-
-    if (char === "@" && index + 1 < length && (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")) {
-        return skipStringLiteral(sourceText, index + 1);
-    }
-
-    if (char === "/" && index + 1 < length) {
-        const nextChar = sourceText[index + 1];
-        if (nextChar === "/") {
-            return skipLineComment(sourceText, index + 2);
-        }
-        if (nextChar === "*") {
-            return skipBlockComment(sourceText, index + 2);
-        }
-    }
-
-    return index;
-}
-
-function findNextOpenBrace(sourceText: string, startIndex: number) {
-    const length = sourceText.length;
-
-    for (let index = startIndex; index < length; index += 1) {
-        const skippedIndex = skipToken(sourceText, index, length);
-        if (skippedIndex !== index) {
-            index = skippedIndex;
+        const nextIndex = tryStartStringOrComment(sourceText, length, index, state);
+        if (nextIndex !== index) {
+            index = nextIndex;
             continue;
         }
 
         if (sourceText[index] === "{") {
             return index;
         }
+
+        index += 1;
     }
 
     return -1;
@@ -134,17 +93,40 @@ function findNextOpenBrace(sourceText: string, startIndex: number) {
 function findMatchingClosingBrace(sourceText: string, openBraceIndex: number) {
     const length = sourceText.length;
     let depth = 0;
+    const state = createStringCommentScanState();
 
-    for (let index = openBraceIndex; index < length; index += 1) {
-        const skippedIndex = skipToken(sourceText, index, length);
-        if (skippedIndex !== index) {
-            index = skippedIndex;
+    for (let index = openBraceIndex; index < length; ) {
+        if (state.stringQuote) {
+            index = advanceThroughStringLiteral(sourceText, index, state);
+            continue;
+        }
+
+        if (state.inLineComment || state.inBlockComment) {
+            index = advanceThroughComment(sourceText, length, index, state);
+            continue;
+        }
+
+        if (
+            sourceText[index] === "@" &&
+            index + 1 < length &&
+            (sourceText[index + 1] === "'" || sourceText[index + 1] === '"')
+        ) {
+            state.stringQuote = sourceText[index + 1];
+            state.stringEscape = false;
+            index += 2;
+            continue;
+        }
+
+        const nextIndex = tryStartStringOrComment(sourceText, length, index, state);
+        if (nextIndex !== index) {
+            index = nextIndex;
             continue;
         }
 
         const char = sourceText[index];
         if (char === "{") {
             depth += 1;
+            index += 1;
             continue;
         }
 
@@ -153,7 +135,11 @@ function findMatchingClosingBrace(sourceText: string, openBraceIndex: number) {
             if (depth === 0) {
                 return index;
             }
+            index += 1;
+            continue;
         }
+
+        index += 1;
     }
 
     return -1;
