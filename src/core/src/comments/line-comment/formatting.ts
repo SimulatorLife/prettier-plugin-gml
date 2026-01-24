@@ -81,11 +81,11 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
     }
 
     const { assumeDecorated = false } = options;
+    INNER_BANNER_DECORATION_PATTERN.lastIndex = 0;
+    const hasInnerDecoration = INNER_BANNER_DECORATION_PATTERN.test(raw);
+
     const sawDecoration =
-        assumeDecorated ||
-        INNER_BANNER_DECORATION_PATTERN.test(raw) ||
-        TRAILING_SLASH_DECORATION_PATTERN.test(raw) ||
-        /\/{4,}/.test(raw);
+        assumeDecorated || hasInnerDecoration || TRAILING_SLASH_DECORATION_PATTERN.test(raw) || /\/{4,}/.test(raw);
 
     if (!sawDecoration) {
         return null;
@@ -100,6 +100,7 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
     text = text.replace(LEADING_BANNER_DECORATION_PATTERN, "");
     text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, "");
 
+    INNER_BANNER_DECORATION_PATTERN.lastIndex = 0;
     const innerMatches = text.match(INNER_BANNER_DECORATION_PATTERN) || [];
     for (const match of innerMatches) {
         const firstChar = match[0];

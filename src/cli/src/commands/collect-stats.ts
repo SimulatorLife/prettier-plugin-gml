@@ -8,47 +8,59 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { ensureDirSync } from "../shared/ensure-dir.js";
 import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
 
-function getSourceFiles(dir: string, fileList: string[] = []) {
-    if (!fs.existsSync(dir)) {
-        return fileList;
+const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
+
+type DirectoryTraversalOptions = {
+    onFile: (filePath: string, entry: fs.Dirent) => void;
+    shouldDescend?: (fullPath: string, entry: fs.Dirent) => boolean;
+};
+
+function traverseDirectoryEntries(root: string, options: DirectoryTraversalOptions) {
+    if (!fs.existsSync(root)) {
+        return;
     }
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        if (stat.isDirectory()) {
-            if (
-                file !== "node_modules" &&
-                file !== "dist" &&
-                file !== "generated" &&
-                file !== "vendor" &&
-                file !== "tmp"
-            ) {
-                getSourceFiles(filePath, fileList);
+    const stack = [root];
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current) {
+            continue;
+        }
+        const entries = fs.readdirSync(current, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                if (!options.shouldDescend || options.shouldDescend(fullPath, entry)) {
+                    stack.push(fullPath);
+                }
+                continue;
             }
-        } else if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
-            fileList.push(filePath);
+            options.onFile(fullPath, entry);
         }
     }
+}
+
+function getSourceFiles(dir: string) {
+    const fileList: string[] = [];
+    traverseDirectoryEntries(dir, {
+        shouldDescend: (fullPath) => !ignoredDirectories.has(path.basename(fullPath)),
+        onFile: (filePath) => {
+            if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
+                fileList.push(filePath);
+            }
+        }
+    });
     return fileList;
 }
 
 function getBuildSize(dir: string) {
     let size = 0;
-    if (!fs.existsSync(dir)) {
-        return 0;
-    }
-
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        if (stat.isDirectory()) {
-            size += getBuildSize(filePath);
-        } else if (file.endsWith(".js")) {
-            size += stat.size;
+    traverseDirectoryEntries(dir, {
+        onFile: (filePath) => {
+            if (filePath.endsWith(".js")) {
+                size += fs.statSync(filePath).size;
+            }
         }
-    }
+    });
     return size;
 }
 

@@ -32,10 +32,10 @@ function createIndexMapper(
         : [];
 
     if (offsets.length === 0) {
-        return (index: number) => index;
+        return (index) => index;
     }
 
-    return (index: number) => {
+    return (index) => {
         const precedingInsertions = offsets.filter((offset) => index > offset).length;
         return index - precedingInsertions;
     };
