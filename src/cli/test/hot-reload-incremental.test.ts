@@ -88,7 +88,6 @@ void describe("Hot reload incremental transpilation", () => {
         });
 
         let context: WebSocketPatchStream | null = null;
-        let context: WebSocketPatchStream | null = null;
 
         try {
             // Connect WebSocket client

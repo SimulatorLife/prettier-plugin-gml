@@ -51,31 +51,31 @@ void describe("Hot reload patch metadata", () => {
             abortSignal: abortController.signal
         });
 
-        let receivedPatches: Array<unknown> = [];
-
-        try {
-            websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 1200,
-                retryIntervalMs: 25
-            });
-
-            // Modify the file to trigger a patch
-            await writeFile(testFile, "// Updated content\nvar test_value = 100;", "utf8");
-
-            receivedPatches = await websocketClient.waitForPatches({ timeoutMs: 1500 });
-        } finally {
-            abortController.abort();
-
-            if (websocketClient) {
-                await websocketClient.disconnect();
-            }
-
+        const receivedPatches = await (async () => {
             try {
-                await watchPromise;
-            } catch {
-                // Expected when aborting
+                websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                    connectionTimeoutMs: 1200,
+                    retryIntervalMs: 25
+                });
+
+                // Modify the file to trigger a patch
+                await writeFile(testFile, "// Updated content\nvar test_value = 100;", "utf8");
+
+                return await websocketClient.waitForPatches({ timeoutMs: 1500 });
+            } finally {
+                abortController.abort();
+
+                if (websocketClient) {
+                    await websocketClient.disconnect();
+                }
+
+                try {
+                    await watchPromise;
+                } catch {
+                    // Expected when aborting
+                }
             }
-        }
+        })();
 
         assert.ok(receivedPatches.length > 0, "Should receive at least one patch");
 

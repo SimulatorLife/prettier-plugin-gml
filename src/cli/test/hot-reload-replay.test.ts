@@ -50,32 +50,32 @@ void describe("Hot reload replay for late subscribers", () => {
             abortSignal: abortController.signal
         });
 
-        let receivedPatches: Array<unknown> = [];
-
-        try {
-            await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
-
-            await waitForPatchCount(`http://127.0.0.1:${statusPort}`, 1, 1500, 25);
-
-            websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 1200,
-                retryIntervalMs: 25
-            });
-
-            receivedPatches = await websocketClient.waitForPatches({ timeoutMs: 1500 });
-        } finally {
-            abortController.abort();
-
-            if (websocketClient) {
-                await websocketClient.disconnect();
-            }
-
+        const receivedPatches = await (async () => {
             try {
-                await watchPromise;
-            } catch {
-                // Expected when aborting
+                await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
+
+                await waitForPatchCount(`http://127.0.0.1:${statusPort}`, 1, 1500, 25);
+
+                websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                    connectionTimeoutMs: 1200,
+                    retryIntervalMs: 25
+                });
+
+                return await websocketClient.waitForPatches({ timeoutMs: 1500 });
+            } finally {
+                abortController.abort();
+
+                if (websocketClient) {
+                    await websocketClient.disconnect();
+                }
+
+                try {
+                    await watchPromise;
+                } catch {
+                    // Expected when aborting
+                }
             }
-        }
+        })();
 
         const latestPatch = receivedPatches.at(-1);
 
