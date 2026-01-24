@@ -449,6 +449,21 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.ok(childIds.has(child2.id));
     });
 
+    test("getDescendantScopes works after scopes are exited", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const root = tracker.enterScope("program");
+        const child = tracker.enterScope("function");
+        tracker.exitScope();
+        tracker.exitScope();
+
+        const result = tracker.getDescendantScopes(root.id);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].scopeId, child.id);
+        assert.strictEqual(result[0].depth, 1);
+    });
+
     test("getDescendantScopes returns grandchildren at depth 2", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
