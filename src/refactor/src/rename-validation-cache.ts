@@ -124,6 +124,15 @@ export class RenameValidationCache {
     }
 
     /**
+     * Evict a specific cache entry and update eviction stats.
+     */
+    private evictEntry(key: string): void {
+        if (this.cache.delete(key)) {
+            this.stats.evictions++;
+        }
+    }
+
+    /**
      * Evict oldest entry when cache is full (FIFO eviction).
      */
     private evictOldest(): void {
@@ -131,20 +140,9 @@ export class RenameValidationCache {
             return;
         }
 
-        // Find the entry with the oldest timestamp
-        let oldestKey: string | null = null;
-        let oldestTime = Infinity;
-
-        for (const [key, entry] of this.cache.entries()) {
-            if (entry.timestamp < oldestTime) {
-                oldestTime = entry.timestamp;
-                oldestKey = key;
-            }
-        }
-
-        if (oldestKey !== null) {
-            this.cache.delete(oldestKey);
-            this.stats.evictions++;
+        const oldestKey = this.cache.keys().next().value as string | undefined;
+        if (oldestKey !== undefined) {
+            this.evictEntry(oldestKey);
         }
     }
 
@@ -171,19 +169,19 @@ export class RenameValidationCache {
         const cached = this.cache.get(key);
 
         // Return cached result if valid
-        if (cached && this.isEntryValid(cached)) {
-            this.stats.hits++;
-            return cached.result;
+        if (cached) {
+            if (this.isEntryValid(cached)) {
+                this.stats.hits++;
+                return cached.result;
+            }
+
+            this.evictEntry(key);
         }
 
         // Cache miss - compute and store
         this.stats.misses++;
 
         // Remove stale entry if it exists
-        if (cached) {
-            this.cache.delete(key);
-        }
-
         const result = await compute();
 
         // Store in cache with current timestamp
