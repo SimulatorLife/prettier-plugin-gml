@@ -624,6 +624,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         runtimeServerStarter = startRuntimeStaticServer,
         watchFactory = DEFAULT_WATCH_FACTORY
     } = options;
+    const unknownServerStopErrorMessage = "Unknown server stop error";
 
     // Validate that verbose and quiet are not both enabled
     if (verbose && quiet) {
@@ -745,7 +746,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
                 }
@@ -802,7 +803,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
                 }
@@ -813,7 +814,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await websocketServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop WebSocket server during cleanup: ${stopMessage}`);
                 }
@@ -869,7 +870,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime static server: ${message}`);
                 }
@@ -880,7 +881,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await websocketServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop WebSocket server: ${message}`);
                 }
@@ -891,7 +892,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await statusServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop status server: ${message}`);
                 }

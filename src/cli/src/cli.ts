@@ -1912,6 +1912,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
               targetPathProvided
           })
         : formattedTarget;
+    const nothingToFormatMessage = "Nothing to format.";
     const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
@@ -1931,7 +1932,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     ignoredMessageSuffix
                 ].join(" ")
             );
@@ -1939,7 +1940,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     guidance
                 ].join(" ")
             );
@@ -1949,7 +1950,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `${locationDescription} was skipped by ignore rules and not formatted.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     ignoredMessageSuffix
                 ].join(" ")
             );
@@ -1957,7 +1958,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     guidance
                 ].join(" ")
             );

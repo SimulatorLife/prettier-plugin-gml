@@ -371,8 +371,8 @@ export class ConvertStringConcatenationsTransform
         }
 
         // Manual stripping to ensure we preserve all internal whitespace
-        const first = raw.charAt(0);
-        const last = raw.charAt(raw.length - 1);
+        const first = raw.at(0);
+        const last = raw.at(-1);
 
         if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
             return raw.slice(1, -1);
@@ -384,7 +384,7 @@ export class ConvertStringConcatenationsTransform
         // patterns. Stripping both the '@' prefix and the enclosing quotes
         // extracts the raw content so the concatenation transform can operate
         // on the actual string value rather than the syntax wrapper.
-        if (first === "@" && raw.charAt(1) === '"' && last === '"') {
+        if (first === "@" && raw.at(1) === '"' && last === '"') {
             return raw.slice(2, -1);
         }
 

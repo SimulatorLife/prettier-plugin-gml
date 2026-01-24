@@ -331,7 +331,11 @@ const tsConfig = defineConfig({
         "unicorn/prefer-switch": "warn",
         "unicorn/prefer-array-some": "warn",
         "unicorn/no-this-assignment": "warn",
-        "unicorn/prefer-at": "warn",
+        "unicorn/prefer-at": [
+            "error",
+            // Enforce .at() only for negative-index patterns; allow bracket access in hot paths
+            { "checkAllIndexAccess": false }
+        ],
         "unicorn/no-new-array": "error", // Instead of new Array(1, 2, 3) use [1, 2, 3]
         "unicorn/no-array-reverse": "warn",
         "unicorn/no-array-reduce": "off",
@@ -341,7 +345,7 @@ const tsConfig = defineConfig({
 
         /* --- plugin: sonarjs (code smells) --- */
         "sonarjs/cognitive-complexity": ["warn", 15],
-        "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
+        "sonarjs/no-duplicate-string": ["error", { threshold: 4 }],
         "sonarjs/no-identical-functions": "error",
         "sonarjs/no-identical-expressions": "error",
         "sonarjs/no-inverted-boolean-check": "error",
@@ -353,7 +357,7 @@ const tsConfig = defineConfig({
         "sonarjs/no-implicit-dependencies": "error",
         "sonarjs/no-implicit-global": "error",
         "sonarjs/no-internal-api-use": "error",
-        "sonarjs/no-ignored-return": "warn",
+        "sonarjs/no-ignored-return": "error",
         "sonarjs/no-ignored-exceptions": "warn",
         "sonarjs/no-require-or-define": "error",
         "sonarjs/no-sonar-comments": "error",
