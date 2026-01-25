@@ -239,6 +239,67 @@ void test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client clears readiness timer on close with pending patches", async (t) => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const originalSetInterval = globalThis.setInterval;
+    const originalClearInterval = globalThis.clearInterval;
+    const intervalIds = new Set<ReturnType<typeof setInterval>>();
+    const originalJsonGame = globalWithJson.JSON_game;
+
+    globalThis.setInterval = ((handler, timeout, ...args) => {
+        void handler;
+        void timeout;
+        void args;
+        const id = Symbol("readiness-timer") as unknown as ReturnType<typeof setInterval>;
+        intervalIds.add(id);
+        return id;
+    }) as typeof setInterval;
+
+    globalThis.clearInterval = ((id) => {
+        intervalIds.delete(id as ReturnType<typeof setInterval>);
+    }) as typeof clearInterval;
+
+    globalWithJson.JSON_game = {
+        ScriptNames: [],
+        Scripts: []
+    };
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    t.after(() => {
+        globalThis.setInterval = originalSetInterval;
+        globalThis.clearInterval = originalClearInterval;
+        globalWithJson.JSON_game = originalJsonGame;
+        delete globalWithWebSocket.WebSocket;
+    });
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    await flush();
+
+    const ws = client.getWebSocket() as MockWebSocket;
+    ws.simulateMessage(
+        JSON.stringify({
+            kind: "script",
+            id: "script:queued",
+            js_body: "return 1;"
+        })
+    );
+
+    assert.equal(intervalIds.size, 1);
+
+    ws.close();
+
+    await flush();
+
+    assert.equal(intervalIds.size, 0);
+
+    client.disconnect();
+});
+
 void test("WebSocket client defers patch batches until runtime readiness", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 

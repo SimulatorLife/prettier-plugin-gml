@@ -451,7 +451,8 @@ export function createWebSocketClient({
                 applyIncomingPatch,
                 connect,
                 logger,
-                url
+                url,
+                clearReadinessTimer
             });
         } catch (error) {
             handleConnectionError(error, onError);
@@ -548,6 +549,7 @@ type WebSocketEventListenerArgs = {
     connect: () => void;
     logger?: Logger;
     url: string;
+    clearReadinessTimer: () => void;
 };
 
 type WebSocketMessageHandlerArgs = {
@@ -562,6 +564,7 @@ type WebSocketCloseHandlerArgs = {
     reconnectDelay: number;
     connect: () => void;
     logger?: Logger;
+    clearReadinessTimer: () => void;
 };
 
 type WebSocketErrorHandlerArgs = {
@@ -587,7 +590,8 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
             onDisconnect: args.onDisconnect,
             reconnectDelay: args.reconnectDelay,
             connect: args.connect,
-            logger: args.logger
+            logger: args.logger,
+            clearReadinessTimer: args.clearReadinessTimer
         })
     );
     ws.addEventListener(
@@ -725,7 +729,8 @@ function createCloseHandler({
     onDisconnect,
     reconnectDelay,
     connect,
-    logger
+    logger,
+    clearReadinessTimer
 }: WebSocketCloseHandlerArgs): () => void {
     return () => {
         const websocketState = state;
@@ -741,6 +746,9 @@ function createCloseHandler({
         if (onDisconnect) {
             onDisconnect();
         }
+
+        // Ensure readiness polling does not run after the socket is closed.
+        clearReadinessTimer();
 
         // Clear any existing reconnect timer before potentially setting a new one
         // This prevents timer leaks when close events occur in rapid succession
