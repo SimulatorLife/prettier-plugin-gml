@@ -56,7 +56,7 @@
     "clean:ts": "pnpm -r run clean:types",
     "lint": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --cache --stats",
     "lint:quiet": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --cache --quiet",
-    "lint:fix": "eslint . --ext .ts,.yml,.yaml --cache --fix",
+    "lint:fix": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --cache --fix",
     "lint:ci": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --max-warnings=0 --report-unused-disable-directives && pnpm run lint:workflows && pnpm run lint:yaml",
     "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml",
     "report": "bash -lc 'status=0; pnpm run build:ts || status=$?; pnpm run lint:report || status=$?; pnpm run lint:duplicates:report || status=$?; pnpm run test:ci || status=$?; pnpm run stats:report || status=$?; pnpm run tree:report || status=$?; pnpm run cli generate-quality-report || status=$?; exit $status'",

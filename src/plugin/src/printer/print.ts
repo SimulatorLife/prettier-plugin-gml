@@ -20,7 +20,6 @@ import { Semantic } from "@gml-modules/semantic";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals/numeric-literals.js";
 import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
@@ -47,6 +46,7 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
+import { getNumericValueFromRealCall } from "./real-call-utils.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
@@ -1047,67 +1047,6 @@ function printCallExpressionNode(node, path, options, print) {
     const calleeDoc = print(OBJECT_TYPE);
 
     return isInLValueChain(path) ? concat([calleeDoc, ...printedArgs]) : group([calleeDoc, ...printedArgs]);
-}
-
-function getNumericValueFromRealCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    const { object, arguments: args } = node;
-    if (
-        !object ||
-        object.type !== "Identifier" ||
-        object.name !== "real" ||
-        !Array.isArray(args) ||
-        args.length !== 1
-    ) {
-        return null;
-    }
-
-    const argument = args[0];
-    if (!argument || argument.type !== "Literal" || argument._skipNumericStringCoercion !== true) {
-        return null;
-    }
-
-    return getNumericStringLiteralValue(argument);
-}
-
-function getNumericStringLiteralValue(node) {
-    if (!node || node.type !== "Literal") {
-        return null;
-    }
-
-    const rawValue = typeof node.value === "string" ? node.value : null;
-
-    if (!rawValue) {
-        return null;
-    }
-
-    let literalText = null;
-
-    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
-        literalText = rawValue.slice(2, -1);
-    } else if (rawValue.length >= 2) {
-        const startingQuote = rawValue[0];
-        const endingQuote = rawValue.at(-1);
-
-        if ((startingQuote === '"' || startingQuote === "'") && startingQuote === endingQuote) {
-            literalText = Core.stripStringQuotes(rawValue);
-        }
-    }
-
-    if (literalText === undefined || literalText === null) {
-        return null;
-    }
-
-    const trimmed = Core.toTrimmedString(literalText);
-
-    if (trimmed.length === 0) {
-        return null;
-    }
-
-    return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed) ? trimmed : null;
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {

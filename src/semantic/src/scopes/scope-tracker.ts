@@ -1,6 +1,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
+import { IdentifierCacheManager } from "./identifier-cache-manager.js";
 import { cloneDeclarationMetadata, cloneOccurrence, createOccurrence } from "./occurrence.js";
 import { GlobalIdentifierRegistry } from "./registry.js";
 import { IdentifierRoleTracker } from "./role-tracker.js";
@@ -74,7 +75,7 @@ export class ScopeTracker {
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
-    private resolveIdentifierCache: Map<string, Map<string, ScopeSymbolMetadata | null>>;
+    private identifierCache: IdentifierCacheManager;
 
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
@@ -86,7 +87,7 @@ export class ScopeTracker {
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
-        this.resolveIdentifierCache = new Map();
+        this.identifierCache = new IdentifierCacheManager();
     }
 
     /**
@@ -202,44 +203,13 @@ export class ScopeTracker {
             return;
         }
 
-        const cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            return;
-        }
-
         if (!declaringScopeId) {
-            this.resolveIdentifierCache.delete(name);
+            this.identifierCache.invalidate(name);
             return;
         }
 
         const descendantIds = this.getDescendantScopeIds(declaringScopeId);
-        cache.delete(declaringScopeId);
-        for (const scopeId of descendantIds) {
-            cache.delete(scopeId);
-        }
-
-        if (cache.size === 0) {
-            this.resolveIdentifierCache.delete(name);
-        }
-    }
-
-    private readResolveIdentifierCache(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
-        const cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            return undefined;
-        }
-
-        return cache.get(scopeId);
-    }
-
-    private writeResolveIdentifierCache(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null): void {
-        let cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            cache = new Map();
-            this.resolveIdentifierCache.set(name, cache);
-        }
-
-        cache.set(scopeId, declaration);
+        this.identifierCache.invalidate(name, [declaringScopeId, ...descendantIds]);
     }
 
     public resolveScopeOverride(scopeOverride: unknown): Scope | null {
@@ -249,13 +219,8 @@ export class ScopeTracker {
             return currentScope;
         }
 
-        if (
-            typeof scopeOverride === "object" &&
-            scopeOverride !== null &&
-            "id" in scopeOverride &&
-            typeof (scopeOverride as any).id === "string"
-        ) {
-            return scopeOverride as Scope;
+        if (this.isScopeObject(scopeOverride)) {
+            return scopeOverride;
         }
 
         if (typeof scopeOverride === "string") {
@@ -263,6 +228,15 @@ export class ScopeTracker {
         }
 
         return currentScope;
+    }
+
+    private isScopeObject(value: unknown): value is Scope {
+        return (
+            typeof value === "object" &&
+            value !== null &&
+            "id" in value &&
+            typeof (value as { id: unknown }).id === "string"
+        );
     }
 
     public buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false): string[] {
@@ -665,7 +639,7 @@ export class ScopeTracker {
             return null;
         }
 
-        let startScope;
+        let startScope: Scope | null | undefined;
         if (scopeId) {
             startScope = this.scopesById.get(scopeId);
             if (!startScope) {
@@ -680,14 +654,14 @@ export class ScopeTracker {
         }
 
         const cacheScopeId = startScope.id;
-        const cachedDeclaration = this.readResolveIdentifierCache(name, cacheScopeId);
+        const cachedDeclaration = this.identifierCache.read(name, cacheScopeId);
 
         if (cachedDeclaration !== undefined) {
             return cachedDeclaration ? cloneDeclarationMetadata(cachedDeclaration) : null;
         }
 
         const storedIndex = startScope.stackIndex;
-        const startIndex =
+        const startIndex: number | undefined =
             typeof storedIndex === "number" &&
             storedIndex >= 0 &&
             storedIndex < this.scopeStack.length &&
@@ -700,12 +674,12 @@ export class ScopeTracker {
             while (current) {
                 const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
-                    this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
+                    this.identifierCache.write(name, cacheScopeId, declaration);
                     return cloneDeclarationMetadata(declaration);
                 }
                 current = current.parent;
             }
-            this.writeResolveIdentifierCache(name, cacheScopeId, null);
+            this.identifierCache.write(name, cacheScopeId, null);
             return null;
         }
 
@@ -713,12 +687,12 @@ export class ScopeTracker {
             const scope = this.scopeStack[i];
             const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
-                this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
+                this.identifierCache.write(name, cacheScopeId, declaration);
                 return cloneDeclarationMetadata(declaration);
             }
         }
 
-        this.writeResolveIdentifierCache(name, cacheScopeId, null);
+        this.identifierCache.write(name, cacheScopeId, null);
         return null;
     }
 
