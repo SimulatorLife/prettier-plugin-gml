@@ -9,7 +9,6 @@ void describe("SemanticQueryCache", () => {
         void it("caches symbol occurrence queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
                 getSymbolOccurrences: async (_name: string) => {
                     callCount++;
                     return [{ path: "test.gml", start: 0, end: 10 }] as Array<SymbolOccurrence>;
@@ -91,7 +90,6 @@ void describe("SemanticQueryCache", () => {
         void it("caches file symbol queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
                 getFileSymbols: async (_path: string) => {
                     callCount++;
                     return [{ id: "gml/script/test" }] as Array<FileSymbol>;
@@ -130,7 +128,6 @@ void describe("SemanticQueryCache", () => {
         void it("caches dependent symbol queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
                 getDependents: async (_ids: Array<string>) => {
                     callCount++;
                     return [{ symbolId: "gml/script/dependent", filePath: "dep.gml" }] as Array<DependentSymbol>;
@@ -190,7 +187,6 @@ void describe("SemanticQueryCache", () => {
         void it("caches symbol existence queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
                 hasSymbol: async (_id: string) => {
                     callCount++;
                     return true;
@@ -236,7 +232,6 @@ void describe("SemanticQueryCache", () => {
             let fileCallCount = 0;
             let occCallCount = 0;
             const semantic: PartialSemanticAnalyzer = {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
                 getFileSymbols: async (_path: string) => {
                     fileCallCount++;
                     return [{ id: "gml/script/test" }] as Array<FileSymbol>;
