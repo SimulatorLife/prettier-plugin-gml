@@ -607,11 +607,12 @@ export default [
         }
     },
 
-    // CLI: allow process.exit
+    // CLI: allow process.exit and console logging
     {
         files: ["src/cli/**"],
         rules: {
-            "unicorn/no-process-exit": "off"
+            "unicorn/no-process-exit": "off",
+            "no-console": "off"
         }
     },
 
