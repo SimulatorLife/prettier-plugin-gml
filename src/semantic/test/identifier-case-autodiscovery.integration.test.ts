@@ -29,10 +29,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as Plugin from "@gml-modules/plugin";
-
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
+import { getPlugin } from "./plugin-loader.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
@@ -83,7 +82,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
             const firstRunOptions = { ...baseOptions };
-            const firstOutput = await Plugin.Plugin.format(fixtureSource, firstRunOptions);
+            const plugin = await getPlugin();
+            const firstOutput = await plugin.format(fixtureSource, firstRunOptions);
 
             assert.match(firstOutput, /counterValue/, "Expected automatic discovery to enable renames");
 
@@ -104,7 +104,7 @@ void describe("identifier case project index bootstrap", () => {
             const secondRunOptions = {
                 ...baseOptions
             };
-            const secondOutput = await Plugin.Plugin.format(firstOutput, secondRunOptions);
+            const secondOutput = await plugin.format(firstOutput, secondRunOptions);
             assert.match(secondOutput, /counterValue/, "Expected subsequent runs to keep applying renames");
             const store2 = getIdentifierCaseOptionStore(gmlPath);
             assert.ok(store2, "Expected cached bootstrap metadata");
@@ -147,7 +147,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
 
-            const formattedWithoutManifest = await Plugin.Plugin.format(fixtureSource, optionsWithoutManifest);
+            const plugin = await getPlugin();
+            const formattedWithoutManifest = await plugin.format(fixtureSource, optionsWithoutManifest);
             assert.ok(
                 formattedWithoutManifest.includes("counter_value"),
                 "Expected renames to be skipped when no project root is found"
@@ -175,7 +176,7 @@ void describe("identifier case project index bootstrap", () => {
                     __identifierCaseDryRun: false
                 };
 
-                const formattedDisabled = await Plugin.Plugin.format(source, disabledOptions);
+                const formattedDisabled = await plugin.format(source, disabledOptions);
                 assert.ok(
                     formattedDisabled.includes("counter_value"),
                     "Expected renames to be disabled when discovery is turned off"
