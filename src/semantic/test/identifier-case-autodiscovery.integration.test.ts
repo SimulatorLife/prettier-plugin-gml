@@ -32,10 +32,7 @@ import { fileURLToPath } from "node:url";
 import * as Plugin from "@gml-modules/plugin";
 
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
-import {
-    createIdentifierCaseProject,
-    resolveIdentifierCaseFixturesDirectory
-} from "./identifier-case-test-helpers.js";
+import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);

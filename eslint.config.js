@@ -338,7 +338,7 @@ const tsConfig = defineConfig({
         "unicorn/prefer-at": [
             "error",
             // Enforce .at() only for negative-index patterns; allow bracket access in hot paths
-            { "checkAllIndexAccess": false }
+            { checkAllIndexAccess: false }
         ],
         "unicorn/no-new-array": "error", // Instead of new Array(1, 2, 3) use [1, 2, 3]
         "unicorn/no-array-reverse": "warn", // This is not error because it can be perfornance-negative to copy first

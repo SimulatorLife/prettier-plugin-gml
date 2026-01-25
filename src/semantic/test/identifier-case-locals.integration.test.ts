@@ -12,10 +12,7 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
-import {
-    createIdentifierCaseProject,
-    resolveIdentifierCaseFixturesDirectory
-} from "./identifier-case-test-helpers.js";
+import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
 
 // Use Core.* per AGENTS.md rather than destructuring the namespace.
 
