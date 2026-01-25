@@ -9,6 +9,7 @@ import test from "node:test";
 // `node --test src/cli/test/memory-cli-report.test.js` to confirm behaviour
 // parity with the previous implementation.
 import {
+    __test__ as memoryTestHelpers,
     applyMemoryReportFileNameEnvOverride,
     DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     DEFAULT_MEMORY_REPORT_DIR,
@@ -22,6 +23,22 @@ import {
     setDefaultMemoryReportFileName
 } from "../src/commands/memory.js";
 
+async function primeMemorySuiteSampleCache() {
+    const parserSamplePath = path.resolve(process.cwd(), "src/parser/test/input/expressions.gml");
+    const parserSampleContents = await readFile(parserSamplePath, "utf8");
+    memoryTestHelpers.setSampleCacheRecordForTests("parser:sample", {
+        contents: parserSampleContents,
+        path: parserSamplePath
+    });
+
+    const formatterSamplePath = path.resolve(process.cwd(), "src/plugin/test/testFoo.input.gml");
+    const formatterSampleContents = await readFile(formatterSamplePath, "utf8");
+    memoryTestHelpers.setSampleCacheRecordForTests("formatter:sample", {
+        contents: formatterSampleContents,
+        path: formatterSamplePath
+    });
+}
+
 void test("memory CLI writes suite results to a JSON report", async (t) => {
     const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-"));
     const reportDir = path.join(workspace, "reports");
@@ -30,7 +47,10 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
         setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
         applyMemoryReportFileNameEnvOverride({});
+        memoryTestHelpers.clearSampleCacheForTests();
     });
+
+    await primeMemorySuiteSampleCache();
 
     const exitCode = await runMemoryCli({
         argv: ["--iterations", "1"],
@@ -89,7 +109,7 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
         assert.strictEqual(typeof parserSuite.description, "string");
         assert.ok(parserSuite.description.toLowerCase().includes("parse"));
         assert.strictEqual(typeof parserSuite.sample.path, "string");
-        assert.ok(parserSuite.sample.path.endsWith("SnowState.gml"));
+        assert.ok(parserSuite.sample.path.endsWith("expressions.gml"));
         assert.strictEqual(typeof parserSuite.ast.nodeCount, "number");
         assert.ok(Array.isArray(parserSuite.ast.commonNodeTypes));
         assert.strictEqual(typeof parserSuite.memory.delta.heapUsed, "number");
@@ -101,7 +121,7 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.strictEqual(typeof formatterSuite.description, "string");
     assert.ok(formatterSuite.description.toLowerCase().includes("format"));
     assert.strictEqual(typeof formatterSuite.sample.path, "string");
-    assert.ok(formatterSuite.sample.path.endsWith("testFormatting.input.gml"));
+    assert.ok(formatterSuite.sample.path.endsWith("testFoo.input.gml"));
     assert.strictEqual(typeof formatterSuite.output.bytes, "number");
     assert.strictEqual(typeof formatterSuite.options.printWidth, "number");
     assert.ok(formatterSuite.memory && typeof formatterSuite.memory === "object");
@@ -115,7 +135,10 @@ void test("memory CLI resolves report directory from the environment", async (t)
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
         setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
         applyMemoryReportFileNameEnvOverride({});
+        memoryTestHelpers.clearSampleCacheForTests();
     });
+
+    await primeMemorySuiteSampleCache();
 
     const env = { [MEMORY_REPORT_DIRECTORY_ENV_VAR]: "  env-reports  " };
 
@@ -141,7 +164,10 @@ void test("memory CLI resolves report file name from the environment", async (t)
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
         setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
         applyMemoryReportFileNameEnvOverride({});
+        memoryTestHelpers.clearSampleCacheForTests();
     });
+
+    await primeMemorySuiteSampleCache();
 
     const env = { [MEMORY_REPORT_FILENAME_ENV_VAR]: "  env-report.json  " };
 
@@ -167,7 +193,10 @@ void test("memory CLI respects the common node limit option", async (t) => {
     t.after(() => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
+        memoryTestHelpers.clearSampleCacheForTests();
     });
+
+    await primeMemorySuiteSampleCache();
 
     setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
     setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);

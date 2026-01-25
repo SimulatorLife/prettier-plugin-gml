@@ -124,6 +124,12 @@ const expectedFailures = new Set([
     "loungeware.gml"
 ]);
 const successfulFixture = fixtureNames.find((fixtureName) => !expectedFailures.has(fixtureName));
+const fixtureParserOptions: ParserOptions = {
+    ...defaultParserOptions,
+    getComments: false,
+    getLocations: false,
+    simplifyLocations: false
+};
 
 void describe("GameMaker parser fixtures", () => {
     for (const fixtureName of fixtureNames) {
@@ -133,14 +139,18 @@ void describe("GameMaker parser fixtures", () => {
 
             if (shouldFail) {
                 assert.throws(
-                    () => parseFixture(source, { suppressErrors: true }),
+                    () =>
+                        parseFixture(source, {
+                            suppressErrors: true,
+                            options: fixtureParserOptions
+                        }),
                     /Syntax Error/,
                     `Parser unexpectedly produced an AST for ${fixtureName}.`
                 );
                 return;
             }
 
-            const ast = parseFixture(source);
+            const ast = parseFixture(source, { options: fixtureParserOptions });
 
             assert.ok(ast, `Parser returned no AST for ${fixtureName}.`);
             assert.strictEqual(ast.type, "Program", `Unexpected root node type for ${fixtureName}.`);

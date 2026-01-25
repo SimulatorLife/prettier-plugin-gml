@@ -18,6 +18,12 @@ export type PrinterSourceMetadata = {
     locEnd: ((node: unknown) => number) | null;
 };
 
+const DEFAULT_PRINTER_SOURCE_METADATA: PrinterSourceMetadata = Object.freeze({
+    originalText: null,
+    locStart: null,
+    locEnd: null
+});
+
 /**
  * Extract the original source text string from arbitrary printer options.
  *
@@ -74,13 +80,10 @@ export function resolvePrinterSourceMetadata(options: unknown): PrinterSourceMet
  */
 export function resolveNodeIndexRangeWithSource(
     node: unknown,
-    sourceMetadata: PrinterSourceMetadata = {
-        originalText: null,
-        locStart: null,
-        locEnd: null
-    }
+    sourceMetadata: PrinterSourceMetadata | undefined
 ): { startIndex: number; endIndex: number } {
-    const { locStart, locEnd } = sourceMetadata;
+    const normalizedMetadata = sourceMetadata ?? DEFAULT_PRINTER_SOURCE_METADATA;
+    const { locStart, locEnd } = normalizedMetadata;
     const { start, end } = Core.getNodeRangeIndices(node);
 
     const fallbackStart = typeof start === NUMBER_TYPE ? start : 0;

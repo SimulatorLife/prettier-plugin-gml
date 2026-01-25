@@ -31,7 +31,7 @@ import {
     extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { WorkspaceEdit } from "./workspace-edit.js";
+import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * Prepare hot reload updates from a workspace edit.
@@ -292,8 +292,10 @@ export async function computeHotReloadCascade(
     }
 
     const order: Array<string> = [];
-    while (queue.length > 0) {
-        const current = queue.shift();
+    let queueIndex = 0;
+    while (queueIndex < queue.length) {
+        const current = queue[queueIndex];
+        queueIndex += 1;
         order.push(current);
 
         // Reduce in-degree for dependents
@@ -313,9 +315,11 @@ export async function computeHotReloadCascade(
     const hasUnorderedSymbols = order.length < cascadeArray.length;
 
     // Add any remaining symbols (those in cycles) to the end of the order
+    const orderSet = new Set(order);
     for (const item of cascadeArray) {
-        if (!order.includes(item.symbolId)) {
+        if (!orderSet.has(item.symbolId)) {
             order.push(item.symbolId);
+            orderSet.add(item.symbolId);
         }
     }
 

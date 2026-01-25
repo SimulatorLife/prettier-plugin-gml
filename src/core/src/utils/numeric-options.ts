@@ -190,18 +190,16 @@ export function coercePositiveIntegerOption(
  *        strings short-circuit to the default; otherwise they are parsed.
  * @returns {number | undefined} The coerced numeric option value.
  */
-export function resolveIntegerOption(
-    rawValue: unknown,
-    {
+export function resolveIntegerOption(rawValue: unknown, options: ResolveIntegerOptionOptions | undefined) {
+    const normalizedOptions = options ?? { coerce: () => Number.NaN };
+    const {
         defaultValue,
         coerce,
         parseString = DEFAULT_PARSE_STRING,
         typeErrorMessage,
         blankStringReturnsDefault = true
-    }: ResolveIntegerOptionOptions = {
-        coerce: () => Number.NaN
-    }
-) {
+    } = normalizedOptions;
+
     if (rawValue == null) {
         return defaultValue;
     }

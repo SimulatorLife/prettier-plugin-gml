@@ -109,6 +109,10 @@ class SyntaxErrorFormatter {
     }
 
     formatRuleName(ruleName) {
+        if (!Core.isNonEmptyString(ruleName)) {
+            return "unknown rule";
+        }
+
         return ruleName.replaceAll(/([A-Z]*)([A-Z][a-z])/g, "$1 $2").toLowerCase();
     }
 }

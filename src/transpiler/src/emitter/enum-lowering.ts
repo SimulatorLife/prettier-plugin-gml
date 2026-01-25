@@ -6,6 +6,8 @@
  * JavaScript IIFE pattern that creates an enum-like object.
  */
 
+import { Core } from "@gml-modules/core";
+
 import type { EnumMemberNode, GmlNode } from "./ast.js";
 
 /**
@@ -52,6 +54,7 @@ export function lowerEnumDeclaration(
 
     for (const member of members ?? []) {
         const memberName = resolveEnumMemberName(member);
+        const memberAccess = formatEnumMemberAccess(memberName);
         const initializer = member.initializer;
         if (initializer !== undefined && initializer !== null) {
             const value =
@@ -62,9 +65,17 @@ export function lowerEnumDeclaration(
         } else {
             lines.push("    __value += 1;");
         }
-        lines.push(`    __enum.${memberName} = __value;`);
+        lines.push(`    __enum${memberAccess} = __value;`);
     }
 
     lines.push("    return __enum;", "})();");
     return lines.join("\n");
+}
+
+function formatEnumMemberAccess(name: string): string {
+    const key = Core.stringifyStructKey(name);
+    if (Core.isIdentifierLike(key)) {
+        return `.${key}`;
+    }
+    return `[${key}]`;
 }

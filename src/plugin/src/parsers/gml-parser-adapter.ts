@@ -389,6 +389,20 @@ function applyFinalTransforms(
     });
 }
 
+function getParserLocStart(node: MutableGameMakerAstNode): number {
+    if (!node) {
+        return 0;
+    }
+    if (node.type === "Program") {
+        return 0;
+    }
+    return getNodeStartIndex(node) ?? 0;
+}
+
+function getParserLocEnd(node: MutableGameMakerAstNode): number {
+    return getNodeEndIndex(node) ?? 0;
+}
+
 /**
  * Creates a GML parser adapter with the provided configuration.
  * This factory function enables dependency injection for the scope tracker factory.
@@ -400,25 +414,11 @@ export function createGmlParserAdapter(config: GmlParserAdapterConfig) {
         return parseImpl(text, parserOptions, options);
     }
 
-    function locStart(node: MutableGameMakerAstNode) {
-        if (!node) {
-            return 0;
-        }
-        if (node.type === "Program") {
-            return 0;
-        }
-        return getNodeStartIndex(node) ?? 0;
-    }
-
-    function locEnd(node: MutableGameMakerAstNode) {
-        return getNodeEndIndex(node) ?? 0;
-    }
-
     return {
         parse,
         astFormat: "gml-ast" as const,
-        locStart,
-        locEnd
+        locStart: getParserLocStart,
+        locEnd: getParserLocEnd
     };
 }
 

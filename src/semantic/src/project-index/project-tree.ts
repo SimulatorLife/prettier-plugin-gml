@@ -13,6 +13,13 @@ import { runSequentially } from "./sequential-runner.js";
 
 type ProjectIndexFsFacade = typeof fs;
 
+function createProjectTreeRecord(absolutePath, relativePosix) {
+    return {
+        absolutePath,
+        relativePath: relativePosix
+    };
+}
+
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
@@ -32,20 +39,13 @@ function createProjectTreeCollector(metrics = null) {
         }
     }
 
-    function createRecord(absolutePath, relativePosix) {
-        return {
-            absolutePath,
-            relativePath: relativePosix
-        };
-    }
-
     function register(relativePosix, absolutePath) {
         const category = resolveProjectFileCategory(relativePosix);
         if (!category) {
             return;
         }
 
-        recordFile(category, createRecord(absolutePath, relativePosix));
+        recordFile(category, createProjectTreeRecord(absolutePath, relativePosix));
     }
 
     function snapshot() {

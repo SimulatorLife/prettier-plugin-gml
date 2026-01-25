@@ -12,6 +12,18 @@ type NormalizeStringListOptions = {
     errorMessage?: string;
 };
 
+function resolveSeparatorValues(input: string | Iterable<string> | null | undefined): Iterable<string> {
+    if (typeof input === "string") {
+        return [input];
+    }
+
+    if (input == null || typeof input[Symbol.iterator] !== "function") {
+        return [];
+    }
+
+    return input;
+}
+
 /**
  * Determine whether {@link value} is a string containing at least one
  * character.
@@ -510,18 +522,6 @@ export function createListSplitPattern(separators, { includeWhitespace = false }
         }
 
         addEntry(escapeRegExp(value), value.length);
-    };
-
-    const resolveSeparatorValues = (input) => {
-        if (typeof input === "string") {
-            return [input];
-        }
-
-        if (input == null || typeof input[Symbol.iterator] !== "function") {
-            return [];
-        }
-
-        return input;
     };
 
     for (const candidate of resolveSeparatorValues(separators)) {

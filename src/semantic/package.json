@@ -13,8 +13,8 @@
   ],
   "dependencies": {
     "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
-
+    "@gml-modules/parser": "workspace:*",
+    "@gml-modules/plugin": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",
@@ -22,6 +22,7 @@
     "test": "pnpm run build:types && node --test dist/test/*.test.js"
   },
   "engines": {
-    "node": ">=25.0.0"
-  }
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.28.0"
 }

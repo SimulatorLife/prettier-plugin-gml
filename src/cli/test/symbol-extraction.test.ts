@@ -9,8 +9,8 @@ import { Parser } from "@gml-modules/parser";
 
 import { extractSymbolsFromAst } from "../src/modules/transpilation/symbol-extraction.js";
 
-describe("Symbol extraction from AST", () => {
-    it("should extract function declaration symbols", () => {
+void describe("Symbol extraction from AST", () => {
+    void it("should extract function declaration symbols", () => {
         const source = `
             function player_move() {
                 x += 5;
@@ -30,7 +30,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 2, "Should extract exactly 2 symbols");
     });
 
-    it("should extract variable declarator function assignments", () => {
+    void it("should extract variable declarator function assignments", () => {
         const source = `
             var myFunc = function() {
                 return 42;
@@ -45,7 +45,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 1, "Should extract exactly 1 symbol");
     });
 
-    it("should extract assignment expression function assignments", () => {
+    void it("should extract assignment expression function assignments", () => {
         const source = `
             myHandler = function() {
                 show_debug_message("handled");
@@ -60,7 +60,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 1, "Should extract exactly 1 symbol");
     });
 
-    it("should detect object event files correctly", () => {
+    void it("should detect object event files correctly", () => {
         const source = `
             function onCreate() {
                 hp = 100;
@@ -77,7 +77,7 @@ describe("Symbol extraction from AST", () => {
         );
     });
 
-    it("should handle empty files gracefully", () => {
+    void it("should handle empty files gracefully", () => {
         const source = ``;
 
         const parser = new Parser.GMLParser(source, {});
@@ -87,7 +87,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 0, "Should return empty array for empty files");
     });
 
-    it("should handle files with only comments gracefully", () => {
+    void it("should handle files with only comments gracefully", () => {
         const source = `
             // This is a comment
             /* Multi-line
@@ -101,7 +101,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 0, "Should return empty array for comment-only files");
     });
 
-    it("should deduplicate symbols if the same name appears multiple times", () => {
+    void it("should deduplicate symbols if the same name appears multiple times", () => {
         const source = `
             function test() { }
             var test = function() { };
@@ -115,7 +115,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 1, "Should deduplicate the same symbol");
     });
 
-    it("should handle mixed function declarations and expressions", () => {
+    void it("should handle mixed function declarations and expressions", () => {
         const source = `
             function declared() {
                 return 1;
@@ -140,7 +140,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 3, "Should extract all 3 symbols");
     });
 
-    it("should ignore non-function variable declarators", () => {
+    void it("should ignore non-function variable declarators", () => {
         const source = `
             var x = 10;
             var y = "test";
@@ -159,7 +159,7 @@ describe("Symbol extraction from AST", () => {
         assert.strictEqual(symbols.length, 1, "Should only extract function, not other variables");
     });
 
-    it("should ignore non-function assignments", () => {
+    void it("should ignore non-function assignments", () => {
         const source = `
             x = 10;
             name = "test";

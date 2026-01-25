@@ -1,6 +1,6 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
-import { normalizeDocLikeLineComment } from "../../comments/index.js";
+import { formatDocLikeLineComment } from "../../comments/index.js";
 import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
 import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
@@ -102,11 +102,7 @@ function collectProgramLeadingDocLines({
             }
         }
 
-        const formatted = Core.formatLineComment(comment, lineCommentOptions);
-        const normalized =
-            typeof formatted === STRING_TYPE
-                ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
-                : formatted;
+        const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
         const trimmed = normalized ? normalized.trim() : "";
 
         const isDocLike =
@@ -171,11 +167,7 @@ function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
         return null;
     }
 
-    const formatted = Core.formatLineComment(comment, lineCommentOptions);
-    const normalized =
-        typeof formatted === STRING_TYPE
-            ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
-            : formatted;
+    const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
     const trimmed = normalized ? normalized.trim() : "";
     if (trimmed.startsWith("///") || LINE_DOC_CONT_PATTERN.test(trimmed) || LINE_DOC_AT_PATTERN.test(trimmed)) {
         return normalized ?? null;

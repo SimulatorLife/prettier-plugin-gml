@@ -3,19 +3,13 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
-
-import prettier from "prettier";
 
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
-import { resolveIdentifierCasePluginPath } from "./identifier-case-test-helpers.js";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
+import { getPlugin } from "./plugin-loader.js";
 
 function createSampleRenamePlan() {
     return {
@@ -97,9 +91,9 @@ async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagn
         diagnostics
     });
 
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
+    const Plugin = await getPlugin();
+
+    return Plugin.format(source, {
         filepath,
         diagnostics,
         logger

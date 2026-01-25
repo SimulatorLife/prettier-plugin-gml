@@ -1,6 +1,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
+import { IdentifierCacheManager } from "./identifier-cache-manager.js";
 import { cloneDeclarationMetadata, cloneOccurrence, createOccurrence } from "./occurrence.js";
 import { GlobalIdentifierRegistry } from "./registry.js";
 import { IdentifierRoleTracker } from "./role-tracker.js";
@@ -57,6 +58,9 @@ function resolveStringScopeOverride(
     );
 }
 
+const DEFAULT_DECLARATION_ROLE: ScopeRole = Object.freeze({ type: "declaration" });
+const DEFAULT_REFERENCE_ROLE: ScopeRole = Object.freeze({ type: "reference" });
+
 /**
  * Manages lexical and structural scopes, symbol declarations, and references.
  */
@@ -65,23 +69,25 @@ export class ScopeTracker {
     private scopeStack: Scope[];
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
+    private scopeChildrenIndex: Map<string, Set<string>>;
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>;
     private pathToScopesIndex: Map<string, Set<string>>;
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
-    private resolveIdentifierCache: Map<string, Map<string, ScopeSymbolMetadata | null>>;
+    private identifierCache: IdentifierCacheManager;
 
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
+        this.scopeChildrenIndex = new Map();
         this.symbolToScopesIndex = new Map();
         this.pathToScopesIndex = new Map();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
-        this.resolveIdentifierCache = new Map();
+        this.identifierCache = new IdentifierCacheManager();
     }
 
     /**
@@ -107,6 +113,14 @@ export class ScopeTracker {
         scope.stackIndex = this.scopeStack.length - 1;
         if (!this.rootScope) {
             this.rootScope = scope;
+        }
+        if (parent) {
+            let children = this.scopeChildrenIndex.get(parent.id);
+            if (!children) {
+                children = new Set<string>();
+                this.scopeChildrenIndex.set(parent.id, children);
+            }
+            children.add(scope.id);
         }
 
         const path = metadata?.path;
@@ -155,24 +169,26 @@ export class ScopeTracker {
 
     private getDescendantScopeIds(scopeId: string): Set<string> {
         const descendants = new Set<string>();
-        const scope = this.scopesById.get(scopeId);
+        const children = this.scopeChildrenIndex.get(scopeId);
 
-        if (!scope) {
+        if (!children || children.size === 0) {
             return descendants;
         }
 
-        for (const candidateScope of this.scopesById.values()) {
-            if (candidateScope.id === scopeId) {
+        const stack = [...children];
+        while (stack.length > 0) {
+            const childId = stack.pop();
+            if (!childId || descendants.has(childId)) {
                 continue;
             }
 
-            let current = candidateScope.parent;
-            while (current) {
-                if (current.id === scopeId) {
-                    descendants.add(candidateScope.id);
-                    break;
+            descendants.add(childId);
+
+            const grandChildren = this.scopeChildrenIndex.get(childId);
+            if (grandChildren && grandChildren.size > 0) {
+                for (const grandChildId of grandChildren) {
+                    stack.push(grandChildId);
                 }
-                current = current.parent;
             }
         }
 
@@ -187,44 +203,13 @@ export class ScopeTracker {
             return;
         }
 
-        const cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            return;
-        }
-
         if (!declaringScopeId) {
-            this.resolveIdentifierCache.delete(name);
+            this.identifierCache.invalidate(name);
             return;
         }
 
         const descendantIds = this.getDescendantScopeIds(declaringScopeId);
-        cache.delete(declaringScopeId);
-        for (const scopeId of descendantIds) {
-            cache.delete(scopeId);
-        }
-
-        if (cache.size === 0) {
-            this.resolveIdentifierCache.delete(name);
-        }
-    }
-
-    private readResolveIdentifierCache(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
-        const cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            return undefined;
-        }
-
-        return cache.get(scopeId);
-    }
-
-    private writeResolveIdentifierCache(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null): void {
-        let cache = this.resolveIdentifierCache.get(name);
-        if (!cache) {
-            cache = new Map();
-            this.resolveIdentifierCache.set(name, cache);
-        }
-
-        cache.set(scopeId, declaration);
+        this.identifierCache.invalidate(name, [declaringScopeId, ...descendantIds]);
     }
 
     public resolveScopeOverride(scopeOverride: unknown): Scope | null {
@@ -234,13 +219,8 @@ export class ScopeTracker {
             return currentScope;
         }
 
-        if (
-            typeof scopeOverride === "object" &&
-            scopeOverride !== null &&
-            "id" in scopeOverride &&
-            typeof (scopeOverride as any).id === "string"
-        ) {
-            return scopeOverride as Scope;
+        if (this.isScopeObject(scopeOverride)) {
+            return scopeOverride;
         }
 
         if (typeof scopeOverride === "string") {
@@ -248,6 +228,15 @@ export class ScopeTracker {
         }
 
         return currentScope;
+    }
+
+    private isScopeObject(value: unknown): value is Scope {
+        return (
+            typeof value === "object" &&
+            value !== null &&
+            "id" in value &&
+            typeof (value as { id: unknown }).id === "string"
+        );
     }
 
     public buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false): string[] {
@@ -334,15 +323,16 @@ export class ScopeTracker {
     public declare(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = { type: "declaration" }
+        role?: ScopeRole
     ): void {
         if (!this.enabled || !name || !node) {
             return;
         }
 
-        const scope = this.resolveScopeOverride(role.scopeOverride);
+        const normalizedRole = role ?? DEFAULT_DECLARATION_ROLE;
+        const scope = this.resolveScopeOverride(normalizedRole.scopeOverride);
         const scopeId = scope?.id ?? null;
-        const classifications = this.buildClassifications(role, true);
+        const classifications = this.buildClassifications(normalizedRole, true);
 
         const metadata: ScopeSymbolMetadata = {
             name,
@@ -368,12 +358,13 @@ export class ScopeTracker {
     public reference(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = { type: "reference" }
+        role?: ScopeRole
     ): void {
         if (!name || !node) {
             return;
         }
 
+        const normalizedRole = role ?? DEFAULT_REFERENCE_ROLE;
         const scope = this.currentScope();
         const scopeId = scope?.id ?? null;
         const declaration = this.lookup(name);
@@ -384,8 +375,8 @@ export class ScopeTracker {
         }
 
         const combinedRole: ScopeRole = {
-            ...role,
-            tags: [...derivedTags, ...Array.from(role?.tags ?? [])]
+            ...normalizedRole,
+            tags: [...derivedTags, ...Array.from(normalizedRole.tags ?? [])]
         };
 
         const classifications = this.buildClassifications(combinedRole, false);
@@ -648,7 +639,7 @@ export class ScopeTracker {
             return null;
         }
 
-        let startScope;
+        let startScope: Scope | null | undefined;
         if (scopeId) {
             startScope = this.scopesById.get(scopeId);
             if (!startScope) {
@@ -663,14 +654,14 @@ export class ScopeTracker {
         }
 
         const cacheScopeId = startScope.id;
-        const cachedDeclaration = this.readResolveIdentifierCache(name, cacheScopeId);
+        const cachedDeclaration = this.identifierCache.read(name, cacheScopeId);
 
         if (cachedDeclaration !== undefined) {
             return cachedDeclaration ? cloneDeclarationMetadata(cachedDeclaration) : null;
         }
 
         const storedIndex = startScope.stackIndex;
-        const startIndex =
+        const startIndex: number | undefined =
             typeof storedIndex === "number" &&
             storedIndex >= 0 &&
             storedIndex < this.scopeStack.length &&
@@ -683,12 +674,12 @@ export class ScopeTracker {
             while (current) {
                 const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
-                    this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
+                    this.identifierCache.write(name, cacheScopeId, declaration);
                     return cloneDeclarationMetadata(declaration);
                 }
                 current = current.parent;
             }
-            this.writeResolveIdentifierCache(name, cacheScopeId, null);
+            this.identifierCache.write(name, cacheScopeId, null);
             return null;
         }
 
@@ -696,12 +687,12 @@ export class ScopeTracker {
             const scope = this.scopeStack[i];
             const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
-                this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
+                this.identifierCache.write(name, cacheScopeId, declaration);
                 return cloneDeclarationMetadata(declaration);
             }
         }
 
-        this.writeResolveIdentifierCache(name, cacheScopeId, null);
+        this.identifierCache.write(name, cacheScopeId, null);
         return null;
     }
 
@@ -1004,33 +995,32 @@ export class ScopeTracker {
             scopeId: string;
             scopeKind: string;
             reason: string;
-        }> = [
-            {
-                scopeId: scope.id,
-                scopeKind: scope.kind,
-                reason: "self"
+        }> = [];
+        const seenScopes = new Set<string>();
+
+        const addScope = (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
+            if (seenScopes.has(scopeIdToAdd)) {
+                return;
             }
-        ];
+            seenScopes.add(scopeIdToAdd);
+            invalidationSet.push({
+                scopeId: scopeIdToAdd,
+                scopeKind,
+                reason
+            });
+        };
+
+        addScope(scope.id, scope.kind, "self");
 
         const dependents = this.getTransitiveDependents(scopeId);
         for (const dep of dependents) {
-            invalidationSet.push({
-                scopeId: dep.dependentScopeId,
-                scopeKind: dep.dependentScopeKind,
-                reason: "dependent"
-            });
+            addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
         }
 
         if (includeDescendants) {
             const descendants = this.getDescendantScopes(scopeId);
             for (const desc of descendants) {
-                if (!invalidationSet.some((s) => s.scopeId === desc.scopeId)) {
-                    invalidationSet.push({
-                        scopeId: desc.scopeId,
-                        scopeKind: desc.scopeKind,
-                        reason: "descendant"
-                    });
-                }
+                addScope(desc.scopeId, desc.scopeKind, "descendant");
             }
         }
 
@@ -1044,35 +1034,39 @@ export class ScopeTracker {
             return [];
         }
 
-        const scope = this.scopesById.get(scopeId);
-        if (!scope) {
-            return [];
-        }
-
         const descendants: Array<{
             scopeId: string;
             scopeKind: string;
             depth: number;
         }> = [];
+        const children = this.scopeChildrenIndex.get(scopeId);
+        if (!children || children.size === 0) {
+            return descendants;
+        }
 
-        for (const candidateScope of this.scopesById.values()) {
-            if (candidateScope.id === scopeId) {
+        const queue: Array<{ scopeId: string; depth: number }> = [];
+        for (const childId of children) {
+            queue.push({ scopeId: childId, depth: 1 });
+        }
+
+        for (let i = 0; i < queue.length; i += 1) {
+            const current = queue[i];
+            const scope = this.scopesById.get(current.scopeId);
+            if (!scope) {
                 continue;
             }
 
-            let current: Scope | null = candidateScope.parent;
-            let depth = 1;
-            while (current) {
-                if (current.id === scopeId) {
-                    descendants.push({
-                        scopeId: candidateScope.id,
-                        scopeKind: candidateScope.kind,
-                        depth
-                    });
-                    break;
+            descendants.push({
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                depth: current.depth
+            });
+
+            const grandChildren = this.scopeChildrenIndex.get(scope.id);
+            if (grandChildren && grandChildren.size > 0) {
+                for (const grandChildId of grandChildren) {
+                    queue.push({ scopeId: grandChildId, depth: current.depth + 1 });
                 }
-                current = current.parent;
-                depth += 1;
             }
         }
 
@@ -1573,7 +1567,11 @@ export class ScopeTracker {
 
         const scopesToProcess = scopeId
             ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : Array.from(this.scopesById.values());
+            : this.collectScopesForSymbols(symbolSet);
+
+        if (scopesToProcess.length === 0) {
+            return [];
+        }
 
         for (const scope of scopesToProcess) {
             const occurrences: ScipOccurrence[] = [];
@@ -1599,6 +1597,35 @@ export class ScopeTracker {
         }
 
         return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+    }
+
+    private collectScopesForSymbols(symbolSet: Set<string>): Scope[] {
+        const scopeIds = new Set<string>();
+
+        for (const symbol of symbolSet) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(symbol);
+            if (!scopeSummaryMap) {
+                continue;
+            }
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                scopeIds.add(scopeId);
+            }
+        }
+
+        if (scopeIds.size === 0) {
+            return [];
+        }
+
+        const scopes: Scope[] = [];
+        for (const scopeId of scopeIds) {
+            const scope = this.scopesById.get(scopeId);
+            if (scope) {
+                scopes.push(scope);
+            }
+        }
+
+        return scopes;
     }
 }
 

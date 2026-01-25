@@ -6,7 +6,7 @@ import { builders } from "prettier/doc";
 
 import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
-import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
+import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -78,7 +78,8 @@ function handleHoistedDeclarationLeadingComment(comment: PrinterComment) {
     }
 
     addLeadingComment(target, comment);
-    delete comment._featherHoistedTarget;
+    const targetComment = comment;
+    delete targetComment._featherHoistedTarget;
 
     return true;
 }
@@ -145,7 +146,8 @@ function suppressFormattedComment(comment, options) {
         return false;
     }
 
-    comment.printed = true;
+    const targetComment = comment;
+    targetComment.printed = true;
     return true;
 }
 
@@ -281,12 +283,7 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            const formatted = Core.formatLineComment(comment, formattingOptions);
-
-            const normalized =
-                typeof formatted === "string"
-                    ? normalizeDocLikeLineComment(comment, formatted, options?.originalText)
-                    : "";
+            const normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }

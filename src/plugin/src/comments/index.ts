@@ -17,4 +17,4 @@ export {
     printDanglingComments,
     printDanglingCommentsAsGroup
 } from "./comment-printer.js";
-export { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
+export { formatDocLikeLineComment, normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";

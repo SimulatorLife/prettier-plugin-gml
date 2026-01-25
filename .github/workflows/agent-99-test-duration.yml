@@ -23,8 +23,8 @@ jobs:
       prompt: >
         Find one long-running or slow test (or suite segment), identify the primary
         time sinks, and refactor to reduce runtime without weakening coverage. Prefer
-        smaller fixtures, more focused assertions, and removing unnecessary I/O or
-        process startup. If setup/teardown dominates, streamline it or share fixtures
-        safely. Include a brief before/after timing or clear reasoning, keep scope tight,
-        and ensure the tests remain deterministic. Include the runtime improvements in 
-        the PR description and/or commit message.
+        smaller fixtures, more focused assertions, mocked network calls,and removing 
+        unnecessary I/O or process startup. If setup/teardown dominates, streamline 
+        it or share fixtures safely. Include a brief before/after timing or clear 
+        reasoning, keep scope tight, and ensure the tests remain deterministic. 
+        Include the runtime improvements in the PR description and/or commit message.

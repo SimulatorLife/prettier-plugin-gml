@@ -41,7 +41,7 @@ const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 // slash after the comment prefix to indicate documentation-style content.
 // These should not be treated as banner decorations even if they contain
 // characters like "**" that would normally be considered decoration.
-const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![\/])/;
+const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![/])/;
 
 function getLineCommentRawText(comment, options: any = {}) {
     if (options.originalText && comment.start && comment.end) {
@@ -81,11 +81,11 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
     }
 
     const { assumeDecorated = false } = options;
+    INNER_BANNER_DECORATION_PATTERN.lastIndex = 0;
+    const hasInnerDecoration = INNER_BANNER_DECORATION_PATTERN.test(raw);
+
     const sawDecoration =
-        assumeDecorated ||
-        INNER_BANNER_DECORATION_PATTERN.test(raw) ||
-        TRAILING_SLASH_DECORATION_PATTERN.test(raw) ||
-        /\/{4,}/.test(raw);
+        assumeDecorated || hasInnerDecoration || TRAILING_SLASH_DECORATION_PATTERN.test(raw) || /\/{4,}/.test(raw);
 
     if (!sawDecoration) {
         return null;
@@ -100,6 +100,7 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
     text = text.replace(LEADING_BANNER_DECORATION_PATTERN, "");
     text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, "");
 
+    INNER_BANNER_DECORATION_PATTERN.lastIndex = 0;
     const innerMatches = text.match(INNER_BANNER_DECORATION_PATTERN) || [];
     for (const match of innerMatches) {
         const firstChar = match[0];
@@ -277,7 +278,7 @@ function tryPromoteToDocComment(
  * Handles doc-like comment patterns (e.g., "// / text" should become "/// text").
  */
 function tryFormatDocLikeComment(comment, trimmedOriginal: string): string | null {
-    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/);
+    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![/])/);
     if (!docLikeMatch) {
         return null;
     }

@@ -77,7 +77,7 @@ async function createTemporaryDirectory() {
 }
 
 function escapeForRegex(value) {
-    return value.replaceAll(/[|\\{}()\[\]\^$+*?.-]/g, String.raw`\$&`);
+    return value.replaceAll(/[|\\{}()[\]^$+*?.-]/g, String.raw`\$&`);
 }
 
 void describe("Prettier wrapper CLI", () => {
@@ -701,7 +701,7 @@ void describe("Prettier wrapper CLI", () => {
 
             assert.match(
                 summaryLine,
-                /ignored by \.prettierignore \(3\) \(e\.g\., .*\.gml.*\, \.\.\.\)/,
+                /ignored by \.prettierignore \(3\) \(e\.g\., .*\.gml.*, \.\.\.\)/,
                 "Expected summary to include an example and ellipsis when output is truncated"
             );
         } finally {
