@@ -89,7 +89,7 @@
     "format": "pnpm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:check": "pnpm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "prettier": "pnpm run format:gml --",
-    "build": "pnpm run build:ts && pnpm run build:antlr && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
+    "build": "pnpm run build:ts && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
     "build:antlr": "cd src/parser && pnpm run antlr",
     "build:gml-identifiers": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-gml-identifiers --quiet",
     "build:feather-metadata": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-feather-metadata --quiet",
