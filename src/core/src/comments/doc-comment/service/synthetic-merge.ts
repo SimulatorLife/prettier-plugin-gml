@@ -29,7 +29,7 @@ import {
 } from "./synthetic-helpers.js";
 import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
 
-const STRING_TYPE: "string" = "string";
+const STRING_TYPE: string = "string";
 
 function getDocCommentSuffix(trimmedLine: string): string | null {
     const tripleSlashMatch = trimmedLine.match(/^\/\/\/(.*)$/);
