@@ -10,9 +10,9 @@ const createValidResult = async (): Promise<CachedValidationResult> => ({
     warnings: []
 });
 
-describe("RenameValidationCache", () => {
-    describe("constructor", () => {
-        it("initializes with default config", () => {
+void describe("RenameValidationCache", () => {
+    void describe("constructor", () => {
+        void it("initializes with default config", () => {
             const cache = new RenameValidationCache();
             const stats = cache.getStats();
 
@@ -22,7 +22,7 @@ describe("RenameValidationCache", () => {
             assert.equal(stats.size, 0);
         });
 
-        it("accepts custom config", () => {
+        void it("accepts custom config", () => {
             const cache = new RenameValidationCache({
                 maxSize: 100,
                 ttlMs: 60_000,
@@ -34,8 +34,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("getOrCompute", () => {
-        it("caches validation results", async () => {
+    void describe("getOrCompute", () => {
+        void it("caches validation results", async () => {
             const cache = new RenameValidationCache();
             let computeCount = 0;
 
@@ -52,7 +52,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().misses, 1);
         });
 
-        it("treats different symbol-name pairs as distinct", async () => {
+        void it("treats different symbol-name pairs as distinct", async () => {
             const cache = new RenameValidationCache();
             let computeCount = 0;
 
@@ -69,7 +69,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().size, 3);
         });
 
-        it("bypasses cache when disabled", async () => {
+        void it("bypasses cache when disabled", async () => {
             const cache = new RenameValidationCache({ enabled: false });
             let computeCount = 0;
 
@@ -85,7 +85,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().size, 0);
         });
 
-        it("evicts oldest entry when maxSize reached", async () => {
+        void it("evicts oldest entry when maxSize reached", async () => {
             const cache = new RenameValidationCache({ maxSize: 2 });
 
             await cache.getOrCompute("gml/script/scr_a", "scr_1", createValidResult);
@@ -100,7 +100,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().evictions, 1);
         });
 
-        it("respects TTL expiration", async () => {
+        void it("respects TTL expiration", async () => {
             const cache = new RenameValidationCache({ ttlMs: 100 });
             let computeCount = 0;
 
@@ -121,7 +121,7 @@ describe("RenameValidationCache", () => {
             assert.equal(computeCount, 2);
         });
 
-        it("tracks evictions when entries expire", async () => {
+        void it("tracks evictions when entries expire", async () => {
             const cache = new RenameValidationCache({ ttlMs: 50, maxSize: 5 });
 
             await cache.getOrCompute("gml/script/scr_test", "scr_new", createValidResult);
@@ -137,7 +137,7 @@ describe("RenameValidationCache", () => {
             assert.equal(stats.size, 1);
         });
 
-        it("preserves all validation result fields", async () => {
+        void it("preserves all validation result fields", async () => {
             const cache = new RenameValidationCache();
 
             const expectedResult: CachedValidationResult = {
@@ -166,8 +166,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("invalidate", () => {
-        it("removes specific cache entry", async () => {
+    void describe("invalidate", () => {
+        void it("removes specific cache entry", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_test", "scr_new", createValidResult);
@@ -177,7 +177,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().size, 0);
         });
 
-        it("only removes matching entry", async () => {
+        void it("only removes matching entry", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_a", "scr_x", createValidResult);
@@ -189,8 +189,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("invalidateSymbol", () => {
-        it("removes all cache entries for a symbol", async () => {
+    void describe("invalidateSymbol", () => {
+        void it("removes all cache entries for a symbol", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_test", "scr_new1", createValidResult);
@@ -205,8 +205,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("invalidateAll", () => {
-        it("clears all cache entries", async () => {
+    void describe("invalidateAll", () => {
+        void it("clears all cache entries", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_a", "scr_1", createValidResult);
@@ -220,8 +220,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("getStats", () => {
-        it("returns current statistics", async () => {
+    void describe("getStats", () => {
+        void it("returns current statistics", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_a", "scr_1", createValidResult);
@@ -234,7 +234,7 @@ describe("RenameValidationCache", () => {
             assert.equal(stats.size, 2);
         });
 
-        it("returns frozen stats object", () => {
+        void it("returns frozen stats object", () => {
             const cache = new RenameValidationCache();
             const stats = cache.getStats();
 
@@ -244,8 +244,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("resetStats", () => {
-        it("resets performance counters but preserves cache", async () => {
+    void describe("resetStats", () => {
+        void it("resets performance counters but preserves cache", async () => {
             const cache = new RenameValidationCache();
 
             await cache.getOrCompute("gml/script/scr_a", "scr_1", createValidResult);
@@ -265,8 +265,8 @@ describe("RenameValidationCache", () => {
         });
     });
 
-    describe("edge cases", () => {
-        it("handles zero maxSize", async () => {
+    void describe("edge cases", () => {
+        void it("handles zero maxSize", async () => {
             const cache = new RenameValidationCache({ maxSize: 0 });
 
             await cache.getOrCompute("gml/script/scr_test", "scr_new", createValidResult);
@@ -274,7 +274,7 @@ describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().evictions, 1);
         });
 
-        it("handles maxSize of 1", async () => {
+        void it("handles maxSize of 1", async () => {
             const cache = new RenameValidationCache({ maxSize: 1 });
 
             await cache.getOrCompute("gml/script/scr_a", "scr_1", createValidResult);

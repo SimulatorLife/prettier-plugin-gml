@@ -242,7 +242,7 @@ export function createEnvConfiguredValueWithFallback<TValue>(
     const fallbackFactory =
         typeof computeFallback === "function"
             ? computeFallback
-            : ({ defaultValue, previousValue }) => previousValue ?? defaultValue;
+            : ({ defaultValue: configuredDefaultValue, previousValue }) => previousValue ?? configuredDefaultValue;
 
     return createEnvConfiguredValue({
         defaultValue,

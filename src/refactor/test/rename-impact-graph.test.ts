@@ -9,12 +9,12 @@ import { describe, it } from "node:test";
 import { computeRenameImpactGraph } from "../src/hot-reload.js";
 import type { DependentSymbol, PartialSemanticAnalyzer } from "../src/types.js";
 
-describe("computeRenameImpactGraph", () => {
-    it("requires a valid symbolId", async () => {
+void describe("computeRenameImpactGraph", () => {
+    void it("requires a valid symbolId", async () => {
         await assert.rejects(async () => computeRenameImpactGraph("", null), { message: /requires a valid symbolId/ });
     });
 
-    it("returns minimal graph without semantic analyzer", async () => {
+    void it("returns minimal graph without semantic analyzer", async () => {
         const graph = await computeRenameImpactGraph("gml/script/scr_test", null);
 
         assert.equal(graph.totalAffectedSymbols, 1);
@@ -24,7 +24,7 @@ describe("computeRenameImpactGraph", () => {
         assert.ok(graph.estimatedTotalReloadTime > 0);
     });
 
-    it("builds single-level dependency graph", async () => {
+    void it("builds single-level dependency graph", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -52,7 +52,7 @@ describe("computeRenameImpactGraph", () => {
         assert.ok(rootNode.dependents.includes("gml/script/scr_dependent2"));
     });
 
-    it("builds multi-level dependency graph", async () => {
+    void it("builds multi-level dependency graph", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -86,7 +86,7 @@ describe("computeRenameImpactGraph", () => {
         assert.equal(topNode.isDirectlyAffected, false);
     });
 
-    it("computes critical path correctly", async () => {
+    void it("computes critical path correctly", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -113,7 +113,7 @@ describe("computeRenameImpactGraph", () => {
         assert.equal(graph.criticalPath[3], "gml/script/scr_long3");
     });
 
-    it("handles diamond dependency patterns", async () => {
+    void it("handles diamond dependency patterns", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -139,7 +139,7 @@ describe("computeRenameImpactGraph", () => {
         assert.equal(topNode.distance, 2);
     });
 
-    it("prevents infinite loops with circular dependencies", async () => {
+    void it("prevents infinite loops with circular dependencies", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_a")) {
@@ -159,7 +159,7 @@ describe("computeRenameImpactGraph", () => {
         assert.ok(graph.totalAffectedSymbols <= 2);
     });
 
-    it("estimates reload time", async () => {
+    void it("estimates reload time", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -179,7 +179,7 @@ describe("computeRenameImpactGraph", () => {
         assert.ok(graph.estimatedTotalReloadTime >= 110);
     });
 
-    it("includes file paths in nodes", async () => {
+    void it("includes file paths in nodes", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -196,7 +196,7 @@ describe("computeRenameImpactGraph", () => {
         assert.equal(depNode.filePath, "scripts/dependent.gml");
     });
 
-    it("sets dependsOn relationships correctly", async () => {
+    void it("sets dependsOn relationships correctly", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
                 if (symbolIds.includes("gml/script/scr_base")) {
@@ -214,7 +214,7 @@ describe("computeRenameImpactGraph", () => {
         assert.equal(depNode.dependsOn[0], "gml/script/scr_base");
     });
 
-    it("extracts symbol names correctly", async () => {
+    void it("extracts symbol names correctly", async () => {
         const semantic: PartialSemanticAnalyzer = {
             async getDependents(): Promise<Array<DependentSymbol>> {
                 return [];

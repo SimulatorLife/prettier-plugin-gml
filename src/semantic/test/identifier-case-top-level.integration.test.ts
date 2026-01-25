@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import prettier from "prettier";
+import * as Plugin from "@gml-modules/plugin";
 
 import { COLLISION_CONFLICT_CODE } from "../src/identifier-case/common.js";
 import {
@@ -11,14 +11,9 @@ import {
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
-import {
-    createIdentifierCaseProject,
-    resolveIdentifierCaseFixturesDirectory,
-    resolveIdentifierCasePluginPath
-} from "./identifier-case-test-helpers.js";
+import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject({
@@ -45,8 +40,6 @@ void describe("identifier case top-level renaming", () => {
             clearIdentifierCaseOptionStore(null);
             const logger = { log() {} };
             const baseOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseFunctions: "camel",
                 gmlIdentifierCaseStructs: "camel",
@@ -75,7 +68,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const formatted = await prettier.format(script.source, options);
+                const formatted = await Plugin.Plugin.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
                     assert.ok(formatted.includes("sample_function"), "Dry-run should keep the original function name");
@@ -111,7 +104,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const formattedEvent = await prettier.format(event.source, eventOptions);
+                const formattedEvent = await Plugin.Plugin.format(event.source, eventOptions);
                 assert.ok(formattedEvent.includes("instance_counter"), "Dry-run should keep instance variables");
                 assert.ok(!formattedEvent.includes("instanceCounter"));
 
@@ -146,8 +139,6 @@ void describe("identifier case top-level renaming", () => {
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);
             const baseOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseFunctions: "camel",
                 gmlIdentifierCaseStructs: "camel",
@@ -173,7 +164,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const rewritten = await prettier.format(script.source, options);
+                const rewritten = await Plugin.Plugin.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
                     assert.ok(rewritten.includes("sampleFunction"), "Function call should be rewritten");
@@ -220,7 +211,7 @@ void describe("identifier case top-level renaming", () => {
                     filepath: event.path,
                     diagnostics
                 };
-                const rewrittenEvent = await prettier.format(event.source, eventOptions);
+                const rewrittenEvent = await Plugin.Plugin.format(event.source, eventOptions);
                 assert.ok(rewrittenEvent.includes("instanceCounter"), "Instance variable should be rewritten");
                 assert.ok(!rewrittenEvent.includes("instance_counter"));
             }
@@ -255,8 +246,6 @@ void describe("identifier case top-level renaming", () => {
 
             const diagnostics = [];
             const formatOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: script.path,
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseFunctions: "camel",
@@ -267,7 +256,7 @@ void describe("identifier case top-level renaming", () => {
                 diagnostics
             };
 
-            const formatted = await prettier.format(script.source, formatOptions);
+            const formatted = await Plugin.Plugin.format(script.source, formatOptions);
             assert.ok(formatted.includes("function global_value"), "Collisions should prevent rewriting");
             assert.ok(formatted.includes("globalValue"));
             assert.ok(!formatted.includes("function globalValue"));

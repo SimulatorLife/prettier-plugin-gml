@@ -3,21 +3,24 @@
  */
 import { Parser } from "@gml-modules/parser";
 
+const DEFAULT_PARSE_EXAMPLE_OPTIONS = Object.freeze({
+    getLocations: true,
+    simplifyLocations: false
+});
+
 export function parseExample(
     sourceText: string,
-    options: { getLocations?: boolean; simplifyLocations?: boolean } = {
-        getLocations: true,
-        simplifyLocations: false
-    }
+    options: { getLocations?: boolean; simplifyLocations?: boolean } | undefined
 ) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return null;
     }
 
     try {
+        const resolvedOptions = options ?? DEFAULT_PARSE_EXAMPLE_OPTIONS;
         return Parser.GMLParser.parse(sourceText, {
-            getLocations: options.getLocations ?? true,
-            simplifyLocations: options.simplifyLocations ?? false
+            getLocations: resolvedOptions.getLocations ?? true,
+            simplifyLocations: resolvedOptions.simplifyLocations ?? false
         });
     } catch {
         // Parsing example failed — return null and let caller handle absence

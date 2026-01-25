@@ -459,20 +459,8 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
 }
 
 export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
-    switch (patch.kind) {
-        case "script": {
-            return applyScriptPatch(registry, patch);
-        }
-        case "event": {
-            return applyEventPatch(registry, patch);
-        }
-        case "closure": {
-            return applyClosurePatch(registry, patch);
-        }
-        default: {
-            return registry;
-        }
-    }
+    const handler = resolvePatchKindHandler(patch.kind);
+    return handler.apply(registry, patch);
 }
 
 export function captureSnapshot(registry: RuntimeRegistry, patch: Patch): PatchSnapshot {
@@ -483,40 +471,15 @@ export function captureSnapshot(registry: RuntimeRegistry, patch: Patch): PatchS
         previous: null
     };
 
-    switch (patch.kind) {
-        case "script": {
-            snapshot.previous = registry.scripts[patch.id] ?? null;
-            break;
-        }
-        case "event": {
-            snapshot.previous = registry.events[patch.id] ?? null;
-            break;
-        }
-        case "closure": {
-            snapshot.previous = registry.closures[patch.id] ?? null;
-            break;
-        }
-        // No default
-    }
+    const handler = resolvePatchKindHandler(patch.kind);
+    snapshot.previous = registry[handler.key][patch.id] ?? null;
 
     return snapshot;
 }
 
 export function restoreSnapshot(registry: RuntimeRegistry, snapshot: PatchSnapshot): RuntimeRegistry {
-    switch (snapshot.kind) {
-        case "script": {
-            return restoreEntry(registry, snapshot, "scripts");
-        }
-        case "event": {
-            return restoreEntry(registry, snapshot, "events");
-        }
-        case "closure": {
-            return restoreEntry(registry, snapshot, "closures");
-        }
-        default: {
-            return registry;
-        }
-    }
+    const handler = resolvePatchKindHandler(snapshot.kind);
+    return restoreEntry(registry, snapshot, handler.key);
 }
 
 export function testPatchInShadow(patch: Patch): ShadowTestResult {
@@ -774,11 +737,40 @@ function applyClosurePatch(registry: RuntimeRegistry, patch: ClosurePatch): Runt
     };
 }
 
-function restoreEntry(
-    registry: RuntimeRegistry,
-    snapshot: PatchSnapshot,
-    key: "scripts" | "events" | "closures"
-): RuntimeRegistry {
+type RegistryCollectionKey = "scripts" | "events" | "closures";
+
+type PatchKindHandler = {
+    key: RegistryCollectionKey;
+    apply: (registry: RuntimeRegistry, patch: Patch) => RuntimeRegistry;
+};
+
+function resolvePatchKindHandler(kind: Patch["kind"]): PatchKindHandler {
+    switch (kind) {
+        case "script": {
+            return {
+                key: "scripts",
+                apply: (registry, patch) => applyScriptPatch(registry, patch as ScriptPatch)
+            };
+        }
+        case "event": {
+            return {
+                key: "events",
+                apply: (registry, patch) => applyEventPatch(registry, patch as EventPatch)
+            };
+        }
+        case "closure": {
+            return {
+                key: "closures",
+                apply: (registry, patch) => applyClosurePatch(registry, patch as ClosurePatch)
+            };
+        }
+        default: {
+            throw new TypeError("Unsupported patch kind");
+        }
+    }
+}
+
+function restoreEntry(registry: RuntimeRegistry, snapshot: PatchSnapshot, key: RegistryCollectionKey): RuntimeRegistry {
     const collection = { ...registry[key] };
 
     if (snapshot.previous) {

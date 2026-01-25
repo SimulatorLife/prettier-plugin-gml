@@ -6,14 +6,14 @@ import { describe, it } from "node:test";
 
 import { readPackageJson, resolveCandidateRoot, resolvePackageJsonPath } from "../src/shared/package-resolution.js";
 
-describe("shared package resolution utilities", () => {
-    it("resolveCandidateRoot returns null for falsy inputs", () => {
+void describe("shared package resolution utilities", () => {
+    void it("resolveCandidateRoot returns null for falsy inputs", () => {
         assert.strictEqual(resolveCandidateRoot(null), null);
         assert.strictEqual(resolveCandidateRoot(undefined), null);
         assert.strictEqual(resolveCandidateRoot(""), null);
     });
 
-    it("resolveCandidateRoot resolves and normalizes paths", () => {
+    void it("resolveCandidateRoot resolves and normalizes paths", () => {
         const result = resolveCandidateRoot("/some/path");
         assert.ok(result);
         assert.strictEqual(result.root, path.resolve("/some/path"));
@@ -21,7 +21,7 @@ describe("shared package resolution utilities", () => {
         assert.strictEqual(result.packageJson, null);
     });
 
-    it("readPackageJson reads and parses package.json files", async () => {
+    void it("readPackageJson reads and parses package.json files", async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pkg-test-"));
         const pkgPath = path.join(tmpDir, "package.json");
         const pkgData = { name: "test-package", version: "1.0.0" };
@@ -35,7 +35,7 @@ describe("shared package resolution utilities", () => {
         }
     });
 
-    it("readPackageJson throws for invalid JSON", async () => {
+    void it("readPackageJson throws for invalid JSON", async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pkg-test-"));
         const pkgPath = path.join(tmpDir, "package.json");
 
@@ -49,14 +49,14 @@ describe("shared package resolution utilities", () => {
         }
     });
 
-    it("resolvePackageJsonPath throws for unknown packages", () => {
+    void it("resolvePackageJsonPath throws for unknown packages", () => {
         assert.throws(
             () => resolvePackageJsonPath("nonexistent-package-12345", "test"),
             (error) => error instanceof Error && error.message.includes("Unable to resolve test package")
         );
     });
 
-    it("resolvePackageJsonPath includes context in error message", () => {
+    void it("resolvePackageJsonPath includes context in error message", () => {
         try {
             resolvePackageJsonPath("nonexistent-package-12345", "manual");
             assert.fail("Should have thrown");

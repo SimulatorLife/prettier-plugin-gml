@@ -11,7 +11,7 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { type FSWatcher, watch, type WatchListener, type WatchOptions } from "node:fs";
+import { type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -73,6 +73,8 @@ interface ExtensionMatcher {
     extensions: ReadonlySet<string>;
     matches: (fileName: string) => boolean;
 }
+
+const noopAbortListener = () => {};
 
 /**
  * Configuration for file watching behavior.
@@ -236,6 +238,7 @@ interface RuntimeContext
         ServerControllers,
         WatchLifecycle {
     scriptNames: Set<string>;
+    fileSnapshots: Map<string, number>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
@@ -450,6 +453,7 @@ async function performInitialScan(
         try {
             const content = await readFile(fullPath, "utf8");
             const lines = content.split("\n").length;
+            await updateFileSnapshot(runtimeContext, fullPath);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
@@ -622,6 +626,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         runtimeServerStarter = startRuntimeStaticServer,
         watchFactory = DEFAULT_WATCH_FACTORY
     } = options;
+    const unknownServerStopErrorMessage = "Unknown server stop error";
 
     // Validate that verbose and quiet are not both enabled
     if (verbose && quiet) {
@@ -670,6 +675,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         startTime: Date.now(),
         debouncedHandlers: new Map(),
         scanComplete: false,
+        fileSnapshots: new Map(),
         dependencyTracker
     };
 
@@ -742,7 +748,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
                 }
@@ -799,7 +805,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
                 }
@@ -810,7 +816,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await websocketServerController.stop();
                 } catch (stopError) {
                     const stopMessage = getErrorMessage(stopError, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop WebSocket server during cleanup: ${stopMessage}`);
                 }
@@ -834,7 +840,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const watchImplementation = watchFactory ?? watch;
 
     return new Promise((resolve) => {
-        let removeAbortListener = () => {};
+        let removeAbortListener = noopAbortListener;
 
         const cleanup = async (exitCode = 0) => {
             if (resolved) {
@@ -866,7 +872,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await runtimeServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop runtime static server: ${message}`);
                 }
@@ -877,7 +883,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await websocketServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop WebSocket server: ${message}`);
                 }
@@ -888,7 +894,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     await statusServerController.stop();
                 } catch (error) {
                     const message = getErrorMessage(error, {
-                        fallback: "Unknown server stop error"
+                        fallback: unknownServerStopErrorMessage
                     });
                     console.error(`Failed to stop status server: ${message}`);
                 }
@@ -957,7 +963,36 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     ...(abortSignal && { signal: abortSignal })
                 },
                 (eventType, filename) => {
-                    if (!filename || !extensionMatcher.matches(filename)) {
+                    if (!filename) {
+                        const unknownKey = `${normalizedPath}::unknown`;
+                        const triggerUnknown = () =>
+                            handleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                                const message = getErrorMessage(error, {
+                                    fallback: "Unknown file processing error"
+                                });
+                                console.error(`Error processing watcher event: ${message}`);
+                            });
+
+                        if (debounceDelay === 0) {
+                            void triggerUnknown();
+                        } else {
+                            let debouncedHandler = runtimeContext.debouncedHandlers.get(unknownKey);
+                            if (!debouncedHandler) {
+                                debouncedHandler = debounce(() => {
+                                    void triggerUnknown();
+                                }, debounceDelay);
+                                runtimeContext.debouncedHandlers.set(unknownKey, debouncedHandler);
+                            }
+                            debouncedHandler(unknownKey, eventType, {
+                                verbose,
+                                quiet,
+                                runtimeContext
+                            });
+                        }
+                        return;
+                    }
+
+                    if (!extensionMatcher.matches(filename)) {
                         return;
                     }
 
@@ -1017,7 +1052,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
                 .then(() => {
                     runtimeContext.scanComplete = true;
-                    return undefined;
+                    return null;
                 })
                 .catch(handleWatcherError);
         } catch (error) {
@@ -1053,10 +1088,11 @@ async function handleFileChange(
     // rename, treat it as a change and continue to transpile. If the file was
     // removed, bail out early.
     let shouldTranspile = false;
+    let fileStats: Stats | null = null;
 
     if (eventType === "rename") {
         try {
-            await stat(filePath);
+            fileStats = await stat(filePath);
             shouldTranspile = true;
             if (verbose && !quiet) {
                 console.log(`  ↳ File exists (created or renamed)`);
@@ -1078,9 +1114,32 @@ async function handleFileChange(
     // For 'change' events, read the file and transpile it. Also transpile when
     // a 'rename' event left the file in place (see comment above).
     if (eventType === "change" || shouldTranspile) {
+        if (runtimeContext) {
+            if (!fileStats) {
+                fileStats = await readFileStats(filePath);
+            }
+
+            if (fileStats) {
+                const lastModified = runtimeContext.fileSnapshots.get(filePath);
+                if (lastModified !== undefined && fileStats.mtimeMs <= lastModified) {
+                    if (verbose && !quiet) {
+                        console.log("  ↳ Skipping unchanged file");
+                    }
+                    return;
+                }
+            }
+        }
+
         try {
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
+            if (runtimeContext) {
+                if (fileStats) {
+                    runtimeContext.fileSnapshots.set(filePath, fileStats.mtimeMs);
+                } else {
+                    await updateFileSnapshot(runtimeContext, filePath);
+                }
+            }
 
             if (verbose && !quiet) {
                 console.log(`  ↳ Read ${lines} lines`);
@@ -1111,6 +1170,43 @@ async function handleFileChange(
 
             console.error(formattedMessage);
         }
+    }
+}
+
+async function handleUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    const entries = Array.from(runtimeContext.fileSnapshots.entries());
+    if (entries.length === 0) {
+        return;
+    }
+
+    await runSequentially(entries, async ([filePath, lastModified]) => {
+        try {
+            const stats = await stat(filePath);
+            if (stats.mtimeMs <= lastModified) {
+                return;
+            }
+
+            runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
+            await handleFileChange(filePath, "change", {
+                verbose,
+                quiet,
+                runtimeContext
+            });
+        } catch {
+            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+        }
+    });
+}
+
+async function readFileStats(filePath: string): Promise<Stats | null> {
+    try {
+        return await stat(filePath);
+    } catch {
+        return null;
     }
 }
 
@@ -1259,6 +1355,7 @@ function getSymbolIdFromFilePath(filePath: string): string {
 
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
+    runtimeContext.fileSnapshots.delete(filePath);
 
     const symbolId = getSymbolIdFromFilePath(filePath);
     const removedPatch = runtimeContext.lastSuccessfulPatches.delete(symbolId);
@@ -1272,6 +1369,15 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     if (verbose && !quiet) {
         const patchMessage = removedPatch ? "cleared cached patch" : "no cached patch found";
         console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
+    }
+}
+
+async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: string): Promise<void> {
+    try {
+        const stats = await stat(filePath);
+        runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
+    } catch {
+        runtimeContext.fileSnapshots.delete(filePath);
     }
 }
 

@@ -26,6 +26,26 @@ type RuntimeReadyGlobals = Record<string, unknown> & {
     };
 };
 
+function isRuntimeReady(): boolean {
+    const globals = globalThis as RuntimeReadyGlobals;
+    const builtins = globals?.g_pBuiltIn;
+    if (typeof builtins !== "object" || builtins === null) {
+        return false;
+    }
+
+    const jsonGame = globals.JSON_game;
+    if (!jsonGame || typeof jsonGame !== "object") {
+        return false;
+    }
+
+    const { ScriptNames, Scripts } = jsonGame;
+    if (!Array.isArray(ScriptNames) || !Array.isArray(Scripts)) {
+        return false;
+    }
+
+    return Scripts.some((entry) => typeof entry === "function");
+}
+
 function ensureApplicationSurfaceAccessor(): void {
     const globals = globalThis as Record<string, unknown>;
     const builtins = globals.g_pBuiltIn;
@@ -302,26 +322,6 @@ export function createWebSocketClient({
         readinessTimer: null
     };
 
-    const runtimeReady = (): boolean => {
-        const globals = globalThis as RuntimeReadyGlobals;
-        const builtins = globals?.g_pBuiltIn;
-        if (typeof builtins !== "object" || builtins === null) {
-            return false;
-        }
-
-        const jsonGame = globals.JSON_game;
-        if (!jsonGame || typeof jsonGame !== "object") {
-            return false;
-        }
-
-        const { ScriptNames, Scripts } = jsonGame;
-        if (!Array.isArray(ScriptNames) || !Array.isArray(Scripts)) {
-            return false;
-        }
-
-        return Scripts.some((entry) => typeof entry === "function");
-    };
-
     const clearReadinessTimer = (): void => {
         if (state.readinessTimer !== null) {
             clearInterval(state.readinessTimer);
@@ -330,7 +330,7 @@ export function createWebSocketClient({
     };
 
     const flushPendingPatches = (): void => {
-        if (!runtimeReady()) {
+        if (!isRuntimeReady()) {
             return;
         }
 
@@ -352,7 +352,7 @@ export function createWebSocketClient({
         }
 
         state.readinessTimer = setInterval(() => {
-            if (runtimeReady()) {
+            if (isRuntimeReady()) {
                 flushPendingPatches();
             }
         }, READINESS_POLL_INTERVAL_MS);
@@ -400,7 +400,7 @@ export function createWebSocketClient({
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
-        if (!runtimeReady()) {
+        if (!isRuntimeReady()) {
             queuePendingPatch(incoming);
             return true;
         }

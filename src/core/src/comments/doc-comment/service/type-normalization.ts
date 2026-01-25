@@ -32,7 +32,7 @@ const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(([oldWord
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
-const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
+const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^)]*\))(\s*(?=\n|$))/gi;
 
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 
@@ -314,7 +314,7 @@ export function normalizeGameMakerType(typeText: string) {
             const next = segments[index + 1];
             const nextToken = findNextNonWhitespaceSegment(index + 1);
 
-            if (nextToken && nextToken.type === "separator" && /^[\[\(<>{})]/.test(nextToken.value.trim())) {
+            if (nextToken && nextToken.type === "separator" && /^[[(<>{})]/.test(nextToken.value.trim())) {
                 continue;
             }
 

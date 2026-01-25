@@ -67,6 +67,10 @@ import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
+function normalizeWriteChunk(chunk: string | Uint8Array, encoding?: BufferEncoding): string {
+    return typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(encoding);
+}
+
 const {
     compactArray,
     createEnumeratedOptionHelpers,
@@ -487,9 +491,6 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     const capturedStderr: Array<string> = [];
     const originalStdoutWrite = process.stdout.write.bind(process.stdout);
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
-
-    const normalizeWriteChunk = (chunk: string | Uint8Array, encoding?: BufferEncoding) =>
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(encoding);
 
     const createCaptureWrite =
         (target: Array<string>): typeof process.stdout.write =>
@@ -1912,6 +1913,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
               targetPathProvided
           })
         : formattedTarget;
+    const nothingToFormatMessage = "Nothing to format.";
     const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
@@ -1931,7 +1933,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     ignoredMessageSuffix
                 ].join(" ")
             );
@@ -1939,7 +1941,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     guidance
                 ].join(" ")
             );
@@ -1949,7 +1951,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `${locationDescription} was skipped by ignore rules and not formatted.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     ignoredMessageSuffix
                 ].join(" ")
             );
@@ -1957,7 +1959,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
             console.log(
                 [
                     `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                    "Nothing to format.",
+                    nothingToFormatMessage,
                     guidance
                 ].join(" ")
             );
@@ -2231,7 +2233,7 @@ function normalizeCommandLineArguments(argv) {
         // When no arguments are provided, default behavior depends on
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
         // Default is to show help (user-friendly for first-time users).
-        // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
+        // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION to "format" for legacy behavior.
         return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 
@@ -2383,12 +2385,14 @@ cliCommandRegistry.registerCommand({
 if (!isCliRunSkipped()) {
     const normalizedArguments = normalizeCommandLineArguments(process.argv.slice(2));
 
-    cliCommandRunner.run(normalizedArguments).catch((error) => {
+    try {
+        await cliCommandRunner.run(normalizedArguments);
+    } catch (error) {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
         });
-    });
+    }
 }
 /**
  * Check equality of ignored file samples by comparing both path and source description.

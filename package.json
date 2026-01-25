@@ -46,7 +46,7 @@
   ],
   "author": "Two Scoop Studio",
   "engines": {
-    "node": ">=25.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules src/cli/dist src/core/dist src/parser/dist src/plugin/dist src/refactor/dist src/runtime-wrapper/dist src/semantic/dist src/transpiler/dist .eslintcache reports tmp node_debug.log eslint-suppressions.json",
@@ -89,7 +89,7 @@
     "format": "pnpm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:check": "pnpm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "prettier": "pnpm run format:gml --",
-    "build": "pnpm run build:ts && pnpm run build:antlr && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
+    "build": "pnpm run build:ts && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
     "build:antlr": "cd src/parser && pnpm run antlr",
     "build:gml-identifiers": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-gml-identifiers --quiet",
     "build:feather-metadata": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-feather-metadata --quiet",
@@ -164,5 +164,6 @@
     "tree-node-cli": "^1.6.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.47.0"
-  }
+  },
+  "packageManager": "pnpm@10.28.1"
 }

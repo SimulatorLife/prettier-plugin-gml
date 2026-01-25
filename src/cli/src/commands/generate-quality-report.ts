@@ -210,13 +210,13 @@ function collectTestCases(root) {
     const cases = [];
     const queue = createTestTraversalQueue(root);
 
-    processTraversalQueue(queue, ({ node, suitePath }, queue) => {
+    processTraversalQueue(queue, ({ node, suitePath }, traversalQueue) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
-            enqueueTraversalNodes(queue, node, suitePath);
+            enqueueTraversalNodes(traversalQueue, node, suitePath);
             return;
         }
 
@@ -236,14 +236,14 @@ function collectTestCases(root) {
         }
 
         if (hasTestcase) {
-            enqueueTraversalNodes(queue, toArray(node.testcase), nextSuitePath);
+            enqueueTraversalNodes(traversalQueue, toArray(node.testcase), nextSuitePath);
         }
 
         if (hasTestsuite) {
-            enqueueTraversalNodes(queue, toArray(node.testsuite), nextSuitePath);
+            enqueueTraversalNodes(traversalQueue, toArray(node.testsuite), nextSuitePath);
         }
 
-        enqueueObjectLikeChildren(queue, node, nextSuitePath);
+        enqueueObjectLikeChildren(traversalQueue, node, nextSuitePath);
     });
 
     return cases;
