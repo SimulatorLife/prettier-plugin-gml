@@ -349,7 +349,7 @@ export class ScopeTracker {
     public declare(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole | undefined
+        role?: ScopeRole
     ): void {
         if (!this.enabled || !name || !node) {
             return;
@@ -384,7 +384,7 @@ export class ScopeTracker {
     public reference(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole | undefined
+        role?: ScopeRole
     ): void {
         if (!name || !node) {
             return;

@@ -11,9 +11,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-# Display current Node and npm versions
+# Display current Node and pnpm versions
 echo "Node: $(node -v)"
-echo "npm:  $(npm -v)"
+echo "pnpm: $(pnpm -v)"
 
 # Collect staged files so we can target format/lint runs
 tmp_staged_list="$(mktemp)"
@@ -50,13 +50,13 @@ files_to_restage=()
 
 if [ "${#prettier_targets[@]}" -gt 0 ]; then
 	echo "Formatting staged TypeScript files with Prettier..."
-	npm exec -- prettier --ignore-path ./.prettierignore --write "${prettier_targets[@]}"
+	pnpm exec -- prettier --ignore-path ./.prettierignore --write "${prettier_targets[@]}"
 	files_to_restage+=("${prettier_targets[@]}")
 fi
 
 if [ "${#eslint_targets[@]}" -gt 0 ]; then
 	echo "Linting staged TypeScript files with ESLint..."
-	npm exec -- eslint --cache --fix "${eslint_targets[@]}"
+	pnpm exec -- eslint --cache --fix "${eslint_targets[@]}"
 	files_to_restage+=("${eslint_targets[@]}")
 fi
 
@@ -64,4 +64,5 @@ if [ "${#files_to_restage[@]}" -gt 0 ]; then
 	git add -- "${files_to_restage[@]}"
 fi
 
-echo "Pre-commit checks limited to staged TypeScript sources."
+echo "Verifying TypeScript build (pnpm run build:ts)..."
+pnpm run build:ts
