@@ -12,8 +12,8 @@ import {
     transpileFile
 } from "../src/modules/transpilation/coordinator.js";
 
-describe("Transpilation error classification", () => {
-    it("should classify syntax errors correctly", async (t) => {
+void describe("Transpilation error classification", () => {
+    void it("should classify syntax errors correctly", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
         const testFile = path.join(tempDir, "syntax-error.gml");
 
@@ -29,6 +29,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -41,7 +42,7 @@ describe("Transpilation error classification", () => {
         assert.ok(result.error.line !== undefined || result.error.column !== undefined);
     });
 
-    it("should classify validation errors correctly", async (t) => {
+    void it("should classify validation errors correctly", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
         const testFile = path.join(tempDir, "validation-error.gml");
 
@@ -55,6 +56,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -66,7 +68,7 @@ describe("Transpilation error classification", () => {
         assert.strictEqual(result.error.category, "validation" as ErrorCategory);
     });
 
-    it("should provide recovery hints for common errors", async (t) => {
+    void it("should provide recovery hints for common errors", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
         const testFile = path.join(tempDir, "missing-brace.gml");
 
@@ -83,6 +85,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -99,7 +102,7 @@ describe("Transpilation error classification", () => {
         }
     });
 
-    it("should track error categories in statistics", async (t) => {
+    void it("should track error categories in statistics", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
 
         t.after(async () => {
@@ -112,6 +115,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -128,7 +132,7 @@ describe("Transpilation error classification", () => {
         assert.ok(categories.size > 0, "Should have at least one error category");
     });
 
-    it("should successfully transpile valid GML code", async (t) => {
+    void it("should successfully transpile valid GML code", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
         const testFile = path.join(tempDir, "valid.gml");
 
@@ -142,6 +146,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 
@@ -154,7 +159,7 @@ describe("Transpilation error classification", () => {
         assert.strictEqual(context.errors.length, 0);
     });
 
-    it("should store patch history without retaining full payloads", async (t) => {
+    void it("should store patch history without retaining full payloads", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
         const testFile = path.join(tempDir, "history.gml");
 
@@ -169,6 +174,7 @@ describe("Transpilation error classification", () => {
             errors: [],
             lastSuccessfulPatches: new Map(),
             maxPatchHistory: 10,
+            totalPatchCount: 0,
             websocketServer: null
         };
 

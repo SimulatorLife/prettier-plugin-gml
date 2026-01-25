@@ -369,7 +369,7 @@ export function mergeSyntheticDocComments(
             let normalizedDescription: string;
 
             if (hyphenMatch) {
-                const [, , rawDescription = ""] = hyphenMatch;
+                const rawDescription = hyphenMatch[2] ?? "";
                 normalizedDescription = rawDescription.trim();
             } else {
                 normalizedDescription = remainderText.replace(/^[-\s]+/, "");
@@ -448,10 +448,10 @@ export function mergeSyntheticDocComments(
         const originalHasTags =
             Array.isArray(existingDocLines) &&
             existingDocLines.some((l) => (typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false));
-        const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
-        if (originalHasPlainSummary && !originalHasTags && !hasMultiLineSummary) {
+        const hasMultiLineSummaryInExisting = hasMultiLineDocCommentSummary(existingDocLines);
+        if (originalHasPlainSummary && !originalHasTags && !hasMultiLineSummaryInExisting) {
             const summaryLines = [] as string[];
-            const otherLines = [] as string[];
+            const remainingLines = [] as string[];
 
             for (const ln of filteredResult) {
                 if (typeof ln !== STRING_TYPE) continue;
@@ -462,7 +462,7 @@ export function mergeSyntheticDocComments(
                     continue;
                 }
                 if (/^\/\/\/\s*@/i.test(ln.trim())) {
-                    otherLines.push(ln);
+                    remainingLines.push(ln);
                     continue;
                 }
                 // Treat other triple slash lines as summary continuations
@@ -470,12 +470,12 @@ export function mergeSyntheticDocComments(
                     summaryLines.push(ln);
                     continue;
                 }
-                otherLines.push(ln);
+                remainingLines.push(ln);
             }
 
-            if (summaryLines.length > 0 && otherLines.length > 0) {
+            if (summaryLines.length > 0 && remainingLines.length > 0) {
                 // Ensure a blank separator between summary block and synthetic metadata
-                const combined = [...summaryLines, "", ...otherLines];
+                const combined = [...summaryLines, "", ...remainingLines];
 
                 filteredResult = toMutableArray(combined as any) as MutableDocCommentLines;
             }
@@ -1025,6 +1025,93 @@ export function shouldGenerateSyntheticDocForFunction(
     );
 }
 
+function docTagMatches(line: unknown, pattern: RegExp): boolean {
+    if (typeof line !== STRING_TYPE) {
+        return false;
+    }
+
+    const trimmed = toTrimmedString(line);
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    if (pattern.global || pattern.sticky) {
+        pattern.lastIndex = 0;
+    }
+
+    return pattern.test(trimmed);
+}
+
+function isReturnLine(line: unknown): boolean {
+    if (typeof line !== STRING_TYPE) {
+        return false;
+    }
+    return /^\/\/\/\s*@returns?\b/i.test(line.trim());
+}
+
+function wrapSegments(text: string, firstAvailable: number, continuationAvailable: number): string[] {
+    if (firstAvailable <= 0) {
+        return [text];
+    }
+
+    const words = text.split(/\s+/).filter((word) => word.length > 0);
+    if (words.length === 0) {
+        return [];
+    }
+
+    const segments = [];
+    let current = words[0];
+    let currentAvailable = firstAvailable;
+
+    for (let index = 1; index < words.length; index += 1) {
+        const word = words[index];
+
+        const endsSentence = /[.!?]["')\]]?$/.test(current);
+        const startsSentence = /^[A-Z]/.test(word);
+        if (
+            endsSentence &&
+            startsSentence &&
+            currentAvailable >= 60 &&
+            current.length >= Math.max(Math.floor(currentAvailable * 0.6), 24)
+        ) {
+            segments.push(current);
+            current = word;
+            currentAvailable = continuationAvailable;
+            continue;
+        }
+
+        if (current.length + 1 + word.length > currentAvailable) {
+            segments.push(current);
+            current = word;
+            currentAvailable = continuationAvailable;
+        } else {
+            current += ` ${word}`;
+        }
+    }
+
+    segments.push(current);
+
+    const lastIndex = segments.length - 1;
+    if (lastIndex >= 2) {
+        const lastSegment = segments[lastIndex];
+        const isSingleWord = typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
+
+        if (isSingleWord) {
+            const maxSingleWordLength = Math.max(Math.min(continuationAvailable / 2, 16), 8);
+
+            if (lastSegment.length <= maxSingleWordLength) {
+                const penultimateIndex = lastIndex - 1;
+                const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
+
+                segments[penultimateIndex] = mergedSegment;
+                segments.pop();
+            }
+        }
+    }
+
+    return segments;
+}
+
 type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
 
 type MergeDocLinesParams = {
@@ -1037,23 +1124,6 @@ type MergeDocLinesParams = {
 
 function createDocTagHelpers() {
     const paramCanonicalNameCache = new Map<unknown, string | null>();
-
-    const docTagMatches = (line: unknown, pattern: RegExp) => {
-        if (typeof line !== STRING_TYPE) {
-            return false;
-        }
-
-        const trimmed = toTrimmedString(line);
-        if (trimmed.length === 0) {
-            return false;
-        }
-
-        if (pattern.global || pattern.sticky) {
-            pattern.lastIndex = 0;
-        }
-
-        return pattern.test(trimmed);
-    };
 
     const isFunctionLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@function\b/i);
     const isOverrideLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@override\b/i);
@@ -1138,11 +1208,6 @@ function reorderDescriptionBlock({
         return docsWithoutDescription;
     }
 
-    const isReturnLine = (line: unknown) => {
-        if (typeof line !== "string") return false;
-        return /^\/\/\/\s*@returns?\b/i.test(line.trim());
-    };
-
     let firstTagIndex = -1;
     for (const [index, element] of docsWithoutDescription.entries()) {
         if (docTagHelpers.isParamLine(element) || isReturnLine(element)) {
@@ -1187,69 +1252,6 @@ function finalizeDescriptionBlocks({
     const wrappedDocs = [];
     const normalizedPrintWidth = coercePositiveIntegerOption(options?.printWidth, 120);
     const wrapWidth = normalizedPrintWidth;
-
-    const wrapSegments = (text: string, firstAvailable: number, continuationAvailable: number) => {
-        if (firstAvailable <= 0) {
-            return [text];
-        }
-
-        const words = text.split(/\s+/).filter((word) => word.length > 0);
-        if (words.length === 0) {
-            return [];
-        }
-
-        const segments = [];
-        let current = words[0];
-        let currentAvailable = firstAvailable;
-
-        for (let index = 1; index < words.length; index += 1) {
-            const word = words[index];
-
-            const endsSentence = /[.!?]["')\]]?$/.test(current);
-            const startsSentence = /^[A-Z]/.test(word);
-            if (
-                endsSentence &&
-                startsSentence &&
-                currentAvailable >= 60 &&
-                current.length >= Math.max(Math.floor(currentAvailable * 0.6), 24)
-            ) {
-                segments.push(current);
-                current = word;
-                currentAvailable = continuationAvailable;
-                continue;
-            }
-
-            if (current.length + 1 + word.length > currentAvailable) {
-                segments.push(current);
-                current = word;
-                currentAvailable = continuationAvailable;
-            } else {
-                current += ` ${word}`;
-            }
-        }
-
-        segments.push(current);
-
-        const lastIndex = segments.length - 1;
-        if (lastIndex >= 2) {
-            const lastSegment = segments[lastIndex];
-            const isSingleWord = typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
-
-            if (isSingleWord) {
-                const maxSingleWordLength = Math.max(Math.min(continuationAvailable / 2, 16), 8);
-
-                if (lastSegment.length <= maxSingleWordLength) {
-                    const penultimateIndex = lastIndex - 1;
-                    const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
-
-                    segments[penultimateIndex] = mergedSegment;
-                    segments.pop();
-                }
-            }
-        }
-
-        return segments;
-    };
 
     for (let index = 0; index < docs.length; index += 1) {
         const line = docs[index];

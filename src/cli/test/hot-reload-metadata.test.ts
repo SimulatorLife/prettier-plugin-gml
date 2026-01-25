@@ -11,34 +11,26 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
 
-import WebSocket from "ws";
-
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
+import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
 
 void describe("Hot reload patch metadata", () => {
     let testDir: string;
     let testFile: string;
-    let websocketClient;
+    let websocketClient: WebSocketPatchStream | null = null;
 
     before(async () => {
         testDir = path.join(process.cwd(), "tmp", `test-metadata-${Date.now()}`);
         await mkdir(testDir, { recursive: true });
         testFile = path.join(testDir, "metadata_script.gml");
         await writeFile(testFile, "// Initial content\nvar test_value = 42;", "utf8");
-        websocketClient = undefined;
+        websocketClient = null;
     });
 
     after(async () => {
         if (websocketClient) {
-            await new Promise<void>((resolve) => {
-                try {
-                    websocketClient?.once("close", () => resolve());
-                    websocketClient?.close();
-                } catch {
-                    resolve();
-                }
-            });
+            await websocketClient.disconnect();
         }
         if (testDir) {
             await rm(testDir, { recursive: true, force: true });
@@ -59,55 +51,31 @@ void describe("Hot reload patch metadata", () => {
             abortSignal: abortController.signal
         });
 
-        // Wait for watch command to initialize
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const receivedPatches = await (async () => {
+            try {
+                websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                    connectionTimeoutMs: 1200,
+                    retryIntervalMs: 25
+                });
 
-        const receivedPatches: Array<unknown> = [];
+                // Modify the file to trigger a patch
+                await writeFile(testFile, "// Updated content\nvar test_value = 100;", "utf8");
 
-        // Connect WebSocket client and wait for patch
-        await new Promise<void>((resolve, reject) => {
-            websocketClient = new WebSocket(`ws://127.0.0.1:${websocketPort}`);
+                return await websocketClient.waitForPatches({ timeoutMs: 1500 });
+            } finally {
+                abortController.abort();
 
-            websocketClient.on("open", async () => {
-                try {
-                    // Modify the file to trigger a patch
-                    await writeFile(testFile, "// Updated content\nvar test_value = 100;", "utf8");
-                } catch (error) {
-                    reject(new Error(error instanceof Error ? error.message : String(error)));
+                if (websocketClient) {
+                    await websocketClient.disconnect();
                 }
-            });
 
-            websocketClient.on("message", (data) => {
                 try {
-                    const patch = JSON.parse(data.toString());
-                    receivedPatches.push(patch);
-
-                    // Resolve after receiving first patch
-                    if (receivedPatches.length === 1) {
-                        resolve();
-                    }
-                } catch (error) {
-                    reject(error instanceof Error ? error : new Error(String(error)));
+                    await watchPromise;
+                } catch {
+                    // Expected when aborting
                 }
-            });
-
-            websocketClient.on("error", (error) => {
-                reject(new Error(error instanceof Error ? error.message : String(error)));
-            });
-
-            // Timeout after 5 seconds
-            setTimeout(() => {
-                reject(new Error("Timeout waiting for patch"));
-            }, 5000);
-        });
-
-        abortController.abort();
-
-        try {
-            await watchPromise;
-        } catch {
-            // Expected when aborting
-        }
+            }
+        })();
 
         assert.ok(receivedPatches.length > 0, "Should receive at least one patch");
 

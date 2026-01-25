@@ -5,8 +5,11 @@ import { validatePatchDependencies } from "../src/runtime/patch-utils.js";
 import { createRuntimeWrapper } from "../src/runtime/runtime-wrapper.js";
 import type { Patch, RuntimeRegistry } from "../src/runtime/types.js";
 
-describe("Dependency Validation", () => {
-    test("validatePatchDependencies returns satisfied when no dependencies", () => {
+void describe("Dependency Validation", () => {
+    // Strict assertion helpers replace deprecated assert.equal usage.
+    // Manual validation: run `node --test dist/runtime-wrapper/test/dependency-validation.test.js` to
+    // confirm strict assertion coverage remains equivalent to the legacy assert.equal checks.
+    void test("validatePatchDependencies returns satisfied when no dependencies", () => {
         const registry: RuntimeRegistry = {
             version: 0,
             scripts: {},
@@ -21,11 +24,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, true);
-        assert.equal(result.missingDependencies.length, 0);
+        assert.strictEqual(result.satisfied, true);
+        assert.strictEqual(result.missingDependencies.length, 0);
     });
 
-    test("validatePatchDependencies returns satisfied when empty dependencies array", () => {
+    void test("validatePatchDependencies returns satisfied when empty dependencies array", () => {
         const registry: RuntimeRegistry = {
             version: 0,
             scripts: {},
@@ -43,11 +46,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, true);
-        assert.equal(result.missingDependencies.length, 0);
+        assert.strictEqual(result.satisfied, true);
+        assert.strictEqual(result.missingDependencies.length, 0);
     });
 
-    test("validatePatchDependencies detects missing script dependency", () => {
+    void test("validatePatchDependencies detects missing script dependency", () => {
         const registry: RuntimeRegistry = {
             version: 0,
             scripts: {},
@@ -65,12 +68,12 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, false);
-        assert.equal(result.missingDependencies.length, 1);
-        assert.equal(result.missingDependencies[0], "script:base");
+        assert.strictEqual(result.satisfied, false);
+        assert.strictEqual(result.missingDependencies.length, 1);
+        assert.strictEqual(result.missingDependencies[0], "script:base");
     });
 
-    test("validatePatchDependencies satisfied when dependency exists in scripts", () => {
+    void test("validatePatchDependencies satisfied when dependency exists in scripts", () => {
         const registry: RuntimeRegistry = {
             version: 1,
             scripts: {
@@ -90,11 +93,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, true);
-        assert.equal(result.missingDependencies.length, 0);
+        assert.strictEqual(result.satisfied, true);
+        assert.strictEqual(result.missingDependencies.length, 0);
     });
 
-    test("validatePatchDependencies satisfied when dependency exists in events", () => {
+    void test("validatePatchDependencies satisfied when dependency exists in events", () => {
         const registry: RuntimeRegistry = {
             version: 1,
             scripts: {},
@@ -114,11 +117,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, true);
-        assert.equal(result.missingDependencies.length, 0);
+        assert.strictEqual(result.satisfied, true);
+        assert.strictEqual(result.missingDependencies.length, 0);
     });
 
-    test("validatePatchDependencies satisfied when dependency exists in closures", () => {
+    void test("validatePatchDependencies satisfied when dependency exists in closures", () => {
         const registry: RuntimeRegistry = {
             version: 1,
             scripts: {},
@@ -138,11 +141,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, true);
-        assert.equal(result.missingDependencies.length, 0);
+        assert.strictEqual(result.satisfied, true);
+        assert.strictEqual(result.missingDependencies.length, 0);
     });
 
-    test("validatePatchDependencies detects multiple missing dependencies", () => {
+    void test("validatePatchDependencies detects multiple missing dependencies", () => {
         const registry: RuntimeRegistry = {
             version: 1,
             scripts: {
@@ -162,13 +165,13 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, false);
-        assert.equal(result.missingDependencies.length, 2);
+        assert.strictEqual(result.satisfied, false);
+        assert.strictEqual(result.missingDependencies.length, 2);
         assert.ok(result.missingDependencies.includes("script:helper2"));
         assert.ok(result.missingDependencies.includes("script:helper3"));
     });
 
-    test("validatePatchDependencies ignores non-string dependencies", () => {
+    void test("validatePatchDependencies ignores non-string dependencies", () => {
         const registry: RuntimeRegistry = {
             version: 0,
             scripts: {},
@@ -186,12 +189,12 @@ describe("Dependency Validation", () => {
         };
 
         const result = validatePatchDependencies(patch, registry);
-        assert.equal(result.satisfied, false);
-        assert.equal(result.missingDependencies.length, 1);
-        assert.equal(result.missingDependencies[0], "script:real");
+        assert.strictEqual(result.satisfied, false);
+        assert.strictEqual(result.missingDependencies.length, 1);
+        assert.strictEqual(result.missingDependencies[0], "script:real");
     });
 
-    test("applyPatch rejects patch with missing dependencies", () => {
+    void test("applyPatch rejects patch with missing dependencies", () => {
         const wrapper = createRuntimeWrapper();
 
         const patchWithDep: Patch = {
@@ -208,7 +211,7 @@ describe("Dependency Validation", () => {
         }, /unsatisfied dependencies/);
     });
 
-    test("applyPatch succeeds when dependencies are satisfied", () => {
+    void test("applyPatch succeeds when dependencies are satisfied", () => {
         const wrapper = createRuntimeWrapper();
 
         // Apply base patch first
@@ -230,11 +233,11 @@ describe("Dependency Validation", () => {
         };
 
         const result = wrapper.applyPatch(dependentPatch);
-        assert.equal(result.success, true);
-        assert.equal(result.version, 2);
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.version, 2);
     });
 
-    test("applyPatch tracks dependency validation errors in error analytics", () => {
+    void test("applyPatch tracks dependency validation errors in error analytics", () => {
         const wrapper = createRuntimeWrapper();
 
         const patchWithDep: Patch = {
@@ -253,14 +256,14 @@ describe("Dependency Validation", () => {
         }
 
         const analytics = wrapper.getErrorAnalytics();
-        assert.equal(analytics.totalErrors, 1);
-        assert.equal(analytics.errorsByCategory.validation, 1);
+        assert.strictEqual(analytics.totalErrors, 1);
+        assert.strictEqual(analytics.errorsByCategory.validation, 1);
         assert.ok(analytics.recentErrors[0].error.includes("unsatisfied dependencies"));
         assert.ok(analytics.recentErrors[0].error.includes("script:base_fn"));
         assert.ok(analytics.recentErrors[0].error.includes("script:helper"));
     });
 
-    test("applyPatchBatch validates dependencies for all patches", () => {
+    void test("applyPatchBatch validates dependencies for all patches", () => {
         const wrapper = createRuntimeWrapper();
 
         // Apply base patch
@@ -286,14 +289,14 @@ describe("Dependency Validation", () => {
         ];
 
         const result = wrapper.applyPatchBatch(patches);
-        assert.equal(result.success, false);
-        assert.equal(result.appliedCount, 0);
-        assert.equal(result.failedIndex, 1);
+        assert.strictEqual(result.success, false);
+        assert.strictEqual(result.appliedCount, 0);
+        assert.strictEqual(result.failedIndex, 1);
         assert.ok(result.message?.includes("dependency validation failed"));
         assert.ok(result.message?.includes("script:missing"));
     });
 
-    test("applyPatchBatch succeeds when all dependencies satisfied", () => {
+    void test("applyPatchBatch succeeds when all dependencies satisfied", () => {
         const wrapper = createRuntimeWrapper();
 
         // Apply base patches
@@ -324,12 +327,12 @@ describe("Dependency Validation", () => {
         ];
 
         const result = wrapper.applyPatchBatch(patches);
-        assert.equal(result.success, true);
-        assert.equal(result.appliedCount, 2);
-        assert.equal(result.version, 4); // 2 base + 2 dependent
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.appliedCount, 2);
+        assert.strictEqual(result.version, 4); // 2 base + 2 dependent
     });
 
-    test("dependencies can be satisfied by patches applied earlier in same batch", () => {
+    void test("dependencies can be satisfied by patches applied earlier in same batch", () => {
         const wrapper = createRuntimeWrapper();
 
         const patches: Array<Patch> = [
@@ -349,11 +352,11 @@ describe("Dependency Validation", () => {
         // This should fail because batch validation checks all dependencies against
         // the current registry state BEFORE applying any patches in the batch
         const result = wrapper.applyPatchBatch(patches);
-        assert.equal(result.success, false);
-        assert.equal(result.appliedCount, 0);
+        assert.strictEqual(result.success, false);
+        assert.strictEqual(result.appliedCount, 0);
     });
 
-    test("cross-kind dependencies are validated", () => {
+    void test("cross-kind dependencies are validated", () => {
         const wrapper = createRuntimeWrapper();
 
         // Apply an event
@@ -381,10 +384,10 @@ describe("Dependency Validation", () => {
         };
 
         const result = wrapper.applyPatch(patch);
-        assert.equal(result.success, true);
+        assert.strictEqual(result.success, true);
     });
 
-    test("getErrorsForPatch includes dependency validation errors", () => {
+    void test("getErrorsForPatch includes dependency validation errors", () => {
         const wrapper = createRuntimeWrapper();
 
         const patch: Patch = {
@@ -407,8 +410,8 @@ describe("Dependency Validation", () => {
 
         const summary = wrapper.getErrorsForPatch("script:problem");
         assert.ok(summary);
-        assert.equal(summary.totalErrors, 3);
-        assert.equal(summary.errorsByCategory.validation, 3);
+        assert.strictEqual(summary.totalErrors, 3);
+        assert.strictEqual(summary.errorsByCategory.validation, 3);
         assert.ok(summary.mostRecentError.includes("unsatisfied dependencies"));
     });
 });

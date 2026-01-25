@@ -10,12 +10,12 @@ const {
     setFormattingCacheEntryForTests
 } = __test__;
 
-describe("formatting cache", () => {
+void describe("formatting cache", () => {
     beforeEach(() => {
         clearFormattingCacheForTests();
     });
 
-    it("evicts the oldest entries once the cache exceeds its limit", () => {
+    void it("evicts the oldest entries once the cache exceeds its limit", () => {
         const { maxEntries } = getFormattingCacheStatsForTests();
         const totalEntries = maxEntries + 3;
 
@@ -39,7 +39,7 @@ describe("formatting cache", () => {
         }
     });
 
-    it("tracks estimated cache allocation in bytes", () => {
+    void it("tracks estimated cache allocation in bytes", () => {
         const key = "format-cache-key";
         const value = "formatted-value";
 

@@ -180,6 +180,13 @@ export function createAssetRenameExecutor({
     const jsonCache = new Map();
     const pendingWrites = new Map();
     const renameActions = [];
+    // Release per-commit caches to avoid retaining large JSON blobs across
+    // multiple rename batches in long-lived editor sessions.
+    const resetCaches = () => {
+        jsonCache.clear();
+        pendingWrites.clear();
+        renameActions.length = 0;
+    };
 
     return {
         queueRename(rename) {
@@ -297,6 +304,7 @@ export function createAssetRenameExecutor({
             }));
 
             if (writeActions.length === 0 && renameActions.length === 0) {
+                resetCaches();
                 return { writes: [], renames: [] };
             }
 
@@ -322,7 +330,9 @@ export function createAssetRenameExecutor({
                 effectiveFs.renameSync(action.from, action.to);
             }
 
-            return { writes: writeActions, renames: [...renameActions] };
+            const result = { writes: writeActions, renames: [...renameActions] };
+            resetCaches();
+            return result;
         }
     };
 }

@@ -17,7 +17,7 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR = "GML_PROJECT_INDEX_CACHE_MAX
 // `docs/legacy-identifier-case-plan.md#project-index-cache-design` explains how
 // exceeding that limit risks unbounded cache growth on large projects, while
 // `docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching` calls out the
-// `gmlIdentifierCaseProjectIndexCacheMaxBytes` override for installations that
+// identifier-case project index cache max-bytes override for installations that
 // consciously trade space for determinism. Keep this baseline in sync with the
 // published guidance so operational runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB

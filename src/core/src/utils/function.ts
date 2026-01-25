@@ -128,59 +128,49 @@ export function debounce<TArgs extends Array<unknown>>(
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let pendingArgs: TArgs | null = null;
 
-    const debounced = (...args: TArgs): void => {
-        pendingArgs = args;
-
+    const clearPendingTimer = (): void => {
         if (timeoutId !== null) {
             clearTimeout(timeoutId);
+            timeoutId = null;
         }
+    };
+
+    const invokePending = (): void => {
+        const argsToUse = pendingArgs;
+        pendingArgs = null;
+
+        if (argsToUse === null) {
+            return;
+        }
+
+        try {
+            fn(...argsToUse);
+        } catch {
+            // Silently ignore errors to prevent uncaught exceptions from
+            // propagating out of the debounced execution. If the wrapped
+            // function throws, the error is swallowed to keep the debounce
+            // mechanism stable and avoid crashing the host process. Callers
+            // should handle errors inside their own function if recovery is needed.
+        }
+    };
+
+    const debounced = (...args: TArgs): void => {
+        pendingArgs = args;
+        clearPendingTimer();
 
         timeoutId = setTimeout(() => {
             timeoutId = null;
-            const argsToUse = pendingArgs;
-            pendingArgs = null;
-
-            if (argsToUse !== null) {
-                try {
-                    fn(...argsToUse);
-                } catch {
-                    // Silently ignore errors to prevent uncaught exceptions from
-                    // propagating out of the debounce timer callback. If the wrapped
-                    // function throws, the error is swallowed to keep the debounce
-                    // mechanism stable and avoid crashing the host process. Callers
-                    // should handle errors inside their own function if recovery is needed.
-                }
-            }
+            invokePending();
         }, delayMs);
     };
 
     debounced.flush = (): void => {
-        if (timeoutId !== null) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-        }
-
-        const argsToUse = pendingArgs;
-        pendingArgs = null;
-
-        if (argsToUse !== null) {
-            try {
-                fn(...argsToUse);
-            } catch {
-                // Silently ignore errors to prevent uncaught exceptions from
-                // propagating out of the flush method. If the wrapped function
-                // throws during flush, the error is swallowed to keep the debounce
-                // mechanism stable and avoid crashing the host process. Callers
-                // should handle errors inside their own function if recovery is needed.
-            }
-        }
+        clearPendingTimer();
+        invokePending();
     };
 
     debounced.cancel = (): void => {
-        if (timeoutId !== null) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-        }
+        clearPendingTimer();
         pendingArgs = null;
     };
 

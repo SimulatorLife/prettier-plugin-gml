@@ -19,8 +19,8 @@ const EXPECTED_METADATA_SIZE_BYTES = 100_000;
 // A 500 KB tolerance is reasonable given the ~1-2 MB working set of the test.
 const GC_VARIANCE_TOLERANCE_BYTES = 500_000;
 
-describe("Missing argument separator sanitizer lazy loading", () => {
-    it("should demonstrate memory footprint reduction with lazy loading", () => {
+void describe("Missing argument separator sanitizer lazy loading", () => {
+    void it("should demonstrate memory footprint reduction with lazy loading", () => {
         // Clear the cache to start fresh
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();
@@ -78,7 +78,7 @@ describe("Missing argument separator sanitizer lazy loading", () => {
         clearForbiddenCalleeIdentifiersCache();
     });
 
-    it("should load metadata only when sanitizer is called", async () => {
+    void it("should load metadata only when sanitizer is called", async () => {
         // Clear the cache to start fresh
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();
@@ -108,7 +108,7 @@ describe("Missing argument separator sanitizer lazy loading", () => {
         clearForbiddenCalleeIdentifiersCache();
     });
 
-    it("should handle empty input without loading metadata", async () => {
+    void it("should handle empty input without loading metadata", async () => {
         // Clear the cache
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();

@@ -16,12 +16,12 @@ function range(startIndex: number, startLine: number, endIndex: number, endLine:
     return { startIndex, startLine, endIndex, endLine };
 }
 
-function createStructExpression(range: Range) {
+function createStructExpression(structRange: Range) {
     return {
         type: "StructExpression",
         properties: [],
-        start: location(range.startIndex, range.startLine),
-        end: location(range.endIndex, range.endLine)
+        start: location(structRange.startIndex, structRange.startLine),
+        end: location(structRange.endIndex, structRange.endLine)
     };
 }
 

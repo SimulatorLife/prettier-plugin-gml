@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 import { SemanticQueryCache } from "../src/semantic-cache.js";
 import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "../src/types.js";
 
-describe("SemanticQueryCache", () => {
-    describe("getSymbolOccurrences", () => {
-        it("caches symbol occurrence queries", async () => {
+void describe("SemanticQueryCache", () => {
+    void describe("getSymbolOccurrences", () => {
+        void it("caches symbol occurrence queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
@@ -24,7 +24,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result1, result2, "Cached result should match first result");
         });
 
-        it("returns different results for different symbols", async () => {
+        void it("returns different results for different symbols", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async (name: string) => {
                     if (name === "player_hp") {
@@ -42,7 +42,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(result2[0].path, "enemy.gml");
         });
 
-        it("bypasses cache when disabled", async () => {
+        void it("bypasses cache when disabled", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => {
@@ -58,7 +58,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(callCount, 2, "Cache should be bypassed");
         });
 
-        it("returns empty array when semantic analyzer lacks method", async () => {
+        void it("returns empty array when semantic analyzer lacks method", async () => {
             const semantic: PartialSemanticAnalyzer = {};
             const cache = new SemanticQueryCache(semantic);
             const result = await cache.getSymbolOccurrences("test");
@@ -66,7 +66,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result, []);
         });
 
-        it("respects TTL expiration", async () => {
+        void it("respects TTL expiration", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => {
@@ -87,8 +87,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("getFileSymbols", () => {
-        it("caches file symbol queries", async () => {
+    void describe("getFileSymbols", () => {
+        void it("caches file symbol queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
@@ -106,7 +106,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result1, result2);
         });
 
-        it("handles null results from semantic analyzer", async () => {
+        void it("handles null results from semantic analyzer", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getFileSymbols: async () => null as unknown as Array<FileSymbol>
             };
@@ -117,7 +117,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result, []);
         });
 
-        it("returns empty array when semantic analyzer lacks method", async () => {
+        void it("returns empty array when semantic analyzer lacks method", async () => {
             const semantic: PartialSemanticAnalyzer = {};
             const cache = new SemanticQueryCache(semantic);
             const result = await cache.getFileSymbols("test.gml");
@@ -126,8 +126,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("getDependents", () => {
-        it("caches dependent symbol queries", async () => {
+    void describe("getDependents", () => {
+        void it("caches dependent symbol queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
@@ -145,7 +145,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result1, result2);
         });
 
-        it("normalizes symbol ID order for cache key", async () => {
+        void it("normalizes symbol ID order for cache key", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 getDependents: async () => {
@@ -161,7 +161,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(callCount, 1, "Order-independent cache key should match");
         });
 
-        it("returns empty array for empty input", async () => {
+        void it("returns empty array for empty input", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getDependents: async () => {
                     throw new Error("Should not be called");
@@ -174,7 +174,7 @@ describe("SemanticQueryCache", () => {
             assert.deepEqual(result, []);
         });
 
-        it("handles null results from semantic analyzer", async () => {
+        void it("handles null results from semantic analyzer", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getDependents: async () => null as unknown as Array<DependentSymbol>
             };
@@ -186,8 +186,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("hasSymbol", () => {
-        it("caches symbol existence queries", async () => {
+    void describe("hasSymbol", () => {
+        void it("caches symbol existence queries", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter required by interface
@@ -205,7 +205,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(result1, result2);
         });
 
-        it("returns true when semantic analyzer lacks method", async () => {
+        void it("returns true when semantic analyzer lacks method", async () => {
             const semantic: PartialSemanticAnalyzer = {};
             const cache = new SemanticQueryCache(semantic);
             const result = await cache.hasSymbol("test");
@@ -214,8 +214,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("invalidation", () => {
-        it("invalidateAll clears all caches", async () => {
+    void describe("invalidation", () => {
+        void it("invalidateAll clears all caches", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => {
@@ -232,7 +232,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(callCount, 2, "Invalidation should force new query");
         });
 
-        it("invalidateFile clears file-specific cache", async () => {
+        void it("invalidateFile clears file-specific cache", async () => {
             let fileCallCount = 0;
             let occCallCount = 0;
             const semantic: PartialSemanticAnalyzer = {
@@ -260,7 +260,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(occCallCount, 2, "Occurrences referencing the file should be re-queried");
         });
 
-        it("invalidateFile does not clear unrelated occurrences", async () => {
+        void it("invalidateFile does not clear unrelated occurrences", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => {
@@ -278,8 +278,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("statistics", () => {
-        it("tracks cache hits and misses", async () => {
+    void describe("statistics", () => {
+        void it("tracks cache hits and misses", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => []
             };
@@ -294,7 +294,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(stats.misses, 2, "Two cache misses");
         });
 
-        it("tracks evictions when cache is full", async () => {
+        void it("tracks evictions when cache is full", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => []
             };
@@ -308,7 +308,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(stats.evictions, 1, "One entry should be evicted");
         });
 
-        it("reports total cache size across all cache types", async () => {
+        void it("reports total cache size across all cache types", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => [],
                 getFileSymbols: async () => [],
@@ -324,7 +324,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(stats.size, 3, "Size should include all cache types");
         });
 
-        it("resetStats clears statistics", async () => {
+        void it("resetStats clears statistics", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => []
             };
@@ -341,8 +341,8 @@ describe("SemanticQueryCache", () => {
         });
     });
 
-    describe("configuration", () => {
-        it("respects maxSize limit", async () => {
+    void describe("configuration", () => {
+        void it("respects maxSize limit", async () => {
             const semantic: PartialSemanticAnalyzer = {
                 getSymbolOccurrences: async () => []
             };
@@ -356,7 +356,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(stats.size, 2, "Cache should not exceed maxSize");
         });
 
-        it("uses default configuration values", () => {
+        void it("uses default configuration values", () => {
             const semantic: PartialSemanticAnalyzer = {};
             const cache = new SemanticQueryCache(semantic);
 
@@ -366,7 +366,7 @@ describe("SemanticQueryCache", () => {
             assert.equal(stats.evictions, 0);
         });
 
-        it("works with null semantic analyzer", async () => {
+        void it("works with null semantic analyzer", async () => {
             const cache = new SemanticQueryCache(null);
             const occurrences = await cache.getSymbolOccurrences("test");
             const fileSymbols = await cache.getFileSymbols("test.gml");

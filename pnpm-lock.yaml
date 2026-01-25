@@ -217,6 +217,9 @@ importers:
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser
+      '@gml-modules/plugin':
+        specifier: workspace:*
+        version: link:../plugin
 
   src/transpiler:
     dependencies:

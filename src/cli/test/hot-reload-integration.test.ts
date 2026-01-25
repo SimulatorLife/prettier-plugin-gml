@@ -58,27 +58,34 @@ void describe("Hot reload integration loop", () => {
             abortSignal: abortController.signal
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-            onParseError: (error) => {
-                console.error("Failed to parse patch:", error);
-            }
-        });
-
-        websocketContextPromise = contextPromise;
-        const context = await contextPromise;
-
-        await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
-
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        abortController.abort();
+        let context: WebSocketPatchStream | null = null;
 
         try {
-            await watchPromise;
-        } catch {
-            // Expected when aborting
+            const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                connectionTimeoutMs: 1200,
+                retryIntervalMs: 25,
+                onParseError: (error) => {
+                    console.error("Failed to parse patch:", error);
+                }
+            });
+
+            websocketContextPromise = contextPromise;
+            context = await contextPromise;
+
+            await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
+            await context.waitForPatches({ timeoutMs: 1500 });
+        } finally {
+            abortController.abort();
+
+            if (context) {
+                await context.disconnect();
+            }
+
+            try {
+                await watchPromise;
+            } catch {
+                // Expected when aborting
+            }
         }
 
         assert.ok(context, "WebSocket client should be connected");

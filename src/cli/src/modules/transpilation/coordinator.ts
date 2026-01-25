@@ -65,6 +65,22 @@ function resolveRuntimeId(filePath: string): string | null {
 /**
  * Classifies a transpilation error and extracts metadata for better error reporting.
  */
+function resolveSyntaxRecoveryHint(message: string): string | undefined {
+    if (message.includes("missing associated closing brace")) {
+        return "Add a closing brace '}' to match the opening brace.";
+    }
+    if (message.includes("unexpected end of file")) {
+        return "Check for unclosed blocks, parentheses, or brackets.";
+    }
+    if (message.includes("unexpected symbol")) {
+        return "Review the syntax at the indicated position. Check for typos or missing operators.";
+    }
+    if (message.includes("function parameters")) {
+        return "Function parameters must be valid identifiers separated by commas.";
+    }
+    return undefined;
+}
+
 function classifyTranspilationError(error: unknown): {
     category: ErrorCategory;
     message: string;
@@ -82,17 +98,7 @@ function classifyTranspilationError(error: unknown): {
         const syntaxError = targetError;
         const line = syntaxError.line;
         const column = syntaxError.column;
-
-        let recoveryHint: string | undefined;
-        if (syntaxError.message.includes("missing associated closing brace")) {
-            recoveryHint = "Add a closing brace '}' to match the opening brace.";
-        } else if (syntaxError.message.includes("unexpected end of file")) {
-            recoveryHint = "Check for unclosed blocks, parentheses, or brackets.";
-        } else if (syntaxError.message.includes("unexpected symbol")) {
-            recoveryHint = "Review the syntax at the indicated position. Check for typos or missing operators.";
-        } else if (syntaxError.message.includes("function parameters")) {
-            recoveryHint = "Function parameters must be valid identifiers separated by commas.";
-        }
+        const recoveryHint = resolveSyntaxRecoveryHint(syntaxError.message);
 
         return {
             category: "syntax",
@@ -142,14 +148,7 @@ function classifyTranspilationError(error: unknown): {
         };
     }
 
-    let errorString: string;
-    if (Core.isErrorLike(error) && error.message) {
-        errorString = error.message;
-    } else if (error instanceof Error) {
-        errorString = error.toString();
-    } else {
-        errorString = "Unknown error";
-    }
+    const errorString = error instanceof Error ? error.toString() : "Unknown error";
 
     return {
         category: "unknown",
@@ -176,6 +175,7 @@ export interface TranspilationContext {
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
+    totalPatchCount: number;
     websocketServer: PatchBroadcaster | null;
     scriptNames?: Set<string>;
 }
@@ -342,6 +342,7 @@ export function transpileFile(
         }
 
         addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
+        context.totalPatchCount += 1;
 
         const broadcastResult = context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {

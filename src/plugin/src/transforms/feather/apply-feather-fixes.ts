@@ -86,7 +86,7 @@ type ApplyFeatherFixesOptions = {
 };
 
 export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
-    ";(?=[^\\S\\r\\n]*(?:\\/\\*[\\s\\S]*?\\*\/[^\\S\\r\\n]*)*(?:\\/\\/[^\\r\\n]*)?(?:\\r?\\n|$))"
+    String.raw`;(?=[^\S\r\n]*(?:/\*[\s\S]*?\*/[^\S\r\n]*)*(?://[^\r\n]*)?(?:\r?\n|$))`
 );
 const DATA_STRUCTURE_ACCESSOR_TOKENS = ["?", "|", "#", "@", "$", "%"];
 const ALLOWED_DELETE_MEMBER_TYPES = new Set(["MemberDotExpression", "MemberIndexExpression"]);
@@ -118,6 +118,7 @@ const STRING_LENGTH_CALL_BLOCKLIST = new Set([
     "string_width",
     "string_width_ext"
 ]);
+const emptyFeatherFixer = () => [];
 
 export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
     NEXT: "next",
@@ -746,7 +747,7 @@ function createNoOpFixer() {
     // corresponding fixer implementation ships we deliberately fall back to this
     // inert function so diagnostics reach the caller while the AST remains
     // untouched.
-    return () => [];
+    return emptyFeatherFixer;
 }
 
 function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
@@ -863,49 +864,50 @@ type FeatherFixFactory = () => (context: any) => any;
 
 type FeatherFixBuilder = (diagnostic: any) => FeatherFixFactory;
 
+function createFeatherFixFactory(fixer: (context: any) => any): FeatherFixFactory {
+    return () => fixer;
+}
+
 const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1000",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = removeBreakStatementsWithoutEnclosingLoops({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1002",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = splitGlobalVarInlineInitializers({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1003",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = sanitizeEnumAssignments({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1005",
-        (diagnostic) => () => {
+        (diagnostic) => {
             const callTemplate = createFunctionCallTemplateFromDiagnostic(diagnostic);
 
-            return ({ ast }) => {
+            return createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureRequiredArgumentProvided({
                     ast,
                     diagnostic,
@@ -913,14 +915,13 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            };
+            });
         }
     ],
     [
         "GM1004",
         (diagnostic) =>
-            () =>
-            ({ ast, sourceText }) => {
+            createFeatherFixFactory(({ ast, sourceText }) => {
                 const fixes = removeDuplicateEnumMembers({
                     ast,
                     diagnostic,
@@ -928,13 +929,12 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1007",
         (diagnostic) =>
-            () =>
-            ({ ast, sourceText }) => {
+            createFeatherFixFactory(({ ast, sourceText }) => {
                 const fixes = flagInvalidAssignmentTargets({
                     ast,
                     sourceText,
@@ -942,23 +942,21 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2000",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureBlendModeIsReset({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2003",
         (diagnostic) =>
-            () =>
-            ({ ast, sourceText }) => {
+            createFeatherFixFactory(({ ast, sourceText }) => {
                 const fixes = ensureShaderResetIsCalled({
                     ast,
                     diagnostic,
@@ -966,23 +964,21 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2004",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2007",
         (diagnostic) =>
-            () =>
-            ({ ast, sourceText }) => {
+            createFeatherFixFactory(({ ast, sourceText }) => {
                 const fixes = ensureVarDeclarationsAreTerminated({
                     ast,
                     sourceText,
@@ -990,75 +986,69 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2008",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = closeOpenVertexBatches({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1008",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1010",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureNumericOperationsUseRealLiteralCoercion({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1013",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = resolveWithOtherVariableReferences({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2012",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2040",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
                     // Once the identifier-case project index can expose event
                     // ancestry we should query it here instead of trusting the
@@ -1075,111 +1065,102 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2030",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2015",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureVertexFormatDefinitionsAreClosed({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2028",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensurePrimitiveBeginPrecedesEnd({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2025",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1063",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2005",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureSurfaceTargetResetForGM2005({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM1064",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = removeRedeclaredGlobalFunctions({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2011",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2009",
         (diagnostic) =>
-            () =>
-            ({ ast, options }) => {
+            createFeatherFixFactory(({ ast, options }) => {
                 const fixes = ensureVertexBeginPrecedesEnd({
                     ast,
                     diagnostic,
@@ -1187,40 +1168,37 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2043",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2033",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ],
     [
         "GM2050",
         (diagnostic) =>
-            () =>
-            ({ ast }) => {
+            createFeatherFixFactory(({ ast }) => {
                 const fixes = ensureFogIsReset({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
+            })
     ]
 ]);
 
@@ -1267,8 +1245,10 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1017") {
-            registerFeatherFixer(registry, diagnosticId, () => {
-                return ({ ast, sourceText }) => {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                createFeatherFixFactory(({ ast, sourceText }) => {
                     const fixes = captureDeprecatedFunctionManualFixes({
                         ast,
                         sourceText,
@@ -1279,8 +1259,8 @@ function buildFeatherFixImplementations(diagnostics) {
                         ast,
                         diagnostic
                     });
-                };
-            });
+                })
+            );
             continue;
         }
 
@@ -1295,18 +1275,22 @@ function registerAutomaticFeatherFix({ registry, diagnostic, handler }) {
         return;
     }
 
-    registerFeatherFixer(registry, diagnostic.id, () => (context: any = {}) => {
-        const fixes = handler({ ...context, diagnostic });
+    registerFeatherFixer(
+        registry,
+        diagnostic.id,
+        createFeatherFixFactory((context: any = {}) => {
+            const fixes = handler({ ...context, diagnostic });
 
-        // Preserve sourceText when resolving automatic fixes so that
-        // registerManualFeatherFix can attempt to compute concrete fix
-        // details (e.g. ranges for GM1033) when falling back.
-        return resolveAutomaticFixes(fixes, {
-            ast: context.ast,
-            diagnostic,
-            sourceText: context.sourceText
-        });
-    });
+            // Preserve sourceText when resolving automatic fixes so that
+            // registerManualFeatherFix can attempt to compute concrete fix
+            // details (e.g. ranges for GM1033) when falling back.
+            return resolveAutomaticFixes(fixes, {
+                ast: context.ast,
+                diagnostic,
+                sourceText: context.sourceText
+            });
+        })
+    );
 }
 
 function registerManualOnlyFeatherFix({ registry, diagnostic }) {
@@ -1317,12 +1301,13 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
     registerFeatherFixer(
         registry,
         diagnostic.id,
-        () => (context: any) =>
+        createFeatherFixFactory((context: any) =>
             registerManualFeatherFix({
                 ast: context.ast,
                 diagnostic,
                 sourceText: context.sourceText
             })
+        )
     );
 }
 
@@ -8942,37 +8927,6 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
     const fixes = [];
     const ancestors = [];
 
-    const processStatementArray = (
-        statements: Array<any>,
-        diagnostic: any,
-        ancestors: Array<any>,
-        fixes: Array<any>,
-        visitFn: (node: any, parent: any, property: any) => void
-    ) => {
-        let index = 0;
-
-        while (index < statements.length) {
-            const statement = statements[index];
-
-            if (isDrawPrimitiveEndCall(statement)) {
-                const fix = ensurePrimitiveBeginBeforeEnd({
-                    statements,
-                    index,
-                    endCall: statement,
-                    diagnostic,
-                    ancestors
-                });
-
-                if (fix) {
-                    fixes.push(fix);
-                }
-            }
-
-            visitFn(statements[index], statements, index);
-            index += 1;
-        }
-    };
-
     const visit = (node, parent, property) => {
         if (!node) {
             return;
@@ -8983,7 +8937,7 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
 
         if (Array.isArray(node)) {
             if (isStatementArray(entry)) {
-                processStatementArray(node, diagnostic, ancestors, fixes, visit);
+                processPrimitiveBeginStatementArray(node, diagnostic, ancestors, fixes, visit);
                 ancestors.pop();
                 return;
             }
@@ -9013,6 +8967,37 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function processPrimitiveBeginStatementArray(
+    statements: Array<any>,
+    diagnostic: any,
+    ancestors: Array<any>,
+    fixes: Array<any>,
+    visitFn: (node: any, parent: any, property: any) => void
+): void {
+    let index = 0;
+
+    while (index < statements.length) {
+        const statement = statements[index];
+
+        if (isDrawPrimitiveEndCall(statement)) {
+            const fix = ensurePrimitiveBeginBeforeEnd({
+                statements,
+                index,
+                endCall: statement,
+                diagnostic,
+                ancestors
+            });
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        visitFn(statements[index], statements, index);
+        index += 1;
+    }
 }
 
 function ensurePrimitiveBeginBeforeEnd({ statements, index, endCall, diagnostic, ancestors }) {
@@ -12436,6 +12421,200 @@ function extractAccessorFromExample(example) {
     return null;
 }
 
+function getBranchStatements(parent, key) {
+    if (!parent || typeof parent !== "object" || !key) {
+        return null;
+    }
+
+    let target = parent[key];
+
+    if (!target) {
+        return null;
+    }
+
+    if (target.type !== "BlockStatement") {
+        target = ensureBlockStatement(parent, key, target);
+    }
+
+    if (!target || target.type !== "BlockStatement") {
+        return null;
+    }
+
+    return Core.getBodyStatements(target);
+}
+
+function getFileFindFirstCallFromStatement(statement) {
+    if (!statement || typeof statement !== "object") {
+        return null;
+    }
+
+    switch (statement.type) {
+        case "CallExpression": {
+            return Core.isIdentifierWithName(statement.object, "file_find_first") ? statement : null;
+        }
+        case "AssignmentExpression": {
+            return getFileFindFirstCallFromExpression(statement.right);
+        }
+        case "VariableDeclaration": {
+            const declarations = Core.asArray<any>(statement.declarations);
+
+            for (const declarator of declarations) {
+                const call = getFileFindFirstCallFromExpression(declarator?.init);
+                if (call) {
+                    return call;
+                }
+            }
+            return null;
+        }
+        case "ReturnStatement":
+        case "ThrowStatement": {
+            return getFileFindFirstCallFromExpression(statement.argument);
+        }
+        case "ExpressionStatement": {
+            return getFileFindFirstCallFromExpression(statement.expression);
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
+function getFileFindFirstCallFromExpression(expression) {
+    if (!expression || typeof expression !== "object") {
+        return null;
+    }
+
+    if (expression.type === "CallExpression") {
+        return Core.isIdentifierWithName(expression.object, "file_find_first") ? expression : null;
+    }
+
+    if (expression.type === "ParenthesizedExpression") {
+        return getFileFindFirstCallFromExpression(expression.expression);
+    }
+
+    if (expression.type === "AssignmentExpression") {
+        return getFileFindFirstCallFromExpression(expression.right);
+    }
+
+    if (expression.type === "SequenceExpression") {
+        const expressions = Core.asArray(expression.expressions);
+
+        for (const item of expressions) {
+            const call = getFileFindFirstCallFromExpression(item);
+            if (call) {
+                return call;
+            }
+        }
+    }
+
+    if (expression.type === "BinaryExpression" || expression.type === "LogicalExpression") {
+        const leftCall = getFileFindFirstCallFromExpression(expression.left);
+        if (leftCall) {
+            return leftCall;
+        }
+
+        return getFileFindFirstCallFromExpression(expression.right);
+    }
+
+    if (expression.type === "ConditionalExpression" || expression.type === "TernaryExpression") {
+        const consequentCall = getFileFindFirstCallFromExpression(expression.consequent);
+        if (consequentCall) {
+            return consequentCall;
+        }
+
+        return getFileFindFirstCallFromExpression(expression.alternate);
+    }
+
+    return null;
+}
+
+function isFileFindCloseStatement(statement) {
+    if (!statement || typeof statement !== "object") {
+        return false;
+    }
+
+    if (statement.type === "CallExpression") {
+        return Core.isIdentifierWithName(statement.object, "file_find_close");
+    }
+
+    if (statement.type === "ExpressionStatement") {
+        return isFileFindCloseStatement(statement.expression);
+    }
+
+    if (statement.type === "ReturnStatement" || statement.type === "ThrowStatement") {
+        return isFileFindCloseStatement(statement.argument);
+    }
+
+    return false;
+}
+
+function getProgramStatements(node) {
+    if (!Core.isNode(node)) {
+        return [];
+    }
+
+    if (Array.isArray(node.body)) {
+        return node.body;
+    }
+
+    return Core.getBodyStatements(node);
+}
+
+function createFileFindState() {
+    return {
+        openCount: 0
+    };
+}
+
+function cloneFileFindState(existing) {
+    if (!existing || typeof existing !== "object") {
+        return createFileFindState();
+    }
+
+    return {
+        openCount: existing.openCount ?? 0
+    };
+}
+
+function createFileFindCloseCall(template) {
+    const identifier = Core.createIdentifierNode("file_find_close", template?.object ?? template);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    Core.assignClonedLocation(callExpression, template);
+
+    return callExpression;
+}
+
+function ensureBlockStatement(parent, key, statement) {
+    if (!parent || typeof parent !== "object" || !key) {
+        return null;
+    }
+
+    if (!statement || typeof statement !== "object") {
+        return null;
+    }
+
+    const block = {
+        type: "BlockStatement",
+        body: [statement]
+    };
+
+    Core.assignClonedLocation(block, statement);
+
+    parent[key] = block;
+
+    return block;
+}
+
 function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -12556,28 +12735,6 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         processStatementBlock(statements, branchState);
     }
 
-    function getBranchStatements(parent, key) {
-        if (!parent || typeof parent !== "object" || !key) {
-            return null;
-        }
-
-        let target = parent[key];
-
-        if (!target) {
-            return null;
-        }
-
-        if (target.type !== "BlockStatement") {
-            target = ensureBlockStatement(parent, key, target);
-        }
-
-        if (!target || target.type !== "BlockStatement") {
-            return null;
-        }
-
-        return Core.getBodyStatements(target);
-    }
-
     function insertFileFindCloseBefore(statements, index, callNode) {
         if (!Array.isArray(statements) || typeof index !== "number") {
             return null;
@@ -12608,178 +12765,6 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             fixDetail,
             insertedBefore: 1
         };
-    }
-
-    function getFileFindFirstCallFromStatement(statement) {
-        if (!statement || typeof statement !== "object") {
-            return null;
-        }
-
-        switch (statement.type) {
-            case "CallExpression": {
-                return Core.isIdentifierWithName(statement.object, "file_find_first") ? statement : null;
-            }
-            case "AssignmentExpression": {
-                return getFileFindFirstCallFromExpression(statement.right);
-            }
-            case "VariableDeclaration": {
-                const declarations = Core.asArray<any>(statement.declarations);
-
-                for (const declarator of declarations) {
-                    const call = getFileFindFirstCallFromExpression(declarator?.init);
-                    if (call) {
-                        return call;
-                    }
-                }
-                return null;
-            }
-            case "ReturnStatement":
-            case "ThrowStatement": {
-                return getFileFindFirstCallFromExpression(statement.argument);
-            }
-            case "ExpressionStatement": {
-                return getFileFindFirstCallFromExpression(statement.expression);
-            }
-            default: {
-                return null;
-            }
-        }
-    }
-
-    function getFileFindFirstCallFromExpression(expression) {
-        if (!expression || typeof expression !== "object") {
-            return null;
-        }
-
-        if (expression.type === "CallExpression") {
-            return Core.isIdentifierWithName(expression.object, "file_find_first") ? expression : null;
-        }
-
-        if (expression.type === "ParenthesizedExpression") {
-            return getFileFindFirstCallFromExpression(expression.expression);
-        }
-
-        if (expression.type === "AssignmentExpression") {
-            return getFileFindFirstCallFromExpression(expression.right);
-        }
-
-        if (expression.type === "SequenceExpression") {
-            const expressions = Core.asArray(expression.expressions);
-
-            for (const item of expressions) {
-                const call = getFileFindFirstCallFromExpression(item);
-                if (call) {
-                    return call;
-                }
-            }
-        }
-
-        if (expression.type === "BinaryExpression" || expression.type === "LogicalExpression") {
-            const leftCall = getFileFindFirstCallFromExpression(expression.left);
-            if (leftCall) {
-                return leftCall;
-            }
-
-            return getFileFindFirstCallFromExpression(expression.right);
-        }
-
-        if (expression.type === "ConditionalExpression" || expression.type === "TernaryExpression") {
-            const consequentCall = getFileFindFirstCallFromExpression(expression.consequent);
-            if (consequentCall) {
-                return consequentCall;
-            }
-
-            return getFileFindFirstCallFromExpression(expression.alternate);
-        }
-
-        return null;
-    }
-
-    function isFileFindCloseStatement(statement) {
-        if (!statement || typeof statement !== "object") {
-            return false;
-        }
-
-        if (statement.type === "CallExpression") {
-            return Core.isIdentifierWithName(statement.object, "file_find_close");
-        }
-
-        if (statement.type === "ExpressionStatement") {
-            return isFileFindCloseStatement(statement.expression);
-        }
-
-        if (statement.type === "ReturnStatement" || statement.type === "ThrowStatement") {
-            return isFileFindCloseStatement(statement.argument);
-        }
-
-        return false;
-    }
-
-    function getProgramStatements(node) {
-        if (!Core.isNode(node)) {
-            return [];
-        }
-
-        if (Array.isArray(node.body)) {
-            return node.body;
-        }
-
-        return Core.getBodyStatements(node);
-    }
-
-    function createFileFindState() {
-        return {
-            openCount: 0
-        };
-    }
-
-    function cloneFileFindState(existing) {
-        if (!existing || typeof existing !== "object") {
-            return createFileFindState();
-        }
-
-        return {
-            openCount: existing.openCount ?? 0
-        };
-    }
-
-    function createFileFindCloseCall(template) {
-        const identifier = Core.createIdentifierNode("file_find_close", template?.object ?? template);
-
-        if (!identifier) {
-            return null;
-        }
-
-        const callExpression = {
-            type: "CallExpression",
-            object: identifier,
-            arguments: []
-        };
-
-        Core.assignClonedLocation(callExpression, template);
-
-        return callExpression;
-    }
-
-    function ensureBlockStatement(parent, key, statement) {
-        if (!parent || typeof parent !== "object" || !key) {
-            return null;
-        }
-
-        if (!statement || typeof statement !== "object") {
-            return null;
-        }
-
-        const block = {
-            type: "BlockStatement",
-            body: [statement]
-        };
-
-        Core.assignClonedLocation(block, statement);
-
-        parent[key] = block;
-
-        return block;
     }
 }
 
