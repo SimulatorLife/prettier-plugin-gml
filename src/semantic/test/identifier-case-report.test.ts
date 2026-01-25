@@ -4,13 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import * as Plugin from "@gml-modules/plugin";
-
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
+import { getPlugin } from "./plugin-loader.js";
 
 function createSampleRenamePlan() {
     return {
@@ -92,7 +91,9 @@ async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagn
         diagnostics
     });
 
-    return Plugin.Plugin.format(source, {
+    const Plugin = await getPlugin();
+
+    return Plugin.format(source, {
         filepath,
         diagnostics,
         logger
