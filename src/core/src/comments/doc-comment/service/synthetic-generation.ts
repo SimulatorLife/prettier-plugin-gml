@@ -1,3 +1,5 @@
+
+
 import { asArray, compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
@@ -8,7 +10,7 @@ import {
     preservedUndefinedDefaultParameters,
     synthesizedUndefinedDefaultParameters
 } from "./params.js";
-import {
+import type {
     collectImplicitArgumentDocNames,
     gatherImplicitArgumentReferences,
     getArgumentIndexFromIdentifier,
@@ -19,8 +21,7 @@ import {
     preferredParamDocNamesByNode,
     shouldOmitUndefinedDefaultForFunctionNode,
     suppressedImplicitDocCanonicalByNode,
-    SyntheticDocGenerationOptions
-} from "./synthetic-helpers.js";
+    SyntheticDocGenerationOptions} from "./synthetic-helpers.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 
 const STRING_TYPE = "string";

@@ -13,7 +13,7 @@ function getPluginDistUrl(): string {
 }
 
 export async function getPlugin(): Promise<PluginModule["Plugin"]> {
-    if (!cachedPluginModule) {
+    if (cachedPluginModule === null) {
         cachedPluginModule = import(getPluginDistUrl()) as Promise<PluginModule>;
     }
 

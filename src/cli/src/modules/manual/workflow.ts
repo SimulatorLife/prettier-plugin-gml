@@ -1,12 +1,18 @@
+
+
 import { Core } from "@gml-modules/core";
 
-import {
+import type {
     createWorkflowPathFilter,
     ensureManualWorkflowArtifactsAllowed,
     WorkflowPathFilter,
-    WorkflowPathFilterOptions
-} from "../../workflow/index.js";
-import { describeManualSource, ManualSourceDescriptor, ManualSourceResolver, resolveManualSource } from "./source.js";
+    WorkflowPathFilterOptions} from "../../workflow/index.js";
+import type {
+    describeManualSource,
+    ManualSourceDescriptor,
+    ManualSourceResolver,
+    resolveManualSource
+} from "./source.js";
 
 const DEFAULT_MESSAGE_FORMATTER = ({ manualSourceDescription }) =>
     `Using manual assets from ${manualSourceDescription}.`;

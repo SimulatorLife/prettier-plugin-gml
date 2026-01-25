@@ -8,7 +8,7 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { runSequentially } from "../cli-core/sequential-runner.js";
 import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
-import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
+import type { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";

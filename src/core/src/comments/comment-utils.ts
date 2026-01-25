@@ -177,11 +177,13 @@ export type DocCommentLines = ReadonlyArray<string> & {
     // remove the flags in a follow-up change.
     _preserveDescriptionBreaks?: boolean;
     _suppressLeadingBlank?: boolean;
+    _blockCommentDocs?: boolean;
 };
 
 export type MutableDocCommentLines = Array<string> & {
     _preserveDescriptionBreaks?: boolean;
     _suppressLeadingBlank?: boolean;
+    _blockCommentDocs?: boolean;
 };
 
 /**
