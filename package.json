@@ -49,7 +49,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules src/cli/dist src/core/dist src/parser/dist src/plugin/dist src/refactor/dist src/runtime-wrapper/dist src/semantic/dist src/transpiler/dist .eslintcache reports tmp node_debug.log eslint-suppressions.json",
+    "clean": "rm -rf node_modules src/runtime-wrapper/node_modules src/refactor/node_modules src/transpiler/node_modules src/semantic/node_modules src/plugin/node_modules src/parser/node_modules src/cli/node_modules .pnpm-store .eslintcache reports tmp node_debug.log eslint-suppressions.json && pnpm -r run clean:types && pnpm run clean:src-js",
     "clean:src-js:preview": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\)",
     "clean:src-js": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\) -delete",
     "clean:generated": "rm -rf src/parser/generated",
