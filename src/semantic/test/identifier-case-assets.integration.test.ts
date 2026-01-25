@@ -4,7 +4,6 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
-import * as Plugin from "@gml-modules/plugin";
 
 import {
     clearIdentifierCaseDryRunContexts,
@@ -17,6 +16,7 @@ import {
     createAssetRenameProject,
     createTempProjectWorkspace
 } from "./identifier-case-asset-helpers.js";
+import { getPlugin } from "./plugin-loader.js";
 // Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
 async function createAssetReservedProject() {
@@ -90,7 +90,8 @@ void describe("asset rename execution", () => {
                 diagnostics
             };
 
-            await Plugin.Plugin.format(scriptSource, formatOptions);
+            const Plugin = await getPlugin();
+            await Plugin.format(scriptSource, formatOptions);
 
             assert.strictEqual(diagnostics.length, 0);
 
