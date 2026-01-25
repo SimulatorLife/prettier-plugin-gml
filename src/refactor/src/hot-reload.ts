@@ -31,7 +31,7 @@ import {
     extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { WorkspaceEdit } from "./workspace-edit.js";
+import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * Prepare hot reload updates from a workspace edit.

@@ -23,7 +23,7 @@ import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
-    ImplicitArgumentDocEntry,
+    type ImplicitArgumentDocEntry,
     preferredParamDocNamesByNode,
     suppressedImplicitDocCanonicalByNode
 } from "./synthetic-helpers.js";

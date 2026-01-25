@@ -15,11 +15,11 @@ import {
     getIdentifierFromParameterNode,
     getParameterDocInfo,
     getSourceTextForNode,
-    ImplicitArgumentDocEntry,
+    type ImplicitArgumentDocEntry,
     preferredParamDocNamesByNode,
     shouldOmitUndefinedDefaultForFunctionNode,
     suppressedImplicitDocCanonicalByNode,
-    SyntheticDocGenerationOptions
+    type SyntheticDocGenerationOptions
 } from "./synthetic-helpers.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 

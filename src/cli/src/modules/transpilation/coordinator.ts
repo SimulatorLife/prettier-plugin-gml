@@ -10,7 +10,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import type { Transpiler } from "@gml-modules/transpiler";
 
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";

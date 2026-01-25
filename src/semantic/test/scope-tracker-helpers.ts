@@ -1,4 +1,4 @@
-import ScopeTracker from "../src/scopes/scope-tracker.js";
+import type ScopeTracker from "../src/scopes/scope-tracker.js";
 
 export type SourceLocation = {
     line: number;
