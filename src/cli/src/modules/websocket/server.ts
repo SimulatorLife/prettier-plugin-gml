@@ -7,7 +7,7 @@
  */
 
 import { Core } from "@gml-modules/core";
-import type { WebSocket, WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 

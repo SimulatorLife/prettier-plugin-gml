@@ -182,8 +182,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     }
 
     const preserveLeadingBlank = isDocCommentLines(docLines) && docLines._suppressLeadingBlank === true;
-    const preserveDescriptionBreaks =
-        isDocCommentLines(docLines) && docLines._preserveDescriptionBreaks === true;
+    const preserveDescriptionBreaks = isDocCommentLines(docLines) && docLines._preserveDescriptionBreaks === true;
     const preserveBlockCommentDocs = isDocCommentLines(docLines) && docLines._blockCommentDocs === true;
 
     const convertedReturns: string[] = [];
@@ -475,7 +474,6 @@ export function promoteLeadingDocCommentTextToDescription(
     if (hasContinuationSegments) {
         result._preserveDescriptionBreaks = true;
     }
-
 
     // Copy doc comment flags from normalizedLines to result
     copyDocCommentFlags(normalizedLines, result);

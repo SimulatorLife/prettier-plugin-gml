@@ -1,16 +1,15 @@
-
-
 import { Core } from "@gml-modules/core";
 
-import type {
+import {
     createWorkflowPathFilter,
     ensureManualWorkflowArtifactsAllowed,
-    WorkflowPathFilter,
-    WorkflowPathFilterOptions} from "../../workflow/index.js";
-import type {
+    type WorkflowPathFilter,
+    type WorkflowPathFilterOptions
+} from "../../workflow/index.js";
+import {
     describeManualSource,
-    ManualSourceDescriptor,
-    ManualSourceResolver,
+    type ManualSourceDescriptor,
+    type ManualSourceResolver,
     resolveManualSource
 } from "./source.js";
 
