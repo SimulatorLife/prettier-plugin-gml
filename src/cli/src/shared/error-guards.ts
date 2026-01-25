@@ -1,7 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const { isErrorLike, isErrorWithCode, isObjectLike } = Core;
-
 export interface ErrorLikeDetails {
     name?: string;
     message?: string;
@@ -16,7 +14,7 @@ export interface ErrorWithCodeDetails<TCode> extends ErrorLikeDetails {
 }
 
 export function asErrorLike(error: unknown): ErrorLikeDetails | null {
-    if (!isErrorLike(error) || !isObjectLike(error)) {
+    if (!Core.isErrorLike(error) || !Core.isObjectLike(error)) {
         return null;
     }
 
@@ -27,7 +25,7 @@ export function asErrorWithCode<TCode extends string>(
     error: unknown,
     code?: TCode
 ): ErrorWithCodeDetails<TCode> | null {
-    if (!isErrorWithCode(error, code) || !isObjectLike(error)) {
+    if (!Core.isErrorWithCode(error, code) || !Core.isObjectLike(error)) {
         return null;
     }
 

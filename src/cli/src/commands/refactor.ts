@@ -13,9 +13,8 @@ import process from "node:process";
 import { Core } from "@gml-modules/core";
 import { Command, Option } from "commander";
 
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { formatCliError } from "../cli-core/errors.js";
-
-const { getErrorMessage } = Core;
 
 interface RefactorCommandOptions {
     symbolId?: string;
@@ -25,6 +24,17 @@ interface RefactorCommandOptions {
     dryRun?: boolean;
     verbose?: boolean;
     checkHotReload?: boolean;
+}
+
+/**
+ * Options that have been validated and narrowed for the rename operation.
+ */
+interface ValidatedRefactorOptions extends RefactorContext {
+    symbolId?: string;
+    oldName?: string;
+    newName: string;
+    dryRun: boolean;
+    checkHotReload: boolean;
 }
 
 interface RefactorContext {
@@ -38,7 +48,7 @@ interface RefactorContext {
  * @returns {Command} Commander command instance
  */
 export function createRefactorCommand(): Command {
-    const command = new Command("refactor");
+    const command = applyStandardCommandOptions(new Command("refactor"));
 
     command
         .description("Perform safe, project-wide code transformations")
@@ -46,7 +56,7 @@ export function createRefactorCommand(): Command {
             new Option("--symbol-id <id>", "SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)")
         )
         .addOption(new Option("--old-name <name>", "Current name of the symbol to rename"))
-        .addOption(new Option("--new-name <name>", "New name for the symbol").makeOptionMandatory())
+        .addOption(new Option("--new-name <name>", "New name for the symbol"))
         .addOption(
             new Option("--project-root <path>", "Root directory of the GameMaker project").default(
                 process.cwd(),
@@ -59,16 +69,18 @@ export function createRefactorCommand(): Command {
             new Option("--check-hot-reload", "Validate that the refactored code is compatible with hot reload").default(
                 false
             )
-        )
-        .action(runRefactorCommand);
+        );
 
     return command;
 }
 
 /**
  * Validates refactor command options and ensures required parameters are provided.
+ *
+ * @param {RefactorCommandOptions} options - Raw command options from Commander
+ * @returns {ValidatedRefactorOptions} Validated and narrowed options
  */
-function validateRefactorOptions(options: RefactorCommandOptions): void {
+function validateAndNarrowOptions(options: RefactorCommandOptions): ValidatedRefactorOptions {
     if (!options.newName) {
         throw new Error("--new-name is required");
     }
@@ -80,33 +92,31 @@ function validateRefactorOptions(options: RefactorCommandOptions): void {
     if (options.symbolId && options.oldName) {
         throw new Error("Only one of --symbol-id or --old-name should be provided, not both");
     }
-}
 
-/**
- * Initializes the refactor context with semantic analyzer and parser.
- */
-function initializeRefactorContext(options: RefactorCommandOptions): RefactorContext {
     const projectRoot = path.resolve(options.projectRoot ?? process.cwd());
     const verbose = options.verbose ?? false;
 
-    if (verbose) {
-        console.log(`Initializing refactor context for project: ${projectRoot}`);
-    }
-
     return {
         projectRoot,
-        verbose
+        verbose,
+        symbolId: options.symbolId,
+        oldName: options.oldName,
+        newName: options.newName,
+        dryRun: Boolean(options.dryRun),
+        checkHotReload: Boolean(options.checkHotReload)
     };
 }
 
 /**
  * Performs a symbol rename operation using the refactor engine.
+ *
+ * @param {ValidatedRefactorOptions} options - Validated refactor options
  */
-function performRename(context: RefactorContext, options: RefactorCommandOptions): void {
-    const { projectRoot, verbose } = context;
-    const { symbolId, oldName, newName, dryRun, checkHotReload } = options;
+function performRename(options: ValidatedRefactorOptions): void {
+    const { projectRoot, verbose, symbolId, oldName, newName, dryRun, checkHotReload } = options;
 
     if (verbose) {
+        console.log(`\nInitializing refactor context for project: ${projectRoot}`);
         console.log("\nPreparing rename operation:");
         console.log(`  Symbol: ${symbolId ?? oldName}`);
         console.log(`  New name: ${newName}`);
@@ -158,11 +168,10 @@ function performRename(context: RefactorContext, options: RefactorCommandOptions
  */
 export function runRefactorCommand(options: RefactorCommandOptions = {}): void {
     try {
-        validateRefactorOptions(options);
-        const context = initializeRefactorContext(options);
-        performRename(context, options);
+        const validatedOptions = validateAndNarrowOptions(options);
+        performRename(validatedOptions);
     } catch (error) {
-        const message = getErrorMessage(error, {
+        const message = Core.getErrorMessage(error, {
             fallback: "Unknown refactor error"
         });
         const formattedError = formatCliError(new Error(`Refactor failed: ${message}`));

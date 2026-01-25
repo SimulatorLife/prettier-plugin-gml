@@ -5,8 +5,6 @@ import { isCommanderErrorLike, isCommanderHelpDisplayedError } from "./commander
 import type { CommanderCommandLike } from "./commander-types.js";
 import { CliUsageError } from "./errors.js";
 
-const { assertFunction, getErrorMessage } = Core;
-
 type InvalidArgumentResolver = (value: unknown, ...rest: Array<unknown>) => unknown;
 
 interface WrapInvalidArgumentResolverOptions {
@@ -41,7 +39,7 @@ export function wrapInvalidArgumentResolver(
     resolver: InvalidArgumentResolver,
     options: WrapInvalidArgumentResolverOptions = {}
 ): InvalidArgumentResolver {
-    assertFunction(resolver, "resolver");
+    Core.assertFunction(resolver, "resolver");
 
     const { errorConstructor, fallbackMessage = "Invalid option value." } = options;
 
@@ -52,7 +50,7 @@ export function wrapInvalidArgumentResolver(
         try {
             return resolver(...args);
         } catch (error: unknown) {
-            const message = getErrorMessage(error, { fallback: fallbackMessage }) || fallbackMessage;
+            const message = Core.getErrorMessage(error, { fallback: fallbackMessage }) || fallbackMessage;
             const invalidArgumentError = new InvalidArgumentErrorConstructor(message);
 
             if (error && typeof error === "object") {

@@ -12,8 +12,6 @@ import {
     prepareHotReloadInjection
 } from "../modules/hot-reload/inject-runtime.js";
 
-const { getErrorMessage } = Core;
-
 interface PrepareHotReloadCommandOptions {
     html5Output?: string;
     gmTempRoot?: string;
@@ -74,7 +72,7 @@ export async function runPrepareHotReloadCommand(command: CommanderCommandLike):
             console.log(`WebSocket URL: ${result.websocketUrl}`);
         }
     } catch (error) {
-        const message = getErrorMessage(error, {
+        const message = Core.getErrorMessage(error, {
             fallback: "Failed to prepare hot-reload injection."
         });
         const formatted = formatCliError(new Error(message));

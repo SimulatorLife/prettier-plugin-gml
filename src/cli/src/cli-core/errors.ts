@@ -1,8 +1,8 @@
+import process from "node:process";
+
 import { Core } from "@gml-modules/core";
 
 import { asErrorLike } from "../shared/error-guards.js";
-
-const { compactArray, toTrimmedString, getErrorCode, getErrorMessage, getObjectTagName, isAggregateErrorLike } = Core;
 
 const DEFAULT_INDENT = "  ";
 
@@ -101,12 +101,12 @@ function extractStackBody(stack: string | null): string | null {
 }
 
 function formatAggregateErrors(error: unknown, seen: Set<unknown>): string | null {
-    if (!isAggregateErrorLike(error)) {
+    if (!Core.isAggregateErrorLike(error)) {
         return null;
     }
 
     const aggregate = error as { errors: Array<unknown> };
-    const formatted = compactArray(aggregate.errors.map((entry) => formatErrorValue(entry, seen))).map((text) =>
+    const formatted = Core.compactArray(aggregate.errors.map((entry) => formatErrorValue(entry, seen))).map((text) =>
         indentBlock(`- ${text.replaceAll("\n", "\n  ")}`)
     );
 
@@ -127,8 +127,8 @@ function formatErrorCause(cause: unknown, seen: Set<unknown>): string | null {
 }
 
 function formatErrorHeader(error: ErrorWithMetadata): string {
-    const name = toTrimmedString(error.name);
-    const message = toTrimmedString(error.message);
+    const name = Core.toTrimmedString(error.name);
+    const message = Core.toTrimmedString(error.message);
 
     if (isCliUsageError(error)) {
         return message;
@@ -165,7 +165,7 @@ function formatErrorObject(error: ErrorWithMetadata, seen: Set<unknown>): string
     const isUsageError = isCliUsageError(error);
     const isParseError = error.name === "GameMakerSyntaxError";
     const stack = !isUsageError && !isParseError && typeof errored.stack === "string" ? errored.stack : null;
-    const sections = compactArray([
+    const sections = Core.compactArray([
         formatErrorHeader(error),
         extractStackBody(stack),
         formatErrorCause(error.cause, seen),
@@ -189,7 +189,7 @@ function formatPlainObject(value: object, seen: Set<unknown>): string {
     try {
         return JSON.stringify(value);
     } catch {
-        const tagName = getObjectTagName(value);
+        const tagName = Core.getObjectTagName(value);
         return tagName ? `[${tagName}]` : "[object Object]";
     }
 }
@@ -253,13 +253,13 @@ function normalizeStackLines(stack: string | undefined): Array<string> | null {
 }
 
 function resolveNameFromTag(value: unknown): string | null {
-    const tagName = getObjectTagName(value);
+    const tagName = Core.getObjectTagName(value);
     return tagName ?? null;
 }
 
 function resolveErrorName(error: unknown): string {
     const errorLike = asErrorLike(error);
-    const explicitName = toTrimmedString(errorLike?.name);
+    const explicitName = Core.toTrimmedString(errorLike?.name);
     if (explicitName) {
         return explicitName;
     }
@@ -276,13 +276,13 @@ export function createCliErrorDetails(
     error: unknown,
     { fallbackMessage = "Unknown error" }: { fallbackMessage?: string } = {}
 ): CliErrorDetails {
-    const message = getErrorMessage(error, { fallback: fallbackMessage });
+    const message = Core.getErrorMessage(error, { fallback: fallbackMessage });
     const details: CliErrorDetails = {
         message,
         name: resolveErrorName(error)
     };
 
-    const code = getErrorCode(error);
+    const code = Core.getErrorCode(error);
     if (code) {
         details.code = code;
     }

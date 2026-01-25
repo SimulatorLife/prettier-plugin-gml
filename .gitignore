@@ -4,6 +4,7 @@ tmp/
 tmp-*/
 src/parser/.antlr/
 .tools/
+.pnpm-store/
 tools/
 /*.txt
 /*.ts
