@@ -33,6 +33,17 @@ void describe("resolveLineCommentOptions", () => {
         assert.strictEqual(resolved.codeDetectionPatterns, DEFAULT_COMMENTED_OUT_CODE_PATTERNS);
     });
 
+    void it("normalizes inline option overrides when no resolver is installed", () => {
+        const resolved = resolveLineCommentOptions({
+            boilerplateFragments: [...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments, "AUTO-GENERATED FILE"],
+            codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+        });
+
+        assert.notStrictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.deepEqual(resolved.boilerplateFragments.slice(-1), ["AUTO-GENERATED FILE"]);
+        assert.strictEqual(resolved.codeDetectionPatterns, DEFAULT_COMMENTED_OUT_CODE_PATTERNS);
+    });
+
     void it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
         const customFragment = "// AUTO-GENERATED FILE";
         setLineCommentOptionsResolver(() => ({
