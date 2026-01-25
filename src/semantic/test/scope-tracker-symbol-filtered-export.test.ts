@@ -52,6 +52,20 @@ void test("exportOccurrencesBySymbols: returns empty array for empty symbol set"
     assert.deepStrictEqual(result, []);
 });
 
+void test("exportOccurrencesBySymbols: returns empty array when symbols are unknown", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    tracker.declare("knownSymbol", {
+        name: "knownSymbol",
+        start: { line: 1, column: 0, index: 0 },
+        end: { line: 1, column: 11, index: 11 }
+    });
+
+    const result = tracker.exportOccurrencesBySymbols(["missingSymbol"]);
+
+    assert.deepStrictEqual(result, []);
+});
+
 void test("exportOccurrencesBySymbols: returns occurrences for single requested symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
