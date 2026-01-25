@@ -1,6 +1,7 @@
 import {
     type DependentSymbol,
     type FileSymbol,
+    type MaybePromise,
     OccurrenceKind,
     type PartialSemanticAnalyzer,
     type SymbolLookupResult,
@@ -20,14 +21,14 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Check if a symbol exists in the project index.
      */
-    async hasSymbol(symbolId: string): Promise<boolean> {
+    hasSymbol(symbolId: string): MaybePromise<boolean> {
         return Boolean(this.findSymbolInCollections(symbolId));
     }
 
     /**
      * Find all occurrences of a symbol by its base name.
      */
-    async getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>> {
         const occurrences: Array<SymbolOccurrence> = [];
         const identifiers = this.projectIndex.identifiers;
 
@@ -82,7 +83,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Get symbols defined in a specific file.
      */
-    async getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
+    getFileSymbols(filePath: string): MaybePromise<Array<FileSymbol>> {
         const symbols: Array<FileSymbol> = [];
         const fileRecord = this.projectIndex.files?.[filePath];
 
@@ -104,7 +105,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Get symbols that depend on the given symbols.
      */
-    async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
+    getDependents(symbolIds: Array<string>): MaybePromise<Array<DependentSymbol>> {
         const dependents: Array<DependentSymbol> = [];
 
         // This requires traversing references in the index
@@ -144,7 +145,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Perform a scope-aware lookup for a name.
      */
-    async lookup(name: string, scopeId?: string): Promise<SymbolLookupResult | null> {
+    lookup(name: string, scopeId?: string): MaybePromise<SymbolLookupResult | null> {
         // Basic implementation: find if name exists in the requested scope or globally
         const identifiers = this.projectIndex.identifiers;
         if (!identifiers) return null;
