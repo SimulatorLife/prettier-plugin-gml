@@ -169,13 +169,15 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
 function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
+    let previousLine: string | undefined;
 
     for (const line of lines) {
-        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(result.at(-1))) {
+        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(previousLine)) {
             result.push("");
         }
 
         result.push(line);
+        previousLine = line;
     }
 
     return result.join("\n");
