@@ -115,14 +115,7 @@ function collectNodesByType(node, type) {
 }
 
 const fixtureNames = await loadFixtures();
-const expectedFailures = new Set([
-    // Known parser gaps where the grammar currently rejects otherwise valid fixtures.
-    "character_controller_step.gml",
-    "cursed_gml.gml",
-    "equals.gml",
-    "expressions.gml",
-    "loungeware.gml"
-]);
+const expectedFailures = new Set<string>();
 const successfulFixture = fixtureNames.find((fixtureName) => !expectedFailures.has(fixtureName));
 const fixtureParserOptions: ParserOptions = {
     ...defaultParserOptions,
@@ -496,5 +489,20 @@ void describe("GameMaker parser fixtures", () => {
             textSegments.some((segment) => segment.value === String.raw`\n`),
             "Template string text should include the escaped newline sequence."
         );
+    });
+
+    void it("allows single equals for equality in expressions", () => {
+        const source = 'if (vendor = "7e05") { }';
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows single equals for equality in complex expressions", () => {
+        const source = 'if ((vendor = "7e05") && (product = "0920")) { }';
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("correctly handles equals as expression and assignment in the same scope", () => {
+        const source = "var a = 1; if (a = 2) { a = 3; }";
+        assert.doesNotThrow(() => GMLParser.parse(source));
     });
 });

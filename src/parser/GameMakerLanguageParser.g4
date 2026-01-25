@@ -194,7 +194,7 @@ expression
     | expression BitAnd expression # BinaryExpression
     | expression BitXOr expression # BinaryExpression
     | expression BitOr expression # BinaryExpression
-    | expression (Equals | NotEquals) expression # BinaryExpression
+    | expression (Equals | NotEquals | Assign) expression # BinaryExpression
     | expression (LessThan | MoreThan | LessThanEquals | GreaterThanEquals) expression # BinaryExpression
     | <assoc=right> expression NullCoalesce expression # BinaryExpression
     | expression And expression # BinaryExpression

@@ -6,6 +6,7 @@ export * as Manual from "./manual/index.js";
 export * as Performance from "./performance/index.js";
 export * from "./plugin-runtime-dependencies.js";
 export * as QualityReport from "./quality-report/index.js";
+export * as Refactor from "./refactor/index.js";
 export * as Runtime from "./runtime/index.js";
 export * as Status from "./status/index.js";
 export * as Transpilation from "./transpilation/index.js";

@@ -2229,7 +2229,17 @@ function buildSkippedDirectorySummaryMessage() {
 }
 
 function normalizeCommandLineArguments(argv) {
-    if (!isNonEmptyArray(argv)) {
+    const args = isNonEmptyArray(argv) ? [...argv] : [];
+
+    // Some package managers (like pnpm) may inject a leading '--' separator
+    // when passing arguments to a script. If we see this as the first argument,
+    // we strip it so Commander can correctly identify subcommands and options
+    // instead of treating them as positional arguments.
+    if (args[0] === "--") {
+        args.shift();
+    }
+
+    if (args.length === 0) {
         // When no arguments are provided, default behavior depends on
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
         // Default is to show help (user-friendly for first-time users).
@@ -2237,19 +2247,19 @@ function normalizeCommandLineArguments(argv) {
         return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 
-    if (argv[0] === "--" && argv.length === 2 && isHelpRequest(argv[1])) {
+    if (args.length === 1 && isHelpRequest(args[0])) {
         return ["--help"];
     }
 
-    if (argv[0] !== "help") {
-        return [...argv];
+    if (args[0] !== "help") {
+        return args;
     }
 
-    if (argv.length === 1) {
+    if (args.length === 1) {
         return ["--help"];
     }
 
-    return [...argv.slice(1), "--help"];
+    return [...args.slice(1), "--help"];
 }
 
 export const __test__ = Object.freeze({

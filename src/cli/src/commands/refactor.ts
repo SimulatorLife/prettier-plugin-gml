@@ -7,14 +7,21 @@
  * avoid scope capture or shadowing.
  */
 
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
+import { Refactor } from "@gml-modules/refactor";
+import { Semantic } from "@gml-modules/semantic";
 import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
+
+const { buildProjectIndex } = Semantic;
+const { RefactorEngine, generateRenamePreview, formatRenamePlanReport } = Refactor;
 
 interface RefactorCommandOptions {
     symbolId?: string;
@@ -56,7 +63,7 @@ export function createRefactorCommand(): Command {
             new Option("--symbol-id <id>", "SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)")
         )
         .addOption(new Option("--old-name <name>", "Current name of the symbol to rename"))
-        .addOption(new Option("--new-name <name>", "New name for the symbol"))
+        .addOption(new Option("--new-name <name>", "New name for the symbol").makeOptionMandatory())
         .addOption(
             new Option("--project-root <path>", "Root directory of the GameMaker project").default(
                 process.cwd(),
@@ -112,52 +119,96 @@ function validateAndNarrowOptions(options: RefactorCommandOptions): ValidatedRef
  *
  * @param {ValidatedRefactorOptions} options - Validated refactor options
  */
-function performRename(options: ValidatedRefactorOptions): void {
+async function performRename(options: ValidatedRefactorOptions): Promise<void> {
     const { projectRoot, verbose, symbolId, oldName, newName, dryRun, checkHotReload } = options;
 
     if (verbose) {
         console.log(`\nInitializing refactor context for project: ${projectRoot}`);
-        console.log("\nPreparing rename operation:");
-        console.log(`  Symbol: ${symbolId ?? oldName}`);
-        console.log(`  New name: ${newName}`);
-        console.log(`  Dry run: ${dryRun ? "yes" : "no"}`);
-        console.log(`  Hot reload check: ${checkHotReload ? "enabled" : "disabled"}`);
     }
 
-    // For now, this is a placeholder implementation that demonstrates the command structure
-    // A full implementation would:
-    // 1. Initialize semantic analyzer and parse the project
-    // 2. Build the refactor engine with semantic context
-    // 3. Validate the rename request
-    // 4. Plan the rename with conflict detection
-    // 5. Apply edits to files or display dry-run results
+    try {
+        // 1. Initialize semantic analyzer and parse the project
+        const projectIndex = await buildProjectIndex(projectRoot, undefined, {
+            logger: verbose ? console : undefined
+        });
 
-    console.log("\nRefactor engine integration is planned for future implementation.");
-    console.log("This command will use the refactor engine from @gml-modules/refactor to:");
-    console.log("  • Validate rename requests");
-    console.log("  • Detect scope conflicts");
-    console.log("  • Plan safe edits across the project");
-    console.log("  • Apply or preview transformations");
+        // 2. Build the refactor engine with semantic context
+        const semantic = new GmlSemanticBridge(projectIndex);
+        const parser = new GmlParserBridge();
+        const formatter = new GmlTranspilerBridge();
 
-    if (verbose) {
-        console.log("\nPlanned architecture:");
-        console.log("  1. Initialize semantic analyzer with project context");
-        console.log("  2. Parse all GML files to build scope graph");
-        console.log("  3. Create RefactorEngine with semantic and parser facades");
-        console.log("  4. Validate rename with conflict detection");
-        console.log("  5. Plan WorkspaceEdit with file modifications");
-        console.log("  6. Apply edits or display dry-run preview");
-    }
+        const engine = new RefactorEngine({
+            semantic,
+            parser,
+            formatter
+        });
 
-    // Placeholder: report what would happen
-    console.log(`\nWould rename '${symbolId ?? oldName}' to '${newName}'`);
-    console.log(`Project root: ${projectRoot}`);
+        // 3. Resolve target symbol if needed
+        let targetSymbolId = symbolId;
+        if (!targetSymbolId && oldName) {
+            if (verbose) console.log(`Searching for symbol matching name: ${oldName}`);
+            const occurrences = await engine.gatherSymbolOccurrences(oldName);
 
-    if (dryRun) {
-        console.log("\n[DRY RUN] No files were modified.");
-    } else {
-        console.log("\n[PLANNED] This operation is not yet implemented.");
-        console.log("See src/refactor/README.md for the refactor engine API.");
+            // For now, we take the first symbol ID we find
+            // In a better tool, we'd prompt if there are multiple
+            const firstOcc = occurrences[0];
+            if (!firstOcc) {
+                throw new Error(`Could not find any symbol named '${oldName}'`);
+            }
+
+            // Heuristic to get symbol ID from occurrences
+            // We'll rely on the semantic bridge to have annotated this if possible
+            // but for now we'll assume it's a script if no ID is found
+            targetSymbolId = `gml/script/${oldName}`;
+            if (verbose) console.log(`Inferred symbol ID: ${targetSymbolId}`);
+        }
+
+        if (!targetSymbolId) {
+            throw new Error("Could not resolve target symbol ID");
+        }
+
+        // 4. Plan the rename with conflict detection
+        if (verbose) console.log(`Planning rename: ${targetSymbolId} → ${newName}`);
+
+        const plan = await engine.prepareRenamePlan(
+            {
+                symbolId: targetSymbolId,
+                newName
+            },
+            {
+                validateHotReload: checkHotReload
+            }
+        );
+
+        // 5. Display results (report/preview)
+        console.log(`\n${formatRenamePlanReport(plan)}`);
+
+        if (verbose) {
+            const preview = generateRenamePreview(plan.workspace, plan.analysis.summary.oldName, newName);
+            console.log("\nDetailed File Changes:");
+            for (const file of preview.files) {
+                console.log(`  ${file.filePath}: ${file.editCount} edits`);
+            }
+        }
+
+        if (!plan.validation.valid) {
+            console.log("\nRename validation failed. Aborting.");
+            return;
+        }
+
+        // 6. Apply edits if not dry-run
+        if (dryRun) {
+            console.log("\n[DRY RUN] No files were modified.");
+        } else {
+            console.log("\nApplying changes...");
+            await engine.applyWorkspaceEdit(plan.workspace, {
+                readFile: (p) => readFile(p, "utf8"),
+                writeFile: (p, c) => writeFile(p, c, "utf8")
+            });
+            console.log("Success! All files updated.");
+        }
+    } catch (error) {
+        throw new Error(`Refactor operation failed: ${Core.getErrorMessage(error)}`);
     }
 }
 
@@ -166,10 +217,10 @@ function performRename(options: ValidatedRefactorOptions): void {
  *
  * @param {RefactorCommandOptions} options - Command options
  */
-export function runRefactorCommand(options: RefactorCommandOptions = {}): void {
+export async function runRefactorCommand(options: RefactorCommandOptions = {}): Promise<void> {
     try {
         const validatedOptions = validateAndNarrowOptions(options);
-        performRename(validatedOptions);
+        await performRename(validatedOptions);
     } catch (error) {
         const message = Core.getErrorMessage(error, {
             fallback: "Unknown refactor error"

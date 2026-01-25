@@ -86,7 +86,7 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
     "*=": { prec: 1, assoc: "right", type: "assign" },
     ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to "=" in GML
-    "=": { prec: 1, assoc: "right", type: "assign" },
+    "=": { prec: 1, assoc: "right", type: "assign" }, // Also handles single-equals comparisons (normalized to "==")
     "/=": { prec: 1, assoc: "right", type: "assign" },
     "%=": { prec: 1, assoc: "right", type: "assign" },
     "+=": { prec: 1, assoc: "right", type: "assign" },

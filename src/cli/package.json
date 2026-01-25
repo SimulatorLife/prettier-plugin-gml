@@ -23,6 +23,8 @@
     "@gml-modules/core": "workspace:*",
     "@gml-modules/parser": "workspace:*",
     "@gml-modules/plugin": "workspace:*",
+    "@gml-modules/refactor": "workspace:*",
+    "@gml-modules/semantic": "workspace:*",
     "@gml-modules/transpiler": "workspace:*",
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",

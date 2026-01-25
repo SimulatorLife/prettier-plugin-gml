@@ -143,6 +143,12 @@ importers:
       '@gml-modules/plugin':
         specifier: workspace:*
         version: link:../plugin
+      '@gml-modules/refactor':
+        specifier: workspace:*
+        version: link:../refactor
+      '@gml-modules/semantic':
+        specifier: workspace:*
+        version: link:../semantic
       '@gml-modules/transpiler':
         specifier: workspace:*
         version: link:../transpiler

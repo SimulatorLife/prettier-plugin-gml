@@ -2,20 +2,47 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/cli": ["./index.ts"]
+      "@gml-modules/cli": [
+        "./index.ts"
+      ]
     }
   },
   "references": [
-    { "path": "../core" },
-    { "path": "../parser" },
-    { "path": "../plugin" },
-    { "path": "../transpiler" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../parser"
+    },
+    {
+      "path": "../plugin"
+    },
+    {
+      "path": "../refactor"
+    },
+    {
+      "path": "../semantic"
+    },
+    {
+      "path": "../transpiler"
+    }
   ],
-  "include": ["*.ts", "src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"],
-  "exclude": ["dist"]
+  "include": [
+    "*.ts",
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "dist"
+  ]
 }

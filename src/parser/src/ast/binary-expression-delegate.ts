@@ -84,7 +84,14 @@ export default class BinaryExpressionDelegate {
             return visit(ctx);
         }
 
-        const operator = operatorToken.getText();
+        let operator = operatorToken.getText();
+
+        // Normalize single-equals equality check to double-equals in the AST.
+        // In GML, '=' can be used as a comparison in expression context, which
+        // is semantically equivalent to '=='.
+        if (operator === "=" || operator === ":=") {
+            operator = "==";
+        }
 
         let node = astNode(ctx, {
             type: "BinaryExpression",

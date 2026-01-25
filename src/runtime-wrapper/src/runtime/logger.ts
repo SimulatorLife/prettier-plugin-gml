@@ -283,11 +283,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
                 break;
             }
             case "info": {
-                if (typeof consoleOutput.info === "function") {
-                    consoleOutput.info(fullMessage, ...args);
-                } else {
-                    consoleOutput.log(fullMessage, ...args);
-                }
+                consoleOutput.log(fullMessage, ...args);
                 break;
             }
             case "debug": {
