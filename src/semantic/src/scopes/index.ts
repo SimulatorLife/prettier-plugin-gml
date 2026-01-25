@@ -9,6 +9,7 @@ export * from "./types.js";
 // `SemanticScopeCoordinator` facade. Higher-level modules within the semantic
 // package can still import the underlying tracker classes if needed by
 // referencing them explicitly.
+export { IdentifierCacheManager } from "./identifier-cache-manager.js";
 export { GlobalIdentifierRegistry } from "./registry.js";
 export { IdentifierRoleTracker } from "./role-tracker.js";
 export { Scope } from "./scope.js";

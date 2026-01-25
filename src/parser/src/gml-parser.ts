@@ -34,6 +34,17 @@ function mergeParserOptions(baseOptions: ParserOptions, overrides: Partial<Parse
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
+function getNodeIndex(node: Record<string, unknown>, prop: "start" | "end"): number | undefined {
+    const value = node[prop];
+    if (typeof value === "number") {
+        return value;
+    }
+    if (value && typeof (value as { index?: unknown }).index === "number") {
+        return (value as { index: number }).index;
+    }
+    return undefined;
+}
+
 /**
  * Parser for GameMaker Language (GML) source code.
  *
@@ -301,18 +312,10 @@ export class GMLParser {
             return;
         }
 
-        const getIndex = (node: Record<string, unknown>, prop: "start" | "end") => {
-            const value = node[prop];
-            if (typeof value === "number") return value;
-            if (value && typeof (value as any).index === "number") {
-                return (value as any).index as number;
-            }
-        };
-
         Core.walkObjectGraph(root, {
             enterObject: (node) => {
-                const startIndex = getIndex(node, "start");
-                const endIndex = getIndex(node, "end");
+                const startIndex = getNodeIndex(node, "start");
+                const endIndex = getNodeIndex(node, "end");
 
                 if (node.type === "Literal" && Core.isQuotedString(node.value)) {
                     if (Number.isInteger(startIndex) && Number.isInteger(endIndex) && endIndex >= startIndex) {

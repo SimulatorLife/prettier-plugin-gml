@@ -7,6 +7,7 @@ import type {
     BlockStatementNode,
     CallExpressionNode,
     CallTargetAnalyzer,
+    CatchClauseNode,
     ConstructorDeclarationNode,
     DefaultParameterNode,
     DefineStatementNode,
@@ -16,6 +17,7 @@ import type {
     EndRegionStatementNode,
     EnumDeclarationNode,
     EnumMemberNode,
+    FinallyClauseNode,
     ForStatementNode,
     FunctionDeclarationNode,
     GlobalVarStatementNode,
@@ -38,6 +40,7 @@ import type {
     StructPropertyNode,
     SwitchStatementNode,
     TemplateStringExpressionNode,
+    TemplateStringTextNode,
     TernaryExpressionNode,
     ThrowStatementNode,
     TryStatementNode,
@@ -125,6 +128,9 @@ export class GmlToJsEmitter {
             case "AssignmentExpression": {
                 return this.visitAssignmentExpression(ast);
             }
+            case "CatchClause": {
+                return this.visitCatchClause(ast);
+            }
             case "IncDecStatement": {
                 return this.visitIncDecStatement(ast);
             }
@@ -185,6 +191,9 @@ export class GmlToJsEmitter {
             case "TryStatement": {
                 return this.visitTryStatement(ast);
             }
+            case "FinallyClause": {
+                return this.visitFinallyClause(ast);
+            }
             case "RepeatStatement": {
                 return this.visitRepeatStatement(ast);
             }
@@ -214,6 +223,9 @@ export class GmlToJsEmitter {
             }
             case "TemplateStringExpression": {
                 return this.visitTemplateStringExpression(ast);
+            }
+            case "TemplateStringText": {
+                return this.visitTemplateStringText(ast);
             }
             case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
@@ -282,6 +294,11 @@ export class GmlToJsEmitter {
             }
             case "global_field": {
                 return `${this.options.globalsIdent}.${name}`;
+            }
+            case "script":
+            case "local":
+            case "builtin": {
+                return name;
             }
             default: {
                 return name;
@@ -434,11 +451,18 @@ export class GmlToJsEmitter {
 
     private visitTryStatement(ast: TryStatementNode): string {
         const block = wrapConditionalBody(ast.block, this.visitNode);
-        const handler = ast.handler
-            ? ` catch (${ast.handler.param ? this.visit(ast.handler.param) : "err"})${wrapConditionalBody(ast.handler.body, this.visitNode)}`
-            : "";
-        const finalizer = ast.finalizer ? ` finally${wrapConditionalBody(ast.finalizer.body, this.visitNode)}` : "";
+        const handler = ast.handler ? ` ${this.visitCatchClause(ast.handler)}` : "";
+        const finalizer = ast.finalizer ? ` ${this.visitFinallyClause(ast.finalizer)}` : "";
         return `try${block}${handler}${finalizer}`;
+    }
+
+    private visitCatchClause(ast: CatchClauseNode): string {
+        const param = ast.param ? this.visit(ast.param) : "err";
+        return `catch (${param})${wrapConditionalBody(ast.body, this.visitNode)}`;
+    }
+
+    private visitFinallyClause(ast: FinallyClauseNode): string {
+        return `finally${wrapConditionalBody(ast.body, this.visitNode)}`;
     }
 
     private visitRepeatStatement(ast: RepeatStatementNode): string {
@@ -542,6 +566,10 @@ export class GmlToJsEmitter {
             return `\${${this.visit(atom)}}`;
         });
         return `\`${parts.join("")}\``;
+    }
+
+    private visitTemplateStringText(ast: TemplateStringTextNode): string {
+        return Core.escapeTemplateText(ast.value);
     }
 
     private visitStructExpression(ast: StructExpressionNode): string {

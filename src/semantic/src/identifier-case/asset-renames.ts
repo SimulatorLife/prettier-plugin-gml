@@ -12,7 +12,7 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { ConflictSeverity } from "./conflict-severity.js";
-import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import type { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 

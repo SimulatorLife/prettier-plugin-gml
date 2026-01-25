@@ -7,61 +7,19 @@
  */
 
 import assert from "node:assert";
-import { Buffer } from "node:buffer";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
 
-import WebSocket from "ws";
-
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
-
-type ManagedWebSocket = {
-    close(): void;
-    once(event: "close", listener: () => void): void;
-    on(event: "open", listener: () => void): void;
-    on(event: "error", listener: (error: unknown) => void): void;
-    on(event: "message", listener: (data: unknown) => void): void;
-};
-
-function describeUnknown(value: unknown): string {
-    if (value instanceof Error) {
-        return value.message;
-    }
-
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean" ||
-        typeof value === "bigint"
-    ) {
-        return `${value}`;
-    }
-
-    if (typeof value === "object") {
-        try {
-            return JSON.stringify(value);
-        } catch {
-            return "[unserializable object]";
-        }
-    }
-
-    return "unknown";
-}
+import { waitForPatchCount } from "./test-helpers/status-polling.js";
+import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
 
 void describe("Hot reload replay for late subscribers", () => {
     let testDir: string;
     let testFile: string;
-    let websocketClient: ManagedWebSocket | null = null;
+    let websocketClient: WebSocketPatchStream | null = null;
 
     before(async () => {
         testDir = path.join(process.cwd(), "tmp", `hot-reload-replay-${Date.now()}`);
@@ -71,14 +29,7 @@ void describe("Hot reload replay for late subscribers", () => {
 
     after(async () => {
         if (websocketClient) {
-            await new Promise<void>((resolve) => {
-                try {
-                    websocketClient?.once("close", () => resolve());
-                    websocketClient?.close();
-                } catch {
-                    resolve();
-                }
-            });
+            await websocketClient.disconnect();
         }
         await rm(testDir, { recursive: true, force: true });
     });
@@ -86,80 +37,45 @@ void describe("Hot reload replay for late subscribers", () => {
     void it("replays the latest patch to new WebSocket clients", async () => {
         const abortController = new AbortController();
         const websocketPort = await findAvailablePort();
+        const statusPort = await findAvailablePort();
 
         const watchPromise = runWatchCommand(testDir, {
             extensions: [".gml"],
             verbose: false,
             websocketPort,
             websocketHost: "127.0.0.1",
+            statusPort,
             runtimeServer: false,
-            statusServer: false,
+            statusServer: true,
             abortSignal: abortController.signal
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        const receivedPatches = await (async () => {
+            try {
+                await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
 
-        await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
+                await waitForPatchCount(`http://127.0.0.1:${statusPort}`, 1, 1500, 25);
 
-        await new Promise((resolve) => setTimeout(resolve, 800));
+                websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                    connectionTimeoutMs: 1200,
+                    retryIntervalMs: 25
+                });
 
-        const receivedPatches: Array<unknown> = [];
+                return await websocketClient.waitForPatches({ timeoutMs: 1500 });
+            } finally {
+                abortController.abort();
 
-        const replayPromise = new Promise<void>((resolve, reject) => {
-            websocketClient = new WebSocket(`ws://127.0.0.1:${websocketPort}`);
-            const timer = setTimeout(() => {
-                reject(new Error("Timed out waiting for replayed patch"));
-            }, 4000);
-
-            websocketClient.on("message", (data) => {
-                clearTimeout(timer);
-                try {
-                    const serializedMessage =
-                        typeof data === "string"
-                            ? data
-                            : Buffer.isBuffer(data)
-                              ? data.toString("utf8")
-                              : JSON.stringify(data);
-
-                    if (!serializedMessage) {
-                        throw new Error("Received empty message payload");
-                    }
-
-                    receivedPatches.push(JSON.parse(serializedMessage));
-                    resolve();
-                } catch (error) {
-                    const description = describeUnknown(error);
-                    reject(
-                        error instanceof Error ? error : new Error(`Unexpected message parsing failure: ${description}`)
-                    );
+                if (websocketClient) {
+                    await websocketClient.disconnect();
                 }
-            });
 
-            websocketClient.on("open", () => {
-                // The "open" event handler is intentionally empty because the test
-                // orchestration relies on the "message" event handler above to resolve
-                // the promise once the hot-reload server sends the replayed patch data.
-                // We register this handler to acknowledge the WebSocket handshake
-                // completion, but no explicit action is required here—the connection
-                // opening is a precondition, not the success signal for the test.
-            });
-
-            websocketClient.on("error", (error) => {
-                clearTimeout(timer);
-                const description = describeUnknown(error);
-                reject(error instanceof Error ? error : new Error(`WebSocket error: ${description}`));
-            });
-        });
-
-        await replayPromise;
-
-        abortController.abort();
-
-        try {
-            await watchPromise;
-        } catch {
-            // Expected when aborting
-        }
+                try {
+                    await watchPromise;
+                } catch {
+                    // Expected when aborting
+                }
+            }
+        })();
 
         const latestPatch = receivedPatches.at(-1);
 

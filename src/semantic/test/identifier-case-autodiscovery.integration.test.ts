@@ -29,17 +29,11 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import prettier from "prettier";
-
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
-import {
-    createIdentifierCaseProject,
-    resolveIdentifierCaseFixturesDirectory,
-    resolveIdentifierCasePluginPath
-} from "./identifier-case-test-helpers.js";
+import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
+import { getPlugin } from "./plugin-loader.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject(fixtureFileName = "locals.gml") {
@@ -75,8 +69,6 @@ void describe("identifier case project index bootstrap", () => {
 
         try {
             const baseOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseLocals: "camel",
@@ -90,7 +82,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
             const firstRunOptions = { ...baseOptions };
-            const firstOutput = await prettier.format(fixtureSource, firstRunOptions);
+            const plugin = await getPlugin();
+            const firstOutput = await plugin.format(fixtureSource, firstRunOptions);
 
             assert.match(firstOutput, /counterValue/, "Expected automatic discovery to enable renames");
 
@@ -111,7 +104,7 @@ void describe("identifier case project index bootstrap", () => {
             const secondRunOptions = {
                 ...baseOptions
             };
-            const secondOutput = await prettier.format(firstOutput, secondRunOptions);
+            const secondOutput = await plugin.format(firstOutput, secondRunOptions);
             assert.match(secondOutput, /counterValue/, "Expected subsequent runs to keep applying renames");
             const store2 = getIdentifierCaseOptionStore(gmlPath);
             assert.ok(store2, "Expected cached bootstrap metadata");
@@ -141,8 +134,6 @@ void describe("identifier case project index bootstrap", () => {
             await fs.writeFile(gmlPath, fixtureSource, "utf8");
 
             const optionsWithoutManifest = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseLocals: "camel",
@@ -156,7 +147,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
 
-            const formattedWithoutManifest = await prettier.format(fixtureSource, optionsWithoutManifest);
+            const plugin = await getPlugin();
+            const formattedWithoutManifest = await plugin.format(fixtureSource, optionsWithoutManifest);
             assert.ok(
                 formattedWithoutManifest.includes("counter_value"),
                 "Expected renames to be skipped when no project root is found"
@@ -170,8 +162,6 @@ void describe("identifier case project index bootstrap", () => {
             const { projectRoot, gmlPath: discoveredPath, fixtureSource: source } = await createTempProject();
             try {
                 const disabledOptions = {
-                    plugins: [pluginPath],
-                    parser: "gml-parse",
                     filepath: discoveredPath,
                     gmlIdentifierCase: "camel",
                     gmlIdentifierCaseLocals: "camel",
@@ -186,7 +176,7 @@ void describe("identifier case project index bootstrap", () => {
                     __identifierCaseDryRun: false
                 };
 
-                const formattedDisabled = await prettier.format(source, disabledOptions);
+                const formattedDisabled = await plugin.format(source, disabledOptions);
                 assert.ok(
                     formattedDisabled.includes("counter_value"),
                     "Expected renames to be disabled when discovery is turned off"

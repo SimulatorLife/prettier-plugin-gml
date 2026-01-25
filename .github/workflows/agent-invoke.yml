@@ -174,7 +174,7 @@ jobs:
       - name: Enable pnpm via Corepack
         run: |
           corepack enable
-          corepack prepare pnpm@9.0.0 --activate
+          corepack prepare pnpm@10.28.0 --activate
 
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4

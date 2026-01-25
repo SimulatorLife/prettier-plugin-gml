@@ -4475,7 +4475,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(statements.length, 6);
 
-        const [firstBegin, , , secondBegin] = statements;
+        const firstBegin = statements[0];
+        const secondBegin = statements[3];
         assert.strictEqual(firstBegin.object?.name, "vertex_begin");
         assert.strictEqual(secondBegin.object?.name, "vertex_begin");
         assert.strictEqual(firstBegin._featherSuppressFollowingEmptyLine, true);

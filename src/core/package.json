@@ -12,11 +12,12 @@
     "dist"
   ],
   "engines": {
-    "node": ">=25.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",
     "clean:types": "rm -rf dist",
     "test": "pnpm run build:types && node --test dist/test/*.test.js"
-  }
+  },
+  "packageManager": "pnpm@10.28.0"
 }

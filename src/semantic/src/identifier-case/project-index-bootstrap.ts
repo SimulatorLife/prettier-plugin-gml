@@ -10,9 +10,9 @@ import {
     findProjectRoot,
     getProjectIndexParserOverride
 } from "../project-index/index.js";
+import { IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME } from "./options.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME = "__identifierCaseProjectIndexCacheMaxBytes";
-const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME = "gmlIdentifierCaseProjectIndexCacheMaxBytes";
 const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME = "__identifierCaseProjectIndexConcurrency";
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME = "gmlIdentifierCaseProjectIndexConcurrency";
 
@@ -165,14 +165,14 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 function resolveCacheMaxSizeBytes(options) {
     return resolveOptionWithOverride(options, {
         internalKey: PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME,
+        externalKey: IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME,
         onValue(entry) {
             if (entry.source === "internal" && entry.value === null) {
                 return null;
             }
 
             return normalizeCacheMaxSizeBytes(entry.value, {
-                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+                optionName: IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
             });
         }
     });

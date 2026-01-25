@@ -1,6 +1,6 @@
 import { Core, type MutableDocCommentLines, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { normalizeDocLikeLineComment } from "../../comments/index.js";
+import { formatDocLikeLineComment } from "../../comments/index.js";
 import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/index.js";
 import { createParserTransform } from "../functional-transform.js";
@@ -92,11 +92,7 @@ function execute(
 
         const formattedLines: string[] = [];
         for (const comment of comments ?? []) {
-            const formatted = Core.formatLineComment(comment, lineCommentOptions);
-            const normalized =
-                typeof formatted === "string"
-                    ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
-                    : formatted;
+            const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
             if (!Core.isNonEmptyTrimmedString(normalized)) {
                 continue;
             }

@@ -15,8 +15,8 @@ import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 
-describe("Watch command auto-inject flag", () => {
-    it("should inject hot-reload runtime when --auto-inject is enabled", async () => {
+void describe("Watch command auto-inject flag", () => {
+    void it("should inject hot-reload runtime when --auto-inject is enabled", async () => {
         const testDir = path.join("/tmp", `watch-auto-inject-${Date.now()}-${randomUUID()}`);
         const html5OutputDir = path.join(testDir, "html5-output");
         const indexHtmlPath = path.join(html5OutputDir, "index.html");
@@ -61,7 +61,7 @@ describe("Watch command auto-inject flag", () => {
         await rm(testDir, { recursive: true, force: true });
     });
 
-    it("should use custom WebSocket URL when both --auto-inject and custom port are provided", async () => {
+    void it("should use custom WebSocket URL when both --auto-inject and custom port are provided", async () => {
         const testDir = path.join("/tmp", `watch-auto-inject-custom-${Date.now()}-${randomUUID()}`);
         const html5OutputDir = path.join(testDir, "html5-output");
         const indexHtmlPath = path.join(html5OutputDir, "index.html");
@@ -110,7 +110,7 @@ describe("Watch command auto-inject flag", () => {
         await rm(testDir, { recursive: true, force: true });
     });
 
-    it("should not inject when --auto-inject is not provided", async () => {
+    void it("should not inject when --auto-inject is not provided", async () => {
         const testDir = path.join("/tmp", `watch-no-inject-${Date.now()}-${randomUUID()}`);
         const html5OutputDir = path.join(testDir, "html5-output");
         const indexHtmlPath = path.join(html5OutputDir, "index.html");

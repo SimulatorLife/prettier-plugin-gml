@@ -8,9 +8,9 @@ import {
     isBelowBannerSlashThreshold
 } from "../src/comments/line-comment/banner-comment-policy.js";
 
-describe("banner-comment-policy", () => {
-    describe("evaluateBannerCommentPolicy", () => {
-        it("should identify banner comments with 4+ leading slashes on their own line", () => {
+void describe("banner-comment-policy", () => {
+    void describe("evaluateBannerCommentPolicy", () => {
+        void it("should identify banner comments with 4+ leading slashes on their own line", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 4,
 
@@ -23,7 +23,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "sufficient-leading-slashes");
         });
 
-        it("should identify banner comments with 5+ leading slashes", () => {
+        void it("should identify banner comments with 5+ leading slashes", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 10,
 
@@ -36,7 +36,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "sufficient-leading-slashes");
         });
 
-        it("should identify banner comments with decorations even if slash count is low", () => {
+        void it("should identify banner comments with decorations even if slash count is low", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
 
@@ -49,7 +49,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "has-decorations");
         });
 
-        it("should reject regular comments with insufficient slashes and no decorations", () => {
+        void it("should reject regular comments with insufficient slashes and no decorations", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
 
@@ -62,7 +62,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "insufficient-criteria");
         });
 
-        it("should reject doc-style comments with 3 slashes", () => {
+        void it("should reject doc-style comments with 3 slashes", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
 
@@ -75,7 +75,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "insufficient-criteria");
         });
 
-        it("should respect custom policy configuration with higher threshold", () => {
+        void it("should respect custom policy configuration with higher threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 5,
 
@@ -89,7 +89,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "insufficient-criteria");
         });
 
-        it("should respect custom policy configuration with lower threshold", () => {
+        void it("should respect custom policy configuration with lower threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
 
@@ -103,7 +103,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "sufficient-leading-slashes");
         });
 
-        it("should identify banners with decorations at exactly the default threshold", () => {
+        void it("should identify banners with decorations at exactly the default threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 4,
 
@@ -116,7 +116,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "sufficient-leading-slashes");
         });
 
-        it("should handle edge case: exactly at threshold minus one with decorations", () => {
+        void it("should handle edge case: exactly at threshold minus one with decorations", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
 
@@ -130,22 +130,22 @@ describe("banner-comment-policy", () => {
         });
     });
 
-    describe("isBelowBannerSlashThreshold", () => {
-        it("should return true for slash counts below the default threshold", () => {
+    void describe("isBelowBannerSlashThreshold", () => {
+        void it("should return true for slash counts below the default threshold", () => {
             assert.equal(isBelowBannerSlashThreshold(0), true);
             assert.equal(isBelowBannerSlashThreshold(1), true);
             assert.equal(isBelowBannerSlashThreshold(2), true);
             assert.equal(isBelowBannerSlashThreshold(3), true);
         });
 
-        it("should return false for slash counts at or above the default threshold", () => {
+        void it("should return false for slash counts at or above the default threshold", () => {
             assert.equal(isBelowBannerSlashThreshold(4), false);
             assert.equal(isBelowBannerSlashThreshold(5), false);
             assert.equal(isBelowBannerSlashThreshold(10), false);
             assert.equal(isBelowBannerSlashThreshold(100), false);
         });
 
-        it("should respect custom threshold configuration", () => {
+        void it("should respect custom threshold configuration", () => {
             const customConfig = { minLeadingSlashes: 6 };
 
             assert.equal(isBelowBannerSlashThreshold(5, customConfig), true);
@@ -153,7 +153,7 @@ describe("banner-comment-policy", () => {
             assert.equal(isBelowBannerSlashThreshold(7, customConfig), false);
         });
 
-        it("should handle threshold of 2", () => {
+        void it("should handle threshold of 2", () => {
             const customConfig = { minLeadingSlashes: 2 };
 
             assert.equal(isBelowBannerSlashThreshold(1, customConfig), true);
@@ -162,18 +162,18 @@ describe("banner-comment-policy", () => {
         });
     });
 
-    describe("DEFAULT_BANNER_COMMENT_POLICY_CONFIG", () => {
-        it("should have a minimum leading slashes threshold of 4", () => {
+    void describe("DEFAULT_BANNER_COMMENT_POLICY_CONFIG", () => {
+        void it("should have a minimum leading slashes threshold of 4", () => {
             assert.equal(DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes, 4);
         });
 
-        it("should be frozen (immutable)", () => {
+        void it("should be frozen (immutable)", () => {
             assert.equal(Object.isFrozen(DEFAULT_BANNER_COMMENT_POLICY_CONFIG), true);
         });
     });
 
-    describe("policy integration scenarios", () => {
-        it("should correctly handle a typical decorative banner comment", () => {
+    void describe("policy integration scenarios", () => {
+        void it("should correctly handle a typical decorative banner comment", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 20,
 
@@ -185,7 +185,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.isBanner, true);
         });
 
-        it("should correctly handle a minimal valid line comment", () => {
+        void it("should correctly handle a minimal valid line comment", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
 
@@ -197,7 +197,7 @@ describe("banner-comment-policy", () => {
             assert.equal(result.isBanner, false);
         });
 
-        it("should correctly handle doc comments", () => {
+        void it("should correctly handle doc comments", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
                 hasDecorations: false

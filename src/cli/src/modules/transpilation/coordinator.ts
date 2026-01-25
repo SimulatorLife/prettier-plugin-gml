@@ -10,7 +10,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import type { Transpiler } from "@gml-modules/transpiler";
 
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
@@ -65,6 +65,22 @@ function resolveRuntimeId(filePath: string): string | null {
 /**
  * Classifies a transpilation error and extracts metadata for better error reporting.
  */
+function resolveSyntaxRecoveryHint(message: string): string | undefined {
+    if (message.includes("missing associated closing brace")) {
+        return "Add a closing brace '}' to match the opening brace.";
+    }
+    if (message.includes("unexpected end of file")) {
+        return "Check for unclosed blocks, parentheses, or brackets.";
+    }
+    if (message.includes("unexpected symbol")) {
+        return "Review the syntax at the indicated position. Check for typos or missing operators.";
+    }
+    if (message.includes("function parameters")) {
+        return "Function parameters must be valid identifiers separated by commas.";
+    }
+    return undefined;
+}
+
 function classifyTranspilationError(error: unknown): {
     category: ErrorCategory;
     message: string;
@@ -82,17 +98,7 @@ function classifyTranspilationError(error: unknown): {
         const syntaxError = targetError;
         const line = syntaxError.line;
         const column = syntaxError.column;
-
-        let recoveryHint: string | undefined;
-        if (syntaxError.message.includes("missing associated closing brace")) {
-            recoveryHint = "Add a closing brace '}' to match the opening brace.";
-        } else if (syntaxError.message.includes("unexpected end of file")) {
-            recoveryHint = "Check for unclosed blocks, parentheses, or brackets.";
-        } else if (syntaxError.message.includes("unexpected symbol")) {
-            recoveryHint = "Review the syntax at the indicated position. Check for typos or missing operators.";
-        } else if (syntaxError.message.includes("function parameters")) {
-            recoveryHint = "Function parameters must be valid identifiers separated by commas.";
-        }
+        const recoveryHint = resolveSyntaxRecoveryHint(syntaxError.message);
 
         return {
             category: "syntax",
@@ -142,14 +148,7 @@ function classifyTranspilationError(error: unknown): {
         };
     }
 
-    let errorString: string;
-    if (Core.isErrorLike(error) && error.message) {
-        errorString = error.message;
-    } else if (error instanceof Error) {
-        errorString = error.toString();
-    } else {
-        errorString = "Unknown error";
-    }
+    const errorString = error instanceof Error ? error.toString() : "Unknown error";
 
     return {
         category: "unknown",
@@ -159,11 +158,24 @@ function classifyTranspilationError(error: unknown): {
 
 export interface TranspilationContext {
     transpiler: RuntimeTranspiler;
-    patches: Array<RuntimeTranspilerPatch>;
+    /**
+     * Lightweight summaries of recent patches, trimmed to avoid retaining full
+     * JavaScript payloads in memory. `jsBodyBytes` records the payload size so
+     * memory usage can be tracked without storing the full string.
+     */
+    patches: Array<{
+        id: string;
+        kind: string;
+        runtimeId?: string;
+        sourcePath?: string;
+        timestamp?: number;
+        jsBodyBytes: number;
+    }>;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
+    totalPatchCount: number;
     websocketServer: PatchBroadcaster | null;
     scriptNames?: Set<string>;
 }
@@ -240,6 +252,23 @@ function createErrorNotification(
     };
 }
 
+function createPatchSummary(patchPayload: RuntimeTranspilerPatch) {
+    const metadata = Core.isObjectLike(patchPayload.metadata) ? patchPayload.metadata : null;
+    const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : undefined;
+    const timestamp = Core.isFiniteNumber(metadata?.timestamp) ? metadata.timestamp : undefined;
+    const runtimeIdValue = (patchPayload as { runtimeId?: unknown }).runtimeId;
+    const runtimeId = Core.isNonEmptyString(runtimeIdValue) ? runtimeIdValue : undefined;
+
+    return {
+        id: patchPayload.id,
+        kind: patchPayload.kind,
+        runtimeId,
+        sourcePath,
+        timestamp,
+        jsBodyBytes: Buffer.byteLength(patchPayload.js_body, "utf8")
+    };
+}
+
 /**
  * Transpiles a GML file and manages the complete lifecycle including metrics
  * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
@@ -312,7 +341,8 @@ export function transpileFile(
             registerScriptNamesFromSymbols(parsedSymbols, context.scriptNames);
         }
 
-        addToBoundedCollection(context.patches, patchPayload, context.maxPatchHistory);
+        addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
+        context.totalPatchCount += 1;
 
         const broadcastResult = context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {

@@ -156,10 +156,11 @@ const tsConfig = defineConfig({
     },
 
     rules: {
-        "no-unused-vars": "off", // base rule off, use unused-imports plugin instead
+        "no-unused-vars": "off", // base rule off, we use 'unused-imports' plugin instead
+        "@typescript-eslint/no-unused-vars": "off", // TS version off, we use 'unused-imports' plugin instead
         "unused-imports/no-unused-imports": "error",
         "unused-imports/no-unused-vars": [
-            "warn",
+            "error",
             {
                 vars: "all",
                 varsIgnorePattern: "^_",
@@ -169,12 +170,12 @@ const tsConfig = defineConfig({
         ],
         "no-console": ["warn"],
         "no-prototype-builtins": ["warn"],
-        "no-useless-escape": ["warn"],
+        "no-useless-escape": ["error"],
         "no-with": ["error"],
-        "no-undef": ["error"],
+        "no-undef": "off", // TS handles this already, and better
 
         // built-in additions
-        "no-shadow": "warn",
+        "no-shadow": "off", // disable base rule, we use the TS version instead
         "no-misleading-character-class": "error",
         "no-loss-of-precision": "error",
         "no-new-native-nonconstructor": "error",
@@ -206,7 +207,7 @@ const tsConfig = defineConfig({
         "no-useless-catch": "error", // catch that just rethrows
         "no-useless-constructor": "error", // empty class constructors
         "no-useless-return": "error", // last line `return;`
-        "object-shorthand": ["warn", "always"], // { foo: foo } → { foo }
+        "object-shorthand": ["error", "always"], // { foo: foo } → { foo }
         "prefer-const": ["error", { destructuring: "all" }], // stabilize bindings
         "no-var": "error", // always use let/const
         "prefer-template": "error", // "a " + b → `a ${b}`
@@ -257,7 +258,7 @@ const tsConfig = defineConfig({
                 skipComments: true
             }
         ],
-        "max-params": ["warn", 5],
+        "max-params": ["error", 8],
         "max-statements": ["error", 90],
         "max-statements-per-line": ["error", { max: 1 }],
         "max-nested-callbacks": ["error", 4],
@@ -302,38 +303,45 @@ const tsConfig = defineConfig({
         "@typescript-eslint/no-unsafe-argument": "warn",
         "@typescript-eslint/no-unsafe-call": "warn",
         "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-shadow": "error",
+        "@typescript-eslint/consistent-type-imports": "warn",
+        "@typescript-eslint/switch-exhaustiveness-check": "error",
 
         /* unicorn plugin tweaks beyond the preset */
         "unicorn/no-empty-file": "error",
-        "unicorn/consistent-function-scoping": "warn",
+        "unicorn/consistent-function-scoping": "error", // Can improve performance due to less allocations
         "unicorn/no-abusive-eslint-disable": "error",
         "unicorn/error-message": "error",
         "unicorn/no-useless-length-check": "error",
         "unicorn/no-array-push-push": "error",
-        "unicorn/prefer-query-selector": "warn",
-        "unicorn/no-unreadable-array-destructuring": "warn",
+        "unicorn/prefer-query-selector": "off", // prefer getElementById etc. for performance
+        "unicorn/no-unreadable-array-destructuring": "error",
         "unicorn/no-await-in-promise-methods": "error",
         "unicorn/no-hex-escape": "error",
         "unicorn/no-zero-fractions": "error",
         "unicorn/prevent-abbreviations": "off",
-        "unicorn/prefer-code-point": "warn",
-        "unicorn/no-array-sort": "error",
+        "unicorn/prefer-code-point": "off", // 'charCodeAt' is more performant than 'codePointAt'
+        "unicorn/no-array-sort": "off", // can introduce extra allocations and be performance-negative in hot paths
         "unicorn/no-array-callback-reference": "warn",
         "unicorn/prefer-ternary": "warn",
         "unicorn/no-useless-undefined": "warn",
         // Prettier's path.map(callback, property) requires the second argument,
         // so disable the auto-fix that strips it as an unused thisArg.
         "unicorn/no-array-method-this-argument": "off",
-        "unicorn/no-object-as-default-parameter": "warn",
-        "unicorn/prefer-single-call": "warn",
+        "unicorn/no-object-as-default-parameter": "error", // Default parameters are re-evaluated on each call, so every call allocates a new object/array
+        "unicorn/prefer-single-call": "error",
         "unicorn/prefer-default-parameters": "warn",
-        "unicorn/prefer-top-level-await": "warn",
+        "unicorn/prefer-top-level-await": "off", // Preferable for entrypoints, but not for libraries/modules (consider scoping this to CLI files only?)
         "unicorn/prefer-switch": "warn",
         "unicorn/prefer-array-some": "warn",
-        "unicorn/no-this-assignment": "warn",
-        "unicorn/prefer-at": "warn",
+        "unicorn/no-this-assignment": "error",
+        "unicorn/prefer-at": [
+            "error",
+            // Enforce .at() only for negative-index patterns; allow bracket access in hot paths
+            { checkAllIndexAccess: false }
+        ],
         "unicorn/no-new-array": "error", // Instead of new Array(1, 2, 3) use [1, 2, 3]
-        "unicorn/no-array-reverse": "warn",
+        "unicorn/no-array-reverse": "warn", // This is not error because it can be perfornance-negative to copy first
         "unicorn/no-array-reduce": "off",
         "unicorn/prefer-spread": "off",
         "unicorn/no-array-for-each": "off",
@@ -341,7 +349,7 @@ const tsConfig = defineConfig({
 
         /* --- plugin: sonarjs (code smells) --- */
         "sonarjs/cognitive-complexity": ["warn", 15],
-        "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
+        "sonarjs/no-duplicate-string": ["error", { threshold: 4 }],
         "sonarjs/no-identical-functions": "error",
         "sonarjs/no-identical-expressions": "error",
         "sonarjs/no-inverted-boolean-check": "error",
@@ -353,7 +361,7 @@ const tsConfig = defineConfig({
         "sonarjs/no-implicit-dependencies": "error",
         "sonarjs/no-implicit-global": "error",
         "sonarjs/no-internal-api-use": "error",
-        "sonarjs/no-ignored-return": "warn",
+        "sonarjs/no-ignored-return": "error",
         "sonarjs/no-ignored-exceptions": "warn",
         "sonarjs/no-require-or-define": "error",
         "sonarjs/no-sonar-comments": "error",
@@ -369,11 +377,12 @@ const tsConfig = defineConfig({
         "import/no-mutable-exports": "error",
         "import/no-cycle": ["error", { maxDepth: 3 }],
         "import/newline-after-import": ["error", { count: 1 }],
+        "import/no-extraneous-dependencies": "error",
         "simple-import-sort/imports": "error",
         "simple-import-sort/exports": "error",
 
         /* --- plugin: promise (stricter async) --- */
-        "promise/no-return-wrap": "warn",
+        "promise/no-return-wrap": "error",
         "promise/no-multiple-resolved": "error",
 
         /* --- plugin: security (selected high-signal checks) --- */
@@ -384,9 +393,9 @@ const tsConfig = defineConfig({
 
         /* --- plugin: no-secrets (obvious credential leaks) --- */
         "no-secrets/no-secrets": [
-            "warn",
+            "error",
             {
-                tolerance: 4.2,
+                tolerance: 4.6,
                 ignoreContent: ["-----BEGIN"],
                 ignoreIdentifiers: ["API_KEY"]
             }
@@ -394,7 +403,7 @@ const tsConfig = defineConfig({
 
         /* --- plugin: eslint-comments (comment hygiene) --- */
         "eslint-comments/require-description": [
-            "warn",
+            "error",
             { ignore: ["eslint-enable", "eslint-env"] }
         ],
         "eslint-comments/no-unused-disable": "error",
@@ -581,11 +590,13 @@ export default [
             "boundaries/entry-point": "off",
             "unicorn/no-useless-undefined": "off",
             "no-await-in-loop": "warn",
+            "no-secrets/no-secrets": "off",
+            "unicorn/consistent-function-scoping": "warn",
 
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",
             "no-promise-executor-return": "off",
-            "@typescript-eslint/no-floating-promises": "warn",
+            "@typescript-eslint/no-floating-promises": "error",
             "@typescript-eslint/no-unsafe-argument": "off",
             "@typescript-eslint/no-unsafe-call": "off",
             "@typescript-eslint/no-unsafe-member-access": "off",
@@ -596,11 +607,12 @@ export default [
         }
     },
 
-    // CLI: allow process.exit
+    // CLI: allow process.exit and console logging
     {
         files: ["src/cli/**"],
         rules: {
-            "unicorn/no-process-exit": "off"
+            "unicorn/no-process-exit": "off",
+            "no-console": "off"
         }
     },
 

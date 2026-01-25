@@ -4,7 +4,6 @@ import { describe, it, mock } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
-import prettier from "prettier";
 
 import {
     clearIdentifierCaseDryRunContexts,
@@ -12,16 +11,12 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
-import {
-    createIdentifierCaseProject,
-    resolveIdentifierCaseFixturesDirectory,
-    resolveIdentifierCasePluginPath
-} from "./identifier-case-test-helpers.js";
+import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
+import { getPlugin } from "./plugin-loader.js";
 
 // Use Core.* per AGENTS.md rather than destructuring the namespace.
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject(fixtureFileName = "locals.gml") {
@@ -69,8 +64,6 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             });
 
             const formatOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseFunctions: "off",
@@ -87,7 +80,8 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 logger
             };
 
-            const formatted = await prettier.format(fixtureSource, formatOptions);
+            const plugin = await getPlugin();
+            const formatted = await plugin.format(fixtureSource, formatOptions);
 
             assert.ok(formatted.includes("counter_value"), "Dry-run should not rewrite identifiers in the source");
             assert.ok(!formatted.includes("counterValue"), "Dry-run should not apply rename targets");
@@ -165,8 +159,6 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             });
             const diagnostics = [];
             const formatOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
                 gmlIdentifierCaseFunctions: "off",
@@ -182,7 +174,8 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 diagnostics
             };
 
-            const formatted = await prettier.format(fixtureSource, formatOptions);
+            const plugin = await getPlugin();
+            const formatted = await plugin.format(fixtureSource, formatOptions);
 
             assert.match(formatted, /counterValue/);
             assert.match(formatted, /preserve_me/);
@@ -202,8 +195,6 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject("locals-write.gml");
 
         const baseOptions = {
-            plugins: [pluginPath],
-            parser: "gml-parse",
             filepath: gmlPath,
             gmlIdentifierCase: "camel",
             gmlIdentifierCaseFunctions: "off",
@@ -230,7 +221,8 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 logger: { log() {} }
             };
 
-            const dryRunOutput = await prettier.format(fixtureSource, dryRunOptions);
+            const plugin = await getPlugin();
+            const dryRunOutput = await plugin.format(fixtureSource, dryRunOptions);
 
             assert.match(dryRunOutput, /should_rename/);
             assert.ok(!dryRunOutput.includes("shouldRename"), "Dry-run should preserve original identifier spelling");
@@ -248,7 +240,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 diagnostics: []
             };
 
-            const writeOutput = await prettier.format(fixtureSource, writeOptions);
+            const writeOutput = await plugin.format(fixtureSource, writeOptions);
 
             assert.match(writeOutput, /shouldRename/);
             assert.ok(!writeOutput.includes("should_rename"), "Write mode should apply the converted identifier");

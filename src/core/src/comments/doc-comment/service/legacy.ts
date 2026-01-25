@@ -1,11 +1,11 @@
-import type { DocCommentLines } from "../../comment-utils.js";
+import { type DocCommentLines, type MutableDocCommentLines } from "../../comment-utils.js";
 import { capitalize, isNonEmptyTrimmedString, toMutableArray, toTrimmedString } from "../utils.js";
 import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
 
 const STRING_TYPE = "string";
 
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
-const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s+-\s+(.*)$/;
+const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(?<type>[^\s-]+?)\s+-\s+(?<description>.*)$/;
 
 const KNOWN_TYPE_IDENTIFIERS = Object.freeze([
     "real",
@@ -25,6 +25,33 @@ const KNOWN_TYPE_IDENTIFIERS = Object.freeze([
 ]);
 
 const KNOWN_TYPES = new Set(KNOWN_TYPE_IDENTIFIERS.map((identifier) => identifier.toLowerCase()));
+
+/**
+ * Checks if the provided value is a DocCommentLines object.
+ */
+function isDocCommentLines(lines: DocCommentLines | string[]): lines is DocCommentLines {
+    return (
+        Array.isArray(lines) &&
+        ("_preserveDescriptionBreaks" in lines || "_suppressLeadingBlank" in lines || "_blockCommentDocs" in lines)
+    );
+}
+
+/**
+ * Copies doc comment metadata flags from a source to a target.
+ */
+function copyDocCommentFlags(source: DocCommentLines | string[], target: MutableDocCommentLines): void {
+    if (isDocCommentLines(source)) {
+        if (source._preserveDescriptionBreaks === true) {
+            target._preserveDescriptionBreaks = true;
+        }
+        if (source._suppressLeadingBlank === true) {
+            target._suppressLeadingBlank = true;
+        }
+        if (source._blockCommentDocs === true) {
+            target._blockCommentDocs = true;
+        }
+    }
+}
 
 export function dedupeReturnDocLines(
     lines: DocCommentLines | string[],
@@ -68,16 +95,8 @@ export function dedupeReturnDocLines(
         deduped.push(line);
     }
 
-    const resultLines = deduped as any;
-    if ((lines as any)._preserveDescriptionBreaks === true) {
-        resultLines._preserveDescriptionBreaks = true;
-    }
-    if ((lines as any)._suppressLeadingBlank === true) {
-        resultLines._suppressLeadingBlank = true;
-    }
-    if ((lines as any)._blockCommentDocs === true) {
-        resultLines._blockCommentDocs = true;
-    }
+    const resultLines = deduped as MutableDocCommentLines;
+    copyDocCommentFlags(lines, resultLines);
 
     return { lines: resultLines as DocCommentLines, removed: removedAnyReturnLine };
 }
@@ -146,16 +165,8 @@ export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[
 
     const filtered = normalizedDocLines.filter((_line, idx) => !descriptionIndexSet.has(idx));
 
-    const result = [...descriptionLines, ...filtered] as any;
-    if ((docLines as any)._preserveDescriptionBreaks === true) {
-        result._preserveDescriptionBreaks = true;
-    }
-    if ((docLines as any)._suppressLeadingBlank === true) {
-        result._suppressLeadingBlank = true;
-    }
-    if ((docLines as any)._blockCommentDocs === true) {
-        result._blockCommentDocs = true;
-    }
+    const result = [...descriptionLines, ...filtered] as MutableDocCommentLines;
+    copyDocCommentFlags(docLines, result);
 
     return result as DocCommentLines;
 }
@@ -170,8 +181,9 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         return normalizedLines as DocCommentLines;
     }
 
-    const preserveLeadingBlank = (docLines as any)._suppressLeadingBlank === true;
-    const preserveDescriptionBreaks = (docLines as any)._preserveDescriptionBreaks === true;
+    const preserveLeadingBlank = isDocCommentLines(docLines) && docLines._suppressLeadingBlank === true;
+    const preserveDescriptionBreaks = isDocCommentLines(docLines) && docLines._preserveDescriptionBreaks === true;
+    const preserveBlockCommentDocs = isDocCommentLines(docLines) && docLines._blockCommentDocs === true;
 
     const convertedReturns: string[] = [];
     const retainedLines: string[] = [];
@@ -252,21 +264,26 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     }
 
     if (convertedReturns.length === 0) {
+        const result = normalizedLines as MutableDocCommentLines;
         if (preserveLeadingBlank) {
-            (normalizedLines as any)._suppressLeadingBlank = true;
+            result._suppressLeadingBlank = true;
         }
         if (preserveDescriptionBreaks) {
-            (normalizedLines as any)._preserveDescriptionBreaks = true;
+            result._preserveDescriptionBreaks = true;
         }
-        return normalizedLines as DocCommentLines;
+        if (preserveBlockCommentDocs) {
+            result._blockCommentDocs = true;
+        }
+        return result as DocCommentLines;
     }
 
-    const resultLines =
+    const resultLines = (
         convertedReturns.length > 0
             ? retainedLines.filter(
                   (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
               )
-            : [...retainedLines];
+            : [...retainedLines]
+    ) as MutableDocCommentLines;
 
     let appendIndex = resultLines.length;
     while (
@@ -280,11 +297,15 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     resultLines.splice(appendIndex, 0, ...convertedReturns);
 
     if (preserveLeadingBlank) {
-        (resultLines as any)._suppressLeadingBlank = true;
+        resultLines._suppressLeadingBlank = true;
     }
 
     if (preserveDescriptionBreaks) {
-        (resultLines as any)._preserveDescriptionBreaks = true;
+        resultLines._preserveDescriptionBreaks = true;
+    }
+
+    if (preserveBlockCommentDocs) {
+        resultLines._blockCommentDocs = true;
     }
 
     return resultLines as DocCommentLines;
@@ -444,21 +465,20 @@ export function promoteLeadingDocCommentTextToDescription(
         promotedLines.push(resolvedContinuation);
     }
 
-    const result: DocCommentLines = [...promotedLines, ...remainder] as DocCommentLines;
+    const result: MutableDocCommentLines = [...promotedLines, ...remainder] as MutableDocCommentLines;
 
     const hasContinuationSegments = segments.some(
         ({ suffix }, index) => index > firstContentIndex && isNonEmptyTrimmedString(suffix)
     );
 
     if (hasContinuationSegments) {
-        (result as any)._preserveDescriptionBreaks = true;
+        result._preserveDescriptionBreaks = true;
     }
 
-    if ((normalizedLines as any)._suppressLeadingBlank) {
-        (result as any)._suppressLeadingBlank = true;
-    }
+    // Copy doc comment flags from normalizedLines to result
+    copyDocCommentFlags(normalizedLines, result);
 
-    return result;
+    return result as DocCommentLines;
 }
 
 export function hasLegacyReturnsDescriptionLines(docLines: DocCommentLines | string[]) {

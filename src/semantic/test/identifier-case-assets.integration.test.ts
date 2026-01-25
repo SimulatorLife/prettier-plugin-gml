@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
-import prettier from "prettier";
 
 import {
     clearIdentifierCaseDryRunContexts,
@@ -18,12 +16,8 @@ import {
     createAssetRenameProject,
     createTempProjectWorkspace
 } from "./identifier-case-asset-helpers.js";
-import { resolveIdentifierCasePluginPath } from "./identifier-case-test-helpers.js";
-
+import { getPlugin } from "./plugin-loader.js";
 // Use Core.* calls per AGENTS.md rather than destructuring the namespace.
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 
 async function createAssetReservedProject() {
     const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-reserved-");
@@ -87,8 +81,6 @@ void describe("asset rename execution", () => {
 
             const diagnostics = [];
             const formatOptions = {
-                plugins: [pluginPath],
-                parser: "gml-parse",
                 filepath: scriptPath,
                 gmlIdentifierCase: "off",
                 gmlIdentifierCaseAssets: "pascal",
@@ -98,7 +90,8 @@ void describe("asset rename execution", () => {
                 diagnostics
             };
 
-            await prettier.format(scriptSource, formatOptions);
+            const Plugin = await getPlugin();
+            await Plugin.format(scriptSource, formatOptions);
 
             assert.strictEqual(diagnostics.length, 0);
 

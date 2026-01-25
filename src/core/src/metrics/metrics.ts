@@ -374,9 +374,9 @@ export function createMetricsTracker({
             return cachesSnapshot(extra);
         }
 
-        const caches = cachesSnapshot(extra);
+        const snapshotCaches = cachesSnapshot(extra);
         const normalized = normalizeLabel(cacheName);
-        return caches[normalized];
+        return snapshotCaches[normalized];
     }
 
     const summaryLifecycle = Object.freeze({

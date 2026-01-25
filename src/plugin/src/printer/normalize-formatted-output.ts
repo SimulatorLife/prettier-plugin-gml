@@ -126,14 +126,13 @@ function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
-function extractLineCommentPayload(line: string): string | null {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("///")) {
-        return trimmed.slice(3).trim();
+function extractLineCommentPayload(trimmedStart: string): string | null {
+    if (trimmedStart.startsWith("///")) {
+        return trimmedStart.slice(3).trim();
     }
 
-    if (trimmed.startsWith("//")) {
-        return trimmed.slice(2).trim();
+    if (trimmedStart.startsWith("//")) {
+        return trimmedStart.slice(2).trim();
     }
 
     return null;
@@ -142,19 +141,23 @@ function extractLineCommentPayload(line: string): string | null {
 function removeDuplicateDocLikeLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
+    // Cache the previous doc payload to avoid re-parsing the last emitted line.
+    let previousDocPayload: string | null = null;
 
     for (const line of lines) {
-        const trimmed = line.trim();
+        const trimmedStart = line.trimStart();
 
-        if (trimmed.startsWith("///")) {
-            const docPayload = extractLineCommentPayload(line);
-            const previousLine = result.at(-1);
-            if (docPayload !== null && typeof previousLine === "string") {
-                const previousPayload = extractLineCommentPayload(previousLine);
-                if (previousPayload !== null && previousPayload === docPayload) {
-                    continue;
-                }
+        if (trimmedStart.startsWith("///")) {
+            const docPayload = extractLineCommentPayload(trimmedStart);
+            if (docPayload !== null && previousDocPayload !== null && previousDocPayload === docPayload) {
+                continue;
             }
+
+            previousDocPayload = docPayload;
+        } else if (trimmedStart.startsWith("//")) {
+            previousDocPayload = extractLineCommentPayload(trimmedStart);
+        } else {
+            previousDocPayload = null;
         }
 
         result.push(line);
@@ -166,13 +169,15 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
 function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
+    let previousLine: string | undefined;
 
     for (const line of lines) {
-        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(result.at(-1))) {
+        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(previousLine)) {
             result.push("");
         }
 
         result.push(line);
+        previousLine = line;
     }
 
     return result.join("\n");
@@ -212,16 +217,6 @@ function getNextNonBlankLine(lines: string[], startIndex: number): string | unde
     return undefined;
 }
 
-function getPreviousNonBlankLine(lines: string[]): string | undefined {
-    for (let index = lines.length - 1; index >= 0; index -= 1) {
-        if (lines[index].trim().length > 0) {
-            return lines[index];
-        }
-    }
-
-    return undefined;
-}
-
 function isGuardCommentSequence(lines: string[], commentIndex: number): boolean {
     const nextLine = getNextNonBlankLine(lines, commentIndex + 1);
     return typeof nextLine === "string" && /^\s*if\b/.test(nextLine);
@@ -231,21 +226,27 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const normalized: string[] = [];
     const length = lines.length;
+    let previousNonBlankTrimmed: string | null = null;
 
     for (let index = 0; index < length; index += 1) {
         const line = lines[index];
+        const trimmedLine = line.trim();
+        const isBlankLine = trimmedLine.length === 0;
 
         if (
-            line.trim().length === 0 &&
+            isBlankLine &&
             index + 1 < length &&
             isPlainLineCommentLine(lines[index + 1]) &&
             isGuardCommentSequence(lines, index + 1) &&
-            getPreviousNonBlankLine(normalized)?.trim().endsWith("{")
+            previousNonBlankTrimmed?.endsWith("{")
         ) {
             continue;
         }
 
         normalized.push(line);
+        if (!isBlankLine) {
+            previousNonBlankTrimmed = trimmedLine;
+        }
     }
 
     return normalized.join("\n");

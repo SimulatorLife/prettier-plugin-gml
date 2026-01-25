@@ -3,14 +3,14 @@ import { describe, test } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
-describe("ScopeTracker: transitive dependencies", () => {
-    test("getTransitiveDependents returns empty array for non-existent scope", () => {
+void describe("ScopeTracker: transitive dependencies", () => {
+    void test("getTransitiveDependents returns empty array for non-existent scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getTransitiveDependents("non-existent");
         assert.deepStrictEqual(result, []);
     });
 
-    test("getTransitiveDependents returns empty array when disabled", () => {
+    void test("getTransitiveDependents returns empty array when disabled", () => {
         const tracker = new ScopeTracker({ enabled: false });
         tracker.enterScope("program");
         const programScope = tracker.currentScope();
@@ -20,7 +20,7 @@ describe("ScopeTracker: transitive dependencies", () => {
         assert.deepStrictEqual(result, []);
     });
 
-    test("getTransitiveDependents returns direct dependents at depth 1", () => {
+    void test("getTransitiveDependents returns direct dependents at depth 1", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Program scope declares globalVar
@@ -47,7 +47,7 @@ describe("ScopeTracker: transitive dependencies", () => {
         assert.strictEqual(result[0].depth, 1);
     });
 
-    test("getTransitiveDependents returns transitive dependents with correct depth", () => {
+    void test("getTransitiveDependents returns transitive dependents with correct depth", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Scope A (program) declares symbol X
@@ -99,7 +99,7 @@ describe("ScopeTracker: transitive dependencies", () => {
         assert.strictEqual(depC.dependentScopeKind, "block");
     });
 
-    test("getTransitiveDependents handles multiple dependency paths correctly", () => {
+    void test("getTransitiveDependents handles multiple dependency paths correctly", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Scope A declares X and Y
@@ -147,7 +147,7 @@ describe("ScopeTracker: transitive dependencies", () => {
         assert.strictEqual(depC.depth, 1, "Should use minimum depth when multiple paths exist");
     });
 
-    test("getTransitiveDependents avoids infinite loops with circular dependencies", () => {
+    void test("getTransitiveDependents avoids infinite loops with circular dependencies", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // This test ensures we don't infinite loop even if there are cycles
@@ -167,7 +167,7 @@ describe("ScopeTracker: transitive dependencies", () => {
         assert.ok(Array.isArray(result));
     });
 
-    test("getTransitiveDependents sorts by depth then scope ID", () => {
+    void test("getTransitiveDependents sorts by depth then scope ID", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const scopeA = tracker.enterScope("program");
@@ -223,14 +223,14 @@ describe("ScopeTracker: transitive dependencies", () => {
     });
 });
 
-describe("ScopeTracker: invalidation sets", () => {
-    test("getInvalidationSet returns empty array for non-existent scope", () => {
+void describe("ScopeTracker: invalidation sets", () => {
+    void test("getInvalidationSet returns empty array for non-existent scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getInvalidationSet("non-existent");
         assert.deepStrictEqual(result, []);
     });
 
-    test("getInvalidationSet returns only self when no dependents", () => {
+    void test("getInvalidationSet returns only self when no dependents", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const scope = tracker.enterScope("program");
@@ -248,7 +248,7 @@ describe("ScopeTracker: invalidation sets", () => {
         assert.strictEqual(result[0].reason, "self");
     });
 
-    test("getInvalidationSet includes direct dependents", () => {
+    void test("getInvalidationSet includes direct dependents", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const scopeA = tracker.enterScope("program");
@@ -279,7 +279,7 @@ describe("ScopeTracker: invalidation sets", () => {
         assert.strictEqual(depEntry.scopeId, scopeB.id);
     });
 
-    test("getInvalidationSet includes transitive dependents", () => {
+    void test("getInvalidationSet includes transitive dependents", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // A -> B -> C dependency chain
@@ -325,7 +325,7 @@ describe("ScopeTracker: invalidation sets", () => {
         assert.ok(scopeIds.has(scopeC.id));
     });
 
-    test("getInvalidationSet excludes descendants by default", () => {
+    void test("getInvalidationSet excludes descendants by default", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const parent = tracker.enterScope("program");
@@ -350,7 +350,7 @@ describe("ScopeTracker: invalidation sets", () => {
         assert.strictEqual(result[0].scopeId, parent.id);
     });
 
-    test("getInvalidationSet includes descendants when requested", () => {
+    void test("getInvalidationSet includes descendants when requested", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const parent = tracker.enterScope("program");
@@ -381,7 +381,7 @@ describe("ScopeTracker: invalidation sets", () => {
         assert.strictEqual(childEntry.reason, "descendant");
     });
 
-    test("getInvalidationSet avoids duplicates when scope is both dependent and descendant", () => {
+    void test("getInvalidationSet avoids duplicates when scope is both dependent and descendant", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const parent = tracker.enterScope("program");
@@ -412,14 +412,14 @@ describe("ScopeTracker: invalidation sets", () => {
     });
 });
 
-describe("ScopeTracker: descendant scopes", () => {
-    test("getDescendantScopes returns empty array for non-existent scope", () => {
+void describe("ScopeTracker: descendant scopes", () => {
+    void test("getDescendantScopes returns empty array for non-existent scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getDescendantScopes("non-existent");
         assert.deepStrictEqual(result, []);
     });
 
-    test("getDescendantScopes returns empty array when no descendants", () => {
+    void test("getDescendantScopes returns empty array when no descendants", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const scope = tracker.enterScope("program");
@@ -428,7 +428,7 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.deepStrictEqual(result, []);
     });
 
-    test("getDescendantScopes returns direct children at depth 1", () => {
+    void test("getDescendantScopes returns direct children at depth 1", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const parent = tracker.enterScope("program");
@@ -449,7 +449,22 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.ok(childIds.has(child2.id));
     });
 
-    test("getDescendantScopes returns grandchildren at depth 2", () => {
+    void test("getDescendantScopes works after scopes are exited", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const root = tracker.enterScope("program");
+        const child = tracker.enterScope("function");
+        tracker.exitScope();
+        tracker.exitScope();
+
+        const result = tracker.getDescendantScopes(root.id);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].scopeId, child.id);
+        assert.strictEqual(result[0].depth, 1);
+    });
+
+    void test("getDescendantScopes returns grandchildren at depth 2", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const root = tracker.enterScope("program");
@@ -472,7 +487,7 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.strictEqual(grandchildEntry.depth, 2);
     });
 
-    test("getDescendantScopes excludes the scope itself", () => {
+    void test("getDescendantScopes excludes the scope itself", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const parent = tracker.enterScope("program");
@@ -485,7 +500,7 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.ok(!scopeIds.includes(parent.id));
     });
 
-    test("getDescendantScopes sorts by depth then scope ID", () => {
+    void test("getDescendantScopes sorts by depth then scope ID", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const root = tracker.enterScope("program");
@@ -510,7 +525,7 @@ describe("ScopeTracker: descendant scopes", () => {
         assert.ok(result[0].scopeId.localeCompare(result[1].scopeId) < 0);
     });
 
-    test("getDescendantScopes handles complex nesting", () => {
+    void test("getDescendantScopes handles complex nesting", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const root = tracker.enterScope("program");

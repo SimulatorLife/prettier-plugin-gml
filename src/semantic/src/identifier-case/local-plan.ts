@@ -276,14 +276,16 @@ function describeScopeType(scopeType) {
     return SCOPE_TYPE_LABELS[scopeType] ?? scopeType;
 }
 
+function normalizeNameKey(name) {
+    return typeof name === "string" ? Core.toNormalizedLowerCaseString(name) : "";
+}
+
 function createNameCollisionTracker() {
     const entriesByName = new Map();
     const entriesById = new Map();
 
-    const toKey = (name) => (typeof name === "string" ? Core.toNormalizedLowerCaseString(name) : "");
-
     const addRecord = (record) => {
-        const key = toKey(record.name);
+        const key = normalizeNameKey(record.name);
         const bucket = Core.getOrCreateMapEntry(entriesByName, key, () => []);
         bucket.push(record);
         entriesById.set(record.uniqueId, record);
@@ -308,7 +310,7 @@ function createNameCollisionTracker() {
             }
             const record = entriesById.get(uniqueId);
             entriesById.delete(uniqueId);
-            const key = toKey(record.name);
+            const key = normalizeNameKey(record.name);
             const bucket = entriesByName.get(key);
             if (bucket) {
                 const index = bucket.findIndex((existing) => existing.uniqueId === uniqueId);
@@ -325,7 +327,7 @@ function createNameCollisionTracker() {
             if (!name || !uniqueId) {
                 return [];
             }
-            const key = toKey(name);
+            const key = normalizeNameKey(name);
             const bucket = entriesByName.get(key) ?? [];
             const collisions = bucket.filter((existing) => existing.uniqueId !== uniqueId);
 

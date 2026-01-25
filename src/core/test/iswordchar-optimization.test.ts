@@ -11,60 +11,60 @@ import { describe, it } from "node:test";
 
 import { isWordChar } from "../src/utils/string.js";
 
-describe("isWordChar optimization verification", () => {
-    it("should correctly identify lowercase letters", () => {
-        const lowercase = "abcdefghijklmnopqrstuvwxyz";
-        for (const char of lowercase) {
+void describe("isWordChar optimization verification", () => {
+    void it("should correctly identify lowercase letters", () => {
+        for (let codePoint = 97; codePoint <= 122; codePoint += 1) {
+            const char = String.fromCharCode(codePoint);
             assert.equal(isWordChar(char), true, `${char} should be a word character`);
         }
     });
 
-    it("should correctly identify uppercase letters", () => {
-        const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for (const char of uppercase) {
+    void it("should correctly identify uppercase letters", () => {
+        for (let codePoint = 65; codePoint <= 90; codePoint += 1) {
+            const char = String.fromCharCode(codePoint);
             assert.equal(isWordChar(char), true, `${char} should be a word character`);
         }
     });
 
-    it("should correctly identify digits", () => {
+    void it("should correctly identify digits", () => {
         const digits = "0123456789";
         for (const char of digits) {
             assert.equal(isWordChar(char), true, `${char} should be a word character`);
         }
     });
 
-    it("should correctly identify underscore", () => {
+    void it("should correctly identify underscore", () => {
         assert.equal(isWordChar("_"), true, "_ should be a word character");
     });
 
-    it("should reject non-word characters", () => {
+    void it("should reject non-word characters", () => {
         const nonWord = " !@#$%^&*()-+=[]{}|\\:;\"'<>,.?/~`\t\n\r";
         for (const char of nonWord) {
             assert.equal(isWordChar(char), false, `'${char}' should not be a word character`);
         }
     });
 
-    it("should reject empty string", () => {
+    void it("should reject empty string", () => {
         assert.equal(isWordChar(""), false, "empty string should not be a word character");
     });
 
-    it("should reject null and undefined", () => {
+    void it("should reject null and undefined", () => {
         assert.equal(isWordChar(null), false, "null should not be a word character");
         assert.equal(isWordChar(undefined), false, "undefined should not be a word character");
     });
 
-    it("should reject non-string types", () => {
+    void it("should reject non-string types", () => {
         assert.equal(isWordChar(123), false, "number should not be a word character");
         assert.equal(isWordChar({}), false, "object should not be a word character");
         assert.equal(isWordChar([]), false, "array should not be a word character");
     });
 
-    it("should only check first character of multi-character strings", () => {
+    void it("should only check first character of multi-character strings", () => {
         assert.equal(isWordChar("abc"), true, "multi-char string starting with word char");
         assert.equal(isWordChar(" abc"), false, "multi-char string starting with non-word char");
     });
 
-    it("should handle boundary character codes correctly", () => {
+    void it("should handle boundary character codes correctly", () => {
         // Just before '0' (48)
         assert.equal(isWordChar(String.fromCharCode(47)), false);
         // '0' itself

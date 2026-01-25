@@ -3,15 +3,15 @@ import { describe, it } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
-describe("ScopeTracker batch query operations", () => {
-    describe("getBatchSymbolOccurrences", () => {
-        it("returns empty map for empty input", () => {
+void describe("ScopeTracker batch query operations", () => {
+    void describe("getBatchSymbolOccurrences", () => {
+        void it("returns empty map for empty input", () => {
             const tracker = new ScopeTracker({ enabled: true });
             const results = tracker.getBatchSymbolOccurrences([]);
             assert.equal(results.size, 0);
         });
 
-        it("returns empty map when no symbols are found", () => {
+        void it("returns empty map when no symbols are found", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
             tracker.declare("knownSymbol", { name: "knownSymbol" });
@@ -20,7 +20,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.equal(results.size, 0);
         });
 
-        it("returns occurrences for a single symbol", () => {
+        void it("returns occurrences for a single symbol", () => {
             const tracker = new ScopeTracker({ enabled: true });
             const programScope = tracker.enterScope("program");
             tracker.declare("myVar", {
@@ -56,7 +56,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.equal(reference.occurrence.name, "myVar");
         });
 
-        it("returns occurrences for multiple symbols efficiently", () => {
+        void it("returns occurrences for multiple symbols efficiently", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -89,7 +89,7 @@ describe("ScopeTracker batch query operations", () => {
             }
         });
 
-        it("handles mixed found and not-found symbols", () => {
+        void it("handles mixed found and not-found symbols", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -104,7 +104,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.ok(!results.has("alsoMissing"));
         });
 
-        it("collects occurrences from multiple scopes", () => {
+        void it("collects occurrences from multiple scopes", () => {
             const tracker = new ScopeTracker({ enabled: true });
 
             // Program scope
@@ -155,7 +155,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.equal(localRefs[0].scopeId, blockScope.id);
         });
 
-        it("accepts Set as input", () => {
+        void it("accepts Set as input", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -172,7 +172,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.ok(results.has("z"));
         });
 
-        it("skips null and empty string symbols", () => {
+        void it("skips null and empty string symbols", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -190,7 +190,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.ok(results.has("valid"));
         });
 
-        it("returns cloned occurrence data to prevent mutation", () => {
+        void it("returns cloned occurrence data to prevent mutation", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -212,7 +212,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.deepEqual(occ1, occ2, "But with equivalent data");
         });
 
-        it("supports hot reload use case: analyzing multiple changed symbols at once", () => {
+        void it("supports hot reload use case: analyzing multiple changed symbols at once", () => {
             // Simulates a file change where multiple symbols are modified
             const tracker = new ScopeTracker({ enabled: true });
 
@@ -254,7 +254,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.ok(affectedScopes.has(fileCScope.id));
         });
 
-        it("handles large batch efficiently", () => {
+        void it("handles large batch efficiently", () => {
             const tracker = new ScopeTracker({ enabled: true });
             tracker.enterScope("program");
 
@@ -277,7 +277,7 @@ describe("ScopeTracker batch query operations", () => {
             assert.ok(elapsedMs < 100, `Batch query took ${elapsedMs}ms, expected < 100ms`);
         });
 
-        it("returns correct scope metadata for each occurrence", () => {
+        void it("returns correct scope metadata for each occurrence", () => {
             const tracker = new ScopeTracker({ enabled: true });
 
             const programScope = tracker.enterScope("program");

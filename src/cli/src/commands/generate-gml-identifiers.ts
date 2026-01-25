@@ -36,6 +36,10 @@ const DEFAULT_TAGS_PATH = "ZeusDocs_tags.json";
 
 const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
+function matchesAny(needles: Array<string> | undefined, matcher: (value: string) => boolean = () => false) {
+    return (needles ?? []).some(matcher);
+}
+
 interface GenerateIdentifiersCommandOptions {
     output?: string;
     manualRoot?: string;
@@ -230,8 +234,6 @@ function classifyFromPath(manualPath, tagList) {
     const segmentMatches = (needle: string) => segments.some((segment) => segment.includes(needle));
     const tagMatches = (needle: string) => normalizedTags.has(needle);
 
-    const matchesAny = (needles: Array<string> | undefined, matcher: (value: string) => boolean = () => false) =>
-        (needles ?? []).some(matcher);
     const matchesAllGroups = (groups: Array<Array<string>> = []) =>
         groups.length > 0 && groups.every((needles) => matchesAny(needles, segmentMatches));
 
