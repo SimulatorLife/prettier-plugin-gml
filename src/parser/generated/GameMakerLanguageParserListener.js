@@ -392,15 +392,6 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-	enterParenthesizedExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-	exitParenthesizedExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#TernaryExpression.
 	enterTernaryExpression(ctx) {
 	}

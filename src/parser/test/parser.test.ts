@@ -557,4 +557,14 @@ switch (x) {
 `;
         assert.doesNotThrow(() => GMLParser.parse(source));
     });
+
+    void it("allows property access on parenthesized function calls", () => {
+        const source = "return (input_xy(_verb_l, _verb_r, _verb_u, _verb_d, _player_index, _most_recent)).x;";
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows property access on parenthesized expressions in general", () => {
+        const source = "var a = (b + c).d;";
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
 });

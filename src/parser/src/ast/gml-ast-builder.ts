@@ -1061,8 +1061,8 @@ export default class GameMakerASTBuilder {
         return this.visit(ctx.functionDeclaration());
     }
 
-    // Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-    visitParenthesizedExpression(ctx: ParserContext): any {
+    // Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedLValue.
+    visitParenthesizedLValue(ctx: ParserContext): any {
         return this.astNode(ctx, {
             type: "ParenthesizedExpression",
             expression: this.visit(ctx.expression())

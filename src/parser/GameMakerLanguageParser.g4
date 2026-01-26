@@ -154,7 +154,7 @@ newExpression
 lValueStartExpression
     : identifier # IdentifierLValue
     | newExpression # NewLValue
-    | OpenParen lValueExpression CloseParen # ParenthesizedLValue
+    | OpenParen expression CloseParen # ParenthesizedLValue
     ;
 
 lValueExpression
@@ -183,7 +183,6 @@ expressionOrFunction
 
 expression
     : callStatement # CallExpression
-    | OpenParen expression CloseParen # ParenthesizedExpression
     | <assoc=right> Plus expression # UnaryPlusExpression
     | <assoc=right> Minus expression # UnaryMinusExpression
     | <assoc=right> BitNot expression # BitNotExpression
