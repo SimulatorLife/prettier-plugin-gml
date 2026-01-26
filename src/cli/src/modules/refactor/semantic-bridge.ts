@@ -1,3 +1,7 @@
+import * as fs from "node:fs";
+import path from "node:path";
+
+import { Core } from "@gml-modules/core";
 import {
     type DependentSymbol,
     type FileSymbol,
@@ -5,7 +9,8 @@ import {
     OccurrenceKind,
     type PartialSemanticAnalyzer,
     type SymbolLookupResult,
-    type SymbolOccurrence
+    type SymbolOccurrence,
+    WorkspaceEdit
 } from "@gml-modules/refactor";
 
 /**
@@ -13,9 +18,11 @@ import {
  */
 export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     private projectIndex: any;
+    private projectRoot: string;
 
-    constructor(projectIndex: any) {
+    constructor(projectIndex: any, projectRoot: string = process.cwd()) {
         this.projectIndex = projectIndex;
+        this.projectRoot = projectRoot;
     }
 
     /**
@@ -146,29 +153,165 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
         this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
-        // 3. Search for resource definitions
-        const resource = this.findResourceByName(symbolName);
-        if (resource) {
-            occurrences.push({
-                path: resource.path,
-                start: 0,
-                end: 0,
-                scopeId: null,
-                kind: OccurrenceKind.DEFINITION
-            });
-            // Also add all asset references as occurrences
-            if (Array.isArray(resource.assetReferences)) {
-                // Note: assetReferences in resource record point OUTWARDS.
-                // We want references pointing TO this resource.
-                // The semantic index tracks asset references in 'resources' but keyed by source.
-                // To find references TO a resource, we'd iterate all resources and check their assetReferences.
-                // This is expensive but necessary for full resource rename.
-                // Optimally, ProjectIndex would invert this index.
-                this.collectOccurrencesFromAssetReferences(symbolName, occurrences);
+        this.collectOccurrencesFromAssetReferences(symbolName, occurrences);
+
+        // 4. Search all GML files for the name as an identifier
+        // This handles references in code that might not have been picked up or classified
+        // correctly by the semantic indexer (common for resource constants).
+        this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
+
+        return this.deduplicateOccurrences(occurrences);
+    }
+
+    /**
+     * Get additional edits (like file renames) for a symbol.
+     */
+    getAdditionalSymbolEdits(symbolId: string, newName: string): WorkspaceEdit | null {
+        const entry = this.findSymbolInCollections(symbolId);
+        if (!entry) return null;
+
+        // Check if this is a resource rename (based on kind or path)
+        const resource = this.findResourceBySymbol(entry, symbolId);
+        if (!resource) return null;
+
+        const edit = new WorkspaceEdit();
+        const oldName = entry.name;
+        const oldPath = resource.path;
+
+        // Typical GM structure: objects/oPlayer/oPlayer.yy
+        const resourceDir = path.dirname(oldPath);
+        const resourceDirName = path.basename(resourceDir);
+        const parentDir = path.dirname(resourceDir);
+
+        // 1. Rename files inside the directory that match the old name.
+        // We do this BEFORE renaming the directory.
+        const extensionsToRename = [".yy"];
+        if (resource.resourceType === "GMScript") {
+            extensionsToRename.push(".gml");
+        } else if (resource.resourceType === "GMShader") {
+            extensionsToRename.push(".fsh", ".vsh");
+        }
+
+        for (const ext of extensionsToRename) {
+            const oldFilePath = path.join(resourceDir, `${oldName}${ext}`);
+            const newFilePath = path.join(resourceDir, `${newName}${ext}`);
+
+            // Check if file exists before adding rename (using absolute path for check)
+            const absoluteOldPath = path.resolve(this.projectRoot, oldFilePath);
+            if (fs.existsSync(absoluteOldPath)) {
+                edit.addFileRename(oldFilePath, newFilePath);
             }
         }
 
-        return this.deduplicateOccurrences(occurrences);
+        // 2. Rename the directory itself if it matches the resource name.
+        if (resourceDirName === oldName) {
+            const newResourceDir = path.join(parentDir, newName);
+            edit.addFileRename(resourceDir, newResourceDir);
+        }
+
+        return edit;
+    }
+
+    private findResourceBySymbol(entry: any, symbolId: string): any {
+        // Direct path from entry
+        if (entry.resourcePath) {
+            const res = this.resources[entry.resourcePath];
+            if (res) return res;
+        }
+
+        // Try to infer from name and kind in symbolId
+        const match = symbolId.match(/^gml\/([^/]+)\/(.+)$/);
+        if (match) {
+            const name = match[2];
+            return this.findResourceByName(name);
+        }
+
+        return null;
+    }
+
+    private collectOccurrencesFromGmlFiles(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
+        const files = this.projectIndex.files;
+        if (!files) return;
+
+        for (const filePath of Object.keys(files)) {
+            if (filePath.endsWith(".gml")) {
+                const hits = this.findIdentifierOccurrences(filePath, symbolName);
+                for (const hit of hits) {
+                    occurrences.push({
+                        path: filePath,
+                        start: hit.start,
+                        end: hit.end,
+                        kind: OccurrenceKind.REFERENCE
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Find identifier occurrences in a file (respecting boundary characters).
+     */
+    private findIdentifierOccurrences(
+        relativePath: string,
+        name: string
+    ): Array<{ start: number; end: number }> {
+        const results: Array<{ start: number; end: number }> = [];
+        try {
+            const absolutePath = path.resolve(this.projectRoot, relativePath);
+            if (!fs.existsSync(absolutePath)) return results;
+
+            const content = fs.readFileSync(absolutePath, "utf8");
+            const escaped = Core.escapeRegExp(name);
+            // Use word boundaries or non-identifier characters to ensure we don't match substrings
+            // GML identifiers are [a-zA-Z_][a-zA-Z0-9_]*
+            const regex = new RegExp(`(?<=^|[^a-zA-Z0-9_])${escaped}(?=[^a-zA-Z0-9_]|$)`, "g");
+
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                results.push({
+                    start: match.index,
+                    end: match.index + name.length
+                });
+            }
+        } catch { /* ignore */ }
+        return results;
+    }
+
+    /**
+     * Find exact string occurrences in a JSON file to avoid corrupting it with [0,0] edits.
+     */
+    private findJsonStringOccurrences(
+        relativePath: string,
+        searchString: string
+    ): Array<{ start: number; end: number }> {
+        const results: Array<{ start: number; end: number }> = [];
+        try {
+            const absolutePath = path.resolve(this.projectRoot, relativePath);
+            if (!fs.existsSync(absolutePath)) {
+                return results;
+            }
+
+            const content = fs.readFileSync(absolutePath, "utf8");
+
+            // SEARCH IMPROVEMENT: Also find the name within paths!
+            // Example: "path":"objects/oGravitySphere/oGravitySphere.yy"
+            // We search for the name as an identifier within any string literal.
+            const escapedSearch = Core.escapeRegExp(searchString);
+            // Look for the name inside double quotes, potentially as part of a path.
+            // We want to match "oGravitySphere" but NOT "another_oGravitySphere"
+            const regex = new RegExp(String.raw`(?<=")(${escapedSearch})(?=[^a-zA-Z0-9_])|(?<=[^a-zA-Z0-9_])(${escapedSearch})(?=")|(?<=")(${escapedSearch})(?=")|(?<=[\/])(${escapedSearch})(?=[\.\/])`, "g");
+
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                results.push({
+                    start: match.index,
+                    end: match.index + searchString.length
+                });
+            }
+        } catch (error) {
+            console.warn(`[GmlSemanticBridge] Failed to read ${relativePath} for occurrence search:`, error);
+        }
+        return results;
     }
 
     /**
@@ -248,18 +391,41 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         const resources = this.resources;
         if (!resources) return;
 
+        // Also add the definition itself if we can find it in the resource file
+        const definitionResource = this.findResourceByName(targetName);
+        if (definitionResource) {
+            const defs = this.findJsonStringOccurrences(definitionResource.path, targetName);
+            for (const def of defs) {
+                occurrences.push({
+                    path: definitionResource.path,
+                    start: def.start,
+                    end: def.end,
+                    scopeId: null,
+                    kind: OccurrenceKind.DEFINITION
+                });
+            }
+        }
+
         for (const key of Object.keys(resources)) {
             const res = resources[key];
             if (Array.isArray(res.assetReferences)) {
                 for (const ref of res.assetReferences) {
                     if (ref.targetName === targetName) {
-                        occurrences.push({
-                            path: res.path,
-                            start: 0,
-                            end: 0,
-                            scopeId: null,
-                            kind: OccurrenceKind.REFERENCE
-                        });
+                        // Find actual locations in the file
+                        const locations = this.findJsonStringOccurrences(res.path, targetName);
+
+                        // If we found locations, add them. If not, and we are sure it's a reference,
+                        // we skip adding a blind [0,0] edit because it corrupts the file.
+                        // Ideally we should warn, but for now we prioritize not breaking the file.
+                        for (const loc of locations) {
+                            occurrences.push({
+                                path: res.path,
+                                start: loc.start,
+                                end: loc.end,
+                                scopeId: null,
+                                kind: OccurrenceKind.REFERENCE
+                            });
+                        }
                     }
                 }
             }
@@ -468,16 +634,36 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
 
     private findResourceByName(name: string, caseInsensitive = false): any {
         const resources = this.resources;
-        if (!resources) return null;
+        if (!resources) {
+            console.warn("[GmlSemanticBridge] Resources map is missing or undefined.");
+            return null;
+        }
+
+        const keys = Object.keys(resources);
+        console.log(`[GmlSemanticBridge] Searching for '${name}' in ${keys.length} resources.`);
 
         if (caseInsensitive) {
             const lowerName = name.toLowerCase();
-            for (const key of Object.keys(resources)) {
+            for (const key of keys) {
                 const res = resources[key];
                 if (res.name?.toLowerCase() === lowerName) return res;
             }
         } else {
-            for (const key of Object.keys(resources)) {
+            console.log(`[DEBUG] Looking for exact name: '${name}'`);
+
+            // Check if any resource name matches roughly
+            const match = keys.find(k => resources[k]?.name === name);
+            if (match) {
+                console.log(`[DEBUG] Found match by key iteration: ${match}`);
+            } else {
+                console.log(`[DEBUG] No exact match found for '${name}'. Sample keys: ${keys.slice(0, 3).join(", ")}`);
+                // Print one resource to verify structure
+                if (keys.length > 0) {
+                    console.log(`[DEBUG] Sample resource at ${keys[0]}: ${JSON.stringify(resources[keys[0]], null, 2)}`);
+                }
+            }
+
+            for (const key of keys) {
                 const res = resources[key];
                 if (res.name === name) return res;
             }
@@ -488,11 +674,31 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     private generateResourceScipId(resource: any): string {
         // e.g. gml/objects/obj_player
         let kind = "resource";
-        if (resource.resourceType === "GMObject") kind = "objects";
-        else if (resource.resourceType === "GMSprite") kind = "sprites";
-        else if (resource.resourceType === "GMRoom") kind = "rooms";
-        else if (resource.resourceType === "GMScript") kind = "scripts";
-        else if (resource.resourceType === "GMAudio") kind = "sounds";
+        switch (resource.resourceType) {
+            case "GMObject": {
+                kind = "objects";
+                break;
+            }
+            case "GMSprite": {
+                kind = "sprites";
+                break;
+            }
+            case "GMRoom": {
+                kind = "rooms";
+                break;
+            }
+            case "GMScript": {
+                kind = "scripts";
+                break;
+            }
+            case "GMAudio": {
+                {
+                    kind = "sounds";
+                    // No default
+                }
+                break;
+            }
+        }
         // fallback mapping
 
         return `gml/${kind}/${resource.name}`;

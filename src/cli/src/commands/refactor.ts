@@ -7,7 +7,7 @@
  * avoid scope capture or shadowing.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -143,7 +143,7 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
         });
 
         // 2. Build the refactor engine with semantic context
-        const semantic = new GmlSemanticBridge(projectIndex);
+        const semantic = new GmlSemanticBridge(projectIndex, projectRoot);
         const parser = new GmlParserBridge();
         const formatter = new GmlTranspilerBridge();
 
@@ -216,9 +216,12 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
             console.log("\n[DRY RUN] No files were modified.");
         } else {
             console.log("\nApplying changes...");
+            // Paths in workspace edits are project-relative, resolve to absolute
+            const resolvePath = (p: string) => path.resolve(projectRoot, p);
             await engine.applyWorkspaceEdit(plan.workspace, {
-                readFile: (p) => readFile(p, "utf8"),
-                writeFile: (p, c) => writeFile(p, c, "utf8")
+                readFile: (p) => readFile(resolvePath(p), "utf8"),
+                writeFile: (p, c) => writeFile(resolvePath(p), c, "utf8"),
+                renameFile: (oldP, newP) => rename(resolvePath(oldP), resolvePath(newP))
             });
             console.log("Success! All files updated.");
         }

@@ -243,7 +243,9 @@ async function loadResourceDocument(
     ensureNotAborted();
 
     try {
-        return Core.parseJsonWithContext(rawContents, {
+        // Use parseGameMakerJson which handles trailing commas in GameMaker's
+        // non-standard JSON format used by .yy and .yyp files
+        return Core.parseGameMakerJson(rawContents, {
             source: file.absolutePath ?? file.relativePath,
             description: "resource document"
         });
@@ -384,12 +386,18 @@ export async function analyseResourceFiles({
 }) {
     const context = createResourceAnalysisContext();
 
+    let parsedCount = 0;
+    let skippedCount = 0;
+
     await runSequentially(yyFiles, async (file) => {
         Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
+            skippedCount++;
             return;
         }
+
+        parsedCount++;
 
         const resourceRecord = ensureResourceRecordForDocument(context, file, parsed);
 
@@ -401,6 +409,8 @@ export async function analyseResourceFiles({
             projectRoot
         });
     });
+
+    console.log(`DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`);
 
     annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);
 

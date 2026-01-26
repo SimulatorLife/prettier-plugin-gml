@@ -503,7 +503,7 @@ export class RefactorEngine {
         if (!exists) {
             throw new Error(
                 `Symbol '${symbolId}' not found in semantic index. ` +
-                    `Ensure the project has been analyzed before attempting renames.`
+                `Ensure the project has been analyzed before attempting renames.`
             );
         }
 
@@ -543,6 +543,22 @@ export class RefactorEngine {
 
         for (const occurrence of occurrences) {
             workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, normalizedNewName);
+        }
+
+        // Add additional edits (like file renames) if the semantic analyzer provides them.
+        const semantic = this.semantic;
+        if (hasMethod(semantic, "getAdditionalSymbolEdits")) {
+            const additionalEdits = await semantic.getAdditionalSymbolEdits(symbolId, normalizedNewName);
+            if (additionalEdits && Array.isArray(additionalEdits.edits)) {
+                for (const edit of additionalEdits.edits) {
+                    workspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
+                }
+            }
+            if (additionalEdits && Array.isArray(additionalEdits.fileRenames)) {
+                for (const rename of additionalEdits.fileRenames) {
+                    workspace.addFileRename(rename.oldPath, rename.newPath);
+                }
+            }
         }
 
         return workspace;
@@ -594,7 +610,7 @@ export class RefactorEngine {
             if (edits.length > 50) {
                 warnings.push(
                     `Large number of edits (${edits.length}) planned for ${filePath}. ` +
-                        `Consider reviewing the scope of this refactoring.`
+                    `Consider reviewing the scope of this refactoring.`
                 );
             }
         }
@@ -680,6 +696,19 @@ export class RefactorEngine {
             }
         });
 
+        // Process file renames last to ensure we don't move files before we're done
+        // with their text edits. This stabilizes path references during the build phase.
+        if (!dryRun && workspace.fileRenames.length > 0) {
+            const { renameFile } = opts;
+            if (typeof renameFile !== "function") {
+                throw new TypeError("applyWorkspaceEdit requires a renameFile implementation to process file renames");
+            }
+
+            await runSequentially(workspace.fileRenames, async (rename) => {
+                await renameFile(rename.oldPath, rename.newPath);
+            });
+        }
+
         return results;
     }
 
@@ -732,7 +761,7 @@ export class RefactorEngine {
             const chain = circularChain.map((id) => extractSymbolName(id)).join(" → ");
             throw new Error(
                 `Circular rename chain detected: ${chain}. ` +
-                    `Cannot rename symbols in a cycle as it would create conflicts.`
+                `Cannot rename symbols in a cycle as it would create conflicts.`
             );
         }
 
@@ -803,6 +832,8 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            renameFile: request.renameFile,
+            deleteFile: request.deleteFile,
             dryRun: false
         });
 
@@ -812,7 +843,12 @@ export class RefactorEngine {
             hotReloadUpdates = await this.prepareHotReloadUpdates(workspace);
         }
 
-        return { workspace, applied, hotReloadUpdates };
+        return {
+            workspace,
+            applied,
+            hotReloadUpdates,
+            fileRenames: [...workspace.fileRenames]
+        };
     }
 
     /**
@@ -838,6 +874,8 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            renameFile: request.renameFile,
+            deleteFile: request.deleteFile,
             dryRun: false
         });
 
@@ -847,7 +885,12 @@ export class RefactorEngine {
             hotReloadUpdates = await this.prepareHotReloadUpdates(workspace);
         }
 
-        return { workspace, applied, hotReloadUpdates };
+        return {
+            workspace,
+            applied,
+            hotReloadUpdates,
+            fileRenames: [...workspace.fileRenames]
+        };
     }
 
     /**

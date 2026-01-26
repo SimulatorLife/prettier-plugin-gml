@@ -5,16 +5,19 @@ export interface TextEdit {
     newText: string;
 }
 
+export interface FileRename {
+    oldPath: string;
+    newPath: string;
+}
+
 export type GroupedTextEdits = Map<string, Array<Pick<TextEdit, "start" | "end" | "newText">>>;
 
-/**
- * Container for managing text edits across files.
- */
 export class WorkspaceEdit {
     readonly edits: Array<TextEdit>;
+    readonly fileRenames: Array<FileRename> = [];
 
     /**
-     * Create a WorkspaceEdit container for managing text edits across files.
+     * Create a WorkspaceEdit container for managing text edits and file operations across files.
      *
      * @param initialEdits Optional iterable of edits to initialize with
      */
@@ -24,6 +27,10 @@ export class WorkspaceEdit {
 
     addEdit(path: string, start: number, end: number, newText: string): void {
         this.edits.push({ path, start, end, newText });
+    }
+
+    addFileRename(oldPath: string, newPath: string): void {
+        this.fileRenames.push({ oldPath, newPath });
     }
 
     groupByFile(): GroupedTextEdits {

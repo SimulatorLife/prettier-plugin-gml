@@ -27,7 +27,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		const occurrences = bridge.getSymbolOccurrences("gravityFunction");
 
 		assert.strictEqual(occurrences.length, 1, "Should have found 1 occurrence of gravityFunction");
@@ -56,7 +56,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		const occurrences = bridge.getSymbolOccurrences("gravityFunction");
 
 		assert.strictEqual(occurrences.length, 1, "Should have found 1 reference to gravityFunction");
@@ -85,7 +85,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		const exists = bridge.hasSymbol("gml/script/gravityFunction");
 		assert.ok(exists, "Should have found gravityFunction via hasSymbol");
 	});
@@ -103,7 +103,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		assert.ok(bridge.hasSymbol("gml/macro/MY_MACRO"), "Should find macro via SCIP ID");
 	});
 
@@ -122,7 +122,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		assert.strictEqual(bridge.resolveSymbolId("func"), "gml/script/func");
 		assert.strictEqual(bridge.resolveSymbolId("MAC"), "gml/macro/MAC");
 		assert.strictEqual(bridge.resolveSymbolId("glob"), "gml/var/glob");
@@ -139,7 +139,7 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		assert.strictEqual(bridge.resolveSymbolId("func"), "gml/script/func");
 		assert.ok(bridge.hasSymbol("gml/script/func"));
 	});
@@ -156,8 +156,28 @@ void describe("GmlSemanticBridge tests", () => {
 			}
 		};
 
-		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
 		// User types "gravityFunction" (lowercase), index has "GravityFunction"
 		assert.strictEqual(bridge.resolveSymbolId("gravityFunction"), "gml/script/GravityFunction");
+	});
+
+	void it("hasSymbol should find an object resource in the resources map", () => {
+		const mockProjectIndex = {
+			identifiers: {},
+			resources: {
+				"objects/oGravitySphere/oGravitySphere.yy": {
+					path: "objects/oGravitySphere/oGravitySphere.yy",
+					name: "oGravitySphere",
+					resourceType: "GMObject",
+					assetReferences: []
+				}
+			}
+		};
+
+		const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+		assert.ok(bridge.hasSymbol("gml/objects/oGravitySphere"), "Should find object resource via hasSymbol");
+
+		// Also test case insensitivity
+		assert.ok(bridge.hasSymbol("gml/objects/ogravitysphere"), "Should find object resource case-insensitively");
 	});
 });

@@ -8,7 +8,7 @@ import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { runSequentially } from "./sequential-runner.js";
 
-export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
+export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 2;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
 export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR = "GML_PROJECT_INDEX_CACHE_MAX_SIZE";

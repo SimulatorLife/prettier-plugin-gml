@@ -1450,9 +1450,9 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                          start: Core.cloneLocation(reference.location.start),
-                          end: Core.cloneLocation(reference.location.end)
-                      }
+                        start: Core.cloneLocation(reference.location.start),
+                        end: Core.cloneLocation(reference.location.end)
+                    }
                     : null,
                 isResolved: reference.isResolved ?? false
             }))
@@ -1518,9 +1518,14 @@ async function discoverProjectFilesForIndex({ projectRoot, fsFacade, metrics, si
     ensureNotAborted();
     metrics.metadata.setMetadata("yyFileCount", projectFiles.yyFiles.length);
     metrics.metadata.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+    console.log(`DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`);
+    if (projectFiles.yyFiles.length > 0) {
+        console.log(`DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
+    }
     return projectFiles;
 }
 async function analyseProjectResourcesForIndex({ projectRoot, yyFiles, fsFacade, metrics, signal, ensureNotAborted }) {
+    console.log(`DEBUG: analyseProjectResourcesForIndex called with ${yyFiles.length} yyFiles`);
     const resourceAnalysis = await metrics.timers.timeAsync("analyseResourceFiles", () =>
         analyseResourceFiles({
             projectRoot,
@@ -1529,6 +1534,7 @@ async function analyseProjectResourcesForIndex({ projectRoot, yyFiles, fsFacade,
             signal
         })
     );
+    console.log(`DEBUG: analyseResourceFiles returned resourcesMap of size: ${resourceAnalysis.resourcesMap.size}`);
     ensureNotAborted();
     metrics.counters.increment("resources.total", resourceAnalysis.resourcesMap.size);
     return resourceAnalysis;
@@ -1658,6 +1664,11 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
         identifierCollections,
         relationships
     });
+    console.log("DEBUG: identifierCollections keys:", Object.keys(identifierCollections));
+    console.log("DEBUG: resourceAnalysis keys:", Object.keys(resourceAnalysis));
+    if (resourceAnalysis.resourcesMap) {
+        console.log("DEBUG: resourceAnalysis.resourcesMap size:", resourceAnalysis.resourcesMap.size);
+    }
     stopTotal();
     const projectIndex = projectIndexPayload;
     return finalizeProjectIndexResult({

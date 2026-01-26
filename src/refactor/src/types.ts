@@ -1,4 +1,4 @@
-import type { WorkspaceEdit } from "./workspace-edit.js";
+import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -315,6 +315,7 @@ export interface SymbolResolver {
  */
 export interface OccurrenceTracker {
     getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>>;
+    getAdditionalSymbolEdits?(symbolId: string, newName: string): MaybePromise<WorkspaceEdit | null>;
 }
 
 /**
@@ -372,11 +373,11 @@ export interface EditValidator {
  */
 export interface SemanticAnalyzer
     extends SymbolResolver,
-        OccurrenceTracker,
-        FileSymbolProvider,
-        DependencyAnalyzer,
-        KeywordProvider,
-        EditValidator {}
+    OccurrenceTracker,
+    FileSymbolProvider,
+    DependencyAnalyzer,
+    KeywordProvider,
+    EditValidator { }
 
 /**
  * Partial semantic analyzer for dependency injection.
@@ -409,6 +410,8 @@ export interface RenameRequest {
 export interface ExecuteRenameRequest extends RenameRequest {
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
 }
 
@@ -416,6 +419,8 @@ export interface ExecuteBatchRenameRequest {
     renames: Array<RenameRequest>;
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
 }
 
@@ -484,6 +489,7 @@ export interface ExecuteRenameResult {
     workspace: WorkspaceEdit;
     applied: Map<string, string>;
     hotReloadUpdates: Array<HotReloadUpdate>;
+    fileRenames: Array<FileRename>;
 }
 
 export interface TranspilerPatch {
@@ -552,6 +558,8 @@ export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
 }
 
 export interface RenameImpactNode {
