@@ -21,14 +21,58 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Check if a symbol exists in the project index.
      */
-    hasSymbol(symbolId: string): MaybePromise<boolean> {
+    hasSymbol(symbolId: string): boolean {
         return Boolean(this.findSymbolInCollections(symbolId));
+    }
+
+    /**
+     * Try to find the most appropriate symbol ID for a given name.
+     * Searches all collections and returns a SCIP-style symbol ID.
+     */
+    resolveSymbolId(name: string): string | null {
+        const identifiers = this.projectIndex.identifiers;
+        if (!identifiers) return null;
+
+        // Search collections in priority order
+        const priorityCollections = [
+            "scripts",
+            "macros",
+            "globalVariables",
+            "enums",
+            "enumMembers",
+            "instanceVariables"
+        ];
+
+        for (const collectionName of priorityCollections) {
+            const collection = identifiers[collectionName];
+            if (!collection) continue;
+
+            for (const key of Object.keys(collection)) {
+                const entry = collection[key];
+
+                // Check if entry itself matches
+                if (entry.name === name) {
+                    return this.generateScipId(entry);
+                }
+
+                // Check for nested declarations
+                if (Array.isArray(entry.declarations)) {
+                    for (const decl of entry.declarations) {
+                        if (decl.name === name) {
+                            return this.generateScipId(entry, name);
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
      * Find all occurrences of a symbol by its base name.
      */
-    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>> {
+    getSymbolOccurrences(symbolName: string): Array<SymbolOccurrence> {
         const occurrences: Array<SymbolOccurrence> = [];
         const identifiers = this.projectIndex.identifiers;
 
@@ -36,48 +80,138 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             return occurrences;
         }
 
-        // Search through all identifier collections
+        // 1. Search through all identifier collections in the index
         for (const collectionName of Object.keys(identifiers)) {
             const collection = identifiers[collectionName];
             if (!collection) continue;
 
             for (const key of Object.keys(collection)) {
-                const entry = collection[key];
-                if (entry.name === symbolName) {
-                    // Add declarations
-                    if (Array.isArray(entry.declarations)) {
-                        for (const decl of entry.declarations) {
-                            occurrences.push({
-                                path: decl.filePath,
-                                start: decl.start?.index ?? 0,
-                                end: decl.end?.index ?? 0,
-                                scopeId: decl.scopeId,
-                                kind: OccurrenceKind.DEFINITION
-                            });
-                        }
-                    }
+                this.collectOccurrencesFromEntry(collection[key], symbolName, occurrences);
+            }
+        }
 
-                    // Add references
-                    if (Array.isArray(entry.references)) {
-                        for (const ref of entry.references) {
-                            // References might have location instead of start/end
-                            const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                            const end = ref.end?.index ?? ref.location?.end?.index ?? 0;
+        // 2. Search through general relationships for any script calls that matched the name
+        // but weren't resolved to a specific identifier entry (useful for modern GML functions)
+        this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
-                            occurrences.push({
-                                path: ref.filePath,
-                                start,
-                                end,
-                                scopeId: ref.scopeId,
-                                kind: OccurrenceKind.REFERENCE
-                            });
-                        }
-                    }
+        return this.deduplicateOccurrences(occurrences);
+    }
+
+    /**
+     * Collect occurrences from a specific index entry.
+     */
+    private collectOccurrencesFromEntry(entry: any, symbolName: string, occurrences: Array<SymbolOccurrence>): void {
+        // Case A: The entry name itself matches (e.g. macro name, enum name, or script resource name)
+        if (entry.name === symbolName) {
+            this.collectAllFromEntry(entry, occurrences);
+            return;
+        }
+
+        // Case B: The entry name differs but it contains a declaration with the target name
+        // (e.g. a script file containing multiple named functions)
+        if (Array.isArray(entry.declarations)) {
+            for (const decl of entry.declarations) {
+                if (decl.name === symbolName) {
+                    occurrences.push({
+                        path: decl.filePath,
+                        start: decl.start?.index ?? 0,
+                        end: decl.end?.index ?? 0,
+                        scopeId: decl.scopeId,
+                        kind: OccurrenceKind.DEFINITION
+                    });
                 }
             }
         }
 
-        return occurrences;
+        // Case C: The entry has references that match the target name
+        if (Array.isArray(entry.references)) {
+            for (const ref of entry.references) {
+                if (ref.targetName === symbolName) {
+                    const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
+                    const end = ref.end?.index ?? ref.location?.end?.index ?? 0;
+
+                    occurrences.push({
+                        path: ref.filePath,
+                        start,
+                        end,
+                        scopeId: ref.scopeId,
+                        kind: OccurrenceKind.REFERENCE
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Collect occurrences from project relationships (script calls).
+     */
+    private collectOccurrencesFromRelationships(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
+        const scriptCalls = this.projectIndex.relationships?.scriptCalls;
+        if (!Array.isArray(scriptCalls)) {
+            return;
+        }
+
+        for (const call of scriptCalls) {
+            if (call.target?.name === symbolName) {
+                const start = call.location?.start?.index ?? 0;
+                const end = call.location?.end?.index ?? 0;
+
+                occurrences.push({
+                    path: call.from?.filePath ?? "",
+                    start,
+                    end,
+                    scopeId: call.from?.scopeId,
+                    kind: OccurrenceKind.REFERENCE
+                });
+            }
+        }
+    }
+
+    /**
+     * Collect all declarations and references from an entry into the occurrences array.
+     */
+    private collectAllFromEntry(entry: any, occurrences: Array<SymbolOccurrence>): void {
+        // Add declarations
+        if (Array.isArray(entry.declarations)) {
+            for (const decl of entry.declarations) {
+                occurrences.push({
+                    path: decl.filePath,
+                    start: decl.start?.index ?? 0,
+                    end: decl.end?.index ?? 0,
+                    scopeId: decl.scopeId,
+                    kind: OccurrenceKind.DEFINITION
+                });
+            }
+        }
+
+        // Add references
+        if (Array.isArray(entry.references)) {
+            for (const ref of entry.references) {
+                const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
+                const end = ref.end?.index ?? ref.location?.end?.index ?? 0;
+
+                occurrences.push({
+                    path: ref.filePath,
+                    start,
+                    end,
+                    scopeId: ref.scopeId,
+                    kind: OccurrenceKind.REFERENCE
+                });
+            }
+        }
+    }
+
+    /**
+     * Deduplicate occurrences by path and range.
+     */
+    private deduplicateOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+        const seen = new Set<string>();
+        return occurrences.filter((occ) => {
+            const key = `${occ.path}:${occ.start}:${occ.end}:${occ.kind}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }
 
     /**
@@ -171,13 +305,95 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         const identifiers = this.projectIndex.identifiers;
         if (!identifiers) return null;
 
+        // 1. Direct match by key or identifierId (fast path)
         for (const collectionName of Object.keys(identifiers)) {
             const collection = identifiers[collectionName];
             if (collection[symbolId]) return collection[symbolId];
 
             // Also try searching by identifierId property
             for (const key of Object.keys(collection)) {
-                if (collection[key].identifierId === symbolId) return collection[key];
+                const entry = collection[key];
+                if (entry.identifierId === symbolId) return entry;
+            }
+        }
+
+        // 2. Map SCIP-style ID to internal indexer ID and try again
+        const scipMatch = symbolId.match(/^gml\/([^/]+)\/(.+)$/);
+        if (scipMatch) {
+            const kind = scipMatch[1];
+            const name = scipMatch[2];
+            const indexerKind = this.mapToIndexerKind(kind);
+            const indexerId = `${indexerKind}:${name}`;
+
+            for (const collectionName of Object.keys(identifiers)) {
+                const collection = identifiers[collectionName];
+                for (const key of Object.keys(collection)) {
+                    const entry = collection[key];
+                    if (entry.identifierId === indexerId) return entry;
+                }
+            }
+
+            // 3. Search deeper for nested symbols using the name from SCIP ID
+            // We search in ALL collections that might contain these declarations
+            for (const collectionName of Object.keys(identifiers)) {
+                const collection = identifiers[collectionName];
+                const entry = this.findMatchingEntryInCollection(collection, name);
+                if (entry) return entry;
+            }
+        }
+
+        return null;
+    }
+
+    private mapToIndexerKind(scipKind: string): string {
+        switch (scipKind) {
+            case "script": {
+                return "script";
+            }
+            case "macro": {
+                return "macro";
+            }
+            case "enum": {
+                return "enum";
+            }
+            case "var": {
+                return "global"; // Default for generic var in SCIP scale
+            }
+            default: {
+                return scipKind;
+            }
+        }
+    }
+
+    private generateScipId(entry: any, nestedName?: string): string {
+        const name = nestedName ?? entry.name;
+        let scipKind = "var";
+
+        // Infer SCIP kind from identifierId or entry metadata
+        const id = entry.identifierId ?? "";
+        if (id.startsWith("script:")) {
+            scipKind = "script";
+        } else if (id.startsWith("macro:")) {
+            scipKind = "macro";
+        } else if (id.startsWith("enum:")) {
+            scipKind = "enum";
+        } else if (id.startsWith("global:") || id.startsWith("instance:")) {
+            scipKind = "var";
+        }
+
+        return `gml/${scipKind}/${name}`;
+    }
+
+    /**
+     * Search for an entry in a collection that contains a declaration with the given name.
+     */
+    private findMatchingEntryInCollection(collection: any, name: string): any {
+        for (const key of Object.keys(collection)) {
+            const entry = collection[key];
+            if (Array.isArray(entry.declarations)) {
+                for (const decl of entry.declarations) {
+                    if (decl.name === name) return entry;
+                }
             }
         }
         return null;

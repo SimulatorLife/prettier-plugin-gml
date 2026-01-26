@@ -60,9 +60,17 @@ export function createRefactorCommand(): Command {
     command
         .description("Perform safe, project-wide code transformations")
         .addOption(
-            new Option("--symbol-id <id>", "SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)")
+            new Option(
+                "--symbol-id <id>",
+                "Exact SCIP-style identifier (e.g., gml/script/my_func, gml/macro/MY_MACRO, gml/var/my_global)"
+            )
         )
-        .addOption(new Option("--old-name <name>", "Current name of the symbol to rename"))
+        .addOption(
+            new Option(
+                "--old-name <name>",
+                "Search for a symbol by its base name. The tool will try to find the correct kind (script, macro, etc.) automatically."
+            )
+        )
         .addOption(new Option("--new-name <name>", "New name for the symbol").makeOptionMandatory())
         .addOption(
             new Option("--project-root <path>", "Root directory of the GameMaker project").default(
@@ -147,20 +155,26 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
         let targetSymbolId = symbolId;
         if (!targetSymbolId && oldName) {
             if (verbose) console.log(`Searching for symbol matching name: ${oldName}`);
-            const occurrences = await engine.gatherSymbolOccurrences(oldName);
 
-            // For now, we take the first symbol ID we find
-            // In a better tool, we'd prompt if there are multiple
-            const firstOcc = occurrences[0];
-            if (!firstOcc) {
-                throw new Error(`Could not find any symbol named '${oldName}'`);
+            // Try to resolve the symbol ID through the bridge's heuristic
+            const resolvedId = semantic.resolveSymbolId(oldName);
+            if (resolvedId) {
+                targetSymbolId = resolvedId;
+                if (verbose) console.log(`Resolved symbol ID: ${targetSymbolId}`);
+            } else {
+                // Fallback: look for occurrences to see if MAYBE we can find it
+                const occurrences = await engine.gatherSymbolOccurrences(oldName);
+                if (occurrences.length === 0) {
+                    throw new Error(`Could not find any symbol named '${oldName}'`);
+                }
+
+                // Heuristic fallback if resolveSymbolId failed but occurrences exist
+                targetSymbolId = `gml/script/${oldName}`;
+                if (verbose) {
+                    console.log(`Warning: resolveSymbolId failed but found ${occurrences.length} occurrences.`);
+                    console.log(`Using fallback identifier: ${targetSymbolId}`);
+                }
             }
-
-            // Heuristic to get symbol ID from occurrences
-            // We'll rely on the semantic bridge to have annotated this if possible
-            // but for now we'll assume it's a script if no ID is found
-            targetSymbolId = `gml/script/${oldName}`;
-            if (verbose) console.log(`Inferred symbol ID: ${targetSymbolId}`);
         }
 
         if (!targetSymbolId) {
