@@ -69,7 +69,7 @@ function parseFixture(source: string, { suppressErrors = false, options }: Parse
     const originalError = console.error;
 
     try {
-        console.error = () => {};
+        console.error = () => { };
         return GMLParser.parse(source, options);
     } finally {
         console.error = originalError;
@@ -503,6 +503,58 @@ void describe("GameMaker parser fixtures", () => {
 
     void it("correctly handles equals as expression and assignment in the same scope", () => {
         const source = "var a = 1; if (a = 2) { a = 3; }";
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows #region inside switch cases", () => {
+        const source = `
+switch (x) {
+    #region Some Cases
+    case 1:
+        break;
+    #endregion
+    case 2:
+        #region Inner Region
+        break;
+        #endregion
+}
+`;
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows #region inside enum", () => {
+        const source = `
+enum E {
+    #region Values
+    A,
+    B,
+    #endregion
+    C
+}
+`;
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows #region inside struct literal", () => {
+        const source = `
+var s = {
+    #region Properties
+    a: 1,
+    b: 2
+    #endregion
+};
+`;
+        assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("allows #macro inside switch cases", () => {
+        const source = `
+switch (x) {
+    #macro INTERNAL_CASE 1
+    case INTERNAL_CASE:
+        break;
+}
+`;
         assert.doesNotThrow(() => GMLParser.parse(source));
     });
 });

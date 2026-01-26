@@ -83,7 +83,7 @@ emptyStatement
     ;
 
 caseBlock
-    : openBlock caseClauses? (defaultClause caseClauses?)? closeBlock
+    : openBlock (caseClause | defaultClause | regionStatement | macroStatement)* closeBlock
     ;
 
 caseClauses
@@ -308,7 +308,13 @@ elementList
     ;
 
 structLiteral
-    : openBlock (propertyAssignment (Comma propertyAssignment)* Comma?)? closeBlock
+    : openBlock (structItem (Comma? structItem)* Comma?)? closeBlock
+    ;
+
+structItem
+    : propertyAssignment
+    | regionStatement
+    | macroStatement
     ;
 
 propertyAssignment
@@ -348,7 +354,13 @@ enumeratorDeclaration
     ;
 
 enumeratorList
-    : enumerator (Comma enumerator)* Comma?
+    : enumeratorItem (Comma? enumeratorItem)* Comma?
+    ;
+
+enumeratorItem
+    : enumerator
+    | regionStatement
+    | macroStatement
     ;
 
 enumerator

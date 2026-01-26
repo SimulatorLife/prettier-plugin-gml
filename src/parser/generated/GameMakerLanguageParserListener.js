@@ -653,6 +653,15 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
+	// Enter a parse tree produced by GameMakerLanguageParser#structItem.
+	enterStructItem(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#structItem.
+	exitStructItem(ctx) {
+	}
+
+
 	// Enter a parse tree produced by GameMakerLanguageParser#propertyAssignment.
 	enterPropertyAssignment(ctx) {
 	}
@@ -731,6 +740,15 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 
 	// Exit a parse tree produced by GameMakerLanguageParser#enumeratorList.
 	exitEnumeratorList(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#enumeratorItem.
+	enterEnumeratorItem(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#enumeratorItem.
+	exitEnumeratorItem(ctx) {
 	}
 
 
