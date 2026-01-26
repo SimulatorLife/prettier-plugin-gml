@@ -7,7 +7,7 @@ import { Transpiler } from "../index.js";
 
 void describe("Transpiler.emitJavaScript constructor handling", () => {
     void it("converts basic constructor to function", () => {
-        const source = "function MyClass() constructor {}";
+        const source = "function MyClass () constructor {}";
         const ast = Parser.GMLParser.parse(source);
 
         const js = Transpiler.emitJavaScript(ast);

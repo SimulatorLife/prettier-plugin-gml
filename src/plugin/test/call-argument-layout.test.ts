@@ -9,7 +9,7 @@ void test("breaks simple prefix arguments when callbacks follow", async () => {
         "    call_later(",
         "        1800,",
         "        time_source_units_frames,",
-        "        function() {",
+        "        function () {",
         "            perform_cleanup();",
         "        },",
         "        true",

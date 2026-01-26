@@ -1,4 +1,4 @@
-function item() constructor {
+function item () constructor {
     self.value = 1;
 }
 

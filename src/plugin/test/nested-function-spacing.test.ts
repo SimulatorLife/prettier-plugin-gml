@@ -5,7 +5,7 @@ import { Plugin } from "../src/index.js";
 
 void test("adds a blank line before closing blocks after nested functions", async () => {
     const source = [
-        "function outer() constructor {",
+        "function outer () constructor {",
         "    function inner() {",
         "        return 1;",
         "    }",

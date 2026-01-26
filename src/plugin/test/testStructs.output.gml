@@ -11,13 +11,13 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 
     /// @description Print a debug message showing foo value
     /// @returns {undefined}
-    static print = function() {
+    static print = function () {
         show_debug_message($"My foo is {self.foo}");
     };
 
     /// @description Each time this is called, create new map
     /// @returns {undefined}
-    static generate = function() {
+    static generate = function () {
         points = poisson_disk_sample(width, height, point_space);
         create_nodes_from_points();
         remove_ellipse();
@@ -25,7 +25,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 
     /// @description Remove all nodes outside of ellipse
     /// @returns {undefined}
-    static remove_ellipse = function() {
+    static remove_ellipse = function () {
         var len = array_length(nodes);
         for (var i = 0; i < len; i++) {
             if (!collision_ellipse(0, 0, width, height, nodes[i], false, true)) {
@@ -36,7 +36,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 
     /// @description Draw points in array for debugging
     /// @returns {undefined}
-    static draw_points = function() {
+    static draw_points = function () {
         var num_points = array_length(points);
         for (var i = 0; i < num_points; i++) {
             draw_circle(points[i].x, points[i].y, 2, false);
@@ -55,19 +55,19 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
     /// @override
     /// @description Print a debug message showing foo value
     /// @returns {undefined}
-    static print = function() {
+    static print = function () {
         show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
     };
 
     /// @override
     /// @returns {undefined}
-    static draw_points = function() {
+    static draw_points = function () {
         // Do nothing
     };
 }
 
 // Print function with different scope 
-var print = function() {
+var print = function () {
     show_debug_message("This is a different print function");
 };
 

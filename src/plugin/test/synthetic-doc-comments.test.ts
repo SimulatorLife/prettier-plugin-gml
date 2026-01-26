@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("omits synthetic docs for anonymous functions without return value", async () => {
-    const source = "var myFunc = function() {\n    var value = 1;\n}\n";
+    const source = "var myFunc = function () {\n    var value = 1;\n}\n";
     const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
@@ -16,7 +16,7 @@ void test("omits synthetic docs for anonymous functions without return value", a
 });
 
 void test("omits synthetic docs for anonymous functions with return value", async () => {
-    const source = "var myFunc = function() {\n    return 1;\n}\n";
+    const source = "var myFunc = function () {\n    return 1;\n}\n";
     const formatted = await Plugin.format(source, { applyFeatherFixes: true });
     const trimmed = formatted.trim();
 
@@ -67,7 +67,7 @@ void test("adds synthetic @returns doc for empty onymous/named function bodies",
 void test("augments static function doc comments with missing @returns metadata", async () => {
     const source = [
         "/// @function helper",
-        "static helper = function() {",
+        "static helper = function () {",
         "    var value = 0;",
         "    value += 1;",
         "}",
@@ -86,8 +86,8 @@ void test("augments static function doc comments with missing @returns metadata"
 
 void test("adds synthetic @returns metadata for parameterless static functions", async () => {
     const source = [
-        "function Example() constructor {",
-        "    static ping = function() {",
+        "function Example () constructor {",
+        "    static ping = function () {",
         '        show_debug_message("ping");',
         "    };",
         "}",
@@ -98,7 +98,7 @@ void test("adds synthetic @returns metadata for parameterless static functions",
     const trimmed = formatted.trim();
 
     assert.ok(
-        trimmed.includes("\n\n    /// @returns {undefined}\n    static ping = function() {"),
+        trimmed.includes("\n\n    /// @returns {undefined}\n    static ping = function () {"),
         "Expected synthetic doc comments to describe the parameterless static function with inserted @returns metadata."
     );
     assert.ok(
@@ -112,14 +112,14 @@ void test("adds synthetic @returns metadata for parameterless static functions",
 });
 
 void test("adds synthetic docs for named constructor assignments", async () => {
-    const source = ["item = function() constructor {", "    value = 1;", "}", ""].join("\n");
+    const source = ["item = function () constructor {", "    value = 1;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.strictEqual(
         lines[0],
-        "item = function() constructor {",
+        "item = function () constructor {",
         "Named constructor assignments should no longer receive deprecated @function doc comments."
     );
     assert.ok(
@@ -170,14 +170,14 @@ void test("synthetic constructor docs include trailing parameters", async () => 
 
 void test("annotates overriding static functions with @override metadata", async () => {
     const source = [
-        "function Base() constructor {",
-        "    static print = function() {",
+        "function Base () constructor {",
+        "    static print = function () {",
         '        show_debug_message("base");',
         "    };",
         "}",
         "",
         "function Derived() : Base() constructor {",
-        "    static print = function() {",
+        "    static print = function () {",
         '        show_debug_message("derived");',
         "    };",
         "}",

@@ -5,7 +5,7 @@ import { Plugin } from "../src/index.js";
 
 void test("keeps new call arguments inline when callback bodies expand", async () => {
     const source = [
-        "collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function(o) {",
+        "collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function (o) {",
         "if (instance_exists(o)) {",
         "instance_destroy();",
         "}",
@@ -18,7 +18,7 @@ void test("keeps new call arguments inline when callback bodies expand", async (
 
     assert.strictEqual(
         lines[0],
-        "collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function(o) {",
+        "collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function (o) {",
         "Expected constructor call arguments to remain inline when a trailing callback expands."
     );
 });

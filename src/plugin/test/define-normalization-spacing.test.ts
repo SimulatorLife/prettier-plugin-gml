@@ -7,7 +7,7 @@ void describe("define normalization spacing", () => {
     void it("surrounds normalized region defines with blank lines", async () => {
         const source = [
             "#define region Utility Scripts",
-            "var util = function(val) {",
+            "var util = function (val) {",
             "    return val;",
             "}",
             "#define end region Utility Scripts"
@@ -18,7 +18,7 @@ void describe("define normalization spacing", () => {
         const expected = [
             "#region Utility Scripts",
             "",
-            "var util = function(val) {",
+            "var util = function (val) {",
             "    return val;",
             "};",
             "",
@@ -35,7 +35,7 @@ void describe("define normalization spacing", () => {
             "#define  end region Utility Scripts",
             "",
             "#define LEGACY_MACRO VALUE",
-            "var util = function() {",
+            "var util = function () {",
             "    return LEGACY_MACRO;",
             "}",
             ""
@@ -44,7 +44,7 @@ void describe("define normalization spacing", () => {
         const formatted = await Plugin.format(source);
         const lines = formatted.split("\n");
 
-        const utilLineIndex = lines.indexOf("var util = function() {");
+        const utilLineIndex = lines.indexOf("var util = function () {");
         assert.ok(utilLineIndex !== -1, "Expected the utility assignment to be printed.");
 
         assert.strictEqual(

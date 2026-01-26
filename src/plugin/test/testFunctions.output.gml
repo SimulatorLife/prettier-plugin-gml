@@ -1,11 +1,11 @@
 some(
     thisArgumentIsQuiteLong,
-    function foo(cool, f = function() { ez(); }) : bar() constructor {
+    function foo (cool, f = function () { ez(); }) : bar() constructor {
         return cool;
     }
 );
 
-call(1, 2, 3, someFunctionCallWithBigArgumentsAndACallback, function(aaaaaaaaaaaaaaaaaa) {
+call(1, 2, 3, someFunctionCallWithBigArgumentsAndACallback, function (aaaaaaaaaaaaaaaaaa) {
     foo();
 });
 
@@ -42,7 +42,7 @@ function Shape(color = undefined) constructor {
     self.color = color;
 
     /// @returns {undefined}
-    static print = function() {
+    static print = function () {
         show_debug_message("I'm a shape");
     };
 
@@ -50,14 +50,14 @@ function Shape(color = undefined) constructor {
     ///              It will not delete any geometry added to a ColMesh.
     ///              After a mesh has been frozen, it can no longer be added to a colmesh.
     /// @returns {undefined}
-    static freeze = function() {
+    static freeze = function () {
         triangles = [];
         ds_list_destroy(shapeList);
     };
 
     /// @param {bool} solid Whether the shape is solid or not
     /// @returns {undefined}
-    static setSolid = function(solid) {
+    static setSolid = function (solid) {
         if (solid) {
             group |= cmGroupSolid; // Flag as solid
         } else {
@@ -126,14 +126,14 @@ var best = choose_profile(undefined, {profile: "dev"});
 // .__GetString()
 // .__GetBuffer()
 
-function __ChatterboxBufferBatch() constructor {
+function __ChatterboxBufferBatch () constructor {
     __destroyed  = false;
     __inBuffer   = undefined;
     __workBuffer = undefined;
     __outBuffer  = undefined;
     __commands   = [];
 
-    static __Destroy = function() {
+    static __Destroy = function () {
         if (__destroyed) { return; }
         __destroyed = true;
 
@@ -226,7 +226,7 @@ function scr_spring(a, b, dst, force, push_out, pull_in) {
     return false;
 }
 
-get_debug_text = function() {
+get_debug_text = function () {
     var txt = "";
 
     txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";

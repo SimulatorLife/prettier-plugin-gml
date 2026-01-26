@@ -7,7 +7,7 @@ void test("inlines default parameter functions with single call bodies", async (
     const source = [
         "some(",
         "    thisArgumentIsQuiteLong,",
-        "    function foo(cool, f = function() {",
+        "    function foo(cool, f = function () {",
         "        ez();",
         "    }) : bar() constructor {",
         "        return cool;",
@@ -25,7 +25,7 @@ void test("inlines default parameter functions with single call bodies", async (
         [
             "some(",
             "    thisArgumentIsQuiteLong,",
-            "    function foo(cool, f = function() { ez(); }) : bar() constructor {",
+            "    function foo(cool, f = function () { ez(); }) : bar() constructor {",
             "        return cool;",
             "    }",
             ");",

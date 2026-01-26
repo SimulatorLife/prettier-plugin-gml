@@ -5,11 +5,11 @@ import { Plugin } from "../src/index.js";
 
 void test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
-        "function drawer_factory() constructor {",
+        "function drawer_factory () constructor {",
         "    /// @description Draw points in array for debugging",
         "    /// @returns {undefined}",
         "    /// @returns {undefined}",
-        "    static draw_points = function() {",
+        "    static draw_points = function () {",
         "        draw_circle(0, 0, 1, false);",
         "    };",
         "}",

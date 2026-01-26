@@ -31,7 +31,7 @@ void test("inserts a blank line between large variable blocks and following loop
 void test("formats struct static functions without infinite recursion", async () => {
     const source = [
         "function child_struct(_foo, _value) constructor {",
-        "    static remove_ellipse = function() {",
+        "    static remove_ellipse = function () {",
         "        for (var i = 0; i < array_length(nodes); i += 1) {",
         "            if (!collision_ellipse(0, 0, width, height, nodes[i], false, true)) {",
         "                instance_destroy(nodes[i]);",

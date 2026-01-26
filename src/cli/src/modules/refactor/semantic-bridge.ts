@@ -302,7 +302,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     }
 
     private findSymbolInCollections(symbolId: string): any {
-        const identifiers = this.projectIndex.identifiers;
+        const identifiers = this.projectIndex.identifiers ?? this.projectIndex.identifierCollections;
         if (!identifiers) return null;
 
         // 1. Direct match by key or identifierId (fast path)

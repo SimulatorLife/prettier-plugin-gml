@@ -8,7 +8,7 @@ void test("keeps small struct arguments inline", async () => {
         "function create() {",
         "    return instance_create_depth(0, 0, 0, Object2, {",
         "        value: 99,",
-        "        func: function() {",
+        "        func: function () {",
         "            return self.value;",
         "        }",
         "    });",

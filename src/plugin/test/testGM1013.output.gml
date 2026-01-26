@@ -3,7 +3,7 @@ function AttackController(attack_bonus = 10) constructor {
     self.attack_bonus = attack_bonus;
 
     /// @returns {undefined}
-    static perform_attack = function() {
+    static perform_attack = function () {
         var base_atk = 1; // Local variable for base attack value that can be passed into 'with' block as-is
 
         // Inside a with block, 'other' will be the instance or struct that called the with() function
@@ -18,7 +18,7 @@ value = 40;
 
 var _struct = instance_create_depth(0, 0, 0, Object2, {
     value : 99,
-    func : function() {
+    func : function () {
         return self.value;
     }
 });
@@ -29,7 +29,7 @@ show_message(_func()); // Prints 99
 
 value = 40;
 
-item = function() constructor {
+item = function () constructor {
     value = 99;
     copied_value = self.value;
 };

@@ -7,10 +7,10 @@ const format = (source, options = {}) => Plugin.format(source, options);
 
 void test("omits empty doc descriptions on struct static functions", async () => {
     const source = [
-        "function container() constructor {",
+        "function container () constructor {",
         "    /// @description",
         "    /// @returns {undefined}",
-        "    static print = function() {",
+        "    static print = function () {",
         "        return;",
         "    };",
         "}",

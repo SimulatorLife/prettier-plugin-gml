@@ -54,7 +54,7 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
 /// @param {function} [func_fx_callback] A function to call after the animation has completed
 /// @param {Constant.Color} [color=c_white]
 /// @returns {Id.Instance} instance
-function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, color = c_white) {
+function scr_create_fx (sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, color = c_white) {
     gml_pragma("forceinline");
 
     if (!RELEASE) {
@@ -81,7 +81,7 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
 /// @param key
 /// @param default_value
 /// @returns {any}
-function scr_struct_get(structure, key, default_value) {
+function scr_struct_get (structure, key, default_value) {
     if (is_undefined(structure)) {
         return default_value;
     }
@@ -100,14 +100,14 @@ function scr_struct_get(structure, key, default_value) {
 /// @param {Any} [extra]
 /// @param {Id.DsList<array<real>>} list
 /// @returns {string}
-function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
+function scr_lots_of_types (buffer, list, map, count, asset, callback, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 
 /// @description An anonymous function that greets
 /// @param {string} [greeting="Hello, World!"]
 /// @returns {string}
-var func_greet = function(greeting = "Hello, World!") {
+var func_greet = function (greeting = "Hello, World!") {
     show_debug_message(greeting);
     return greeting;
 };

@@ -2,7 +2,7 @@
 
 #region Utility Scripts
 
-var util = function(val) {
+var util = function (val) {
 	return val * LEGACY_MACRO;
 };
 

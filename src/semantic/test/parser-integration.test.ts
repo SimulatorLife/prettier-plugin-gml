@@ -354,7 +354,7 @@ enum eTransitionType {
 
     void it("tracks struct member scopes independently from methods", () => {
         const source = `
-function Player() constructor {
+function Player () constructor {
   var health = 100;
   function heal(amount) {
     health += amount;

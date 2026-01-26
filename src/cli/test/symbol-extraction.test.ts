@@ -32,7 +32,7 @@ void describe("Symbol extraction from AST", () => {
 
     void it("should extract variable declarator function assignments", () => {
         const source = `
-            var myFunc = function() {
+            var myFunc = function () {
                 return 42;
             };
         `;
@@ -47,7 +47,7 @@ void describe("Symbol extraction from AST", () => {
 
     void it("should extract assignment expression function assignments", () => {
         const source = `
-            myHandler = function() {
+            myHandler = function () {
                 show_debug_message("handled");
             };
         `;
@@ -104,7 +104,7 @@ void describe("Symbol extraction from AST", () => {
     void it("should deduplicate symbols if the same name appears multiple times", () => {
         const source = `
             function test() { }
-            var test = function() { };
+            var test = function () { };
         `;
 
         const parser = new Parser.GMLParser(source, {});
@@ -121,11 +121,11 @@ void describe("Symbol extraction from AST", () => {
                 return 1;
             }
             
-            var assigned = function() {
+            var assigned = function () {
                 return 2;
             };
             
-            handler = function() {
+            handler = function () {
                 return 3;
             };
         `;
@@ -164,7 +164,7 @@ void describe("Symbol extraction from AST", () => {
             x = 10;
             name = "test";
             
-            myFunc = function() {
+            myFunc = function () {
                 return 42;
             };
         `;

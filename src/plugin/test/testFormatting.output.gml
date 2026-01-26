@@ -5,10 +5,10 @@ for (var i = 0; i < num; i++) {
     show_debug_message("Hello World " + string(i + 1));
 }
 
-function TestStruct() constructor {
+function TestStruct () constructor {
 
     /// @returns {undefined}
-    static clearSubdiv = function() {
+    static clearSubdiv = function () {
         if (spHash >= 0) {
             // Clears any data structures related to the subdivision of the colmesh
             var region = ds_map_find_first(spHash);
@@ -20,7 +20,6 @@ function TestStruct() constructor {
             spHash = -1;
         }
     };
-
 }
 
 var myWidth = 14;
@@ -36,7 +35,7 @@ var currState = eStates.STATE_IDLE;
 
 /// @param [newState=eStates.STATE_IDLE]
 /// @returns {undefined}
-function changeState(newState = eStates.STATE_IDLE) {
+function changeState (newState = eStates.STATE_IDLE) {
     currState = newState;
 }
 
@@ -65,7 +64,7 @@ with (enemy) {
 /// @description Add 2 numbers
 /// @param {real} n1
 /// @param {real} n2
-function func_add(n1, n2) {
+function func_add (n1, n2) {
     return n1 + n2;
 }
 
@@ -75,7 +74,7 @@ show_debug_message(myTemplateString);
 /// @description Subtract 2 numbers
 /// @param n1
 /// @param n2
-function func_sub(n1, n2) {
+function func_sub (n1, n2) {
     return n1 - n2;
 }
 

@@ -20,7 +20,7 @@ void test("omits blank lines between nested and enclosing block braces", async (
 
 void test("adds a blank line after nested function declarations", async () => {
     const source = [
-        "function outer() constructor {",
+        "function outer () constructor {",
         "    function inner() {",
         "        return 1;",
         "    }",

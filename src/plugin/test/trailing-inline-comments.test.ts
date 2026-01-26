@@ -6,7 +6,7 @@ import { Plugin } from "../src/index.js";
 void test("keeps multi-sentence inline comments on the same line", async () => {
     const source = [
         "function AttackController(attack_bonus = 10) constructor {",
-        "    static perform_attack = function() {",
+        "    static perform_attack = function () {",
         "        var base_atk = 1; // Local variable for base attack value. Can be passed into 'with' block as-is.",
         "    };",
         "}",

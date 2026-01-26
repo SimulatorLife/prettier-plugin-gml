@@ -29,11 +29,11 @@ function extractDocBlocks(text) {
 }
 
 void test("struct static functions drop stray @param tags when no parameters", async () => {
-    const source = `function container() constructor {
+    const source = `function container () constructor {
     /// @param {real} width
     /// @description Each call generates layout
     /// @returns {undefined}
-    static generate = function() {
+    static generate = function () {
         return;
     };
 }`;
@@ -47,11 +47,11 @@ void test("struct static functions drop stray @param tags when no parameters", a
 });
 
 void test("struct static functions keep implicit argument docs", async () => {
-    const source = `function container() constructor {
+    const source = `function container () constructor {
     /// @param {real} argument0
     /// @description Example description
     /// @returns {real}
-    static dispatch = function() {
+    static dispatch = function () {
         return argument[0];
     };
 }`;
