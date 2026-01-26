@@ -19,6 +19,13 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     }
 
     /**
+     * Get the identifiers map, handling structural differences in the project index.
+     */
+    private get identifiers(): any {
+        return this.projectIndex.identifiers ?? this.projectIndex.identifierCollections;
+    }
+
+    /**
      * Check if a symbol exists in the project index.
      */
     hasSymbol(symbolId: string): boolean {
@@ -30,7 +37,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
      * Searches all collections and returns a SCIP-style symbol ID.
      */
     resolveSymbolId(name: string): string | null {
-        const identifiers = this.projectIndex.identifiers;
+        const identifiers = this.identifiers;
         if (!identifiers) return null;
 
         // Search collections in priority order
@@ -74,7 +81,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
      */
     getSymbolOccurrences(symbolName: string): Array<SymbolOccurrence> {
         const occurrences: Array<SymbolOccurrence> = [];
-        const identifiers = this.projectIndex.identifiers;
+        const identifiers = this.identifiers;
 
         if (!identifiers) {
             return occurrences;
@@ -243,7 +250,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         const dependents: Array<DependentSymbol> = [];
 
         // This requires traversing references in the index
-        const identifiers = this.projectIndex.identifiers;
+        const identifiers = this.identifiers;
         if (!identifiers) return dependents;
 
         const symbolIdSet = new Set(symbolIds);
@@ -281,7 +288,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
      */
     lookup(name: string, scopeId?: string): MaybePromise<SymbolLookupResult | null> {
         // Basic implementation: find if name exists in the requested scope or globally
-        const identifiers = this.projectIndex.identifiers;
+        const identifiers = this.identifiers;
         if (!identifiers) return null;
 
         // Check if it exists in any collection
@@ -302,7 +309,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     }
 
     private findSymbolInCollections(symbolId: string): any {
-        const identifiers = this.projectIndex.identifiers ?? this.projectIndex.identifierCollections;
+        const identifiers = this.identifiers;
         if (!identifiers) return null;
 
         // 1. Direct match by key or identifierId (fast path)

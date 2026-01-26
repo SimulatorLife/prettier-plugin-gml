@@ -1,2 +1,2 @@
 /// @returns {undefined}
-function foo (/* hi */) {}
+function foo(/* hi */) {}

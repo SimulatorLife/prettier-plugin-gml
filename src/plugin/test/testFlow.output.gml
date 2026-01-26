@@ -89,18 +89,18 @@ do {
 return total;
 
 /// @param condition
-function bool_passthrough (condition) {
+function bool_passthrough(condition) {
     return condition;
 }
 
 /// @param {bool} a The first boolean
 /// @param {bool} b The second boolean
-function bool_negated (a, b) {
+function bool_negated(a, b) {
     return !(a and b);
 }
 
 /// @param condition
-function bool_with_comment (condition) {
+function bool_with_comment(condition) {
     if (condition) {
         // comment should stop simplification
         return true;
@@ -113,7 +113,7 @@ function bool_with_comment (condition) {
 /// @param map
 /// @param grid
 /// @returns {undefined}
-function iterate_structures (list, map, grid) {
+function iterate_structures(list, map, grid) {
     var list_size = ds_list_size(list);
     for (var i = 0; i < list_size; i++) {
         show_debug_message(list[| i]);

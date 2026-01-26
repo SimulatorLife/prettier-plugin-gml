@@ -5,7 +5,7 @@ import { Plugin } from "../src/index.js";
 
 void test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
-        "function drawer_factory () constructor {",
+        "function drawer_factory() constructor {",
         "    /// @description Draw points in array for debugging",
         "    /// @returns {undefined}",
         "    /// @returns {undefined}",

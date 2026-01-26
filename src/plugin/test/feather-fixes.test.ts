@@ -893,7 +893,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
     void it("preserves function-scoped vars when resolving with(other) references", () => {
         const source = [
-            "function AttackController () constructor {",
+            "function AttackController() constructor {",
             "    static perform_attack = function () {",
             "        var base_atk = 1;",
             "",

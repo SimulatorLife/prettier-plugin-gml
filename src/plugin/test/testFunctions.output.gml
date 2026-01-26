@@ -1,6 +1,6 @@
 some(
     thisArgumentIsQuiteLong,
-    function foo (cool, f = function () { ez(); }) : bar() constructor {
+    function foo(cool, f = function () { ez(); }) : bar() constructor {
         return cool;
     }
 );
@@ -126,7 +126,7 @@ var best = choose_profile(undefined, {profile: "dev"});
 // .__GetString()
 // .__GetBuffer()
 
-function __ChatterboxBufferBatch () constructor {
+function __ChatterboxBufferBatch() constructor {
     __destroyed  = false;
     __inBuffer   = undefined;
     __workBuffer = undefined;

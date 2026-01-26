@@ -127,4 +127,20 @@ void describe("GmlSemanticBridge tests", () => {
 		assert.strictEqual(bridge.resolveSymbolId("MAC"), "gml/macro/MAC");
 		assert.strictEqual(bridge.resolveSymbolId("glob"), "gml/var/glob");
 	});
+
+	void it("should handle missing identifiers property by falling back to identifierCollections", () => {
+		// Simulate a ProjectIndex where 'identifiers' is missing but 'identifierCollections' is present
+		const mockProjectIndex = {
+			// No identifiers property
+			identifierCollections: {
+				scripts: {
+					"scope:script:func": { identifierId: "script:func", name: "func", declarations: [] }
+				}
+			}
+		};
+
+		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		assert.strictEqual(bridge.resolveSymbolId("func"), "gml/script/func");
+		assert.ok(bridge.hasSymbol("gml/script/func"));
+	});
 });

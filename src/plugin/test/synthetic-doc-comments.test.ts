@@ -86,7 +86,7 @@ void test("augments static function doc comments with missing @returns metadata"
 
 void test("adds synthetic @returns metadata for parameterless static functions", async () => {
     const source = [
-        "function Example () constructor {",
+        "function Example() constructor {",
         "    static ping = function () {",
         '        show_debug_message("ping");',
         "    };",
@@ -170,7 +170,7 @@ void test("synthetic constructor docs include trailing parameters", async () => 
 
 void test("annotates overriding static functions with @override metadata", async () => {
     const source = [
-        "function Base () constructor {",
+        "function Base() constructor {",
         "    static print = function () {",
         '        show_debug_message("base");',
         "    };",

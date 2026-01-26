@@ -73,7 +73,7 @@ void describe("performance CLI benchmarks", () => {
         const dataset = [
             {
                 path: "/tmp/sample.gml",
-                source: "function demo() {\n    return 1;\n}\n"
+                source: "function demo () {\n    return 1;\n}\n"
             }
         ];
 
