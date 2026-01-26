@@ -413,190 +413,187 @@ function tryPrintControlStructureNode(node, path, options, print) {
 }
 
 function tryPrintFunctionNode(node, path, options, print) {
-    switch (node.type) {
-        case "FunctionDeclaration":
-        case "ConstructorDeclaration": {
-            const parts: any[] = [];
+    if (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration") {
+        return;
+    }
 
-            const sourceMetadata = resolvePrinterSourceMetadata(options);
-            const { originalText } = sourceMetadata;
-            const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
+    const docComments = printFunctionDocComments(node, path, options);
+    const signature = printFunctionSignature(node, path, options, print);
+    const body = printFunctionBody(node, path, options, print);
 
-            const {
-                docCommentDocs: collectedDocCommentDocs,
-                existingDocLines,
-                needsLeadingBlankLine: collectedNeedsLeadingBlankLine,
-                plainLeadingLines
-            } = collectFunctionDocCommentDocs({
-                node,
-                options,
-                path,
-                nodeStartIndex,
-                originalText
-            });
+    return concat([docComments, signature, " ", body]);
+}
 
-            let docCommentDocs: MutableDocCommentLines = collectedDocCommentDocs;
-            let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
+function printFunctionDocComments(node, path, options) {
+    const sourceMetadata = resolvePrinterSourceMetadata(options);
+    const { originalText } = sourceMetadata;
+    const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            try {
-                materializeParamDefaultsFromParamDefault(node);
-            } catch {
-                // Non-fatal heuristic failures should not abort printing.
-            }
+    const {
+        docCommentDocs: collectedDocCommentDocs,
+        existingDocLines,
+        needsLeadingBlankLine: collectedNeedsLeadingBlankLine,
+        plainLeadingLines
+    } = collectFunctionDocCommentDocs({
+        node,
+        options,
+        path,
+        nodeStartIndex,
+        originalText
+    });
 
-            let includeOverrideTag = false;
-            const parentNode = path.getParentNode();
-            if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-                const grandParentNode = path.getParentNode(1);
-                if (
-                    grandParentNode &&
-                    grandParentNode.type === VARIABLE_DECLARATION &&
-                    grandParentNode._overridesStaticFunction
-                ) {
-                    includeOverrideTag = true;
-                }
-            }
+    let docCommentDocs: MutableDocCommentLines = collectedDocCommentDocs;
+    let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
 
-            ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
-                docCommentDocs,
-                needsLeadingBlankLine,
-                node,
-                options,
-                path,
-                overrides: { includeOverrideTag }
-            }));
-            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
+    try {
+        materializeParamDefaultsFromParamDefault(node);
+    } catch {
+        /* ignore */
+    }
 
-            const shouldEmitPlainLeadingBeforeDoc =
-                plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
-
-            if (shouldEmitPlainLeadingBeforeDoc) {
-                parts.push(join(hardline, plainLeadingLines), hardline, hardline);
-            }
-
-            if (docCommentDocs.length > 0) {
-                node[DOC_COMMENT_OUTPUT_FLAG] = true;
-                const suppressLeadingBlank = docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
-
-                const hasLeadingNonDocComment =
-                    !Core.isNonEmptyArray(node.docComments) &&
-                    originalText !== null &&
-                    typeof nodeStartIndex === NUMBER_TYPE &&
-                    Core.hasCommentImmediatelyBefore(originalText, nodeStartIndex);
-
-                const hasExistingBlankLine =
-                    originalText !== null &&
-                    typeof nodeStartIndex === NUMBER_TYPE &&
-                    isPreviousLineEmpty(originalText, nodeStartIndex);
-
-                if (
-                    !suppressLeadingBlank &&
-                    (needsLeadingBlankLine || (hasLeadingNonDocComment && !hasExistingBlankLine))
-                ) {
-                    parts.push(hardline);
-                }
-
-                // Push doc comments individually with hardline to ensure they appear on separate lines
-                parts.push(join(hardline, printableDocComments), hardline);
-            } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
-                delete node[DOC_COMMENT_OUTPUT_FLAG];
-            }
-
-            // Mark doc comments as printed to prevent Prettier from re-rendering them.
-            // We manually emit doc comments earlier in the printing pipeline (e.g.,
-            // during function declaration printing), so we must tell Prettier's
-            // comment-attachment logic to skip them. Setting `comment.printed = true`
-            // signals that these comments have already been incorporated into the
-            // output Doc. Regular inline/trailing comments remain unmarked so
-            // Prettier's built-in comment handling can attach them to appropriate
-            // nodes without duplication or omission.
-            if (node.docComments) {
-                node.docComments.forEach((comment: any) => {
-                    comment.printed = true;
-                });
-            } else {
-                // Retrieve doc comments from the parent VariableDeclaration when the
-                // function itself has none. During parsing, doc comments attached to
-                // a `var foo = function() {}` declaration may be stored on the
-                // VariableDeclaration node rather than the FunctionExpression. We
-                // climb the AST path to check if the parent or grandparent holds
-                // doc comments that apply to this function, then mark those as
-                // printed to prevent duplication in the output.
-                const parentNodeForDocComments = path.getParentNode();
-                if (parentNodeForDocComments && parentNodeForDocComments.type === VARIABLE_DECLARATOR) {
-                    const grandParentNode = path.getParentNode(1);
-                    if (
-                        grandParentNode &&
-                        grandParentNode.type === VARIABLE_DECLARATION &&
-                        grandParentNode.docComments
-                    ) {
-                        grandParentNode.docComments.forEach((comment: any) => {
-                            comment.printed = true;
-                        });
-                    }
-                }
-            }
-
-            let functionNameDoc = "";
-            if (Core.isNonEmptyString(node.id)) {
-                let renamed = null;
-                if (node.idLocation && node.idLocation.start) {
-                    renamed = getSemanticIdentifierCaseRenameForNode(
-                        {
-                            start: node.idLocation.start,
-                            scopeId: node.scopeId ?? null
-                        },
-                        options
-                    );
-                }
-                functionNameDoc = Core.getNonEmptyString(renamed) ?? node.id;
-            } else if (node.id) {
-                functionNameDoc = print("id");
-            }
-
-            const hasFunctionName =
-                typeof functionNameDoc === STRING_TYPE
-                    ? Core.isNonEmptyString(functionNameDoc)
-                    : Boolean(functionNameDoc);
-
-            parts.push(["function", hasFunctionName ? " " : "", functionNameDoc]);
-
-            const hasParameters = Core.isNonEmptyArray(node.params);
-
-            if (hasParameters) {
-                const { inlineDoc: inlineParamDoc, multilineDoc: multilineParamDoc } = buildFunctionParameterDocs(
-                    path,
-                    print,
-                    options,
-                    {
-                        forceInline: shouldForceInlineFunctionParameters(path, options)
-                    }
-                );
-
-                parts.push(conditionalGroup([inlineParamDoc, multilineParamDoc]));
-            } else {
-                parts.push(printEmptyParens(path, options));
-            }
-
-            if (node.type === CONSTRUCTOR_DECLARATION) {
-                if (node.parent) {
-                    parts.push(print("parent"));
-                } else {
-                    parts.push(" constructor");
-                }
-            }
-
-            const inlineDefaultParameterDoc = maybePrintInlineDefaultParameterFunctionBody(path, print);
-
-            if (inlineDefaultParameterDoc) {
-                parts.push(" ", inlineDefaultParameterDoc);
-                return concat(parts);
-            }
-
-            parts.push(" ", printInBlock(path, options, print, "body"));
-            return concat(parts);
+    let includeOverrideTag = false;
+    const parentNode = path.getParentNode();
+    if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
+        const grandParentNode = path.getParentNode(1);
+        if (
+            grandParentNode &&
+            grandParentNode.type === VARIABLE_DECLARATION &&
+            grandParentNode._overridesStaticFunction
+        ) {
+            includeOverrideTag = true;
         }
     }
+
+    ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
+        docCommentDocs,
+        needsLeadingBlankLine,
+        node,
+        options,
+        path,
+        overrides: { includeOverrideTag }
+    }));
+    const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
+
+    const parts: any[] = [];
+    const shouldEmitPlainLeadingBeforeDoc =
+        plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
+
+    if (shouldEmitPlainLeadingBeforeDoc) {
+        parts.push(join(hardline, plainLeadingLines), hardline, hardline);
+    }
+
+    if (docCommentDocs.length > 0) {
+        node[DOC_COMMENT_OUTPUT_FLAG] = true;
+        const suppressLeadingBlank = docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
+
+        const hasLeadingNonDocComment =
+            !Core.isNonEmptyArray(node.docComments) &&
+            originalText !== null &&
+            typeof nodeStartIndex === NUMBER_TYPE &&
+            Core.hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+        const hasExistingBlankLine =
+            originalText !== null &&
+            typeof nodeStartIndex === NUMBER_TYPE &&
+            isPreviousLineEmpty(originalText, nodeStartIndex);
+
+        if (!suppressLeadingBlank && (needsLeadingBlankLine || (hasLeadingNonDocComment && !hasExistingBlankLine))) {
+            parts.push(hardline);
+        }
+
+        parts.push(join(hardline, printableDocComments), hardline);
+    } else {
+        if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
+            delete node[DOC_COMMENT_OUTPUT_FLAG];
+        }
+    }
+
+    markDocCommentsAsPrinted(node, path);
+
+    return concat(parts);
+}
+
+function markDocCommentsAsPrinted(node, path) {
+    if (node.docComments) {
+        node.docComments.forEach((comment: any) => {
+            comment.printed = true;
+        });
+    } else {
+        const parentNode = path.getParentNode();
+        if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
+            const grandParentNode = path.getParentNode(1);
+            if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
+                grandParentNode.docComments.forEach((comment: any) => {
+                    comment.printed = true;
+                });
+            }
+        }
+    }
+}
+
+function printFunctionSignature(node, path, options, print) {
+    const idDoc = printFunctionId(node, path, options, print);
+    const paramsDoc = printFunctionParameters(node, path, options, print);
+    const constructorDoc = printConstructorClause(node, path, options, print);
+
+    return group(["function", idDoc ? [" ", idDoc] : " ", paramsDoc, constructorDoc]);
+}
+
+function printFunctionId(node, path, options, print) {
+    if (Core.isNonEmptyString(node.id)) {
+        let renamed = null;
+        if (node.idLocation && node.idLocation.start) {
+            renamed = getSemanticIdentifierCaseRenameForNode(
+                {
+                    start: node.idLocation.start,
+                    scopeId: node.scopeId ?? null
+                },
+                options
+            );
+        }
+        return Core.getNonEmptyString(renamed) ?? node.id;
+    }
+
+    if (node.id) {
+        return print("id");
+    }
+
+    return null;
+}
+
+function printFunctionParameters(node, path, options, print) {
+    const hasParameters = Core.isNonEmptyArray(node.params);
+
+    if (hasParameters) {
+        const { inlineDoc, multilineDoc } = buildFunctionParameterDocs(path, print, options, {
+            forceInline: shouldForceInlineFunctionParameters(path, options)
+        });
+
+        return conditionalGroup([inlineDoc, multilineDoc]);
+    }
+
+    return printEmptyParens(path, options);
+}
+
+function printConstructorClause(node, path, _options, print) {
+    if (node.type !== CONSTRUCTOR_DECLARATION) {
+        return "";
+    }
+
+    if (node.parent) {
+        return print("parent");
+    }
+
+    return " constructor";
+}
+
+function printFunctionBody(node, path, options, print) {
+    const inlineDefault = maybePrintInlineDefaultParameterFunctionBody(path, print);
+    if (inlineDefault) {
+        return inlineDefault;
+    }
+
+    return printInBlock(path, options, print, "body");
 }
 
 function tryPrintFunctionSupportNode(node, path, options, print) {

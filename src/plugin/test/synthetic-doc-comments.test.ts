@@ -10,7 +10,7 @@ void test("omits synthetic docs for anonymous functions without return value", a
 
     assert.match(
         trimmed,
-        /^var myFunc = function\(\) \{/,
+        /^var myFunc = function \(\) \{/,
         "Synthetic doc comments should be omitted for anonymous functions."
     );
 });
@@ -22,7 +22,7 @@ void test("omits synthetic docs for anonymous functions with return value", asyn
 
     assert.match(
         trimmed,
-        /^var myFunc = function\(\) \{/,
+        /^var myFunc = function \(\) \{/,
         "Synthetic doc comments should be omitted for anonymous functions."
     );
 });
@@ -79,7 +79,7 @@ void test("augments static function doc comments with missing @returns metadata"
 
     assert.match(
         trimmed,
-        /^\/\/\/ @returns \{undefined\}\nstatic helper = function\(\) \{/,
+        /^\/\/\/ @returns \{undefined\}\nstatic helper = function \(\) \{/,
         "Static function doc comments should receive synthesized @returns metadata."
     );
 });

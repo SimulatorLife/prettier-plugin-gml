@@ -6,10 +6,10 @@ var b = ((x > y) ? (a + b) : (a - b));
 // Define states
 states.add_state(
     "opening",
-    function() { // enter
+    function () { // enter
         gml_pragma("forceinline");
 
-        var l_jsDummy = (l_isJS ? function() {} : undefined);
+        var l_jsDummy = (l_isJS ? function () {} : undefined);
         scr_play_sound_at(snd_slot_machine, x, y, z);
         scaler.big_squish();
         image_speed = 1; // start animation
@@ -21,7 +21,7 @@ states.add_state(
         call_later(
             1800,
             time_source_units_frames,
-            function() {
+            function () {
                 gml_pragma("forceinline");
                 if (!(global.camera.is_in_view(x, y, z))) {
                     instance_destroy();
@@ -31,7 +31,7 @@ states.add_state(
         );
     },
     undefined, // step
-    function() { // leave
+    function () { // leave
         audio_stop_sound(snd_slot_machine); // stop sound effect
         pe_general.retire(true); // stop sparkle particles
         time_source_stop(ts_spray_coins); // stop this time source
@@ -104,10 +104,10 @@ global.lighting.add_key_time(00, 253, 094, 083, 0.5); // Sunset peak at 00h
 
 global.lighting.draw(
     vmat, pmat,
-    function() { // Depth drawing callback
+    function () { // Depth drawing callback
         global.renderer.draw_depth();
     },
-    function() { // Geometry drawing callback
+    function () { // Geometry drawing callback
         global.renderer.draw_geometry();
         global.spart_controller.draw();
 
@@ -147,7 +147,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     /// @description Draw the zmodel
     /// @param {bool} [reset_matrix=true] Reset the world matrix after drawing?
     /// @returns {undefined}
-    static draw = function(reset_matrix = true) {
+    static draw = function (reset_matrix = true) {
 
         // Get the current shader
         var prev_shader = shader_current();
@@ -180,7 +180,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     /// @ignore
     /// @param {Id.Buffer} lbuff
     /// @returns {enum}
-    static land_buffer_get_land_type = function(lbuff) {
+    static land_buffer_get_land_type = function (lbuff) {
         var lt = buffer_read(lbuff, buffer_u8);
         switch (lt) { // make sure we get a valid land type
             case eLandType.grass:
@@ -208,12 +208,12 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
 /// @param inst_b
 /// @param {real} amount
 /// @returns {undefined}
-var lerp_sample = function(inst_a, inst_b, amount) {
+var lerp_sample = function (inst_a, inst_b, amount) {
     FAST_SAMPLE_GUARD
     sample_lerp(inst_a.sample, inst_b.sample, amount, sample);
 };
 
-var other_function = function(a, b) {
+var other_function = function (a, b) {
     return a + b;
 };
 
