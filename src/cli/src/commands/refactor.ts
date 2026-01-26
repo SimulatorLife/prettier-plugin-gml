@@ -134,6 +134,8 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
         console.log(`\nInitializing refactor context for project: ${projectRoot}`);
     }
 
+    let targetSymbolId = symbolId;
+
     try {
         // 1. Initialize semantic analyzer and parse the project
         const projectIndex = await buildProjectIndex(projectRoot, undefined, {
@@ -152,7 +154,6 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
         });
 
         // 3. Resolve target symbol if needed
-        let targetSymbolId = symbolId;
         if (!targetSymbolId && oldName) {
             if (verbose) console.log(`Searching for symbol matching name: ${oldName}`);
 
@@ -222,7 +223,16 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
             console.log("Success! All files updated.");
         }
     } catch (error) {
-        throw new Error(`Refactor operation failed: ${Core.getErrorMessage(error)}`);
+        let message = Core.getErrorMessage(error);
+
+        // Improve error message for common symbol lookup failures
+        if (message.includes("not found in semantic index")) {
+            message = `Symbol '${targetSymbolId || oldName}' was not found in the semantic index. ` +
+                `This usually means the symbol is not defined in the project or is a built-in symbol that cannot be renamed.\n` +
+                `Check that the symbol name is correct (including case) and that it refers to a user-defined resource (Script, Macro, Variable, etc.).`;
+        }
+
+        throw new Error(`Refactor operation failed: ${message}`);
     }
 }
 

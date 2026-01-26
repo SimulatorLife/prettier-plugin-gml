@@ -143,4 +143,21 @@ void describe("GmlSemanticBridge tests", () => {
 		assert.strictEqual(bridge.resolveSymbolId("func"), "gml/script/func");
 		assert.ok(bridge.hasSymbol("gml/script/func"));
 	});
+	void it("resolveSymbolId should match case-insensitively", () => {
+		const mockProjectIndex = {
+			identifiers: {
+				scripts: {
+					"scope:script:GravityFunction": {
+						identifierId: "script:GravityFunction",
+						name: "GravityFunction",
+						declarations: []
+					}
+				}
+			}
+		};
+
+		const bridge = new GmlSemanticBridge(mockProjectIndex);
+		// User types "gravityFunction" (lowercase), index has "GravityFunction"
+		assert.strictEqual(bridge.resolveSymbolId("gravityFunction"), "gml/script/GravityFunction");
+	});
 });

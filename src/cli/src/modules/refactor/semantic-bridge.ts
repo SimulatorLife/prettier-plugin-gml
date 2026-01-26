@@ -19,6 +19,13 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     }
 
     /**
+     * Get the resources map from the project index.
+     */
+    private get resources(): any {
+        return this.projectIndex.resources;
+    }
+
+    /**
      * Get the identifiers map, handling structural differences in the project index.
      */
     private get identifiers(): any {
@@ -50,6 +57,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             "instanceVariables"
         ];
 
+        // 1. Try exact match first in identifiers
         for (const collectionName of priorityCollections) {
             const collection = identifiers[collectionName];
             if (!collection) continue;
@@ -71,6 +79,43 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     }
                 }
             }
+        }
+
+        // 2. Try exact match in resources
+        const resource = this.findResourceByName(name);
+        if (resource) {
+            return this.generateResourceScipId(resource);
+        }
+
+        // 3. Try case-insensitive match as valid fallback
+        const lowerName = name.toLowerCase();
+
+        // 3a. Check identifiers case-insensitive
+        for (const collectionName of priorityCollections) {
+            const collection = identifiers[collectionName];
+            if (!collection) continue;
+
+            for (const key of Object.keys(collection)) {
+                const entry = collection[key];
+
+                if (entry.name && entry.name.toLowerCase() === lowerName) {
+                    return this.generateScipId(entry);
+                }
+
+                if (Array.isArray(entry.declarations)) {
+                    for (const decl of entry.declarations) {
+                        if (decl.name && decl.name.toLowerCase() === lowerName) {
+                            return this.generateScipId(entry, decl.name);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3b. Check resources case-insensitive
+        const resourceCaseInsensitive = this.findResourceByName(name, true);
+        if (resourceCaseInsensitive) {
+            return this.generateResourceScipId(resourceCaseInsensitive);
         }
 
         return null;
@@ -101,11 +146,33 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
         this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
+        // 3. Search for resource definitions
+        const resource = this.findResourceByName(symbolName);
+        if (resource) {
+            occurrences.push({
+                path: resource.path,
+                start: 0,
+                end: 0,
+                scopeId: null,
+                kind: OccurrenceKind.DEFINITION
+            });
+            // Also add all asset references as occurrences
+            if (Array.isArray(resource.assetReferences)) {
+                // Note: assetReferences in resource record point OUTWARDS.
+                // We want references pointing TO this resource.
+                // The semantic index tracks asset references in 'resources' but keyed by source.
+                // To find references TO a resource, we'd iterate all resources and check their assetReferences.
+                // This is expensive but necessary for full resource rename.
+                // Optimally, ProjectIndex would invert this index.
+                this.collectOccurrencesFromAssetReferences(symbolName, occurrences);
+            }
+        }
+
         return this.deduplicateOccurrences(occurrences);
     }
 
     /**
-     * Collect occurrences from a specific index entry.
+     * Collect occurrences from an entry.
      */
     private collectOccurrencesFromEntry(entry: any, symbolName: string, occurrences: Array<SymbolOccurrence>): void {
         // Case A: The entry name itself matches (e.g. macro name, enum name, or script resource name)
@@ -170,6 +237,31 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     scopeId: call.from?.scopeId,
                     kind: OccurrenceKind.REFERENCE
                 });
+            }
+        }
+    }
+
+    /**
+     * Collect occurrences from asset references across all resources.
+     */
+    private collectOccurrencesFromAssetReferences(targetName: string, occurrences: Array<SymbolOccurrence>): void {
+        const resources = this.resources;
+        if (!resources) return;
+
+        for (const key of Object.keys(resources)) {
+            const res = resources[key];
+            if (Array.isArray(res.assetReferences)) {
+                for (const ref of res.assetReferences) {
+                    if (ref.targetName === targetName) {
+                        occurrences.push({
+                            path: res.path,
+                            start: 0,
+                            end: 0,
+                            scopeId: null,
+                            kind: OccurrenceKind.REFERENCE
+                        });
+                    }
+                }
             }
         }
     }
@@ -305,6 +397,12 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             }
         }
 
+        // Also check resources
+        const resource = this.findResourceByName(name);
+        if (resource) {
+            return { name: resource.name };
+        }
+
         return null;
     }
 
@@ -329,6 +427,16 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         if (scipMatch) {
             const kind = scipMatch[1];
             const name = scipMatch[2];
+
+            // Special handling for resource kinds
+            if (["objects", "sprites", "sounds", "rooms", "paths", "scripts", "shaders", "fonts", "timelines", "tilesets"].includes(kind)) {
+                const resource = this.findResourceByName(name);
+                if (resource) {
+                    // Create a synthetic symbol entry for the resource
+                    return this.createSyntheticResourceEntry(resource, symbolId);
+                }
+            }
+
             const indexerKind = this.mapToIndexerKind(kind);
             const indexerId = `${indexerKind}:${name}`;
 
@@ -347,9 +455,63 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                 const entry = this.findMatchingEntryInCollection(collection, name);
                 if (entry) return entry;
             }
+
+            // 4. Case-insensitive resource fallback for manual ID inputs
+            const resourceLower = this.findResourceByName(name, true);
+            if (resourceLower) {
+                return this.createSyntheticResourceEntry(resourceLower, `gml/${kind}/${resourceLower.name}`);
+            }
         }
 
         return null;
+    }
+
+    private findResourceByName(name: string, caseInsensitive = false): any {
+        const resources = this.resources;
+        if (!resources) return null;
+
+        if (caseInsensitive) {
+            const lowerName = name.toLowerCase();
+            for (const key of Object.keys(resources)) {
+                const res = resources[key];
+                if (res.name?.toLowerCase() === lowerName) return res;
+            }
+        } else {
+            for (const key of Object.keys(resources)) {
+                const res = resources[key];
+                if (res.name === name) return res;
+            }
+        }
+        return null;
+    }
+
+    private generateResourceScipId(resource: any): string {
+        // e.g. gml/objects/obj_player
+        let kind = "resource";
+        if (resource.resourceType === "GMObject") kind = "objects";
+        else if (resource.resourceType === "GMSprite") kind = "sprites";
+        else if (resource.resourceType === "GMRoom") kind = "rooms";
+        else if (resource.resourceType === "GMScript") kind = "scripts";
+        else if (resource.resourceType === "GMAudio") kind = "sounds";
+        // fallback mapping
+
+        return `gml/${kind}/${resource.name}`;
+    }
+
+    private createSyntheticResourceEntry(resource: any, symbolId: string): any {
+        return {
+            identifierId: symbolId,
+            name: resource.name,
+            kind: resource.resourceType,
+            declarations: [{
+                filePath: resource.path,
+                start: { index: 0, line: 0, column: 0 },
+                end: { index: 0, line: 0, column: 0 },
+                kind: OccurrenceKind.DEFINITION
+            }],
+            references: [], // We'd need to populate this via asset scan if we want references visible here
+            resourcePath: resource.path
+        };
     }
 
     private mapToIndexerKind(scipKind: string): string {
