@@ -343,8 +343,8 @@ function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: s
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
-          ? trimmedOriginal
-          : null;
+            ? trimmedOriginal
+            : null;
 
     if (!docTagSource) {
         return null;
@@ -389,28 +389,6 @@ function tryFormatCommentedOutCode(
     return applyInlinePadding(comment, formattedCommentLine, shouldPreserveTabs);
 }
 
-/**
- * Handles multi-sentence comments that need to be split across lines.
- */
-function tryFormatMultiSentenceComment(
-    comment,
-    trimmedOriginal: string,
-    trimmedValue: string,
-    isInlineComment: boolean
-): string | null {
-    const sentences = isInlineComment ? [trimmedValue] : splitCommentIntoSentences(trimmedValue);
-
-    if (sentences.length <= 1) {
-        return null;
-    }
-
-    const continuationIndent = extractContinuationIndentation(comment);
-    const formattedSentences = sentences.map((sentence, index) => {
-        const line = applyInlinePadding(comment, `// ${sentence}`);
-        return index === 0 ? line : continuationIndent + line;
-    });
-    return formattedSentences.join("\n");
-}
 
 /**
  * Formats plain triple-slash comments that aren't doc comments.
@@ -585,11 +563,6 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
         return commentedCodeResult;
     }
 
-    // Try formatting multi-sentence comments
-    const multiSentenceResult = tryFormatMultiSentenceComment(comment, trimmedOriginal, trimmedValue, isInlineComment);
-    if (multiSentenceResult !== null) {
-        return multiSentenceResult;
-    }
 
     // Default: format as a regular comment
     const fallbackLeadingWhitespace = typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
@@ -599,10 +572,10 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
             ? " "
             : ""
         : normalizedFallbackWhitespace.length > 0
-          ? normalizedFallbackWhitespace
-          : trimmedValue.length > 0
-            ? " "
-            : "";
+            ? normalizedFallbackWhitespace
+            : trimmedValue.length > 0
+                ? " "
+                : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 
@@ -635,22 +608,6 @@ function resolveInlinePaddingWidth(comment) {
     return 0;
 }
 
-function extractContinuationIndentation(comment) {
-    if (!isObjectLike(comment)) {
-        return "";
-    }
-
-    const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-
-    if (leadingWhitespace.length === 0) {
-        return "";
-    }
-
-    const segments = leadingWhitespace.split(/\r?\n/);
-    const lastSegment = segments.at(-1) ?? "";
-
-    return lastSegment.replaceAll("\t", "    ");
-}
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     const trimmed = toTrimmedString(text);
@@ -682,48 +639,5 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     return false;
 }
 
-function splitCommentIntoSentences(text) {
-    if (!text) {
-        return [text];
-    }
-
-    // Check for explicit comment separators " // " to split merged comments
-    // e.g. "// Comment 1 // Comment 2" -> ["Comment 1", "Comment 2"]
-    // We use a regex that requires whitespace around the slashes to avoid splitting URLs
-    const commentSeparatorMatch = text.match(/\s\/\/\s/);
-    if (commentSeparatorMatch) {
-        const parts = text.split(/\s\/\/\s/);
-        return parts.flatMap((part) => splitCommentIntoSentences(part));
-    }
-
-    if (!text.includes(". ")) {
-        return [text];
-    }
-
-    const sentences = [];
-    let currentIndex = 0;
-    let nextIndex;
-
-    while ((nextIndex = text.indexOf(". ", currentIndex)) !== -1) {
-        // Extract sentence including the period (but not the space)
-        sentences.push(text.slice(currentIndex, nextIndex + 1).trim());
-        // Move past the ". " separator to start the next sentence. Adding 2
-        // to the index skips both the period and the space, positioning the
-        // cursor at the first character of the following sentence. This ensures
-        // the sentence-splitting logic does not include trailing punctuation
-        // or leading spaces in the extracted sentence text.
-        currentIndex = nextIndex + 2;
-    }
-
-    // Add the remaining part if any
-    if (currentIndex < text.length) {
-        const remaining = text.slice(Math.max(0, currentIndex)).trim();
-        if (remaining.length > 0) {
-            sentences.push(remaining);
-        }
-    }
-
-    return sentences;
-}
 
 export { applyInlinePadding, formatLineComment, getLineCommentRawText, normalizeBannerCommentText };

@@ -34,16 +34,11 @@ void describe("Description Comment Support", () => {
         assert.doesNotMatch(formatted, /@description/);
     });
 
-    void it("should wrap long @description on variables", async () => {
-        const source = `/// @description This is a very long description that should definitely be wrapped by the prettier plugin if the print width is set small enough.\nvar a = 1;`;
+    void it("should NOT wrap long @description on variables", async () => {
+        const source = `/// @description This is a very long description that should definitely not be wrapped by the prettier plugin if the print width is set small enough.\nvar a = 1;`;
         const formatted = await Plugin.format(source, { printWidth: 40 });
         const lines = formatted.trim().split("\n");
-        assert.ok(lines.length > 2, "Should have wrapped onto multiple lines");
-
-        const docLines = lines.slice(0, -1);
-        assert.ok(
-            docLines.every((l) => l.trim().startsWith("///")),
-            "Leading lines should be doc comments"
-        );
+        assert.equal(lines.length, 2, "Should NOT have wrapped onto multiple lines");
+        assert.match(lines[0], /@description This is a very long description/);
     });
 });

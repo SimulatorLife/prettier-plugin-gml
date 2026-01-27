@@ -1,8 +1,8 @@
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { type MutableDocCommentLines } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
 import { DescriptionUtils } from "../../transforms/doc-comment/index.js";
-import { align, concat, fill, group, hardline, join, line } from "../prettier-doc-builders.js";
+import { align, concat, group, hardline, join } from "../prettier-doc-builders.js";
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
@@ -37,34 +37,17 @@ function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
     const { prefix } = DescriptionUtils.resolveDescriptionIndentation(lineText);
     const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
 
-    const fragments = Core.compactArray([descriptionText, ...continuations]).join(" ");
+    const lines = [descriptionText, ...continuations];
 
-    const contentWords = fragments.split(/\s+/).filter((word) => word.length > 0);
-
-    if (contentWords.length === 0) {
-        return lineText.trim();
-    }
-
-    const segments: Doc[] = [];
-    for (let i = 0; i < contentWords.length; i++) {
-        segments.push(contentWords[i]);
-        if (i < contentWords.length - 1) {
-            segments.push(line);
-        }
-    }
-
-    return group(concat([prefix, align(continuationPrefix, fill(segments))]));
+    return group(concat([prefix, align(continuationPrefix, join(hardline, lines))]));
 }
 
 /**
- * Convert doc comment lines into Prettier {@link Doc} nodes, ensuring that
- * `@description` blocks are wrapped using Prettier's built-in algorithms.
+ * Convert doc comment lines into Prettier {@link Doc} nodes.
  */
 export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentLines): Doc[] {
     const result: Doc[] = [];
     let index = 0;
-
-    const preserveBreaks = (docCommentDocs as any)._preserveDescriptionBreaks === true;
 
     while (index < docCommentDocs.length) {
         const entry = docCommentDocs[index];
@@ -83,18 +66,7 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
 
         const { continuations, linesConsumed } = collectDescriptionContinuations(docCommentDocs, index);
 
-        if (preserveBreaks) {
-            const { prefix } = DescriptionUtils.resolveDescriptionIndentation(entry);
-            const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
-
-            const descriptionText = entry.trim().replace(DESCRIPTION_TAG_PATTERN, "").trim();
-
-            const lines = [descriptionText, ...continuations];
-
-            result.push(group(concat([prefix, align(continuationPrefix, join(hardline, lines))])));
-        } else {
-            result.push(buildDescriptionDoc(entry, continuations));
-        }
+        result.push(buildDescriptionDoc(entry, continuations));
         index += linesConsumed;
     }
 

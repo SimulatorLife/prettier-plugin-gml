@@ -1,6 +1,4 @@
 import {
-    clamp,
-    coercePositiveIntegerOption,
     type DocCommentLines,
     findLastIndex,
     isNonEmptyArray,
@@ -246,8 +244,8 @@ export function mergeSyntheticDocComments(
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
-        node?.type === "StructFunctionDeclaration" ||
-        node?.type === "FunctionExpression"
+            node?.type === "StructFunctionDeclaration" ||
+            node?.type === "FunctionExpression"
             ? collectImplicitArgumentDocNames(node, options)
             : [];
     const declaredParamCount = Array.isArray(node?.params) ? node.params.length : 0;
@@ -1049,68 +1047,6 @@ function isReturnLine(line: unknown): boolean {
     return /^\/\/\/\s*@returns?\b/i.test(line.trim());
 }
 
-function wrapSegments(text: string, firstAvailable: number, continuationAvailable: number): string[] {
-    if (firstAvailable <= 0) {
-        return [text];
-    }
-
-    const words = text.split(/\s+/).filter((word) => word.length > 0);
-    if (words.length === 0) {
-        return [];
-    }
-
-    const segments = [];
-    let current = words[0];
-    let currentAvailable = firstAvailable;
-
-    for (let index = 1; index < words.length; index += 1) {
-        const word = words[index];
-
-        const endsSentence = /[.!?]["')\]]?$/.test(current);
-        const startsSentence = /^[A-Z]/.test(word);
-        if (
-            endsSentence &&
-            startsSentence &&
-            currentAvailable >= 60 &&
-            current.length >= Math.max(Math.floor(currentAvailable * 0.6), 24)
-        ) {
-            segments.push(current);
-            current = word;
-            currentAvailable = continuationAvailable;
-            continue;
-        }
-
-        if (current.length + 1 + word.length > currentAvailable) {
-            segments.push(current);
-            current = word;
-            currentAvailable = continuationAvailable;
-        } else {
-            current += ` ${word}`;
-        }
-    }
-
-    segments.push(current);
-
-    const lastIndex = segments.length - 1;
-    if (lastIndex >= 2) {
-        const lastSegment = segments[lastIndex];
-        const isSingleWord = typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
-
-        if (isSingleWord) {
-            const maxSingleWordLength = Math.max(Math.min(continuationAvailable / 2, 16), 8);
-
-            if (lastSegment.length <= maxSingleWordLength) {
-                const penultimateIndex = lastIndex - 1;
-                const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
-
-                segments[penultimateIndex] = mergedSegment;
-                segments.pop();
-            }
-        }
-    }
-
-    return segments;
-}
 
 type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
 
@@ -1239,167 +1175,14 @@ type FinalizeDescriptionBlocksParams = {
 };
 
 function finalizeDescriptionBlocks({
-    docs,
-    docTagHelpers,
-    preserveDescriptionBreaks,
-    options
+    docs
 }: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
-    const shouldPreserve = preserveDescriptionBreaks || (docs as any)?._preserveDescriptionBreaks === true;
-    if (shouldPreserve) {
-        return docs;
-    }
-
-    const wrappedDocs = [];
-    const normalizedPrintWidth = coercePositiveIntegerOption(options?.printWidth, 120);
-    const wrapWidth = normalizedPrintWidth;
-
-    for (let index = 0; index < docs.length; index += 1) {
-        const line = docs[index];
-        if (docTagHelpers.isDescriptionLine(line)) {
-            const blockLines = [line];
-            let lookahead = index + 1;
-
-            while (lookahead < docs.length) {
-                const nextLine = docs[lookahead];
-                if (
-                    typeof nextLine === STRING_TYPE &&
-                    nextLine.startsWith("///") &&
-                    !parseDocCommentMetadata(nextLine)
-                ) {
-                    blockLines.push(nextLine);
-                    lookahead += 1;
-                    continue;
-                }
-                break;
-            }
-
-            index = lookahead - 1;
-
-            const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
-            if (!prefixMatch) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            const prefix = prefixMatch[1];
-            const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
-            const descriptionText = blockLines
-                .map((docLine, blockIndex) => {
-                    if (blockIndex === 0) {
-                        return docLine.slice(prefix.length).trim();
-                    }
-
-                    if (docLine.startsWith(continuationPrefix)) {
-                        return docLine.slice(continuationPrefix.length).trim();
-                    }
-
-                    if (docLine.startsWith("///")) {
-                        return docLine.slice(3).trim();
-                    }
-
-                    return docLine.trim();
-                })
-                .filter((segment) => segment.length > 0)
-                .join(" ");
-
-            if (descriptionText.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = clamp(available, 16, 62);
-            const segments = wrapSegments(descriptionText, available, continuationAvailable);
-
-            if (segments.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            wrappedDocs.push(`${prefix}${segments[0]}`);
-            for (let segmentIndex = 1; segmentIndex < segments.length; segmentIndex += 1) {
-                wrappedDocs.push(`${continuationPrefix}${segments[segmentIndex]}`);
-            }
-            continue;
-        }
-
-        if (docTagHelpers.isParamLine(line)) {
-            const blockLines = [line];
-            let lookahead = index + 1;
-
-            while (lookahead < docs.length) {
-                const nextLine = docs[lookahead];
-                if (
-                    typeof nextLine === STRING_TYPE &&
-                    nextLine.startsWith("///") &&
-                    !parseDocCommentMetadata(nextLine)
-                ) {
-                    blockLines.push(nextLine);
-                    lookahead += 1;
-                    continue;
-                }
-                break;
-            }
-
-            index = lookahead - 1;
-
-            const trimmedLine = line.trim();
-            const match = trimmedLine.match(/^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i);
-            if (!match) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            const [, prefixBase, rawTypeSection = "", remainder = ""] = match;
-            const normalizedPrefix = `${prefixBase.replace(/\s*$/, "")} `;
-            const normalizedTypeSection = rawTypeSection.trim();
-            const typePart = normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
-
-            const nameSplit = splitParamNameAndRemainder(remainder);
-            if (!nameSplit) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            const { name: rawName, remainder: descriptionRemainder } = nameSplit;
-            const normalizedName = rawName.trim();
-            const prefixCore = `${normalizedPrefix}${typePart}${normalizedName}`;
-            const prefix = `${prefixCore} `;
-            const descriptionText = descriptionRemainder.trim();
-
-            if (descriptionText.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            const continuationPrefix = `/// ${" ".repeat(Math.max(prefixCore.length - 4, 0))}`;
-
-            const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = clamp(available, 16, 62);
-            const segments = wrapSegments(descriptionText, available, continuationAvailable);
-
-            if (segments.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            if (blockLines.length > 1 && segments.length <= blockLines.length) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
-
-            wrappedDocs.push(`${prefix}${segments[0]}`);
-            for (let segmentIndex = 1; segmentIndex < segments.length; segmentIndex += 1) {
-                wrappedDocs.push(`${continuationPrefix}${segments[segmentIndex]}`);
-            }
-            continue;
-        }
-
-        wrappedDocs.push(line);
-    }
-
-    return wrappedDocs;
+    // To align with Prettier's default behavior, we never break up or reflow doc comments
+    // to fit the printWidth. Returning the original lines ensures that user-defined
+    // line breaks and formatting are preserved.
+    return docs;
 }
+
 
 function mergeDocLines({
     normalizedExistingLines,

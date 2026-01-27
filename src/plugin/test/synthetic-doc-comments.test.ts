@@ -235,7 +235,7 @@ void test("adds synthetic @returns metadata when defaults replace argument_count
 void test("reorders description doc comments between parameters and returns", async () => {
     const source = [
         "/// @function sample(_first, _second)",
-        "/// @desc A longer example description that should wrap into multiple lines and appear before the the parameter metadata.",
+        "/// @desc A longer example description that should NOT wrap into multiple lines and appear before the the parameter metadata.",
         "/// @param {String Array[String]} _first First input",
         "/// @param {Id Instance} _second Second input",
         "function sample(_first, _second)",
@@ -249,10 +249,9 @@ void test("reorders description doc comments between parameters and returns", as
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
-        lines.slice(0, 6),
+        lines.slice(0, 5),
         [
-            "/// @description A longer example description that should wrap into multiple lines and appear before",
-            "///              the the parameter metadata.",
+            "/// @description A longer example description that should NOT wrap into multiple lines and appear before the the parameter metadata.",
             "/// @param {string,array[string]} first First input",
             "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}",
@@ -317,7 +316,7 @@ void test("respects printWidth for wrapping description doc comments", async () 
     );
 });
 
-void test("wraps long description doc comments using printWidth", async () => {
+void test("does NOT wrap long description doc comments using printWidth", async () => {
     const source = [
         "/// @function sample(value)",
         "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the printWidth for descriptions.",
@@ -334,12 +333,12 @@ void test("wraps long description doc comments using printWidth", async () => {
     assert.deepStrictEqual(
         lines.slice(0, 5),
         [
-            "/// @description This synthetic doc comment should leave only the trailing connector on the",
-            "///              continuation line when wrapping at the printWidth for descriptions.",
+            "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the printWidth for descriptions.",
             "/// @param value",
             "/// @returns {undefined}",
-            "function sample(value) {"
+            "function sample(value) {",
+            "    show_debug_message(value);"
         ],
-        "Long description doc comments should wrap to the printWidth rather than producing additional continuation lines."
+        "Long description doc comments should NOT wrap to the printWidth."
     );
 });

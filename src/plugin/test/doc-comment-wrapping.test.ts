@@ -22,18 +22,17 @@ async function formatDescriptionLines(options?: Parameters<typeof Plugin.format>
     return { lines, descriptionIndex };
 }
 
-void test("wraps long @description doc comments at the formatter width", async () => {
+void test("does NOT wrap long @description doc comments at the formatter width", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines();
 
-    const [firstLine, secondLine] = lines.slice(descriptionIndex, descriptionIndex + 2);
+    const [firstLine] = lines.slice(descriptionIndex, descriptionIndex + 1);
 
     assert.strictEqual(
         firstLine,
-        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid"
+        `/// @description ${LONG_DESCRIPTION}`
     );
-    assert.strictEqual(secondLine, "///              shapes, and non-solid shapes will not collide with anything.");
 });
-void test("wraps @description doc comments when printWidth exceeds the description length", async () => {
+void test("does NOT wrap @description doc comments when printWidth exceeds the description length", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines({
         printWidth: 200
     });
@@ -42,7 +41,7 @@ void test("wraps @description doc comments when printWidth exceeds the descripti
 
     assert.strictEqual(
         firstLine,
-        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid shapes, and non-solid shapes will not collide with anything."
+        `/// @description ${LONG_DESCRIPTION}`
     );
     assert.ok(
         !lines[descriptionIndex + 1]?.startsWith("///              "),
@@ -50,7 +49,7 @@ void test("wraps @description doc comments when printWidth exceeds the descripti
     );
 });
 
-void test("wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped", async () => {
+void test("does NOT wrap @description doc comments when printWidth is narrow", async () => {
     const source = [`/// @description ${LONG_DESCRIPTION}`, "function wrap_example() {}", ""].join("\n");
 
     const formatted = await Plugin.format(source, { printWidth: 60 });
@@ -60,13 +59,13 @@ void test("wraps @description doc comments when printWidth is narrow but prevent
 
     assert.ok(descriptionIndex !== -1, "Expected formatter to emit a @description doc comment line.");
 
-    const [firstLine, secondLine, thirdLine, fourthLine] = lines.slice(descriptionIndex, descriptionIndex + 4);
+    const [firstLine] = lines.slice(descriptionIndex, descriptionIndex + 1);
 
-    assert.strictEqual(firstLine, "/// @description Base class for all shapes. Shapes can be");
-    assert.strictEqual(secondLine, "///              solid or not solid. Solid shapes will");
-    assert.strictEqual(thirdLine, "///              collide with other solid shapes, and");
-    assert.strictEqual(fourthLine, "///              non-solid shapes will not collide with");
-    assert.strictEqual(lines[descriptionIndex + 4], "///              anything.");
+    assert.strictEqual(firstLine, `/// @description ${LONG_DESCRIPTION}`);
+    assert.ok(
+        !lines[descriptionIndex + 1]?.startsWith("///              "),
+        "Expected no continuation lines even when the printWidth is narrow"
+    );
 });
 
 void test("preserves doc comment continuation labels without indentation", async () => {
@@ -157,7 +156,7 @@ function collectDescriptionContinuationLines(lines, descriptionIndex) {
     return continuationLines;
 }
 
-void test("wraps function doc descriptions while honoring printWidth", async () => {
+void test("does NOT wrap function doc descriptions while honoring printWidth", async () => {
     const source = [
         "/// @param arg Example parameter",
         `/// @description ${LONG_DESCRIPTION}`,
@@ -171,17 +170,12 @@ void test("wraps function doc descriptions while honoring printWidth", async () 
 
     assert.strictEqual(
         lines[descriptionIndex],
-        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid",
-        "Expected the description line to include the leading sentence."
-    );
-    assert.strictEqual(
-        lines[descriptionIndex + 1],
-        "///              shapes, and non-solid shapes will not collide with anything.",
-        "Expected the second line to wrap immediately after the first sentence."
+        `/// @description ${LONG_DESCRIPTION}`,
+        "Expected the description line to remain unwrapped."
     );
 });
 
-void test("wraps long @param descriptions with continuation lines", async () => {
+void test("does NOT wrap long @param descriptions with continuation lines", async () => {
     const source = [
         "/// @param value This parameter's description is intentionally long so it wraps across multiple lines and respects the formatter width.",
         "function wrap_param_description(value) {}",
@@ -194,17 +188,7 @@ void test("wraps long @param descriptions with continuation lines", async () => 
 
     assert.strictEqual(
         lines[paramIndex],
-        "/// @param value This parameter's description is",
-        "Expected the first @param line to emit the normalized prefix."
-    );
-    assert.strictEqual(
-        lines[paramIndex + 1],
-        "///             intentionally long so it wraps across",
-        "Expected the first continuation line to carry the next words."
-    );
-    assert.strictEqual(
-        lines[paramIndex + 2],
-        "///             multiple lines and respects the formatter width.",
-        "Expected the final continuation line to capture the conclusion."
+        "/// @param value This parameter's description is intentionally long so it wraps across multiple lines and respects the formatter width.",
+        "Expected the @param line to remain unwrapped."
     );
 });

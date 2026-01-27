@@ -46,9 +46,7 @@ function Shape(color = undefined) constructor {
         show_debug_message("I'm a shape");
     };
 
-    /// @description This will delete any geometry info contained within the mesh itself.
-    ///              It will not delete any geometry added to a ColMesh.
-    ///              After a mesh has been frozen, it can no longer be added to a colmesh.
+    /// @description This will delete any geometry info contained within the mesh itself. It will not delete any geometry added to a ColMesh. After a mesh has been frozen, it can no longer be added to a colmesh.
     /// @returns {undefined}
     static freeze = function () {
         triangles = [];
@@ -244,8 +242,7 @@ get_debug_text = function () {
     return txt;
 };
 
-/// @description Write a unit triangular prism into an existing vbuff.
-///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+/// @description Write a unit triangular prism into an existing vbuff. Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]

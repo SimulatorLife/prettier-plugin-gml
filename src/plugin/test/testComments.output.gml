@@ -1,8 +1,8 @@
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
 //try { // TODO this sometimes throws NaN error, try catch is band-aid
-//    foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
+//	foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
 //} catch(ex) {
-//    show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
+//	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 //}
 
 // Make body wobble up and down // This is a trailing comment
@@ -42,6 +42,17 @@ function scribble_font_has_character(_font_name, _character) {
 /// @param length1
 /// @param length2
 function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2) {
+    /*
+    This function calculates the position of a two jointed IK chain.
+    It returns an array with the position of the joint and the end effector.
+    x1, y1, z1 : The position of the root of the chain
+    x2dir, y2dir, z2dir : The direction the first joint should face
+    x3, y3, z3 : The target position of the end effector
+    length1 : The length of the first bone
+    length2 : The length of the second bone
+    unrelated : comment to test
+    unrelated2 another comment to test
+    */
     // Return an array
     return [x2, y2, z2, x3, y3, z3];
 }

@@ -163,24 +163,24 @@ void describe("line comment formatting helpers", () => {
         assert.strictEqual(result, null);
     });
 
-    void it("splits multi-sentence comments into multiple lines", () => {
+    void it("preserves multi-sentence comment", () => {
         const comment = {
             type: "CommentLine",
             value: " First sentence. Second sentence.",
             raw: "// First sentence. Second sentence."
         };
         const result = Core.formatLineComment(comment);
-        assert.strictEqual(result, "// First sentence.\n// Second sentence.");
+        assert.strictEqual(result, "// First sentence. Second sentence.");
     });
 
-    void it("splits merged comments separated by //", () => {
+    void it("maintains comment with internal //", () => {
         const comment = {
             type: "CommentLine",
             value: " Comment 1 // Comment 2",
             raw: "// Comment 1 // Comment 2"
         };
         const result = Core.formatLineComment(comment);
-        assert.strictEqual(result, "// Comment 1\n// Comment 2");
+        assert.strictEqual(result, "// Comment 1 // Comment 2");
     });
 
     void it("promotes high-slash banner with @tag to triple-slash", () => {

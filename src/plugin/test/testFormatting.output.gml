@@ -6,7 +6,6 @@ for (var i = 0; i < num; i++) {
 }
 
 function TestStruct() constructor {
-
     /// @returns {undefined}
     static clearSubdiv = function () {
         if (spHash >= 0) {
