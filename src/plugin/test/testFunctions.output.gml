@@ -84,19 +84,17 @@ function Oval(r1 = 1, r2 = 1) : Shape() constructor {
 }
 
 function Line() : Shape() constructor {
-
     /// @param x1
     /// @param y1
     /// @param x2
     /// @param y2
     /// @returns {undefined}
     function set_points(x1, y1, x2, y2) {
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+        self.x1 = x1;
+        self.y1 = y1;
+        self.x2 = x2;
+        self.y2 = y2;
     }
-
 }
 
 /// @param settings
@@ -146,7 +144,6 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
-
 }
 
 /// @param [name="friend"]
@@ -184,7 +181,6 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 /// @param {bool} push_out
 /// @param {bool} pull_in
 function scr_spring(a, b, dst, force, push_out, pull_in) {
-
     if (!instance_exists(a) or !instance_exists(b)) {
         return false;
     }
@@ -251,7 +247,6 @@ get_debug_text = function () {
 /// @param [trans_mat]
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
-
     var hx = 0.5, hy = 0.5, h = 1;
 
     // Base corners (Z = 0)
