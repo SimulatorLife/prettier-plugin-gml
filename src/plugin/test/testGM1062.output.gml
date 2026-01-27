@@ -5,6 +5,9 @@
 /// @returns {undefined}
 function func(_param1, _param2, _param3) {
     show_debug_message(
-        "The parameters are: {0}, {1} and {2}", _param1, _param2, _param3
+        "The parameters are: {0}, {1} and {2}",
+        _param1,
+        _param2,
+        _param3
     );
 }
