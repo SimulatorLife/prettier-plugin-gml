@@ -1988,7 +1988,18 @@ function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
 function shouldForceInlineFunctionParameters(path, options) {
     const node = path.getValue();
 
-    if (!node || node.type !== "ConstructorDeclaration") {
+    if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
+        return false;
+    }
+
+    if (node.type === "FunctionDeclaration" && Core.isNonEmptyArray(node.params) && node.params.length <= 1) {
+        const parentNode = path.getParentNode();
+        if (parentNode?.type === CALL_EXPRESSION && node.params.every((param) => !Core.hasComment(param))) {
+            return true;
+        }
+    }
+
+    if (node.type !== "ConstructorDeclaration") {
         return false;
     }
 
@@ -2298,7 +2309,9 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     const hasTrailingNonCallbackArgument =
         firstCallbackIndex !== -1 &&
         trailingArguments.slice(firstCallbackIndex + 1).some((argument) => !isCallbackArgument(argument));
-    const shouldForcePrefixBreaks = simplePrefixLength > 1 && hasTrailingNonCallbackArgument;
+    const callbackCount = trailingArguments.filter(isCallbackArgument).length;
+    const shouldSplitPrefixArguments = hasTrailingNonCallbackArgument;
+    const shouldForcePrefixBreaks = simplePrefixLength > 1 && (shouldSplitPrefixArguments || callbackCount > 1);
 
     for (let index = 0; index < args.length; index++) {
         parts.push(path.call(print, "arguments", index));
@@ -2309,7 +2322,12 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
 
         parts.push(",");
 
-        if (index < simplePrefixLength - 1 && !shouldForcePrefixBreaks) {
+        if (index < simplePrefixLength - 1) {
+            parts.push(shouldSplitPrefixArguments ? line : " ");
+            continue;
+        }
+
+        if (index === simplePrefixLength - 1 && !shouldForcePrefixBreaks) {
             parts.push(" ");
             continue;
         }
@@ -2317,7 +2335,9 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
         parts.push(line);
     }
 
-    const argumentGroup = group(["(", indent([softline, ...parts]), softline, ")"]);
+    const argumentGroup = shouldForcePrefixBreaks
+        ? group(["(", indent([softline, ...parts]), softline, ")"])
+        : group(["(", indent(parts), softline, ")"]);
 
     return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
