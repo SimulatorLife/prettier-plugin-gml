@@ -1511,30 +1511,68 @@ async function loadBuiltInNamesForProjectIndex({ fsFacade, metrics, signal, ensu
     ensureNotAborted();
     return builtInIdentifiers.names ?? new Set();
 }
-async function discoverProjectFilesForIndex({ projectRoot, fsFacade, metrics, signal, ensureNotAborted }) {
+async function discoverProjectFilesForIndex({
+    projectRoot,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted,
+    logger = null
+}: {
+    projectRoot: string;
+    fsFacade: any;
+    metrics: any;
+    signal: any;
+    ensureNotAborted: () => void;
+    logger?: { log: typeof console.log } | null;
+}) {
     const projectFiles = await metrics.timers.timeAsync("scanProjectTree", () =>
         scanProjectTree(projectRoot, fsFacade, metrics, { signal })
     );
     ensureNotAborted();
     metrics.metadata.setMetadata("yyFileCount", projectFiles.yyFiles.length);
     metrics.metadata.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
-    console.log(`DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`);
-    if (projectFiles.yyFiles.length > 0) {
-        console.log(`DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
+
+    if (logger) {
+        logger.log(`DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`);
+        if (projectFiles.yyFiles.length > 0) {
+            logger.log(`DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
+        }
     }
     return projectFiles;
 }
-async function analyseProjectResourcesForIndex({ projectRoot, yyFiles, fsFacade, metrics, signal, ensureNotAborted }) {
-    console.log(`DEBUG: analyseProjectResourcesForIndex called with ${yyFiles.length} yyFiles`);
+async function analyseProjectResourcesForIndex({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted,
+    logger = null
+}: {
+    projectRoot: string;
+    yyFiles: any[];
+    fsFacade: any;
+    metrics: any;
+    signal: any;
+    ensureNotAborted: () => void;
+    logger?: { log: typeof console.log } | null;
+}) {
+    if (logger) {
+        logger.log(`DEBUG: analyseProjectResourcesForIndex called with ${yyFiles.length} yyFiles`);
+    }
     const resourceAnalysis = await metrics.timers.timeAsync("analyseResourceFiles", () =>
         analyseResourceFiles({
             projectRoot,
             yyFiles,
             fsFacade,
-            signal
+            signal,
+            logger
         })
     );
-    console.log(`DEBUG: analyseResourceFiles returned resourcesMap of size: ${resourceAnalysis.resourcesMap.size}`);
+    if (logger) {
+        logger.log(`DEBUG: analyseResourceFiles returned resourcesMap of size: ${resourceAnalysis.resourcesMap.size}`);
+    }
     ensureNotAborted();
     metrics.counters.increment("resources.total", resourceAnalysis.resourcesMap.size);
     return resourceAnalysis;
@@ -1608,33 +1646,45 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
     const metricsReporting = metricsContracts.reporting;
     const stopTotal = metrics.timers.startTimer("total");
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
+
+    if (logger) {
+        logger.log(`DEBUG: Starting buildProjectIndex for project: ${resolvedRoot}`);
+    }
+
     const builtInNames = await loadBuiltInNamesForProjectIndex({
         fsFacade,
         metrics,
         signal,
         ensureNotAborted
     });
+
     const { yyFiles, gmlFiles } = await discoverProjectFilesForIndex({
         projectRoot: resolvedRoot,
         fsFacade,
         metrics,
         signal,
-        ensureNotAborted
+        ensureNotAborted,
+        logger
     });
+
     const resourceAnalysis = await analyseProjectResourcesForIndex({
         projectRoot: resolvedRoot,
         yyFiles,
         fsFacade,
         metrics,
         signal,
-        ensureNotAborted
+        ensureNotAborted,
+        logger
     });
+
     const { scopeMap, filesMap, relationships, identifierCollections } =
         createProjectIndexAggregationState(resourceAnalysis);
+
     const { gmlConcurrency, parseProjectSource } = configureGmlProcessing({
         options,
         metrics
     });
+
     await processProjectGmlFilesForIndex({
         gmlFiles,
         gmlConcurrency,
@@ -1651,11 +1701,13 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
         projectRoot: resolvedRoot,
         signal
     });
+
     recordScriptCallMetricsAndReferences({
         relationships,
         metrics,
         identifierCollections
     });
+
     const projectIndexPayload = createProjectIndexResultSnapshot({
         projectRoot: resolvedRoot,
         resourceAnalysis,
@@ -1664,11 +1716,15 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
         identifierCollections,
         relationships
     });
-    console.log("DEBUG: identifierCollections keys:", Object.keys(identifierCollections));
-    console.log("DEBUG: resourceAnalysis keys:", Object.keys(resourceAnalysis));
-    if (resourceAnalysis.resourcesMap) {
-        console.log("DEBUG: resourceAnalysis.resourcesMap size:", resourceAnalysis.resourcesMap.size);
+
+    if (logger) {
+        logger.log("DEBUG: identifierCollections keys:", Object.keys(identifierCollections));
+        logger.log("DEBUG: resourceAnalysis keys:", Object.keys(resourceAnalysis));
+        if (resourceAnalysis.resourcesMap) {
+            logger.log("DEBUG: resourceAnalysis.resourcesMap size:", resourceAnalysis.resourcesMap.size);
+        }
     }
+
     stopTotal();
     const projectIndex = projectIndexPayload;
     return finalizeProjectIndexResult({

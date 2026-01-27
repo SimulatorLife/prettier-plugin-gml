@@ -20,6 +20,7 @@ interface ResolvedPrettierConfiguration {
     prettierLogLevel?: string;
     onParseError?: string;
     checkMode: boolean;
+    verbose: boolean;
 }
 
 interface TargetPathResolution {
@@ -73,10 +74,13 @@ function resolvePrettierConfiguration(
     { defaultParseErrorAction, defaultPrettierLogLevel }: PrettierConfigurationOptions
 ): ResolvedPrettierConfiguration {
     const source = options ?? {};
+    const verbose = Boolean(source.verbose);
+
     return {
-        prettierLogLevel: (source.logLevel as string) ?? defaultPrettierLogLevel,
+        prettierLogLevel: verbose ? "debug" : ((source.logLevel as string) ?? defaultPrettierLogLevel),
         onParseError: (source.onParseError as string) ?? defaultParseErrorAction,
-        checkMode: Boolean(source.check)
+        checkMode: Boolean(source.check),
+        verbose
     };
 }
 
@@ -126,7 +130,7 @@ export function collectFormatCommandOptions(
 
     const { skippedDirectorySampleLimit, ignoredFileSampleLimit, unsupportedExtensionSampleLimit } =
         resolveFormatCommandSampleLimits(options);
-    const { prettierLogLevel, onParseError, checkMode } = resolvePrettierConfiguration(options, {
+    const { prettierLogLevel, onParseError, checkMode, verbose } = resolvePrettierConfiguration(options, {
         defaultParseErrorAction,
         defaultPrettierLogLevel
     });
@@ -142,6 +146,7 @@ export function collectFormatCommandOptions(
         prettierLogLevel,
         onParseError,
         checkMode,
+        verbose,
         rawTargetPathInput,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,

@@ -377,12 +377,14 @@ export async function analyseResourceFiles({
     projectRoot,
     yyFiles,
     fsFacade = defaultFsFacade,
-    signal = null
+    signal = null,
+    logger = null
 }: {
     projectRoot: string;
     yyFiles: Array<{ relativePath: string; absolutePath: string }>;
     fsFacade?: Required<Pick<ProjectIndexFsFacade, "readFile">>;
     signal?: AbortSignal | null;
+    logger?: { log: typeof console.log } | null;
 }) {
     const context = createResourceAnalysisContext();
 
@@ -410,7 +412,9 @@ export async function analyseResourceFiles({
         });
     });
 
-    console.log(`DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`);
+    if (logger) {
+        logger.log(`DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`);
+    }
 
     annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);
 

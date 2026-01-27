@@ -131,3 +131,16 @@ void test("collectFormatCommandOptions honours ignored directory samples alias",
 
     assert.strictEqual(result.skippedDirectorySampleLimit, 2);
 });
+
+void test("collectFormatCommandOptions sets log level to debug when verbose is true", () => {
+    const command = createStubCommand({
+        opts: () => ({
+            verbose: true
+        })
+    });
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.verbose, true);
+    assert.strictEqual(result.prettierLogLevel, "debug");
+});

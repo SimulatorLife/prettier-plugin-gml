@@ -4,14 +4,13 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
+import { type ProjectIndexFsFacade } from "./fs-facade.js";
 import {
     normalizeProjectFileCategory,
     ProjectFileCategory,
     resolveProjectFileCategory
 } from "./project-file-categories.js";
 import { runSequentially } from "./sequential-runner.js";
-
-type ProjectIndexFsFacade = typeof fs;
 
 function createProjectTreeRecord(absolutePath, relativePosix) {
     return {

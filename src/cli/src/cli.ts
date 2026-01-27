@@ -367,15 +367,24 @@ function isDiagnosticStdoutMessage(message) {
 }
 
 /**
- * Configure console methods to filter diagnostic messages when silent mode is enabled.
- * When silent is true, console.debug is disabled and stderr/stdout methods filter diagnostic output.
- * When silent is false, console methods are restored to their original implementations.
+ * Configure console methods based on the requested log level.
+ * Handles silencing diagnostic messages and toggling debug output.
  *
- * @param silent - Whether to enable silent mode with diagnostic filtering
+ * @param logLevel - The Prettier log level (debug|info|warn|error|silent)
  */
-function configureConsoleMethods(silent: boolean): void {
+function configureConsoleMethods(logLevel: string): void {
+    const silent = logLevel === "silent";
+    const debug = logLevel === "debug";
+
+    // Disable console.debug unless the log level is explicitly set to debug.
+    // This ensures internal tracing and diagnostic output is hidden by default.
+    if (debug) {
+        console.debug = originalConsoleDebug;
+    } else {
+        console.debug = () => { };
+    }
+
     if (silent) {
-        console.debug = () => {};
         console.error = (...args) => {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
@@ -401,7 +410,6 @@ function configureConsoleMethods(silent: boolean): void {
             return originalConsoleInfo.apply(console, args);
         };
     } else {
-        console.debug = originalConsoleDebug;
         console.error = originalConsoleError;
         console.warn = originalConsoleWarn;
         console.log = originalConsoleLog;
@@ -409,13 +417,9 @@ function configureConsoleMethods(silent: boolean): void {
     }
 }
 
-// If the environment explicitly requests the plugin log level to be silent
-// at process start, disable console.debug early on so dependencies cannot
-// write noisy debug output before the CLI finishes its configuration. This
-// mirrors behaviour also applied later by configurePrettierOptions().
-if (process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL === "silent") {
-    configureConsoleMethods(true);
-}
+// Initialize console methods based on the environment or default log level.
+// This ensures console.debug is disabled early on if requested.
+configureConsoleMethods(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL ?? DEFAULT_PRETTIER_LOG_LEVEL);
 
 const FORMAT_ACTION = "format";
 const HELP_ACTION = "help";
@@ -494,20 +498,20 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
 
     const createCaptureWrite =
         (target: Array<string>): typeof process.stdout.write =>
-        (chunk, encodingOrCallback?, callback?) => {
-            const encoding =
-                typeof encodingOrCallback === "string" ? (encodingOrCallback as BufferEncoding) : undefined;
-            const text = normalizeWriteChunk(chunk as string | Uint8Array, encoding);
-            target.push(text);
+            (chunk, encodingOrCallback?, callback?) => {
+                const encoding =
+                    typeof encodingOrCallback === "string" ? (encodingOrCallback as BufferEncoding) : undefined;
+                const text = normalizeWriteChunk(chunk as string | Uint8Array, encoding);
+                target.push(text);
 
-            const cb = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
+                const cb = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
 
-            if (typeof cb === "function") {
-                cb();
-            }
+                if (typeof cb === "function") {
+                    cb();
+                }
 
-            return true;
-        };
+                return true;
+            };
 
     process.stdout.write = createCaptureWrite(capturedStdout);
     process.stderr.write = createCaptureWrite(capturedStderr);
@@ -630,6 +634,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             (value) => parseErrorActionOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PARSE_ERROR_ACTION
         )
+        .option("--verbose", "Enable verbose output with detailed diagnostics")
         .addHelpText("after", () =>
             [
                 "",
@@ -696,7 +701,7 @@ function configurePrettierOptions({
     // Prettier log level so internal debug and diagnostic output is suppressed
     // when requested. We filter diagnostic lines to avoid hiding genuine
     // runtime errors while keeping repo-wide runs deterministic in tests.
-    configureConsoleMethods(normalized === "silent");
+    configureConsoleMethods(normalized);
 }
 
 const skippedFileSummary = {
@@ -873,7 +878,7 @@ async function releaseSnapshot(snapshot) {
                 }
             }
         },
-        () => {}
+        () => { }
     );
 }
 
@@ -996,8 +1001,7 @@ async function revertFormattedFiles() {
     formattedFileOriginalContents.clear();
 
     console.warn(
-        `Reverting ${revertEntries.length} formatted ${
-            revertEntries.length === 1 ? "file" : "files"
+        `Reverting ${revertEntries.length} formatted ${revertEntries.length === 1 ? "file" : "files"
         } due to parser failure.`
     );
 
@@ -1909,22 +1913,22 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
     const formattedTarget = formatPathForDisplay(targetPath);
     const locationDescription = targetIsDirectory
         ? describeDirectoryWithoutMatches({
-              formattedTargetPath: formattedTarget,
-              targetPathProvided
-          })
+            formattedTargetPath: formattedTarget,
+            targetPathProvided
+        })
         : formattedTarget;
     const nothingToFormatMessage = "Nothing to format.";
     const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
-              "Provide a directory or file containing GameMaker Language sources.",
-              exampleGuidance,
-              "Adjust --extensions or update your .prettierignore files if this is unexpected."
-          ].join(" ")
+            "Provide a directory or file containing GameMaker Language sources.",
+            exampleGuidance,
+            "Adjust --extensions or update your .prettierignore files if this is unexpected."
+        ].join(" ")
         : [
-              "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
-              exampleGuidance
-          ].join(" ");
+            "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
+            exampleGuidance
+        ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix = "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
