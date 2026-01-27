@@ -1,1 +1,4 @@
-{"printWidth":106, "logicalOperatorsStyle": "symbols"}
+{
+	"printWidth": 100,
+	"logicalOperatorsStyle": "symbols"
+}
