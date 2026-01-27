@@ -413,7 +413,9 @@ export async function analyseResourceFiles({
     });
 
     if (logger) {
-        logger.log(`DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`);
+        logger.log(
+            `DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`
+        );
     }
 
     annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);

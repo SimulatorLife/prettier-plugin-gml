@@ -224,7 +224,7 @@ export function parseJsonWithContext(text, options: ParseJsonOptions = {}) {
  * Remove trailing commas from JSON strings to make them parseable by JSON.parse.
  * GameMaker's .yy and .yyp files use a non-standard JSON format that includes
  * trailing commas after the last element in arrays and objects.
- * 
+ *
  * @param {string} text Raw JSON text that may contain trailing commas.
  * @returns {string} Cleaned JSON text without trailing commas.
  */
@@ -232,7 +232,7 @@ function stripTrailingCommas(text: string): string {
     // This regex matches:
     // - A comma followed by optional whitespace/newlines
     // - Followed by ] (end of array) or } (end of object)
-    return text.replaceAll(/,(\s*[\]}])/g, '$1');
+    return text.replaceAll(/,(\s*[\]}])/g, "$1");
 }
 
 /**

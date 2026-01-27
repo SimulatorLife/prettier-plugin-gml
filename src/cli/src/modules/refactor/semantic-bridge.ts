@@ -251,10 +251,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     /**
      * Find identifier occurrences in a file (respecting boundary characters).
      */
-    private findIdentifierOccurrences(
-        relativePath: string,
-        name: string
-    ): Array<{ start: number; end: number }> {
+    private findIdentifierOccurrences(relativePath: string, name: string): Array<{ start: number; end: number }> {
         const results: Array<{ start: number; end: number }> = [];
         try {
             const absolutePath = path.resolve(this.projectRoot, relativePath);
@@ -273,7 +270,9 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     end: match.index + name.length
                 });
             }
-        } catch { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
         return results;
     }
 
@@ -299,7 +298,10 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             const escapedSearch = Core.escapeRegExp(searchString);
             // Look for the name inside double quotes, potentially as part of a path.
             // We want to match "oGravitySphere" but NOT "another_oGravitySphere"
-            const regex = new RegExp(String.raw`(?<=")(${escapedSearch})(?=[^a-zA-Z0-9_])|(?<=[^a-zA-Z0-9_])(${escapedSearch})(?=")|(?<=")(${escapedSearch})(?=")|(?<=[\/])(${escapedSearch})(?=[\.\/])`, "g");
+            const regex = new RegExp(
+                String.raw`(?<=")(${escapedSearch})(?=[^a-zA-Z0-9_])|(?<=[^a-zA-Z0-9_])(${escapedSearch})(?=")|(?<=")(${escapedSearch})(?=")|(?<=[\/])(${escapedSearch})(?=[\.\/])`,
+                "g"
+            );
 
             let match;
             while ((match = regex.exec(content)) !== null) {
@@ -595,7 +597,20 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             const name = scipMatch[2];
 
             // Special handling for resource kinds
-            if (["objects", "sprites", "sounds", "rooms", "paths", "scripts", "shaders", "fonts", "timelines", "tilesets"].includes(kind)) {
+            if (
+                [
+                    "objects",
+                    "sprites",
+                    "sounds",
+                    "rooms",
+                    "paths",
+                    "scripts",
+                    "shaders",
+                    "fonts",
+                    "timelines",
+                    "tilesets"
+                ].includes(kind)
+            ) {
                 const resource = this.findResourceByName(name);
                 if (resource) {
                     // Create a synthetic symbol entry for the resource
@@ -652,14 +667,16 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             console.log(`[DEBUG] Looking for exact name: '${name}'`);
 
             // Check if any resource name matches roughly
-            const match = keys.find(k => resources[k]?.name === name);
+            const match = keys.find((k) => resources[k]?.name === name);
             if (match) {
                 console.log(`[DEBUG] Found match by key iteration: ${match}`);
             } else {
                 console.log(`[DEBUG] No exact match found for '${name}'. Sample keys: ${keys.slice(0, 3).join(", ")}`);
                 // Print one resource to verify structure
                 if (keys.length > 0) {
-                    console.log(`[DEBUG] Sample resource at ${keys[0]}: ${JSON.stringify(resources[keys[0]], null, 2)}`);
+                    console.log(
+                        `[DEBUG] Sample resource at ${keys[0]}: ${JSON.stringify(resources[keys[0]], null, 2)}`
+                    );
                 }
             }
 
@@ -709,12 +726,14 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             identifierId: symbolId,
             name: resource.name,
             kind: resource.resourceType,
-            declarations: [{
-                filePath: resource.path,
-                start: { index: 0, line: 0, column: 0 },
-                end: { index: 0, line: 0, column: 0 },
-                kind: OccurrenceKind.DEFINITION
-            }],
+            declarations: [
+                {
+                    filePath: resource.path,
+                    start: { index: 0, line: 0, column: 0 },
+                    end: { index: 0, line: 0, column: 0 },
+                    kind: OccurrenceKind.DEFINITION
+                }
+            ],
             references: [], // We'd need to populate this via asset scan if we want references visible here
             resourcePath: resource.path
         };

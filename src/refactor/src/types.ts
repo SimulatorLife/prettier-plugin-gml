@@ -373,11 +373,11 @@ export interface EditValidator {
  */
 export interface SemanticAnalyzer
     extends SymbolResolver,
-    OccurrenceTracker,
-    FileSymbolProvider,
-    DependencyAnalyzer,
-    KeywordProvider,
-    EditValidator { }
+        OccurrenceTracker,
+        FileSymbolProvider,
+        DependencyAnalyzer,
+        KeywordProvider,
+        EditValidator {}
 
 /**
  * Partial semantic analyzer for dependency injection.

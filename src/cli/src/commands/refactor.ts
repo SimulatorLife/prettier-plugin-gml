@@ -230,7 +230,8 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
 
         // Improve error message for common symbol lookup failures
         if (message.includes("not found in semantic index")) {
-            message = `Symbol '${targetSymbolId || oldName}' was not found in the semantic index. ` +
+            message =
+                `Symbol '${targetSymbolId || oldName}' was not found in the semantic index. ` +
                 `This usually means the symbol is not defined in the project or is a built-in symbol that cannot be renamed.\n` +
                 `Check that the symbol name is correct (including case) and that it refers to a user-defined resource (Script, Macro, Variable, etc.).`;
         }

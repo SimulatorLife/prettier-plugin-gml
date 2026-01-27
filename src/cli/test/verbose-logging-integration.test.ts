@@ -19,23 +19,21 @@ const execFileBase = promisify(execFile);
 const normalizeExecOutput = (value: string | Buffer) => (typeof value === "string" ? value : value.toString());
 
 async function execFileAsync(command: string, args: Array<string>, options?: ExecFileOptions) {
-	if (command === "node" && isNonEmptyArray(args) && args[0] === wrapperPath) {
-		const [, ...cliArgs] = args;
-		const result = await runCliTestCommand({
-			argv: cliArgs,
-			env: options?.env,
-			cwd: options?.cwd
-		});
+    if (command === "node" && isNonEmptyArray(args) && args[0] === wrapperPath) {
+        const [, ...cliArgs] = args;
+        return await runCliTestCommand({
+            argv: cliArgs,
+            env: options?.env,
+            cwd: options?.cwd
+        });
+    }
 
-		return result;
-	}
-
-	const output = await execFileBase(command, args, options);
-	return {
-		stdout: normalizeExecOutput(output.stdout),
-		stderr: normalizeExecOutput(output.stderr),
-		exitCode: 0
-	};
+    const output = await execFileBase(command, args, options);
+    return {
+        stdout: normalizeExecOutput(output.stdout),
+        stderr: normalizeExecOutput(output.stderr),
+        exitCode: 0
+    };
 }
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -43,104 +41,126 @@ const candidateDist = path.resolve(currentDirectory, "../dist/index.js");
 const wrapperPath = fsSync.existsSync(candidateDist) ? candidateDist : path.resolve(currentDirectory, "../src/cli.js");
 
 async function createTemporaryDirectory() {
-	const directoryPrefix = path.join(os.tmpdir(), "gml-verbose-test-");
-	return fs.mkdtemp(directoryPrefix);
+    const directoryPrefix = path.join(os.tmpdir(), "gml-verbose-test-");
+    return fs.mkdtemp(directoryPrefix);
 }
 
 void describe("CLI Verbose Logging", () => {
-	void it("does not show debug logs by default for format command", async () => {
-		const tempDirectory = await createTemporaryDirectory();
-		try {
-			const targetFile = path.join(tempDirectory, "script.gml");
-			await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
+    void it("does not show debug logs by default for format command", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
 
-			const { stdout, stderr } = await execFileAsync("node", [wrapperPath, tempDirectory]);
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath, tempDirectory]);
 
-			assert.doesNotMatch(stdout, /DEBUG:/i);
-			assert.doesNotMatch(stderr, /DEBUG:/i);
-		} finally {
-			await fs.rm(tempDirectory, { recursive: true, force: true });
-		}
-	});
+            assert.doesNotMatch(stdout, /DEBUG:/i);
+            assert.doesNotMatch(stderr, /DEBUG:/i);
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
 
-	void it("shows debug logs when --verbose is provided for format command", async () => {
-		const tempDirectory = await createTemporaryDirectory();
-		try {
-			const targetFile = path.join(tempDirectory, "script.gml");
-			await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
+    void it("shows debug logs when --verbose is provided for format command", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
 
-			const { stdout } = await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
 
-			// Since we updated the project index build to use the logger, 
-			// and format command flow NOW passes the verbose flag through (via log-level debug),
-			// we expect to see DEBUG logs if any are emitted.
-			// Note: format command doesn't use buildProjectIndex directly, 
-			// but it uses console.debug which we specifically toggle.
+            // Since we updated the project index build to use the logger,
+            // and format command flow NOW passes the verbose flag through (via log-level debug),
+            // we expect to see DEBUG logs if any are emitted.
+            // Note: format command doesn't use buildProjectIndex directly,
+            // but it uses console.debug which we specifically toggle.
 
-			// To see DEBUG logs from buildProjectIndex, we need to run refactor.
-			assert.ok(true);
-		} finally {
-			await fs.rm(tempDirectory, { recursive: true, force: true });
-		}
-	});
+            // To see DEBUG logs from buildProjectIndex, we need to run refactor.
+            assert.ok(true);
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
 
-	void it("shows debug logs when --verbose is provided for refactor command", async () => {
-		const tempDirectory = await createTemporaryDirectory();
-		try {
-			// Create a dummy project
-			const projectFile = path.join(tempDirectory, "project.yyp");
-			await fs.writeFile(projectFile, JSON.stringify({
-				resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
-			}), "utf8");
+    void it("shows debug logs when --verbose is provided for refactor command", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+        try {
+            // Create a dummy project
+            const projectFile = path.join(tempDirectory, "project.yyp");
+            await fs.writeFile(
+                projectFile,
+                JSON.stringify({
+                    resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
+                }),
+                "utf8"
+            );
 
-			const scriptDir = path.join(tempDirectory, "scripts/script1");
-			await fs.mkdir(scriptDir, { recursive: true });
-			await fs.writeFile(path.join(scriptDir, "script1.yy"), JSON.stringify({ resourceType: "GMScript", name: "script1" }), "utf8");
-			await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
+            const scriptDir = path.join(tempDirectory, "scripts/script1");
+            await fs.mkdir(scriptDir, { recursive: true });
+            await fs.writeFile(
+                path.join(scriptDir, "script1.yy"),
+                JSON.stringify({ resourceType: "GMScript", name: "script1" }),
+                "utf8"
+            );
+            await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
 
-			const { stdout } = await execFileAsync("node", [
-				wrapperPath,
-				"refactor",
-				"--project-root", tempDirectory,
-				"--old-name", "script1",
-				"--new-name", "script2",
-				"--dry-run",
-				"--verbose"
-			]);
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "refactor",
+                "--project-root",
+                tempDirectory,
+                "--old-name",
+                "script1",
+                "--new-name",
+                "script2",
+                "--dry-run",
+                "--verbose"
+            ]);
 
-			assert.match(stdout, /DEBUG: Discovered 2 yyFiles/);
-			assert.match(stdout, /DEBUG: analyseResourceFiles parsed 2/);
-		} finally {
-			await fs.rm(tempDirectory, { recursive: true, force: true });
-		}
-	});
+            assert.match(stdout, /DEBUG: Discovered 2 yyFiles/);
+            assert.match(stdout, /DEBUG: analyseResourceFiles parsed 2/);
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
 
-	void it("does not show debug logs by default for refactor command", async () => {
-		const tempDirectory = await createTemporaryDirectory();
-		try {
-			// Create a dummy project
-			const projectFile = path.join(tempDirectory, "project.yyp");
-			await fs.writeFile(projectFile, JSON.stringify({
-				resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
-			}), "utf8");
+    void it("does not show debug logs by default for refactor command", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+        try {
+            // Create a dummy project
+            const projectFile = path.join(tempDirectory, "project.yyp");
+            await fs.writeFile(
+                projectFile,
+                JSON.stringify({
+                    resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
+                }),
+                "utf8"
+            );
 
-			const scriptDir = path.join(tempDirectory, "scripts/script1");
-			await fs.mkdir(scriptDir, { recursive: true });
-			await fs.writeFile(path.join(scriptDir, "script1.yy"), JSON.stringify({ resourceType: "GMScript", name: "script1" }), "utf8");
-			await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
+            const scriptDir = path.join(tempDirectory, "scripts/script1");
+            await fs.mkdir(scriptDir, { recursive: true });
+            await fs.writeFile(
+                path.join(scriptDir, "script1.yy"),
+                JSON.stringify({ resourceType: "GMScript", name: "script1" }),
+                "utf8"
+            );
+            await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
 
-			const { stdout } = await execFileAsync("node", [
-				wrapperPath,
-				"refactor",
-				"--project-root", tempDirectory,
-				"--old-name", "script1",
-				"--new-name", "script2",
-				"--dry-run"
-			]);
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "refactor",
+                "--project-root",
+                tempDirectory,
+                "--old-name",
+                "script1",
+                "--new-name",
+                "script2",
+                "--dry-run"
+            ]);
 
-			assert.doesNotMatch(stdout, /DEBUG:/);
-		} finally {
-			await fs.rm(tempDirectory, { recursive: true, force: true });
-		}
-	});
+            assert.doesNotMatch(stdout, /DEBUG:/);
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
 });

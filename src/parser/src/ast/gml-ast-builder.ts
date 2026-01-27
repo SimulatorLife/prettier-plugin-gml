@@ -400,28 +400,28 @@ export default class GameMakerASTBuilder {
                     typeof token.stopIndex === "number"
                         ? token.stopIndex
                         : typeof token.stop === "number"
-                            ? token.stop
-                            : null;
+                          ? token.stop
+                          : null;
 
                 if (index === null) {
                     index =
                         typeof token.startIndex === "number"
                             ? token.startIndex
                             : typeof token.start === "number"
-                                ? token.start
-                                : null;
+                              ? token.start
+                              : null;
                 }
             } else {
                 index =
                     typeof token.startIndex === "number"
                         ? token.startIndex
                         : typeof token.start === "number"
-                            ? token.start
-                            : typeof token.stopIndex === "number"
-                                ? token.stopIndex
-                                : typeof token.stop === "number"
-                                    ? token.stop
-                                    : null;
+                          ? token.start
+                          : typeof token.stopIndex === "number"
+                            ? token.stopIndex
+                            : typeof token.stop === "number"
+                              ? token.stop
+                              : null;
             }
         }
 
@@ -452,14 +452,14 @@ export default class GameMakerASTBuilder {
             typeof token.start === "number"
                 ? token.start
                 : typeof token.startIndex === "number"
-                    ? token.startIndex
-                    : undefined;
+                  ? token.startIndex
+                  : undefined;
         const stopIndex =
             typeof token.stop === "number"
                 ? token.stop
                 : typeof token.stopIndex === "number"
-                    ? token.stopIndex
-                    : startIndex;
+                  ? token.stopIndex
+                  : startIndex;
         const line = typeof token.line === "number" ? token.line : undefined;
         const startColumn = typeof token.column === "number" ? token.column : undefined;
 
@@ -1420,9 +1420,9 @@ export default class GameMakerASTBuilder {
 
         const hasTrailingComma = paramListCtx
             ? this.hasTrailingComma(
-                this.ensureArray(paramListCtx.Comma()),
-                this.ensureArray(paramListCtx.parameterArgument())
-            )
+                  this.ensureArray(paramListCtx.Comma()),
+                  this.ensureArray(paramListCtx.parameterArgument())
+              )
             : false;
 
         const body = this.withScope("function", () => {
@@ -1727,13 +1727,13 @@ export default class GameMakerASTBuilder {
         }
         return ctx.EndRegion()
             ? this.astNode(ctx, {
-                type: "EndRegionStatement",
-                name
-            })
+                  type: "EndRegionStatement",
+                  name
+              })
             : this.astNode(ctx, {
-                type: "RegionStatement",
-                name
-            });
+                  type: "RegionStatement",
+                  name
+              });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#identifierStatement.

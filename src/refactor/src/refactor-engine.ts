@@ -503,7 +503,7 @@ export class RefactorEngine {
         if (!exists) {
             throw new Error(
                 `Symbol '${symbolId}' not found in semantic index. ` +
-                `Ensure the project has been analyzed before attempting renames.`
+                    `Ensure the project has been analyzed before attempting renames.`
             );
         }
 
@@ -610,7 +610,7 @@ export class RefactorEngine {
             if (edits.length > 50) {
                 warnings.push(
                     `Large number of edits (${edits.length}) planned for ${filePath}. ` +
-                    `Consider reviewing the scope of this refactoring.`
+                        `Consider reviewing the scope of this refactoring.`
                 );
             }
         }
@@ -761,7 +761,7 @@ export class RefactorEngine {
             const chain = circularChain.map((id) => extractSymbolName(id)).join(" → ");
             throw new Error(
                 `Circular rename chain detected: ${chain}. ` +
-                `Cannot rename symbols in a cycle as it would create conflicts.`
+                    `Cannot rename symbols in a cycle as it would create conflicts.`
             );
         }
 

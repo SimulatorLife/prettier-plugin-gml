@@ -378,11 +378,7 @@ function configureConsoleMethods(logLevel: string): void {
 
     // Disable console.debug unless the log level is explicitly set to debug.
     // This ensures internal tracing and diagnostic output is hidden by default.
-    if (debug) {
-        console.debug = originalConsoleDebug;
-    } else {
-        console.debug = () => { };
-    }
+    console.debug = debug ? originalConsoleDebug : () => {};
 
     if (silent) {
         console.error = (...args) => {
@@ -498,20 +494,20 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
 
     const createCaptureWrite =
         (target: Array<string>): typeof process.stdout.write =>
-            (chunk, encodingOrCallback?, callback?) => {
-                const encoding =
-                    typeof encodingOrCallback === "string" ? (encodingOrCallback as BufferEncoding) : undefined;
-                const text = normalizeWriteChunk(chunk as string | Uint8Array, encoding);
-                target.push(text);
+        (chunk, encodingOrCallback?, callback?) => {
+            const encoding =
+                typeof encodingOrCallback === "string" ? (encodingOrCallback as BufferEncoding) : undefined;
+            const text = normalizeWriteChunk(chunk as string | Uint8Array, encoding);
+            target.push(text);
 
-                const cb = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
+            const cb = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
 
-                if (typeof cb === "function") {
-                    cb();
-                }
+            if (typeof cb === "function") {
+                cb();
+            }
 
-                return true;
-            };
+            return true;
+        };
 
     process.stdout.write = createCaptureWrite(capturedStdout);
     process.stderr.write = createCaptureWrite(capturedStderr);
@@ -878,7 +874,7 @@ async function releaseSnapshot(snapshot) {
                 }
             }
         },
-        () => { }
+        () => {}
     );
 }
 
@@ -1001,7 +997,8 @@ async function revertFormattedFiles() {
     formattedFileOriginalContents.clear();
 
     console.warn(
-        `Reverting ${revertEntries.length} formatted ${revertEntries.length === 1 ? "file" : "files"
+        `Reverting ${revertEntries.length} formatted ${
+            revertEntries.length === 1 ? "file" : "files"
         } due to parser failure.`
     );
 
@@ -1913,22 +1910,22 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
     const formattedTarget = formatPathForDisplay(targetPath);
     const locationDescription = targetIsDirectory
         ? describeDirectoryWithoutMatches({
-            formattedTargetPath: formattedTarget,
-            targetPathProvided
-        })
+              formattedTargetPath: formattedTarget,
+              targetPathProvided
+          })
         : formattedTarget;
     const nothingToFormatMessage = "Nothing to format.";
     const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
-            "Provide a directory or file containing GameMaker Language sources.",
-            exampleGuidance,
-            "Adjust --extensions or update your .prettierignore files if this is unexpected."
-        ].join(" ")
+              "Provide a directory or file containing GameMaker Language sources.",
+              exampleGuidance,
+              "Adjust --extensions or update your .prettierignore files if this is unexpected."
+          ].join(" ")
         : [
-            "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
-            exampleGuidance
-        ].join(" ");
+              "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
+              exampleGuidance
+          ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix = "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 

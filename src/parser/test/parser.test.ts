@@ -69,7 +69,7 @@ function parseFixture(source: string, { suppressErrors = false, options }: Parse
     const originalError = console.error;
 
     try {
-        console.error = () => { };
+        console.error = () => {};
         return GMLParser.parse(source, options);
     } finally {
         console.error = originalError;

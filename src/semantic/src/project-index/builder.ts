@@ -1450,9 +1450,9 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                        start: Core.cloneLocation(reference.location.start),
-                        end: Core.cloneLocation(reference.location.end)
-                    }
+                          start: Core.cloneLocation(reference.location.start),
+                          end: Core.cloneLocation(reference.location.end)
+                      }
                     : null,
                 isResolved: reference.isResolved ?? false
             }))
@@ -1534,7 +1534,9 @@ async function discoverProjectFilesForIndex({
     metrics.metadata.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
 
     if (logger) {
-        logger.log(`DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`);
+        logger.log(
+            `DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`
+        );
         if (projectFiles.yyFiles.length > 0) {
             logger.log(`DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
         }
