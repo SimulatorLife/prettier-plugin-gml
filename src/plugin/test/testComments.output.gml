@@ -5,8 +5,7 @@
 //    show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 //}
 
-// Make body wobble up and down
-// This is a trailing comment
+// Make body wobble up and down // This is a trailing comment
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
 
 /// @description Emulation of string_height(), but using Scribble for calculating the width
@@ -62,3 +61,16 @@ global.room_colmesh.add_shape(colmesh_shape, true, false, true, false, undefined
 }); // Add to room's colmesh - now that unburied, can collide with stuff
 
 #endregion
+
+if (
+    _last_byte == 33 or // !=
+    _last_byte == 42 or // *=
+    _last_byte == 43 or // +=
+    _last_byte == 45 or // +=
+    _last_byte == 47 or // /=
+    _last_byte == 60 or // <=
+    _last_byte == 61 or // ==
+    _last_byte == 62 // >=
+) {
+    show_debug_message("Yay");
+}

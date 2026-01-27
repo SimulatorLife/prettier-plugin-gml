@@ -77,3 +77,15 @@ global.room_colmesh.add_shape(colmesh_shape, true, false, true, false, undefined
 ); // Add to room's colmesh - now that unburied, can collide with stuff
 
 #endregion
+
+if ((_last_byte == 33)  // !=
+||  (_last_byte == 42)  // *=
+||  (_last_byte == 43)  // +=
+||  (_last_byte == 45)  // +=
+||  (_last_byte == 47)  // /=
+||  (_last_byte == 60)  // <=
+||  (_last_byte == 61)  // ==
+||  (_last_byte == 62) // >=
+){
+show_debug_message("Yay");
+  }
