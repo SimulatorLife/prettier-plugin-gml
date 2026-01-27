@@ -419,19 +419,23 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
             ? new RegExp(String.raw`^\/\/\/\s*@description\s*${Core.escapeRegExp(functionName)}\s*\([^)]*\)\s*$`, "i")
             : null;
 
-    const filteredNodeDocs = formattedNodeDocs.filter((entry) => {
-        if (typeof entry.text !== "string") {
+    const filterDocLines = (lines: { start: number; text: string }[]) => {
+        return lines.filter((entry) => {
+            if (typeof entry.text !== "string") {
+                return true;
+            }
+            const trimmed = entry.text.trim();
+            if (trimmed === "/// @description") {
+                return false;
+            }
+            if (signatureDescriptionPattern && signatureDescriptionPattern.test(trimmed)) {
+                return false;
+            }
             return true;
-        }
-        const trimmed = entry.text.trim();
-        if (trimmed === "/// @description") {
-            return false;
-        }
-        if (signatureDescriptionPattern && signatureDescriptionPattern.test(trimmed)) {
-            return false;
-        }
-        return true;
-    });
+        });
+    };
+
+    const filteredNodeDocs = filterDocLines(formattedNodeDocs);
 
     const originalDocDocs: { start: number; text: string }[] = [];
     if (Core.isNonEmptyArray(docComments)) {
@@ -446,7 +450,9 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
         }
     }
 
-    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].toSorted((a, b) => a.start - b.start);
+    const filteredOriginalDocs = filterDocLines(originalDocDocs);
+
+    const mergedDocs = [...filteredOriginalDocs, ...filteredNodeDocs].toSorted((a, b) => a.start - b.start);
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
 

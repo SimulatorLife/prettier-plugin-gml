@@ -417,14 +417,14 @@ function tryPrintFunctionNode(node, path, options, print) {
         return;
     }
 
-    const docComments = printFunctionDocComments(node, path, options);
+    const docComments = printNodeDocComments(node, path, options);
     const signature = printFunctionSignature(node, path, options, print);
     const body = printFunctionBody(node, path, options, print);
 
     return concat([docComments, signature, " ", body]);
 }
 
-function printFunctionDocComments(node, path, options) {
+function printNodeDocComments(node, path, options) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const { originalText } = sourceMetadata;
     const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
@@ -737,6 +737,8 @@ function tryPrintVariableNode(node, path, options, print) {
                 addIndent: keptDeclarators.length > 1
             });
 
+            const docComments = printNodeDocComments(node, path, options);
+
             if (node.kind === "static") {
                 // WORKAROUND: Bypass printCommaSeparatedList for static declarations.
                 //
@@ -757,10 +759,10 @@ function tryPrintVariableNode(node, path, options, print) {
                 const parts = path.map(print, "declarations");
                 const joined = joinDeclaratorPartsWithCommas(parts);
 
-                return group(concat([node.kind, " ", ...joined]));
+                return concat([docComments, group(concat([node.kind, " ", ...joined]))]);
             }
 
-            return group(concat([node.kind, " ", decls]));
+            return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
             const initializerOverride = resolveArgumentAliasInitializerDoc(path);

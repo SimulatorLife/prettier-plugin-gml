@@ -66,8 +66,7 @@ void describe("CLI Verbose Logging", () => {
         try {
             const targetFile = path.join(tempDirectory, "script.gml");
             await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
-
-            const { stdout } = await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
+            await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
 
             // Since we updated the project index build to use the logger,
             // and format command flow NOW passes the verbose flag through (via log-level debug),
@@ -76,6 +75,7 @@ void describe("CLI Verbose Logging", () => {
             // but it uses console.debug which we specifically toggle.
 
             // To see DEBUG logs from buildProjectIndex, we need to run refactor.
+            // TODO: Make this a proper test with valid assertions.
             assert.ok(true);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });

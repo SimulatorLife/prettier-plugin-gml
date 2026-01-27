@@ -44,8 +44,11 @@ const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![/])/;
 
 function getLineCommentRawText(comment, options: any = {}) {
-    if (options.originalText && comment.start && comment.end) {
-        return options.originalText.slice(comment.start.index, comment.end.index + 1);
+    const commentStart = typeof comment.start === "number" ? comment.start : (comment.start?.index ?? null);
+    const commentEnd = typeof comment.end === "number" ? comment.end : (comment.end?.index ?? null);
+
+    if (options.originalText && commentStart !== null && commentEnd !== null) {
+        return options.originalText.slice(commentStart, commentEnd + 1);
     }
 
     if (!isObjectLike(comment)) {

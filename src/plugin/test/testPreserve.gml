@@ -1,5 +1,8 @@
 /// @description States and drawing code examples to be preserved
 
+// Whether chatterboxes should default to singleton mode. This is useful to most RPGs where lines
+// of dialogue arrive one at a time. More modern narrative games tend to deliver larger chunks of
+
 var my_val = (2 + 3) * 4;
 var b = ((x > y) ? (a + b) : (a - b));
 
