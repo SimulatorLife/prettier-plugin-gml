@@ -244,8 +244,8 @@ export function mergeSyntheticDocComments(
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
-            node?.type === "StructFunctionDeclaration" ||
-            node?.type === "FunctionExpression"
+        node?.type === "StructFunctionDeclaration" ||
+        node?.type === "FunctionExpression"
             ? collectImplicitArgumentDocNames(node, options)
             : [];
     const declaredParamCount = Array.isArray(node?.params) ? node.params.length : 0;
@@ -1047,7 +1047,6 @@ function isReturnLine(line: unknown): boolean {
     return /^\/\/\/\s*@returns?\b/i.test(line.trim());
 }
 
-
 type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
 
 type MergeDocLinesParams = {
@@ -1174,15 +1173,12 @@ type FinalizeDescriptionBlocksParams = {
     options: any;
 };
 
-function finalizeDescriptionBlocks({
-    docs
-}: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
+function finalizeDescriptionBlocks({ docs }: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
     // To align with Prettier's default behavior, we never break up or reflow doc comments
     // to fit the printWidth. Returning the original lines ensures that user-defined
     // line breaks and formatting are preserved.
     return docs;
 }
-
 
 function mergeDocLines({
     normalizedExistingLines,

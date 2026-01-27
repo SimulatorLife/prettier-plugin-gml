@@ -343,8 +343,8 @@ function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: s
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
-            ? trimmedOriginal
-            : null;
+          ? trimmedOriginal
+          : null;
 
     if (!docTagSource) {
         return null;
@@ -388,7 +388,6 @@ function tryFormatCommentedOutCode(
 
     return applyInlinePadding(comment, formattedCommentLine, shouldPreserveTabs);
 }
-
 
 /**
  * Formats plain triple-slash comments that aren't doc comments.
@@ -563,7 +562,6 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
         return commentedCodeResult;
     }
 
-
     // Default: format as a regular comment
     const fallbackLeadingWhitespace = typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
     const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll("\t", "    ");
@@ -572,10 +570,10 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
             ? " "
             : ""
         : normalizedFallbackWhitespace.length > 0
-            ? normalizedFallbackWhitespace
-            : trimmedValue.length > 0
-                ? " "
-                : "";
+          ? normalizedFallbackWhitespace
+          : trimmedValue.length > 0
+            ? " "
+            : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 
@@ -608,7 +606,6 @@ function resolveInlinePaddingWidth(comment) {
     return 0;
 }
 
-
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     const trimmed = toTrimmedString(text);
     if (trimmed.length === 0) {
@@ -638,6 +635,5 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
 
     return false;
 }
-
 
 export { applyInlinePadding, formatLineComment, getLineCommentRawText, normalizeBannerCommentText };

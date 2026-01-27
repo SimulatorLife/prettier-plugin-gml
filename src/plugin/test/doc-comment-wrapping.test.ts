@@ -27,10 +27,7 @@ void test("does NOT wrap long @description doc comments at the formatter width",
 
     const [firstLine] = lines.slice(descriptionIndex, descriptionIndex + 1);
 
-    assert.strictEqual(
-        firstLine,
-        `/// @description ${LONG_DESCRIPTION}`
-    );
+    assert.strictEqual(firstLine, `/// @description ${LONG_DESCRIPTION}`);
 });
 void test("does NOT wrap @description doc comments when printWidth exceeds the description length", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines({
@@ -39,10 +36,7 @@ void test("does NOT wrap @description doc comments when printWidth exceeds the d
 
     const [firstLine] = lines.slice(descriptionIndex, descriptionIndex + 1);
 
-    assert.strictEqual(
-        firstLine,
-        `/// @description ${LONG_DESCRIPTION}`
-    );
+    assert.strictEqual(firstLine, `/// @description ${LONG_DESCRIPTION}`);
     assert.ok(
         !lines[descriptionIndex + 1]?.startsWith("///              "),
         "Expected no continuation lines when the printWidth exceeds the description length"
