@@ -111,7 +111,7 @@ export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[
     const descriptionBlocks: number[][] = [];
     for (let index = 0; index < normalizedDocLines.length; index += 1) {
         const line = normalizedDocLines[index];
-        if (typeof line !== STRING_TYPE || !/^\/\/\/\s*@description\b/i.test(line.trim())) {
+        if (typeof line !== STRING_TYPE || !/^\s*\/+\s*@description\b/i.test(line.trim())) {
             continue;
         }
 
@@ -119,7 +119,7 @@ export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[
         let lookahead = index + 1;
         while (lookahead < normalizedDocLines.length) {
             const nextLine = normalizedDocLines[lookahead];
-            if (typeof nextLine === STRING_TYPE && nextLine.startsWith("///") && !parseDocCommentMetadata(nextLine)) {
+            if (typeof nextLine === STRING_TYPE && nextLine.trimStart().startsWith("///") && !parseDocCommentMetadata(nextLine)) {
                 blockIndices.push(lookahead);
                 lookahead += 1;
                 continue;
@@ -280,8 +280,8 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     const resultLines = (
         convertedReturns.length > 0
             ? retainedLines.filter(
-                  (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
-              )
+                (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
+            )
             : [...retainedLines]
     ) as MutableDocCommentLines;
 

@@ -7,18 +7,18 @@ const STRING_TYPE = "string";
  */
 export type DescriptionContinuationLineClassification =
     | {
-          kind: "stop";
-      }
+        kind: "stop";
+    }
     | {
-          kind: "empty";
-          trimmedLine: string;
-      }
+        kind: "empty";
+        trimmedLine: string;
+    }
     | {
-          kind: "text";
-          originalLine: string;
-          trimmedLine: string;
-          suffix: string;
-      };
+        kind: "text";
+        originalLine: string;
+        trimmedLine: string;
+        suffix: string;
+    };
 
 /**
  * Classify a doc-comment line following `@description` to determine whether it
@@ -30,16 +30,19 @@ export function classifyDescriptionContinuationLine(line: unknown): DescriptionC
     }
 
     const trimmedLine = line.trim();
-
-    if (!trimmedLine.startsWith("///")) {
+    const match = trimmedLine.match(/^(\/+(?:\/|(?=\s*@)))(.*)$/);
+    if (!match || match[1].length < 3) {
         return { kind: "stop" };
     }
 
-    if (/^\/\/\/\s*@/.test(trimmedLine)) {
+    const _prefix = match[1];
+    const rest = match[2];
+
+    if (rest.trim().startsWith("@")) {
         return { kind: "stop" };
     }
 
-    const suffix = trimmedLine.slice(3).trim();
+    const suffix = rest.trim();
 
     if (suffix.length === 0) {
         return { kind: "empty", trimmedLine };
@@ -159,7 +162,24 @@ export function applyDescriptionContinuations(
         }
 
         const normalized = formatted.trim();
-        const alreadyExists = docCommentDocs.some((line) => typeof line === STRING_TYPE && line.trim() === normalized);
+        const alreadyExists = docCommentDocs.some((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return false;
+            }
+
+            const lineTrimmed = line.trim();
+            const normalizedTrimmed = normalized.trim();
+
+            if (lineTrimmed === normalizedTrimmed) {
+                return true;
+            }
+
+            // Fallback for differing space counts after slashes
+            const lineContent = lineTrimmed.replace(/^\/+\s*/, "");
+            const normalizedContent = normalizedTrimmed.replace(/^\/+\s*/, "");
+
+            return lineContent === normalizedContent;
+        });
 
         if (alreadyExists) {
             continue;

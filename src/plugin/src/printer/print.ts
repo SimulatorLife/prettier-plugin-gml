@@ -1988,7 +1988,19 @@ function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
 function shouldForceInlineFunctionParameters(path, options) {
     const node = path.getValue();
 
-    if (!node || node.type !== "ConstructorDeclaration") {
+    if (!node) {
+        return false;
+    }
+
+    // For regular function declarations and struct function declarations,
+    // always keep parameters inline
+    if (node.type === "FunctionDeclaration" || node.type === "StructFunctionDeclaration") {
+        return true;
+    }
+
+    // For constructor declarations in parent clauses, only keep inline
+    // if params were originally on a single line
+    if (node.type !== "ConstructorDeclaration") {
         return false;
     }
 
