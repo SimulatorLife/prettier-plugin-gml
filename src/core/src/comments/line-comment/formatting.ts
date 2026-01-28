@@ -343,8 +343,8 @@ function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: s
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
-            ? trimmedOriginal
-            : null;
+          ? trimmedOriginal
+          : null;
 
     if (!docTagSource) {
         return null;
@@ -383,7 +383,9 @@ function tryFormatCommentedOutCode(
     }
 
     const shouldPreserveTabs = isObjectLike(comment) && isNonEmptyString(comment.leadingChar);
-    console.log(`DEBUG: comment.leadingChar: ${JSON.stringify(comment.leadingChar)} shouldPreserveTabs: ${shouldPreserveTabs}`);
+    console.log(
+        `DEBUG: comment.leadingChar: ${JSON.stringify(comment.leadingChar)} shouldPreserveTabs: ${shouldPreserveTabs}`
+    );
     const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
     const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 
@@ -571,10 +573,10 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
             ? " "
             : ""
         : normalizedFallbackWhitespace.length > 0
-            ? normalizedFallbackWhitespace
-            : trimmedValue.length > 0
-                ? " "
-                : "";
+          ? normalizedFallbackWhitespace
+          : trimmedValue.length > 0
+            ? " "
+            : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 

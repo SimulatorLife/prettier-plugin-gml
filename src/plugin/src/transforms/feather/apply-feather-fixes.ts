@@ -2507,9 +2507,9 @@ function flagInvalidAssignmentTarget(ast, node, diagnostic, sourceText) {
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? {
-                start: startIndex,
-                end: endIndex
-            }
+                  start: startIndex,
+                  end: endIndex
+              }
             : null;
 
     const targetText = getSourceTextSlice({
@@ -3695,10 +3695,10 @@ function resolveFunctionTagParamList(functionNode, collectionService, sourceText
     const docComments = Array.isArray(serviceComments)
         ? serviceComments
         : Array.isArray(functionNode?.docComments)
-            ? functionNode.docComments
-            : Array.isArray(functionNode?.comments)
-                ? functionNode.comments
-                : null;
+          ? functionNode.docComments
+          : Array.isArray(functionNode?.comments)
+            ? functionNode.comments
+            : null;
     if (!Array.isArray(docComments) || docComments.length === 0) {
         return null;
     }
@@ -4736,7 +4736,13 @@ function rewritePostfixStatement(node, parent, property, diagnostic, owner) {
     }
 
     // Ensure parent is something that can contain statements, not a CallExpression argument list
-    if (!owner || (owner.body !== parent && owner.statements !== parent && owner.consequent !== parent && owner.alternate !== parent)) {
+    if (
+        !owner ||
+        (owner.body !== parent &&
+            owner.statements !== parent &&
+            owner.consequent !== parent &&
+            owner.alternate !== parent)
+    ) {
         return null;
     }
 
@@ -7711,7 +7717,7 @@ function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length;) {
+            for (let index = 0; index < node.length; ) {
                 const mutated = visit(node[index], node, index);
                 if (mutated) {
                     continue;
@@ -8521,7 +8527,7 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length;) {
+            for (let index = 0; index < node.length; ) {
                 const element = node[index];
 
                 if (element?.type === "CallExpression") {
@@ -8747,7 +8753,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
     const seenDeclarations = new Map();
     const fixes = [];
 
-    for (let index = 0; index < body.length;) {
+    for (let index = 0; index < body.length; ) {
         const node = body[index];
 
         if (!Core.isNode(node) || node.type !== "FunctionDeclaration") {
@@ -10252,10 +10258,10 @@ function ensureVertexBeginBeforeVertexEndCall(node, parent, property, diagnostic
     const vertexBeginCall = shouldRemoveStandaloneVertexEnd
         ? null
         : createVertexBeginCall({
-            diagnostic,
-            referenceCall: node,
-            bufferIdentifier: bufferArgument
-        });
+              diagnostic,
+              referenceCall: node,
+              bufferIdentifier: bufferArgument
+          });
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
@@ -11191,7 +11197,7 @@ function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
             return;
         }
 
-        for (let index = 0; index < array.length;) {
+        for (let index = 0; index < array.length; ) {
             const removed = visit(array[index], array, index, owner, ownerKey);
 
             if (!removed) {
@@ -11366,7 +11372,7 @@ function ensureColourWriteEnableResetAfterCall(node, parent, property, diagnosti
 
     const cleanupStartIndex = property + 1;
 
-    for (let index = cleanupStartIndex; index < insertionIndex;) {
+    for (let index = cleanupStartIndex; index < insertionIndex; ) {
         const candidate = siblings[index];
 
         if (isTriviallyIgnorableStatement(candidate)) {
@@ -13438,7 +13444,7 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
     let openBegins = [];
 
-    for (let index = 0; index < statements.length;) {
+    for (let index = 0; index < statements.length; ) {
         const statement = statements[index];
 
         if (!statement || typeof statement !== "object") {

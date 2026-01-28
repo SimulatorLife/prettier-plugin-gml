@@ -7,18 +7,18 @@ const STRING_TYPE = "string";
  */
 export type DescriptionContinuationLineClassification =
     | {
-        kind: "stop";
-    }
+          kind: "stop";
+      }
     | {
-        kind: "empty";
-        trimmedLine: string;
-    }
+          kind: "empty";
+          trimmedLine: string;
+      }
     | {
-        kind: "text";
-        originalLine: string;
-        trimmedLine: string;
-        suffix: string;
-    };
+          kind: "text";
+          originalLine: string;
+          trimmedLine: string;
+          suffix: string;
+      };
 
 /**
  * Classify a doc-comment line following `@description` to determine whether it

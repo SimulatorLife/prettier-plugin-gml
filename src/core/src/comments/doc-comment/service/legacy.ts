@@ -119,7 +119,11 @@ export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[
         let lookahead = index + 1;
         while (lookahead < normalizedDocLines.length) {
             const nextLine = normalizedDocLines[lookahead];
-            if (typeof nextLine === STRING_TYPE && nextLine.trimStart().startsWith("///") && !parseDocCommentMetadata(nextLine)) {
+            if (
+                typeof nextLine === STRING_TYPE &&
+                nextLine.trimStart().startsWith("///") &&
+                !parseDocCommentMetadata(nextLine)
+            ) {
                 blockIndices.push(lookahead);
                 lookahead += 1;
                 continue;
@@ -280,8 +284,8 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     const resultLines = (
         convertedReturns.length > 0
             ? retainedLines.filter(
-                (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
-            )
+                  (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
+              )
             : [...retainedLines]
     ) as MutableDocCommentLines;
 
