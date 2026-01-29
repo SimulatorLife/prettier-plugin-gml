@@ -383,6 +383,9 @@ function tryFormatCommentedOutCode(
     }
 
     const shouldPreserveTabs = isObjectLike(comment) && isNonEmptyString(comment.leadingChar);
+    console.log(
+        `DEBUG: comment.leadingChar: ${JSON.stringify(comment.leadingChar)} shouldPreserveTabs: ${shouldPreserveTabs}`
+    );
     const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
     const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 

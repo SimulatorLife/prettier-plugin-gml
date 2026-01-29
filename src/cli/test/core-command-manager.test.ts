@@ -45,6 +45,48 @@ function createStubProgram() {
     };
 }
 
+function createAsyncStubProgram() {
+    const hooks = new Map();
+    const registeredCommands = [];
+    return {
+        parseCalls: [],
+        parseAsyncCalls: [],
+        addCommand(command, options: { isDefault?: boolean } = {}): typeof this {
+            registeredCommands.push({ command, options });
+            if (options.isDefault) {
+                this.defaultCommand = command;
+            }
+            return this;
+        },
+        hook(name, handler) {
+            hooks.set(name, handler);
+            return this;
+        },
+        parse() {
+            throw new Error("parse() should not be used when parseAsync() is available");
+        },
+        async parseAsync(argv, options) {
+            this.parseAsyncCalls.push({ argv, options });
+            const nonDefault = registeredCommands.find((entry) => entry.options?.isDefault !== true);
+            const targetCommand = nonDefault?.command ?? this.defaultCommand ?? null;
+            const action = targetCommand?._actionHandler;
+            if (!action) {
+                return;
+            }
+
+            hooks.get("preSubcommand")?.(this, targetCommand);
+            try {
+                await action(argv.slice(1), targetCommand);
+            } finally {
+                hooks.get("postAction")?.();
+            }
+        },
+        helpInformation() {
+            return "stub program usage";
+        }
+    };
+}
+
 function createStubCommand(name) {
     return {
         _actionHandler: null,
@@ -149,5 +191,26 @@ void test("command manager adapts programs that only expose parse()", async () =
     await runner.run(["adapter", "--flag"]);
 
     assert.deepStrictEqual(program.parseCalls, [{ argv: ["adapter", "--flag"], options: { from: "user" } }]);
+    assert.deepStrictEqual(executed, ["run"]);
+});
+
+void test("command manager prefers parseAsync when available on Commander executors", async () => {
+    const program = createAsyncStubProgram();
+    const { registry, runner } = createCliCommandManager({ program });
+
+    const executed = [];
+    const command = createStubCommand("adapter");
+
+    registry.registerCommand({
+        command,
+        run: () => {
+            executed.push("run");
+            return 0;
+        }
+    });
+
+    await runner.run(["adapter", "--flag"]);
+
+    assert.deepStrictEqual(program.parseAsyncCalls, [{ argv: ["adapter", "--flag"], options: { from: "user" } }]);
     assert.deepStrictEqual(executed, ["run"]);
 });

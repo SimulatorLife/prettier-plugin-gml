@@ -4692,14 +4692,14 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent = null, property = null) => {
+    const visit = (node, parent = null, property = null, owner = null) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
             for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+                visit(node[index], node, index, owner);
             }
             return;
         }
@@ -4709,7 +4709,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "IncDecStatement") {
-            const fix = rewritePostfixStatement(node, parent, property, diagnostic);
+            const fix = rewritePostfixStatement(node, parent, property, diagnostic, owner);
 
             if (fix) {
                 fixes.push(fix);
@@ -4717,18 +4717,32 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
+        const nextOwner =
+            node.type === "BlockStatement" || node.type === "Program" || node.type === "SwitchCase" ? node : owner;
+
         Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+            visit(value, node, key, nextOwner);
         });
     };
 
-    visit(ast);
+    visit(ast, null, null, ast);
 
     return fixes;
 }
 
-function rewritePostfixStatement(node, parent, property, diagnostic) {
+function rewritePostfixStatement(node, parent, property, diagnostic, owner) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    // Ensure parent is something that can contain statements, not a CallExpression argument list
+    if (
+        !owner ||
+        (owner.body !== parent &&
+            owner.statements !== parent &&
+            owner.consequent !== parent &&
+            owner.alternate !== parent)
+    ) {
         return null;
     }
 
