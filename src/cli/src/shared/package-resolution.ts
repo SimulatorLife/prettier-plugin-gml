@@ -4,9 +4,11 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const { getErrorMessageOrFallback } = Core;
+const { getErrorMessageOrFallback, isPlainObject } = Core;
 
 const require = createRequire(import.meta.url);
+
+const isPackageJsonRecord = (value: unknown): value is Record<string, unknown> => isPlainObject(value);
 
 export interface SourceDescriptor {
     root: string;
@@ -32,7 +34,13 @@ export function resolveCandidateRoot(candidateRoot: string | null | undefined): 
  */
 export async function readPackageJson(packageJsonPath: string): Promise<Record<string, unknown>> {
     const contents = await fs.readFile(packageJsonPath, "utf8");
-    return JSON.parse(contents);
+    const parsed = JSON.parse(contents) as unknown;
+
+    if (!isPackageJsonRecord(parsed)) {
+        throw new TypeError(`Expected package.json to contain an object at ${packageJsonPath}.`);
+    }
+
+    return parsed;
 }
 
 /**
