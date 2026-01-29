@@ -4,9 +4,9 @@ import type {
     CommanderActionHandler,
     CommanderAddCommandOptions,
     CommanderCommandLike,
+    CommanderExecutor,
     CommanderHookListener,
-    CommanderParseOptions,
-    CommanderProgramLike
+    CommanderParseOptions
 } from "./commander-types.js";
 
 const { assertFunctionProperties, describeValueWithArticle, isObjectOrFunction } = Core;
@@ -19,10 +19,10 @@ interface CommanderCommandContractOptions {
 }
 
 export interface CommanderProgramContract {
-    raw: CommanderProgramLike;
+    raw: CommanderExecutor;
     parse: CommanderParse;
     addCommand: (command: CommanderCommandLike, options?: CommanderAddCommandOptions) => CommanderCommandLike;
-    hook: (event: string, listener: CommanderHookListener) => CommanderProgramLike;
+    hook: (event: string, listener: CommanderHookListener) => CommanderExecutor;
     getUsage(): string | null;
 }
 
@@ -105,7 +105,7 @@ function createUsageReader(target: unknown): (() => string | null | undefined) |
     return null;
 }
 
-function createProgramParseDelegate(program: CommanderProgramLike): CommanderParse | null {
+function createProgramParseDelegate(program: CommanderExecutor): CommanderParse | null {
     if (typeof program.parseAsync === "function") {
         return (argv, options) => program.parseAsync?.(argv, options);
     }
@@ -123,7 +123,7 @@ function describeProgramForError(program: unknown): string {
     });
 }
 
-export function createCommanderProgramContract(program: CommanderProgramLike): CommanderProgramContract {
+export function createCommanderProgramContract(program: CommanderExecutor): CommanderProgramContract {
     const normalizedProgram = assertFunctionProperties(program, ["addCommand", "hook"], {
         name: "Commander program"
     });
@@ -148,7 +148,7 @@ export function createCommanderProgramContract(program: CommanderProgramLike): C
         hook(event, listener) {
             const hooked = normalizedProgram.hook?.(event, listener) ?? normalizedProgram;
 
-            return hooked as CommanderProgramLike;
+            return hooked as CommanderExecutor;
         },
         getUsage() {
             return normalizeUsageResult(usageReader?.());
