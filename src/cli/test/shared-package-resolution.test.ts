@@ -49,6 +49,24 @@ void describe("shared package resolution utilities", () => {
         }
     });
 
+    void it("readPackageJson rejects non-object JSON payloads", async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pkg-test-"));
+        const pkgPath = path.join(tmpDir, "package.json");
+
+        try {
+            await fs.writeFile(pkgPath, JSON.stringify(["not", "an", "object"]));
+            await assert.rejects(
+                async () => {
+                    await readPackageJson(pkgPath);
+                },
+                (error) =>
+                    error instanceof TypeError && error.message.includes("Expected package.json to contain an object")
+            );
+        } finally {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        }
+    });
+
     void it("resolvePackageJsonPath throws for unknown packages", () => {
         assert.throws(
             () => resolvePackageJsonPath("nonexistent-package-12345", "test"),
