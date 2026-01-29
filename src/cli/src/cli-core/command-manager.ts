@@ -10,7 +10,7 @@ import {
     isCommanderCommandLike
 } from "./commander-contract.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
-import type { CommanderCommandLike, CommanderProgramLike } from "./commander-types.js";
+import type { CommanderCommandLike, CommanderExecutor } from "./commander-types.js";
 import { CliUsageError, handleCliError } from "./errors.js";
 
 const { compactArray } = Core;
@@ -41,7 +41,10 @@ interface CliCommandEntry {
 }
 
 interface CliCommandManagerOptions {
-    program: CommanderProgramLike;
+    /**
+     * Execution-focused Commander interface; avoids relying on legacy program aliases.
+     */
+    program: CommanderExecutor;
     onUnhandledError?: CliCommandErrorHandler;
 }
 
@@ -64,7 +67,7 @@ function composeUsageHelpMessage({ defaultHelpText, usage }: ComposeUsageMessage
 }
 
 class CliCommandManager {
-    private readonly _program: CommanderProgramLike;
+    private readonly _program: CommanderExecutor;
     private readonly _programContract: CommanderProgramContract;
     private readonly _entries: Set<CliCommandEntry> = new Set();
     private readonly _commandEntryLookup: WeakMap<CommanderCommandLike, CliCommandEntry> = new WeakMap();
