@@ -3,8 +3,8 @@ import { toTrimmedString } from "../utils.js";
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
 
-const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
-const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
+const DOC_COMMENT_TAG_PATTERN = /^\s*\/+\s*@/i;
+const DOC_COMMENT_ALT_TAG_PATTERN = /^\s*\/+\s*\/\s*@/i;
 
 export type DocCommentMetadata = {
     tag: string;

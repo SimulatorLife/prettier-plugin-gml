@@ -1,6 +1,6 @@
 import type { MutableDocCommentLines } from "@gml-modules/core";
 
-const FUNCTION_TAG_PATTERN = /^\/\/\/\s*@function\b/i;
+const FUNCTION_TAG_PATTERN = /^\s*\/+\s*@(function|func)\b/i;
 
 export function isFunctionDocCommentLine(value: unknown): value is string {
     if (typeof value !== "string") {
