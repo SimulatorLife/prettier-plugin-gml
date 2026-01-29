@@ -704,9 +704,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
         runtimeContext.server = runtimeServerController;
 
-        if (!quiet) {
-            console.log(`Runtime static server ready at ${runtimeServerController.url}`);
-        }
+        console.log(`Runtime static server ready at ${runtimeServerController.url}`);
     } else if (verbose && !quiet) {
         console.log("Runtime static server disabled.");
     }
@@ -733,9 +731,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
             runtimeContext.websocketServer = websocketServerController;
 
-            if (!quiet) {
-                console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
-            }
+            console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown WebSocket server error"
@@ -790,9 +786,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
             runtimeContext.statusServer = statusServerController;
 
-            if (!quiet) {
-                console.log(`Status server ready at ${statusServerController.url}`);
-            }
+            console.log(`Status server ready at ${statusServerController.url}`);
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown status server error"

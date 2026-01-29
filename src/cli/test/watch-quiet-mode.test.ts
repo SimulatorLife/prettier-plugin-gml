@@ -8,7 +8,7 @@
 import assert from "node:assert";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { after, before, describe, it } from "node:test";
+import { after, before, describe, it, mock } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
@@ -35,6 +35,10 @@ void describe("Watch command quiet mode", () => {
     void it("should start successfully with --quiet flag", async () => {
         const websocketPort = await findAvailablePort();
         const abortController = new AbortController();
+        const logMessages: Array<string> = [];
+        const restoreLog = mock.method(console, "log", (...args) => {
+            logMessages.push(args.join(" "));
+        });
 
         const watchPromise = runWatchCommand(testDir, {
             extensions: [".gml"],
@@ -62,11 +66,18 @@ void describe("Watch command quiet mode", () => {
                 await websocketClient.disconnect();
             }
 
+            restoreLog.mock.restore();
             await watchPromise;
         }
 
         // If we get here without errors, the test passes
         assert.ok(true, "Watch command started and stopped successfully in quiet mode");
+        assert.ok(
+            logMessages.some((line) =>
+                line.includes(`WebSocket patch server ready at ws://127.0.0.1:${websocketPort}`)
+            ),
+            "Quiet mode should still log WebSocket server URLs"
+        );
     });
 
     void it("should reject both --verbose and --quiet together", async () => {
