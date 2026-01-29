@@ -360,7 +360,7 @@ export class ScopeTracker {
         node: MutableGameMakerAstNode | null | undefined,
         role?: ScopeRole
     ): void {
-        if (!name || !node) {
+        if (!this.enabled || !name || !node) {
             return;
         }
 

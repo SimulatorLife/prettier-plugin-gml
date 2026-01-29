@@ -185,6 +185,22 @@ void test("getSymbolOccurrences returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
+void test("reference skips tracking when disabled", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+    const scope = tracker.enterScope("function");
+
+    tracker.reference("alpha", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 5 }
+    });
+
+    assert.deepStrictEqual(tracker.getSymbolOccurrences("alpha"), []);
+
+    const modification = tracker.getScopeModificationMetadata(scope.id);
+    assert.strictEqual(modification?.modificationCount, 0);
+    assert.strictEqual(modification?.lastModified, -1);
+});
+
 void test("getSymbolOccurrences returns empty array for non-existent symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
