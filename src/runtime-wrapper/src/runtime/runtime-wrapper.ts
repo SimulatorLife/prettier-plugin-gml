@@ -432,7 +432,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         return state.patchHistory.filter((entry) => entry.patch.id === id);
     }
 
-    function getPatchesByKind(kind: "script" | "event" | "closure"): Array<PatchHistoryEntry> {
+    function getPatchesByKind(kind: PatchKind): Array<PatchHistoryEntry> {
         return state.patchHistory.filter((entry) => entry.patch.kind === kind);
     }
 

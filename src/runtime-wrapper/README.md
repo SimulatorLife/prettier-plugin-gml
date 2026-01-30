@@ -1435,5 +1435,5 @@ This design provides several benefits:
 
 The same pattern is applied to other major interfaces in this module:
 
-- **`RuntimeWrapper`** extends `PatchApplicator`, `HistoryManager`, `RegistryReader`, `RegistryMutator`, `RuntimeMetrics`, `RegistryDiagnostics`, and `ErrorAnalytics`
+- **`RuntimeWrapper`** extends `PatchApplicator`, `PatchUndoController`, `PatchHistoryReader`, `RegistryReader`, `RegistryMutator`, `RuntimeMetrics`, `RegistryDiagnostics`, and `ErrorAnalytics`
 - **`Logger`** extends `PatchLifecycleLogger`, `RegistryLifecycleLogger`, `WebSocketLogger`, `GeneralLogger`, and `LoggerConfiguration`

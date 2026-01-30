@@ -2,12 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
+import type { PatchHistoryReader, PatchUndoController } from "../src/runtime/types.js";
 
 void test("createRuntimeWrapper returns hot wrapper state", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.ok(wrapper.state);
     assert.strictEqual(typeof wrapper.applyPatch, "function");
     assert.strictEqual(typeof wrapper.undo, "function");
+});
+
+void test("runtime wrapper satisfies patch history interfaces", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const historyReader: PatchHistoryReader = wrapper;
+    const undoController: PatchUndoController = wrapper;
+
+    assert.strictEqual(typeof historyReader.getPatchHistory, "function");
+    assert.strictEqual(typeof historyReader.getPatchById, "function");
+    assert.strictEqual(typeof historyReader.getPatchesByKind, "function");
+    assert.strictEqual(typeof undoController.undo, "function");
+    assert.strictEqual(typeof undoController.getUndoStackSize, "function");
 });
 
 void test("applyPatch validates its input", () => {

@@ -189,15 +189,24 @@ export interface PatchApplicator {
 }
 
 /**
- * History and undo operations.
+ * Undo stack control.
  *
- * Provides patch history tracking and the ability to undo previously
- * applied patches without coupling to patch application or registry queries.
+ * Provides undo execution and stack sizing without coupling to
+ * history query operations.
  */
-export interface HistoryManager {
+export interface PatchUndoController {
     undo(): { success: boolean; version?: number; message?: string };
-    getPatchHistory(): Array<PatchHistoryEntry>;
     getUndoStackSize(): number;
+}
+
+/**
+ * Patch history inspection.
+ *
+ * Provides read-only access to patch history data without coupling
+ * to undo execution or patch application.
+ */
+export interface PatchHistoryReader {
+    getPatchHistory(): Array<PatchHistoryEntry>;
     getPatchById(id: string): Array<PatchHistoryEntry>;
     getPatchesByKind(kind: PatchKind): Array<PatchHistoryEntry>;
 }
@@ -338,12 +347,13 @@ export interface ErrorAnalytics {
  *
  * Combines all role-focused interfaces for consumers that need full
  * runtime wrapper capabilities. Consumers should prefer depending on
- * the minimal interface they need (PatchApplicator, HistoryManager, etc.)
+ * the minimal interface they need (PatchApplicator, PatchUndoController, PatchHistoryReader, etc.)
  * rather than this composite interface when possible.
  */
 export interface RuntimeWrapper
     extends PatchApplicator,
-        HistoryManager,
+        PatchUndoController,
+        PatchHistoryReader,
         RegistryReader,
         RegistryMutator,
         RuntimeMetrics,
