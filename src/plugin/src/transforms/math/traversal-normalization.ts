@@ -179,7 +179,7 @@ function simplifyOneMinusOperand(node, key, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -219,7 +219,7 @@ function attemptRemoveMultiplicativeIdentity(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -234,7 +234,7 @@ function attemptReplaceMultiplicationWithZero(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -1005,7 +1005,7 @@ function isMultiplicationAnnihilatedByZero(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(left, right, context)) {
+    if (hasInlineCommentBetween(left, right, context)) {
         return false;
     }
 
@@ -1026,7 +1026,7 @@ function attemptRemoveAdditiveIdentity(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -1102,7 +1102,7 @@ function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -1159,7 +1159,7 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -1172,7 +1172,7 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(denominator.left, denominator.right, context)) {
+    if (hasInlineCommentBetween(denominator.left, denominator.right, context)) {
         return false;
     }
 
@@ -1306,7 +1306,7 @@ function collectReciprocalRatioTerms({
             return null;
         }
 
-        if (context && hasInlineCommentBetween(expression.left, expression.right, context)) {
+        if (hasInlineCommentBetween(expression.left, expression.right, context)) {
             return null;
         }
 
@@ -1489,7 +1489,7 @@ function attemptSimplifyNegativeDivisionProduct(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -1534,7 +1534,7 @@ function attemptSimplifyNegativeDivisionProduct(node, context) {
             continue;
         }
 
-        if (context && hasInlineCommentBetween(fractionExpression.left, fractionExpression.right, context)) {
+        if (hasInlineCommentBetween(fractionExpression.left, fractionExpression.right, context)) {
             continue;
         }
 
@@ -1920,7 +1920,7 @@ function attemptCollectDistributedScalars(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
@@ -2597,7 +2597,7 @@ function matchScaledOperand(node, context) {
         if (
             Core.hasComment(rawLeft) ||
             Core.hasComment(rawRight) ||
-            (context && hasInlineCommentBetween(rawLeft, rawRight, context))
+            hasInlineCommentBetween(rawLeft, rawRight, context)
         ) {
             return null;
         }
@@ -2677,7 +2677,7 @@ function matchLengthdirScaledOperand(node, context) {
     if (
         Core.hasComment(rawLength) ||
         Core.hasComment(rawAngle) ||
-        (context && hasInlineCommentBetween(rawLength, rawAngle, context))
+        hasInlineCommentBetween(rawLength, rawAngle, context)
     ) {
         return null;
     }
@@ -2712,7 +2712,7 @@ function extractScalarAdditionTerm(expression, context) {
         if (
             Core.hasComment(rawLeft) ||
             Core.hasComment(rawRight) ||
-            (context && hasInlineCommentBetween(rawLeft, rawRight, context))
+            hasInlineCommentBetween(rawLeft, rawRight, context)
         ) {
             return null;
         }
@@ -2786,11 +2786,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
         return false;
     }
 
-    if (
-        Core.hasComment(rawLeft) ||
-        Core.hasComment(rawRight) ||
-        (context && hasInlineCommentBetween(rawLeft, rawRight, context))
-    ) {
+    if (Core.hasComment(rawLeft) || Core.hasComment(rawRight) || hasInlineCommentBetween(rawLeft, rawRight, context)) {
         return false;
     }
 
@@ -2808,7 +2804,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
     if (
         !isBinaryOperator(leftExpression, "-") ||
         Core.hasComment(leftExpression) ||
-        (context && hasInlineCommentBetween(leftExpression.left, leftExpression.right, context))
+        hasInlineCommentBetween(leftExpression.left, leftExpression.right, context)
     ) {
         return false;
     }
@@ -3036,7 +3032,7 @@ function collectMultiplicativeChain(node, output, includeInDenominator, context)
         const operator = expression.operator;
 
         if (operator === "*" || operator === "/") {
-            if (context && hasInlineCommentBetween(expression.left, expression.right, context)) {
+            if (hasInlineCommentBetween(expression.left, expression.right, context)) {
                 return false;
             }
 
@@ -3172,7 +3168,7 @@ function collapseUnitMinusHalfFactor(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(rawLeft, rawRight, context)) {
+    if (hasInlineCommentBetween(rawLeft, rawRight, context)) {
         return false;
     }
 
@@ -3418,7 +3414,7 @@ function hasCommentsInDegreesToRadiansPattern(node, context, skipSelfCheck = fal
         return true;
     }
 
-    if (context && hasInlineCommentBetween(rawLeft, rawRight, context)) {
+    if (hasInlineCommentBetween(rawLeft, rawRight, context)) {
         return true;
     }
 
@@ -4589,7 +4585,7 @@ function trySimplifyZeroDivision(node, context) {
         return false;
     }
 
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+    if (hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 
