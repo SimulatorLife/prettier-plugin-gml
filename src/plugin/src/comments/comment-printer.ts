@@ -410,16 +410,12 @@ function applySingleLeadingSpacePadding(comment, options) {
         return;
     }
 
-    const originalText = options.originalText;
-    if (typeof originalText !== "string") {
+    const sourceSpan = resolveCommentSourceSpan(comment, options.originalText);
+    if (!sourceSpan || sourceSpan.startIndex <= 0) {
         return;
     }
 
-    const startIndex = getCommentStartIndex(comment);
-    if (!Number.isInteger(startIndex) || startIndex <= 0) {
-        return;
-    }
-
+    const { originalText, startIndex } = sourceSpan;
     const precedingChar = originalText[startIndex - 1];
     if (precedingChar !== " ") {
         return;
@@ -446,6 +442,25 @@ function getCommentStartIndex(comment) {
     }
 
     return null;
+}
+
+function resolveCommentSourceSpan(comment, originalText) {
+    if (!Core.isObjectLike(comment)) {
+        return null;
+    }
+
+    if (typeof originalText !== "string") {
+        return null;
+    }
+
+    const startIndex = getCommentStartIndex(comment);
+    const endIndex = getCommentEndIndex(comment);
+
+    if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || endIndex < startIndex) {
+        return null;
+    }
+
+    return { startIndex, endIndex, originalText };
 }
 
 function getCommentLine(comment) {
@@ -494,19 +509,12 @@ function hasLeadingBlankLine(comment) {
 }
 
 function hasLeadingBlankLineInSource(comment, originalText) {
-    if (!Core.isObjectLike(comment)) {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (!sourceSpan) {
         return false;
     }
 
-    const startIndex = getCommentStartIndex(comment);
-    if (!Number.isInteger(startIndex)) {
-        return false;
-    }
-
-    if (typeof originalText !== "string") {
-        return false;
-    }
-
+    const { startIndex } = sourceSpan;
     let newlineCount = 0;
     let index = startIndex - 1;
 
@@ -614,16 +622,12 @@ function hasInlineContentBeforeComment(comment, options) {
         return false;
     }
 
-    const startIndex = getCommentStartIndex(comment);
-    if (!Number.isInteger(startIndex) || startIndex <= 0) {
+    const sourceSpan = resolveCommentSourceSpan(comment, options.originalText);
+    if (!sourceSpan || sourceSpan.startIndex <= 0) {
         return false;
     }
 
-    const originalText = options.originalText;
-    if (typeof originalText !== "string") {
-        return false;
-    }
-
+    const { originalText, startIndex } = sourceSpan;
     const lastLineBreak = originalText.lastIndexOf("\n", startIndex - 1);
     const lineStart = lastLineBreak === -1 ? 0 : lastLineBreak + 1;
     const precedingSegment = originalText.slice(lineStart, startIndex);
@@ -631,19 +635,12 @@ function hasInlineContentBeforeComment(comment, options) {
 }
 
 function getNextNonWhitespaceCharacterAfterComment(comment, originalText) {
-    if (!Core.isObjectLike(comment)) {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (!sourceSpan) {
         return null;
     }
 
-    const endIndex = getCommentEndIndex(comment);
-    if (!Number.isInteger(endIndex)) {
-        return null;
-    }
-
-    if (typeof originalText !== "string") {
-        return null;
-    }
-
+    const { endIndex } = sourceSpan;
     for (let index = endIndex + 1; index < originalText.length; index += 1) {
         const char = originalText[index];
         if (char === "\n" || char === "\r" || char === " " || char === "\t") {
