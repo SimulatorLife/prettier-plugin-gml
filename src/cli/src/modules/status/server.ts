@@ -7,6 +7,7 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { Socket } from "node:net";
 
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 import {
@@ -159,6 +160,7 @@ export async function startStatusServer({
     port = DEFAULT_STATUS_PORT,
     getSnapshot
 }: StatusServerOptions): Promise<StatusServerController> {
+    const activeSockets = new Set<Socket>();
     const server: Server = createServer((req, res) => {
         if (req.method === "GET") {
             switch (req.url) {
@@ -191,6 +193,17 @@ export async function startStatusServer({
         }
     });
 
+    server.on("connection", (socket) => {
+        activeSockets.add(socket);
+
+        const removeSocket = () => {
+            activeSockets.delete(socket);
+        };
+
+        socket.on("close", removeSocket);
+        socket.on("error", removeSocket);
+    });
+
     await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
         server.listen(port, host, () => {
@@ -209,6 +222,11 @@ export async function startStatusServer({
         port: actualPort,
         stop() {
             return new Promise<void>((resolve, reject) => {
+                for (const socket of activeSockets) {
+                    socket.destroy();
+                }
+                activeSockets.clear();
+
                 server.close((err) => {
                     if (err) {
                         reject(err);
