@@ -1249,7 +1249,6 @@ function formatDecorativeBlockComment(comment) {
         .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
         .map((line) => line.trim());
 
-
     if (textLines.length === 0) {
         return "";
     }
