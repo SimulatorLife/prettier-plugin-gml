@@ -70,18 +70,7 @@ function normalizeFeatherMetadata(payload: unknown) {
  * modules from worrying about relative path resolution or cache management.
  */
 
-/**
- * @typedef {object} FeatherDiagnostic
- * @property {string} [id]
- */
-
-/**
- * @typedef {object} FeatherMetadata
- * @property {Array<FeatherDiagnostic>} [diagnostics]
- */
-
-/** @type {FeatherMetadata | null} */
-let cachedMetadata = null;
+let cachedMetadata: FeatherMetadata | null = null;
 
 function loadFeatherMetadata() {
     if (cachedMetadata) {
