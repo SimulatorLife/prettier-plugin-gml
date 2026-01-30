@@ -5,7 +5,8 @@ import {
     getParserVisitorBase,
     getParseTreeVisitorPrototype,
     type ParserVisitorBaseConstructor,
-    type ParserVisitorPrototype
+    type ParserVisitorPrototype,
+    type ParseTreeVisitorMethod
 } from "./generated-bindings.js";
 import {
     collectPrototypeMethodNames,
@@ -45,27 +46,48 @@ function callInheritedVisitChildren(instance: ParserVisitorPrototype, ctx: Parse
     ).call(instance, ctx) as unknown;
 }
 
+type VisitDispatchStrategy = {
+    dispatchVisit: (instance: ParserVisitorPrototype, methodName: string, ctx: ParserContext) => unknown;
+};
+
+function createVisitDispatchStrategy(options: VisitorOptions = {}): VisitDispatchStrategy {
+    const delegate =
+        typeof options?.visitChildrenDelegate === "function"
+            ? options.visitChildrenDelegate
+            : DEFAULT_VISIT_CHILDREN_DELEGATE;
+
+    return {
+        dispatchVisit(instance: ParserVisitorPrototype, methodName: string, ctx: ParserContext) {
+            return delegate({
+                methodName,
+                ctx,
+                fallback: () => callInheritedVisitChildren(instance, ctx)
+            });
+        }
+    };
+}
+
 ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
     markerSymbol: WRAPPER_INSTANCE_MARKER,
     patchFlagSymbol: HAS_INSTANCE_PATCHED_MARKER
 });
 
-export default class GameMakerLanguageParserVisitor extends GameMakerLanguageParserVisitorBase {
-    #visitChildrenDelegate: (payload: VisitorPayload) => unknown;
+export default class GameMakerLanguageParserVisitor implements ParserVisitorPrototype {
+    [methodName: string]: ParseTreeVisitorMethod;
+    [methodSymbol: symbol]: unknown;
+    #visitDispatchStrategy: VisitDispatchStrategy;
 
     constructor(options: VisitorOptions = {}) {
-        super();
-        const delegate = options?.visitChildrenDelegate;
-        this.#visitChildrenDelegate = typeof delegate === "function" ? delegate : DEFAULT_VISIT_CHILDREN_DELEGATE;
+        this.#visitDispatchStrategy = createVisitDispatchStrategy(options);
         this[WRAPPER_INSTANCE_MARKER] = true;
     }
 
+    visitChildren(ctx: ParserContext): unknown {
+        return callInheritedVisitChildren(this, ctx);
+    }
+
     _visitUsingDelegate(methodName: string, ctx: ParserContext) {
-        return this.#visitChildrenDelegate({
-            methodName,
-            ctx,
-            fallback: () => callInheritedVisitChildren(this, ctx)
-        });
+        return this.#visitDispatchStrategy.dispatchVisit(this, methodName, ctx);
     }
 }
 
