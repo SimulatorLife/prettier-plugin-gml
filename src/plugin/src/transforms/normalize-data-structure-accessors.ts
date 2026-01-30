@@ -22,12 +22,7 @@
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import type { ParserTransform } from "./functional-transform.js";
-
-type NormalizeDataStructureAccessorsOptions = {
-    // Whether to apply accessor normalization. Default is true.
-    enabled?: boolean;
-};
+import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 type MemberIndexNode = {
     type?: string;
@@ -99,7 +94,7 @@ function processMemberIndex(memberNode: MemberIndexNode): void {
     }
 
     if (currentAccessor !== expectedAccessor) {
-        memberNode.accessor = expectedAccessor;
+        Reflect.set(memberNode, "accessor", expectedAccessor);
     }
 }
 
@@ -144,28 +139,16 @@ function normalizeAccessors(ast: MutableGameMakerAstNode): void {
 
 /**
  * Transform that normalizes data structure accessor operators based on variable names.
+ *
+ * This transform is always enabled to keep accessor semantics consistent across
+ * the formatter. The heuristics are opinionated and not exposed as a user-facing
+ * toggle because they are part of the formatter's canonical normalization step.
  */
-export class NormalizeDataStructureAccessorsTransform
-    implements ParserTransform<MutableGameMakerAstNode, NormalizeDataStructureAccessorsOptions>
-{
-    public readonly name = "normalize-data-structure-accessors";
-    public readonly defaultOptions = Object.freeze({
-        enabled: true
-    }) as NormalizeDataStructureAccessorsOptions;
-
-    public transform(
-        ast: MutableGameMakerAstNode,
-        options?: NormalizeDataStructureAccessorsOptions
-    ): MutableGameMakerAstNode {
-        const opts = { ...this.defaultOptions, ...options };
-
-        if (opts.enabled === false) {
-            return ast;
-        }
-
+export const normalizeDataStructureAccessorsTransform = createParserTransform<EmptyTransformOptions>(
+    "normalize-data-structure-accessors",
+    {},
+    (ast: MutableGameMakerAstNode) => {
         normalizeAccessors(ast);
         return ast;
     }
-}
-
-export const normalizeDataStructureAccessorsTransform = new NormalizeDataStructureAccessorsTransform();
+);
