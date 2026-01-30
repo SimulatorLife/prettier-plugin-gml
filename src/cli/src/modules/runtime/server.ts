@@ -27,6 +27,10 @@ const MIME_TYPES = new Map([
     [".ico", "image/x-icon"]
 ]);
 
+interface RuntimeHttpError extends Error {
+    statusCode: number;
+}
+
 export interface RuntimeStaticServerOptions {
     runtimeRoot?: string;
     host?: string;
@@ -56,6 +60,31 @@ export type RuntimeStaticServerHandle = ServerEndpoint & ServerLifecycle;
  */
 export type RuntimeStaticServerInstance = RuntimeStaticServerHandle & RuntimeServerProperties;
 
+function createRuntimeHttpError(message: string, statusCode: number): RuntimeHttpError {
+    return Object.assign(new Error(message), { statusCode });
+}
+
+function getRuntimeHttpErrorStatus(error: unknown): number | null {
+    if (!Core.isErrorLike(error)) {
+        return null;
+    }
+
+    const statusCode = (error as unknown as Record<string, unknown>).statusCode;
+    return typeof statusCode === "number" ? statusCode : null;
+}
+
+function formatRuntimeHttpErrorMessage(error: unknown, statusCode: number, fallbackMessage: string): string {
+    if (statusCode === 403) {
+        return "Forbidden";
+    }
+
+    if (Core.isErrorLike(error)) {
+        return error.message;
+    }
+
+    return fallbackMessage;
+}
+
 function resolveMimeType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
     return MIME_TYPES.get(extension) ?? "application/octet-stream";
@@ -80,17 +109,13 @@ function resolveRuntimeFilePath(root, requestPath) {
     try {
         decoded = decodeURIComponent(requestPath);
     } catch {
-        throw Object.assign(new Error("Malformed request path."), {
-            statusCode: 400
-        });
+        throw createRuntimeHttpError("Malformed request path.", 400);
     }
     const sanitizedPath = decoded.replaceAll("\\", "/");
     const sanitizedSegments = sanitizedPath.split("/").filter((segment) => segment && segment !== ".");
 
     if (sanitizedSegments.includes("..")) {
-        throw Object.assign(new Error("Request path resolves outside runtime root."), {
-            statusCode: 403
-        });
+        throw createRuntimeHttpError("Request path resolves outside runtime root.", 403);
     }
     const normalizedPath = path.normalize(decoded).replaceAll("\\", "/");
     const strippedPath = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
@@ -99,9 +124,7 @@ function resolveRuntimeFilePath(root, requestPath) {
     const relative = path.relative(root, target);
 
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
-        throw Object.assign(new Error("Request path resolves outside runtime root."), {
-            statusCode: 403
-        });
+        throw createRuntimeHttpError("Request path resolves outside runtime root.", 403);
     }
 
     return target;
@@ -118,18 +141,14 @@ async function sendFileResponse(res, filePath, { method }) {
     const fileStats = await fs.stat(servingPath);
 
     if (!fileStats.isFile()) {
-        throw Object.assign(new Error("Requested resource is not a file."), {
-            statusCode: 404
-        });
+        throw createRuntimeHttpError("Requested resource is not a file.", 404);
     }
 
     const isWorldReadable = (fileStats.mode & 0o004) !== 0;
     const isGroupReadable = (fileStats.mode & 0o040) !== 0;
     const isOwnerReadable = (fileStats.mode & 0o400) !== 0;
     if (!isOwnerReadable && !isGroupReadable && !isWorldReadable) {
-        throw Object.assign(new Error("Requested resource is not readable."), {
-            statusCode: 500
-        });
+        throw createRuntimeHttpError("Requested resource is not readable.", 500);
     }
 
     const mimeType = resolveMimeType(servingPath);
@@ -244,9 +263,11 @@ export async function startRuntimeStaticServer({
         try {
             targetPath = resolveRuntimeFilePath(resolvedRoot, requestPath);
         } catch (error) {
-            const statusCode = error?.statusCode ?? 500;
-            const message =
-                statusCode === 403 ? "Forbidden" : Core.isErrorLike(error) ? error.message : "Internal Server Error";
+            const statusCode = getRuntimeHttpErrorStatus(error) ?? 500;
+            const message = formatRuntimeHttpErrorMessage(error, statusCode, "Internal Server Error");
+            if (statusCode >= 500) {
+                console.error("Runtime static server request error:", error);
+            }
             writeError(res, statusCode, message);
             return;
         }
@@ -256,13 +277,16 @@ export async function startRuntimeStaticServer({
         }
 
         sendFileResponse(res, targetPath, { method }).catch((error) => {
-            if (isFsErrorCode(error, "ENOENT")) {
-                writeError(res, 404, "Not Found");
-                return;
+            const statusCode = getRuntimeHttpErrorStatus(error) ?? (isFsErrorCode(error, "ENOENT") ? 404 : 500);
+            const fallbackMessage =
+                statusCode === 404
+                    ? "Not Found"
+                    : `Failed to read runtime asset: ${getErrorMessage(error, { fallback: "Unknown error" })}`;
+            const message = formatRuntimeHttpErrorMessage(error, statusCode, fallbackMessage);
+            if (statusCode >= 500) {
+                console.error("Runtime static server failed to read asset:", error);
             }
-
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            writeError(res, 500, `Failed to read runtime asset: ${message}`);
+            writeError(res, statusCode, message);
         });
     });
 
