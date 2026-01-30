@@ -121,10 +121,10 @@ class TestMetricsTracker {
 }
 
 void test("buildProjectIndex falls back to a noop metrics tracker when override is invalid", async () => {
-    const { projectRoot, cleanup } = await createProjectFixture();
+    const fixture = await createProjectFixture();
 
     try {
-        const index: any = await buildProjectIndex(projectRoot, undefined, {
+        const index: any = await buildProjectIndex(fixture.projectRoot, undefined, {
             metrics: {}
         });
 
@@ -137,16 +137,16 @@ void test("buildProjectIndex falls back to a noop metrics tracker when override 
             metadata: {}
         });
     } finally {
-        await cleanup();
+        await fixture.cleanup();
     }
 });
 
 void test("buildProjectIndex reuses a provided metrics tracker", async () => {
-    const { projectRoot, cleanup } = await createProjectFixture();
+    const fixture = await createProjectFixture();
     const tracker = new TestMetricsTracker();
 
     try {
-        const index: any = await buildProjectIndex(projectRoot, undefined, {
+        const index: any = await buildProjectIndex(fixture.projectRoot, undefined, {
             metrics: tracker
         });
 
@@ -155,7 +155,7 @@ void test("buildProjectIndex reuses a provided metrics tracker", async () => {
         assert.equal(index.metrics.category, "custom-metrics");
         assert.deepEqual(index.metrics.metadata, { provided: true });
     } finally {
-        await cleanup();
+        await fixture.cleanup();
     }
 });
 
