@@ -1942,6 +1942,7 @@ function buildCallArgumentsDocs(
 
     if (
         simplePrefixLength > 1 &&
+        hasTrailingArguments &&
         !hasCallbackArguments &&
         maxElementsPerLine === Infinity &&
         firstArgumentIsStringLiteral
