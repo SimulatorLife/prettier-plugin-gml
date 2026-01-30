@@ -37,5 +37,4 @@ export { writeFileArtifact, writeJsonArtifact } from "../shared/fs-artifacts.js"
 export { formatBytes, formatByteSize } from "../shared/reporting/byte-format.js";
 export { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
 export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";
-export { createPathFilter } from "../workflow/fixture-roots.js";
-export { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
+export { createWorkflowPathFilter, ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
