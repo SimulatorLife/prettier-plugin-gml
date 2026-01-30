@@ -243,8 +243,9 @@ export function compactArray(values?, { freeze = false } = {}) {
     // traversal where compactArray may be called thousands of times per file.
     // Skipping this optimization would add measurable latency to formatting large
     // GML projects, degrading the interactive editing experience.
+    const result = [];
+
     if (Array.isArray(values)) {
-        const result = [];
         const { length } = values;
 
         for (let i = 0; i < length; ++i) {
@@ -253,30 +254,22 @@ export function compactArray(values?, { freeze = false } = {}) {
                 result.push(item);
             }
         }
-
-        return freeze ? Object.freeze(result) : result;
-    }
-
-    // Slow path: handle null/iterables. Non-array inputs (nullish values,
-    // iterables) are converted to arrays first, then filtered. This path is
-    // less common in practice because most call sites pass arrays directly,
-    // but it ensures the function can handle edge cases gracefully without
-    // crashing on unexpected input types.
-    if (values == null) {
-        return freeze ? Object.freeze([]) : [];
-    }
-
-    if (typeof values[Symbol.iterator] === "function") {
-        const result = [];
+    } else if (values && typeof values[Symbol.iterator] === "function") {
+        // Slow path: handle null/iterables. Non-array inputs (nullish values,
+        // iterables) are converted to arrays first, then filtered. This path is
+        // less common in practice because most call sites pass arrays directly,
+        // but it ensures the function can handle edge cases gracefully without
+        // crashing on unexpected input types.
         for (const item of values) {
             if (item) {
                 result.push(item);
             }
         }
-        return freeze ? Object.freeze(result) : result;
+    } else {
+        return freeze ? Object.freeze([]) : [];
     }
 
-    return freeze ? Object.freeze([]) : [];
+    return freeze ? Object.freeze(result) : result;
 }
 
 /**
