@@ -138,31 +138,99 @@ function extractLineCommentPayload(trimmedStart: string): string | null {
     return null;
 }
 
-function removeDuplicateDocLikeLineComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
-    const result: string[] = [];
-    // Cache the previous doc payload to avoid re-parsing the last emitted line.
+const DOC_LIKE_LINE_PATTERN = /^\/\/\/|^\/\/\s*\/(\s|$)|^\/\/\s*@/;
+
+function isDocLikeLine(line: string): boolean {
+    const trimmed = line.trimStart();
+    return DOC_LIKE_LINE_PATTERN.test(trimmed);
+}
+
+function hasRepeatedBlock(lines: string[], segmentLength: number): boolean {
+    const baseSegment = lines.slice(0, segmentLength).map((line) => line.trim());
+
+    for (let offset = segmentLength; offset < lines.length; offset += segmentLength) {
+        for (let index = 0; index < segmentLength; index += 1) {
+            if (baseSegment[index] !== lines[offset + index].trim()) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+function findRepeatedSegmentLength(lines: string[]): number {
+    for (let segmentLength = 1; segmentLength <= Math.floor(lines.length / 2); segmentLength += 1) {
+        if (lines.length % segmentLength !== 0) {
+            continue;
+        }
+
+        if (hasRepeatedBlock(lines, segmentLength)) {
+            return segmentLength;
+        }
+    }
+
+    return 0;
+}
+
+function dedupeDocBlock(lines: string[]): string[] {
+    if (lines.length === 0) {
+        return lines;
+    }
+
+    const segmentLength = findRepeatedSegmentLength(lines);
+    if (segmentLength > 0) {
+        return dedupeDocBlock(lines.slice(0, segmentLength));
+    }
+
+    const filtered: string[] = [];
     let previousDocPayload: string | null = null;
 
     for (const line of lines) {
         const trimmedStart = line.trimStart();
+        const docPayload = extractLineCommentPayload(trimmedStart);
 
-        if (trimmedStart.startsWith("///")) {
-            const docPayload = extractLineCommentPayload(trimmedStart);
-            if (docPayload !== null && previousDocPayload !== null && previousDocPayload === docPayload) {
+        if (docPayload === null) {
+            previousDocPayload = null;
+        } else {
+            if (docPayload === previousDocPayload) {
                 continue;
             }
-
             previousDocPayload = docPayload;
-        } else if (trimmedStart.startsWith("//")) {
-            previousDocPayload = extractLineCommentPayload(trimmedStart);
-        } else {
-            previousDocPayload = null;
         }
 
+        filtered.push(line);
+    }
+
+    return filtered;
+}
+
+function removeDuplicateDocLikeLineComments(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+    let docBlockLines: string[] = [];
+
+    const flushDocBlock = () => {
+        if (docBlockLines.length === 0) {
+            return;
+        }
+
+        const deduped = dedupeDocBlock(docBlockLines);
+        result.push(...deduped);
+        docBlockLines = [];
+    };
+
+    for (const line of lines) {
+        if (isDocLikeLine(line)) {
+            docBlockLines.push(line);
+            continue;
+        }
+
+        flushDocBlock();
         result.push(line);
     }
 
+    flushDocBlock();
     return result.join("\n");
 }
 
