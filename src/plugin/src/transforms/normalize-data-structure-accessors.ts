@@ -94,7 +94,7 @@ function processMemberIndex(memberNode: MemberIndexNode): void {
     }
 
     if (currentAccessor !== expectedAccessor) {
-        memberNode.accessor = expectedAccessor;
+        Reflect.set(memberNode, "accessor", expectedAccessor);
     }
 }
 
