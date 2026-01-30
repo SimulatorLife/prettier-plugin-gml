@@ -50,7 +50,7 @@ import type {
     WhileStatementNode,
     WithStatementNode
 } from "./ast.js";
-import { builtInFunctions } from "./builtins.js";
+import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
@@ -352,11 +352,8 @@ export class GmlToJsEmitter {
 
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
-            if (builtinName) {
-                const emitter = builtInFunctions[builtinName];
-                if (emitter) {
-                    return emitter(args);
-                }
+            if (builtinName && isBuiltinFunction(builtinName)) {
+                return emitBuiltinFunction(builtinName, args);
             }
         }
 
