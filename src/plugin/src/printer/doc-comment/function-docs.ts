@@ -523,10 +523,7 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
     const uniqueDocCommentDocs = dedupeDocCommentLines(newDocCommentDocs);
 
-    const hasDeclaredParams = !!(
-        Array.isArray(node?.params) &&
-        node.params.length > 0
-    );
+    const hasDeclaredParams = !!(Array.isArray(node?.params) && node.params.length > 0);
     let filteredDocCommentDocs = uniqueDocCommentDocs;
     if (!hasDeclaredParams) {
         const implicitParamNames = collectImplicitParamNames(node, options);
