@@ -54,7 +54,7 @@ import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
-import { evaluateStatementTerminationPolicy } from "./statement-termination-policy.js";
+import { ensureStatementTerminated } from "./statement-termination-policy.js";
 import { lowerWithStatement } from "./with-lowering.js";
 
 type StatementLike = GmlNode | undefined | null;
@@ -670,15 +670,7 @@ export class GmlToJsEmitter {
     }
 
     private ensureStatementTermination(code: string): string {
-        if (!code) {
-            return code;
-        }
-
-        const { shouldAppendTerminator } = evaluateStatementTerminationPolicy(code);
-        if (shouldAppendTerminator) {
-            return `${code};`;
-        }
-        return code;
+        return ensureStatementTerminated(code);
     }
 
     private joinTruthy(lines: Array<string | undefined | null | false>): string {
