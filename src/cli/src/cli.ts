@@ -464,12 +464,39 @@ export interface RunCliTestCommandOptions {
     cwd?: string | URL;
 }
 
+type ConsoleMethodSnapshot = {
+    debug: typeof console.debug;
+    error: typeof console.error;
+    warn: typeof console.warn;
+    log: typeof console.log;
+    info: typeof console.info;
+};
+
+function captureConsoleMethods(): ConsoleMethodSnapshot {
+    return {
+        debug: console.debug,
+        error: console.error,
+        warn: console.warn,
+        log: console.log,
+        info: console.info
+    };
+}
+
+function restoreConsoleMethods(snapshot: ConsoleMethodSnapshot): void {
+    console.debug = snapshot.debug;
+    console.error = snapshot.error;
+    console.warn = snapshot.warn;
+    console.log = snapshot.log;
+    console.info = snapshot.info;
+}
+
 export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTestCommandOptions = {}) {
     const originalEnvValues = new Map<string, string | undefined>();
     const envOverrides = {
         ...env,
         [SKIP_CLI_RUN_ENV_VAR]: "1"
     };
+    const originalConsoleMethods = captureConsoleMethods();
 
     for (const key of Object.keys(envOverrides)) {
         originalEnvValues.set(key, process.env[key]);
@@ -535,6 +562,7 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
         process.exitCode = 0;
         process.stdout.write = originalStdoutWrite;
         process.stderr.write = originalStderrWrite;
+        restoreConsoleMethods(originalConsoleMethods);
 
         if (normalizedCwd) {
             process.chdir(originalCwd);
