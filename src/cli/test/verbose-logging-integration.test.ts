@@ -159,6 +159,7 @@ void describe("CLI Verbose Logging", () => {
             ]);
 
             assert.doesNotMatch(stdout, /DEBUG:/);
+            assert.doesNotMatch(stdout, /\[GmlSemanticBridge]/);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }

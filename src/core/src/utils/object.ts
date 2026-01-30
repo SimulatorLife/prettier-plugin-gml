@@ -436,14 +436,26 @@ export function coalesceOption(object, keys, { fallback, acceptNull = false }: C
         return fallback;
     }
 
-    const normalizedKeys = toArray(keys);
+    // Fast path: avoid allocating a new array when callers provide a single key.
+    if (Array.isArray(keys)) {
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of normalizedKeys) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
+    }
+
+    if (keys == null) {
+        return fallback;
+    }
+
+    const value = object[keys];
+    if (value !== undefined && (acceptNull || value !== null)) {
+        return value;
     }
 
     return fallback;

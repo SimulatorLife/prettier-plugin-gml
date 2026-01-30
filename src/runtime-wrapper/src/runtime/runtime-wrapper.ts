@@ -20,6 +20,7 @@ import type {
     PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
+    PatchMetadata,
     PatchStats,
     RegistryHealthCheck,
     RegistryHealthIssue,
@@ -432,19 +433,23 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         return state.patchHistory.filter((entry) => entry.patch.id === id);
     }
 
-    function getPatchesByKind(kind: "script" | "event" | "closure"): Array<PatchHistoryEntry> {
+    function getPatchesByKind(kind: PatchKind): Array<PatchHistoryEntry> {
         return state.patchHistory.filter((entry) => entry.patch.kind === kind);
     }
 
     function getRegistrySnapshot(): RuntimeRegistrySnapshot {
+        const scripts = Object.keys(state.registry.scripts);
+        const events = Object.keys(state.registry.events);
+        const closures = Object.keys(state.registry.closures);
+
         return {
             version: state.registry.version,
-            scriptCount: Object.keys(state.registry.scripts).length,
-            eventCount: Object.keys(state.registry.events).length,
-            closureCount: Object.keys(state.registry.closures).length,
-            scripts: Object.keys(state.registry.scripts),
-            events: Object.keys(state.registry.events),
-            closures: Object.keys(state.registry.closures)
+            scriptCount: scripts.length,
+            eventCount: events.length,
+            closureCount: closures.length,
+            scripts,
+            events,
+            closures
         };
     }
 
@@ -596,41 +601,77 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     }
 
     function getPatchDiagnostics(id: string): PatchDiagnostics | null {
-        const historyEntries = state.patchHistory.filter((entry) => entry.patch.id === id);
-        if (historyEntries.length === 0) {
+        const historyEntries: Array<PatchHistoryEntry> = [];
+        let kind: PatchKind | null = null;
+        let metadata: PatchMetadata | undefined;
+        let applicationCount = 0;
+        let undoCount = 0;
+        let rollbackCount = 0;
+        let firstAppliedAt: number | null = null;
+        let lastAppliedAt: number | null = null;
+        let durationSum = 0;
+        let durationCount = 0;
+
+        for (const entry of state.patchHistory) {
+            if (entry.patch.id !== id) {
+                continue;
+            }
+
+            historyEntries.push(entry);
+
+            if (!kind) {
+                kind = entry.patch.kind;
+            }
+
+            if (!metadata && entry.patch.metadata) {
+                metadata = entry.patch.metadata;
+            }
+
+            switch (entry.action) {
+                case "apply": {
+                    applicationCount++;
+                    if (firstAppliedAt === null) {
+                        firstAppliedAt = entry.timestamp;
+                    }
+                    lastAppliedAt = entry.timestamp;
+                    if (typeof entry.durationMs === "number") {
+                        durationSum += entry.durationMs;
+                        durationCount++;
+                    }
+                    break;
+                }
+                case "undo": {
+                    undoCount++;
+                    break;
+                }
+                case "rollback": {
+                    rollbackCount++;
+                    break;
+                }
+                // No default
+            }
+        }
+
+        if (historyEntries.length === 0 || !kind) {
             return null;
         }
 
-        const applyEntries = historyEntries.filter((entry) => entry.action === "apply");
-        const undoEntries = historyEntries.filter((entry) => entry.action === "undo");
-        const rollbackEntries = historyEntries.filter((entry) => entry.action === "rollback");
-
-        const durationsMs = applyEntries
-            .map((entry) => entry.durationMs)
-            .filter((duration): duration is number => typeof duration === "number");
-
-        const averageDurationMs =
-            durationsMs.length > 0 ? durationsMs.reduce((sum, d) => sum + d, 0) / durationsMs.length : null;
-
-        const kind = historyEntries[0].patch.kind;
-        const metadata = historyEntries.find((entry) => entry.patch.metadata)?.patch.metadata;
+        const averageDurationMs = durationCount > 0 ? durationSum / durationCount : null;
 
         const currentlyApplied =
             (kind === "script" && hasScript(id)) ||
             (kind === "event" && hasEvent(id)) ||
             (kind === "closure" && hasClosure(id));
 
-        const hasApplyEntries = applyEntries.length > 0;
-
         return {
             id,
             kind,
-            applicationCount: applyEntries.length,
-            firstAppliedAt: hasApplyEntries ? applyEntries[0].timestamp : null,
-            lastAppliedAt: hasApplyEntries ? applyEntries.at(-1).timestamp : null,
+            applicationCount,
+            firstAppliedAt,
+            lastAppliedAt,
             currentlyApplied,
-            undoCount: undoEntries.length,
-            rollbackCount: rollbackEntries.length,
+            undoCount,
+            rollbackCount,
             averageDurationMs,
             sourcePath: metadata?.sourcePath ?? null,
             sourceHash: metadata?.sourceHash ?? null,

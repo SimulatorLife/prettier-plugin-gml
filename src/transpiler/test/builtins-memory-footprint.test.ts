@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { builtInFunctions } from "../src/emitter/builtins.js";
+import { builtInFunctions, emitBuiltinFunction, isBuiltinFunction } from "../src/emitter/builtins.js";
 
 /**
  * Memory footprint test for builtin function storage.
@@ -61,4 +61,14 @@ void test("builtInFunctions returns undefined for non-builtin names", () => {
 void test("builtInFunctions supports 'in' operator", () => {
     assert.ok("abs" in builtInFunctions, "'abs' should be in builtInFunctions");
     assert.ok(!("not_a_builtin" in builtInFunctions), "'not_a_builtin' should not be in builtInFunctions");
+});
+
+void test("isBuiltinFunction recognizes known builtins", () => {
+    assert.ok(isBuiltinFunction("abs"), "Expected abs to be recognized as a builtin");
+    assert.ok(!isBuiltinFunction("totally_not_a_builtin"), "Expected custom name to be rejected");
+});
+
+void test("emitBuiltinFunction formats builtin calls", () => {
+    const result = emitBuiltinFunction("abs", ["value"]);
+    assert.strictEqual(result, "abs(value)", "Should emit a standard builtin call");
 });

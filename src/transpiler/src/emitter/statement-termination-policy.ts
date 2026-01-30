@@ -33,3 +33,16 @@ export function evaluateStatementTerminationPolicy(code: string): StatementTermi
         shouldAppendTerminator: !isStatementTerminated(code)
     };
 }
+
+/**
+ * Append a trailing statement terminator when the policy indicates one is
+ * required, preserving existing terminators and control-flow constructs.
+ */
+export function ensureStatementTerminated(code: string): string {
+    if (!code) {
+        return code;
+    }
+
+    const { shouldAppendTerminator } = evaluateStatementTerminationPolicy(code);
+    return shouldAppendTerminator ? `${code};` : code;
+}

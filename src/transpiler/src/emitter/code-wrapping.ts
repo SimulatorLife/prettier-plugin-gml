@@ -7,6 +7,7 @@
  */
 
 import type { GmlNode } from "./ast.js";
+import { ensureStatementTerminated } from "./statement-termination-policy.js";
 
 /**
  * Wraps an expression in parentheses for use in conditionals (if, while, etc.).
@@ -51,7 +52,7 @@ export function wrapConditional(
  * Handles three cases:
  * 1. Null/undefined → empty block `{ }`
  * 2. BlockStatement → use as-is with leading space
- * 3. Single statement → wrap in block with semicolon
+ * 3. Single statement → wrap in block with a required terminator
  *
  * @param node - The statement node to wrap
  * @param visitor - Visitor function to emit code for the statement
@@ -76,10 +77,7 @@ export function wrapConditionalBody(node: GmlNode | null | undefined, visitor: (
     if (node.type === "BlockStatement") {
         return ` ${visitor(node)}`;
     }
-    let statement = visitor(node);
-    if (statement && !statement.trim().endsWith(";")) {
-        statement += ";";
-    }
+    const statement = ensureStatementTerminated(visitor(node));
     return ` {\n${statement}\n}`;
 }
 
@@ -112,9 +110,6 @@ export function wrapRawBody(node: GmlNode | null | undefined, visitor: (n: GmlNo
     if (node.type === "BlockStatement") {
         return visitor(node);
     }
-    let statement = visitor(node);
-    if (statement && !statement.trim().endsWith(";")) {
-        statement += ";";
-    }
+    const statement = ensureStatementTerminated(visitor(node));
     return `\n{\n${statement}\n}`.trim();
 }

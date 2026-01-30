@@ -83,18 +83,16 @@ void describe("normalize-data-structure-accessors", () => {
         assert.strictEqual(memberNode.accessor, "[?", "Should not modify accessor for non-data-structure variable");
     });
 
-    void it("can be disabled via options", () => {
-        const source = "var item = lst_items[? 0];";
+    void it("normalizes [| to [# for grid variables", () => {
+        const source = "var value = level_grid[| 1, 2];";
         const ast = Parser.GMLParser.parse(source);
 
-        normalizeDataStructureAccessorsTransform.transform(ast, {
-            enabled: false
-        });
+        normalizeDataStructureAccessorsTransform.transform(ast);
 
         const memberNode = findMemberIndexExpression(ast) as {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(memberNode.accessor, "[?", "Should not modify when disabled");
+        assert.strictEqual(memberNode.accessor, "[#", "Should normalize [| to [# for grid variable");
     });
 });
