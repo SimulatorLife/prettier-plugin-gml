@@ -655,7 +655,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         }
 
         const keys = Object.keys(resources);
-        console.log(`[GmlSemanticBridge] Searching for '${name}' in ${keys.length} resources.`);
+        console.debug(`[GmlSemanticBridge] Searching for '${name}' in ${keys.length} resources.`);
 
         if (caseInsensitive) {
             const lowerName = name.toLowerCase();
@@ -664,17 +664,19 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                 if (res.name?.toLowerCase() === lowerName) return res;
             }
         } else {
-            console.log(`[DEBUG] Looking for exact name: '${name}'`);
+            console.debug(`[DEBUG] Looking for exact name: '${name}'`);
 
             // Check if any resource name matches roughly
             const match = keys.find((k) => resources[k]?.name === name);
             if (match) {
-                console.log(`[DEBUG] Found match by key iteration: ${match}`);
+                console.debug(`[DEBUG] Found match by key iteration: ${match}`);
             } else {
-                console.log(`[DEBUG] No exact match found for '${name}'. Sample keys: ${keys.slice(0, 3).join(", ")}`);
+                console.debug(
+                    `[DEBUG] No exact match found for '${name}'. Sample keys: ${keys.slice(0, 3).join(", ")}`
+                );
                 // Print one resource to verify structure
                 if (keys.length > 0) {
-                    console.log(
+                    console.debug(
                         `[DEBUG] Sample resource at ${keys[0]}: ${JSON.stringify(resources[keys[0]], null, 2)}`
                     );
                 }
