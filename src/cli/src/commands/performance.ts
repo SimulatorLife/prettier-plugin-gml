@@ -38,8 +38,12 @@ import { resolveModuleDefaultExport } from "../shared/module.js";
 import { formatByteSize } from "../shared/reporting/byte-format.js";
 import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
 import { REPO_ROOT } from "../shared/workspace-paths.js";
-import { createPathFilter, normalizeFixtureRoots } from "../workflow/fixture-roots.js";
-import type { WorkflowPathFilterOptions } from "../workflow/path-filter.js";
+import { normalizeFixtureRoots } from "../workflow/fixture-roots.js";
+import {
+    createWorkflowPathFilter,
+    type WorkflowPathFilter,
+    type WorkflowPathFilterOptions
+} from "../workflow/path-filter.js";
 
 const {
     appendToCollection,
@@ -80,7 +84,7 @@ interface PerformanceSuiteExecutionOptions {
     fixtureRoots?: Array<string>;
     dataset?: unknown;
     datasetCache?: Map<string, unknown>;
-    pathFilter?: ReturnType<typeof createPathFilter>;
+    pathFilter?: WorkflowPathFilter;
     now?: unknown;
 }
 
@@ -92,7 +96,7 @@ interface RunPerformanceCommandContext {
 type SuiteExecutionOptions = PerformanceSuiteExecutionOptions & {
     fixtureRoots: Array<string>;
     datasetCache: Map<string, unknown>;
-    pathFilter: ReturnType<typeof createPathFilter>;
+    pathFilter: WorkflowPathFilter;
 };
 
 interface CollectPerformanceSuiteResultsOptions {
@@ -173,7 +177,7 @@ function formatErrorDetails(error: unknown, { fallbackMessage }: FormatErrorDeta
 async function traverseForFixtures(
     directory: string,
     visitor: (filePath: string) => void,
-    pathFilter?: ReturnType<typeof createPathFilter>
+    pathFilter?: WorkflowPathFilter
 ): Promise<void> {
     if (pathFilter && !pathFilter.allowsDirectory(directory)) {
         return;
@@ -234,9 +238,9 @@ function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
 
 async function collectFixtureFilePaths(
     directories: ReadonlyArray<string>,
-    pathFilterOptions?: Parameters<typeof createPathFilter>[0]
+    pathFilterOptions?: WorkflowPathFilterOptions
 ): Promise<Array<string>> {
-    const pathFilter = createPathFilter(pathFilterOptions);
+    const pathFilter = createWorkflowPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
 
     await runSequentially(directories, (directory) =>
@@ -248,7 +252,7 @@ async function collectFixtureFilePaths(
 
 interface LoadFixtureDatasetOptions {
     directories?: Iterable<string | null | undefined>;
-    pathFilter?: ReturnType<typeof createPathFilter>;
+    pathFilter?: WorkflowPathFilter;
 }
 
 async function loadFixtureDataset({ directories, pathFilter }: LoadFixtureDatasetOptions = {}) {
@@ -710,7 +714,7 @@ function createSuiteExecutionOptions(
     options: PerformanceCommandOptions,
     { workflow }: { workflow?: WorkflowPathFilterOptions } = {}
 ): SuiteExecutionOptions {
-    const pathFilter = createPathFilter(workflow);
+    const pathFilter = createWorkflowPathFilter(workflow);
 
     return {
         iterations: resolveIterationCount(options.iterations),
@@ -727,7 +731,7 @@ async function writeReport(
         reportFile?: string | null;
         pretty?: boolean;
     },
-    { pathFilter }: { pathFilter?: ReturnType<typeof createPathFilter> } = {}
+    { pathFilter }: { pathFilter?: WorkflowPathFilter } = {}
 ) {
     if (options.skipReport) {
         return { skipped: true };
