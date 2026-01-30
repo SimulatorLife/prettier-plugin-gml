@@ -99,5 +99,10 @@ void describe("Hot reload integration loop", () => {
         assert.ok(patch.id, "Patch should have an ID");
         assert.ok(patch.js_body, "Patch should have JavaScript body");
         assert.ok(patch.id.includes("test_script"), "Patch ID should reference the script name");
+        assert.strictEqual(
+            patch.runtimeId,
+            undefined,
+            "Script patches should rely on patch IDs for runtime binding resolution"
+        );
     });
 });

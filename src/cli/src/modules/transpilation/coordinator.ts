@@ -14,11 +14,7 @@ import type { Transpiler } from "@gml-modules/transpiler";
 
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
-import {
-    getRuntimePathSegments,
-    resolveObjectRuntimeIdFromSegments,
-    resolveScriptFileNameFromSegments
-} from "./runtime-identifiers.js";
+import { getRuntimePathSegments, resolveObjectRuntimeIdFromSegments } from "./runtime-identifiers.js";
 import { extractReferencesFromAst, extractSymbolsFromAst } from "./symbol-extraction.js";
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
@@ -52,11 +48,6 @@ function resolveRuntimeId(filePath: string): string | null {
     const objectRuntimeId = resolveObjectRuntimeIdFromSegments(segments);
     if (objectRuntimeId) {
         return objectRuntimeId;
-    }
-
-    const scriptName = resolveScriptFileNameFromSegments(segments);
-    if (scriptName) {
-        return `gml_Script_${scriptName}`;
     }
 
     return null;
