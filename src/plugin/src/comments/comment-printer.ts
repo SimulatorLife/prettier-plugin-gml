@@ -1240,14 +1240,7 @@ function formatDecorativeBlockComment(comment) {
     }
 
     const hasDecoration = significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
-    const hasLeadingLineBreak =
-        comment?._gmlForceLeadingBlankLine === true
-            ? true
-            : typeof comment?.leadingWS === "string"
-              ? /\r|\n/.test(comment.leadingWS)
-              : false;
-    const hasMultipleLines = lines.length > 1;
-    const shouldDecorate = hasDecoration || (hasMultipleLines && hasLeadingLineBreak);
+    const shouldDecorate = hasDecoration;
     if (!shouldDecorate) {
         return null;
     }
@@ -1255,6 +1248,7 @@ function formatDecorativeBlockComment(comment) {
     const textLines = significantLines
         .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
         .map((line) => line.trim());
+
 
     if (textLines.length === 0) {
         return "";

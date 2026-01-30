@@ -382,10 +382,8 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const shouldPreserveTabs = isObjectLike(comment) && isNonEmptyString(comment.leadingChar);
-    console.log(
-        `DEBUG: comment.leadingChar: ${JSON.stringify(comment.leadingChar)} shouldPreserveTabs: ${shouldPreserveTabs}`
-    );
+    const containsTabs = /\t/.test(leadingWhitespace) || /\t/.test(coreValue);
+    const shouldPreserveTabs = isObjectLike(comment) && (isNonEmptyString(comment.leadingChar) || containsTabs);
     const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
     const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 
@@ -579,8 +577,9 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
             : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
+    const fallbackPreserveTabs = /\t/.test(fallbackSpacing);
 
-    return applyInlinePadding(comment, fallbackCommentLine);
+    return applyInlinePadding(comment, fallbackCommentLine, fallbackPreserveTabs);
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {
