@@ -1354,14 +1354,13 @@ function describeRegressionCause(regressions, diff) {
         return "";
     }
 
-    const buckets = new Map();
-    for (const item of regressions) {
+    const buckets = regressions.reduce((counts, item) => {
         const fromKey = String(item?.from ?? ScanStatus.MISSING);
-        buckets.set(fromKey, (buckets.get(fromKey) || 0) + 1);
-    }
+        counts.set(fromKey, (counts.get(fromKey) || 0) + 1);
+        return counts;
+    }, new Map());
 
     const fragments = [];
-
     const addFragment = (count, singular, plural) => {
         if (count <= 0) {
             return;
@@ -1369,26 +1368,31 @@ function describeRegressionCause(regressions, diff) {
         fragments.push(count === 1 ? `1 ${singular}` : `${count} ${plural}`);
     };
 
-    addFragment(
-        buckets.get(ScanStatus.MISSING) || 0,
-        "test is failing but was not present in base (added or renamed)",
-        "tests are failing but were not present in base (added or renamed)"
-    );
+    const knownStatuses = [
+        {
+            key: ScanStatus.MISSING,
+            singular: "test is failing but was not present in base (added or renamed)",
+            plural: "tests are failing but were not present in base (added or renamed)"
+        },
+        {
+            key: TestCaseStatus.PASSED,
+            singular: "test is now failing after passing in base",
+            plural: "tests are now failing after passing in base"
+        },
+        {
+            key: TestCaseStatus.SKIPPED,
+            singular: "test is now failing after being skipped in base",
+            plural: "tests are now failing after being skipped in base"
+        }
+    ];
 
-    addFragment(
-        buckets.get(TestCaseStatus.PASSED) || 0,
-        "test is now failing after passing in base",
-        "tests are now failing after passing in base"
-    );
+    for (const status of knownStatuses) {
+        addFragment(buckets.get(status.key) || 0, status.singular, status.plural);
+    }
 
-    addFragment(
-        buckets.get(TestCaseStatus.SKIPPED) || 0,
-        "test is now failing after being skipped in base",
-        "tests are now failing after being skipped in base"
-    );
-
+    const knownKeys = new Set(knownStatuses.map((status) => status.key));
     for (const [fromKey, count] of buckets.entries()) {
-        if (fromKey === ScanStatus.MISSING || fromKey === TestCaseStatus.PASSED || fromKey === TestCaseStatus.SKIPPED) {
+        if (knownKeys.has(fromKey)) {
             continue;
         }
         addFragment(
