@@ -597,17 +597,6 @@ type ScopeSnapshot = {
     }>;
 };
 
-function cloneLocation(location: SourceLocation): SourceLocation {
-    return { line: location.line, index: location.index };
-}
-
-function cloneRange(range: SourceRange): SourceRange {
-    return {
-        start: cloneLocation(range.start),
-        end: cloneLocation(range.end)
-    };
-}
-
 function buildDeclarationScopeSnapshot({
     scopeId,
     scopeKind,
@@ -625,8 +614,8 @@ function buildDeclarationScopeSnapshot({
     lastModified: number;
     modificationCount: number;
 }): ScopeSnapshot {
-    const declarationRangeClone = cloneRange(declarationRange);
-    const metadataRangeClone = cloneRange(declarationRange);
+    const declarationRangeClone = structuredClone(declarationRange);
+    const metadataRangeClone = structuredClone(declarationRange);
 
     return {
         scopeId,
@@ -644,12 +633,12 @@ function buildDeclarationScopeSnapshot({
                         classifications: [...classifications],
                         declaration: {
                             scopeId,
-                            start: cloneLocation(declarationRangeClone.start),
-                            end: cloneLocation(declarationRangeClone.end)
+                            start: structuredClone(declarationRangeClone.start),
+                            end: structuredClone(declarationRangeClone.end)
                         },
                         usageContext: null,
-                        start: cloneLocation(metadataRangeClone.start),
-                        end: cloneLocation(metadataRangeClone.end)
+                        start: structuredClone(metadataRangeClone.start),
+                        end: structuredClone(metadataRangeClone.end)
                     }
                 ],
                 references: []
@@ -679,8 +668,8 @@ function buildReferenceScopeSnapshot({
     lastModified: number;
     modificationCount: number;
 }): ScopeSnapshot {
-    const referenceRangeClone = cloneRange(referenceRange);
-    const declarationRangeClone = cloneRange(declarationRange);
+    const referenceRangeClone = structuredClone(referenceRange);
+    const declarationRangeClone = structuredClone(declarationRange);
 
     return {
         scopeId,
@@ -699,12 +688,12 @@ function buildReferenceScopeSnapshot({
                         classifications: [...classifications],
                         declaration: {
                             scopeId: declarationScopeId,
-                            start: cloneLocation(declarationRangeClone.start),
-                            end: cloneLocation(declarationRangeClone.end)
+                            start: structuredClone(declarationRangeClone.start),
+                            end: structuredClone(declarationRangeClone.end)
                         },
                         usageContext: { isRead: true },
-                        start: cloneLocation(referenceRangeClone.start),
-                        end: cloneLocation(referenceRangeClone.end)
+                        start: structuredClone(referenceRangeClone.start),
+                        end: structuredClone(referenceRangeClone.end)
                     }
                 ]
             }
