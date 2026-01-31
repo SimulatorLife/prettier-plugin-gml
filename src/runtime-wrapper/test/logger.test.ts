@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createChangeEventLogger, createLogger } from "../src/runtime/logger.js";
+import {
+    createChangeEventLogger,
+    createLogger,
+    type LogLevel,
+    LogLevels,
+    parseLogLevel
+} from "../src/runtime/logger.js";
 import type { Patch, RegistryChangeEvent } from "../src/runtime/types.js";
 
 class MockConsole implements Console {
@@ -112,6 +118,14 @@ void describe("Logger", () => {
         const logger = createLogger({ console: mockConsole, level: "debug" });
 
         assert.equal(logger.getLevel(), "debug");
+    });
+
+    void it("should validate log level strings", () => {
+        const mockConsole = new MockConsole();
+        const invalidLevel = "verbose" as LogLevel;
+
+        assert.equal(parseLogLevel(LogLevels.info), LogLevels.info);
+        assert.throws(() => createLogger({ console: mockConsole, level: invalidLevel }), /Invalid log level/);
     });
 
     void it("should respect log levels", () => {

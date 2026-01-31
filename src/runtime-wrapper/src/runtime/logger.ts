@@ -1,10 +1,36 @@
 import type { Patch, RegistryChangeEvent } from "./types.js";
 
+const LOG_LEVELS = {
+    silent: "silent",
+    error: "error",
+    warn: "warn",
+    info: "info",
+    debug: "debug"
+} as const;
+
 /**
  * Log levels for runtime wrapper diagnostic output.
  * Ordered from least to most verbose.
  */
-export type LogLevel = "silent" | "error" | "warn" | "info" | "debug";
+export type LogLevel = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS];
+
+/**
+ * Canonical set of supported log levels.
+ */
+export const LogLevels = Object.freeze(LOG_LEVELS);
+
+const LOG_LEVEL_VALUES = new Set<string>(Object.values(LogLevels));
+
+/**
+ * Parse a log level string, validating it against the supported set.
+ */
+export function parseLogLevel(level: string): LogLevel {
+    if (!LOG_LEVEL_VALUES.has(level)) {
+        const validLevels = Object.values(LogLevels).join(", ");
+        throw new Error(`Invalid log level: "${level}". Expected one of: ${validLevels}.`);
+    }
+    return level as LogLevel;
+}
 
 /**
  * Options for configuring the diagnostic logger.
@@ -192,11 +218,11 @@ export interface Logger
         LoggerConfiguration {}
 
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
-    silent: 0,
-    error: 1,
-    warn: 2,
-    info: 3,
-    debug: 4
+    [LogLevels.silent]: 0,
+    [LogLevels.error]: 1,
+    [LogLevels.warn]: 2,
+    [LogLevels.info]: 3,
+    [LogLevels.debug]: 4
 };
 
 const EMOJI = {
@@ -241,7 +267,7 @@ function formatDuration(durationMs: number): string {
  * Creates a diagnostic logger for runtime wrapper operations.
  */
 export function createLogger(options: LoggerOptions = {}): Logger {
-    const level = options.level ?? "error";
+    const level = options.level === undefined ? LogLevels.error : parseLogLevel(options.level);
     const prefix = options.prefix ?? "[hot-reload]";
     const timestamps = options.timestamps ?? false;
     const styled = options.styled ?? true;
@@ -367,7 +393,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
         },
 
         setLevel(newLevel: LogLevel): void {
-            currentLevel = newLevel;
+            currentLevel = parseLogLevel(newLevel);
         },
 
         getLevel(): LogLevel {
