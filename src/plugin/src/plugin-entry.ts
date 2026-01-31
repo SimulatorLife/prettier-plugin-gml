@@ -63,7 +63,7 @@ const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
  * Utility function & entry-point to format GML source code using the plugin.
  */
 async function format(source: string, options: SupportOptions = {}) {
-    const resolvedOptions = { ...defaultOptions, ...options };
+    const resolvedOptions = { ...defaultOptions, ...options, originalText: source };
     const formatted = await prettier.format(source, {
         ...resolvedOptions,
         parser: "gml-parse",

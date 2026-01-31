@@ -1632,6 +1632,40 @@ function isDecorativeBlockComment(comment) {
     return false;
 }
 
+function hasLeadingDocCommentInBlock(blockNode, sourceMetadata, firstStatementStartIndex) {
+    const originalText = sourceMetadata.originalText;
+    if (typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
+        return false;
+    }
+
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
+    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
+        return false;
+    }
+
+    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
+    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
+        return false;
+    }
+
+    const interiorSlice = originalText.slice(openBraceIndex + 1, firstStatementStartIndex);
+    if (!interiorSlice) {
+        return false;
+    }
+
+    const commentMatch = interiorSlice.match(/\/\/[^\n]*|\/\*[\s\S]*?\*\//);
+    if (!commentMatch || typeof commentMatch.index !== NUMBER_TYPE) {
+        return false;
+    }
+
+    const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
+    if (Core.isNonEmptyTrimmedString(textBeforeComment)) {
+        return false;
+    }
+
+    return /^\s*\/\/\/\s*@/i.test(commentMatch[0]);
+}
+
 function printBlockStatementNode(node, path, options, print) {
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
@@ -1664,6 +1698,7 @@ function printBlockStatementNode(node, path, options, print) {
         const isConstructor =
             parentNode?.type === "ConstructorDeclaration" ||
             (parentNode?.type === "FunctionDeclaration" && parentNode.constructor);
+        const hasLeadingDocComments = hasLeadingDocCommentInBlock(node, sourceMetadata, firstStatementStartIndex);
 
         const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
             node,
@@ -1694,11 +1729,10 @@ function printBlockStatementNode(node, path, options, print) {
         }
 
         // For constructors, preserve blank lines between header and first statement
-        shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine ||
-            preserveForConstructorText ||
-            preserveForLeadingComment ||
-            preserveForInitialSpacing;
+        shouldPreserveInitialBlankLine = hasLeadingDocComments ? false : shouldPreserveInitialBlankLine ||
+                preserveForConstructorText ||
+                preserveForLeadingComment ||
+                preserveForInitialSpacing;
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -2601,7 +2635,9 @@ function buildStatementPartsForPrinter({
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
 
-    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment) {
+    const hasLeadingDocComment = Core.isNonEmptyArray(node.docComments);
+
+    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment && !hasLeadingDocComment) {
         const hasExplicitBlankLineBeforeStatic =
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
