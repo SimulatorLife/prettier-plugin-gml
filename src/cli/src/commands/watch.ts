@@ -1254,28 +1254,21 @@ async function processTranspileResult(
         return;
     }
 
-    const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
-    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-    const nextDefinitions = result.symbols ?? [];
-    const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
-
-    runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
-    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+    const dependencyUpdate = updateDependencyTrackerForTranspileResult(runtimeContext, filePath, result);
 
     if (verbose && !quiet) {
         const stats = runtimeContext.dependencyTracker.getStatistics();
         console.log(`  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`);
     }
 
-    if (!definitionsChanged) {
-        if (verbose && !quiet && previousDependents.length > 0) {
+    if (!dependencyUpdate.definitionsChanged) {
+        if (verbose && !quiet && dependencyUpdate.previousDependents.length > 0) {
             console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
         }
         return;
     }
 
-    const updatedDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-    const dependentFiles = Array.from(new Set([...previousDependents, ...updatedDependents]));
+    const dependentFiles = mergeDependentFiles(dependencyUpdate.previousDependents, dependencyUpdate.updatedDependents);
     if (dependentFiles.length === 0) {
         return;
     }
@@ -1285,6 +1278,47 @@ async function processTranspileResult(
     }
 
     await retranspileDependentFiles(runtimeContext, filePath, dependentFiles, verbose, quiet);
+}
+
+interface DependencyUpdateSummary {
+    definitionsChanged: boolean;
+    previousDependents: ReadonlyArray<string>;
+    updatedDependents: ReadonlyArray<string>;
+}
+
+/**
+ * Apply dependency tracker updates and report which dependents should be considered.
+ */
+function updateDependencyTrackerForTranspileResult(
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    result: TranspilationResult
+): DependencyUpdateSummary {
+    const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
+    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    const nextDefinitions = result.symbols ?? [];
+    const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
+
+    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+
+    return {
+        definitionsChanged,
+        previousDependents,
+        updatedDependents: definitionsChanged
+            ? runtimeContext.dependencyTracker.getDependentFiles(filePath)
+            : previousDependents
+    };
+}
+
+/**
+ * Combine dependent file lists while removing duplicates.
+ */
+function mergeDependentFiles(
+    previousDependents: ReadonlyArray<string>,
+    updatedDependents: ReadonlyArray<string>
+): Array<string> {
+    return Array.from(new Set([...previousDependents, ...updatedDependents]));
 }
 
 async function retranspileDependentFile(
