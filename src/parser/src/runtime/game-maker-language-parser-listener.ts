@@ -44,15 +44,18 @@ function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate
     };
 }
 
-export default class GameMakerLanguageParserListener extends GeneratedParserListenerBase {
+/**
+ * Composition helper that encapsulates listener dispatch rules so the listener
+ * class can focus on wiring rather than overriding parse callbacks directly.
+ */
+class ListenerDispatcher {
     #listenerDelegate: ListenerDelegate;
 
     constructor(options: ListenerOptions = {}) {
-        super();
         this.#listenerDelegate = createListenerDelegate(options);
     }
 
-    _dispatch(methodName: string, ctx: ParserContext) {
+    dispatch(methodName: string, ctx: ParserContext) {
         const phase = methodName.startsWith("enter") ? "enter" : "exit";
         return this.#listenerDelegate({
             methodName,
@@ -60,6 +63,19 @@ export default class GameMakerLanguageParserListener extends GeneratedParserList
             ctx,
             fallback: Core.noop
         });
+    }
+}
+
+export default class GameMakerLanguageParserListener extends GeneratedParserListenerBase {
+    #dispatcher: ListenerDispatcher;
+
+    constructor(options: ListenerOptions = {}) {
+        super();
+        this.#dispatcher = new ListenerDispatcher(options);
+    }
+
+    _dispatch(methodName: string, ctx: ParserContext) {
+        return this.#dispatcher.dispatch(methodName, ctx);
     }
 }
 
