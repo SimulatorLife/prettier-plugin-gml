@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { createExtensionMatcher, createWatchCommand } from "../src/commands/watch.js";
+import { countSourceLines, createExtensionMatcher, createWatchCommand } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("watch command", () => {
@@ -44,6 +44,14 @@ void describe("watch command", () => {
         assert.deepEqual([...matcher.extensions].toSorted(), [".gml", ".yy"]);
         assert.ok(matcher.matches("example.GML"));
         assert.ok(matcher.matches("event.YY"));
+    });
+
+    void it("counts source lines across newline conventions", () => {
+        assert.equal(countSourceLines(""), 1);
+        assert.equal(countSourceLines("one"), 1);
+        assert.equal(countSourceLines("one\ntwo\nthree"), 3);
+        assert.equal(countSourceLines("one\r\ntwo\r\nthree"), 3);
+        assert.equal(countSourceLines("one\u2028two\u2029three"), 3);
     });
 });
 
