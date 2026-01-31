@@ -926,37 +926,47 @@ export class ScopeTracker {
 
         visited.add(scopeId);
 
-        const directDependents = this.getScopeDependents(scopeId);
-        const allDependents: Array<{
-            dependentScopeId: string;
-            dependentScopeKind: string;
-            depth: number;
-        }> = [];
+        const depthMap = new Map<string, { kind: string; depth: number }>();
+        const queue: Array<{ scopeId: string; depth: number }> = [];
 
+        const directDependents = this.getScopeDependents(scopeId);
         for (const dep of directDependents) {
-            allDependents.push({
-                dependentScopeId: dep.dependentScopeId,
-                dependentScopeKind: dep.dependentScopeKind,
+            queue.push({
+                scopeId: dep.dependentScopeId,
                 depth: 1
             });
-
-            const transitive = this.getTransitiveDependents(dep.dependentScopeId, new Set(visited));
-            for (const transDep of transitive) {
-                allDependents.push({
-                    dependentScopeId: transDep.dependentScopeId,
-                    dependentScopeKind: transDep.dependentScopeKind,
-                    depth: transDep.depth + 1
-                });
-            }
         }
 
-        const depthMap = new Map<string, { kind: string; depth: number }>();
-        for (const dep of allDependents) {
-            const existing = depthMap.get(dep.dependentScopeId);
-            if (!existing || dep.depth < existing.depth) {
-                depthMap.set(dep.dependentScopeId, {
-                    kind: dep.dependentScopeKind,
-                    depth: dep.depth
+        for (let index = 0; index < queue.length; index += 1) {
+            const current = queue[index];
+            if (visited.has(current.scopeId)) {
+                continue;
+            }
+
+            visited.add(current.scopeId);
+
+            const currentScope = this.scopesById.get(current.scopeId);
+            if (!currentScope) {
+                continue;
+            }
+
+            const existing = depthMap.get(current.scopeId);
+            if (!existing || current.depth < existing.depth) {
+                depthMap.set(current.scopeId, {
+                    kind: currentScope.kind,
+                    depth: current.depth
+                });
+            }
+
+            const nextDependents = this.getScopeDependents(current.scopeId);
+            for (const dep of nextDependents) {
+                if (visited.has(dep.dependentScopeId)) {
+                    continue;
+                }
+
+                queue.push({
+                    scopeId: dep.dependentScopeId,
+                    depth: current.depth + 1
                 });
             }
         }
