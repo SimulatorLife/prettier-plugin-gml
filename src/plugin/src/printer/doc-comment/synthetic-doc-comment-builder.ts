@@ -13,6 +13,7 @@ export type SyntheticDocCommentDoc = SyntheticDocComment & { doc: Doc };
 
 export type SyntheticDocCommentPayload = {
     doc: Doc | null;
+    docLines: string[] | null;
     hasExistingDocLines: boolean;
     plainLeadingLines: Doc[];
 };
@@ -81,6 +82,7 @@ function resolveDocCommentPayload(result: SyntheticDocCommentCoreResult | null):
 
     return {
         doc: doc?.doc ?? null,
+        docLines: doc?.docLines ?? null,
         hasExistingDocLines: result.hasExistingDocLines === true,
         plainLeadingLines
     };

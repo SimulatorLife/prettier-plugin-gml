@@ -28,7 +28,8 @@ import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js"
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
     getSyntheticDocCommentForFunctionAssignment,
-    getSyntheticDocCommentForStaticVariable
+    getSyntheticDocCommentForStaticVariable,
+    type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
@@ -2566,12 +2567,10 @@ function buildStatementPartsForPrinter({
     });
 
     const syntheticDocRecord = syntheticDocByNode.get(node);
-    const syntheticDocComment = syntheticDocRecord ? syntheticDocRecord.doc : null;
-    const syntheticPlainLeadingLines = syntheticDocRecord ? syntheticDocRecord.plainLeadingLines : [];
+    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
     appendSyntheticDocCommentParts({
         parts,
-        syntheticDocComment,
-        syntheticPlainLeadingLines
+        syntheticDocRecord
     });
 
     const textForSemicolons = originalTextCache || "";
@@ -2718,14 +2717,36 @@ function addLeadingStatementSpacing({
     }
 }
 
-function appendSyntheticDocCommentParts({ parts, syntheticDocComment, syntheticPlainLeadingLines }) {
+const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
+
+function hasDocCommentTags(docLines: string[] | null | undefined) {
+    if (!Core.isNonEmptyArray(docLines)) {
+        return false;
+    }
+
+    return docLines.some((docLine) => typeof docLine === "string" && DOC_COMMENT_TAG_PATTERN.test(docLine.trim()));
+}
+
+function appendSyntheticDocCommentParts({
+    parts,
+    syntheticDocRecord
+}: {
+    parts: any[];
+    syntheticDocRecord: SyntheticDocCommentPayload | undefined;
+}) {
+    const syntheticPlainLeadingLines = syntheticDocRecord?.plainLeadingLines ?? [];
+    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
+    const syntheticDocLines = syntheticDocRecord?.docLines ?? null;
+    const shouldPrintDocComment = syntheticDocComment !== null && hasDocCommentTags(syntheticDocLines);
+
     if (syntheticPlainLeadingLines.length > 0) {
         parts.push(join(hardline, syntheticPlainLeadingLines));
-        if (!syntheticDocComment) {
+        if (!shouldPrintDocComment) {
             parts.push(hardline);
         }
     }
-    if (syntheticDocComment) {
+
+    if (shouldPrintDocComment && syntheticDocComment) {
         parts.push(syntheticDocComment, hardline);
     }
 }
