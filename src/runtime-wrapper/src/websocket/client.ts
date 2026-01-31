@@ -336,9 +336,9 @@ export function createWebSocketClient({
 
         ensureApplicationSurfaceAccessor();
 
-        while (state.pendingPatches.length > 0) {
-            const patch = state.pendingPatches.shift();
-            if (patch !== undefined) {
+        if (state.pendingPatches.length > 0) {
+            const pending = state.pendingPatches.splice(0);
+            for (const patch of pending) {
                 applyIncomingPatch(patch);
             }
         }
