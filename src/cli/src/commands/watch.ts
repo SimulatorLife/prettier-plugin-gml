@@ -59,7 +59,7 @@ import {
     startPatchWebSocketServer
 } from "../modules/websocket/server.js";
 
-const { debounce, getErrorMessage, isFsErrorCode } = Core;
+const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -311,6 +311,20 @@ export function createExtensionMatcher(extensions: ReadonlyArray<string>): Exten
 }
 
 /**
+ * Counts the number of source lines in a string, honoring CRLF and Unicode line breaks.
+ *
+ * @param {string} source - Source text to inspect.
+ * @returns {number} Number of lines represented by the source string.
+ */
+export function countSourceLines(source: string): number {
+    if (source.length === 0) {
+        return 1;
+    }
+
+    return getLineBreakCount(source) + 1;
+}
+
+/**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
@@ -453,7 +467,7 @@ async function performInitialScan(
     async function processFile(fullPath: string): Promise<void> {
         try {
             const content = await readFile(fullPath, "utf8");
-            const lines = content.split("\n").length;
+            const lines = countSourceLines(content);
             await updateFileSnapshot(runtimeContext, fullPath);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
@@ -1127,7 +1141,7 @@ async function handleFileChange(
 
         try {
             const content = await readFile(filePath, "utf8");
-            const lines = content.split("\n").length;
+            const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {
                     runtimeContext.fileSnapshots.set(filePath, resolvedFileStats.mtimeMs);
@@ -1340,7 +1354,7 @@ async function retranspileDependentFile(
     ensureScriptNameRegistered(dependentFile, runtimeContext.scriptNames);
 
     const dependentContent = await readFile(dependentFile, "utf8");
-    const dependentLines = dependentContent.split("\n").length;
+    const dependentLines = countSourceLines(dependentContent);
 
     if (verbose && !quiet) {
         console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);
