@@ -578,19 +578,26 @@ const __resolveScriptFunction = (prop) => {
     return undefined;
 };
 const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
+const __resolveExistingGmlPropertyKey = (target, prop) => {
+    const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
+    if (prop in target) {
+        return prop;
+    }
+    if (gmlProp in target) {
+        return gmlProp;
+    }
+    if (underscoreProp in target) {
+        return underscoreProp;
+    }
+    return null;
+};
 const __gml_proxy = new Proxy(__gml_scope, {
     has(target, prop) {
         if (typeof prop !== "string") {
             return prop in target;
         }
-        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
-        if (prop in target) {
-            return true;
-        }
-        if (gmlProp in target) {
-            return true;
-        }
-        if (underscoreProp in target) {
+        const key = __resolveExistingGmlPropertyKey(target, prop);
+        if (key !== null) {
             return true;
         }
         const __has_global_value = __global_scope && prop in __global_scope;
@@ -622,15 +629,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (typeof prop !== "string") {
             return Reflect.get(target, prop, receiver);
         }
-        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
-        if (prop in target) {
-            return Reflect.get(target, prop, receiver);
-        }
-        if (gmlProp in target) {
-            return Reflect.get(target, gmlProp, receiver);
-        }
-        if (underscoreProp in target) {
-            return Reflect.get(target, underscoreProp, receiver);
+        const key = __resolveExistingGmlPropertyKey(target, prop);
+        if (key !== null) {
+            return Reflect.get(target, key, receiver);
         }
         const __has_global_value = __global_scope && prop in __global_scope;
         const __global_value = __has_global_value ? __global_scope[prop] : undefined;
@@ -666,15 +667,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (typeof prop !== "string") {
             return Reflect.set(target, prop, value, receiver);
         }
-        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
-        if (prop in target) {
-            return Reflect.set(target, prop, value, receiver);
-        }
-        if (gmlProp in target) {
-            return Reflect.set(target, gmlProp, value, receiver);
-        }
-        if (underscoreProp in target) {
-            return Reflect.set(target, underscoreProp, value, receiver);
+        const key = __resolveExistingGmlPropertyKey(target, prop);
+        if (key !== null) {
+            return Reflect.set(target, key, value, receiver);
         }
         return Reflect.set(target, prop, value, receiver);
     }
