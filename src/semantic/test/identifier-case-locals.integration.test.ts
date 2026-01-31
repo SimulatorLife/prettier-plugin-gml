@@ -34,6 +34,31 @@ async function createTempProject(fixtureFileName = "locals.gml") {
     };
 }
 
+function collectIdentifierCaseConflictCodes(summaryDiagnostic, summaryText) {
+    const codes = new Set<string>();
+    for (const conflict of summaryDiagnostic.conflicts ?? []) {
+        if (conflict?.code) {
+            codes.add(conflict.code);
+        }
+    }
+
+    if (codes.size === 0) {
+        for (const line of summaryText.split("\n")) {
+            if (line.includes("[preserve]")) {
+                codes.add("preserve");
+            }
+            if (line.includes("[ignored]")) {
+                codes.add("ignored");
+            }
+            if (line.includes("[collision]")) {
+                codes.add("collision");
+            }
+        }
+    }
+
+    return codes;
+}
+
 void describe("identifier case local renaming", { concurrency: false }, () => {
     void it("reports planned renames and conflicts during dry-run", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();
@@ -121,31 +146,6 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
-
-    function collectIdentifierCaseConflictCodes(summaryDiagnostic, summaryText) {
-        const codes = new Set<string>();
-        for (const conflict of summaryDiagnostic.conflicts ?? []) {
-            if (conflict?.code) {
-                codes.add(conflict.code);
-            }
-        }
-
-        if (codes.size === 0) {
-            for (const line of summaryText.split("\n")) {
-                if (line.includes("[preserve]")) {
-                    codes.add("preserve");
-                }
-                if (line.includes("[ignored]")) {
-                    codes.add("ignored");
-                }
-                if (line.includes("[collision]")) {
-                    codes.add("collision");
-                }
-            }
-        }
-
-        return codes;
-    }
 
     void it("applies local identifier renames when write mode is enabled", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();
