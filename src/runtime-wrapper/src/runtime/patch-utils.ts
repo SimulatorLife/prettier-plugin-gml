@@ -694,13 +694,7 @@ ${patchBody}
 
     applyRuntimeBindings(patch, namedFn);
 
-    return {
-        ...registry,
-        scripts: {
-            ...registry.scripts,
-            [patch.id]: namedFn
-        }
-    };
+    return updateRegistryCollection(registry, "scripts", patch.id, namedFn);
 }
 
 function applyEventPatch(registry: RuntimeRegistry, patch: EventPatch): RuntimeRegistry {
@@ -714,13 +708,7 @@ function applyEventPatch(registry: RuntimeRegistry, patch: EventPatch): RuntimeR
         return fn.call(this, this, ...incomingArgs);
     };
 
-    return {
-        ...registry,
-        events: {
-            ...registry.events,
-            [patch.id]: eventWrapper
-        }
-    };
+    return updateRegistryCollection(registry, "events", patch.id, eventWrapper);
 }
 
 function applyClosurePatch(registry: RuntimeRegistry, patch: ClosurePatch): RuntimeRegistry {
@@ -728,16 +716,25 @@ function applyClosurePatch(registry: RuntimeRegistry, patch: ClosurePatch): Runt
 
     const fn = new Function("...args", patchBody) as RuntimeFunction;
 
-    return {
-        ...registry,
-        closures: {
-            ...registry.closures,
-            [patch.id]: fn
-        }
-    };
+    return updateRegistryCollection(registry, "closures", patch.id, fn);
 }
 
 type RegistryCollectionKey = "scripts" | "events" | "closures";
+
+function updateRegistryCollection(
+    registry: RuntimeRegistry,
+    key: RegistryCollectionKey,
+    patchId: string,
+    fn: RuntimeFunction
+): RuntimeRegistry {
+    return {
+        ...registry,
+        [key]: {
+            ...registry[key],
+            [patchId]: fn
+        }
+    };
+}
 
 type PatchKindHandler = {
     key: RegistryCollectionKey;
