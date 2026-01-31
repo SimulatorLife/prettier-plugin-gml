@@ -31,6 +31,7 @@ import type {
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
+import { evaluateUndoStackTrimPolicy } from "./undo-stack-policy.js";
 
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
@@ -78,9 +79,13 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     }
 
     function trimUndoStack(): void {
-        const maxSize = state.options.maxUndoStackSize;
-        if (maxSize > 0 && state.undoStack.length > maxSize) {
-            state.undoStack.splice(0, state.undoStack.length - maxSize);
+        const decision = evaluateUndoStackTrimPolicy({
+            maxSize: state.options.maxUndoStackSize,
+            currentSize: state.undoStack.length
+        });
+
+        if (decision.shouldTrim) {
+            state.undoStack.splice(0, decision.trimCount);
         }
     }
 
