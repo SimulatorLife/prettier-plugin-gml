@@ -10,6 +10,8 @@ const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|
 const LINE_DOC_CONT_PATTERN = /^\/\/\s*\/(\s|$)/;
 const LINE_DOC_AT_PATTERN = /^\/\/\s*@/;
 const PARAM_PATTERN = /^([a-zA-Z0-9_]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_]+)*)[ \t]*:[ \t]*(.*)$/;
+const PARAM_DOC_LINE_PATTERN = /^\/\/\/\s*@param\b(?:\s*\{[^}]+\})?\s+([A-Za-z0-9_]+)/i;
+const IMPLICIT_ARGUMENT_NAME_PATTERN = /^argument[0-9]+$/i;
 
 const METHOD_LIST_COMMENT_PATTERN = /^\s*\/\/\s*\./;
 
@@ -307,6 +309,70 @@ function collectNodeLeadingDocs({
     return nodeLeadingDocs;
 }
 
+function dedupeDocCommentLines(lines: string[]): string[] {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const line of lines) {
+        if (!seen.has(line)) {
+            seen.add(line);
+            deduped.push(line);
+        }
+    }
+    return deduped;
+}
+
+function addImplicitParamName(names: Set<string>, value: unknown) {
+    if (typeof value !== STRING_TYPE) {
+        return;
+    }
+    const trimmed = (value as string).trim();
+    if (trimmed.length === 0) {
+        return;
+    }
+    names.add(trimmed);
+    names.add(trimmed.toLowerCase());
+}
+
+function collectImplicitParamNames(node: any, options: any): Set<string> {
+    const names = new Set<string>();
+    try {
+        const implicitEntries = Core.collectImplicitArgumentDocNames(node, options);
+        if (!Array.isArray(implicitEntries)) {
+            return names;
+        }
+        for (const entry of implicitEntries) {
+            if (!entry) {
+                continue;
+            }
+            addImplicitParamName(names, entry.name);
+            addImplicitParamName(names, entry.canonical);
+            addImplicitParamName(names, entry.fallbackCanonical);
+        }
+    } catch {
+        // Best effort: fail silently if implicit information is unavailable.
+    }
+    return names;
+}
+
+function shouldKeepParamDocLine(line: string, implicitNames: Set<string>): boolean {
+    const trimmed = line.trim();
+    const match = trimmed.match(PARAM_DOC_LINE_PATTERN);
+    if (!match) {
+        return true;
+    }
+    const docName = match[1];
+    if (!docName) {
+        return true;
+    }
+    if (implicitNames.has(docName) || implicitNames.has(docName.toLowerCase())) {
+        return true;
+    }
+    if (IMPLICIT_ARGUMENT_NAME_PATTERN.test(docName)) {
+        return true;
+    }
+    return false;
+}
+
 /**
  * Collect and normalize raw doc-comment lines associated with a function-like
  * node. The helper gathers doc comments attached directly to the node, leading
@@ -455,11 +521,22 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     const mergedDocs = [...filteredOriginalDocs, ...filteredNodeDocs].toSorted((a, b) => a.start - b.start);
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
+    const uniqueDocCommentDocs = dedupeDocCommentLines(newDocCommentDocs);
 
-    const uniqueProgramLines = formattedProgramLines.filter((line) => !newDocCommentDocs.includes(line));
+    const hasDeclaredParams = !!(Array.isArray(node?.params) && node.params.length > 0);
+    let filteredDocCommentDocs = uniqueDocCommentDocs;
+    if (!hasDeclaredParams) {
+        const implicitParamNames = collectImplicitParamNames(node, options);
+        filteredDocCommentDocs = uniqueDocCommentDocs.filter((line) =>
+            shouldKeepParamDocLine(line, implicitParamNames)
+        );
+    }
+
+    const combinedDocLines = [...formattedProgramLines, ...filteredDocCommentDocs];
+    const dedupedDocLines = dedupeDocCommentLines(combinedDocLines);
 
     docCommentDocs.length = 0;
-    docCommentDocs.push(...uniqueProgramLines, ...newDocCommentDocs);
+    docCommentDocs.push(...dedupedDocLines);
     if (nodeComments.some((comment) => comment?._docCommentBlockConverted === true)) {
         (docCommentDocs as any)._blockCommentDocs = true;
     }

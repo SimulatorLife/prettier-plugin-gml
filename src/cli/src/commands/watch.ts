@@ -243,6 +243,7 @@ interface RuntimeContext
 
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
+    fileStats?: Stats | null;
 }
 
 const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) => watch(pathToWatch, options, listener);
@@ -1070,7 +1071,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, quiet = false, runtimeContext }: FileChangeOptions = {}
+    { verbose = false, quiet = false, runtimeContext, fileStats }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -1082,11 +1083,11 @@ async function handleFileChange(
     // rename, treat it as a change and continue to transpile. If the file was
     // removed, bail out early.
     let shouldTranspile = false;
-    let fileStats: Stats | null = null;
+    let resolvedFileStats: Stats | null = fileStats ?? null;
 
     if (eventType === "rename") {
         try {
-            fileStats = await stat(filePath);
+            resolvedFileStats = await stat(filePath);
             shouldTranspile = true;
             if (verbose && !quiet) {
                 console.log(`  ↳ File exists (created or renamed)`);
@@ -1109,13 +1110,13 @@ async function handleFileChange(
     // a 'rename' event left the file in place (see comment above).
     if (eventType === "change" || shouldTranspile) {
         if (runtimeContext) {
-            if (!fileStats) {
-                fileStats = await readFileStats(filePath);
+            if (!resolvedFileStats) {
+                resolvedFileStats = await readFileStats(filePath);
             }
 
-            if (fileStats) {
+            if (resolvedFileStats) {
                 const lastModified = runtimeContext.fileSnapshots.get(filePath);
-                if (lastModified !== undefined && fileStats.mtimeMs <= lastModified) {
+                if (lastModified !== undefined && resolvedFileStats.mtimeMs <= lastModified) {
                     if (verbose && !quiet) {
                         console.log("  ↳ Skipping unchanged file");
                     }
@@ -1128,8 +1129,8 @@ async function handleFileChange(
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
             if (runtimeContext) {
-                if (fileStats) {
-                    runtimeContext.fileSnapshots.set(filePath, fileStats.mtimeMs);
+                if (resolvedFileStats) {
+                    runtimeContext.fileSnapshots.set(filePath, resolvedFileStats.mtimeMs);
                 } else {
                     await updateFileSnapshot(runtimeContext, filePath);
                 }
@@ -1184,11 +1185,11 @@ async function handleUnknownFileChanges(
                 return;
             }
 
-            runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
             await handleFileChange(filePath, "change", {
                 verbose,
                 quiet,
-                runtimeContext
+                runtimeContext,
+                fileStats: stats
             });
         } catch {
             cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
