@@ -152,6 +152,68 @@ export function getCommentValue(comment: unknown, { trim = false }: { trim?: boo
     return trim ? value.trim() : value;
 }
 
+function getLineCommentStartLine(comment: CommentLineNode): number | null {
+    const { start } = comment;
+    if (isObjectLike(start) && typeof (start as CommentBoundary).line === "number") {
+        return (start as CommentBoundary).line ?? null;
+    }
+
+    const loc = (comment as { loc?: { start?: { line?: number } } }).loc;
+    if (isObjectLike(loc) && isObjectLike(loc.start) && typeof loc.start.line === "number") {
+        return loc.start.line;
+    }
+
+    return null;
+}
+
+/**
+ * Marks a trailing line comment as suppressed by removing it from the comment array.
+ *
+ * PURPOSE: During AST transformations, some operations move or modify nodes in ways
+ * that would cause trailing comments to appear in incorrect locations. This helper
+ * removes line comments that start on a specific line so printers can skip them.
+ *
+ * @param owner Candidate AST node whose comments should be scanned.
+ * @param targetLine Line number to suppress.
+ * @param fallbackRoot Optional AST root to scan when the owner lacks comments.
+ */
+export function suppressTrailingLineComment(owner: unknown, targetLine: number, fallbackRoot?: unknown): void {
+    if (!Number.isFinite(targetLine)) {
+        return;
+    }
+
+    const candidates = [];
+
+    if (isObjectLike(owner)) {
+        candidates.push(owner);
+    }
+
+    if (isObjectLike(fallbackRoot)) {
+        candidates.push(fallbackRoot);
+    }
+
+    for (const candidate of candidates) {
+        const comments = (candidate as { comments?: unknown }).comments;
+        if (!Array.isArray(comments) || comments.length === 0) {
+            continue;
+        }
+
+        for (let index = comments.length - 1; index >= 0; index -= 1) {
+            const comment = comments[index];
+            if (!isLineComment(comment)) {
+                continue;
+            }
+
+            const startLine = getLineCommentStartLine(comment);
+            if (startLine !== targetLine) {
+                continue;
+            }
+
+            comments.splice(index, 1);
+        }
+    }
+}
+
 export type DocCommentLines = ReadonlyArray<string> & {
     // DESIGN SMELL: These flags control formatting behavior for JSDoc comment blocks,
     // but exposing them as configurable options creates unnecessary complexity and
