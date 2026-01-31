@@ -284,17 +284,19 @@ function printComment(commentPath, options) {
                 originalText: options.originalText
             };
             const normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
-            if (normalized.trim() === "/// @description") {
+            const normalizedLine = normalized.trimStart().startsWith("///") ? normalized.trimStart() : normalized;
+            if (normalizedLine.trim() === "/// @description") {
                 return "";
             }
+            const isDocComment = normalizedLine.trimStart().startsWith("///");
             const shouldPrependBlankLine =
                 comment._gmlForceLeadingBlankLine === true ||
-                hasLeadingBlankLine(comment) ||
-                hasLeadingBlankLineInSource(comment, options?.originalText);
+                (!isDocComment &&
+                    (hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText)));
             if (shouldPrependBlankLine) {
-                return [hardline, normalized];
+                return [hardline, normalizedLine];
             }
-            return normalized;
+            return normalizedLine;
         }
         default: {
             throw new Error(`Unknown comment type`);
