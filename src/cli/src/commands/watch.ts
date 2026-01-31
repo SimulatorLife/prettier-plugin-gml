@@ -59,7 +59,7 @@ import {
     startPatchWebSocketServer
 } from "../modules/websocket/server.js";
 
-const { debounce, getErrorMessage } = Core;
+const { debounce, getErrorMessage, isFsErrorCode } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -1154,6 +1154,15 @@ async function handleFileChange(
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
+            if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
+                unregisterScriptName(filePath, runtimeContext.scriptNames);
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+                if (verbose && !quiet) {
+                    console.log("  ↳ File missing during read (deleted before processing)");
+                }
+                return;
+            }
+
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
             });
