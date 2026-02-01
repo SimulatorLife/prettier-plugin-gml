@@ -198,6 +198,30 @@ async function createConnectedPatchQueueClient(options: PatchQueueClientSetupOpt
     return { wrapper, client, ws, restoreRuntimeGlobals };
 }
 
+void test("patch queue tracks patches received before flush", async () => {
+    const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000
+        }
+    });
+
+    try {
+        const metricsBefore = client.getConnectionMetrics();
+        assert.strictEqual(metricsBefore.patchesReceived, 0);
+
+        sendScriptPatch(ws, "script:queued_metrics");
+
+        await wait(10);
+
+        const metricsAfter = client.getConnectionMetrics();
+        assert.strictEqual(metricsAfter.patchesReceived, 1);
+        assert.strictEqual(metricsAfter.patchesApplied, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
 void test("getPatchQueueMetrics returns null when queuing is disabled", () => {
     const wrapper = createRuntimeWrapper();
     const client = createWebSocketClient({

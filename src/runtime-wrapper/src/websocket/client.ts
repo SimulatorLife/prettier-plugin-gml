@@ -225,12 +225,17 @@ type ApplyIncomingPatchOptions = {
     logger?: Logger;
 };
 
-function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
-    const { incoming, state, wrapper, onError, logger } = options;
-
+function recordPatchReceived(state: WebSocketClientState): number {
     const receivedAt = Date.now();
     state.connectionMetrics.patchesReceived += 1;
     state.connectionMetrics.lastPatchReceivedAt = receivedAt;
+    return receivedAt;
+}
+
+function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
+    const { incoming, state, wrapper, onError, logger } = options;
+
+    const receivedAt = recordPatchReceived(state);
 
     const patchResult = validatePatchCandidate(incoming, onError);
     if (patchResult.status === "skip") {
@@ -408,6 +413,7 @@ export function createWebSocketClient({
         ensureApplicationSurfaceAccessor();
 
         if (state.patchQueue) {
+            recordPatchReceived(state);
             enqueuePatch(incoming);
             return true;
         }
