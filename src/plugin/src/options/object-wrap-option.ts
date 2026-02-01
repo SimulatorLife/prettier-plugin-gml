@@ -1,8 +1,11 @@
 /**
  * String literals recognised by the object wrap option helpers.
- *
- * @typedef {"preserve" | "collapse"} ObjectWrapOptionValue
  */
+type ObjectWrapOptionValue = "preserve" | "collapse";
+
+type ObjectWrapOptionBag = Readonly<{
+    objectWrap?: ObjectWrapOptionValue;
+}>;
 
 /**
  * Canonical object wrap behaviours supported by the formatter.
@@ -19,10 +22,10 @@ const ObjectWrapOption = Object.freeze({
  * Determine the active wrap preference by consulting Prettier's
  * configuration.
  *
- * @param {unknown} options
+ * @param {ObjectWrapOptionBag | null | undefined} options
  * @returns {ObjectWrapOptionValue}
  */
-function resolveObjectWrapOption(options?: any) {
+function resolveObjectWrapOption(options?: ObjectWrapOptionBag | null): ObjectWrapOptionValue {
     return options?.objectWrap === ObjectWrapOption.COLLAPSE ? ObjectWrapOption.COLLAPSE : ObjectWrapOption.PRESERVE;
 }
 
