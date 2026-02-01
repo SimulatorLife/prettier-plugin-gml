@@ -29,7 +29,7 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals/numeric-literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
 import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
