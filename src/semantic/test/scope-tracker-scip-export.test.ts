@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 import { ROLE_DEF, ROLE_REF } from "../src/symbols/scip-types.js";
 
+const createScriptSymbol = (name: string): string => `gml/script/${name}`;
+
 void describe("ScopeTracker: exportScipOccurrences", () => {
     void it("exports declarations in SCIP format", async () => {
         const tracker = new ScopeTracker({ enabled: true });
@@ -138,13 +140,9 @@ void describe("ScopeTracker: exportScipOccurrences", () => {
             end: { line: 1, column: 8, index: 8 }
         });
 
-        const customSymbolGen = (name: string) => {
-            return `gml/script/${name}`;
-        };
-
         const result = tracker.exportScipOccurrences({
             includeReferences: false,
-            symbolGenerator: customSymbolGen
+            symbolGenerator: createScriptSymbol
         });
 
         assert.equal(result[0].occurrences.length, 1);
