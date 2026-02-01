@@ -59,7 +59,7 @@ import {
     startPatchWebSocketServer
 } from "../modules/websocket/server.js";
 
-const { debounce, getErrorMessage } = Core;
+const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -311,6 +311,20 @@ export function createExtensionMatcher(extensions: ReadonlyArray<string>): Exten
 }
 
 /**
+ * Counts the number of source lines in a string, honoring CRLF and Unicode line breaks.
+ *
+ * @param {string} source - Source text to inspect.
+ * @returns {number} Number of lines represented by the source string.
+ */
+export function countSourceLines(source: string): number {
+    if (source.length === 0) {
+        return 1;
+    }
+
+    return getLineBreakCount(source) + 1;
+}
+
+/**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
@@ -453,7 +467,7 @@ async function performInitialScan(
     async function processFile(fullPath: string): Promise<void> {
         try {
             const content = await readFile(fullPath, "utf8");
-            const lines = content.split("\n").length;
+            const lines = countSourceLines(content);
             await updateFileSnapshot(runtimeContext, fullPath);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
@@ -1127,7 +1141,7 @@ async function handleFileChange(
 
         try {
             const content = await readFile(filePath, "utf8");
-            const lines = content.split("\n").length;
+            const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {
                     runtimeContext.fileSnapshots.set(filePath, resolvedFileStats.mtimeMs);
@@ -1154,6 +1168,15 @@ async function handleFileChange(
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
+            if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
+                unregisterScriptName(filePath, runtimeContext.scriptNames);
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+                if (verbose && !quiet) {
+                    console.log("  ↳ File missing during read (deleted before processing)");
+                }
+                return;
+            }
+
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
             });
@@ -1254,28 +1277,21 @@ async function processTranspileResult(
         return;
     }
 
-    const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
-    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-    const nextDefinitions = result.symbols ?? [];
-    const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
-
-    runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
-    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+    const dependencyUpdate = updateDependencyTrackerForTranspileResult(runtimeContext, filePath, result);
 
     if (verbose && !quiet) {
         const stats = runtimeContext.dependencyTracker.getStatistics();
         console.log(`  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`);
     }
 
-    if (!definitionsChanged) {
-        if (verbose && !quiet && previousDependents.length > 0) {
+    if (!dependencyUpdate.definitionsChanged) {
+        if (verbose && !quiet && dependencyUpdate.previousDependents.length > 0) {
             console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
         }
         return;
     }
 
-    const updatedDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-    const dependentFiles = Array.from(new Set([...previousDependents, ...updatedDependents]));
+    const dependentFiles = mergeDependentFiles(dependencyUpdate.previousDependents, dependencyUpdate.updatedDependents);
     if (dependentFiles.length === 0) {
         return;
     }
@@ -1285,6 +1301,47 @@ async function processTranspileResult(
     }
 
     await retranspileDependentFiles(runtimeContext, filePath, dependentFiles, verbose, quiet);
+}
+
+interface DependencyUpdateSummary {
+    definitionsChanged: boolean;
+    previousDependents: ReadonlyArray<string>;
+    updatedDependents: ReadonlyArray<string>;
+}
+
+/**
+ * Apply dependency tracker updates and report which dependents should be considered.
+ */
+function updateDependencyTrackerForTranspileResult(
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    result: TranspilationResult
+): DependencyUpdateSummary {
+    const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
+    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    const nextDefinitions = result.symbols ?? [];
+    const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
+
+    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+
+    return {
+        definitionsChanged,
+        previousDependents,
+        updatedDependents: definitionsChanged
+            ? runtimeContext.dependencyTracker.getDependentFiles(filePath)
+            : previousDependents
+    };
+}
+
+/**
+ * Combine dependent file lists while removing duplicates.
+ */
+function mergeDependentFiles(
+    previousDependents: ReadonlyArray<string>,
+    updatedDependents: ReadonlyArray<string>
+): Array<string> {
+    return Array.from(new Set([...previousDependents, ...updatedDependents]));
 }
 
 async function retranspileDependentFile(
@@ -1297,7 +1354,7 @@ async function retranspileDependentFile(
     ensureScriptNameRegistered(dependentFile, runtimeContext.scriptNames);
 
     const dependentContent = await readFile(dependentFile, "utf8");
-    const dependentLines = dependentContent.split("\n").length;
+    const dependentLines = countSourceLines(dependentContent);
 
     if (verbose && !quiet) {
         console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);

@@ -980,7 +980,7 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
     }
 
     replaceNode(node, zeroLiteral);
-    suppressTrailingLineComment(node, parentLine, context);
+    Core.suppressTrailingLineComment(node, parentLine, context?.astRoot);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;
@@ -1083,7 +1083,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
         attachTrailingCommentToStatement(node, trailingCommentValue);
     }
 
-    suppressTrailingLineComment(node, parentLine, context);
+    Core.suppressTrailingLineComment(node, parentLine, context?.astRoot);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;
@@ -4057,60 +4057,6 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
     }
 }
 
-/**
- * Marks a trailing line comment as suppressed to prevent it from being printed.
- *
- * PURPOSE: During math expression normalization, some transformations move or modify
- * code in ways that would cause trailing comments to appear in incorrect locations.
- * This function marks those comments so the printer can skip them.
- *
- * LOCATION SMELL: This is a general comment manipulation utility that should live in
- * Core's comment-utils module alongside other comment helpers like attachComments,
- * getCommentArray, etc.
- *
- * RECOMMENDATION: Move to src/core/src/comments/comment-utils.ts and export it as
- * part of the Core API. Update imports here to use Core.suppressTrailingLineComment.
- */
-function suppressTrailingLineComment(node, targetLine, context) {
-    if (!Number.isFinite(targetLine)) {
-        return;
-    }
-
-    const candidates = [];
-
-    if (node && typeof node === "object") {
-        candidates.push(node);
-    }
-
-    if (context && typeof context === "object") {
-        const root = context.astRoot;
-        if (root && typeof root === "object") {
-            candidates.push(root);
-        }
-    }
-
-    for (const owner of candidates) {
-        const comments = Array.isArray(owner?.comments) ? owner.comments : null;
-        if (!comments || comments.length === 0) {
-            continue;
-        }
-
-        for (let index = comments.length - 1; index >= 0; index -= 1) {
-            const comment = comments[index];
-            if (!comment || comment.type !== "CommentLine") {
-                continue;
-            }
-
-            const startLine = comment?.start?.line ?? comment?.loc?.start?.line;
-            if (startLine !== targetLine) {
-                continue;
-            }
-
-            comments.splice(index, 1);
-        }
-    }
-}
-
 function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
     if (!context || typeof context !== "object") {
         return;
@@ -4150,7 +4096,7 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
         return;
     }
 
-    suppressTrailingLineComment(simplifiedNode, aliasDeclaration?.end?.line, context);
+    Core.suppressTrailingLineComment(simplifiedNode, aliasDeclaration?.end?.line, context?.astRoot);
 }
 
 function insertNodeBefore(root, target, statement) {
@@ -4610,7 +4556,7 @@ function trySimplifyZeroDivision(node, context) {
 
     const parentLine = node?.end?.line;
     replaceNode(node, zeroLiteral);
-    suppressTrailingLineComment(node, parentLine, context);
+    Core.suppressTrailingLineComment(node, parentLine, context?.astRoot);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;

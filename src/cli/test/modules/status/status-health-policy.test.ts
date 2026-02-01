@@ -5,7 +5,7 @@ import {
     DEFAULT_STATUS_HEALTH_POLICY_CONFIG,
     evaluateReadiness,
     evaluateTranspilationHealth
-} from "../../../src/modules/status/status-health-policy.js";
+} from "../../../src/modules/status/index.js";
 
 void describe("status health policy", () => {
     void describe("evaluateTranspilationHealth", () => {

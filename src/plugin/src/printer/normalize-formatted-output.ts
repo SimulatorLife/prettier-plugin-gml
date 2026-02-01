@@ -168,12 +168,12 @@ function isDocLikeLine(line: string): boolean {
     return DOC_LIKE_LINE_PATTERN.test(trimmed);
 }
 
-function hasRepeatedBlock(lines: string[], segmentLength: number): boolean {
-    const baseSegment = lines.slice(0, segmentLength).map((line) => line.trim());
+function hasRepeatedBlock(trimmedLines: string[], segmentLength: number): boolean {
+    const baseSegment = trimmedLines.slice(0, segmentLength);
 
-    for (let offset = segmentLength; offset < lines.length; offset += segmentLength) {
+    for (let offset = segmentLength; offset < trimmedLines.length; offset += segmentLength) {
         for (let index = 0; index < segmentLength; index += 1) {
-            if (baseSegment[index] !== lines[offset + index].trim()) {
+            if (baseSegment[index] !== trimmedLines[offset + index]) {
                 return false;
             }
         }
@@ -183,12 +183,15 @@ function hasRepeatedBlock(lines: string[], segmentLength: number): boolean {
 }
 
 function findRepeatedSegmentLength(lines: string[]): number {
-    for (let segmentLength = 1; segmentLength <= Math.floor(lines.length / 2); segmentLength += 1) {
-        if (lines.length % segmentLength !== 0) {
+    // Trim once to avoid repeated string allocations during segment checks.
+    const trimmedLines = lines.map((line) => line.trim());
+
+    for (let segmentLength = 1; segmentLength <= Math.floor(trimmedLines.length / 2); segmentLength += 1) {
+        if (trimmedLines.length % segmentLength !== 0) {
             continue;
         }
 
-        if (hasRepeatedBlock(lines, segmentLength)) {
+        if (hasRepeatedBlock(trimmedLines, segmentLength)) {
             return segmentLength;
         }
     }

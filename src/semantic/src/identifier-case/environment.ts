@@ -6,8 +6,14 @@ import { captureIdentifierCasePlanSnapshot, prepareIdentifierCasePlan } from "./
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
 import { type IdentifierCasePlanSnapshot } from "./types.js";
 
-// Use the canonical Core namespace for helpers per AGENTS.md
-// (avoid destructuring from the package namespace)
+// Use the canonical Core namespace for helpers per AGENTS.md. Keeping the
+// namespace intact makes it obvious when we're reaching across workspaces, and
+// it ensures external consumers always reference the public API surface rather
+// than smuggling private imports through destructured names. This matters here
+// because the identifier-case environment coordinates multiple workspace
+// boundaries; altering the import style can silently drift away from the
+// documented integration contract and make it harder to audit why a helper is
+// coming from Core vs. local scope.
 
 // Helpers used from Core:
 // - Core.isObjectLike

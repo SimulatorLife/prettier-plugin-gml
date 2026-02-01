@@ -184,7 +184,14 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         const parentDir = path.dirname(resourceDir);
 
         // 1. Rename files inside the directory that match the old name.
-        // We do this BEFORE renaming the directory.
+        // We do this BEFORE renaming the directory because GameMaker assets keep
+        // the file basename in sync with the enclosing folder name (e.g., `obj.yy`
+        // lives under `objects/obj/`). If we rename the folder first, subsequent
+        // file renames would resolve against a path that no longer exists, and
+        // we risk emitting a WorkspaceEdit that can't be applied cleanly. Keeping
+        // the on-disk paths stable until the inner files are updated prevents
+        // partial refactors and aligns with the refactor flow described in
+        // docs/live-reloading-concept.md (see the refactor pipeline section).
         const extensionsToRename = [".yy"];
         if (resource.resourceType === "GMScript") {
             extensionsToRename.push(".gml");
