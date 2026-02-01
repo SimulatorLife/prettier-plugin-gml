@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals/numeric-literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals.js";
 
 function getNumericStringLiteralValue(node) {
     if (!node || node.type !== "Literal") {
