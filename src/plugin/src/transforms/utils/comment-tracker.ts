@@ -170,27 +170,18 @@ export class CommentTracker {
                 continue;
             }
 
-            // Support two shapes: callers may pass the internal { index, comment }
-            // entry objects (from getEntriesBetween) or raw comment nodes
-            // (from takeBetween which returns comments). Handle both so tests
-            // and callers behave consistently.
-            if (entry && entry.comment) {
-                // entry is { index, comment }
-                entry.consumed = true;
-                if (entry.comment) {
-                    entry.comment._removedByConsolidation = true;
-                }
-            } else {
-                // entry is a plain comment node
-                const commentNode = entry;
+            // Support tracker entries ({ index, comment }) and raw comment nodes.
+            const commentNode = entry.comment || entry;
+            if (commentNode) {
                 commentNode._removedByConsolidation = true;
-                // Find the corresponding tracker entry and mark it consumed if present
-                for (const e of this.entries) {
-                    if (e && e.comment === commentNode) {
-                        e.consumed = true;
-                        break;
-                    }
-                }
+            }
+
+            const trackerEntry = entry.comment
+                ? entry
+                : this.entries.find((candidate) => candidate && candidate.comment === entry);
+
+            if (trackerEntry) {
+                trackerEntry.consumed = true;
             }
         }
     }
