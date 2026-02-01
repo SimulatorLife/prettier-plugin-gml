@@ -5,7 +5,8 @@ import {
     assertNonEmptyString,
     assertValidIdentifierName,
     extractSymbolName,
-    hasMethod
+    hasMethod,
+    parseSymbolIdParts
 } from "../src/validation-utils.js";
 
 void describe("hasMethod", () => {
@@ -196,5 +197,28 @@ void describe("extractSymbolName", () => {
 
     void test("handles single segment", () => {
         assert.strictEqual(extractSymbolName("segment"), "segment");
+    });
+});
+
+void describe("parseSymbolIdParts", () => {
+    void test("parses valid symbol IDs", () => {
+        assert.deepStrictEqual(parseSymbolIdParts("gml/script/scr_player"), {
+            segments: ["gml", "script", "scr_player"],
+            symbolKind: "script",
+            symbolName: "scr_player"
+        });
+    });
+
+    void test("returns null for malformed symbol IDs", () => {
+        assert.strictEqual(parseSymbolIdParts("gml/script"), null);
+        assert.strictEqual(parseSymbolIdParts("script"), null);
+    });
+
+    void test("handles extra path segments", () => {
+        assert.deepStrictEqual(parseSymbolIdParts("gml/nested/path/to/symbol"), {
+            segments: ["gml", "nested", "path", "to", "symbol"],
+            symbolKind: "nested",
+            symbolName: "symbol"
+        });
     });
 });

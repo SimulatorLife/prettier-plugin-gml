@@ -29,7 +29,8 @@ import {
     assertNonEmptyString,
     assertValidIdentifierName,
     extractSymbolName,
-    hasMethod
+    hasMethod,
+    parseSymbolIdParts
 } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
@@ -408,8 +409,8 @@ export async function checkHotReloadSafety(
 
     // Extract symbol metadata from the ID
     // SymbolId format: gml/{kind}/{name}, e.g., "gml/script/scr_player"
-    const symbolParts = symbolId.split("/");
-    if (symbolParts.length < 3) {
+    const symbolParts = parseSymbolIdParts(symbolId);
+    if (!symbolParts) {
         return {
             safe: false,
             reason: `Malformed symbolId '${symbolId}'`,
@@ -422,9 +423,9 @@ export async function checkHotReloadSafety(
         };
     }
 
-    const rawSymbolKind = symbolParts[1];
+    const rawSymbolKind = symbolParts.symbolKind;
     const symbolKind = parseSymbolKind(rawSymbolKind);
-    const symbolName = symbolParts.at(-1);
+    const symbolName = symbolParts.symbolName;
 
     // Validate symbol kind
     if (symbolKind === null) {
