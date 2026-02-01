@@ -163,7 +163,37 @@ export function assertRenameRequest(
  * extractSymbolName("invalid")                // "invalid"
  */
 export function extractSymbolName(symbolId: string): string {
+    const parsed = parseSymbolIdParts(symbolId);
+    if (parsed) {
+        return parsed.symbolName;
+    }
+
     return symbolId.split("/").pop() ?? symbolId;
+}
+
+/**
+ * Parse a symbol ID into its component parts.
+ * Symbol IDs are expected to follow the pattern `gml/{kind}/{name}`.
+ *
+ * @param symbolId - The fully-qualified symbol ID (e.g., "gml/script/scr_player").
+ * @returns Parsed symbol ID parts, or null if the ID is malformed.
+ */
+export function parseSymbolIdParts(
+    symbolId: string
+): { segments: Array<string>; symbolKind: string; symbolName: string } | null {
+    const segments = symbolId.split("/");
+    if (segments.length < 3) {
+        return null;
+    }
+
+    const symbolKind = segments[1];
+    const symbolName = segments.at(-1);
+
+    if (!symbolKind || symbolName === undefined) {
+        return null;
+    }
+
+    return { segments, symbolKind, symbolName };
 }
 
 /**

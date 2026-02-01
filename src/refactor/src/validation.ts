@@ -18,7 +18,8 @@ import {
     assertValidIdentifierName,
     DEFAULT_RESERVED_KEYWORDS,
     extractSymbolName,
-    hasMethod
+    hasMethod,
+    parseSymbolIdParts
 } from "./validation-utils.js";
 
 /**
@@ -147,7 +148,8 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
     // Build rename graph: source ID → target ID
     const graph = new Map<string, string>();
     for (const rename of renames) {
-        const pathParts = rename.symbolId.split("/");
+        const parsed = parseSymbolIdParts(rename.symbolId);
+        const pathParts = parsed ? [...parsed.segments] : rename.symbolId.split("/");
         pathParts[pathParts.length - 1] = rename.newName;
         graph.set(rename.symbolId, pathParts.join("/"));
     }
