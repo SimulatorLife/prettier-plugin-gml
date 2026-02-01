@@ -59,6 +59,22 @@ void describe("Feather diagnostic fixer registry", () => {
             assert.ok(registry.has(diagnostic.id), `Missing fixer entry for Feather diagnostic ${diagnostic.id}.`);
         }
     });
+
+    void it("exposes applyFix implementations without extra factory indirection", () => {
+        const registry = Transforms.getFeatherDiagnosticFixers();
+        const entry = registry.get("GM1051");
+        assert.ok(entry, "Expected fixer registry entry for GM1051.");
+
+        const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join("\n");
+        const ast = Parser.GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const fixes = entry.applyFix(ast, { sourceText: source });
+        assert.ok(Array.isArray(fixes), "Expected applyFix to return an array of fixes.");
+        assert.ok(fixes.length > 0, "Expected applyFix to report at least one fix.");
+    });
 });
 
 void describe("Transforms.applyFeatherFixes transform", () => {
