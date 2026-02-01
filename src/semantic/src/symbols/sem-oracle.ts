@@ -109,6 +109,18 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
         this.scriptNames = scriptNames;
     }
 
+    private resolveKnownNameKind(name: string): "builtin" | "script" | null {
+        if (this.builtinNames.has(name)) {
+            return "builtin";
+        }
+
+        if (this.scriptNames.has(name)) {
+            return "script";
+        }
+
+        return null;
+    }
+
     /**
      * Classify an identifier based on its scope resolution and metadata.
      * Returns the semantic kind that drives transpiler code generation.
@@ -133,12 +145,9 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
             return "global_field";
         }
 
-        if (this.builtinNames.has(node.name)) {
-            return "builtin";
-        }
-
-        if (this.scriptNames.has(node.name)) {
-            return "script";
+        const knownKind = this.resolveKnownNameKind(node.name);
+        if (knownKind) {
+            return knownKind;
         }
 
         if (this.tracker) {
@@ -218,12 +227,9 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
             return "unknown";
         }
 
-        if (this.builtinNames.has(node.object.name)) {
-            return "builtin";
-        }
-
-        if (this.scriptNames.has(node.object.name)) {
-            return "script";
+        const knownKind = this.resolveKnownNameKind(node.object.name);
+        if (knownKind) {
+            return knownKind;
         }
 
         return "unknown";
@@ -243,7 +249,10 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
             return null;
         }
 
-        const kind = this.callTargetKind(node);
+        const kind = this.resolveKnownNameKind(node.object.name);
+        if (!kind) {
+            return null;
+        }
 
         switch (kind) {
             case "script": {
@@ -251,9 +260,6 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
             }
             case "builtin": {
                 return sym("macro", node.object.name);
-            }
-            case "unknown": {
-                return null;
             }
             default: {
                 return null;
