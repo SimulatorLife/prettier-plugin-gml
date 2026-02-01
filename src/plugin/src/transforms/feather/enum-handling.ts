@@ -4,12 +4,7 @@
  */
 import { Core } from "@gml-modules/core";
 
-import {
-    advanceThroughComment,
-    advanceThroughStringLiteral,
-    createStringCommentScanState,
-    tryStartStringOrComment
-} from "../source-text/string-comment-scan.js";
+import { advanceStringCommentScan, createStringCommentScanState } from "../source-text/string-comment-scan.js";
 import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {
@@ -53,28 +48,7 @@ function findNextOpenBrace(sourceText: string, startIndex: number) {
     const state = createStringCommentScanState();
 
     for (let index = startIndex; index < length; ) {
-        if (state.stringQuote) {
-            index = advanceThroughStringLiteral(sourceText, index, state);
-            continue;
-        }
-
-        if (state.inLineComment || state.inBlockComment) {
-            index = advanceThroughComment(sourceText, length, index, state);
-            continue;
-        }
-
-        if (
-            sourceText[index] === "@" &&
-            index + 1 < length &&
-            (sourceText[index + 1] === "'" || sourceText[index + 1] === '"')
-        ) {
-            state.stringQuote = sourceText[index + 1];
-            state.stringEscape = false;
-            index += 2;
-            continue;
-        }
-
-        const nextIndex = tryStartStringOrComment(sourceText, length, index, state);
+        const nextIndex = advanceStringCommentScan(sourceText, length, index, state, true);
         if (nextIndex !== index) {
             index = nextIndex;
             continue;
@@ -96,28 +70,7 @@ function findMatchingClosingBrace(sourceText: string, openBraceIndex: number) {
     const state = createStringCommentScanState();
 
     for (let index = openBraceIndex; index < length; ) {
-        if (state.stringQuote) {
-            index = advanceThroughStringLiteral(sourceText, index, state);
-            continue;
-        }
-
-        if (state.inLineComment || state.inBlockComment) {
-            index = advanceThroughComment(sourceText, length, index, state);
-            continue;
-        }
-
-        if (
-            sourceText[index] === "@" &&
-            index + 1 < length &&
-            (sourceText[index + 1] === "'" || sourceText[index + 1] === '"')
-        ) {
-            state.stringQuote = sourceText[index + 1];
-            state.stringEscape = false;
-            index += 2;
-            continue;
-        }
-
-        const nextIndex = tryStartStringOrComment(sourceText, length, index, state);
+        const nextIndex = advanceStringCommentScan(sourceText, length, index, state, true);
         if (nextIndex !== index) {
             index = nextIndex;
             continue;

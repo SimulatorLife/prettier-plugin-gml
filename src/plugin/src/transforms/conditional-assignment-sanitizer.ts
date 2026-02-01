@@ -6,11 +6,9 @@
 import { Core } from "@gml-modules/core";
 
 import {
-    advanceThroughComment,
-    advanceThroughStringLiteral,
+    advanceStringCommentScan,
     createStringCommentScanState,
-    type StringCommentScanState,
-    tryStartStringOrComment
+    type StringCommentScanState
 } from "./source-text/string-comment-scan.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
@@ -56,28 +54,14 @@ function appendCharacter(state: ConditionalAssignmentScanState, character: strin
 }
 
 function advanceThroughStringOrComment(state: ConditionalAssignmentScanState, text: string, length: number) {
-    if (state.inLineComment || state.inBlockComment) {
-        const nextIndex = advanceThroughComment(text, length, state.index, state);
-        appendCharacter(state, text.slice(state.index, nextIndex));
-        state.index = nextIndex;
-        return true;
+    const nextIndex = advanceStringCommentScan(text, length, state.index, state);
+    if (nextIndex === state.index) {
+        return false;
     }
 
-    if (state.stringQuote) {
-        const nextIndex = advanceThroughStringLiteral(text, state.index, state);
-        appendCharacter(state, text.slice(state.index, nextIndex));
-        state.index = nextIndex;
-        return true;
-    }
-
-    const stringOrCommentIndex = tryStartStringOrComment(text, length, state.index, state);
-    if (stringOrCommentIndex !== state.index) {
-        appendCharacter(state, text.slice(state.index, stringOrCommentIndex));
-        state.index = stringOrCommentIndex;
-        return true;
-    }
-
-    return false;
+    appendCharacter(state, text.slice(state.index, nextIndex));
+    state.index = nextIndex;
+    return true;
 }
 
 function handleIfKeyword(

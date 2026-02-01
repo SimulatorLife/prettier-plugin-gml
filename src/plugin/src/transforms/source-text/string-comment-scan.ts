@@ -104,3 +104,34 @@ export function tryStartStringOrComment(
 
     return currentIndex;
 }
+
+/**
+ * Advance the scan index when the cursor is inside a string/comment or when a new
+ * string/comment begins at the current position.
+ */
+export function advanceStringCommentScan(
+    text: string,
+    length: number,
+    currentIndex: number,
+    state: StringCommentScanState,
+    allowAtString = false
+): number {
+    if (state.stringQuote) {
+        return advanceThroughStringLiteral(text, currentIndex, state);
+    }
+
+    if (state.inLineComment || state.inBlockComment) {
+        return advanceThroughComment(text, length, currentIndex, state);
+    }
+
+    if (allowAtString && text[currentIndex] === "@" && currentIndex + 1 < length) {
+        const nextCharacter = text[currentIndex + 1];
+        if (nextCharacter === "'" || nextCharacter === '"') {
+            state.stringQuote = nextCharacter;
+            state.stringEscape = false;
+            return currentIndex + 2;
+        }
+    }
+
+    return tryStartStringOrComment(text, length, currentIndex, state);
+}
