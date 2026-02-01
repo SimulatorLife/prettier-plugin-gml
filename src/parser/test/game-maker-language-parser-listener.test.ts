@@ -59,3 +59,24 @@ void test("method-specific handlers can wrap the delegate", () => {
     assert.equal(handlerCalls, 1);
     assert.equal(delegateCalls, 1);
 });
+
+void test("unhandled methods still route to the delegate", () => {
+    let delegateCalls = 0;
+    let handlerCalls = 0;
+
+    const listener = new GameMakerLanguageParserListener({
+        listenerDelegate: () => {
+            delegateCalls += 1;
+        },
+        listenerHandlers: {
+            exitBlock: () => {
+                handlerCalls += 1;
+            }
+        }
+    });
+
+    listener.enterProgram({});
+
+    assert.equal(handlerCalls, 0);
+    assert.equal(delegateCalls, 1);
+});
