@@ -42,7 +42,7 @@ function findStaticFirstStatementInAncestorBlock(
 
     while (ancestor && ancestor.type !== "BlockStatement") {
         child = ancestor;
-        ancestor = parentByNode.get(child as MutableGameMakerAstNode) ?? null;
+        ancestor = parentByNode.get(child) ?? null;
     }
 
     if (!ancestor || !Array.isArray((ancestor as any).body) || (ancestor as any).body.length === 0) {
@@ -70,7 +70,7 @@ function isStaticFirstStatementInAncestorBlock(
 
     while (ancestor && ancestor.type !== "BlockStatement") {
         child = ancestor;
-        ancestor = parentByNode.get(child as MutableGameMakerAstNode) ?? null;
+        ancestor = parentByNode.get(child) ?? null;
     }
 
     if (!ancestor || !Array.isArray((ancestor as any).body) || (ancestor as any).body.length === 0) {
@@ -178,11 +178,7 @@ function execute(
         const docHostAncestor = findDocCommentHostAncestor(mutableNode, parentByNode);
         const docPath = createDocCommentPath(mutableNode, parentByNode.get(mutableNode) ?? null);
 
-        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(
-            docPath,
-            filteredDocLines,
-            docCommentOptions
-        );
+        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions);
         if (!shouldGenerate) {
             return;
         }

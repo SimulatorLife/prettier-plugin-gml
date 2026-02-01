@@ -6758,15 +6758,15 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                     }
                 });
 
-            if (vertexEndCall && fixDetail) {
-                markStatementToSuppressFollowingEmptyLine(lastBeginCall.statement);
-                markStatementToSuppressLeadingEmptyLine(vertexEndCall);
-                vertexEndCall._featherForceFollowingEmptyLine = true;
-                statements.splice(index, 0, vertexEndCall);
-                attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
-                fixes.push(fixDetail);
-                index += 1;
-            }
+                if (vertexEndCall && fixDetail) {
+                    markStatementToSuppressFollowingEmptyLine(lastBeginCall.statement);
+                    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
+                    vertexEndCall._featherForceFollowingEmptyLine = true;
+                    statements.splice(index, 0, vertexEndCall);
+                    attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
+                    fixes.push(fixDetail);
+                    index += 1;
+                }
             }
 
             lastBeginCall = { statement, call: beginCall };
@@ -6853,7 +6853,6 @@ function createVertexEndCallFromBegin(template) {
 
     return callExpression;
 }
-
 
 function convertUnusedIndexForLoops({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
