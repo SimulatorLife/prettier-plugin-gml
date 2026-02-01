@@ -29,7 +29,7 @@ const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
     tabWidth: 4,
     semi: true,
     printWidth: 120,
-    bracketSpacing: false, // Changed to false to maintain backward compatibility with existing GML code
+    bracketSpacing: false, // Keep false to match existing GML formatting expectations.
     singleQuote: false
 };
 
@@ -60,7 +60,7 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
 const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 /**
- * Utility function & entry-point to format GML source code using the plugin.
+ * Utility function and entry point to format GML source code using the plugin.
  */
 async function format(source: string, options: SupportOptions = {}) {
     const resolvedOptions = { ...defaultOptions, ...options };
