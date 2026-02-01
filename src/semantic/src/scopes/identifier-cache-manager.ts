@@ -23,11 +23,7 @@ export class IdentifierCacheManager {
      */
     public read(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
         const scopeResults = this.cache.get(name);
-        if (!scopeResults) {
-            return undefined;
-        }
-
-        return scopeResults.get(scopeId);
+        return scopeResults ? scopeResults.get(scopeId) : undefined;
     }
 
     /**
