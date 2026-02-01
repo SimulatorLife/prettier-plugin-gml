@@ -6740,26 +6740,28 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
     }
 
     const fixes = [];
-    let lastBeginCall = null;
+    let lastBeginCall: { statement: any; call: any } | null = null;
 
     for (let index = 0; index < statements.length; index += 1) {
         const statement = statements[index];
+        const beginCall = getVertexBeginCallExpression(statement);
 
-        if (isVertexBeginCallNode(statement)) {
+        if (beginCall) {
             markStatementToSuppressFollowingEmptyLine(statement);
             if (lastBeginCall) {
-                const vertexEndCall = createVertexEndCallFromBegin(lastBeginCall);
+                const vertexEndCall = createVertexEndCallFromBegin(lastBeginCall.call);
                 const fixDetail = createFeatherFixDetail(diagnostic, {
-                    target: getVertexBatchTarget(lastBeginCall),
+                    target: getVertexBatchTarget(lastBeginCall.call),
                     range: {
-                        start: Core.getNodeStartIndex(lastBeginCall),
-                        end: Core.getNodeEndIndex(lastBeginCall)
+                        start: Core.getNodeStartIndex(lastBeginCall.call),
+                        end: Core.getNodeEndIndex(lastBeginCall.call)
                     }
                 });
 
                 if (vertexEndCall && fixDetail) {
-                    markStatementToSuppressFollowingEmptyLine(lastBeginCall);
+                    markStatementToSuppressFollowingEmptyLine(lastBeginCall.statement);
                     markStatementToSuppressLeadingEmptyLine(vertexEndCall);
+                    vertexEndCall._featherForceFollowingEmptyLine = true;
                     statements.splice(index, 0, vertexEndCall);
                     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
                     fixes.push(fixDetail);
@@ -6767,11 +6769,11 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                 }
             }
 
-            lastBeginCall = statement;
+            lastBeginCall = { statement, call: beginCall };
             continue;
         }
 
-        if (isVertexEndCallNode(statement)) {
+        if (getVertexEndCallExpression(statement)) {
             lastBeginCall = null;
         }
     }
@@ -6779,20 +6781,29 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
     return fixes;
 }
 
-function isVertexBeginCallNode(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
+function getVertexCallExpression(statement) {
+    const candidate = Core.unwrapExpressionStatement(statement);
+    if (!candidate || candidate.type !== "CallExpression") {
+        return null;
     }
 
-    return Core.isIdentifierWithName(node.object, "vertex_begin");
+    return candidate;
 }
 
-function isVertexEndCallNode(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
+function getVertexBeginCallExpression(statement) {
+    const call = getVertexCallExpression(statement);
+    if (!call) {
+        return null;
     }
+    return Core.isIdentifierWithName(call.object, "vertex_begin") ? call : null;
+}
 
-    return Core.isIdentifierWithName(node.object, "vertex_end");
+function getVertexEndCallExpression(statement) {
+    const call = getVertexCallExpression(statement);
+    if (!call) {
+        return null;
+    }
+    return Core.isIdentifierWithName(call.object, "vertex_end") ? call : null;
 }
 
 function getVertexBatchTarget(callExpression) {

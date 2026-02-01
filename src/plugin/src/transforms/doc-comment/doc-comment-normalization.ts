@@ -33,6 +33,46 @@ function createDocCommentPath(node: MutableGameMakerAstNode, parent?: MutableGam
     };
 }
 
+function isStaticFirstStatementInAncestorBlock(
+    node: MutableGameMakerAstNode,
+    parentByNode: WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>
+) {
+    let child: MutableGameMakerAstNode | undefined | null = node;
+    let ancestor = parentByNode.get(node) ?? null;
+
+    while (ancestor && ancestor.type !== "BlockStatement") {
+        child = ancestor;
+        ancestor = parentByNode.get(child) ?? null;
+    }
+
+    if (!ancestor || !Array.isArray((ancestor as any).body) || (ancestor as any).body.length === 0) {
+        return false;
+    }
+
+    const firstStatement = (ancestor as any).body[0];
+    if (firstStatement !== child) {
+        return false;
+    }
+
+    return firstStatement?.type === "VariableDeclaration" && firstStatement?.kind === "static";
+}
+
+function findDocCommentHostAncestor(
+    node: MutableGameMakerAstNode,
+    parentByNode: WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>
+) {
+    let ancestor = parentByNode.get(node) ?? null;
+
+    while (ancestor) {
+        if (ancestor.type === "Program" || ancestor.type === "BlockStatement") {
+            return ancestor;
+        }
+        ancestor = parentByNode.get(ancestor) ?? null;
+    }
+
+    return null;
+}
+
 function execute(
     ast: MutableGameMakerAstNode,
     options: DocCommentNormalizationTransformOptions
@@ -107,9 +147,11 @@ function execute(
         const filteredDocLines = formattedLines;
         ensureDescriptionContinuations(filteredDocLines);
 
+        const docHostAncestor = findDocCommentHostAncestor(mutableNode, parentByNode);
         const docPath = createDocCommentPath(mutableNode, parentByNode.get(mutableNode) ?? null);
 
-        if (!Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions)) {
+        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions);
+        if (!shouldGenerate) {
             return;
         }
 
@@ -145,8 +187,7 @@ function execute(
             return;
         }
 
-        const parentNode = parentByNode.get(node) ?? null;
-        const needsLeadingBlankLine = Boolean(parentNode && parentNode.type === "BlockStatement");
+        const needsLeadingBlankLine = Boolean(docHostAncestor && docHostAncestor.type === "BlockStatement");
 
         const metadata: {
             documentedParamNames?: Set<string>;
@@ -168,11 +209,15 @@ function execute(
 
         setDocCommentMetadata(node, hasMetadata ? metadata : null);
 
+        const shouldSuppressLeadingBlank =
+            needsLeadingBlankLine && isStaticFirstStatementInAncestorBlock(mutableNode, parentByNode);
+
         setDocCommentNormalization(node, {
             docCommentDocs: normalizedDocComments,
             needsLeadingBlankLine,
             _preserveDescriptionBreaks: (normalizedDocComments as any)._preserveDescriptionBreaks,
-            _suppressLeadingBlank: (normalizedDocComments as any)._suppressLeadingBlank
+            _suppressLeadingBlank:
+                shouldSuppressLeadingBlank || (normalizedDocComments as any)._suppressLeadingBlank === true
         } as any);
     });
 
