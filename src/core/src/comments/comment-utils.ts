@@ -152,6 +152,17 @@ export function getCommentValue(comment: unknown, { trim = false }: { trim?: boo
     return trim ? value.trim() : value;
 }
 
+/**
+ * Resolves the starting line number for a line comment.
+ *
+ * The parser can attach positions either directly on `start` or nested under
+ * `loc.start`. This helper normalizes both shapes so downstream logic can
+ * reliably target specific trailing-comment lines when suppressing or moving
+ * comments during AST rewrites.
+ *
+ * @param comment Line comment whose start line should be extracted.
+ * @returns 1-based line number when available, otherwise `null`.
+ */
 function getLineCommentStartLine(comment: CommentLineNode): number | null {
     const { start } = comment;
     if (isObjectLike(start) && typeof (start as CommentBoundary).line === "number") {
