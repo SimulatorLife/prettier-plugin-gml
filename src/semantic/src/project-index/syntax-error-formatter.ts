@@ -166,13 +166,15 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
 }
 
 function clampColumnIndex(length, columnNumber) {
-    if (!Core.isFiniteNumber(columnNumber) || columnNumber < 0) {
+    const normalizedColumn = Core.toNormalizedInteger(columnNumber);
+    if (normalizedColumn === null || normalizedColumn < 0) {
         return 0;
     }
 
-    if (!Core.isFiniteNumber(length) || length <= 0) {
+    const normalizedLength = Core.toNormalizedInteger(length);
+    if (normalizedLength === null || normalizedLength <= 0) {
         return 0;
     }
 
-    return Core.clamp(Math.trunc(columnNumber), 0, length);
+    return Core.clamp(normalizedColumn, 0, normalizedLength);
 }
