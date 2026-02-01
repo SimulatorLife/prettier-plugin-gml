@@ -2258,16 +2258,24 @@ function buildSkippedDirectorySummaryMessage() {
 }
 
 function normalizeCommandLineArguments(argv) {
-    const args = isNonEmptyArray(argv) ? [...argv] : [];
+    const normalizedArgs = normalizeArgumentList(argv);
+    const withoutSeparator = stripLeadingArgumentSeparator(normalizedArgs);
+    return resolveHelpAliasArguments(withoutSeparator);
+}
 
+function normalizeArgumentList(argv) {
+    return isNonEmptyArray(argv) ? [...argv] : [];
+}
+
+function stripLeadingArgumentSeparator(args) {
     // Some package managers (like pnpm) may inject a leading '--' separator
     // when passing arguments to a script. If we see this as the first argument,
     // we strip it so Commander can correctly identify subcommands and options
     // instead of treating them as positional arguments.
-    if (args[0] === "--") {
-        args.shift();
-    }
+    return args[0] === "--" ? args.slice(1) : args;
+}
 
+function resolveHelpAliasArguments(args) {
     if (args.length === 0) {
         // When no arguments are provided, default behavior depends on
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
@@ -2276,14 +2284,26 @@ function normalizeCommandLineArguments(argv) {
         return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 
-    if (args.length === 1 && isHelpRequest(args[0])) {
+    if (isStandaloneHelpRequest(args)) {
         return ["--help"];
     }
 
-    if (args[0] !== "help") {
+    if (!isHelpAliasCommand(args)) {
         return args;
     }
 
+    return resolveHelpAliasCommandArguments(args);
+}
+
+function isStandaloneHelpRequest(args) {
+    return args.length === 1 && isHelpRequest(args[0]);
+}
+
+function isHelpAliasCommand(args) {
+    return args[0] === "help";
+}
+
+function resolveHelpAliasCommandArguments(args) {
     if (args.length === 1) {
         return ["--help"];
     }
