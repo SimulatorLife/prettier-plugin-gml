@@ -33,34 +33,6 @@ function createDocCommentPath(node: MutableGameMakerAstNode, parent?: MutableGam
     };
 }
 
-function findStaticFirstStatementInAncestorBlock(
-    node: MutableGameMakerAstNode,
-    parentByNode: WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>
-) {
-    let child: MutableGameMakerAstNode | undefined | null = node;
-    let ancestor = parentByNode.get(node) ?? null;
-
-    while (ancestor && ancestor.type !== "BlockStatement") {
-        child = ancestor;
-        ancestor = parentByNode.get(child) ?? null;
-    }
-
-    if (!ancestor || !Array.isArray((ancestor as any).body) || (ancestor as any).body.length === 0) {
-        return null;
-    }
-
-    const firstStatement = (ancestor as any).body[0];
-    if (firstStatement !== child) {
-        return null;
-    }
-
-    if (firstStatement?.type === "VariableDeclaration" && firstStatement.kind === "static") {
-        return firstStatement;
-    }
-
-    return null;
-}
-
 function isStaticFirstStatementInAncestorBlock(
     node: MutableGameMakerAstNode,
     parentByNode: WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>
