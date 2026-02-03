@@ -1,5 +1,6 @@
 export * from "./abort.js";
 export * from "./array.js";
+export * from "./async.js";
 export * from "./capability-probes.js";
 export * from "./date.js";
 export * from "./enumerated-options.js";

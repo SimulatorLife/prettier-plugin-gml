@@ -9,7 +9,6 @@ import {
 } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
-import { runSequentially } from "./sequential-runner.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -391,7 +390,7 @@ export async function analyseResourceFiles({
     let parsedCount = 0;
     let skippedCount = 0;
 
-    await runSequentially(yyFiles, async (file) => {
+    await Core.runSequentially(yyFiles, async (file) => {
         Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {

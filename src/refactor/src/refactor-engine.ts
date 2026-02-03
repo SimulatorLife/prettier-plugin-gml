@@ -1,7 +1,6 @@
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
-import { runSequentially } from "./sequential-runner.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type ApplyWorkspaceEditOptions,
@@ -309,7 +308,7 @@ export class RefactorEngine {
         }
 
         // Validate each rename request individually
-        await runSequentially(renames, async (rename) => {
+        await Core.runSequentially(renames, async (rename) => {
             if (!rename || typeof rename !== "object") {
                 errors.push("Each rename must be a valid request object");
                 return;
@@ -675,7 +674,7 @@ export class RefactorEngine {
 
         // Process each file by loading its current content, applying all edits for
         // that file, and optionally writing the modified content back to disk.
-        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
+        await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
 
             // Apply edits from high to low offset (reverse order) so that earlier
@@ -704,7 +703,7 @@ export class RefactorEngine {
                 throw new TypeError("applyWorkspaceEdit requires a renameFile implementation to process file renames");
             }
 
-            await runSequentially(workspace.fileRenames, async (rename) => {
+            await Core.runSequentially(workspace.fileRenames, async (rename) => {
                 await renameFile(rename.oldPath, rename.newPath);
             });
         }
@@ -769,7 +768,7 @@ export class RefactorEngine {
         // We defer merging until all renames are validated so that a single invalid
         // rename doesn't invalidate the entire batch.
         const workspaces: Array<WorkspaceEdit> = [];
-        await runSequentially(renames, async (rename) => {
+        await Core.runSequentially(renames, async (rename) => {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
         });
@@ -1083,7 +1082,7 @@ export class RefactorEngine {
         // Analyze the impact of each individual rename so callers can show
         // per-symbol statistics (files affected, occurrence counts, conflicts).
         const impactAnalyses = new Map<string, RenameImpactAnalysis>();
-        await runSequentially(renames, async (rename) => {
+        await Core.runSequentially(renames, async (rename) => {
             try {
                 const analysis = await this.analyzeRenameImpact(rename);
                 impactAnalyses.set(rename.symbolId, analysis);
@@ -1256,7 +1255,7 @@ export class RefactorEngine {
         let validatedFiles = 0;
         let validatedSymbols = 0;
 
-        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
+        await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             // Only validate GML files that can be transpiled
             if (!filePath.endsWith(".gml")) {
                 return;
@@ -1294,7 +1293,7 @@ export class RefactorEngine {
             }
 
             // Validate each symbol can be transpiled with the modified content
-            await runSequentially(symbolsInFile, async (symbol) => {
+            await Core.runSequentially(symbolsInFile, async (symbol) => {
                 try {
                     await this.formatter.transpileScript({
                         sourceText: modifiedContent,
@@ -1610,7 +1609,7 @@ export class RefactorEngine {
         // These catch obvious issues like lingering old names or missing new names
 
         // Verify the old name no longer exists in edited files
-        await runSequentially(affectedFiles, async (filePath) => {
+        await Core.runSequentially(affectedFiles, async (filePath) => {
             let content: string;
             try {
                 content = await readFile(filePath);
@@ -1700,7 +1699,7 @@ export class RefactorEngine {
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
         if (hasMethod(this.parser, "parse")) {
-            await runSequentially(affectedFiles, async (filePath) => {
+            await Core.runSequentially(affectedFiles, async (filePath) => {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid
                     await this.parser.parse(filePath);

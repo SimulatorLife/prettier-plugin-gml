@@ -6,9 +6,9 @@ import type { Element } from "linkedom/types/interface/element.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
 import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
-import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
+import type { ManualWorkflowOptions } from "../modules/manual/workflow.js";
+import { prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
@@ -1059,7 +1059,7 @@ function createFeatherManualMetadataPayload({ manualSource, sections }) {
 async function readFeatherManualPayloads({ manualSource, onRead }) {
     const payloads = Object.create(null);
 
-    await runSequentially(Object.entries(FEATHER_PAGES), async ([key, manualPath]) => {
+    await Core.runSequentially(Object.entries(FEATHER_PAGES), async ([key, manualPath]) => {
         if (typeof onRead === "function") {
             onRead(manualPath);
         }
