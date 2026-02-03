@@ -2792,13 +2792,14 @@ function appendSyntheticDocCommentParts({
     }
 
     if (shouldPrintDocComment && syntheticDocComment) {
-        // Add a leading hardline before the synthetic doc comment, unless this is
-        // the first statement in a block (in which case the block's own spacing
-        // logic will handle the leading newline).
+        // Always add a leading hardline before the synthetic doc comment to ensure
+        // proper indentation. For first statements in blocks, this is the only
+        // hardline, providing separation from the opening brace. For other statements,
+        // an additional hardline is added above for proper spacing.
         if (!isFirstStatementInBlock) {
             parts.push(hardline);
         }
-        parts.push(syntheticDocComment, hardline);
+        parts.push(hardline, syntheticDocComment, hardline);
     }
 }
 
