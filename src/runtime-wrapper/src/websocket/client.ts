@@ -147,9 +147,13 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     queueState.queue.length = 0;
     queueState.queueHead = 0;
 
-    queueState.queueMetrics.flushCount += 1;
-    queueState.queueMetrics.lastFlushSize = flushSize;
-    queueState.queueMetrics.lastFlushedAt = Date.now();
+    // Cache metrics objects for fewer property lookups
+    const queueMetrics = queueState.queueMetrics;
+    const connectionMetrics = state.connectionMetrics;
+
+    queueMetrics.flushCount += 1;
+    queueMetrics.lastFlushSize = flushSize;
+    queueMetrics.lastFlushedAt = Date.now();
 
     const flushStartTime = Date.now();
 
@@ -158,21 +162,21 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         const applied = result.success && !result.rolledBack ? result.appliedCount : 0;
         const failed = result.success ? 0 : flushSize;
 
-        state.connectionMetrics.patchesApplied += applied;
-        state.connectionMetrics.patchesFailed += failed;
+        connectionMetrics.patchesApplied += applied;
+        connectionMetrics.patchesFailed += failed;
         if (failed > 0) {
-            state.connectionMetrics.patchErrors += failed;
+            connectionMetrics.patchErrors += failed;
         }
-        queueState.queueMetrics.totalFlushed += flushSize;
+        queueMetrics.totalFlushed += flushSize;
 
         if (result.success && applied > 0) {
-            state.connectionMetrics.lastPatchAppliedAt = Date.now();
+            connectionMetrics.lastPatchAppliedAt = Date.now();
         }
     } else {
         for (const patch of patchesToFlush) {
             applyIncomingPatch(patch);
         }
-        queueState.queueMetrics.totalFlushed += flushSize;
+        queueMetrics.totalFlushed += flushSize;
     }
 
     const flushDuration = Date.now() - flushStartTime;
@@ -200,12 +204,13 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     }
 
     const queueState = state.patchQueue;
+    const queueMetrics = queueState.queueMetrics;
     const effectiveQueueSize = queueState.queue.length - queueState.queueHead;
 
     // If queue is full, drop oldest patch by advancing head pointer
     if (effectiveQueueSize >= maxQueueSize) {
         queueState.queueHead += 1;
-        queueState.queueMetrics.totalDropped += 1;
+        queueMetrics.totalDropped += 1;
 
         // Periodically compact the queue to prevent unbounded growth
         // Only compact when head has advanced significantly
@@ -217,11 +222,11 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     }
 
     queueState.queue.push(patch);
-    queueState.queueMetrics.totalQueued += 1;
+    queueMetrics.totalQueued += 1;
 
     const currentDepth = queueState.queue.length - queueState.queueHead;
-    if (currentDepth > queueState.queueMetrics.maxQueueDepth) {
-        queueState.queueMetrics.maxQueueDepth = currentDepth;
+    if (currentDepth > queueMetrics.maxQueueDepth) {
+        queueMetrics.maxQueueDepth = currentDepth;
     }
 
     if (logger && typeof patch === "object" && patch !== null && "id" in patch && typeof patch.id === "string") {
