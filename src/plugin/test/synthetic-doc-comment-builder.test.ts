@@ -39,7 +39,7 @@ void test("buildSyntheticDocComment converts core doc lines into a Prettier doc"
         tabWidth: 4
     }).formatted;
 
-    assert.equal(printed, "\n/// summary\n/// @returns {undefined}");
+    assert.equal(printed, "/// summary\n/// @returns {undefined}");
     assert.equal(result?.hasExistingDocLines, true);
     assert.deepEqual(result?.docLines, syntheticResult.docLines);
 
@@ -49,7 +49,7 @@ void test("buildSyntheticDocComment converts core doc lines into a Prettier doc"
         tabWidth: 4
     }).formatted;
 
-    assert.equal(printedDocOnly, "\n/// summary\n/// @returns {undefined}");
+    assert.equal(printedDocOnly, "/// summary\n/// @returns {undefined}");
 });
 
 void test("buildSyntheticDocComment returns null when core declines to synthesize", () => {
