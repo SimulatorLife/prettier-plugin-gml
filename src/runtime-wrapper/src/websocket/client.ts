@@ -143,8 +143,8 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     const patchesToFlush = queueState.queue.slice(queueState.queueHead);
     const flushSize = patchesToFlush.length;
 
-    // Reset queue instead of splicing
-    queueState.queue.length = 0;
+    // Reset queue to release old references for garbage collection
+    queueState.queue = [];
     queueState.queueHead = 0;
 
     // Cache metrics objects for fewer property lookups
