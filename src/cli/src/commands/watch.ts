@@ -22,6 +22,7 @@ import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
 import { formatCliError } from "../cli-core/errors.js";
+import { runInParallel } from "../cli-core/parallel-runner.js";
 import { runSequentially } from "../cli-core/sequential-runner.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
@@ -86,6 +87,7 @@ interface FileWatchingConfig {
     pollingInterval?: number;
     debounceDelay?: number;
     watchFactory?: WatchFactory;
+    scanConcurrency?: number;
 }
 
 /**
@@ -380,6 +382,20 @@ export function createWatchCommand(): Command {
                 .default(100)
         )
         .addOption(
+            new Option(
+                "--scan-concurrency <count>",
+                "Maximum concurrent file processing operations during initial scan"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value);
+                    if (Number.isNaN(parsed) || parsed < 1) {
+                        throw new Error("Scan concurrency must be a positive integer");
+                    }
+                    return parsed;
+                })
+                .default(8)
+        )
+        .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
@@ -454,13 +470,15 @@ export function createWatchCommand(): Command {
  * @param {RuntimeContext} runtimeContext - Runtime context with transpiler and dependency tracker
  * @param {boolean} verbose - Whether verbose logging is enabled
  * @param {boolean} quiet - Whether quiet mode is enabled
+ * @param {number} concurrency - Maximum concurrent file processing operations
  */
 async function performInitialScan(
     dirPath: string,
     extensionMatcher: ExtensionMatcher,
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    concurrency: number
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
@@ -497,18 +515,22 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            await runSequentially(entries, async (entry) => {
+            const filesToProcess: Array<string> = [];
+            const subdirectories: Array<string> = [];
+
+            for (const entry of entries) {
                 const fullPath = path.join(currentPath, entry.name);
 
                 if (entry.isDirectory()) {
-                    await scanDirectory(fullPath);
-                    return;
+                    subdirectories.push(fullPath);
+                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    filesToProcess.push(fullPath);
                 }
+            }
 
-                if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                    await processFile(fullPath);
-                }
-            });
+            await runInParallel(filesToProcess, processFile, { concurrency });
+
+            await runSequentially(subdirectories, scanDirectory);
         } catch (error) {
             if (verbose && !quiet) {
                 const message = getCoreErrorMessage(error, {
@@ -622,6 +644,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         quiet = false,
         debounceDelay = 200,
         maxPatchHistory = 100,
+        scanConcurrency = 8,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
         websocketServer: enableWebSocket = true,
@@ -1058,7 +1081,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 console.log("Scanning existing GML files to build dependency graph...");
             }
 
-            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
+            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet, scanConcurrency)
                 .then(() => {
                     runtimeContext.scanComplete = true;
                     return null;
