@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
+import { findRepoRootSync } from "../../shared/repo-root.js";
+
 const { getErrorMessageOrFallback } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = Core.findRepoRootSync(MODULE_DIRECTORY);
+const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
 
 function resolveRepositoryPath(...segments: Array<string>) {
     return path.resolve(REPO_ROOT, ...segments);
@@ -245,8 +247,8 @@ function buildInjectionSnippet(websocketUrl: string): string {
     return [
         HOT_RELOAD_MARKER_START,
         '<script type="module">',
-        "import { createRuntimeWrapper, installScriptCallAdapter } from \"./.gml-hot-reload/runtime-wrapper/src/runtime/index.js\";",
-        "import { createWebSocketClient } from \"./.gml-hot-reload/runtime-wrapper/src/websocket/index.js\";",
+        'import { createRuntimeWrapper, installScriptCallAdapter } from "./.gml-hot-reload/runtime-wrapper/src/runtime/index.js";',
+        'import { createWebSocketClient } from "./.gml-hot-reload/runtime-wrapper/src/websocket/index.js";',
         "const initializeHotReload = () => {",
         '    console.log("[hot-reload] bootstrap loaded");',
         "    const wrapper = createRuntimeWrapper({",
@@ -264,12 +266,12 @@ function buildInjectionSnippet(websocketUrl: string): string {
         "    });",
         "    (function ensureGetRealDefaults() {",
         "        const globalScope =",
-        '            typeof globalThis !== \"undefined\" ? globalThis : typeof window !== \"undefined\" ? window : null;',
+        '            typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : null;',
         "        if (!globalScope) {",
         "            return;",
         "        }",
         "        const originalGetReal = globalScope.yyGetReal;",
-        "        if (typeof originalGetReal !== \"function\" || originalGetReal.__hotReloadSafe) {",
+        '        if (typeof originalGetReal !== "function" || originalGetReal.__hotReloadSafe) {',
         "            return;",
         "        }",
         "        const safeGetReal = function yyGetRealSafe(value) {",
@@ -292,10 +294,10 @@ function buildInjectionSnippet(websocketUrl: string): string {
         "        initializeHotReload();",
         "    };",
         "})();",
-        "if (document.readyState === \"complete\") {",
+        'if (document.readyState === "complete") {',
         "    ensureHotReloadInitialized();",
         "} else {",
-        "    window.addEventListener(\"load\", ensureHotReloadInitialized, { once: true });",
+        '    window.addEventListener("load", ensureHotReloadInitialized, { once: true });',
         "}",
         "</script>",
         HOT_RELOAD_MARKER_END

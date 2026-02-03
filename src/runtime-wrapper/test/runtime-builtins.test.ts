@@ -8,6 +8,46 @@ import { Core } from "@gml-modules/core";
 const FUNCTION_DECLARATION_PATTERN = /\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
 const FUNCTION_ASSIGNMENT_PATTERN = /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*function\b/g;
 
+/**
+ * Simple helper to find the repository root by walking up from the current
+ * working directory. This mirrors the CLI's findRepoRoot logic but is local
+ * to this test file to avoid circular dependencies between workspaces.
+ *
+ * Note: Intentionally simplified compared to the CLI version - does not validate
+ * file types (AGENTS.md as file, .git as directory) since this is only used for
+ * test setup where the repository structure is known and valid.
+ */
+function findRepoRootForTest(startDir: string): string {
+    let current = path.resolve(startDir);
+    let lastPackageJson: string | null = null;
+
+    while (true) {
+        if (fs.existsSync(path.join(current, "AGENTS.md"))) {
+            return current;
+        }
+
+        if (fs.existsSync(path.join(current, ".git"))) {
+            return current;
+        }
+
+        if (fs.existsSync(path.join(current, "package.json"))) {
+            lastPackageJson = current;
+        }
+
+        const parent = path.dirname(current);
+        if (parent === current) {
+            break;
+        }
+        current = parent;
+    }
+
+    if (lastPackageJson) {
+        return lastPackageJson;
+    }
+
+    throw new Error("Repository root not found");
+}
+
 function collectRuntimeFunctionNames(functionDir: string): Set<string> {
     const names = new Set<string>();
     const entries = fs.readdirSync(functionDir, { withFileTypes: true });
@@ -46,7 +86,7 @@ const EXPECTED_RUNTIME_FUNCTIONS = [
 ];
 
 void test("HTML5 runtime defines core manual builtins used by hot reload", () => {
-    const repoRoot = Core.findRepoRootSync(process.cwd());
+    const repoRoot = findRepoRootForTest(process.cwd());
     const functionDir = path.join(repoRoot, "vendor", "GameMaker-HTML5", "scripts", "functions");
 
     assert.ok(
