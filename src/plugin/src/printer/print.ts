@@ -1652,7 +1652,7 @@ function printBlockStatementNode(node, path, options, print) {
         constructorStartLine !== null &&
         firstStatementStartLine !== null &&
         firstStatementStartLine > constructorStartLine + 1;
-    let shouldPreserveInitialBlankLine = false;
+    let shouldPreserveInitialBlankLine = constructorHasLineGap;
 
     if (firstStatement) {
         const { startIndex: firstStatementStartIndex } = resolveNodeIndexRangeWithSource(
@@ -1672,34 +1672,13 @@ function printBlockStatementNode(node, path, options, print) {
             firstStatementStartIndex
         );
 
-        // Check if the first statement will have a synthetic doc comment.
-        // If so, the doc comment provides visual separation, so we don't need
-        // to preserve a blank line from the original source.
-        let programNode = null;
-        try {
-            for (let depth = 0; ; depth += 1) {
-                const p = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
-                if (!p) break;
-                programNode = p.type === "Program" ? p : programNode;
-            }
-        } catch {
-            // Fallback if getParentNode doesn't support depth parameter
-            programNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
-        }
-        const firstStatementHasSyntheticDoc =
-            getSyntheticDocCommentForStaticVariable(firstStatement, options, programNode, originalText) !== null ||
-            getSyntheticDocCommentForFunctionAssignment(firstStatement, options, programNode, originalText) !== null;
-
         const preserveForConstructorText =
             isConstructor &&
             typeof originalText === STRING_TYPE &&
             typeof node.start === NUMBER_TYPE &&
-            isNextLineEmpty(originalText, node.start) &&
-            !firstStatementHasSyntheticDoc;
+            isNextLineEmpty(originalText, node.start);
 
-        const preserveForInitialSpacing =
-            hasBlankLineAfterOpeningBrace(node, sourceMetadata, firstStatementStartIndex) &&
-            !firstStatementHasSyntheticDoc;
+        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(node, sourceMetadata, firstStatementStartIndex);
 
         // When a decorative block comment (like banner comments) is attached to the
         // first statement, it will be reformatted as a line comment. We need to add
@@ -1715,9 +1694,8 @@ function printBlockStatementNode(node, path, options, print) {
         }
 
         // For constructors, preserve blank lines between header and first statement
-        // unless a synthetic doc comment will provide visual separation
         shouldPreserveInitialBlankLine =
-            (constructorHasLineGap && !firstStatementHasSyntheticDoc) ||
+            shouldPreserveInitialBlankLine ||
             preserveForConstructorText ||
             preserveForLeadingComment ||
             preserveForInitialSpacing;
@@ -2588,16 +2566,11 @@ function buildStatementPartsForPrinter({
         nodeStartIndex
     });
 
-    const isVariableDeclaration = node.type === VARIABLE_DECLARATION;
-    const isStaticDeclaration = isVariableDeclaration && node.kind === "static";
-    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
-
     const syntheticDocRecord = syntheticDocByNode.get(node);
     const syntheticDocComment = syntheticDocRecord?.doc ?? null;
     appendSyntheticDocCommentParts({
         parts,
-        syntheticDocRecord,
-        isFirstStatementInBlock
+        syntheticDocRecord
     });
 
     const textForSemicolons = originalTextCache || "";
@@ -2613,6 +2586,8 @@ function buildStatementPartsForPrinter({
         hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
     }
 
+    const isVariableDeclaration = node.type === VARIABLE_DECLARATION;
+    const isStaticDeclaration = isVariableDeclaration && node.kind === "static";
     const hasFunctionInitializer =
         isVariableDeclaration &&
         Array.isArray(node.declarations) &&
@@ -2621,10 +2596,12 @@ function buildStatementPartsForPrinter({
             return initType === FUNCTION_EXPRESSION || initType === FUNCTION_DECLARATION;
         });
 
+    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
+
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
 
-    if (isFirstStatementInBlock && isStaticDeclaration) {
+    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment) {
         const hasExplicitBlankLineBeforeStatic =
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -2638,7 +2615,7 @@ function buildStatementPartsForPrinter({
         const shouldForceConstructorPadding =
             blockAncestor?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
 
-        if (!syntheticDocComment && (hasExplicitBlankLineBeforeStatic || shouldForceConstructorPadding)) {
+        if (hasExplicitBlankLineBeforeStatic || shouldForceConstructorPadding) {
             parts.push(hardline);
         }
     }
@@ -2752,12 +2729,10 @@ function hasDocCommentTags(docLines: string[] | null | undefined) {
 
 function appendSyntheticDocCommentParts({
     parts,
-    syntheticDocRecord,
-    isFirstStatementInBlock = false
+    syntheticDocRecord
 }: {
     parts: any[];
     syntheticDocRecord: SyntheticDocCommentPayload | undefined;
-    isFirstStatementInBlock?: boolean;
 }) {
     const syntheticPlainLeadingLines = syntheticDocRecord?.plainLeadingLines ?? [];
     const syntheticDocComment = syntheticDocRecord?.doc ?? null;
@@ -2772,12 +2747,6 @@ function appendSyntheticDocCommentParts({
     }
 
     if (shouldPrintDocComment && syntheticDocComment) {
-        // Add a leading hardline before the synthetic doc comment, unless this is
-        // the first statement in a block (in which case the block's own spacing
-        // logic will handle the leading newline).
-        if (!isFirstStatementInBlock) {
-            parts.push(hardline);
-        }
         parts.push(syntheticDocComment, hardline);
     }
 }

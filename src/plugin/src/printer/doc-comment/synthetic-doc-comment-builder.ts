@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
-import { hardline, join } from "../prettier-doc-builders.js";
+import { concat, hardline, join } from "../prettier-doc-builders.js";
 
 type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
 type ComputeSyntheticDocCommentForStaticVariable = typeof Core.computeSyntheticDocCommentForStaticVariable;
@@ -43,7 +43,7 @@ export function buildSyntheticDocCommentDoc(
 
     return {
         ...syntheticDocComment,
-        doc: join(hardline, syntheticDocComment.docLines)
+        doc: concat([hardline, join(hardline, syntheticDocComment.docLines)])
     };
 }
 
