@@ -2793,13 +2793,12 @@ function appendSyntheticDocCommentParts({
 
     if (shouldPrintDocComment && syntheticDocComment) {
         // Always add a leading hardline before the synthetic doc comment to ensure
-        // proper indentation. For first statements in blocks, this is the only
-        // hardline, providing separation from the opening brace. For other statements,
-        // an additional hardline is added above for proper spacing.
+        // proper indentation. For first statements in blocks, the block already
+        // contributes the leading hardline, so avoid inserting an extra blank line.
         if (!isFirstStatementInBlock) {
             parts.push(hardline);
         }
-        parts.push(hardline, syntheticDocComment, hardline);
+        parts.push(syntheticDocComment, hardline);
     }
 }
 
@@ -3089,12 +3088,21 @@ function handleTerminalTrailingSpacing({
             hasExplicitTrailingBlankLine &&
             !shouldCollapseExcessBlankLines
         ) {
-            shouldPreserveTrailingBlankLine = true;
+            if (Core.isNonEmptyArray(node?._syntheticDocLines)) {
+                shouldPreserveTrailingBlankLine = false;
+            }
+            const nextCharacter =
+                originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+            shouldPreserveTrailingBlankLine = isConstructorBlock && nextCharacter !== "}" ? false : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
-            const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
+            if (isConstructorBlock && nextCharacter !== "}") {
+                shouldPreserveTrailingBlankLine = false;
+            } else {
+                const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
 
-            shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
+                shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
+            }
         }
     }
 
