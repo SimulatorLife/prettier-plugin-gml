@@ -12,6 +12,10 @@ const FUNCTION_ASSIGNMENT_PATTERN = /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*function
  * Simple helper to find the repository root by walking up from the current
  * working directory. This mirrors the CLI's findRepoRoot logic but is local
  * to this test file to avoid circular dependencies between workspaces.
+ *
+ * Note: Intentionally simplified compared to the CLI version - does not validate
+ * file types (AGENTS.md as file, .git as directory) since this is only used for
+ * test setup where the repository structure is known and valid.
  */
 function findRepoRootForTest(startDir: string): string {
     let current = path.resolve(startDir);
