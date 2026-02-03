@@ -10,7 +10,6 @@ import {
     ProjectFileCategory,
     resolveProjectFileCategory
 } from "./project-file-categories.js";
-import { runSequentially } from "./sequential-runner.js";
 
 function createProjectTreeRecord(absolutePath, relativePosix) {
     return {
@@ -135,7 +134,7 @@ async function processDirectoryEntries({
     signal
 }) {
     void signal;
-    await runSequentially(entries, async (entry) => {
+    await Core.runSequentially(entries, async (entry) => {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
         const stats = await resolveEntryStats({

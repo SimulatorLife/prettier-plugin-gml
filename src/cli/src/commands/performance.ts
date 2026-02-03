@@ -24,7 +24,6 @@ import {
 } from "../cli-core/command-suite-helpers.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { createCliErrorDetails } from "../cli-core/errors.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
 import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import {
     formatPerformanceSuiteList,
@@ -195,7 +194,7 @@ async function traverseForFixtures(
 
     const orderedEntries = entries.toSorted((a, b) => a.name.localeCompare(b.name));
 
-    await runSequentially(orderedEntries, async (entry) => {
+    await Core.runSequentially(orderedEntries, async (entry) => {
         const resolvedPath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
             await traverseForFixtures(resolvedPath, visitor, pathFilter);
@@ -243,7 +242,7 @@ async function collectFixtureFilePaths(
     const pathFilter = createWorkflowPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
 
-    await runSequentially(directories, (directory) =>
+    await Core.runSequentially(directories, (directory) =>
         traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter)
     );
 
@@ -303,7 +302,7 @@ function createDatasetFromFiles(files) {
  */
 async function loadFixtureFiles(fixturePaths: Array<string>) {
     const records = [];
-    await runSequentially(fixturePaths, async (absolutePath) => {
+    await Core.runSequentially(fixturePaths, async (absolutePath) => {
         records.push(await readFixtureFileRecord(absolutePath));
     });
 
@@ -519,7 +518,7 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
 async function measureSingleIterationDuration({ files, worker, now }) {
     const start = now();
 
-    await runSequentially(files, async (file) => {
+    await Core.runSequentially(files, async (file) => {
         // Await in case callers provide asynchronous worker implementations.
         await worker(file);
     });
@@ -535,7 +534,7 @@ async function measureBenchmarkDurations({ dataset, iterations, worker, now }) {
     const durations = [];
     const iterationsToRun = Array.from({ length: iterations }, (_, index) => index);
 
-    await runSequentially(iterationsToRun, async () => {
+    await Core.runSequentially(iterationsToRun, async () => {
         const duration = await measureSingleIterationDuration({
             files: dataset.files,
             worker,

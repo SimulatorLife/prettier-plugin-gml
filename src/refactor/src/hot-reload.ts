@@ -4,7 +4,8 @@
  * and hot reload update preparation.
  */
 
-import { runSequentially } from "./sequential-runner.js";
+import { Core } from "@gml-modules/core";
+
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type CascadeEntry,
@@ -52,7 +53,7 @@ export async function prepareHotReloadUpdates(
     const grouped = workspace.groupByFile();
     const updatesBySymbol = new Map<string, HotReloadUpdate>();
 
-    await runSequentially(grouped.entries(), async ([filePath, edits]) => {
+    await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
         // Determine which symbols are defined in this file
         let affectedSymbols = [];
 
@@ -206,7 +207,7 @@ export async function computeHotReloadCascade(
             // Query semantic analyzer for symbols that depend on this one
             if (hasMethod(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
-                await runSequentially(dependents, async (dep) => {
+                await Core.runSequentially(dependents, async (dep) => {
                     const depId = dep.symbolId;
 
                     // Track the dependency edge for topological sort
@@ -255,7 +256,7 @@ export async function computeHotReloadCascade(
     };
 
     // Explore from each changed symbol
-    await runSequentially(changedSymbolIds, async (symbolId) => {
+    await Core.runSequentially(changedSymbolIds, async (symbolId) => {
         await exploreDependents(symbolId, 0, "initial change");
     });
 
@@ -591,7 +592,7 @@ export async function generateTranspilerPatches(
 
     const patches: Array<TranspilerPatch> = [];
 
-    await runSequentially(hotReloadUpdates, async (update) => {
+    await Core.runSequentially(hotReloadUpdates, async (update) => {
         // Filter to recompile actions since only script recompilations produce
         // runtime patches that can be hot-reloaded. Asset renames and other
         // non-code changes don't require transpilation or runtime updates.
