@@ -76,6 +76,8 @@ export class ScopeTracker {
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
     private identifierCache: IdentifierCacheManager;
+    private lookupCache: Map<string, ScopeSymbolMetadata | null>;
+    private lookupCacheDepth: number;
 
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
@@ -88,6 +90,8 @@ export class ScopeTracker {
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
         this.identifierCache = new IdentifierCacheManager();
+        this.lookupCache = new Map();
+        this.lookupCacheDepth = -1;
     }
 
     /**
@@ -133,6 +137,12 @@ export class ScopeTracker {
             scopeSet.add(scope.id);
         }
 
+        // Invalidate lookup cache on scope depth change
+        if (this.lookupCacheDepth !== this.scopeStack.length) {
+            this.lookupCache.clear();
+            this.lookupCacheDepth = this.scopeStack.length;
+        }
+
         return scope;
     }
 
@@ -143,6 +153,11 @@ export class ScopeTracker {
         const scope = this.scopeStack.pop();
         if (scope) {
             scope.stackIndex = null;
+        }
+        // Invalidate lookup cache on scope depth change
+        if (this.lookupCacheDepth !== this.scopeStack.length) {
+            this.lookupCache.clear();
+            this.lookupCacheDepth = this.scopeStack.length;
         }
     }
 
@@ -263,6 +278,8 @@ export class ScopeTracker {
             return;
         }
         scope.symbolMetadata.set(name, metadata);
+        // Invalidate cache for this name since a new declaration may shadow previous lookups
+        this.lookupCache.delete(name);
     }
 
     private recordScopeOccurrence(
@@ -309,14 +326,24 @@ export class ScopeTracker {
             return null;
         }
 
+        // Check cache first (cache is invalidated on scope depth changes)
+        const cached = this.lookupCache.get(name);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        // Perform lookup
         for (let i = this.scopeStack.length - 1; i >= 0; i--) {
             const scope = this.scopeStack[i];
             const metadata = scope.symbolMetadata.get(name);
             if (metadata) {
+                this.lookupCache.set(name, metadata);
                 return metadata;
             }
         }
 
+        // Cache miss result
+        this.lookupCache.set(name, null);
         return null;
     }
 
