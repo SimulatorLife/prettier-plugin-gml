@@ -22,7 +22,6 @@ import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
 import { formatCliError } from "../cli-core/errors.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
@@ -497,7 +496,7 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            await runSequentially(entries, async (entry) => {
+            await Core.runSequentially(entries, async (entry) => {
                 const fullPath = path.join(currentPath, entry.name);
 
                 if (entry.isDirectory()) {
@@ -1201,7 +1200,7 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    await runSequentially(entries, async ([filePath, lastModified]) => {
+    await Core.runSequentially(entries, async ([filePath, lastModified]) => {
         try {
             const stats = await stat(filePath);
             if (stats.mtimeMs <= lastModified) {
@@ -1235,7 +1234,7 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    await runSequentially(dependentFiles, async (dependentFile) => {
+    await Core.runSequentially(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {
@@ -1438,7 +1437,7 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-        await runSequentially(entries, async (entry) => {
+        await Core.runSequentially(entries, async (entry) => {
             const candidatePath = path.join(currentPath, entry.name);
             if (entry.isDirectory()) {
                 await scan(candidatePath);
