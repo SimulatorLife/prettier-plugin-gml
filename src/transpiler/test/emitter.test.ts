@@ -268,6 +268,16 @@ void test("Transpiler.emitJavaScript qualifies global identifiers using the glob
     assert.ok(result.includes("global.foo = 1"), "Should qualify global identifier references");
 });
 
+void test("Transpiler.emitJavaScript does not qualify member dot properties as globals", () => {
+    const source = "globalvar foo; obj.foo = 1;";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(result.includes("obj.foo = 1"), "Should emit raw member properties");
+    assert.ok(!result.includes("obj.global.foo"), "Should not qualify member properties as globals");
+});
+
 void test("GmlToJsEmitter allows overriding the globals identifier", () => {
     const source = "globalvar foo; foo = 1;";
     const parser = new Parser.GMLParser(source, {});

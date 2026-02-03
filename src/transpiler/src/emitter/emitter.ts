@@ -341,7 +341,7 @@ export class GmlToJsEmitter {
 
     private visitMemberDotExpression(ast: MemberDotExpressionNode): string {
         const object = this.visit(ast.object);
-        const property = this.visit(ast.property);
+        const property = this.resolveMemberDotProperty(ast.property);
         return `${object}.${property}`;
     }
 
@@ -702,5 +702,12 @@ export class GmlToJsEmitter {
             return member.name;
         }
         return this.visit(member.name);
+    }
+
+    private resolveMemberDotProperty(node: GmlNode): string {
+        if (node.type === "Identifier") {
+            return this.identifierAnalyzer.nameOfIdent(node);
+        }
+        return this.visit(node);
     }
 }
