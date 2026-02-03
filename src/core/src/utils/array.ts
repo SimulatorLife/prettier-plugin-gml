@@ -215,8 +215,17 @@ export function findLastIndex(array, predicate) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const uniqueValues =
-        values !== null && typeof values?.[Symbol.iterator] === "function" ? Array.from(new Set(values)) : [];
+    if (values == null || typeof values?.[Symbol.iterator] !== "function") {
+        return freeze ? Object.freeze([]) : [];
+    }
+
+    // Fast path for common small arrays to avoid constructing a Set.
+    if (Array.isArray(values) && values.length < 2) {
+        const uniqueValues = values.length === 1 ? [values[0]] : [];
+        return freeze ? Object.freeze(uniqueValues) : uniqueValues;
+    }
+
+    const uniqueValues = Array.from(new Set(values));
 
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
