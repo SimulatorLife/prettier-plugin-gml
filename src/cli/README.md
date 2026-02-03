@@ -57,6 +57,7 @@ node src/cli/src/cli.js watch /path/to/project --auto-inject
 - `--quiet` - Suppress non-essential output (only show errors and server URLs); useful for CI/CD or background processes
 - `--debounce-delay <ms>` - Delay in milliseconds before transpiling after file changes (default: 200, set to 0 to disable debouncing)
 - `--max-patch-history <count>` - Maximum number of patches to retain in memory (default: 100)
+- `--scan-concurrency <count>` - Maximum concurrent file processing operations during initial scan (default: 8); increase for faster startup on large projects
 - `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
 - `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
 - `--no-websocket-server` - Disable WebSocket server for patch streaming
