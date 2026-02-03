@@ -221,9 +221,7 @@ export function createWatchStatusCommand(): Command {
 
     command
         .description("Query the running watch command's status server for metrics and diagnostics")
-        .addOption(
-            new Option("--host <host>", "Status server host").default("127.0.0.1", "localhost").env("WATCH_STATUS_HOST")
-        )
+        .addOption(new Option("--host <host>", "Status server host").default("127.0.0.1").env("WATCH_STATUS_HOST"))
         .addOption(
             new Option("--port <port>", "Status server port")
                 .argParser((value) => {

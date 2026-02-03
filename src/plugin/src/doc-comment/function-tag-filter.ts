@@ -1,6 +1,12 @@
 import type { MutableDocCommentLines } from "@gml-modules/core";
 
-const FUNCTION_TAG_PATTERN = /^\s*\/+\s*@(function|func)\b/i;
+const FUNCTION_TAG_PATTERN = /^\s*\/+\s*@(?:function|func)\b/i;
+
+type DocCommentLineMetadata = {
+    _preserveDescriptionBreaks?: boolean;
+    _suppressLeadingBlank?: boolean;
+    _blockCommentDocs?: boolean;
+};
 
 export function isFunctionDocCommentLine(value: unknown): value is string {
     if (typeof value !== "string") {
@@ -27,8 +33,8 @@ export function removeFunctionDocCommentLines(lines: readonly unknown[]): Mutabl
     // Propagate metadata properties from the original array to the filtered one.
     // This ensures that flags like _preserveDescriptionBreaks or _blockCommentDocs
     // are not lost during the filtering process.
-    const original = lines as any;
-    const target = filtered as any;
+    const original = lines as DocCommentLineMetadata;
+    const target = filtered as MutableDocCommentLines & DocCommentLineMetadata;
     if (original._preserveDescriptionBreaks === true) {
         target._preserveDescriptionBreaks = true;
     }

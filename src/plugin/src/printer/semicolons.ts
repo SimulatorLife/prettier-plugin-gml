@@ -21,6 +21,22 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "DeleteStatement"
 ]);
 
+function isAsciiWhitespaceCharacterCode(charCode: number) {
+    switch (charCode) {
+        case 9: // \t
+        case 10: // \n
+        case 11: // vertical tab
+        case 12: // form feed
+        case 13: // \r
+        case 32: {
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
 /**
  * Guard helper for {@link optionalSemicolon} to keep the membership logic
  * centralized. The printer ends up consulting this list in several hot paths,
@@ -65,19 +81,11 @@ export function getNextNonWhitespaceCharacter(text: string | null | undefined, s
     for (let index = startIndex; index < length; index += 1) {
         const characterCode = text.charCodeAt(index);
 
-        switch (characterCode) {
-            case 9: // \t
-            case 10: // \n
-            case 11: // vertical tab
-            case 12: // form feed
-            case 13: // \r
-            case 32: {
-                continue;
-            }
-            default: {
-                return text.charAt(index);
-            }
+        if (isAsciiWhitespaceCharacterCode(characterCode)) {
+            continue;
         }
+
+        return text.charAt(index);
     }
 
     return null;
@@ -120,12 +128,7 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
             continue;
         }
 
-        if (
-            characterCode === 9 || // \t
-            characterCode === 11 || // vertical tab
-            characterCode === 12 || // form feed
-            characterCode === 32 // space
-        ) {
+        if (isAsciiWhitespaceCharacterCode(characterCode)) {
             index += 1;
             continue;
         }
@@ -150,13 +153,11 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
 export function isSkippableSemicolonWhitespace(charCode: number) {
     // Mirrors the range of characters matched by /\s/ without incurring the
     // per-iteration RegExp machinery cost.
+    if (isAsciiWhitespaceCharacterCode(charCode)) {
+        return true;
+    }
+
     switch (charCode) {
-        case 9: // tab
-        case 10: // line feed
-        case 11: // vertical tab
-        case 12: // form feed
-        case 13: // carriage return
-        case 32: // space
         case 160:
         case 0x20_28:
         case 0x20_29: {

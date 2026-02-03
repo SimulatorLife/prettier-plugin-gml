@@ -29,7 +29,7 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals/numeric-literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
 import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
@@ -708,13 +708,8 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
         return createNoOpFixer();
     }
 
-    const implementationFactory = implementationRegistry.get(diagnostic?.id);
+    const implementation = implementationRegistry.get(diagnostic?.id);
 
-    if (typeof implementationFactory !== "function") {
-        return createNoOpFixer();
-    }
-
-    const implementation = implementationFactory(diagnostic);
     if (typeof implementation !== "function") {
         return createNoOpFixer();
     }
@@ -860,54 +855,50 @@ export class ApplyFeatherFixesTransform implements ParserTransform<MutableGameMa
 
 export const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
 
-type FeatherFixFactory = () => (context: any) => any;
+type FeatherFixImplementation = (context: any) => any;
 
-type FeatherFixBuilder = (diagnostic: any) => FeatherFixFactory;
-
-function createFeatherFixFactory(fixer: (context: any) => any): FeatherFixFactory {
-    return () => fixer;
-}
+type FeatherFixBuilder = (diagnostic: any) => FeatherFixImplementation;
 
 const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1000",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = removeBreakStatementsWithoutEnclosingLoops({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1002",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = splitGlobalVarInlineInitializers({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1003",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = sanitizeEnumAssignments({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1005",
         (diagnostic) => {
             const callTemplate = createFunctionCallTemplateFromDiagnostic(diagnostic);
 
-            return createFeatherFixFactory(({ ast }) => {
+            return ({ ast }) => {
                 const fixes = ensureRequiredArgumentProvided({
                     ast,
                     diagnostic,
@@ -915,13 +906,13 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
+            };
         }
     ],
     [
         "GM1004",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast, sourceText }) => {
+            ({ ast, sourceText }) => {
                 const fixes = removeDuplicateEnumMembers({
                     ast,
                     diagnostic,
@@ -929,12 +920,12 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1007",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast, sourceText }) => {
+            ({ ast, sourceText }) => {
                 const fixes = flagInvalidAssignmentTargets({
                     ast,
                     sourceText,
@@ -942,21 +933,21 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2000",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureBlendModeIsReset({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2003",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast, sourceText }) => {
+            ({ ast, sourceText }) => {
                 const fixes = ensureShaderResetIsCalled({
                     ast,
                     diagnostic,
@@ -964,21 +955,21 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2004",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2007",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast, sourceText }) => {
+            ({ ast, sourceText }) => {
                 const fixes = ensureVarDeclarationsAreTerminated({
                     ast,
                     sourceText,
@@ -986,69 +977,69 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2008",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = closeOpenVertexBatches({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1008",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1010",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureNumericOperationsUseRealLiteralCoercion({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1013",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = resolveWithOtherVariableReferences({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2012",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2040",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
                     // Once the identifier-case project index can expose event
                     // ancestry we should query it here instead of trusting the
@@ -1065,102 +1056,102 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2030",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2015",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureVertexFormatDefinitionsAreClosed({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2028",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensurePrimitiveBeginPrecedesEnd({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2025",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1063",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2005",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureSurfaceTargetResetForGM2005({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM1064",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = removeRedeclaredGlobalFunctions({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2011",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2009",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast, options }) => {
+            ({ ast, options }) => {
                 const fixes = ensureVertexBeginPrecedesEnd({
                     ast,
                     diagnostic,
@@ -1168,37 +1159,37 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2043",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
                     ast,
                     diagnostic
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2033",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ],
     [
         "GM2050",
         (diagnostic) =>
-            createFeatherFixFactory(({ ast }) => {
+            ({ ast }) => {
                 const fixes = ensureFogIsReset({ ast, diagnostic });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            })
+            }
     ]
 ]);
 
@@ -1245,22 +1236,18 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1017") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                createFeatherFixFactory(({ ast, sourceText }) => {
-                    const fixes = captureDeprecatedFunctionManualFixes({
-                        ast,
-                        sourceText,
-                        diagnostic
-                    });
+            registerFeatherFixer(registry, diagnosticId, ({ ast, sourceText }) => {
+                const fixes = captureDeprecatedFunctionManualFixes({
+                    ast,
+                    sourceText,
+                    diagnostic
+                });
 
-                    return resolveAutomaticFixes(fixes, {
-                        ast,
-                        diagnostic
-                    });
-                })
-            );
+                return resolveAutomaticFixes(fixes, {
+                    ast,
+                    diagnostic
+                });
+            });
             continue;
         }
 
@@ -1275,22 +1262,18 @@ function registerAutomaticFeatherFix({ registry, diagnostic, handler }) {
         return;
     }
 
-    registerFeatherFixer(
-        registry,
-        diagnostic.id,
-        createFeatherFixFactory((context: any = {}) => {
-            const fixes = handler({ ...context, diagnostic });
+    registerFeatherFixer(registry, diagnostic.id, (context: any = {}) => {
+        const fixes = handler({ ...context, diagnostic });
 
-            // Preserve sourceText when resolving automatic fixes so that
-            // registerManualFeatherFix can attempt to compute concrete fix
-            // details (e.g. ranges for GM1033) when falling back.
-            return resolveAutomaticFixes(fixes, {
-                ast: context.ast,
-                diagnostic,
-                sourceText: context.sourceText
-            });
-        })
-    );
+        // Preserve sourceText when resolving automatic fixes so that
+        // registerManualFeatherFix can attempt to compute concrete fix
+        // details (e.g. ranges for GM1033) when falling back.
+        return resolveAutomaticFixes(fixes, {
+            ast: context.ast,
+            diagnostic,
+            sourceText: context.sourceText
+        });
+    });
 }
 
 function registerManualOnlyFeatherFix({ registry, diagnostic }) {
@@ -1298,16 +1281,12 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
         return;
     }
 
-    registerFeatherFixer(
-        registry,
-        diagnostic.id,
-        createFeatherFixFactory((context: any) =>
-            registerManualFeatherFix({
-                ast: context.ast,
-                diagnostic,
-                sourceText: context.sourceText
-            })
-        )
+    registerFeatherFixer(registry, diagnostic.id, (context: any) =>
+        registerManualFeatherFix({
+            ast: context.ast,
+            diagnostic,
+            sourceText: context.sourceText
+        })
     );
 }
 
@@ -2160,17 +2139,17 @@ function buildFeatherTypeSystemInfo() {
     };
 }
 
-function registerFeatherFixer(registry, diagnosticId, factory) {
+function registerFeatherFixer(registry, diagnosticId, implementation) {
     if (!registry || typeof registry.set !== "function") {
         return;
     }
 
-    if (!diagnosticId || typeof factory !== "function") {
+    if (!diagnosticId || typeof implementation !== "function") {
         return;
     }
 
     if (!registry.has(diagnosticId)) {
-        registry.set(diagnosticId, factory);
+        registry.set(diagnosticId, implementation);
     }
 }
 
