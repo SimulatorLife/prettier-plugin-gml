@@ -3,6 +3,7 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { formatDocLikeLineComment } from "../../comments/index.js";
 import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
 import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
+import { safeGetParentNode } from "../path-utils.js";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
@@ -426,9 +427,9 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
 
     // If node has no comments, check grandparent VariableDeclaration for static methods
     if (nodeComments.length === 0) {
-        const parent = path.getParentNode();
+        const parent = safeGetParentNode(path);
         if (parent && parent.type === "VariableDeclarator") {
-            const grandParent = path.getParentNode(1);
+            const grandParent = safeGetParentNode(path, 1);
             if (grandParent && grandParent.type === "VariableDeclaration") {
                 if (grandParent.comments && grandParent.comments.length > 0) {
                     nodeComments.push(...grandParent.comments);
@@ -606,7 +607,7 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentDocs.shift();
             }
         }
-        const parentNode = path.getParentNode();
+        const parentNode = safeGetParentNode(path);
         if (parentNode && parentNode.type === "BlockStatement" && !needsLeadingBlankLine) {
             needsLeadingBlankLine = true;
         }

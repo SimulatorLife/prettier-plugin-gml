@@ -26,6 +26,7 @@ import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wra
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
+import { safeGetParentNode } from "./path-utils.js";
 import {
     getSyntheticDocCommentForFunctionAssignment,
     getSyntheticDocCommentForStaticVariable,
@@ -453,9 +454,9 @@ function printNodeDocComments(node, path, options) {
     }
 
     let includeOverrideTag = false;
-    const parentNode = path.getParentNode();
+    const parentNode = safeGetParentNode(path);
     if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-        const grandParentNode = path.getParentNode(1);
+        const grandParentNode = safeGetParentNode(path, 1);
         if (
             grandParentNode &&
             grandParentNode.type === VARIABLE_DECLARATION &&
@@ -520,9 +521,9 @@ function markDocCommentsAsPrinted(node, path) {
             comment.printed = true;
         });
     } else {
-        const parentNode = path.getParentNode();
+        const parentNode = safeGetParentNode(path);
         if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-            const grandParentNode = path.getParentNode(1);
+            const grandParentNode = safeGetParentNode(path, 1);
             if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
                     comment.printed = true;
@@ -906,11 +907,11 @@ function printBinaryExpressionNode(node, path, options, print) {
 
     const parts = [left, " ", operator, line, right];
 
-    let parent = path.getParentNode();
+    let parent = safeGetParentNode(path);
     let depth = 0;
     while (parent && parent.type === "ParenthesizedExpression" && parent.synthetic === true) {
         depth++;
-        parent = path.getParentNode(depth);
+        parent = safeGetParentNode(path, depth);
     }
 
     const isChain =
@@ -4040,7 +4041,7 @@ function findEnclosingFunctionNode(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4060,7 +4061,7 @@ function findFunctionParameterContext(path) {
 
     let candidate = path.getValue();
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4301,7 +4302,7 @@ function isInsideConstructorFunction(path) {
     let functionAncestorDepth = null;
 
     for (let depth = 0; ; depth += 1) {
-        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
             break;
         }
@@ -4330,7 +4331,7 @@ function findEnclosingFunctionDeclaration(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4352,7 +4353,7 @@ function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
         return false;
     }
 
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
     if (!parent || parent.type !== "FunctionDeclaration") {
         return false;
     }
@@ -4960,7 +4961,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
 
     let depth = 0;
     while (true) {
-        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
             break;
         }
@@ -5473,7 +5474,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
         return false;
     }
 
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
     if (!parent) return true;
 
     const type = parent.type;
@@ -5651,7 +5652,7 @@ function shouldOmitSyntheticParens(path) {
 
     let depth = 1;
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
         if (!ancestor) {
             return false;
         }
@@ -5673,7 +5674,7 @@ function isControlFlowLogicalTest(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
@@ -5833,7 +5834,7 @@ function isComparisonWithinLogicalChain(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
@@ -6549,7 +6550,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    const parentNode = path.getParentNode();
+    const parentNode = safeGetParentNode(path);
     if (!parentNode || parentNode.type === "Program") {
         return false;
     }
@@ -6815,7 +6816,7 @@ function findEnclosingFunctionForPath(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -7018,7 +7019,7 @@ function isInLValueChain(path) {
     }
 
     const node = path.getValue();
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
 
     if (!parent || typeof parent.type !== STRING_TYPE) {
         return false;
