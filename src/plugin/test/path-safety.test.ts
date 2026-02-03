@@ -3,94 +3,79 @@ import { describe, it } from "node:test";
 
 import type { AstPath } from "prettier";
 
+import { safeGetParentNode } from "../src/printer/path-utils.js";
+
 void describe("Path null safety guards", () => {
-    void it("handles missing getParentNode gracefully in function doc printing", async () => {
-        // Dynamically import to avoid build-time dependency issues
-        const functionDocs = await import("../src/printer/doc-comment/function-docs.js");
-
-        // Create a minimal AST node that would be passed to collectFunctionDocumentation
-        const mockFunctionNode = {
-            type: "FunctionDeclaration",
-            id: { type: "Identifier", name: "testFunction" },
-            params: [],
-            body: {
-                type: "BlockStatement",
-                body: []
-            },
-            comments: []
-        };
-
+    void it("safeGetParentNode returns null when getParentNode is missing", () => {
         // Create a path object WITHOUT getParentNode method
-        // This simulates an edge case or older Prettier version
         const pathWithoutGetParentNode = {
-            getValue: () => mockFunctionNode,
-            parent: null,
-            // Note: getParentNode is missing!
-        } as unknown as AstPath<unknown>;
-
-        // This should not throw "TypeError: path.getParentNode is not a function"
-        // Before fix: would crash
-        // After fix: should handle gracefully
-        assert.doesNotThrow(() => {
-            functionDocs.collectFunctionDocumentation(
-                mockFunctionNode,
-                pathWithoutGetParentNode,
-                {}
-            );
-        });
-    });
-
-    void it("handles missing getParentNode in print function declaration", async () => {
-        const printModule = await import("../src/printer/print.js");
-
-        const mockFunctionNode = {
-            type: "FunctionDeclaration",
-            id: { type: "Identifier", name: "testFunc" },
-            params: [],
-            body: {
-                type: "BlockStatement",
-                body: []
-            },
-            comments: []
-        };
-
-        // Path object missing getParentNode
-        const pathWithoutGetParentNode = {
-            getValue: () => mockFunctionNode,
-            parent: null,
-            call: (fn: unknown) => fn,
-            map: (fn: unknown) => []
-        } as unknown as AstPath<unknown>;
-
-        const options = {
-            originalText: "function testFunc() {}",
-            printWidth: 80
-        };
-
-        const mockPrint = () => [];
-
-        // This should not crash even without getParentNode
-        assert.doesNotThrow(() => {
-            printModule.print(pathWithoutGetParentNode, options, mockPrint);
-        });
-    });
-
-    void it("treats path without getParentNode as having null parent", () => {
-        // The fix should treat missing getParentNode the same as getParentNode() returning null
-        const pathA = {
             getValue: () => ({ type: "ExpressionStatement" }),
             parent: null
-        } as unknown as AstPath<unknown>;
+        } as unknown as AstPath<any>;
 
-        const pathB = {
+        // Should return null instead of throwing
+        const result = safeGetParentNode(pathWithoutGetParentNode);
+        assert.strictEqual(result, null);
+    });
+
+    void it("safeGetParentNode uses path.parent as fallback for level 0", () => {
+        const mockParent = { type: "Program", body: [] };
+
+        const pathWithParent = {
             getValue: () => ({ type: "ExpressionStatement" }),
-            getParentNode: () => null
-        } as unknown as AstPath<unknown>;
+            parent: mockParent
+            // Note: no getParentNode method
+        } as unknown as AstPath<any>;
 
-        // Both should behave the same way - either both work or both fail,
-        // but pathA should never throw "not a function" error
-        // The test passes if no assertion fails (implicit test)
-        assert.ok(pathA);
-        assert.ok(pathB);
+        const result = safeGetParentNode(pathWithParent);
+        assert.strictEqual(result, mockParent);
+    });
+
+    void it("safeGetParentNode delegates to getParentNode when available", () => {
+        const mockParent = { type: "Program", body: [] };
+
+        const pathWithGetParentNode = {
+            getValue: () => ({ type: "ExpressionStatement" }),
+            parent: null,
+            getParentNode: (level: number = 0) => (level === 0 ? mockParent : null)
+        } as unknown as AstPath<any>;
+
+        const result = safeGetParentNode(pathWithGetParentNode);
+        assert.strictEqual(result, mockParent);
+    });
+
+    void it("safeGetParentNode handles level parameter correctly", () => {
+        const mockGrandParent = { type: "Program", body: [] };
+        const mockParent = { type: "BlockStatement", body: [] };
+
+        const pathWithGetParentNode = {
+            getValue: () => ({ type: "ExpressionStatement" }),
+            parent: mockParent,
+            getParentNode: (level: number = 0) => (level === 0 ? mockParent : level === 1 ? mockGrandParent : null)
+        } as unknown as AstPath<any>;
+
+        const parent = safeGetParentNode(pathWithGetParentNode, 0);
+        assert.strictEqual(parent, mockParent);
+
+        const grandParent = safeGetParentNode(pathWithGetParentNode, 1);
+        assert.strictEqual(grandParent, mockGrandParent);
+    });
+
+    void it("safeGetParentNode returns null for level > 0 when getParentNode is missing", () => {
+        const mockParent = { type: "Program", body: [] };
+
+        const pathWithParent = {
+            getValue: () => ({ type: "ExpressionStatement" }),
+            parent: mockParent
+            // Note: no getParentNode method
+        } as unknown as AstPath<any>;
+
+        // Level 0 should use fallback to path.parent
+        const result0 = safeGetParentNode(pathWithParent, 0);
+        assert.strictEqual(result0, mockParent);
+
+        // Level > 0 should return null since getParentNode doesn't exist
+        const result1 = safeGetParentNode(pathWithParent, 1);
+        assert.strictEqual(result1, null);
     });
 });

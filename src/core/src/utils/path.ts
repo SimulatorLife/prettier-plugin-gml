@@ -1,5 +1,3 @@
-import type { AstPath } from "prettier";
-
 /**
  * Safely retrieves the parent node from a Prettier AST path.
  *
@@ -18,14 +16,14 @@ import type { AstPath } from "prettier";
  * }
  * ```
  */
-export function safeGetParentNode(path: AstPath<any>, level: number = 0): any {
+export function safeGetParentNode(path: any, level: number = 0): any {
     // Check if getParentNode exists and is a function
-    if (typeof path.getParentNode === "function") {
+    if (typeof path?.getParentNode === "function") {
         return path.getParentNode(level);
     }
 
     // Fallback: use path.parent for level 0, otherwise return null
-    if (level === 0 && "parent" in path) {
+    if (level === 0 && path && "parent" in path) {
         return path.parent ?? null;
     }
 
