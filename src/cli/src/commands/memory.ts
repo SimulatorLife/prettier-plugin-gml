@@ -25,7 +25,6 @@ import {
     SuiteOutputFormat,
     wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
 import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
 import {
     REPO_ROOT,
@@ -1059,7 +1058,7 @@ async function runPluginFormatSuite({ iterations }) {
 
     const measurement = await tracker.measure(async () => {
         let lastOutput = "";
-        await runSequentially(
+        await Core.runSequentially(
             Array.from({ length: effectiveIterations }, (_, index) => index),
             async () => {
                 lastOutput = await prettier.format(source, formatOptions);

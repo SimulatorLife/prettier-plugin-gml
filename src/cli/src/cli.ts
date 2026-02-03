@@ -37,7 +37,6 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
 import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
-import { runSequentially } from "./cli-core/sequential-runner.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
@@ -910,7 +909,7 @@ async function discardFormattedFileOriginalContents() {
     const snapshots = [...formattedFileOriginalContents.values()];
     formattedFileOriginalContents.clear();
 
-    await runSequentially(snapshots, async (snapshot) => {
+    await Core.runSequentially(snapshots, async (snapshot) => {
         // Release each snapshot in sequence so the shared
         // `revertSnapshotFileCount` accounting stays in sync with the
         // filesystem. `releaseSnapshot` also decides whether the directory can
@@ -1030,7 +1029,7 @@ async function revertFormattedFiles() {
         } due to parser failure.`
     );
 
-    await runSequentially(revertEntries, async ([filePath, snapshot]) => {
+    await Core.runSequentially(revertEntries, async ([filePath, snapshot]) => {
         try {
             const originalContents = await readSnapshotContents(snapshot);
             if (originalContents == null) {
@@ -1160,7 +1159,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 }
 
 async function registerIgnorePaths(ignoreFiles) {
-    await runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
+    await Core.runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
@@ -1504,7 +1503,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
 }
 
 async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
-    await runSequentially(files, async (file) => {
+    await Core.runSequentially(files, async (file) => {
         if (abortRequested) {
             return;
         }
