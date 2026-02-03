@@ -620,7 +620,10 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         pollingInterval = 1000,
         verbose = false,
         quiet = false,
-        debounceDelay = 200,
+        // Optimized for minimal hot-reload latency while still batching rapid successive edits.
+        // 100ms provides immediate feedback for single-file changes while preventing redundant
+        // transpilations during rapid editing (e.g., auto-save + manual save).
+        debounceDelay = 100,
         maxPatchHistory = 100,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
