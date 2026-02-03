@@ -25,7 +25,7 @@ import {
     SuiteOutputFormat,
     wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
-import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
+import { importPluginModule } from "../plugin-runtime/entry-point.js";
 import {
     REPO_ROOT,
     Reporting,
