@@ -67,6 +67,44 @@ void describe("shared package resolution utilities", () => {
         }
     });
 
+    void it("readPackageJson rejects non-string name fields", async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pkg-test-"));
+        const pkgPath = path.join(tmpDir, "package.json");
+
+        try {
+            await fs.writeFile(pkgPath, JSON.stringify({ name: 42 }));
+            await assert.rejects(
+                async () => {
+                    await readPackageJson(pkgPath);
+                },
+                (error) =>
+                    error instanceof TypeError &&
+                    error.message.includes("package.json field 'name' must be a non-empty string")
+            );
+        } finally {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    void it("readPackageJson rejects non-string version fields", async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pkg-test-"));
+        const pkgPath = path.join(tmpDir, "package.json");
+
+        try {
+            await fs.writeFile(pkgPath, JSON.stringify({ name: "test-package", version: "" }));
+            await assert.rejects(
+                async () => {
+                    await readPackageJson(pkgPath);
+                },
+                (error) =>
+                    error instanceof TypeError &&
+                    error.message.includes("package.json field 'version' must be a non-empty string")
+            );
+        } finally {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        }
+    });
+
     void it("resolvePackageJsonPath throws for unknown packages", () => {
         assert.throws(
             () => resolvePackageJsonPath("nonexistent-package-12345", "test"),

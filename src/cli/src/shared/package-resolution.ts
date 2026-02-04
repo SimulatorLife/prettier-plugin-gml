@@ -4,11 +4,52 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const { getErrorMessageOrFallback, isPlainObject } = Core;
+const {
+    describeValueWithArticle,
+    getErrorMessageOrFallback,
+    getNonEmptyTrimmedString,
+    isPlainObject,
+    parseJsonObjectWithContext
+} = Core;
 
 const require = createRequire(import.meta.url);
 
 const isPackageJsonRecord = (value: unknown): value is Record<string, unknown> => isPlainObject(value);
+
+function describePackageJsonValue(value: unknown): string {
+    return describeValueWithArticle(value, { emptyStringLabel: "an empty string" });
+}
+
+function buildPackageJsonObjectErrorMessage(packageJsonPath: string, payload: unknown): string {
+    return `Expected package.json to contain an object at ${packageJsonPath}. Received ${describePackageJsonValue(
+        payload
+    )}.`;
+}
+
+function assertPackageJsonStringField(
+    record: Record<string, unknown>,
+    fieldName: string,
+    packageJsonPath: string
+): void {
+    if (!Object.hasOwn(record, fieldName)) {
+        return;
+    }
+
+    const rawValue = record[fieldName];
+    const normalized = getNonEmptyTrimmedString(rawValue);
+    if (!normalized) {
+        throw new TypeError(
+            `package.json field '${fieldName}' must be a non-empty string at ${packageJsonPath}. ` +
+                `Received ${describePackageJsonValue(rawValue)}.`
+        );
+    }
+}
+
+function validatePackageJsonShape(record: Record<string, unknown>, packageJsonPath: string): Record<string, unknown> {
+    assertPackageJsonStringField(record, "name", packageJsonPath);
+    assertPackageJsonStringField(record, "version", packageJsonPath);
+    return record;
+}
 
 export interface SourceDescriptor {
     root: string;
@@ -34,13 +75,19 @@ export function resolveCandidateRoot(candidateRoot: string | null | undefined): 
  */
 export async function readPackageJson(packageJsonPath: string): Promise<Record<string, unknown>> {
     const contents = await fs.readFile(packageJsonPath, "utf8");
-    const parsed = JSON.parse(contents) as unknown;
+    const parsed = parseJsonObjectWithContext(contents, {
+        source: packageJsonPath,
+        description: "package.json",
+        createAssertOptions: (payload) => ({
+            errorMessage: buildPackageJsonObjectErrorMessage(packageJsonPath, payload)
+        })
+    });
 
     if (!isPackageJsonRecord(parsed)) {
-        throw new TypeError(`Expected package.json to contain an object at ${packageJsonPath}.`);
+        throw new TypeError(buildPackageJsonObjectErrorMessage(packageJsonPath, parsed));
     }
 
-    return parsed;
+    return validatePackageJsonShape(parsed, packageJsonPath);
 }
 
 /**
