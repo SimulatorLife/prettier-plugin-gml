@@ -1,4 +1,4 @@
-import { writeFile as writeFileAsync } from "node:fs/promises";
+import { stat, writeFile as writeFileAsync } from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
@@ -9,6 +9,19 @@ import { ensureDir } from "./ensure-dir.js";
 const { isNonEmptyString, stringifyJsonForFile } = Core;
 
 type WorkflowPathFilter = Parameters<typeof ensureWorkflowPathsAllowed>[0];
+
+/**
+ * Safely attempt to retrieve file statistics, returning `null` if the file
+ * does not exist or any other error occurs. This pattern appears throughout
+ * the CLI when probing for optional paths or checking whether a file exists
+ * before attempting to read or process it.
+ *
+ * @param {string} targetPath Path to the file or directory to stat.
+ * @returns {Promise<import("node:fs").Stats | null>} File stats when the path exists and is accessible, otherwise `null`.
+ */
+export function safeStatOrNull(targetPath: string): Promise<Awaited<ReturnType<typeof stat>> | null> {
+    return stat(targetPath).catch(() => null);
+}
 
 export interface FileArtifactWriteDetails {
     outputPath: string;
