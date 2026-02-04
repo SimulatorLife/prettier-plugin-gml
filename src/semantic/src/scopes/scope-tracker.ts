@@ -433,31 +433,77 @@ export class ScopeTracker {
         const results: ScopeOccurrencesSummary[] = [];
 
         for (const scope of this.scopesById.values()) {
-            const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
+            const summary = this.buildScopeOccurrencesSummary(scope, includeRefs);
+            if (summary) {
+                results.push(summary);
+            }
+        }
 
-            for (const [name, entry] of scope.occurrences) {
-                const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
-                const references = includeRefs ? entry.references.map((occurrence) => cloneOccurrence(occurrence)) : [];
+        return results;
+    }
 
-                if (declarations.length === 0 && references.length === 0) {
-                    continue;
-                }
+    /**
+     * Builds a scope occurrences summary for a single scope.
+     * Returns null if the scope has no identifiers with occurrences.
+     */
+    private buildScopeOccurrencesSummary(scope: Scope, includeReferences: boolean): ScopeOccurrencesSummary | null {
+        const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
 
-                identifiers.push({
-                    name,
-                    declarations,
-                    references
-                });
+        for (const [name, entry] of scope.occurrences) {
+            const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+            const references = includeReferences
+                ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
+                : [];
+
+            if (declarations.length === 0 && references.length === 0) {
+                continue;
             }
 
-            if (identifiers.length > 0) {
-                results.push({
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    lastModified: scope.lastModifiedTimestamp,
-                    modificationCount: scope.modificationCount,
-                    identifiers
-                });
+            identifiers.push({
+                name,
+                declarations,
+                references
+            });
+        }
+
+        if (identifiers.length === 0) {
+            return null;
+        }
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            lastModified: scope.lastModifiedTimestamp,
+            modificationCount: scope.modificationCount,
+            identifiers
+        };
+    }
+
+    /**
+     * Exports occurrences only for scopes modified after the given timestamp.
+     * This is optimized for hot reload scenarios where only a subset of files
+     * have changed, avoiding expensive cloning of unchanged scopes.
+     *
+     * @param sinceTimestamp - Only export scopes modified after this timestamp
+     * @param includeReferences - Whether to include reference occurrences
+     * @returns Array of scope occurrence summaries for modified scopes only
+     */
+    public exportModifiedOccurrences(
+        sinceTimestamp: number,
+        includeReferences: boolean | { includeReferences?: boolean } = true
+    ): ScopeOccurrencesSummary[] {
+        const includeRefs =
+            typeof includeReferences === "boolean" ? includeReferences : Boolean(includeReferences?.includeReferences);
+        const results: ScopeOccurrencesSummary[] = [];
+
+        for (const scope of this.scopesById.values()) {
+            if (scope.lastModifiedTimestamp <= sinceTimestamp) {
+                continue;
+            }
+
+            const summary = this.buildScopeOccurrencesSummary(scope, includeRefs);
+            if (summary) {
+                results.push(summary);
             }
         }
 
