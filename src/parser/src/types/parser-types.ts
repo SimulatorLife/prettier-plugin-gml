@@ -125,36 +125,126 @@ export type ScopeTrackerOptions = {
     [key: string]: unknown;
 };
 
-export interface ParserOptions {
-    getComments: boolean; // We already have a 'transform' to omit comments, is this needed?
-    getLocations: boolean;
-    simplifyLocations: boolean;
-    scopeTrackerOptions?: ScopeTrackerOptions; // Also handles identifier metadata
+/**
+ * Comment extraction options.
+ *
+ * Controls whether the parser should extract and attach comment nodes
+ * to the AST. Consumers that only need structural parsing without
+ * comments can disable this to reduce memory and processing overhead.
+ */
+export interface CommentProcessingOptions {
+    /**
+     * Whether to extract and attach comments to the AST.
+     *
+     * When true, the parser collects all comments and makes them
+     * available via the `comments` property of the parse result.
+     *
+     * @default true
+     */
+    getComments: boolean;
+}
 
-    // The `astFormat` field controls the structural representation of the parsed AST
-    // and is used by Prettier's plugin dispatch logic to route documents to the
-    // correct parser/printer pair. Currently recognized values:
-    //   - "gml" → The canonical GML AST format consumed by this plugin's printer.
-    //             This is the production format used for all formatting operations.
-    //   - "json" (experimental/internal) → May trigger serialization of the AST
-    //             to a plain JSON-compatible structure for debugging or external
-    //             tooling integration, though this path is rarely exercised.
-    //
-    // The `asJSON` boolean below controls whether the parser should strip internal
-    // properties (like parent references or non-enumerable metadata) to produce a
-    // JSON-serializable output. In principle, `astFormat: "json"` and `asJSON: true`
-    // are related but serve different layers: `astFormat` signals intent to Prettier's
-    // routing, while `asJSON` alters the AST construction itself. In practice, these
-    // fields are largely independent—`asJSON` can be set regardless of `astFormat`.
-    //
-    // GUIDANCE: Production code should always use `astFormat: "gml"` and leave
-    // `asJSON: false` (the default). Setting `asJSON: true` is primarily useful for
-    // diagnostic output or tooling that requires a JSON snapshot of the parse tree
-    // without internal metadata clutter. Changing `astFormat` to anything other than
-    // "gml" is unsupported and may cause the printer to fail or produce incorrect output.
+/**
+ * Location metadata options.
+ *
+ * Controls how the parser tracks and reports source location information
+ * for AST nodes. Consumers can disable location tracking entirely or
+ * choose between verbose and compact location formats.
+ */
+export interface LocationMetadataOptions {
+    /**
+     * Whether to include location metadata in AST nodes.
+     *
+     * When false, all location properties are stripped from nodes,
+     * reducing memory usage for tools that don't need source positions.
+     *
+     * @default true
+     */
+    getLocations: boolean;
+
+    /**
+     * Whether to use simplified location format.
+     *
+     * When true and getLocations is true, locations use a compact
+     * format with start/end offsets. When false, locations include
+     * full line/column information.
+     *
+     * Only applies when getLocations is true.
+     *
+     * @default true
+     */
+    simplifyLocations: boolean;
+}
+
+/**
+ * Scope tracking configuration.
+ *
+ * Controls whether the parser should perform semantic scope analysis
+ * during parsing to track variable declarations, references, and
+ * identifier roles. Used primarily for advanced semantic analysis.
+ */
+export interface ScopeTrackingOptions {
+    /**
+     * Scope tracker configuration.
+     *
+     * When provided, enables scope tracking with the specified options.
+     * When undefined or with enabled:false, scope tracking is disabled.
+     *
+     * @default { enabled: false, getIdentifierMetadata: false }
+     */
+    scopeTrackerOptions?: ScopeTrackerOptions;
+}
+
+/**
+ * Output format options.
+ *
+ * Controls the structural representation and serialization format
+ * of the parsed AST. Used primarily by Prettier's plugin dispatch
+ * and for debugging/tooling integration.
+ */
+export interface OutputFormatOptions {
+    /**
+     * The target AST format for the parse output.
+     *
+     * - "gml" (default): The canonical GML AST format consumed by
+     *   the plugin's printer. This is the production format.
+     * - "json" (experimental): May trigger serialization to a
+     *   JSON-compatible structure for debugging or external tools.
+     *
+     * Changing from "gml" may cause the printer to fail.
+     *
+     * @default "gml"
+     */
     astFormat: string;
+
+    /**
+     * Whether to strip internal properties for JSON serialization.
+     *
+     * When true, removes parent references and non-enumerable metadata
+     * to produce a JSON-serializable output. Primarily useful for
+     * diagnostic output or tooling integration.
+     *
+     * Independent of astFormat and can be set regardless of it.
+     *
+     * @default false
+     */
     asJSON: boolean;
 }
+
+/**
+ * Complete parser options interface.
+ *
+ * Combines all role-focused option interfaces for consumers that need
+ * full parser configuration capabilities. Consumers should prefer depending
+ * on the minimal interface they need (CommentProcessingOptions,
+ * LocationMetadataOptions, etc.) rather than this composite interface
+ * when possible.
+ */
+export interface ParserOptions
+    extends CommentProcessingOptions,
+        LocationMetadataOptions,
+        ScopeTrackingOptions,
+        OutputFormatOptions {}
 
 const DEFAULT_SCOPE_TRACKER_OPTIONS: ScopeTrackerOptions = Object.freeze({
     enabled: false,
