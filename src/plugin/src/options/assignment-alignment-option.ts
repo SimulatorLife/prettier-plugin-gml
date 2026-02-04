@@ -6,8 +6,6 @@
  * definition and the alignment implementation without creating circular dependencies.
  */
 
-
-
 /**
  * Default minimum number of consecutive simple assignments required before
  * the formatter aligns their '=' operators.
@@ -15,6 +13,4 @@
  * This value is used as the default for the `alignAssignmentsMinGroupSize` option
  * and as a fallback when the option is not specified.
  */
-
-
-export {DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE} from "../constants.js";
+export { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../constants.js";
