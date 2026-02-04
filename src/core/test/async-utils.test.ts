@@ -124,17 +124,18 @@ void test("runInParallel works with iterables", async () => {
 void test("runInParallel is faster than sequential for slow operations", async () => {
     const delayMs = 50;
     const count = 5;
+    const delays = Array.from({ length: count }, () => delayMs);
 
     // Time parallel execution
     const parallelStart = Date.now();
-    await runInParallel(Array.from({ length: count }).fill(delayMs), async (delay: number) => {
+    await runInParallel(delays, async (delay) => {
         await new Promise((resolve) => setTimeout(resolve, delay));
     });
     const parallelDuration = Date.now() - parallelStart;
 
     // Time sequential execution
     const sequentialStart = Date.now();
-    await runSequentially(Array.from({ length: count }).fill(delayMs), async (delay: number) => {
+    await runSequentially(delays, async (delay) => {
         await new Promise((resolve) => setTimeout(resolve, delay));
     });
     const sequentialDuration = Date.now() - sequentialStart;
