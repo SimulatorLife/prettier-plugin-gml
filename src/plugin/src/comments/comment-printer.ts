@@ -1270,7 +1270,8 @@ function formatDecorativeBlockComment(comment) {
             return null;
         }
 
-        const textLines = lines.map((line) => line.trim()).filter((line) => line.length > 0);
+        // Use significantLines for consistency with decorative comment handling
+        const textLines = significantLines.map((line) => line.trim());
         if (textLines.length === 0) {
             return null;
         }
