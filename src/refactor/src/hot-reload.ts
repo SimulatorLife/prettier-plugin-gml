@@ -207,7 +207,15 @@ export async function computeHotReloadCascade(
             // Query semantic analyzer for symbols that depend on this one
             if (hasMethod(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
-                await Core.runSequentially(dependents, async (dep) => {
+
+                // Process dependents in parallel since they don't interfere with each other.
+                // Each dependent gets explored independently, and we track their results
+                // to aggregate any discovered cycles. This significantly improves cascade
+                // computation performance when symbols have many dependents, which is
+                // common in large projects with shared utility functions or core types.
+                // The DFS cycle-detection invariants remain intact because the visiting
+                // set is shared and synchronously checked before recursive exploration.
+                await Core.runInParallel(dependents, async (dep) => {
                     const depId = dep.symbolId;
 
                     // Track the dependency edge for topological sort

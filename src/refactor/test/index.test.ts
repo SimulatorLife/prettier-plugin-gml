@@ -2137,6 +2137,63 @@ void test("computeHotReloadCascade works without semantic analyzer", async () =>
     assert.equal(result.cascade[0].distance, 0);
 });
 
+void test("computeHotReloadCascade handles wide dependency graphs with parallel processing", async () => {
+    // Test that parallel processing of dependents maintains correctness
+    // when a symbol has many dependents (e.g., a utility function used everywhere).
+    const mockSemantic = {
+        getDependents: async (symbolIds) => {
+            const id = symbolIds[0];
+            // Core utility has 10 dependents that can be processed in parallel
+            if (id === "gml/script/scr_util") {
+                return Array.from({ length: 10 }, (_, i) => ({
+                    symbolId: `gml/script/scr_consumer_${i}`,
+                    filePath: `consumers/consumer_${i}.gml`
+                }));
+            }
+            // Each consumer has its own dependent
+            if (id.startsWith("gml/script/scr_consumer_")) {
+                const index = id.split("_").pop();
+                return [
+                    {
+                        symbolId: `gml/script/scr_leaf_${index}`,
+                        filePath: `leaves/leaf_${index}.gml`
+                    }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_util"]);
+
+    // Should include util + 10 consumers + 10 leaves = 21 symbols
+    assert.equal(result.cascade.length, 21);
+
+    // Verify all consumers are at distance 1
+    for (let i = 0; i < 10; i++) {
+        const consumer = result.cascade.find((c) => c.symbolId === `gml/script/scr_consumer_${i}`);
+        assert.ok(consumer, `Consumer ${i} should be in cascade`);
+        assert.equal(consumer.distance, 1);
+    }
+
+    // Verify all leaves are at distance 2
+    for (let i = 0; i < 10; i++) {
+        const leaf = result.cascade.find((c) => c.symbolId === `gml/script/scr_leaf_${i}`);
+        assert.ok(leaf, `Leaf ${i} should be in cascade`);
+        assert.equal(leaf.distance, 2);
+    }
+
+    // Verify topological order: util before consumers before leaves
+    const posUtil = result.order.indexOf("gml/script/scr_util");
+    for (let i = 0; i < 10; i++) {
+        const posConsumer = result.order.indexOf(`gml/script/scr_consumer_${i}`);
+        const posLeaf = result.order.indexOf(`gml/script/scr_leaf_${i}`);
+        assert.ok(posUtil < posConsumer, `Util should come before consumer ${i}`);
+        assert.ok(posConsumer < posLeaf, `Consumer ${i} should come before leaf ${i}`);
+    }
+});
+
 // === checkHotReloadSafety tests ===
 
 void test("checkHotReloadSafety rejects missing symbolId", async () => {
