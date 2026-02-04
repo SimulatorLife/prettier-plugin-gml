@@ -7,7 +7,6 @@ import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 // importing them directly, establishing a proper dependency inversion boundary.
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
-import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
 
 /**
@@ -42,12 +41,6 @@ export function createDefaultGmlPluginComponentImplementations(
     });
 }
 
-export function createDefaultGmlPluginComponentDependencies(
-    implementations: GmlPluginComponentContract
-): GmlPluginComponentContract {
-    return selectPluginComponentContractEntries(implementations);
-}
-
 const gmlPluginComponentImplementations = Object.freeze(
     createDefaultGmlPluginComponentImplementations({
         gmlParserAdapter,
@@ -57,9 +50,7 @@ const gmlPluginComponentImplementations = Object.freeze(
     })
 );
 
-const gmlPluginComponentDependencies = Object.freeze(
-    createDefaultGmlPluginComponentDependencies(gmlPluginComponentImplementations)
-);
+const gmlPluginComponentDependencies = gmlPluginComponentImplementations;
 
 export { gmlPluginComponentDependencies, gmlPluginComponentImplementations };
 
