@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { FSWatcher, PathLike, WatchListener, WatchOptions } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -24,4 +25,84 @@ export async function createWatchTestFixture(): Promise<WatchTestFixture> {
 
 export async function disposeWatchTestFixture(dir: string): Promise<void> {
     await rm(dir, { recursive: true, force: true });
+}
+
+export function createMockWatchFactory(listenerCapture?: {
+    listener: WatchListener<string> | undefined;
+}): (
+    path: PathLike,
+    options?: WatchOptions | BufferEncoding | "buffer",
+    listener?: WatchListener<string>
+) => FSWatcher {
+    return (
+        _path: PathLike,
+        _options?: WatchOptions | BufferEncoding | "buffer",
+        listener?: WatchListener<string>
+    ): FSWatcher => {
+        void _path;
+        void _options;
+
+        if (listenerCapture) {
+            listenerCapture.listener = listener;
+        }
+
+        const watcher: FSWatcher = {
+            close() {
+                return undefined;
+            },
+            ref() {
+                return this;
+            },
+            unref() {
+                return this;
+            },
+            addListener() {
+                return this;
+            },
+            on() {
+                return this;
+            },
+            once() {
+                return this;
+            },
+            removeListener() {
+                return this;
+            },
+            off() {
+                return this;
+            },
+            removeAllListeners() {
+                return this;
+            },
+            setMaxListeners() {
+                return this;
+            },
+            getMaxListeners() {
+                return 0;
+            },
+            listeners() {
+                return [];
+            },
+            rawListeners() {
+                return [];
+            },
+            emit() {
+                return false;
+            },
+            listenerCount() {
+                return 0;
+            },
+            prependListener() {
+                return this;
+            },
+            prependOnceListener() {
+                return this;
+            },
+            eventNames() {
+                return [];
+            }
+        };
+
+        return watcher;
+    };
 }
