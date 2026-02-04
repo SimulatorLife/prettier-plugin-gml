@@ -208,7 +208,7 @@ nvm alias default node
    glob. Pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible CI
    builds. The Git dependency ships the same packages as the workspace, so the
    formatter entry point lives at `node_modules/root/src/plugin/src/plugin-entry.js` and
-   the CLI wrapper at `node_modules/root/src/cli/src/cli.js`.
+   the CLI wrapper at `node_modules/root/src/cli/dist/index.js`.
 
    ```jsonc
    {
@@ -224,7 +224,7 @@ nvm alias default node
    ```jsonc
    {
      "scripts": {
-       "format:gml": "node ./node_modules/root/src/cli/src/cli.js"
+       "format:gml": "node ./node_modules/root/src/cli/dist/index.js"
      }
    }
    ```
@@ -248,7 +248,7 @@ nvm alias default node
    pnpm run format:gml -- --path . --extensions=.gml --extensions=.yy
 
    # Direct access to the bundled CLI (Git installs)
-   node ./node_modules/root/src/cli/src/cli.js --help
+   node ./node_modules/root/src/cli/dist/index.js --help
 
    # Direct access to Prettier (pnpm installs)
    pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
@@ -360,7 +360,7 @@ single-line confirmation.
 
 ```bash
 pnpm run format:gml -- --extensions .gml --extensions .yy
-node ./node_modules/root/src/cli/src/cli.js --help
+node ./node_modules/root/src/cli/dist/index.js --help
 pnpm run cli -- --help
 ```
 
@@ -386,7 +386,7 @@ points while sharing utilities via the `src/shared/src/` module.
 | --- | --- | --- |
 | `@gml-module/plugin` | `src/plugin/` | Prettier plugin entry point, printers, option handlers, CLI surface helpers, and regression fixtures. |
 | `@gml-module/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `@gml-module/cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
+| `@gml-module/cli` | `src/cli/` | Command-line interface (`dist/index.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
 | `@gml-module/semantic` | `src/semantic/` | Semantic layer for tracking variable scope, project-index orchestration. |
 | `@gml-module/core` | `src/core/` | Helper modules shared by the other packages/workspaces (AST utilities, string utilities, etc.). |
 | `@gml-module/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |

@@ -8,7 +8,6 @@ import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } 
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
-import convertToESTree from "./utils/estree-converter.js";
 import { validateSourceText } from "./utils/input-validation.js";
 
 const PredictionMode =
@@ -276,7 +275,7 @@ export class GMLParser {
         }
 
         if (shouldConvertToESTree) {
-            astTree = convertToESTree(astTree, {
+            astTree = Core.convertToESTree(astTree, {
                 includeLocations: this.options.getLocations,
                 includeRange: this.options.getLocations && this.options.simplifyLocations,
                 includeComments: this.options.getComments

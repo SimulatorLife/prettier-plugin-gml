@@ -250,6 +250,40 @@ tracker, making per-file queries cheaper during hot reload. The response also
 includes modification timestamps and counters so hot reload pipelines can
 detect freshness without issuing separate metadata lookups.
 
+### `exportModifiedOccurrences(sinceTimestamp, options)`
+
+Export declaration and reference metadata only for scopes modified after a given timestamp. This is optimized for hot reload scenarios where only a subset of files have changed, avoiding expensive cloning of unchanged scopes.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references across multiple scopes ...
+
+// Capture checkpoint before changes
+const checkpoint = Date.now();
+
+// ... modify some scopes (e.g., from file edits) ...
+
+// Export only the scopes modified after checkpoint
+const modified = tracker.exportModifiedOccurrences(checkpoint, {
+    includeReferences: true
+});
+// Returns: [
+//   {
+//     scopeId: "scope-5",
+//     scopeKind: "function",
+//     lastModified: 1703123460000,
+//     modificationCount: 3,
+//     identifiers: [
+//       { name: "updatedVar", declarations: [...], references: [...] }
+//     ]
+//   }
+// ]
+```
+
+**Use case:** During hot reload, export only the scopes that changed since the last build or checkpoint. This dramatically reduces the data volume and processing time compared to exporting all scopes, especially in large projects. The method is particularly effective when combined with file watchers that can track which scopes correspond to edited files.
+
+**Performance:** In a project with 100 scopes where only 2 have changed, this method processes and clones data for only the 2 modified scopes instead of all 100, reducing memory allocations and CPU time by ~98%. Each scope's modification timestamp is checked in O(1) time, making the scan itself very efficient.
+
 ### `getSymbolOccurrences(name)`
 
 Find all occurrences (declarations and references) of a specific symbol across all scopes. Returns an array of occurrence records with scope context.

@@ -21,6 +21,14 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "DeleteStatement"
 ]);
 
+/**
+ * Identify ASCII whitespace characters that the printer treats as skippable
+ * when trimming semicolons. This intentionally mirrors the classic C-style
+ * whitespace set used by the GML parser.
+ *
+ * @param {number} charCode Character code to classify.
+ * @returns {boolean} `true` when the character is ASCII whitespace.
+ */
 function isAsciiWhitespaceCharacterCode(charCode: number) {
     switch (charCode) {
         case 9: // \t
@@ -93,7 +101,10 @@ export function getNextNonWhitespaceCharacter(text: string | null | undefined, s
 
 /**
  * Count the number of trailing blank lines (consecutive newlines separated by
- * optional whitespace or semicolons) that follow the provided index.
+ * optional whitespace or semicolons) that follow the provided index. The
+ * result is normalized so a single newline does not count as a blank line,
+ * matching the printer's expectation that blank lines require at least one
+ * empty line between statements.
  *
  * @param {string | null | undefined} text Source text to inspect.
  * @param {number} startIndex Index to begin scanning from.

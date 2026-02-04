@@ -335,32 +335,47 @@ export class GmlToJsEmitter {
 
     private visitMemberIndexExpression(ast: MemberIndexExpressionNode): string {
         const object = this.visit(ast.object);
-        const indices = (ast.property ?? []).map((prop) => `[${this.visit(prop)}]`).join("");
-        return `${object}${indices}`;
+        const props = ast.property ?? [];
+        // Fast path: single index access (most common case)
+        if (props.length === 1) {
+            return `${object}[${this.visit(props[0])}]`;
+        }
+        // Fast path: empty indices
+        if (props.length === 0) {
+            return object;
+        }
+        // Multiple indices: build string efficiently
+        let result = object;
+        for (const prop of props) {
+            result += `[${this.visit(prop)}]`;
+        }
+        return result;
     }
 
     private visitMemberDotExpression(ast: MemberDotExpressionNode): string {
         const object = this.visit(ast.object);
-        const property = this.visit(ast.property);
+        const property = this.resolveMemberDotProperty(ast.property);
         return `${object}.${property}`;
     }
 
     private visitCallExpression(ast: CallExpressionNode): string {
-        const callee = this.visit(ast.object);
-        const args = ast.arguments.map((arg) => this.visit(arg));
         const kind = this.callTargetAnalyzer.callTargetKind(ast);
 
+        // Fast path: builtin functions
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
             if (builtinName && isBuiltinFunction(builtinName)) {
+                const args = ast.arguments.map((arg) => this.visit(arg));
                 return emitBuiltinFunction(builtinName, args);
             }
         }
 
+        const callee = this.visit(ast.object);
+        const args = ast.arguments.map((arg) => this.visit(arg));
+
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
-            const fallbackName = this.resolveIdentifierName(ast.object) ?? callee;
-            const scriptId = scriptSymbol ?? fallbackName;
+            const scriptId = scriptSymbol ?? this.resolveIdentifierName(ast.object) ?? callee;
             const argsList = args.join(", ");
             return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
         }
@@ -375,12 +390,40 @@ export class GmlToJsEmitter {
     }
 
     private visitProgram(ast: ProgramNode): string {
-        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
+        const stmts = ast.body ?? [];
+        if (stmts.length === 0) {
+            return "";
+        }
+        // Fast path: single statement
+        if (stmts.length === 1) {
+            const code = this.emit(stmts[0]);
+            return code ? this.ensureStatementTermination(code) : "";
+        }
+        // Multiple statements: build efficiently
+        const parts: string[] = [];
+        for (const stmt of stmts) {
+            const code = this.emit(stmt);
+            if (code) {
+                parts.push(this.ensureStatementTermination(code));
+            }
+        }
+        return parts.join("\n");
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
-        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
-        return `{\n${body}\n}`;
+        const stmts = ast.body ?? [];
+        if (stmts.length === 0) {
+            return "{\n}";
+        }
+        // Build block body efficiently
+        const parts: string[] = [];
+        for (const stmt of stmts) {
+            const code = this.emit(stmt);
+            if (code) {
+                parts.push(this.ensureStatementTermination(code));
+            }
+        }
+        return `{\n${parts.join("\n")}\n}`;
     }
 
     private visitIfStatement(ast: IfStatementNode): string {
@@ -470,40 +513,50 @@ export class GmlToJsEmitter {
 
     private visitSwitchStatement(ast: SwitchStatementNode): string {
         const discriminant = wrapConditional(ast.discriminant, this.visitNode);
-        const cases = (ast.cases ?? [])
-            .map((caseNode) => {
-                const header = caseNode.test === null ? "default:" : `case ${this.visit(caseNode.test)}:`;
-                const body = this.joinTruthy(
-                    (caseNode.body ?? []).map((stmt) => {
-                        const code = this.visit(stmt);
-                        if (!code) {
-                            return code;
-                        }
-                        // Use the standard termination policy for all statements
-                        return this.ensureStatementTermination(code);
-                    })
-                );
+        const caseNodes = ast.cases ?? [];
+        if (caseNodes.length === 0) {
+            return `switch ${discriminant} {\n}`;
+        }
+
+        // Build cases efficiently
+        const caseParts: string[] = [];
+        for (const caseNode of caseNodes) {
+            const header = caseNode.test === null ? "default:" : `case ${this.visit(caseNode.test)}:`;
+            const stmts = caseNode.body ?? [];
+
+            if (stmts.length === 0) {
                 // Skip empty case bodies (fall-through cases). In GML and JavaScript,
                 // when a case has no body, execution falls through to the next case label.
                 // We don't emit any code for these empty cases—just the case header—so
                 // that the transpiled JavaScript preserves the same fall-through semantics.
-                // Attempting to emit a body for an empty case would either produce invalid
-                // syntax (empty block) or break fall-through behavior by inserting an
-                // unintended break statement, causing runtime behavior to diverge from
-                // the original GML logic.
-                if (!body) {
-                    return header;
+                caseParts.push(header);
+                continue;
+            }
+
+            // Process statements for this case
+            const bodyParts: string[] = [];
+            for (const stmt of stmts) {
+                const code = this.visit(stmt);
+                if (code) {
+                    bodyParts.push(this.ensureStatementTermination(code));
                 }
-                return `${header}\n${body}`;
-            })
-            .join("\n");
-        return `switch ${discriminant} {\n${cases}\n}`;
+            }
+
+            if (bodyParts.length === 0) {
+                caseParts.push(header);
+            } else {
+                caseParts.push(`${header}\n${bodyParts.join("\n")}`);
+            }
+        }
+
+        return `switch ${discriminant} {\n${caseParts.join("\n")}\n}`;
     }
 
     private visitGlobalVarStatement(ast: GlobalVarStatementNode): string {
         if (!ast.declarations || ast.declarations.length === 0) {
             return "";
         }
+        const globalsIdent = this.options.globalsIdent;
         return this.joinTruthy(
             ast.declarations.map((decl) => {
                 const identifier = this.resolveIdentifierName(decl.id);
@@ -511,22 +564,32 @@ export class GmlToJsEmitter {
                     return "";
                 }
                 this.globalVars.add(identifier);
-                return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
+                return `if (!Object.prototype.hasOwnProperty.call(${globalsIdent}, "${identifier}")) { ${globalsIdent}.${identifier} = undefined; }`;
             })
         );
     }
 
     private visitVariableDeclaration(ast: VariableDeclarationNode): string {
-        const declarations = ast.declarations
-            .map((decl) => {
-                let result = this.visit(decl.id);
-                if (decl.init) {
-                    result += ` = ${this.visit(decl.init)}`;
-                }
-                return result;
-            })
-            .join(", ");
-        return `${ast.kind} ${declarations}`;
+        const decls = ast.declarations;
+        // Fast path: single declaration
+        if (decls.length === 1) {
+            const decl = decls[0];
+            let result = this.visit(decl.id);
+            if (decl.init) {
+                result += ` = ${this.visit(decl.init)}`;
+            }
+            return `${ast.kind} ${result}`;
+        }
+        // Multiple declarations: pre-allocate array
+        const parts: string[] = Array.from({length: decls.length});
+        for (const [i, decl] of decls.entries()) {
+            let part = this.visit(decl.id);
+            if (decl.init) {
+                part += ` = ${this.visit(decl.init)}`;
+            }
+            parts[i] = part;
+        }
+        return `${ast.kind} ${parts.join(", ")}`;
     }
 
     private visitVariableDeclarator(ast: VariableDeclaratorNode): string {
@@ -545,24 +608,38 @@ export class GmlToJsEmitter {
     }
 
     private visitArrayExpression(ast: ArrayExpressionNode): string {
-        if (!ast.elements || ast.elements.length === 0) {
+        const elements = ast.elements;
+        if (!elements || elements.length === 0) {
             return "[]";
         }
-        const elements = ast.elements.map((el) => this.visit(el)).join(", ");
-        return `[${elements}]`;
+        // Fast path: single element
+        if (elements.length === 1) {
+            return `[${this.visit(elements[0])}]`;
+        }
+        // Multiple elements: use join for efficiency
+        const visited = elements.map((el) => this.visit(el));
+        return `[${visited.join(", ")}]`;
     }
 
     private visitTemplateStringExpression(ast: TemplateStringExpressionNode): string {
-        const parts = (ast.atoms ?? []).map((atom) => {
+        const atoms = ast.atoms ?? [];
+        if (atoms.length === 0) {
+            return "``";
+        }
+        // Fast path: single static text
+        if (atoms.length === 1 && atoms[0]?.type === "TemplateStringText") {
+            return `\`${Core.escapeTemplateText(atoms[0].value)}\``;
+        }
+        // Build template string efficiently
+        let result = "`";
+        for (const atom of atoms) {
             if (!atom) {
-                return "";
+                continue;
             }
-            if (atom.type === "TemplateStringText") {
-                return Core.escapeTemplateText(atom.value);
-            }
-            return `\${${this.visit(atom)}}`;
-        });
-        return `\`${parts.join("")}\``;
+            result += atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`;
+        }
+        result += "`";
+        return result;
     }
 
     private visitTemplateStringText(ast: TemplateStringTextNode): string {
@@ -570,17 +647,25 @@ export class GmlToJsEmitter {
     }
 
     private visitStructExpression(ast: StructExpressionNode): string {
-        if (!ast.properties || ast.properties.length === 0) {
+        const props = ast.properties;
+        if (!props || props.length === 0) {
             return "{}";
         }
-        const properties = ast.properties
-            .map((prop) => {
-                const key = this.resolveStructKey(prop);
-                const value = this.visit(prop.value);
-                return `${key}: ${value}`;
-            })
-            .join(", ");
-        return `{${properties}}`;
+        // Fast path: single property
+        if (props.length === 1) {
+            const prop = props[0];
+            const key = this.resolveStructKey(prop);
+            const value = this.visit(prop.value);
+            return `{${key}: ${value}}`;
+        }
+        // Multiple properties: build efficiently
+        const parts: string[] = Array.from({length: props.length});
+        for (const [i, prop] of props.entries()) {
+            const key = this.resolveStructKey(prop);
+            const value = this.visit(prop.value);
+            parts[i] = `${key}: ${value}`;
+        }
+        return `{${parts.join(", ")}}`;
     }
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
@@ -659,14 +744,16 @@ export class GmlToJsEmitter {
         params: ReadonlyArray<GmlNode | string>,
         body: GmlNode
     ): string {
-        let result = `${keyword} ${id}(`;
-        if (params && params.length > 0) {
-            const paramList = params.map((param) => (typeof param === "string" ? param : this.visit(param))).join(", ");
-            result += paramList;
+        // Fast path: no parameters
+        if (!params || params.length === 0) {
+            return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
         }
-        result += ")";
-        result += wrapConditionalBody(body, this.visitNode);
-        return result;
+        // Build parameter list efficiently
+        const paramParts: string[] = Array.from({length: params.length});
+        for (const [i, param] of params.entries()) {
+            paramParts[i] = typeof param === "string" ? param : this.visit(param);
+        }
+        return `${keyword} ${id}(${paramParts.join(", ")})${wrapConditionalBody(body, this.visitNode)}`;
     }
 
     private ensureStatementTermination(code: string): string {
@@ -702,5 +789,12 @@ export class GmlToJsEmitter {
             return member.name;
         }
         return this.visit(member.name);
+    }
+
+    private resolveMemberDotProperty(node: GmlNode): string {
+        if (node.type === "Identifier") {
+            return this.identifierAnalyzer.nameOfIdent(node);
+        }
+        return this.visit(node);
     }
 }

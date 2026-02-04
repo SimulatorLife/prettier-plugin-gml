@@ -9,7 +9,7 @@ Command-line interface for the prettier-plugin-gml project. Provides utilities f
 Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling.
 
 ```bash
-node src/cli/src/cli.js format path/to/project --extensions .gml
+pnpm run cli -- format path/to/project --extensions .gml
 ```
 
 **Options:**
@@ -39,13 +39,13 @@ Watches GML source files and coordinates the hot-reload development pipeline. Wh
 
 ```bash
 # Basic usage - watch current directory
-node src/cli/src/cli.js watch
+pnpm run cli -- watch
 
 # Watch specific directory with verbose output
-node src/cli/src/cli.js watch /path/to/project --verbose
+pnpm run cli -- watch /path/to/project --verbose
 
 # Auto-inject hot-reload runtime and start watching
-node src/cli/src/cli.js watch /path/to/project --auto-inject
+pnpm run cli -- watch /path/to/project --auto-inject
 ```
 
 **Options:**
@@ -108,17 +108,17 @@ The `--auto-inject` flag streamlines the development workflow by automatically p
 
 ```bash
 # Traditional two-step workflow (still supported):
-node src/cli/src/cli.js prepare-hot-reload --html5-output /path/to/output
-node src/cli/src/cli.js watch /path/to/project
+pnpm run cli -- prepare-hot-reload --html5-output /path/to/output
+pnpm run cli -- watch /path/to/project
 
 # Streamlined one-step workflow with --auto-inject:
-node src/cli/src/cli.js watch /path/to/project --auto-inject
+pnpm run cli -- watch /path/to/project --auto-inject
 
 # Specify custom HTML5 output directory:
-node src/cli/src/cli.js watch /path/to/project --auto-inject --html5-output /path/to/output
+pnpm run cli -- watch /path/to/project --auto-inject --html5-output /path/to/output
 
 # Use custom WebSocket port for both injection and server:
-node src/cli/src/cli.js watch /path/to/project --auto-inject --websocket-port 18000
+pnpm run cli -- watch /path/to/project --auto-inject --websocket-port 18000
 ```
 
 When `--auto-inject` is enabled, the watch command will:
@@ -142,13 +142,13 @@ Configure the debounce delay with `--debounce-delay`:
 
 ```bash
 # Use default 200ms debounce
-node src/cli/src/cli.js watch
+pnpm run cli -- watch
 
 # Increase debounce for slower systems
-node src/cli/src/cli.js watch --debounce-delay 500
+pnpm run cli -- watch --debounce-delay 500
 
 # Disable debouncing (transpile immediately on every change)
-node src/cli/src/cli.js watch --debounce-delay 0
+pnpm run cli -- watch --debounce-delay 0
 ```
 
 When the watch command stops (via Ctrl+C or abort signal), any pending debounced transpilations are flushed immediately to ensure no work is lost.
@@ -159,7 +159,7 @@ For CI/CD pipelines, automated testing, or when running the watcher in the backg
 
 ```bash
 # Quiet mode - only shows server URLs and errors
-node src/cli/src/cli.js watch --quiet
+pnpm run cli -- watch --quiet
 
 # Example output in quiet mode:
 # Runtime static server ready at http://127.0.0.1:51234
@@ -181,7 +181,7 @@ The watch command includes an HTTP status server that provides real-time metrics
 
 ```bash
 # Start watch command (status server runs on port 17891 by default)
-node src/cli/src/cli.js watch /path/to/project
+pnpm run cli -- watch /path/to/project
 ```
 
 **Available Endpoints:**
@@ -295,10 +295,10 @@ curl http://127.0.0.1:17891/ready
 **Configuration:**
 ```bash
 # Use custom port
-node src/cli/src/cli.js watch --status-port 8080
+pnpm run cli -- watch --status-port 8080
 
 # Disable status server
-node src/cli/src/cli.js watch --no-status-server
+pnpm run cli -- watch --no-status-server
 ```
 
 **Hot-Reload Integration:**
@@ -362,10 +362,10 @@ so the running game connects to the patch server automatically.
 
 ```bash
 # Inject into the latest HTML5 output
-node src/cli/src/cli.js prepare-hot-reload
+pnpm run cli -- prepare-hot-reload
 
 # Inject into a specific HTML5 output directory
-node src/cli/src/cli.js prepare-hot-reload --html5-output /path/to/html5/output
+pnpm run cli -- prepare-hot-reload --html5-output /path/to/html5/output
 ```
 
 **Options:**
@@ -399,22 +399,22 @@ Queries the running watch command's status server for real-time metrics and diag
 
 ```bash
 # Query full status with metrics and recent patches
-node src/cli/src/cli.js watch-status
+pnpm run cli -- watch-status
 
 # Get health check information
-node src/cli/src/cli.js watch-status --endpoint health
+pnpm run cli -- watch-status --endpoint health
 
 # Check if watch command is running (lightweight ping)
-node src/cli/src/cli.js watch-status --endpoint ping
+pnpm run cli -- watch-status --endpoint ping
 
 # Query readiness status (for Kubernetes/orchestration)
-node src/cli/src/cli.js watch-status --endpoint ready
+pnpm run cli -- watch-status --endpoint ready
 
 # Get JSON output for scripting/automation
-node src/cli/src/cli.js watch-status --format json
+pnpm run cli -- watch-status --format json
 
 # Query custom host/port
-node src/cli/src/cli.js watch-status --host 127.0.0.1 --port 18000
+pnpm run cli -- watch-status --host 127.0.0.1 --port 18000
 ```
 
 **Options:**
@@ -426,7 +426,7 @@ node src/cli/src/cli.js watch-status --host 127.0.0.1 --port 18000
 **Example Output:**
 
 ```
-$ node src/cli/src/cli.js watch-status
+$ pnpm run cli -- watch-status
 === Watch Command Status ===
 
 Uptime: 2h 15m 43s
@@ -466,19 +466,19 @@ Performs safe, project-wide code transformations such as renaming symbols while 
 
 ```bash
 # Rename a script by symbol ID
-node src/cli/src/cli.js refactor --symbol-id gml/script/scr_old_name --new-name scr_new_name
+pnpm run cli -- refactor --symbol-id gml/script/scr_old_name --new-name scr_new_name
 
 # Rename by current name
-node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 # Dry run to preview changes
-node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --dry-run
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --dry-run
 
 # Validate hot reload compatibility
-node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --check-hot-reload
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-hot-reload
 
 # Verbose output with diagnostics
-node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --verbose
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 ```
 
 **Options:**
@@ -515,7 +515,7 @@ node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --
 Generates GML identifier metadata from the GameMaker manual repository.
 
 ```bash
-node src/cli/src/cli.js generate-gml-identifiers
+pnpm run cli -- generate-gml-identifiers
 ```
 
 ### `generate-feather-metadata` - Generate Feather Metadata
@@ -523,7 +523,7 @@ node src/cli/src/cli.js generate-gml-identifiers
 Generates Feather metadata for GameMaker's static analysis.
 
 ```bash
-node src/cli/src/cli.js generate-feather-metadata
+pnpm run cli -- generate-feather-metadata
 ```
 
 ### `performance` - Run Performance Benchmarks
@@ -531,7 +531,7 @@ node src/cli/src/cli.js generate-feather-metadata
 Executes performance benchmarks for parser, formatter, and other subsystems.
 
 ```bash
-node src/cli/src/cli.js performance
+pnpm run cli -- performance
 ```
 
 ### `memory` - Run Memory Benchmarks
@@ -539,7 +539,7 @@ node src/cli/src/cli.js performance
 Measures memory usage across various operations.
 
 ```bash
-node src/cli/src/cli.js memory
+pnpm run cli -- memory
 ```
 
 ## Architecture

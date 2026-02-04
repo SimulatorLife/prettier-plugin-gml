@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { findRepoRootSync } from "./repo-root.js";
 
 /**
  * Centralized workspace path helpers for the CLI package. Several modules
@@ -48,7 +48,7 @@ function resolveCliPackageDirectory(startDirectory: string): string {
 const CLI_PACKAGE_DIRECTORY = resolveCliPackageDirectory(SHARED_DIRECTORY);
 const CLI_SRC_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "src");
 const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const REPO_ROOT = Core.findRepoRootSync(SHARED_DIRECTORY);
+const REPO_ROOT = findRepoRootSync(SHARED_DIRECTORY);
 
 export { CLI_PACKAGE_DIRECTORY, CLI_SRC_DIRECTORY, REPO_ROOT, WORKSPACE_SOURCE_DIRECTORY };
 

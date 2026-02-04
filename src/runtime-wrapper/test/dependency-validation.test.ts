@@ -263,6 +263,24 @@ void describe("Dependency Validation", () => {
         assert.ok(analytics.recentErrors[0].error.includes("script:helper"));
     });
 
+    void test("trySafeApply rejects patches with missing dependencies", () => {
+        const wrapper = createRuntimeWrapper();
+
+        const patchWithDep: Patch = {
+            kind: "script",
+            id: "script:dependent",
+            js_body: "return base_fn();",
+            metadata: {
+                dependencies: ["script:base_fn"]
+            }
+        };
+
+        const result = wrapper.trySafeApply(patchWithDep);
+        assert.strictEqual(result.success, false);
+        assert.ok(result.message?.includes("unsatisfied dependencies"));
+        assert.strictEqual(wrapper.hasScript("script:dependent"), false);
+    });
+
     void test("applyPatchBatch validates dependencies for all patches", () => {
         const wrapper = createRuntimeWrapper();
 

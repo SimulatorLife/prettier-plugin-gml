@@ -376,6 +376,12 @@ export function promoteLeadingDocCommentTextToDescription(
         return normalizedLines as DocCommentLines;
     }
 
+    if (
+        normalizedLines.some((line) => typeof line === STRING_TYPE && /^\s*\/\/\/\s*@description\b/i.test(line.trim()))
+    ) {
+        return normalizedLines as DocCommentLines;
+    }
+
     const segments: { prefix: string; suffix: string }[] = [];
     let leadingCount = 0;
 

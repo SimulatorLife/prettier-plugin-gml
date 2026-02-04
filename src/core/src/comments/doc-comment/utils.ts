@@ -46,6 +46,9 @@ export { assertFunction } from "../../utils/index.js";
 // Capability probes
 export { isRegExpLike } from "../../utils/index.js";
 
+// Path utilities
+export { safeGetParentNode } from "../../utils/index.js";
+
 // AST node helpers
 export {
     getBodyStatements,
