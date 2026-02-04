@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { FSWatcher, WatchListener, WatchOptions } from "node:fs";
+import type { WatchListener } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { after, before, describe, it } from "node:test";
 
@@ -7,6 +7,7 @@ import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
 import { fetchStatusPayload, waitForPatchCount, waitForStatusReady } from "./test-helpers/status-polling.js";
 import {
+    createMockWatchFactory,
     createWatchTestFixture,
     disposeWatchTestFixture,
     type WatchTestFixture
@@ -41,72 +42,8 @@ void describe("Watch command patch history limit", () => {
             throw new Error("Watch fixture was not initialized");
         }
 
-        let capturedListener: WatchListener<string> | undefined;
-        const watchFactory = (
-            _path: string,
-            _options?: WatchOptions | BufferEncoding | "buffer",
-            listener?: WatchListener<string>
-        ): FSWatcher => {
-            capturedListener = listener;
-            const watcher: FSWatcher = {
-                close() {
-                    return undefined;
-                },
-                ref() {
-                    return this;
-                },
-                unref() {
-                    return this;
-                },
-                addListener() {
-                    return this;
-                },
-                on() {
-                    return this;
-                },
-                once() {
-                    return this;
-                },
-                removeListener() {
-                    return this;
-                },
-                off() {
-                    return this;
-                },
-                removeAllListeners() {
-                    return this;
-                },
-                setMaxListeners() {
-                    return this;
-                },
-                getMaxListeners() {
-                    return 0;
-                },
-                listeners() {
-                    return [];
-                },
-                rawListeners() {
-                    return [];
-                },
-                emit() {
-                    return false;
-                },
-                listenerCount() {
-                    return 0;
-                },
-                prependListener() {
-                    return this;
-                },
-                prependOnceListener() {
-                    return this;
-                },
-                eventNames() {
-                    return [];
-                }
-            };
-
-            return watcher;
-        };
+        const listenerCapture: { listener: WatchListener<string> | undefined } = { listener: undefined };
+        const watchFactory = createMockWatchFactory(listenerCapture);
 
         const watchPromise = runWatchCommand(fixture.dir, {
             extensions: [".gml"],
@@ -130,7 +67,7 @@ void describe("Watch command patch history limit", () => {
 
             for (let i = 0; i < 5; i++) {
                 await writeFile(script1, `var x = ${i}; // Iteration ${i}`, "utf8");
-                capturedListener?.("change", "script1.gml");
+                listenerCapture.listener?.("change", "script1.gml");
                 await waitForPatchCount(statusBaseUrl, initialPatchCount + i + 1, 1000, 25);
             }
 

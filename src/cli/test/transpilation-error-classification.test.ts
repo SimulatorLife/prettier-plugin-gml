@@ -12,6 +12,19 @@ import {
     transpileFile
 } from "../src/modules/transpilation/coordinator.js";
 
+function createTranspilationContext(): TranspilationContext {
+    return {
+        transpiler: new Transpiler.GmlTranspiler(),
+        patches: [],
+        metrics: [],
+        errors: [],
+        lastSuccessfulPatches: new Map(),
+        maxPatchHistory: 10,
+        totalPatchCount: 0,
+        websocketServer: null
+    };
+}
+
 void describe("Transpilation error classification", () => {
     void it("should classify syntax errors correctly", async (t) => {
         const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
@@ -22,16 +35,7 @@ void describe("Transpilation error classification", () => {
         });
         await writeFile(testFile, "function test() {\n    var x = 10\n", "utf8");
 
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const content = "function test() {\n    var x = 10\n";
         const result = transpileFile(context, testFile, content, 2, { verbose: false, quiet: true });
@@ -49,16 +53,7 @@ void describe("Transpilation error classification", () => {
         t.after(async () => {
             await rm(tempDir, { recursive: true, force: true });
         });
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const emptyContent = "";
         const result = transpileFile(context, testFile, emptyContent, 0, { verbose: false, quiet: true });
@@ -78,16 +73,7 @@ void describe("Transpilation error classification", () => {
 
         await writeFile(testFile, "function test() {\n    var x = 10;\n", "utf8");
 
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const content = "function test() {\n    var x = 10;\n";
         const result = transpileFile(context, testFile, content, 2, { verbose: false, quiet: true });
@@ -108,16 +94,7 @@ void describe("Transpilation error classification", () => {
         t.after(async () => {
             await rm(tempDir, { recursive: true, force: true });
         });
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const testFile1 = path.join(tempDir, "error1.gml");
         transpileFile(context, testFile1, "function test() {", 1, { verbose: false, quiet: true });
@@ -139,16 +116,7 @@ void describe("Transpilation error classification", () => {
         t.after(async () => {
             await rm(tempDir, { recursive: true, force: true });
         });
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const content = "function test() {\n    var x = 10;\n    return x;\n}";
         const result = transpileFile(context, testFile, content, 4, { verbose: false, quiet: true });
@@ -167,16 +135,7 @@ void describe("Transpilation error classification", () => {
             await rm(tempDir, { recursive: true, force: true });
         });
 
-        const context: TranspilationContext = {
-            transpiler: new Transpiler.GmlTranspiler(),
-            patches: [],
-            metrics: [],
-            errors: [],
-            lastSuccessfulPatches: new Map(),
-            maxPatchHistory: 10,
-            totalPatchCount: 0,
-            websocketServer: null
-        };
+        const context = createTranspilationContext();
 
         const content = "function test() {\n    var x = 10;\n    return x;\n}";
         const result = transpileFile(context, testFile, content, 4, { verbose: false, quiet: true });
