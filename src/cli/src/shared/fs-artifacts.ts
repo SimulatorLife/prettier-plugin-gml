@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import { stat, writeFile as writeFileAsync } from "node:fs/promises";
 import path from "node:path";
 
@@ -17,9 +18,9 @@ type WorkflowPathFilter = Parameters<typeof ensureWorkflowPathsAllowed>[0];
  * before attempting to read or process it.
  *
  * @param {string} targetPath Path to the file or directory to stat.
- * @returns {Promise<import("node:fs").Stats | null>} File stats when the path exists and is accessible, otherwise `null`.
+ * @returns {Promise<Stats | null>} File stats when the path exists and is accessible, otherwise `null`.
  */
-export function safeStatOrNull(targetPath: string): Promise<Awaited<ReturnType<typeof stat>> | null> {
+export function safeStatOrNull(targetPath: string): Promise<Stats | null> {
     return stat(targetPath).catch(() => null);
 }
 
