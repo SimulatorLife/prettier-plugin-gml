@@ -504,6 +504,7 @@ export class GmlToJsEmitter {
         if (!ast.declarations || ast.declarations.length === 0) {
             return "";
         }
+        const globalsIdent = this.options.globalsIdent;
         return this.joinTruthy(
             ast.declarations.map((decl) => {
                 const identifier = this.resolveIdentifierName(decl.id);
@@ -511,7 +512,7 @@ export class GmlToJsEmitter {
                     return "";
                 }
                 this.globalVars.add(identifier);
-                return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
+                return `if (!Object.prototype.hasOwnProperty.call(${globalsIdent}, "${identifier}")) { ${globalsIdent}.${identifier} = undefined; }`;
             })
         );
     }
