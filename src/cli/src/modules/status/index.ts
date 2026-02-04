@@ -1,7 +1,9 @@
 export type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 export {
     startStatusServer,
-    type StatusServerController,
+    type StatusServerEndpoint,
+    type StatusServerHandle,
+    type StatusServerLifecycle,
     type StatusServerOptions,
     type StatusSnapshot
 } from "./server.js";

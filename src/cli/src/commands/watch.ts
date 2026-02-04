@@ -36,7 +36,7 @@ import {
     type RuntimeSourceDescriptor,
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
-import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
+import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
 import {
     displayTranspilationStatistics,
     registerScriptNamesFromSymbols,
@@ -201,7 +201,7 @@ interface PatchHistory {
  */
 interface ServerControllers {
     websocketServer: PatchBroadcaster | null;
-    statusServer: StatusServerController | null;
+    statusServer: StatusServerLifecycle | null;
 }
 
 /**
@@ -698,7 +698,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
     let websocketServerController: PatchWebSocketServer | null = null;
-    let statusServerController: StatusServerController | null = null;
+    let statusServerController: StatusServerHandle | null = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
