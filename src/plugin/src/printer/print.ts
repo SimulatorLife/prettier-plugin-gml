@@ -3089,13 +3089,15 @@ function handleTerminalTrailingSpacing({
             hasExplicitTrailingBlankLine &&
             !shouldCollapseExcessBlankLines
         ) {
+            if (Core.isNonEmptyArray(node?._syntheticDocLines)) {
+                shouldPreserveTrailingBlankLine = false;
+            }
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine = Core.isNonEmptyArray(node?._syntheticDocLines)
-                ? false
-                : isConstructorBlock && nextCharacter !== "}"
-                  ? false
-                  : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
+            shouldPreserveTrailingBlankLine =
+                isConstructorBlock && nextCharacter !== "}"
+                    ? false
+                    : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
