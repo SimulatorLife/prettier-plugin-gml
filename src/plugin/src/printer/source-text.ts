@@ -161,6 +161,18 @@ function hasBlankLineMatch(text: string, pattern: "trailing" | "interior"): bool
     return matcher.test(text);
 }
 
+function hasBlankLineInSlice(text: string | null, pattern: "trailing" | "interior", allowContent: boolean): boolean {
+    if (typeof text !== STRING_TYPE || text.length === 0) {
+        return false;
+    }
+
+    if (!allowContent && Core.isNonEmptyTrimmedString(text)) {
+        return false;
+    }
+
+    return hasBlankLineMatch(text, pattern);
+}
+
 /**
  * Determine whether a macro body explicitly contains a trailing blank line.
  */
@@ -239,11 +251,7 @@ export function hasBlankLineBeforeLeadingComment(
     }
 
     const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
-    if (Core.isNonEmptyTrimmedString(textBeforeComment)) {
-        return false;
-    }
-
-    return hasBlankLineMatch(textBeforeComment, "trailing");
+    return hasBlankLineInSlice(textBeforeComment, "trailing", false);
 }
 
 export function hasBlankLineAfterOpeningBrace(
@@ -262,7 +270,7 @@ export function hasBlankLineAfterOpeningBrace(
         return false;
     }
 
-    return hasBlankLineMatch(interiorSlice, "trailing");
+    return hasBlankLineInSlice(interiorSlice, "trailing", true);
 }
 
 /**
@@ -311,9 +319,5 @@ export function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    if (Core.isNonEmptyTrimmedString(betweenText)) {
-        return false;
-    }
-
-    return hasBlankLineMatch(betweenText, "interior");
+    return hasBlankLineInSlice(betweenText, "interior", false);
 }
