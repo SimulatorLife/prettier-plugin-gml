@@ -19,6 +19,7 @@ function TestStruct() constructor {
             spHash = -1;
         }
     };
+
 }
 
 var myWidth = 14;
