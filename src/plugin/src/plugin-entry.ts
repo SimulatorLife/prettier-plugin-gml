@@ -9,6 +9,7 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
 import { gmlPluginComponents } from "./components/plugin-components.js";
 import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
+import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./constants.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 
@@ -26,9 +27,9 @@ export const languages: SupportLanguage[] = [
 ];
 
 const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
-    tabWidth: 4,
+    tabWidth: DEFAULT_TAB_WIDTH,
     semi: true,
-    printWidth: 120,
+    printWidth: DEFAULT_PRINT_WIDTH,
     bracketSpacing: false, // Keep false to match existing GML formatting expectations.
     singleQuote: false
 };
