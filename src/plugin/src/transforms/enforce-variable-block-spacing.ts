@@ -4,6 +4,7 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS } from "../constants.js";
 import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 // Enforce consistent spacing after variable blocks without exposing user
@@ -18,7 +19,7 @@ import { createParserTransform, type EmptyTransformOptions } from "./functional-
 // contributors use different settings. By hardcoding the value, we ensure all
 // GML code formatted by this plugin follows the same spacing discipline,
 // aligning with the opinionated formatter philosophy.
-const MIN_DECLARATIONS = 4;
+const MIN_DECLARATIONS = DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS;
 
 /**
  * Entry point that walks the AST once to add the `_gmlForceFollowingEmptyLine` hint.

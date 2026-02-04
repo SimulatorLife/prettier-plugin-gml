@@ -12,6 +12,8 @@ import { CLI } from "@gml-modules/cli";
 import { Core } from "@gml-modules/core";
 import { Plugin } from "@gml-modules/plugin";
 
+import { findRepoRoot } from "../src/shared/repo-root.js";
+
 const { runCliTestCommand } = CLI;
 const { isNonEmptyArray } = Core;
 
@@ -102,7 +104,7 @@ void describe("Prettier wrapper CLI", () => {
         // repository root does not result in silent mutation of tracked
         // fixture files. If it ever does, the test will fail and restore
         // the original file contents to avoid leaving the workspace dirty.
-        const repoRootDirectory = await Core.findRepoRoot(currentDirectory);
+        const repoRootDirectory = await findRepoRoot(currentDirectory);
         const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testFormatting.input.gml");
 
         // Read the baseline content for the tracked fixture and ensure we
@@ -155,7 +157,7 @@ void describe("Prettier wrapper CLI", () => {
     });
 
     void it("applies plugin newline normalization when run through the wrapper CLI", async () => {
-        const repoRootDirectory = await Core.findRepoRoot(currentDirectory);
+        const repoRootDirectory = await findRepoRoot(currentDirectory);
         const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.gml");
         const optionsPath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.options.json");
 

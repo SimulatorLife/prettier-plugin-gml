@@ -1090,6 +1090,93 @@ export function runGenerateQualityReport({ command }: any = {}) {
     }
 }
 
+type ReportTableState = {
+    testRows: Array<string>;
+    qualityRows: Array<string>;
+};
+
+/**
+ * Create the report table containers with their headings pre-populated.
+ */
+function createQualityReportTables(): ReportTableState {
+    return {
+        testRows: [
+            "#### Test Results",
+            "",
+            "| Target | Total | Passed | Failed | Skipped | New | Removed | Renamed | Duration | Coverage |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        ],
+        qualityRows: [
+            "#### Code Quality",
+            "",
+            "| Target | Lint Warnings | Lint Errors | Duplicated Code | Build Size | Files > 1k LoC | TODOs |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"
+        ]
+    };
+}
+
+/**
+ * Append report rows for an available result set, keeping the orchestration
+ * layer free from direct array mutation.
+ */
+function addReportRowForResultSet(
+    tables: ReportTableState,
+    {
+        label,
+        results,
+        diffStats,
+        healthStats = null
+    }: {
+        label: string;
+        results: { usedDir?: string | null; lint?: unknown; duplicates?: unknown; health?: unknown };
+        diffStats: any;
+        healthStats?: unknown;
+    }
+): void {
+    if (!results?.usedDir) {
+        return;
+    }
+
+    tables.testRows.push(generateTestRow(label, results, diffStats));
+    tables.qualityRows.push(generateQualityRow(label, results, healthStats));
+}
+
+/**
+ * Resolve a user-friendly label for the head results, optionally including the
+ * current branch name when the base and merged inputs are not present.
+ */
+function resolveHeadReportLabel({ base, merged }) {
+    if (base.usedDir || merged.usedDir) {
+        return "PR (Head)";
+    }
+
+    let label = "Current";
+    try {
+        const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+            encoding: "utf8"
+        }).trim();
+        if (branch) {
+            label = `Local (${branch})`;
+        }
+    } catch {
+        // Ignore git command errors to avoid breaking the report generation.
+        // REASON: Retrieving the current git branch name is a cosmetic enhancement
+        // for the quality report label. If the git command fails (e.g., not in a
+        // git repository, git not installed, or detached HEAD state), we fall back
+        // to the default label without branch information rather than aborting.
+        // WHAT WOULD BREAK: Propagating the exception would prevent the quality
+        // report from being generated, even though the underlying data is valid.
+    }
+    return label;
+}
+
+/**
+ * Format the final report markdown table with the test and quality sections.
+ */
+function formatQualityReportTable({ testRows, qualityRows }: ReportTableState): string {
+    return [...testRows, "", ...qualityRows].join("\n");
+}
+
 function runCli(options: any = {}) {
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
     const reportFile = options.reportFile || path.join("reports", "summary-report.md");
@@ -1115,54 +1202,28 @@ function runCli(options: any = {}) {
 
     const healthStats = scanProjectHealth(workspaceRoot);
 
-    const testTableRows = [
-        "#### Test Results",
-        "",
-        "| Target | Total | Passed | Failed | Skipped | New | Removed | Renamed | Duration | Coverage |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
-    ];
+    const reportTables = createQualityReportTables();
 
-    const qualityTableRows = [
-        "#### Code Quality",
-        "",
-        "| Target | Lint Warnings | Lint Errors | Duplicated Code | Build Size | Files > 1k LoC | TODOs |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"
-    ];
+    addReportRowForResultSet(reportTables, {
+        label: "Base",
+        results: base,
+        diffStats: diffStats.base
+    });
 
-    if (base.usedDir) {
-        testTableRows.push(generateTestRow("Base", base, diffStats.base));
-        qualityTableRows.push(generateQualityRow("Base", base));
-    }
-    if (head.usedDir) {
-        let label = "PR (Head)";
-        if (!base.usedDir && !merged.usedDir) {
-            label = "Current";
-            try {
-                const branch = execSync("git rev-parse --abbrev-ref HEAD", {
-                    encoding: "utf8"
-                }).trim();
-                if (branch) {
-                    label = `Local (${branch})`;
-                }
-            } catch {
-                // Ignore git command errors to avoid breaking the report generation.
-                // REASON: Retrieving the current git branch name is a cosmetic enhancement
-                // for the quality report label. If the git command fails (e.g., not in a
-                // git repository, git not installed, or detached HEAD state), we fall back
-                // to the default label without branch information rather than aborting.
-                // WHAT WOULD BREAK: Propagating the exception would prevent the quality
-                // report from being generated, even though the underlying data is valid.
-            }
-        }
-        testTableRows.push(generateTestRow(label, head, diffStats.head));
-        qualityTableRows.push(generateQualityRow(label, head, healthStats));
-    }
-    if (merged.usedDir) {
-        testTableRows.push(generateTestRow("Merged", merged, diffStats.merge));
-        qualityTableRows.push(generateQualityRow("Merged", merged));
-    }
+    addReportRowForResultSet(reportTables, {
+        label: resolveHeadReportLabel({ base, merged }),
+        results: head,
+        diffStats: diffStats.head,
+        healthStats
+    });
 
-    const table = [...testTableRows, "", ...qualityTableRows].join("\n");
+    addReportRowForResultSet(reportTables, {
+        label: "Merged",
+        results: merged,
+        diffStats: diffStats.merge
+    });
+
+    const table = formatQualityReportTable(reportTables);
     console.log(table);
 
     let exitCode = 0;

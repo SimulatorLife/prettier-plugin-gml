@@ -5,6 +5,7 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     type MutableDocCommentLines,
+    safeGetParentNode,
     toMutableArray,
     toTrimmedString
 } from "../utils.js";
@@ -957,7 +958,7 @@ export function shouldGenerateSyntheticDocForFunction(
     options: any
 ): boolean {
     const node = path.getValue();
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
     if (!node || !parent || (parent.type !== "Program" && parent.type !== "BlockStatement")) {
         return false;
     }

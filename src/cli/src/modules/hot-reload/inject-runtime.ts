@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
+import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
+
 const { getErrorMessageOrFallback } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = Core.findRepoRootSync(MODULE_DIRECTORY);
+const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
 
 function resolveRepositoryPath(...segments: Array<string>) {
     return path.resolve(REPO_ROOT, ...segments);
@@ -164,7 +166,7 @@ async function resolveHtml5Output({
     if (!html5OutputRoot && gmWebServerRoot) {
         const resolvedRoot = path.resolve(gmWebServerRoot);
         const indexPath = path.join(resolvedRoot, "index.html");
-        const stats = await fs.stat(indexPath).catch(() => null);
+        const stats = await safeStatOrNull(indexPath);
         if (stats?.isFile()) {
             return { outputRoot: resolvedRoot, indexPath };
         }
@@ -200,13 +202,13 @@ async function resolveHtml5Output({
 
         const outputRoot = path.join(tempRoot, entry.name);
         const indexPath = path.join(outputRoot, "index.html");
-        const stats = await fs.stat(indexPath).catch(() => null);
+        const stats = await safeStatOrNull(indexPath);
         if (!stats) {
             return;
         }
 
         if (!best || stats.mtimeMs > bestMtime) {
-            bestMtime = stats.mtimeMs;
+            bestMtime = Number(stats.mtimeMs);
             best = { outputRoot, indexPath };
         }
     });
@@ -245,8 +247,8 @@ function buildInjectionSnippet(websocketUrl: string): string {
     return [
         HOT_RELOAD_MARKER_START,
         '<script type="module">',
-        "import { createRuntimeWrapper, installScriptCallAdapter } from \"./.gml-hot-reload/runtime-wrapper/src/runtime/index.js\";",
-        "import { createWebSocketClient } from \"./.gml-hot-reload/runtime-wrapper/src/websocket/index.js\";",
+        'import { createRuntimeWrapper, installScriptCallAdapter } from "./.gml-hot-reload/runtime-wrapper/src/runtime/index.js";',
+        'import { createWebSocketClient } from "./.gml-hot-reload/runtime-wrapper/src/websocket/index.js";',
         "const initializeHotReload = () => {",
         '    console.log("[hot-reload] bootstrap loaded");',
         "    const wrapper = createRuntimeWrapper({",
@@ -264,12 +266,12 @@ function buildInjectionSnippet(websocketUrl: string): string {
         "    });",
         "    (function ensureGetRealDefaults() {",
         "        const globalScope =",
-        '            typeof globalThis !== \"undefined\" ? globalThis : typeof window !== \"undefined\" ? window : null;',
+        '            typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : null;',
         "        if (!globalScope) {",
         "            return;",
         "        }",
         "        const originalGetReal = globalScope.yyGetReal;",
-        "        if (typeof originalGetReal !== \"function\" || originalGetReal.__hotReloadSafe) {",
+        '        if (typeof originalGetReal !== "function" || originalGetReal.__hotReloadSafe) {',
         "            return;",
         "        }",
         "        const safeGetReal = function yyGetRealSafe(value) {",
@@ -292,10 +294,10 @@ function buildInjectionSnippet(websocketUrl: string): string {
         "        initializeHotReload();",
         "    };",
         "})();",
-        "if (document.readyState === \"complete\") {",
+        'if (document.readyState === "complete") {',
         "    ensureHotReloadInitialized();",
         "} else {",
-        "    window.addEventListener(\"load\", ensureHotReloadInitialized, { once: true });",
+        '    window.addEventListener("load", ensureHotReloadInitialized, { once: true });',
         "}",
         "</script>",
         HOT_RELOAD_MARKER_END

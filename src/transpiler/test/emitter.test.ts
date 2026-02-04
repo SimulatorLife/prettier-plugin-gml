@@ -259,13 +259,23 @@ void test("Transpiler.emitJavaScript qualifies global identifiers using the glob
     const result = Transpiler.emitJavaScript(ast);
 
     assert.ok(
-        result.includes('if (!Object.prototype.hasOwnProperty.call(globalThis, "foo"))'),
+        result.includes('if (!Object.prototype.hasOwnProperty.call(global, "foo"))'),
         "Should guard access on the global object"
     );
 
-    assert.ok(result.includes("globalThis.foo = undefined;"), "Should register global variables on globalThis");
+    assert.ok(result.includes("global.foo = undefined;"), "Should register global variables on global");
 
     assert.ok(result.includes("global.foo = 1"), "Should qualify global identifier references");
+});
+
+void test("Transpiler.emitJavaScript does not qualify member dot properties as globals", () => {
+    const source = "globalvar foo; obj.foo = 1;";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(result.includes("obj.foo = 1"), "Should emit raw member properties");
+    assert.ok(!result.includes("obj.global.foo"), "Should not qualify member properties as globals");
 });
 
 void test("GmlToJsEmitter allows overriding the globals identifier", () => {
@@ -279,6 +289,23 @@ void test("GmlToJsEmitter allows overriding the globals identifier", () => {
     const result = emitter.emit(ast);
 
     assert.ok(result.includes("__globals.foo = 1"), "Should respect the configured globals identifier");
+});
+
+void test("GmlToJsEmitter applies the globals identifier for globalvar initialization", () => {
+    const source = "globalvar foo;";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+        globalsIdent: "__globals"
+    });
+
+    const result = emitter.emit(ast);
+
+    assert.ok(
+        result.includes('Object.prototype.hasOwnProperty.call(__globals, "foo")'),
+        "Should guard against reinitialising globals on the configured globals object"
+    );
+    assert.ok(result.includes("__globals.foo = undefined;"), "Should initialise globals on the configured object");
 });
 
 void test("Transpiler.emitJavaScript accepts emitter options", () => {
@@ -458,16 +485,16 @@ void test("Transpiler.emitJavaScript lowers globalvar declarations into guarded 
 
     assert.match(
         result,
-        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "foo"\)/,
+        /Object\.prototype\.hasOwnProperty\.call\(global, "foo"\)/,
         "Should guard against reinitialising foo"
     );
-    assert.match(result, /globalThis\.foo = undefined;/, "Should initialise foo on the global object");
+    assert.match(result, /global\.foo = undefined;/, "Should initialise foo on the global object");
     assert.match(
         result,
-        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "bar"\)/,
+        /Object\.prototype\.hasOwnProperty\.call\(global, "bar"\)/,
         "Should guard against reinitialising bar"
     );
-    assert.match(result, /globalThis\.bar = undefined;/, "Should initialise bar on the global object");
+    assert.match(result, /global\.bar = undefined;/, "Should initialise bar on the global object");
 });
 
 void test("Transpiler.emitJavaScript preserves subsequent statements after globalvar", () => {

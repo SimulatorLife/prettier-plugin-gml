@@ -41,14 +41,26 @@ export interface StatusServerOptions {
 }
 
 /**
- * Complete controller for the status HTTP server.
+ * Endpoint metadata for the status server.
  *
- * Combines network endpoint and lifecycle management.
- * Consumers should depend on the minimal interface they need
- * (ServerEndpoint or ServerLifecycle) rather than this complete
- * interface when possible.
+ * Keeps address information independent from lifecycle controls so consumers
+ * can depend on only what they need.
  */
-export interface StatusServerController extends ServerEndpoint, ServerLifecycle {}
+export type StatusServerEndpoint = ServerEndpoint;
+
+/**
+ * Lifecycle control for the status server.
+ *
+ * Provides shutdown capability without coupling to endpoint metadata.
+ */
+export type StatusServerLifecycle = ServerLifecycle;
+
+/**
+ * Combined status server handle.
+ *
+ * Provided for callers that need both endpoint metadata and lifecycle control.
+ */
+export type StatusServerHandle = StatusServerEndpoint & StatusServerLifecycle;
 
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
@@ -153,13 +165,13 @@ function handleNotFound(res: ServerResponse): void {
  * Creates and starts an HTTP status server.
  *
  * @param options - Server configuration
- * @returns Server controller with stop method
+ * @returns Status server handle with endpoint metadata and lifecycle controls
  */
 export async function startStatusServer({
     host = DEFAULT_STATUS_HOST,
     port = DEFAULT_STATUS_PORT,
     getSnapshot
-}: StatusServerOptions): Promise<StatusServerController> {
+}: StatusServerOptions): Promise<StatusServerHandle> {
     const activeSockets = new Set<Socket>();
     const server: Server = createServer((req, res) => {
         if (req.method === "GET") {

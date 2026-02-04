@@ -2,12 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createDefaultGmlPluginComponents } from "../src/components/default-plugin-components.js";
-import { gmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
+import {
+    gmlPluginComponentDependencies,
+    gmlPluginComponentImplementations
+} from "../src/components/plugin-component-bundles.js";
 
 const SAMPLE_SOURCE = "function example() { return 1; }";
 
 void test("dependency bundle is frozen and exposes expected contract keys", () => {
     assert.ok(Object.isFrozen(gmlPluginComponentDependencies), "dependency bundle should be frozen");
+    assert.strictEqual(
+        gmlPluginComponentDependencies,
+        gmlPluginComponentImplementations,
+        "dependency bundle should alias the implementation bundle"
+    );
 
     assert.deepStrictEqual(
         Object.keys(gmlPluginComponentDependencies).toSorted(),

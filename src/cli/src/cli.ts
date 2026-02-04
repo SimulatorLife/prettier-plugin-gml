@@ -113,12 +113,10 @@ function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
 
 function getFormattingCacheEntry(cacheKey: string): string | undefined {
     const cached = formattingCache.get(cacheKey);
-    if (cached === undefined) {
-        return undefined;
+    if (cached !== undefined) {
+        formattingCache.delete(cacheKey);
+        formattingCache.set(cacheKey, cached);
     }
-
-    formattingCache.delete(cacheKey);
-    formattingCache.set(cacheKey, cached);
     return cached;
 }
 
@@ -384,25 +382,25 @@ function configureConsoleMethods(logLevel: string): void {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleError.apply(console, args);
+            originalConsoleError.apply(console, args);
         };
         console.warn = (...args) => {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleWarn.apply(console, args as any);
+            originalConsoleWarn.apply(console, args as any);
         };
         console.log = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleLog.apply(console, args);
+            originalConsoleLog.apply(console, args);
         };
         console.info = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleInfo.apply(console, args);
+            originalConsoleInfo.apply(console, args);
         };
     } else {
         console.error = originalConsoleError;

@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
 
+import { DEFAULT_PRINT_WIDTH } from "../../constants.js";
+
 type DocCommentPrinterOptions = Record<string, unknown> & {
     printWidth?: number;
 };
@@ -9,7 +11,7 @@ type ResolvedDocCommentPrinterOptions = DocCommentPrinterOptions & {
 };
 
 export function resolveDocCommentPrinterOptions(options?: DocCommentPrinterOptions): ResolvedDocCommentPrinterOptions {
-    const printWidth = Core.coercePositiveIntegerOption(options?.printWidth, 120);
+    const printWidth = Core.coercePositiveIntegerOption(options?.printWidth, DEFAULT_PRINT_WIDTH);
 
     return {
         ...options,

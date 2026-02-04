@@ -17,6 +17,7 @@ type GlobalSnapshot = {
     make_colour_rgb?: (red: number, green: number, blue: number) => number;
     vk_anykey?: number;
     _uB2?: number;
+    EVENT_STEP_NORMAL?: number;
     _cx?: { _dx?: Record<string, unknown> };
 };
 
@@ -30,6 +31,7 @@ function snapshotGlobals(): GlobalSnapshot {
         make_colour_rgb: globals.make_colour_rgb,
         vk_anykey: globals.vk_anykey,
         _uB2: globals._uB2,
+        EVENT_STEP_NORMAL: globals.EVENT_STEP_NORMAL,
         _cx: globals._cx
     };
 }
@@ -77,6 +79,12 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
         delete globals._uB2;
     } else {
         globals._uB2 = snapshot._uB2;
+    }
+
+    if (snapshot.EVENT_STEP_NORMAL === undefined) {
+        delete globals.EVENT_STEP_NORMAL;
+    } else {
+        globals.EVENT_STEP_NORMAL = snapshot.EVENT_STEP_NORMAL;
     }
 
     if (snapshot._cx === undefined) {
@@ -214,6 +222,56 @@ await test("object patches update entries when previous handler is anonymous", (
         const eventArray = instanceEntry.Event as Array<boolean> | undefined;
         assert.ok(Array.isArray(eventArray), "Instance event array should exist");
         assert.equal(eventArray?.[globals._uB2 ?? -1], true, "Instance event flag should be enabled");
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object patches enable instance event flags with standard event indices", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        function gml_Object_oSpider_Step_0() {
+            return "original";
+        }
+
+        const objectEntry = {
+            pName: "oSpider",
+            StepNormalEvent: gml_Object_oSpider_Step_0
+        };
+        const instanceEntry: Record<string, unknown> = {
+            _kx: { pName: "oSpider" },
+            Event: []
+        };
+
+        const jsonGame: JsonGameSnapshot = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = jsonGame;
+        globals.EVENT_STEP_NORMAL = 4;
+        globals._cx = {
+            _dx: {
+                "100000": instanceEntry
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/Step_0",
+            runtimeId: "gml_Object_oSpider_Step_0",
+            js_body: "return 77;"
+        });
+
+        const updatedFn = objectEntry.StepNormalEvent;
+        assert.equal(instanceEntry.StepNormalEvent, updatedFn, "Instance event handler should be updated");
+        const eventArray = instanceEntry.Event as Array<boolean> | undefined;
+        assert.ok(Array.isArray(eventArray), "Instance event array should exist");
+        assert.equal(eventArray?.[globals.EVENT_STEP_NORMAL ?? -1], true, "Instance event flag should be enabled");
     } finally {
         restoreGlobals(snapshot);
     }

@@ -31,7 +31,7 @@ import {
     normalizePerformanceSuiteName,
     PerformanceSuiteName
 } from "../modules/performance/suite-options.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import { resolveModuleDefaultExport } from "../shared/module.js";
 import { formatByteSize } from "../shared/reporting/byte-format.js";

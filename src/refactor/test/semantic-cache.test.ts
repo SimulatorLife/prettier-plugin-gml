@@ -255,6 +255,40 @@ void describe("SemanticQueryCache", () => {
             assert.equal(occCallCount, 2, "Occurrences referencing the file should be re-queried");
         });
 
+        void it("invalidateFile clears dependent and existence caches for file symbols", async () => {
+            let fileCallCount = 0;
+            let dependentCallCount = 0;
+            let existenceCallCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async (_path: string) => {
+                    fileCallCount++;
+                    return [{ id: "gml/script/alpha" }, { id: "gml/script/beta" }] as Array<FileSymbol>;
+                },
+                getDependents: async (_ids: Array<string>) => {
+                    dependentCallCount++;
+                    return [{ symbolId: "gml/script/dependent", filePath: "dep.gml" }] as Array<DependentSymbol>;
+                },
+                hasSymbol: async (_id: string) => {
+                    existenceCallCount++;
+                    return true;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+            await cache.getFileSymbols("test.gml");
+            await cache.getDependents(["gml/script/alpha"]);
+            await cache.hasSymbol("gml/script/alpha");
+
+            cache.invalidateFile("test.gml");
+
+            await cache.getDependents(["gml/script/alpha"]);
+            await cache.hasSymbol("gml/script/alpha");
+
+            assert.equal(fileCallCount, 1, "File symbols query should remain cached until invalidated");
+            assert.equal(dependentCallCount, 2, "Dependents should be re-queried after invalidation");
+            assert.equal(existenceCallCount, 2, "Symbol existence should be re-queried after invalidation");
+        });
+
         void it("invalidateFile does not clear unrelated occurrences", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {

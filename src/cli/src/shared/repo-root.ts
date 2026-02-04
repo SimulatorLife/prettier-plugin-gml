@@ -2,7 +2,9 @@ import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 
-import { walkAncestorDirectories } from "./path.js";
+import { Core } from "@gml-modules/core";
+
+const { walkAncestorDirectories } = Core;
 
 /**
  * Check if a path exists and optionally satisfies a predicate.

@@ -38,6 +38,7 @@ export interface PatchQueueState {
     queue: Array<unknown>;
     flushTimer: ReturnType<typeof setTimeout> | null;
     queueMetrics: PatchQueueMetrics;
+    queueHead: number;
 }
 
 export interface WebSocketClientState {

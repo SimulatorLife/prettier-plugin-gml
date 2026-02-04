@@ -122,11 +122,11 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         }
     }
 
-    function applyPatch(patchCandidate: unknown): ApplyPatchResult {
-        validatePatch(patchCandidate);
-        const patch = patchCandidate;
-
-        // Validate dependencies before proceeding
+    function applyPatchWithValidation(
+        patch: Patch,
+        snapshot: ReturnType<typeof captureSnapshot> | null,
+        skipShadowValidation: boolean
+    ): ApplyPatchResult {
         const depValidation = validatePatchDependencies(patch, state.registry);
         if (!depValidation.satisfied) {
             const missingDeps = depValidation.missingDependencies.join(", ");
@@ -135,7 +135,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             throw new Error(errorMessage);
         }
 
-        if (state.options.validateBeforeApply) {
+        if (state.options.validateBeforeApply && !skipShadowValidation) {
             const testResult = testPatchInShadow(patch);
             if (!testResult.valid) {
                 recordError(patch, "shadow", testResult.error ?? "Unknown shadow validation error");
@@ -143,7 +143,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             }
         }
 
-        const snapshot = captureSnapshot(state.registry, patch);
+        const resolvedSnapshot = snapshot ?? captureSnapshot(state.registry, patch);
         const startTime = Date.now();
 
         try {
@@ -151,7 +151,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             const durationMs = Date.now() - startTime;
 
             state.registry = nextRegistry;
-            recordAppliedPatch(patch, snapshot, startTime, durationMs);
+            recordAppliedPatch(patch, resolvedSnapshot, startTime, durationMs);
 
             return result;
         } catch (error) {
@@ -159,6 +159,13 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             const message = isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
+    }
+
+    function applyPatch(patchCandidate: unknown): ApplyPatchResult {
+        validatePatch(patchCandidate);
+        const patch = patchCandidate;
+
+        return applyPatchWithValidation(patch, null, false);
     }
 
     function validateBatchPatches(patchCandidates: Array<unknown>): Array<Patch> | BatchApplyResult {
@@ -373,7 +380,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         const previousVersion = state.registry.version;
 
         try {
-            const result = applyPatch(patch);
+            const result = applyPatchWithValidation(patch, snapshot, true);
             return {
                 success: true,
                 version: result.version,

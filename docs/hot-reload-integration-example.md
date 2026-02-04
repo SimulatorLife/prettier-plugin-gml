@@ -21,10 +21,10 @@ the game (for example at `http://127.0.0.1:51264/index.html`).
 
 ```bash
 # Inject the runtime wrapper into the active HTML5 output
-node src/cli/src/cli.js prepare-hot-reload
+pnpm run cli -- prepare-hot-reload
 
 # Start watching a GML project directory
-node src/cli/src/cli.js watch /path/to/gamemaker/project --verbose
+pnpm run cli -- watch /path/to/gamemaker/project --verbose
 
 # Output:
 # WebSocket patch server ready at ws://127.0.0.1:17890
@@ -85,7 +85,7 @@ echo "x = x + 1;" >> /path/to/gamemaker/project/scripts/scr_test.gml
 ### Watch Command Options
 
 ```bash
-node src/cli/src/cli.js watch [options] [targetPath]
+pnpm run cli -- watch [options] [targetPath]
 
 Options:
   --extensions <ext...>      File extensions to watch (default: .gml)
@@ -98,7 +98,7 @@ Options:
 ### Prepare Hot-Reload Options
 
 ```bash
-node src/cli/src/cli.js prepare-hot-reload [options]
+pnpm run cli -- prepare-hot-reload [options]
 
 Options:
   --html5-output <path>   Path to the HTML5 output directory
