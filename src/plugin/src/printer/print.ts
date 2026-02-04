@@ -26,13 +26,13 @@ import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wra
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
-import { safeGetParentNode } from "./path-utils.js";
 import {
     getSyntheticDocCommentForFunctionAssignment,
     getSyntheticDocCommentForStaticVariable,
     type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
+import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -3094,7 +3094,10 @@ function handleTerminalTrailingSpacing({
             }
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine = isConstructorBlock && nextCharacter !== "}" ? false : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
+            shouldPreserveTrailingBlankLine =
+                isConstructorBlock && nextCharacter !== "}"
+                    ? false
+                    : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
