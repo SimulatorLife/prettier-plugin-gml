@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
-import { findRepoRootSync } from "../../shared/repo-root.js";
+import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 
 const { getErrorMessageOrFallback } = Core;
 
@@ -166,7 +166,7 @@ async function resolveHtml5Output({
     if (!html5OutputRoot && gmWebServerRoot) {
         const resolvedRoot = path.resolve(gmWebServerRoot);
         const indexPath = path.join(resolvedRoot, "index.html");
-        const stats = await fs.stat(indexPath).catch(() => null);
+        const stats = await safeStatOrNull(indexPath);
         if (stats?.isFile()) {
             return { outputRoot: resolvedRoot, indexPath };
         }
@@ -202,13 +202,13 @@ async function resolveHtml5Output({
 
         const outputRoot = path.join(tempRoot, entry.name);
         const indexPath = path.join(outputRoot, "index.html");
-        const stats = await fs.stat(indexPath).catch(() => null);
+        const stats = await safeStatOrNull(indexPath);
         if (!stats) {
             return;
         }
 
         if (!best || stats.mtimeMs > bestMtime) {
-            bestMtime = stats.mtimeMs;
+            bestMtime = Number(stats.mtimeMs);
             best = { outputRoot, indexPath };
         }
     });
