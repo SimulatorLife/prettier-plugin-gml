@@ -3090,7 +3090,7 @@ function handleTerminalTrailingSpacing({
             !shouldCollapseExcessBlankLines
         ) {
             if (Core.isNonEmptyArray(node?._syntheticDocLines)) {
-                shouldPreserveTrailingBlankLine = false;
+                shouldPreserveTrailingBlankLine = true;
             } else {
                 const nextCharacter =
                     originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
