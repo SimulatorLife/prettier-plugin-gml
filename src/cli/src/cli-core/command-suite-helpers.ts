@@ -18,6 +18,7 @@ export const SuiteOutputFormat = Object.freeze({
 export type SuiteOutputFormat = (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
 
 export type SuiteRunner = (options?: unknown) => unknown;
+type SuiteResultEntry = [string, unknown];
 
 export interface SuitePayloadExtras {
     payload?: Record<string, unknown>;
@@ -131,25 +132,43 @@ export async function collectSuiteResults({
     const handleSuiteError = typeof onError === "function" ? onError : defaultSuiteErrorHandler;
 
     const executionResults = await Promise.all(
-        suiteNames.map(async (suiteName) => {
-            const runner = availableSuites.get(suiteName);
-            if (typeof runner !== "function") {
-                return null;
-            }
-
-            try {
-                const result = await runner(runnerOptions);
-                return [suiteName, result] as [string, unknown];
-            } catch (error) {
-                const fallback = handleSuiteError(error, { suiteName });
-                return [suiteName, fallback] as [string, unknown];
-            }
-        })
+        suiteNames.map((suiteName) =>
+            collectSingleSuiteResult({
+                suiteName,
+                availableSuites,
+                runnerOptions,
+                handleSuiteError
+            })
+        )
     );
 
-    const entries = executionResults.filter((result): result is [string, unknown] => result !== null);
+    const entries = executionResults.filter((result): result is SuiteResultEntry => result !== null);
 
     return Object.fromEntries(entries);
+}
+
+async function collectSingleSuiteResult({
+    suiteName,
+    availableSuites,
+    runnerOptions,
+    handleSuiteError
+}: {
+    suiteName: string;
+    availableSuites: Map<string, SuiteRunner>;
+    runnerOptions: unknown;
+    handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown;
+}): Promise<SuiteResultEntry | null> {
+    const runner = availableSuites.get(suiteName);
+    if (typeof runner !== "function") {
+        return null;
+    }
+
+    try {
+        return [suiteName, await runner(runnerOptions)];
+    } catch (error) {
+        const fallback = handleSuiteError(error, { suiteName });
+        return [suiteName, fallback];
+    }
 }
 
 export function createSuiteResultsPayload(
