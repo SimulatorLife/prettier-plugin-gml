@@ -829,14 +829,6 @@ function printBinaryExpressionNode(node, path, options, print) {
     let right;
     const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
-    console.log(
-        "DEBUG: BinaryOp:",
-        node.operator,
-        "Parent:",
-        path.getParentNode()?.type,
-        "ParentOp:",
-        path.getParentNode()?.operator
-    );
     const optimizeMathExpressions = Boolean(options?.optimizeMathExpressions);
 
     const leftIsUndefined = Core.isUndefinedSentinel(node.left);
