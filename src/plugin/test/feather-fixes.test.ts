@@ -9,7 +9,7 @@ import * as Transforms from "../src/transforms/index.js";
 
 // Using Plugin.format wrapper instead of pluginPath
 
-const { getNodeEndIndex, getNodeStartIndex, getFeatherMetadata, getFeatherDiagnosticById } = Core;
+const { getNodeEndIndex, getNodeStartIndex, getFeatherMetadata, getFeatherDiagnosticById, compactArray } = Core;
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
@@ -2940,7 +2940,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+        const callNames = compactArray(programBody.map(getCallExpressionName));
 
         assert.strictEqual(
             callNames.at(0),
@@ -2974,7 +2974,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+        const callNames = compactArray(programBody.map(getCallExpressionName));
 
         assert.deepStrictEqual(callNames, ["vertex_format_begin", "vertex_format_add_texcoord"]);
 

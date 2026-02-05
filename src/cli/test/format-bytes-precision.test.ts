@@ -1,6 +1,10 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { Core } from "@gml-modules/core";
+
+const { clamp } = Core;
+
 /**
  * Test helper that replicates the OLD buggy formatBytes implementation
  * without bounds checking. This demonstrates the floating-point precision
@@ -30,7 +34,7 @@ function formatBytesWithBoundsCheck(bytes: number): string {
     const sizes = ["B", "KB", "MB", "GB"];
     // FIXED: Clamp index to valid range to handle edge cases where logarithm
     // might produce unexpected values due to floating-point precision
-    const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
+    const i = clamp(Math.floor(Math.log(bytes) / Math.log(k)), 0, sizes.length - 1);
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
