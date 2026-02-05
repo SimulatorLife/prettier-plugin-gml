@@ -390,7 +390,8 @@ await test("updates pObject definition on active instances", () => {
         assert.notEqual(updatedPObjectFn, originalFn);
         assert.equal(updatedPObjectFn(instance, null, []), "patched");
 
-        // Verify event flag was set
+        // Verify event flags were set on both instance and pObject definitions
+        assert.equal(instance.Event[5], true);
         assert.equal(pObject.Event[5], true);
     } finally {
         restoreGlobals(snapshot);
