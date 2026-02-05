@@ -1,0 +1,33 @@
+name: "Agent 101 - Bloated Feature Removal"
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      agent: ${{ inputs.agent }}
+      pr_title: "Agent: Bloated Feature Removal"
+      prompt: >-
+        Investigate the repository in search of a **single clearly bloated feature** that is detrimental to performance,
+        unnecessary to ship, and harder to justify than it is to remove. For the chosen feature you must:
+        - Confirm it is not required by any active feature, integration, or planned effort;
+        - Remove **every trace** of it, including source code, configuration, assets, and **its dedicated tests** or fixtures;
+        - Show that the removal is self-contained, refactors nothing, and leaves no lingering references or dead exports;
+        - Provide a concrete rationale (with references to source files, workload impact, or historical reasons) that explains why
+          deletion is preferable to porting, modularizing, or reworking the feature.
+
+        Keep the pull request focused: only delete what is strictly necessary for this removal, document why it is safe,
+        and ensure the test suite still passes.
