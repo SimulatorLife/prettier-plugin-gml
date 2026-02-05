@@ -354,9 +354,7 @@ function insertBlankDocSeparators(
         }
 
         const between = originalText.slice(endIndex, next.start);
-        const blankDocLineCount = between
-            .split(/\r?\n/)
-            .filter((line) => /^\s*\/\/\/\s*$/.test(line)).length;
+        const blankDocLineCount = between.split(/\r?\n/).filter((line) => /^\s*\/\/\/\s*$/.test(line)).length;
 
         if (blankDocLineCount > 0) {
             for (let count = 0; count < blankDocLineCount; count += 1) {

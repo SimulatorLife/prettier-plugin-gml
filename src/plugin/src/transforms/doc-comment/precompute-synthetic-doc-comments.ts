@@ -41,10 +41,7 @@ function restorePrintedFlags(snapshot: Map<object, boolean>): void {
     }
 }
 
-function computeSyntheticDocSafely<T>(
-    programNode: MutableGameMakerAstNode,
-    compute: () => T
-): T | null {
+function computeSyntheticDocSafely<T>(programNode: MutableGameMakerAstNode, compute: () => T): T | null {
     const snapshot = snapshotPrintedFlags(programNode);
     const result = compute();
 

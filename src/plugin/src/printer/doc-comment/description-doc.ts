@@ -81,7 +81,11 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
 
         const { prefix } = DescriptionUtils.resolveDescriptionIndentation(entry);
         const baseIndentSpaces = Math.max(prefix.length - 3, 0);
-        const { continuations, linesConsumed } = collectDescriptionContinuations(docCommentDocs, index, baseIndentSpaces);
+        const { continuations, linesConsumed } = collectDescriptionContinuations(
+            docCommentDocs,
+            index,
+            baseIndentSpaces
+        );
 
         result.push(buildDescriptionDoc(entry, continuations));
         index += linesConsumed;

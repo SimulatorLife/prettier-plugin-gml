@@ -147,7 +147,11 @@ function shouldSuppressComment(comment, options) {
     if (isDocLikeComment && isFunctionAssignmentDocCommentTarget(syntheticOwner)) {
         return true;
     }
-    if (syntheticOwner && Array.isArray(syntheticOwner._syntheticDocLines) && Core.isLineCommentDocLike(formatted ?? rawText)) {
+    if (
+        syntheticOwner &&
+        Array.isArray(syntheticOwner._syntheticDocLines) &&
+        Core.isLineCommentDocLike(formatted ?? rawText)
+    ) {
         return true;
     }
     if (isFunctionDocCommentLine(formatted)) {
