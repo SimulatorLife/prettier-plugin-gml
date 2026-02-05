@@ -1566,7 +1566,7 @@ export class ScopeTracker {
         // Sort in place using simple string comparison
         declarations.sort((a, b) => {
             if (a.scopeId !== b.scopeId) {
-                return a.scopeId < b.scopeId ? -1 : 1;
+                return a.scopeId < b.scopeId ? -1 : a.scopeId > b.scopeId ? 1 : 0;
             }
             return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         });

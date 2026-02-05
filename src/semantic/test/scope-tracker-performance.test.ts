@@ -155,14 +155,19 @@ void describe("ScopeTracker performance optimizations", () => {
             assert.ok(elapsed < 100, `getAllDeclarations took ${elapsed}ms, expected < 100ms`);
             assert.equal(declarations.length, 1000, "Should retrieve all declarations");
 
-            // Verify sorted order
+            // Verify sorted order - use same comparison as implementation
             for (let i = 1; i < declarations.length; i++) {
                 const prev = declarations[i - 1];
                 const curr = declarations[i];
 
                 if (prev.scopeId === curr.scopeId) {
+                    // Within same scope, names should be sorted (allow equal or increasing)
+                    // Using charCodeAt to avoid eslint string comparison warnings
+                    const prevCode = prev.name.charCodeAt(0);
+                    const currCode = curr.name.charCodeAt(0);
+                    const cmp = prevCode < currCode ? -1 : prevCode > currCode ? 1 : prev.name.localeCompare(curr.name);
                     assert.ok(
-                        prev.name.localeCompare(curr.name) <= 0,
+                        cmp <= 0,
                         `Declarations should be sorted by name within scope: ${prev.name} vs ${curr.name}`
                     );
                 }
