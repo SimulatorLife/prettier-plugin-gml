@@ -84,36 +84,31 @@ function resolvePrettierConfiguration(
     };
 }
 
-function getFirstPositionalArgument(args: Array<unknown>): unknown {
-    if (args.length > 0) {
-        return args[0];
-    }
-
-    return null;
-}
-
 function resolveTargetPathInput(options: CommandOptionsRecord, args: Array<unknown>): TargetPathResolution {
-    const positionalTarget = getFirstPositionalArgument(args);
+    const positionalTarget = args[0] ?? null;
     const rawTarget = options.path ?? positionalTarget ?? null;
 
-    let targetPathInput: unknown = null;
-    let targetPathProvided = false;
-    let rawTargetPathInput: string | undefined;
-
-    if (typeof rawTarget === "string") {
-        const trimmedTarget = getNonEmptyTrimmedString(rawTarget);
-        targetPathInput = trimmedTarget ?? null;
-        targetPathProvided = true;
-
-        if (trimmedTarget !== null && trimmedTarget !== rawTarget) {
-            rawTargetPathInput = rawTarget;
-        }
-    } else if (rawTarget !== null) {
-        targetPathInput = rawTarget;
-        targetPathProvided = true;
+    if (rawTarget === null) {
+        return {
+            targetPathInput: null,
+            targetPathProvided: false
+        };
     }
 
-    return { targetPathInput, targetPathProvided, rawTargetPathInput };
+    if (typeof rawTarget !== "string") {
+        return {
+            targetPathInput: rawTarget,
+            targetPathProvided: true
+        };
+    }
+
+    const trimmedTarget = getNonEmptyTrimmedString(rawTarget);
+
+    return {
+        targetPathInput: trimmedTarget ?? null,
+        targetPathProvided: true,
+        rawTargetPathInput: trimmedTarget !== null && trimmedTarget !== rawTarget ? rawTarget : undefined
+    };
 }
 
 export function collectFormatCommandOptions(

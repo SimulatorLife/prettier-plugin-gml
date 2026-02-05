@@ -1,7 +1,7 @@
 import type { GameMakerAstNode } from "@gml-modules/core";
 
 import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
-import { createPrettierParserAdapter } from "../parsers/index.js";
+import { prettierParserAdapter } from "../parsers/index.js";
 import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 
@@ -9,11 +9,9 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const { gmlParserAdapter, print, handleComments, printComment, identifierCaseOptions, LogicalOperatorsStyle } =
         gmlPluginComponentDependencies;
 
-    const prettierParser = createPrettierParserAdapter(gmlParserAdapter);
-
     return {
         parsers: {
-            "gml-parse": prettierParser,
+            "gml-parse": prettierParserAdapter,
             gmlParserAdapter
         },
         printers: {

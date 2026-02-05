@@ -37,7 +37,6 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
 import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
-import { runSequentially } from "./cli-core/sequential-runner.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
@@ -114,12 +113,10 @@ function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
 
 function getFormattingCacheEntry(cacheKey: string): string | undefined {
     const cached = formattingCache.get(cacheKey);
-    if (cached === undefined) {
-        return undefined;
+    if (cached !== undefined) {
+        formattingCache.delete(cacheKey);
+        formattingCache.set(cacheKey, cached);
     }
-
-    formattingCache.delete(cacheKey);
-    formattingCache.set(cacheKey, cached);
     return cached;
 }
 
@@ -385,25 +382,25 @@ function configureConsoleMethods(logLevel: string): void {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleError.apply(console, args);
+            originalConsoleError.apply(console, args);
         };
         console.warn = (...args) => {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleWarn.apply(console, args as any);
+            originalConsoleWarn.apply(console, args as any);
         };
         console.log = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleLog.apply(console, args);
+            originalConsoleLog.apply(console, args);
         };
         console.info = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
                 return;
             }
-            return originalConsoleInfo.apply(console, args);
+            originalConsoleInfo.apply(console, args);
         };
     } else {
         console.error = originalConsoleError;
@@ -910,7 +907,7 @@ async function discardFormattedFileOriginalContents() {
     const snapshots = [...formattedFileOriginalContents.values()];
     formattedFileOriginalContents.clear();
 
-    await runSequentially(snapshots, async (snapshot) => {
+    await Core.runSequentially(snapshots, async (snapshot) => {
         // Release each snapshot in sequence so the shared
         // `revertSnapshotFileCount` accounting stays in sync with the
         // filesystem. `releaseSnapshot` also decides whether the directory can
@@ -1030,7 +1027,7 @@ async function revertFormattedFiles() {
         } due to parser failure.`
     );
 
-    await runSequentially(revertEntries, async ([filePath, snapshot]) => {
+    await Core.runSequentially(revertEntries, async ([filePath, snapshot]) => {
         try {
             const originalContents = await readSnapshotContents(snapshot);
             if (originalContents == null) {
@@ -1160,7 +1157,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 }
 
 async function registerIgnorePaths(ignoreFiles) {
-    await runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
+    await Core.runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
@@ -1504,7 +1501,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
 }
 
 async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
-    await runSequentially(files, async (file) => {
+    await Core.runSequentially(files, async (file) => {
         if (abortRequested) {
             return;
         }

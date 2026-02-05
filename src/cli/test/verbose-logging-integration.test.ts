@@ -18,6 +18,26 @@ const execFileBase = promisify(execFile);
 
 const normalizeExecOutput = (value: string | Buffer) => (typeof value === "string" ? value : value.toString());
 
+async function createDummyRefactorProject(tempDirectory: string): Promise<void> {
+    const projectFile = path.join(tempDirectory, "project.yyp");
+    await fs.writeFile(
+        projectFile,
+        JSON.stringify({
+            resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
+        }),
+        "utf8"
+    );
+
+    const scriptDir = path.join(tempDirectory, "scripts/script1");
+    await fs.mkdir(scriptDir, { recursive: true });
+    await fs.writeFile(
+        path.join(scriptDir, "script1.yy"),
+        JSON.stringify({ resourceType: "GMScript", name: "script1" }),
+        "utf8"
+    );
+    await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
+}
+
 async function execFileAsync(command: string, args: Array<string>, options?: ExecFileOptions) {
     if (command === "node" && isNonEmptyArray(args) && args[0] === wrapperPath) {
         const [, ...cliArgs] = args;
@@ -85,24 +105,7 @@ void describe("CLI Verbose Logging", () => {
     void it("shows debug logs when --verbose is provided for refactor command", async () => {
         const tempDirectory = await createTemporaryDirectory();
         try {
-            // Create a dummy project
-            const projectFile = path.join(tempDirectory, "project.yyp");
-            await fs.writeFile(
-                projectFile,
-                JSON.stringify({
-                    resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
-                }),
-                "utf8"
-            );
-
-            const scriptDir = path.join(tempDirectory, "scripts/script1");
-            await fs.mkdir(scriptDir, { recursive: true });
-            await fs.writeFile(
-                path.join(scriptDir, "script1.yy"),
-                JSON.stringify({ resourceType: "GMScript", name: "script1" }),
-                "utf8"
-            );
-            await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
+            await createDummyRefactorProject(tempDirectory);
 
             const { stdout } = await execFileAsync("node", [
                 wrapperPath,
@@ -127,24 +130,7 @@ void describe("CLI Verbose Logging", () => {
     void it("does not show debug logs by default for refactor command", async () => {
         const tempDirectory = await createTemporaryDirectory();
         try {
-            // Create a dummy project
-            const projectFile = path.join(tempDirectory, "project.yyp");
-            await fs.writeFile(
-                projectFile,
-                JSON.stringify({
-                    resources: [{ id: { name: "script1", path: "scripts/script1/script1.yy" } }]
-                }),
-                "utf8"
-            );
-
-            const scriptDir = path.join(tempDirectory, "scripts/script1");
-            await fs.mkdir(scriptDir, { recursive: true });
-            await fs.writeFile(
-                path.join(scriptDir, "script1.yy"),
-                JSON.stringify({ resourceType: "GMScript", name: "script1" }),
-                "utf8"
-            );
-            await fs.writeFile(path.join(scriptDir, "script1.gml"), "function script1() { return 1; }", "utf8");
+            await createDummyRefactorProject(tempDirectory);
 
             const { stdout } = await execFileAsync("node", [
                 wrapperPath,

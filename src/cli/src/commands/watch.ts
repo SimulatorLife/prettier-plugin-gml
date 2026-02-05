@@ -23,7 +23,6 @@ import { Command, Option } from "commander";
 
 import { formatCliError } from "../cli-core/errors.js";
 import { runInParallel } from "../cli-core/parallel-runner.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
@@ -38,7 +37,7 @@ import {
     type RuntimeSourceDescriptor,
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
-import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
+import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
 import {
     displayTranspilationStatistics,
     registerScriptNamesFromSymbols,
@@ -204,7 +203,7 @@ interface PatchHistory {
  */
 interface ServerControllers {
     websocketServer: PatchBroadcaster | null;
-    statusServer: StatusServerController | null;
+    statusServer: StatusServerLifecycle | null;
 }
 
 /**
@@ -215,6 +214,8 @@ interface WatchLifecycle {
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
     scanComplete: boolean;
+    unknownScanPromise: Promise<void> | null;
+    unknownScanQueued: boolean;
 }
 
 /**
@@ -530,7 +531,7 @@ async function performInitialScan(
 
             await runInParallel(filesToProcess, processFile, { concurrency });
 
-            await runSequentially(subdirectories, scanDirectory);
+            await Core.runSequentially(subdirectories, scanDirectory);
         } catch (error) {
             if (verbose && !quiet) {
                 const message = getCoreErrorMessage(error, {
@@ -642,7 +643,10 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         pollingInterval = 1000,
         verbose = false,
         quiet = false,
-        debounceDelay = 200,
+        // Optimized for minimal hot-reload latency while still batching rapid successive edits.
+        // 100ms provides immediate feedback for single-file changes while preventing redundant
+        // transpilations during rapid editing (e.g., auto-save + manual save).
+        debounceDelay = 100,
         maxPatchHistory = 100,
         scanConcurrency = 8,
         websocketPort = 17_890,
@@ -713,13 +717,15 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         startTime: Date.now(),
         debouncedHandlers: new Map(),
         scanComplete: false,
+        unknownScanPromise: null,
+        unknownScanQueued: false,
         fileSnapshots: new Map(),
         dependencyTracker
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
     let websocketServerController: PatchWebSocketServer | null = null;
-    let statusServerController: StatusServerController | null = null;
+    let statusServerController: StatusServerHandle | null = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
@@ -998,7 +1004,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     if (!filename) {
                         const unknownKey = `${normalizedPath}::unknown`;
                         const triggerUnknown = () =>
-                            handleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                            scheduleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
                                 const message = getErrorMessage(error, {
                                     fallback: "Unknown file processing error"
                                 });
@@ -1224,7 +1230,7 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    await runSequentially(entries, async ([filePath, lastModified]) => {
+    await Core.runSequentially(entries, async ([filePath, lastModified]) => {
         try {
             const stats = await stat(filePath);
             if (stats.mtimeMs <= lastModified) {
@@ -1243,6 +1249,34 @@ async function handleUnknownFileChanges(
     });
 }
 
+function processQueuedUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    runtimeContext.unknownScanQueued = false;
+
+    return handleUnknownFileChanges(runtimeContext, verbose, quiet).then(() =>
+        runtimeContext.unknownScanQueued
+            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet)
+            : Promise.resolve()
+    );
+}
+
+function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+    if (runtimeContext.unknownScanPromise !== null) {
+        runtimeContext.unknownScanQueued = true;
+        return runtimeContext.unknownScanPromise;
+    }
+
+    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet).finally(() => {
+        runtimeContext.unknownScanPromise = null;
+    });
+
+    runtimeContext.unknownScanPromise = unknownScanPromise;
+    return unknownScanPromise;
+}
+
 async function readFileStats(filePath: string): Promise<Stats | null> {
     try {
         return await stat(filePath);
@@ -1258,7 +1292,7 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    await runSequentially(dependentFiles, async (dependentFile) => {
+    await Core.runSequentially(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {
@@ -1461,7 +1495,7 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-        await runSequentially(entries, async (entry) => {
+        await Core.runSequentially(entries, async (entry) => {
             const candidatePath = path.join(currentPath, entry.name);
             if (entry.isDirectory()) {
                 await scan(candidatePath);

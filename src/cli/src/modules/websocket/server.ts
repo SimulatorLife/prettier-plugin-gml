@@ -7,8 +7,7 @@
  */
 
 import { Core } from "@gml-modules/core";
-import type { WebSocket } from "ws";
-import { WebSocketServer } from "ws";
+import { type WebSocket, WebSocketServer } from "ws";
 
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
@@ -191,6 +190,7 @@ export async function startPatchWebSocketServer({
 
     /**
      * Broadcasts a patch to all connected clients.
+     * Optimized to serialize the patch once and reuse the message for all clients.
      *
      * @param {object} patch - Patch object to broadcast
      */
@@ -198,11 +198,36 @@ export async function startPatchWebSocketServer({
         let successCount = 0;
         let failureCount = 0;
 
+        // Serialize once for all clients to minimize CPU overhead
+        let serializedMessage: string;
+        try {
+            serializedMessage = JSON.stringify(patch);
+        } catch (error) {
+            if (verbose) {
+                const message = Core.isErrorLike(error) ? error.message : String(error);
+                console.error(`[WebSocket] Failed to serialize patch: ${message}`);
+            }
+            // All sends fail if serialization fails
+            return { successCount: 0, failureCount: clients.size, totalClients: clients.size };
+        }
+
         for (const ws of clients) {
-            const clientId = clientIds.get(ws) ?? "[unknown]";
-            const sent = sendJsonMessage(ws, patch, clientId);
-            successCount += sent ? 1 : 0;
-            failureCount += sent ? 0 : 1;
+            try {
+                if (ws.readyState !== READY_STATE_OPEN) {
+                    failureCount += 1;
+                    continue;
+                }
+
+                ws.send(serializedMessage);
+                successCount += 1;
+            } catch (error) {
+                failureCount += 1;
+                if (verbose) {
+                    const clientId = clientIds.get(ws) ?? "[unknown]";
+                    const message = Core.isErrorLike(error) ? error.message : String(error);
+                    console.error(`[WebSocket] Failed to send to ${clientId}: ${message}`);
+                }
+            }
         }
 
         return { successCount, failureCount, totalClients: clients.size };

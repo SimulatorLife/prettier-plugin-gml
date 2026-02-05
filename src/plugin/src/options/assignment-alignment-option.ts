@@ -13,4 +13,4 @@
  * This value is used as the default for the `alignAssignmentsMinGroupSize` option
  * and as a fallback when the option is not specified.
  */
-export const DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE = 3;
+export { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../constants.js";

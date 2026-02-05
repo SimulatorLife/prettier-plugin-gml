@@ -1,4 +1,4 @@
-type StatusPayload = {
+export type StatusPayload = {
     patchCount?: number;
     patchHistorySize?: number;
     maxPatchHistory?: number;
@@ -132,4 +132,31 @@ export async function waitForStatusReady(
     }
 
     throw new Error(`Timed out waiting for status server at ${baseUrl}/status`);
+}
+
+export async function waitForStatus(
+    baseUrl: string,
+    predicate: (status: StatusPayload) => boolean,
+    timeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
+    pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
+): Promise<StatusPayload> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        try {
+            const response = await fetch(`${baseUrl}/status`);
+            if (response.ok) {
+                const payload = (await response.json()) as StatusPayload;
+                if (predicate(payload)) {
+                    return payload;
+                }
+            }
+        } catch {
+            // Ignore transient startup failures while the server boots.
+        }
+
+        await delay(pollIntervalMs);
+    }
+
+    throw new Error("Timed out waiting for watch status update");
 }

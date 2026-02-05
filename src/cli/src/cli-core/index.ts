@@ -13,5 +13,4 @@ export * from "./extension-normalizer.js";
 export * from "./format-command-options.js";
 export * from "./main-module-runner.js";
 export * from "./parallel-runner.js";
-export * from "./sequential-runner.js";
 export * from "./version.js";

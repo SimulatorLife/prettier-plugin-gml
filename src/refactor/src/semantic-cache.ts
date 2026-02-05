@@ -204,7 +204,25 @@ export class SemanticQueryCache {
      * Useful when a file changes but others remain valid.
      */
     invalidateFile(filePath: string): void {
+        const cachedSymbols = this.getCached(this.fileSymbolsCache, filePath);
         this.fileSymbolsCache.delete(filePath);
+
+        if (cachedSymbols) {
+            const symbolIds = new Set(cachedSymbols.map((symbol) => symbol.id));
+
+            for (const symbolId of symbolIds) {
+                this.existenceCache.delete(symbolId);
+            }
+
+            if (symbolIds.size > 0) {
+                for (const key of this.dependentsCache.keys()) {
+                    const dependencyIds = key.split(",");
+                    if (dependencyIds.some((dependencyId) => symbolIds.has(dependencyId))) {
+                        this.dependentsCache.delete(key);
+                    }
+                }
+            }
+        }
 
         // Clear occurrence cache entries that reference this file
         for (const [key, entry] of this.occurrenceCache.entries()) {
