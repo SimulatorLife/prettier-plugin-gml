@@ -105,9 +105,6 @@ const {
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
-// Polyfill literalLine if not available in prettier-doc-builders
-// const literalLine = { type: "line", hard: true, literal: true };
-
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
 const OBJECT_TYPE = "object";
@@ -3181,7 +3178,6 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
-    // let currentGroupHasAlias = false;
 
     const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
 
@@ -3194,7 +3190,6 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
-        // currentGroupHasAlias = false;
     };
 
     const flushGroup = () => {
@@ -3297,10 +3292,6 @@ export function applyAssignmentAlignment(statements, options, path = null, child
                 if (printedWidth > currentGroupMaxLength) {
                     currentGroupMaxLength = printedWidth;
                 }
-                if (entry.enablesAlignment) {
-                    // currentGroupHasAlias = true;
-                }
-
                 previousEntry = entry;
             }
         } else {

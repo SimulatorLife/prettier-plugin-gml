@@ -453,32 +453,31 @@ function decrementLocatorCount(locator, store) {
     }
 }
 
+function createDirectoryScanResult(
+    status,
+    { notes = [], cases = [], coverage = null, lint = null, duplicates = null, health = null } = {}
+) {
+    return {
+        status,
+        notes,
+        cases,
+        coverage,
+        lint,
+        duplicates,
+        health
+    };
+}
+
 function scanResultDirectory(directory, root) {
     if (!isExistingDirectory(directory.resolved)) {
-        return {
-            status: ScanStatus.MISSING,
-            notes: [],
-            cases: [],
-            coverage: null,
-            lint: null,
-            duplicates: null,
-            health: null
-        };
+        return createDirectoryScanResult(ScanStatus.MISSING);
     }
 
     const allFiles = listFilesRecursive(directory.resolved);
     const { xmlFiles, lcovFiles, checkstyleFiles, jscpdFiles, healthFiles } = classifyReportFiles(allFiles);
 
     if (xmlFiles.length === 0) {
-        return {
-            status: ScanStatus.EMPTY,
-            notes: [],
-            cases: [],
-            coverage: null,
-            lint: null,
-            duplicates: null,
-            health: null
-        };
+        return createDirectoryScanResult(ScanStatus.EMPTY);
     }
 
     const { cases, notes } = collectDirectoryTestCases(xmlFiles, root);
@@ -488,26 +487,23 @@ function scanResultDirectory(directory, root) {
     const health = readProjectHealth(healthFiles);
 
     if (cases.length === 0) {
-        return {
-            status: ScanStatus.EMPTY,
+        return createDirectoryScanResult(ScanStatus.EMPTY, {
             notes,
-            cases: [],
             coverage,
             lint,
             duplicates,
             health
-        };
+        });
     }
 
-    return {
-        status: ScanStatus.FOUND,
+    return createDirectoryScanResult(ScanStatus.FOUND, {
         notes,
         cases,
         coverage,
         lint,
         duplicates,
         health
-    };
+    });
 }
 
 function readDuplicates(files) {
