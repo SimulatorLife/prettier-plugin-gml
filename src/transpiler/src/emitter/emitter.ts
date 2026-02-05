@@ -581,7 +581,7 @@ export class GmlToJsEmitter {
             return `${ast.kind} ${result}`;
         }
         // Multiple declarations: pre-allocate array
-        const parts: string[] = Array.from({length: decls.length});
+        const parts: string[] = Array.from({ length: decls.length });
         for (const [i, decl] of decls.entries()) {
             let part = this.visit(decl.id);
             if (decl.init) {
@@ -636,7 +636,8 @@ export class GmlToJsEmitter {
             if (!atom) {
                 continue;
             }
-            result += atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`;
+            result +=
+                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`;
         }
         result += "`";
         return result;
@@ -659,7 +660,7 @@ export class GmlToJsEmitter {
             return `{${key}: ${value}}`;
         }
         // Multiple properties: build efficiently
-        const parts: string[] = Array.from({length: props.length});
+        const parts: string[] = Array.from({ length: props.length });
         for (const [i, prop] of props.entries()) {
             const key = this.resolveStructKey(prop);
             const value = this.visit(prop.value);
@@ -749,7 +750,7 @@ export class GmlToJsEmitter {
             return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
         }
         // Build parameter list efficiently
-        const paramParts: string[] = Array.from({length: params.length});
+        const paramParts: string[] = Array.from({ length: params.length });
         for (const [i, param] of params.entries()) {
             paramParts[i] = typeof param === "string" ? param : this.visit(param);
         }

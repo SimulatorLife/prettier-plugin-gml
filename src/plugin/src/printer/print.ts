@@ -3091,13 +3091,14 @@ function handleTerminalTrailingSpacing({
         ) {
             if (Core.isNonEmptyArray(node?._syntheticDocLines)) {
                 shouldPreserveTrailingBlankLine = false;
+            } else {
+                const nextCharacter =
+                    originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+                shouldPreserveTrailingBlankLine =
+                    isConstructorBlock && nextCharacter !== "}"
+                        ? false
+                        : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
             }
-            const nextCharacter =
-                originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine =
-                isConstructorBlock && nextCharacter !== "}"
-                    ? false
-                    : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
