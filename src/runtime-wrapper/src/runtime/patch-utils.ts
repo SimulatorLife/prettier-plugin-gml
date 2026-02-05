@@ -139,6 +139,31 @@ function resolveEventIndexName(eventKey: string): string | null {
     }
 }
 
+function resolveEventIndex(
+    globalScope: RuntimeBindingGlobals & Record<string, unknown>,
+    eventKey: string
+): number | null {
+    const minifiedEventIndexName = resolveEventIndexName(eventKey);
+    if (minifiedEventIndexName && typeof globalScope[minifiedEventIndexName] === "number") {
+        return globalScope[minifiedEventIndexName];
+    }
+
+    const standardEventIndexName = EVENT_INDEX_MAP[eventKey];
+    if (standardEventIndexName && typeof globalScope[standardEventIndexName] === "number") {
+        return globalScope[standardEventIndexName];
+    }
+
+    return null;
+}
+
+function markEventIndexAsEnabled(eventCollection: unknown, index: number | null): void {
+    if (typeof index !== "number" || !Array.isArray(eventCollection)) {
+        return;
+    }
+
+    eventCollection[index] = true;
+}
+
 function resolveNamedFunctionId(runtimeId: string): string | null {
     if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(runtimeId)) {
         return null;
@@ -247,41 +272,13 @@ function updateInstance(
 
         // Also update the object definition (pObject) which the event loop uses
         const pObject = (instance as any).pObject || (instance as any)._kx;
-        if (pObject && typeof pObject === "object") {
-            if (pObject[key] !== fn) {
+        if (pObject && typeof pObject === "object" && pObject[key] !== fn) {
                 pObject[key] = fn;
             }
 
-            // Resolve event index (try minified first, then standard)
-            const eventIndexName = resolveEventIndexName(key);
-            const standardName = EVENT_INDEX_MAP[key];
-            let index: number | null = null;
-
-            if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
-                index = globalScope[eventIndexName];
-            } else if (standardName && typeof globalScope[standardName] === "number") {
-                index = globalScope[standardName];
-            }
-
-            if (typeof index === "number" && Array.isArray(pObject.Event)) {
-                pObject.Event[index] = true;
-            }
-        }
-
-        const eventIndexName = resolveEventIndexName(key);
-        const standardName = EVENT_INDEX_MAP[key];
-        let index: number | null = null;
-
-        if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
-            index = globalScope[eventIndexName];
-        } else if (standardName && typeof globalScope[standardName] === "number") {
-            index = globalScope[standardName];
-        }
-
-        const eventArray = instance.Event as Array<boolean> | undefined;
-        if (typeof index === "number" && Array.isArray(eventArray)) {
-            eventArray[index] = true;
-        }
+        const eventIndex = resolveEventIndex(globalScope, key);
+        markEventIndexAsEnabled((instance as { Event?: unknown }).Event, eventIndex);
+        markEventIndexAsEnabled((pObject as { Event?: unknown } | null | undefined)?.Event, eventIndex);
     }
 
     for (const [key, value] of Object.entries(instance)) {
