@@ -387,6 +387,8 @@ function applyFinalTransforms(
     Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
         originalText: options?.originalText ?? originalSource
     });
+
+    Transforms.precomputeSyntheticDocComments(ast, options ?? {}, options?.originalText ?? originalSource);
 }
 
 function getParserLocStart(node: MutableGameMakerAstNode): number {

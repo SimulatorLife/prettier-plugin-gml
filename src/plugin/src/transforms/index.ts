@@ -115,6 +115,7 @@ export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assi
 export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
 export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
+export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export {
     applyFeatherFixesTransform,

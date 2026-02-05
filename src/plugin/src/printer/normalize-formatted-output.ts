@@ -168,6 +168,24 @@ function isDocLikeLine(line: string): boolean {
     return DOC_LIKE_LINE_PATTERN.test(trimmed);
 }
 
+function updateBlockCommentState(line: string, isInside: boolean): boolean {
+    const startIndex = line.indexOf("/*");
+    const endIndex = line.indexOf("*/");
+
+    if (!isInside) {
+        if (startIndex !== -1 && (endIndex === -1 || startIndex < endIndex)) {
+            return true;
+        }
+        return false;
+    }
+
+    if (endIndex !== -1 && (startIndex === -1 || endIndex > startIndex)) {
+        return false;
+    }
+
+    return true;
+}
+
 function hasRepeatedBlock(trimmedLines: string[], segmentLength: number): boolean {
     const baseSegment = trimmedLines.slice(0, segmentLength);
 
@@ -235,6 +253,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
     let docBlockLines: string[] = [];
+    let insideBlockComment = false;
 
     const flushDocBlock = () => {
         if (docBlockLines.length === 0) {
@@ -247,13 +266,22 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
     };
 
     for (const line of lines) {
+        if (insideBlockComment) {
+            flushDocBlock();
+            result.push(line);
+            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
+            continue;
+        }
+
         if (isDocLikeLine(line)) {
             docBlockLines.push(line);
+            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
             continue;
         }
 
         flushDocBlock();
         result.push(line);
+        insideBlockComment = updateBlockCommentState(line, insideBlockComment);
     }
 
     flushDocBlock();
@@ -264,14 +292,20 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
     let previousLine: string | undefined;
+    let insideBlockComment = false;
 
     for (const line of lines) {
-        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(previousLine)) {
+        if (
+            !insideBlockComment &&
+            isTopLevelPlainLineComment(line) &&
+            shouldInsertBlankLineBeforeTopLevelComment(previousLine)
+        ) {
             result.push("");
         }
 
         result.push(line);
         previousLine = line;
+        insideBlockComment = updateBlockCommentState(line, insideBlockComment);
     }
 
     return result.join("\n");

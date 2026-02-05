@@ -22,6 +22,12 @@ type SyntheticDocCommentCoreResult =
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForStaticVariable>>
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForFunctionAssignment>>;
 
+type SyntheticDocCommentCache = {
+    docLines: string[] | null;
+    hasExistingDocLines: boolean;
+    plainLeadingLines: unknown;
+};
+
 export function buildSyntheticDocComment(
     functionNode: unknown,
     existingDocLines: string[],
@@ -68,6 +74,56 @@ function buildDocFromSyntheticResult(result: SyntheticDocCommentCoreResult | nul
     });
 }
 
+function readSyntheticDocCommentCache(node: unknown): SyntheticDocCommentCache | null {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const cache = (node as { _gmlSyntheticDocComment?: unknown })._gmlSyntheticDocComment;
+    if (!cache || typeof cache !== "object") {
+        return null;
+    }
+
+    const rawDocLines = Array.isArray((cache as { docLines?: unknown }).docLines)
+        ? (cache as { docLines: unknown[] }).docLines
+        : null;
+    const docLines = rawDocLines ? rawDocLines.filter((line): line is string => typeof line === "string") : null;
+    const hasExistingDocLines = (cache as { hasExistingDocLines?: boolean }).hasExistingDocLines === true;
+    const plainLeadingLines = (cache as { plainLeadingLines?: unknown }).plainLeadingLines ?? [];
+
+    if (!Core.isNonEmptyArray(docLines) && Core.asArray(plainLeadingLines).length === 0) {
+        return null;
+    }
+
+    return {
+        docLines: Core.isNonEmptyArray(docLines) ? docLines : null,
+        hasExistingDocLines,
+        plainLeadingLines
+    };
+}
+
+function resolveDocCommentPayloadFromCache(cache: SyntheticDocCommentCache): SyntheticDocCommentPayload | null {
+    const docLines = Core.isNonEmptyArray(cache.docLines) ? cache.docLines : null;
+    const doc = docLines
+        ? buildSyntheticDocCommentDoc({
+              docLines,
+              hasExistingDocLines: cache.hasExistingDocLines
+          })
+        : null;
+    const plainLeadingLines = normalizePlainLeadingLines(cache.plainLeadingLines);
+
+    if (!doc && plainLeadingLines.length === 0) {
+        return null;
+    }
+
+    return {
+        doc: doc?.doc ?? null,
+        docLines: doc?.docLines ?? null,
+        hasExistingDocLines: cache.hasExistingDocLines,
+        plainLeadingLines
+    };
+}
+
 function resolveDocCommentPayload(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentPayload | null {
     if (!result) {
         return null;
@@ -94,6 +150,11 @@ export function getSyntheticDocCommentForStaticVariable(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
+    const cached = readSyntheticDocCommentCache(node);
+    if (cached) {
+        return resolveDocCommentPayloadFromCache(cached);
+    }
+
     const result = Core.computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText);
 
     return resolveDocCommentPayload(result);
@@ -105,6 +166,11 @@ export function getSyntheticDocCommentForFunctionAssignment(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
+    const cached = readSyntheticDocCommentCache(node);
+    if (cached) {
+        return resolveDocCommentPayloadFromCache(cached);
+    }
+
     const result = Core.computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText);
 
     return resolveDocCommentPayload(result);

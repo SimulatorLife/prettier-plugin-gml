@@ -24,3 +24,4 @@ export {
 } from "./doc-comment-metadata.js";
 export { docCommentNormalizationTransform } from "./doc-comment-normalization.js";
 export * as NormalizationUtils from "./normalization-utils.js";
+export { precomputeSyntheticDocComments } from "./precompute-synthetic-doc-comments.js";
