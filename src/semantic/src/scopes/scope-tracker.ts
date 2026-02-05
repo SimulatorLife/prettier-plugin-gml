@@ -190,7 +190,12 @@ export class ScopeTracker {
             return descendants;
         }
 
-        const stack = [...children];
+        // Use an array as a stack to avoid Set iteration overhead
+        const stack: string[] = [];
+        for (const childId of children) {
+            stack.push(childId);
+        }
+
         while (stack.length > 0) {
             const childId = stack.pop();
             if (!childId || descendants.has(childId)) {
@@ -600,10 +605,51 @@ export class ScopeTracker {
     public getBatchSymbolOccurrences(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
         const results = new Map<string, SymbolOccurrence[]>();
 
+        // Optimize by processing all symbols in one pass rather than calling getSymbolOccurrences repeatedly
         for (const name of names) {
-            const occurrences = this.getSymbolOccurrences(name);
-            if (occurrences.length > 0) {
-                results.set(name, occurrences);
+            if (!name) {
+                continue;
+            }
+
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const nameResults: SymbolOccurrence[] = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(name);
+                if (!entry) {
+                    continue;
+                }
+
+                for (const declaration of entry.declarations) {
+                    nameResults.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "declaration",
+                        occurrence: cloneOccurrence(declaration)
+                    });
+                }
+
+                for (const reference of entry.references) {
+                    nameResults.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: cloneOccurrence(reference)
+                    });
+                }
+            }
+
+            if (nameResults.length > 0) {
+                results.set(name, nameResults);
             }
         }
 
