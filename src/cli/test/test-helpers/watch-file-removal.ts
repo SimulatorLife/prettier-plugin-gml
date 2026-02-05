@@ -15,6 +15,7 @@ export interface FileRemovalTestOptions {
 
 export interface FileRemovalTestResult {
     removedFilePath: string | null;
+    targetFile: string;
 }
 
 /**
@@ -80,5 +81,5 @@ export async function runFileRemovalTest(options: FileRemovalTestOptions): Promi
 
     await rm(root, { recursive: true, force: true });
 
-    return { removedFilePath };
+    return { removedFilePath, targetFile };
 }
