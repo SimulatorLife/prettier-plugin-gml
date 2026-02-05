@@ -98,7 +98,7 @@ void test("adds synthetic @returns metadata for parameterless static functions",
     const trimmed = formatted.trim();
 
     assert.ok(
-        trimmed.includes("\n\n    /// @returns {undefined}\n    static ping = function () {"),
+        trimmed.includes("\n    /// @returns {undefined}\n    static ping = function () {"),
         "Expected synthetic doc comments to describe the parameterless static function with inserted @returns metadata."
     );
     assert.ok(

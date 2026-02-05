@@ -13,6 +13,9 @@ tools/
 /*.mjs
 */**/*debug*.txt
 
+# We only want extra markdown files in docs/
+*.md
+
 # TypeScript
 *.tsbuildinfo
 *.d.ts

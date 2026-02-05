@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { FSWatcher, PathLike, WatchListener, WatchOptions } from "node:fs";
+import type { WatchListener } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
+import { createMockWatchFactory } from "./test-helpers/watch-fixtures.js";
 
 void describe("Watch command file read errors", () => {
     void it("logs read failures even in quiet mode", async () => {
@@ -21,76 +22,8 @@ void describe("Watch command file read errors", () => {
             resolveErrorLogged = resolve;
         });
 
-        let capturedListener: WatchListener<string> | undefined;
-
-        const watchFactory = (
-            _path: PathLike,
-            _options?: WatchOptions | BufferEncoding | "buffer",
-            listener?: WatchListener<string>
-        ): FSWatcher => {
-            void _path;
-            void _options;
-            capturedListener = listener;
-
-            const watcher: FSWatcher = {
-                close() {
-                    return undefined;
-                },
-                ref() {
-                    return this;
-                },
-                unref() {
-                    return this;
-                },
-                addListener() {
-                    return this;
-                },
-                on() {
-                    return this;
-                },
-                once() {
-                    return this;
-                },
-                removeListener() {
-                    return this;
-                },
-                off() {
-                    return this;
-                },
-                removeAllListeners() {
-                    return this;
-                },
-                setMaxListeners() {
-                    return this;
-                },
-                getMaxListeners() {
-                    return 0;
-                },
-                listeners() {
-                    return [];
-                },
-                rawListeners() {
-                    return [];
-                },
-                emit() {
-                    return false;
-                },
-                listenerCount() {
-                    return 0;
-                },
-                prependListener() {
-                    return this;
-                },
-                prependOnceListener() {
-                    return this;
-                },
-                eventNames() {
-                    return [];
-                }
-            };
-
-            return watcher;
-        };
+        const listenerCapture: { listener: WatchListener<string> | undefined } = { listener: undefined };
+        const watchFactory = createMockWatchFactory(listenerCapture);
 
         await withTemporaryProperty(
             console,
@@ -113,7 +46,7 @@ void describe("Watch command file read errors", () => {
 
                 await new Promise((resolve) => setTimeout(resolve, 50));
 
-                capturedListener?.("change", path.basename(problematicDir));
+                listenerCapture.listener?.("change", path.basename(problematicDir));
 
                 await Promise.race([errorLogged, new Promise((resolve) => setTimeout(resolve, 500))]);
 

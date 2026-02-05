@@ -1237,24 +1237,49 @@ function formatDecorativeBlockComment(comment) {
     }
 
     const hasDecoration = significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
-    const shouldDecorate = hasDecoration;
-    if (!shouldDecorate) {
-        return null;
+
+    // If this is a decorative comment, handle it as before
+    if (hasDecoration) {
+        const textLines = significantLines
+            .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
+            .map((line) => line.trim());
+
+        if (textLines.length === 0) {
+            return "";
+        }
+
+        if (textLines.length === 1) {
+            return `// ${textLines[0]}`;
+        }
+
+        return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
     }
 
-    const textLines = significantLines
-        .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
-        .map((line) => line.trim());
+    // For non-decorative multi-line comments, format them with * prefix on each line
+    // BUT only if they appear to be standalone (not inline/trailing)
+    if (lines.length > 1) {
+        // Check if this is an inline comment by looking at leading whitespace
+        // Inline comments typically don't have a newline before them
+        // Comments at the start of the file or after a newline are standalone
+        const leadingWS = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+        const hasNewlineBeforeComment = /[\r\n]/.test(leadingWS);
+        const isAtStartOfFile = leadingWS === "";
 
-    if (textLines.length === 0) {
-        return "";
+        // Only format multi-line comments that are standalone (have newline before or at start of file)
+        if (!hasNewlineBeforeComment && !isAtStartOfFile) {
+            return null;
+        }
+
+        // Use significantLines for consistency with decorative comment handling
+        const textLines = significantLines.map((line) => line.trim());
+        if (textLines.length === 0) {
+            return null;
+        }
+        return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
     }
 
-    if (textLines.length === 1) {
-        return `// ${textLines[0]}`;
-    }
-
-    return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+    // Single-line non-decorative comments are not formatted
+    return null;
 }
 
 function whitespaceToDoc(text) {

@@ -28,7 +28,10 @@ async function withBootstrapProject(run: (context: { projectRoot: string; script
     });
 }
 
-function createBootstrapRunCase(scriptPath: string, assignRawValue: (options: any, rawValue: unknown) => void) {
+function createBootstrapRunCase(
+    scriptPath: string,
+    createRawValueOverrides: (rawValue: unknown) => Record<string, unknown>
+) {
     return async (rawValue: unknown) => {
         const descriptors = [];
         const coordinator = {
@@ -41,10 +44,9 @@ function createBootstrapRunCase(scriptPath: string, assignRawValue: (options: an
 
         const options: any = {
             filepath: scriptPath,
-            __identifierCaseProjectIndexCoordinator: coordinator
+            __identifierCaseProjectIndexCoordinator: coordinator,
+            ...createRawValueOverrides(rawValue)
         };
-
-        assignRawValue(options, rawValue);
 
         await Semantic.bootstrapProjectIndex(options, null);
 
@@ -54,11 +56,9 @@ function createBootstrapRunCase(scriptPath: string, assignRawValue: (options: an
 
 void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
-        const runCase = createBootstrapRunCase(scriptPath, (options, rawValue) => {
-            if (rawValue !== undefined) {
-                options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
-            }
-        });
+        const runCase = createBootstrapRunCase(scriptPath, (rawValue) =>
+            rawValue === undefined ? {} : { gmlIdentifierCaseProjectIndexCacheMaxBytes: rawValue }
+        );
 
         {
             const { options, descriptor } = await runCase("16");
@@ -82,11 +82,9 @@ void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", 
 
 void test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
-        const runCase = createBootstrapRunCase(scriptPath, (options, rawValue) => {
-            if (rawValue !== undefined) {
-                options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
-            }
-        });
+        const runCase = createBootstrapRunCase(scriptPath, (rawValue) =>
+            rawValue === undefined ? {} : { gmlIdentifierCaseProjectIndexConcurrency: rawValue }
+        );
 
         {
             const { options, descriptor } = await runCase("8");

@@ -105,9 +105,24 @@ export function computeSyntheticDocComment(functionNode, existingDocLines, optio
 
     const hasExistingDocLines = existingDocLines.length > 0;
 
-    const syntheticLines = hasExistingDocLines
+    let syntheticLines = hasExistingDocLines
         ? mergeSyntheticDocComments(functionNode, existingDocLines, docCommentOptions, overrides)
         : reorderDescriptionLinesToTop(computeSyntheticFunctionDocLines(functionNode, [], options, overrides));
+
+    // Filter out @function/@func tags from the merged result.
+    // These tags are redundant because the function signature is already
+    // captured in the AST. Keeping them causes indentation issues when
+    // the synthetic doc comment is printed.
+    if (hasExistingDocLines && syntheticLines.length > 0) {
+        syntheticLines = syntheticLines.filter((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return true;
+            }
+            const trimmed = line.trim();
+            // Remove lines that are @function or @func tags
+            return !/^\/\/\/\s*@(?:function|func)\b/i.test(trimmed);
+        });
+    }
 
     const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
         ? overrides.leadingCommentLines

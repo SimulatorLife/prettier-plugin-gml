@@ -6,7 +6,6 @@ import { Core } from "@gml-modules/core";
 import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
-import { runSequentially } from "./sequential-runner.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 2;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -434,7 +433,7 @@ export async function deriveCacheKey(
                 : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
         }, []);
 
-        await runSequentially(manifestNames, async (manifestName) => {
+        await Core.runSequentially(manifestNames, async (manifestName) => {
             const manifestPath = path.join(resolvedRoot, manifestName);
             const mtime = await Core.getFileMtime(fsFacade, manifestPath);
             if (mtime !== null) {
