@@ -14333,6 +14333,16 @@ function annotateUserEventCall(node, diagnostic) {
     return fixDetail;
 }
 
+function createUserEventInfo(argumentNode) {
+    const eventIndex = resolveUserEventIndex(argumentNode);
+
+    if (eventIndex === null) {
+        return null;
+    }
+
+    return { index: eventIndex, name: formatUserEventName(eventIndex) };
+}
+
 function getUserEventReference(node) {
     if (!node || node.type !== "CallExpression") {
         return null;
@@ -14342,13 +14352,7 @@ function getUserEventReference(node) {
     const args = Core.getCallExpressionArguments(node);
 
     if (Core.isIdentifierWithName(callee, "event_user")) {
-        const eventIndex = resolveUserEventIndex(args[0]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+        return createUserEventInfo(args[0]);
     }
 
     if (Core.isIdentifierWithName(callee, "event_perform")) {
@@ -14356,13 +14360,7 @@ function getUserEventReference(node) {
             return null;
         }
 
-        const eventIndex = resolveUserEventIndex(args[1]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+        return createUserEventInfo(args[1]);
     }
 
     if (Core.isIdentifierWithName(callee, "event_perform_object")) {
@@ -14370,13 +14368,7 @@ function getUserEventReference(node) {
             return null;
         }
 
-        const eventIndex = resolveUserEventIndex(args[2]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+        return createUserEventInfo(args[2]);
     }
 
     return null;
