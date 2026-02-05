@@ -12,6 +12,7 @@ tools/
 /*.cjs
 /*.mjs
 */**/*debug*.txt
+*.md
 
 # TypeScript
 *.tsbuildinfo
