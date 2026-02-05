@@ -498,17 +498,27 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            await Core.runSequentially(entries, async (entry) => {
+            // Separate files and directories for optimal parallel processing
+            const files: Array<string> = [];
+            const directories: Array<string> = [];
+
+            for (const entry of entries) {
                 const fullPath = path.join(currentPath, entry.name);
-
                 if (entry.isDirectory()) {
-                    await scanDirectory(fullPath);
-                    return;
+                    directories.push(fullPath);
+                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    files.push(fullPath);
                 }
+            }
 
-                if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                    await processFile(fullPath);
-                }
+            // Process all files in this directory concurrently for maximum throughput
+            await Core.runInParallel(files, async (filePath) => {
+                await processFile(filePath);
+            });
+
+            // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
+            await Core.runSequentially(directories, async (subDirPath) => {
+                await scanDirectory(subDirPath);
             });
         } catch (error) {
             if (verbose && !quiet) {
