@@ -212,6 +212,8 @@ interface WatchLifecycle {
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
     scanComplete: boolean;
+    unknownScanPromise: Promise<void> | null;
+    unknownScanQueued: boolean;
 }
 
 /**
@@ -692,6 +694,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         startTime: Date.now(),
         debouncedHandlers: new Map(),
         scanComplete: false,
+        unknownScanPromise: null,
+        unknownScanQueued: false,
         fileSnapshots: new Map(),
         dependencyTracker
     };
@@ -977,7 +981,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     if (!filename) {
                         const unknownKey = `${normalizedPath}::unknown`;
                         const triggerUnknown = () =>
-                            handleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                            scheduleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
                                 const message = getErrorMessage(error, {
                                     fallback: "Unknown file processing error"
                                 });
@@ -1220,6 +1224,34 @@ async function handleUnknownFileChanges(
             cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
         }
     });
+}
+
+function processQueuedUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    runtimeContext.unknownScanQueued = false;
+
+    return handleUnknownFileChanges(runtimeContext, verbose, quiet).then(() =>
+        runtimeContext.unknownScanQueued
+            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet)
+            : Promise.resolve()
+    );
+}
+
+function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+    if (runtimeContext.unknownScanPromise !== null) {
+        runtimeContext.unknownScanQueued = true;
+        return runtimeContext.unknownScanPromise;
+    }
+
+    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet).finally(() => {
+        runtimeContext.unknownScanPromise = null;
+    });
+
+    runtimeContext.unknownScanPromise = unknownScanPromise;
+    return unknownScanPromise;
 }
 
 async function readFileStats(filePath: string): Promise<Stats | null> {
