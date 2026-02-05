@@ -3,68 +3,84 @@ import { describe, it } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
-void describe("ScopeTracker: exportModifiedOccurrences", () => {
-    void it("exports only scopes modified after given timestamp", () => {
-        const tracker = new ScopeTracker({ enabled: true });
+/**
+ * Runs a test case with a deterministic clock so scope modification timestamps are stable.
+ */
+function withDeterministicDateNow<T>(timestampSequence: readonly number[], callback: () => T): T {
+    const originalDateNow = Date.now;
+    let sequenceIndex = 0;
 
-        // Create initial scope with declarations
-        const scope1 = tracker.enterScope("function", { name: "func1" });
-        tracker.declare("x", { name: "x", scopeId: scope1.id, classifications: ["local"] });
-        tracker.exitScope();
-        const timestamp1 = Date.now();
-
-        // Small delay to ensure different timestamps
-        const delayMs = 10;
-        const start = Date.now();
-        while (Date.now() - start < delayMs) {
-            // Busy wait
+    Date.now = () => {
+        const maxIndex = timestampSequence.length - 1;
+        const currentIndex = Math.min(sequenceIndex, maxIndex);
+        const timestamp = timestampSequence[currentIndex];
+        if (typeof timestamp !== "number") {
+            throw new TypeError("Expected deterministic timestamp sequence to provide number values");
         }
 
-        // Create second scope after the checkpoint
-        const scope2 = tracker.enterScope("function", { name: "func2" });
-        tracker.declare("y", { name: "y", scopeId: scope2.id, classifications: ["local"] });
-        tracker.exitScope();
+        sequenceIndex += 1;
+        return timestamp;
+    };
 
-        // Export only scopes modified after timestamp1
-        const modified = tracker.exportModifiedOccurrences(timestamp1);
+    try {
+        return callback();
+    } finally {
+        Date.now = originalDateNow;
+    }
+}
 
-        assert.strictEqual(modified.length, 1, "Should export only 1 modified scope");
-        assert.strictEqual(modified[0].scopeId, scope2.id);
-        assert.strictEqual(modified[0].identifiers.length, 1);
-        assert.strictEqual(modified[0].identifiers[0].name, "y");
+void describe("ScopeTracker: exportModifiedOccurrences", () => {
+    void it("exports only scopes modified after given timestamp", () => {
+        withDeterministicDateNow([1000, 1000, 2000], () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            // Create initial scope with declarations.
+            const scope1 = tracker.enterScope("function", { name: "func1" });
+            tracker.declare("x", { name: "x", scopeId: scope1.id, classifications: ["local"] });
+            tracker.exitScope();
+            const timestamp1 = Date.now();
+
+            // Create second scope after the checkpoint.
+            const scope2 = tracker.enterScope("function", { name: "func2" });
+            tracker.declare("y", { name: "y", scopeId: scope2.id, classifications: ["local"] });
+            tracker.exitScope();
+
+            // Export only scopes modified after timestamp1.
+            const modified = tracker.exportModifiedOccurrences(timestamp1);
+
+            assert.strictEqual(modified.length, 1, "Should export only 1 modified scope");
+            assert.strictEqual(modified[0].scopeId, scope2.id);
+            assert.strictEqual(modified[0].identifiers.length, 1);
+            assert.strictEqual(modified[0].identifiers[0].name, "y");
+        });
     });
 
     void it("exports multiple modified scopes", () => {
-        const tracker = new ScopeTracker({ enabled: true });
+        withDeterministicDateNow([1000, 1000, 2000, 3000], () => {
+            const tracker = new ScopeTracker({ enabled: true });
 
-        // Create first scope
-        const scope1 = tracker.enterScope("function", { name: "func1" });
-        tracker.declare("a", { name: "a", scopeId: scope1.id, classifications: ["local"] });
-        tracker.exitScope();
+            // Create first scope.
+            const scope1 = tracker.enterScope("function", { name: "func1" });
+            tracker.declare("a", { name: "a", scopeId: scope1.id, classifications: ["local"] });
+            tracker.exitScope();
 
-        const checkpoint = Date.now();
+            const checkpoint = Date.now();
 
-        // Small delay
-        const delayMs = 10;
-        const start = Date.now();
-        while (Date.now() - start < delayMs) {
-            // Busy wait
-        }
+            // Create two more scopes after checkpoint.
+            const scope2 = tracker.enterScope("function", { name: "func2" });
+            tracker.declare("b", { name: "b", scopeId: scope2.id, classifications: ["local"] });
+            tracker.exitScope();
 
-        // Create two more scopes after checkpoint
-        const scope2 = tracker.enterScope("function", { name: "func2" });
-        tracker.declare("b", { name: "b", scopeId: scope2.id, classifications: ["local"] });
-        tracker.exitScope();
+            const scope3 = tracker.enterScope("function", { name: "func3" });
+            tracker.declare("c", { name: "c", scopeId: scope3.id, classifications: ["local"] });
+            tracker.exitScope();
 
-        const scope3 = tracker.enterScope("function", { name: "func3" });
-        tracker.declare("c", { name: "c", scopeId: scope3.id, classifications: ["local"] });
-        tracker.exitScope();
+            const modified = tracker.exportModifiedOccurrences(checkpoint);
 
-        const modified = tracker.exportModifiedOccurrences(checkpoint);
-
-        assert.strictEqual(modified.length, 2, "Should export 2 modified scopes");
-        const scopeIds = modified.map((s) => s.scopeId).sort();
-        assert.deepStrictEqual(scopeIds, [scope2.id, scope3.id].sort());
+            assert.strictEqual(modified.length, 2, "Should export 2 modified scopes");
+            const scopeIds = modified.map((s) => s.scopeId).sort();
+            assert.deepStrictEqual(scopeIds, [scope2.id, scope3.id].sort());
+        });
     });
 
     void it("excludes references when includeReferences is false", () => {
@@ -180,33 +196,35 @@ void describe("ScopeTracker: exportModifiedOccurrences", () => {
     });
 
     void it("performance: avoids cloning for unmodified scopes", () => {
-        const tracker = new ScopeTracker({ enabled: true });
+        const oldScopeCount = 100;
+        const timestamps: number[] = [];
+        for (let i = 0; i < oldScopeCount; i++) {
+            timestamps.push(1000);
+        }
+        timestamps.push(1000, 2000);
 
-        // Create many old scopes
-        for (let i = 0; i < 100; i++) {
-            const scope = tracker.enterScope("function", { name: `old_${i}` });
-            tracker.declare(`var_${i}`, { name: `var_${i}`, scopeId: scope.id, classifications: ["local"] });
+        withDeterministicDateNow(timestamps, () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            // Create many old scopes.
+            for (let i = 0; i < oldScopeCount; i++) {
+                const scope = tracker.enterScope("function", { name: `old_${i}` });
+                tracker.declare(`var_${i}`, { name: `var_${i}`, scopeId: scope.id, classifications: ["local"] });
+                tracker.exitScope();
+            }
+
+            const checkpoint = Date.now();
+
+            // Create one new scope.
+            const newScope = tracker.enterScope("function", { name: "new_func" });
+            tracker.declare("new_var", { name: "new_var", scopeId: newScope.id, classifications: ["local"] });
             tracker.exitScope();
-        }
 
-        const checkpoint = Date.now();
+            // This should only process the 1 modified scope, not all old scopes.
+            const modified = tracker.exportModifiedOccurrences(checkpoint);
 
-        // Small delay
-        const delayMs = 10;
-        const start = Date.now();
-        while (Date.now() - start < delayMs) {
-            // Busy wait
-        }
-
-        // Create one new scope
-        const newScope = tracker.enterScope("function", { name: "new_func" });
-        tracker.declare("new_var", { name: "new_var", scopeId: newScope.id, classifications: ["local"] });
-        tracker.exitScope();
-
-        // This should only process the 1 modified scope, not all 101
-        const modified = tracker.exportModifiedOccurrences(checkpoint);
-
-        assert.strictEqual(modified.length, 1, "Should only export the 1 modified scope");
-        assert.strictEqual(modified[0].identifiers[0].name, "new_var");
+            assert.strictEqual(modified.length, 1, "Should only export the 1 modified scope");
+            assert.strictEqual(modified[0].identifiers[0].name, "new_var");
+        });
     });
 });
