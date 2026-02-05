@@ -12,18 +12,16 @@ interface VerboseLogger {
 export interface VerboseDurationLoggerOptions {
     verbose?: VerboseFlagOptions;
     formatMessage?: string | ((duration: string) => string);
-    now?: () => number;
     logger?: VerboseLogger;
 }
 
 export interface TimeSyncOptions {
     verbose?: VerboseFlagOptions;
-    now?: () => number;
     logger?: VerboseLogger;
 }
 
-export function formatDuration(startTime: number, now: () => number = Date.now): string {
-    const deltaMs = now() - startTime;
+export function formatDuration(startTime: number): string {
+    const deltaMs = Date.now() - startTime;
     const isEffectivelySubSecond =
         deltaMs < MILLISECOND_PER_SECOND && deltaMs < MILLISECOND_PER_SECOND - SUB_SECOND_THRESHOLD_TOLERANCE_MS;
 
@@ -37,17 +35,16 @@ export function formatDuration(startTime: number, now: () => number = Date.now):
 export function createVerboseDurationLogger({
     verbose,
     formatMessage,
-    now = Date.now,
     logger = console
 }: VerboseDurationLoggerOptions = {}): () => void {
-    const startTime = now();
+    const startTime = Date.now();
 
     return () => {
         if (!verbose?.parsing) {
             return;
         }
 
-        const duration = formatDuration(startTime, now);
+        const duration = formatDuration(startTime);
         const message =
             typeof formatMessage === "function"
                 ? formatMessage(duration)
@@ -62,7 +59,7 @@ export function createVerboseDurationLogger({
 export function timeSync<TResult>(
     label: string,
     callback: () => TResult,
-    { verbose, now, logger = console }: TimeSyncOptions = {}
+    { verbose, logger = console }: TimeSyncOptions = {}
 ): TResult {
     if (verbose?.parsing && typeof logger?.log === "function") {
         logger.log(`→ ${label}`);
@@ -71,7 +68,6 @@ export function timeSync<TResult>(
     const logCompletion = createVerboseDurationLogger({
         verbose,
         formatMessage: (duration) => `  ${label} completed in ${duration}.`,
-        now,
         logger
     });
     const result = callback();

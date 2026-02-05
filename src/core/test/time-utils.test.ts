@@ -13,34 +13,55 @@ function createCollectingLogger() {
     };
 }
 
+function withMockedDateNow<T>(mockNow: () => number, callback: () => T): T {
+    const originalDateNow = Date.now;
+    try {
+        Date.now = mockNow;
+        return callback();
+    } finally {
+        Date.now = originalDateNow;
+    }
+}
+
 void describe("time-utils", () => {
     void describe("formatDuration", () => {
         void it("returns millisecond precision for sub-second durations", () => {
-            const now = () => 200;
-            assert.equal(formatDuration(0, now), "200ms");
+            const result = withMockedDateNow(
+                () => 200,
+                () => formatDuration(0)
+            );
+            assert.equal(result, "200ms");
         });
 
         void it("returns seconds with a decimal when duration exceeds a second", () => {
-            const now = () => 1500;
-            assert.equal(formatDuration(0, now), "1.5s");
+            const result = withMockedDateNow(
+                () => 1500,
+                () => formatDuration(0)
+            );
+            assert.equal(result, "1.5s");
         });
 
         void it("rounds noisy millisecond values near one second up to seconds", () => {
-            const almostOneSecond = () => 999.999_999_999_7;
-            assert.equal(formatDuration(0, almostOneSecond), "1.0s");
+            const result = withMockedDateNow(
+                () => 999.999_999_999_7,
+                () => formatDuration(0)
+            );
+            assert.equal(result, "1.0s");
         });
     });
 
     void it("logs progress when verbose parsing is enabled", () => {
         const timeline = [1000, 1300];
-        const now = () => timeline.shift() ?? 1300;
         const logger = createCollectingLogger();
 
-        const value = timeSync("sample task", () => 42, {
-            verbose: { parsing: true },
-            now,
-            logger
-        });
+        const value = withMockedDateNow(
+            () => timeline.shift() ?? 1300,
+            () =>
+                timeSync("sample task", () => 42, {
+                    verbose: { parsing: true },
+                    logger
+                })
+        );
 
         assert.equal(value, 42);
         assert.deepEqual(
