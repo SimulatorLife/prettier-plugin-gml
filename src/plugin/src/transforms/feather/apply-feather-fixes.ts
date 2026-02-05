@@ -14333,7 +14333,7 @@ function annotateUserEventCall(node, diagnostic) {
     return fixDetail;
 }
 
-function createUserEventInfo(argumentNode) {
+function createUserEventInfo(argumentNode: GameMakerAstNode) {
     const eventIndex = resolveUserEventIndex(argumentNode);
 
     if (eventIndex === null) {
