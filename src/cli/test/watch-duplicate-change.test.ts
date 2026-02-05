@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import type { WatchListener } from "node:fs";
-import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { fetchStatusPayload, waitForStatus } from "./test-helpers/status-polling.js";
+import { fetchStatusPayload } from "./test-helpers/status-polling.js";
+import { setupWatchChangeTest } from "./test-helpers/watch-change-setup.js";
 import { createMockWatchFactory } from "./test-helpers/watch-fixtures.js";
 import { runWatchTest } from "./test-helpers/watch-runner.js";
 
@@ -19,23 +19,13 @@ void describe("watch command duplicate change handling", () => {
                 watchFactory,
                 debounceDelay: 0
             },
-            async ({ baseUrl, testDir }) => {
-                await waitForStatus(baseUrl, (status) => status.scanComplete === true, 1000);
-
-                const testFile = path.join(testDir, "script1.gml");
-                await writeFile(testFile, "var x = 1;", "utf8");
-
-                assert.ok(listenerCapture.listener, "watch listener should be registered");
-
-                listenerCapture.listener?.("change", path.basename(testFile));
-                await waitForStatus(baseUrl, (status) => (status.totalPatchCount ?? 0) >= 1, 1000);
-
-                const firstStatus = await fetchStatusPayload(baseUrl);
+            async (context) => {
+                const { testFile, firstStatus } = await setupWatchChangeTest(context, listenerCapture);
 
                 listenerCapture.listener?.("change", path.basename(testFile));
                 await new Promise((resolve) => setTimeout(resolve, 150));
 
-                const secondStatus = await fetchStatusPayload(baseUrl);
+                const secondStatus = await fetchStatusPayload(context.baseUrl);
 
                 assert.equal(
                     secondStatus.totalPatchCount,
