@@ -463,14 +463,47 @@ export function promoteLeadingDocCommentTextToDescription(
         }
 
         if (trimmedSuffix.length === 0) {
+            if (index <= firstContentIndex) {
+                promotedLines.push(prefix);
+                continue;
+            }
+
+            let previousContent: string | null = null;
+            for (let prevIndex = index - 1; prevIndex >= 0; prevIndex -= 1) {
+                const prevSuffix = segments[prevIndex]?.suffix ?? "";
+                if (isNonEmptyTrimmedString(prevSuffix)) {
+                    previousContent = prevSuffix.trim();
+                    break;
+                }
+            }
+
+            let nextContent: string | null = null;
+            for (let nextIndex = index + 1; nextIndex < segments.length; nextIndex += 1) {
+                const nextSuffix = segments[nextIndex]?.suffix ?? "";
+                if (isNonEmptyTrimmedString(nextSuffix)) {
+                    nextContent = nextSuffix.trim();
+                    break;
+                }
+            }
+
+            const shouldSuppressBlank =
+                Boolean(previousContent?.startsWith(".")) && Boolean(nextContent?.startsWith("."));
+
+            if (!shouldSuppressBlank) {
+                promotedLines.push(prefix);
+            }
+
             continue;
         }
 
+        const leadingWhitespace = suffix.match(/^\s*/)?.[0] ?? "";
+        const leadingSpaces = leadingWhitespace.replaceAll("\t", "    ").length;
+        const extraIndent = Math.max(0, leadingSpaces - 1);
         const continuationText = trimmedSuffix;
         const resolvedContinuation =
             continuationPrefix.length > 0
-                ? `${continuationPrefix}${continuationText}`
-                : `${prefix} ${continuationText}`;
+                ? `${continuationPrefix}${" ".repeat(extraIndent)}${continuationText}`
+                : `${prefix} ${" ".repeat(extraIndent)}${continuationText}`;
 
         promotedLines.push(resolvedContinuation);
     }

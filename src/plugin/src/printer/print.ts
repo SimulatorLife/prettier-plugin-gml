@@ -1563,6 +1563,14 @@ function tryPrintLiteralNode(node, path, options, print) {
 }
 
 function printProgramNode(node, path, options, print) {
+    if (node && options && typeof options === "object") {
+        try {
+            Reflect.set(options, "_gmlProgramNode", node);
+        } catch {
+            // Best-effort only; printing can proceed without cached program node.
+        }
+    }
+
     if (node && node.__identifierCasePlanSnapshot) {
         try {
             if (Semantic && typeof Semantic.applyIdentifierCasePlanSnapshot === "function") {
@@ -2511,6 +2519,17 @@ function printStatements(path, options, print, childrenAttribute) {
     }
     if (!programNode && parentNode?.type === PROGRAM) {
         programNode = parentNode;
+    }
+    if (
+        (!programNode || programNode?.type !== PROGRAM) &&
+        options &&
+        typeof options === "object" &&
+        (options as { _gmlProgramNode?: unknown })._gmlProgramNode
+    ) {
+        const cachedProgram = (options as { _gmlProgramNode?: { type?: string } })._gmlProgramNode;
+        if (cachedProgram?.type === PROGRAM) {
+            programNode = cachedProgram;
+        }
     }
     const containerNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const statements =
@@ -6909,13 +6928,14 @@ function printEmptyBlock(path, options) {
             trailingDocs.unshift(lineSuffixBoundary as any, hardline as any);
         }
 
+        const inlineDangling = printDanglingComments(path, options, (comment) => comment.attachToBrace);
+        const groupedDangling = printDanglingCommentsAsGroup(path, options, (comment) => !comment.attachToBrace);
+        if (groupedDangling) {
+            return ["{", inlineDangling, indent([groupedDangling]), ...trailingDocs];
+        }
+
         // an empty block with comments
-        return [
-            "{",
-            printDanglingComments(path, options, (comment) => comment.attachToBrace),
-            printDanglingCommentsAsGroup(path, options, (comment) => !comment.attachToBrace),
-            ...trailingDocs
-        ];
+        return ["{", inlineDangling, ...trailingDocs];
     } else {
         return "{}";
     }

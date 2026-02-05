@@ -6,7 +6,16 @@ import { align, concat, group, hardline, join } from "../prettier-doc-builders.j
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
-function collectDescriptionContinuations(lines: MutableDocCommentLines, startIndex: number) {
+function getDocCommentIndentSpaces(line: string): number {
+    const match = line.match(/^\s*\/\/\/([ \t]*)/);
+    if (!match) {
+        return 0;
+    }
+
+    return match[1].replaceAll("\t", "    ").length;
+}
+
+function collectDescriptionContinuations(lines: MutableDocCommentLines, startIndex: number, baseIndentSpaces: number) {
     const continuations: string[] = [];
     let lookahead = startIndex + 1;
 
@@ -23,7 +32,13 @@ function collectDescriptionContinuations(lines: MutableDocCommentLines, startInd
             continue;
         }
 
-        continuations.push(classification.suffix);
+        if (typeof candidate === "string") {
+            const indentSpaces = getDocCommentIndentSpaces(candidate);
+            const extraIndent = Math.max(0, indentSpaces - baseIndentSpaces);
+            continuations.push(`${" ".repeat(extraIndent)}${classification.suffix}`);
+        } else {
+            continuations.push(classification.suffix);
+        }
         lookahead += 1;
     }
 
@@ -64,7 +79,13 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
             continue;
         }
 
-        const { continuations, linesConsumed } = collectDescriptionContinuations(docCommentDocs, index);
+        const { prefix } = DescriptionUtils.resolveDescriptionIndentation(entry);
+        const baseIndentSpaces = Math.max(prefix.length - 3, 0);
+        const { continuations, linesConsumed } = collectDescriptionContinuations(
+            docCommentDocs,
+            index,
+            baseIndentSpaces
+        );
 
         result.push(buildDescriptionDoc(entry, continuations));
         index += linesConsumed;
