@@ -273,8 +273,8 @@ function updateInstance(
         // Also update the object definition (pObject) which the event loop uses
         const pObject = (instance as any).pObject || (instance as any)._kx;
         if (pObject && typeof pObject === "object" && pObject[key] !== fn) {
-                pObject[key] = fn;
-            }
+            pObject[key] = fn;
+        }
 
         const eventIndex = resolveEventIndex(globalScope, key);
         markEventIndexAsEnabled((instance as { Event?: unknown }).Event, eventIndex);

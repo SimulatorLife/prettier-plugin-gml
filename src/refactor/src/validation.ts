@@ -29,6 +29,110 @@ import {
 const GLOBAL_SCOPE_KEY = "__global__";
 
 /**
+ * Groups occurrences by scope and collects file paths for each scope.
+ * @param occurrences - Symbol occurrences to group
+ * @returns Map of scope keys to sets of file paths
+ */
+function groupOccurrencesByScope(occurrences: Array<SymbolOccurrence>): Map<string, Set<string>> {
+    const scopeToPaths = new Map<string, Set<string>>();
+
+    for (const occurrence of occurrences) {
+        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
+        let paths = scopeToPaths.get(scopeKey);
+        if (!paths) {
+            paths = new Set();
+            scopeToPaths.set(scopeKey, paths);
+        }
+
+        if (occurrence.path) {
+            paths.add(occurrence.path);
+        }
+    }
+
+    return scopeToPaths;
+}
+
+/**
+ * Adds shadow conflict entries for a given scope and its paths.
+ * @param conflicts - Array to append conflicts to
+ * @param oldName - Original symbol name
+ * @param newName - New symbol name
+ * @param paths - File paths in the affected scope
+ */
+function addShadowConflicts(
+    conflicts: Array<ConflictEntry>,
+    oldName: string,
+    newName: string,
+    paths: Set<string>
+): void {
+    const message = `Renaming '${oldName}' to '${newName}' would shadow existing symbol in scope`;
+
+    if (paths.size === 0) {
+        conflicts.push({
+            type: ConflictType.SHADOW,
+            message
+        });
+        return;
+    }
+
+    for (const path of paths) {
+        conflicts.push({
+            type: ConflictType.SHADOW,
+            message,
+            path
+        });
+    }
+}
+
+/**
+ * Checks for shadowing conflicts across all scopes.
+ * @param oldName - Original symbol name
+ * @param normalizedNewName - Normalized new symbol name
+ * @param occurrences - All symbol occurrences
+ * @param resolver - Symbol resolver for scope-aware lookups
+ * @returns Array of shadow conflicts found
+ */
+async function checkShadowingConflicts(
+    oldName: string,
+    normalizedNewName: string,
+    occurrences: Array<SymbolOccurrence>,
+    resolver: Partial<SymbolResolver>
+): Promise<Array<ConflictEntry>> {
+    const conflicts: Array<ConflictEntry> = [];
+    const scopeToPaths = groupOccurrencesByScope(occurrences);
+
+    for (const [scopeKey, paths] of scopeToPaths) {
+        // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential per scope
+        const existing = await resolver.lookup(normalizedNewName, scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey);
+
+        // Guard clause: skip if no conflict exists
+        if (!existing || existing.name === oldName) {
+            continue;
+        }
+
+        addShadowConflicts(conflicts, oldName, normalizedNewName, paths);
+    }
+
+    return conflicts;
+}
+
+/**
+ * Builds the complete set of reserved keywords by combining defaults with semantic keywords.
+ * @param keywordProvider - Provider for semantic reserved keywords (null if not available)
+ * @returns Set of all reserved keywords (lowercase)
+ */
+async function buildReservedKeywordSet(
+    keywordProvider: Partial<KeywordProvider> | null
+): Promise<ReadonlySet<string> | Set<string>> {
+    if (!hasMethod(keywordProvider, "getReservedKeywords")) {
+        return DEFAULT_RESERVED_KEYWORDS;
+    }
+
+    const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
+    return new Set([...DEFAULT_RESERVED_KEYWORDS, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
+}
+
+/**
  * Detect conflicts that would arise from renaming a symbol.
  * Checks for reserved keywords and shadowing conflicts.
  *
@@ -47,8 +151,8 @@ export async function detectRenameConflicts(
     keywordProvider: Partial<KeywordProvider> | null
 ): Promise<Array<ConflictEntry>> {
     const conflicts: Array<ConflictEntry> = [];
-    let normalizedNewName: string;
 
+    let normalizedNewName: string;
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch (error) {
@@ -59,67 +163,14 @@ export async function detectRenameConflicts(
         return conflicts;
     }
 
-    // Test whether renaming would introduce shadowing conflicts where the new
-    // name collides with an existing symbol in the same scope. For example,
-    // renaming a local variable `x` to `y` when `y` is already defined in that
-    // scope would hide the original `y`, breaking references to it.
+    // Check for shadowing conflicts if resolver supports scope-aware lookups
     if (hasMethod(resolver, "lookup")) {
-        const scopeToPaths = new Map<string, Set<string>>();
-
-        for (const occurrence of occurrences) {
-            const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
-            let paths = scopeToPaths.get(scopeKey);
-            if (!paths) {
-                paths = new Set();
-                scopeToPaths.set(scopeKey, paths);
-            }
-
-            if (occurrence.path) {
-                paths.add(occurrence.path);
-            }
-        }
-
-        for (const [scopeKey, paths] of scopeToPaths) {
-            // Perform a scope-aware lookup for the new name at each unique scope.
-            // If we find an existing binding that isn't the symbol we're renaming,
-            // record a conflict so the user can resolve it manually. We emit at
-            // most one conflict per file path in the scope to avoid duplicates.
-            // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential per scope
-            const existing = await resolver.lookup(
-                normalizedNewName,
-                scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey
-            );
-            if (existing && existing.name !== oldName) {
-                if (paths.size === 0) {
-                    conflicts.push({
-                        type: ConflictType.SHADOW,
-                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`
-                    });
-                    continue;
-                }
-
-                for (const path of paths) {
-                    conflicts.push({
-                        type: ConflictType.SHADOW,
-                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
-                        path
-                    });
-                }
-            }
-        }
+        const shadowConflicts = await checkShadowingConflicts(oldName, normalizedNewName, occurrences, resolver);
+        conflicts.push(...shadowConflicts);
     }
 
-    // Reject renames that would overwrite GML reserved keywords (like `if`,
-    // `function`) or built-in identifiers (like `self`, `global`). Allowing
-    // such renames would cause syntax errors or silently bind user symbols to
-    // language constructs, breaking both the parser and runtime semantics.
-    let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
-
-    if (hasMethod(keywordProvider, "getReservedKeywords")) {
-        const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
-        reservedKeywords = new Set([...reservedKeywords, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
-    }
-
+    // Check if new name conflicts with reserved keywords
+    const reservedKeywords = await buildReservedKeywordSet(keywordProvider);
     if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
         conflicts.push({
             type: ConflictType.RESERVED,
