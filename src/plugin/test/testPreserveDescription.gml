@@ -14,12 +14,12 @@
 ///
 ///              This example shows how the script am_i_dead() is called by Chatterbox in an if statement. The value
 ///              returned from am_i_dead() determines which text is displayed.
-/// 
+///
 ///              Parameters for custom functions executed by Yarn script should be separated by spaces. The parameters
 ///              are passed into the given function as an array of values as argument0.
-/// 
+///
 ///              Custom functions can be added at any point but should be added before loading in any source files.
-/// 
+///
 /// @param name Script name; as a string
 /// @param function Function to call
 function ChatterboxAddFunction(_name, _function) {
