@@ -462,10 +462,11 @@ export class GmlToJsEmitter {
     private visitWithStatement(ast: WithStatementNode): string {
         const testExpr = wrapConditional(ast.test, this.visitNode, true) || "undefined";
         const rawBody = wrapRawBody(ast.body, this.visitNode);
-        const indentedBody = rawBody
-            .split("\n")
-            .map((line) => (line ? `        ${line}` : ""))
-            .join("\n");
+        // Indent body by adding 8 spaces to the start of each non-empty line.
+        // The regex ^(?=.) matches start-of-line followed by any character (via lookahead),
+        // which means it matches non-empty lines including whitespace-only lines, matching
+        // the original split/map/join behavior but with a single allocation.
+        const indentedBody = rawBody.replaceAll(/^(?=.)/gm, "        ");
 
         return lowerWithStatement(testExpr, indentedBody, this.options.resolveWithTargetsIdent);
     }
