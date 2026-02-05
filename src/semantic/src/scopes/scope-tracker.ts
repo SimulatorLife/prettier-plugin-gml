@@ -224,7 +224,9 @@ export class ScopeTracker {
         }
 
         const descendantIds = this.getDescendantScopeIds(declaringScopeId);
-        this.identifierCache.invalidate(name, [declaringScopeId, ...descendantIds]);
+        // Add the declaring scope itself to the set to avoid array allocation
+        descendantIds.add(declaringScopeId);
+        this.identifierCache.invalidate(name, descendantIds);
     }
 
     public resolveScopeOverride(scopeOverride: unknown): Scope | null {
@@ -896,14 +898,21 @@ export class ScopeTracker {
                 continue;
             }
 
+            // Convert set to sorted array efficiently
+            const symbolsArray = [...symbols];
+            symbolsArray.sort();
             dependencies.push({
                 dependencyScopeId: depScopeId,
                 dependencyScopeKind: depScope.kind,
-                symbols: [...symbols].toSorted()
+                symbols: symbolsArray
             });
         }
 
-        return dependencies.toSorted((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
+        // Sort in place using simple string comparison
+        dependencies.sort((a, b) =>
+            a.dependencyScopeId < b.dependencyScopeId ? -1 : a.dependencyScopeId > b.dependencyScopeId ? 1 : 0
+        );
+        return dependencies;
     }
 
     public getScopeDependents(scopeId: string | null | undefined): ScopeDependent[] {
@@ -970,14 +979,21 @@ export class ScopeTracker {
                 continue;
             }
 
+            // Convert set to sorted array efficiently
+            const symbolsArray = [...symbols];
+            symbolsArray.sort();
             dependents.push({
                 dependentScopeId: depScopeId,
                 dependentScopeKind: depScope.kind,
-                symbols: [...symbols].toSorted()
+                symbols: symbolsArray
             });
         }
 
-        return dependents.toSorted((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
+        // Sort in place using simple string comparison
+        dependents.sort((a, b) =>
+            a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
+        );
+        return dependents;
     }
 
     public getTransitiveDependents(
@@ -1053,12 +1069,14 @@ export class ScopeTracker {
             });
         }
 
-        return result.toSorted((a, b) => {
+        // Sort in place using simple string comparison
+        result.sort((a, b) => {
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
             }
-            return a.dependentScopeId.localeCompare(b.dependentScopeId);
+            return a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0;
         });
+        return result;
     }
 
     public getInvalidationSet(
@@ -1153,12 +1171,15 @@ export class ScopeTracker {
             }
         }
 
-        return descendants.toSorted((a, b) => {
+        // Sort in place since descendants is already a new array
+        descendants.sort((a, b) => {
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
             }
-            return a.scopeId.localeCompare(b.scopeId);
+            // Use simple string comparison for scope IDs (deterministic identifiers)
+            return a.scopeId < b.scopeId ? -1 : a.scopeId > b.scopeId ? 1 : 0;
         });
+        return descendants;
     }
 
     public getScopeMetadata(scopeId: string | null | undefined): ScopeDetails | null {
@@ -1206,7 +1227,10 @@ export class ScopeTracker {
             }
         }
 
-        return scopes.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+        // Sort in place since scopes is already a new array
+        // Use simple string comparison for scope IDs (deterministic identifiers)
+        scopes.sort((a, b) => (a.scopeId < b.scopeId ? -1 : a.scopeId > b.scopeId ? 1 : 0));
+        return scopes;
     }
 
     public getScopeModificationMetadata(scopeId: string | null | undefined): ScopeModificationMetadata | null {
@@ -1346,7 +1370,8 @@ export class ScopeTracker {
             });
         }
 
-        const sortedSymbols = symbols.toSorted((a, b) => a.name.localeCompare(b.name));
+        // Sort symbols in place
+        symbols.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
         return {
             scopeId: scope.id,
@@ -1355,8 +1380,8 @@ export class ScopeTracker {
             modificationCount: scope.modificationCount,
             declarationCount: totalDeclarations,
             referenceCount: totalReferences,
-            symbolCount: sortedSymbols.length,
-            symbols: sortedSymbols
+            symbolCount: symbols.length,
+            symbols
         };
     }
 
@@ -1492,13 +1517,14 @@ export class ScopeTracker {
             }
         }
 
-        return declarations.toSorted((a, b) => {
-            const scopeCmp = a.scopeId.localeCompare(b.scopeId);
-            if (scopeCmp !== 0) {
-                return scopeCmp;
+        // Sort in place using simple string comparison
+        declarations.sort((a, b) => {
+            if (a.scopeId !== b.scopeId) {
+                return a.scopeId < b.scopeId ? -1 : 1;
             }
-            return a.name.localeCompare(b.name);
+            return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
         });
+        return declarations;
     }
 
     public getDeclarationInScope(
@@ -1601,7 +1627,9 @@ export class ScopeTracker {
             }
         }
 
-        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+        // Sort in place using simple string comparison
+        results.sort((a, b) => (a.scopeId < b.scopeId ? -1 : a.scopeId > b.scopeId ? 1 : 0));
+        return results;
     }
 
     private appendScipDeclarations(
@@ -1679,7 +1707,9 @@ export class ScopeTracker {
             }
         }
 
-        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+        // Sort in place using simple string comparison
+        results.sort((a, b) => (a.scopeId < b.scopeId ? -1 : a.scopeId > b.scopeId ? 1 : 0));
+        return results;
     }
 
     private collectScopesForSymbols(symbolSet: Set<string>): Scope[] {
