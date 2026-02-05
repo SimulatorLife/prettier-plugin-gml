@@ -198,10 +198,10 @@ async function createConnectedPatchQueueClient(options: PatchQueueClientSetupOpt
     return { wrapper, client, ws, restoreRuntimeGlobals };
 }
 
-void test("patch queue tracks patches received before flush", async () => {
+void test("patch queue tracks patches received without double-counting on flush", async () => {
     const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
         patchQueue: {
-            flushIntervalMs: 1000
+            flushIntervalMs: 50
         }
     });
 
@@ -211,11 +211,22 @@ void test("patch queue tracks patches received before flush", async () => {
 
         sendScriptPatch(ws, "script:queued_metrics");
 
-        await wait(10);
+        await waitForQueueMetrics(client, "queue to contain pending patch", (snapshot) => snapshot.totalQueued === 1);
 
-        const metricsAfter = client.getConnectionMetrics();
-        assert.strictEqual(metricsAfter.patchesReceived, 1);
-        assert.strictEqual(metricsAfter.patchesApplied, 0);
+        const metricsWhileQueued = client.getConnectionMetrics();
+        assert.strictEqual(metricsWhileQueued.patchesReceived, 1);
+        assert.strictEqual(metricsWhileQueued.patchesApplied, 0);
+
+        await waitForQueueMetrics(
+            client,
+            "queue to flush pending patch",
+            (snapshot) => snapshot.totalFlushed === 1 && snapshot.flushCount === 1,
+            300
+        );
+
+        const metricsAfterFlush = client.getConnectionMetrics();
+        assert.strictEqual(metricsAfterFlush.patchesReceived, 1);
+        assert.strictEqual(metricsAfterFlush.patchesApplied, 1);
     } finally {
         client.disconnect();
         restoreRuntimeGlobals();

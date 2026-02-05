@@ -116,12 +116,12 @@ function createPatchQueueState(): PatchQueueState {
 type FlushQueueOptions = {
     state: WebSocketClientState;
     wrapper: PatchApplicator | null;
-    applyIncomingPatch: (incoming: unknown) => boolean;
+    applyQueuedPatch: (incoming: unknown) => boolean;
     logger?: Logger;
 };
 
 function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
-    const { state, wrapper, applyIncomingPatch, logger } = options;
+    const { state, wrapper, applyQueuedPatch, logger } = options;
 
     if (!state.patchQueue || !wrapper) {
         return 0;
@@ -174,7 +174,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         }
     } else {
         for (const patch of patchesToFlush) {
-            applyIncomingPatch(patch);
+            applyQueuedPatch(patch);
         }
         queueMetrics.totalFlushed += flushSize;
     }
@@ -246,6 +246,7 @@ type ApplyIncomingPatchOptions = {
     wrapper: PatchApplicator | null;
     onError?: WebSocketClientOptions["onError"];
     logger?: Logger;
+    alreadyRecordedReceived?: boolean;
 };
 
 function recordPatchReceived(state: WebSocketClientState): number {
@@ -256,9 +257,11 @@ function recordPatchReceived(state: WebSocketClientState): number {
 }
 
 function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
-    const { incoming, state, wrapper, onError, logger } = options;
+    const { incoming, state, wrapper, onError, logger, alreadyRecordedReceived = false } = options;
 
-    const receivedAt = recordPatchReceived(state);
+    const receivedAt = alreadyRecordedReceived
+        ? (state.connectionMetrics.lastPatchReceivedAt ?? Date.now())
+        : recordPatchReceived(state);
 
     const patchResult = validatePatchCandidate(incoming, onError);
     if (patchResult.status === "skip") {
@@ -395,7 +398,16 @@ export function createWebSocketClient({
         return flushQueuedPatchesInternal({
             state,
             wrapper,
-            applyIncomingPatch,
+            applyQueuedPatch: (incoming) => {
+                return applyIncomingPatchInternal({
+                    incoming,
+                    state,
+                    wrapper,
+                    onError,
+                    logger,
+                    alreadyRecordedReceived: true
+                });
+            },
             logger
         });
     };
