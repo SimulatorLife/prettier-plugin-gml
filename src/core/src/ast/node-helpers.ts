@@ -1217,8 +1217,9 @@ export function isBinaryOperator(node: GameMakerAstNode | null | undefined, oper
  * access patterns. The function handles both `object.property` (dot notation)
  * and `object[property]` (index notation) access patterns.
  *
- * @param left Potential member expression node to inspect. Should be either a
- *     `MemberDotExpression` or `MemberIndexExpression` node.
+ * @param left Potential member expression node to inspect. Accepts any AST node
+ *     type, but only processes `MemberDotExpression` or `MemberIndexExpression`
+ *     nodes. All other node types result in `null` being returned.
  * @param identifierName Optional identifier name to match against the object
  *     being accessed. When provided, only member expressions on this specific
  *     identifier are matched. When omitted, any identifier-based member access
@@ -1233,11 +1234,11 @@ export function isBinaryOperator(node: GameMakerAstNode | null | undefined, oper
  *
  * @example
  * ```ts
- * // Matches: player.health
+ * // Matches: player.health (dot notation)
  * const result = getStructPropertyAccess(memberDotNode, "player");
  * // result: { propertyNode: healthIdentifier, propertyStart: ... }
  *
- * // Matches: player[health]
+ * // Matches: player["health"] (index notation with string literal)
  * const result = getStructPropertyAccess(memberIndexNode, "player");
  * // result: { propertyNode: healthIdentifier, propertyStart: ... }
  *
