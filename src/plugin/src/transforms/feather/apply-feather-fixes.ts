@@ -11632,8 +11632,8 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic, stringLiteralA
         const leftIsNumeric = isNumericLiteralNode(node.left);
         const rightIsNumeric = isNumericLiteralNode(node.right);
 
-        const leftIdentifier = getIdentifierName(node.left);
-        const rightIdentifier = getIdentifierName(node.right);
+        const leftIdentifier = Core.getIdentifierName(node.left);
+        const rightIdentifier = Core.getIdentifierName(node.right);
 
         const leftTracked = typeof leftIdentifier === "string" && stringLiteralAssignments.has(leftIdentifier);
         const rightTracked = typeof rightIdentifier === "string" && stringLiteralAssignments.has(rightIdentifier);
@@ -11707,14 +11707,6 @@ function canWrapOperandWithReal(node) {
     return true;
 }
 
-function getIdentifierName(node) {
-    if (Core.isIdentifierNode(node) && typeof node.name === "string") {
-        return node.name;
-    }
-
-    return null;
-}
-
 function isCoercibleStringLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -11753,7 +11745,7 @@ function isCoercibleStringLiteral(node) {
 }
 
 function recordIdentifierStringAssignment(identifier, expression, assignments) {
-    const name = getIdentifierName(identifier);
+    const name = Core.getIdentifierName(identifier);
 
     if (!name || !assignments) {
         return;
