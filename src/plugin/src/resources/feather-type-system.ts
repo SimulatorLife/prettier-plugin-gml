@@ -18,9 +18,9 @@ export function buildFeatherTypeSystemInfo() {
     const metadata = getFeatherMetadata();
     const typeSystem = metadata?.typeSystem as FeatherTypeSystem | undefined;
 
-    const baseTypes = new Set();
-    const baseTypesLowercase = new Set();
-    const specifierBaseTypes = new Set();
+    const baseTypes = new Set<string>();
+    const baseTypesLowercase = new Set<string>();
+    const specifierBaseTypes = new Set<string>();
 
     const entries = Core.asArray<FeatherTypeSystemEntry>(typeSystem?.baseTypes);
 
@@ -43,7 +43,7 @@ export function buildFeatherTypeSystemInfo() {
             return example.trim().startsWith(".");
         });
 
-        const description = typeof entry?.description === "string" ? entry.description : "";
+        const description = Core.toTrimmedString(entry?.description) ?? "";
         const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
 
         if (hasDotSpecifier || requiresSpecifier) {
