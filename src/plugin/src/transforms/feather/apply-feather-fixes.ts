@@ -34,9 +34,7 @@ import {
     buildDeprecatedBuiltinVariableReplacements,
     buildFeatherTypeSystemInfo,
     getDeprecatedBuiltinReplacementEntry,
-    getFeatherDiagnosticById,
-    getFeatherDiagnostics,
-    getFeatherMetadata
+    getFeatherDiagnostics
 } from "../../resources/index.js";
 import {
     getDeprecatedDocCommentFunctionSet,
