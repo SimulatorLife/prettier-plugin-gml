@@ -39,21 +39,21 @@ import {
 import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
 import {
     displayTranspilationStatistics,
+    type ErrorCollector,
+    type MetricsCollector,
+    type PatchBroadcastService,
+    type PatchHistoryStore,
     registerScriptNamesFromSymbols,
-    type RuntimeTranspilerPatch,
     type TranspilationContext,
-    type TranspilationError,
-    type TranspilationMetrics,
     type TranspilationResult,
-    transpileFile
-} from "../modules/transpilation/coordinator.js";
+    transpileFile,
+    type TranspilerProvider} from "../modules/transpilation/coordinator.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
 import {
-    type PatchBroadcaster,
     type PatchWebSocketServer,
     startPatchWebSocketServer
 } from "../modules/websocket/server.js";
@@ -165,9 +165,11 @@ interface WatchCommandOptions
 /**
  * Core transpilation capabilities required for processing file changes.
  * Focuses on the essential dependencies needed to transpile GML files.
+ *
+ * Extends TranspilerProvider to demonstrate proper ISP usage with
+ * segregated interfaces.
  */
-interface TranspilationDependencies {
-    transpiler: InstanceType<typeof Transpiler.GmlTranspiler>;
+interface TranspilationDependencies extends TranspilerProvider {
     dependencyTracker: DependencyTracker;
 }
 
@@ -186,21 +188,20 @@ interface RuntimePackageInfo {
 /**
  * Patch history and metrics tracking.
  * Groups patch management and monitoring concerns together.
+ *
+ * Composes segregated interfaces to demonstrate proper ISP usage.
+ * Prefer depending on individual interfaces (PatchHistoryStore, MetricsCollector, ErrorCollector)
+ * when only specific capabilities are needed.
  */
-interface PatchHistory {
-    patches: TranspilationContext["patches"];
-    metrics: Array<TranspilationMetrics>;
-    errors: Array<TranspilationError>;
-    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
-    maxPatchHistory: number;
-}
+interface PatchHistory extends PatchHistoryStore, MetricsCollector, ErrorCollector {}
 
 /**
  * Server controllers for patch streaming and status endpoints.
  * Isolates server infrastructure from core transpilation logic.
+ *
+ * Extends PatchBroadcastService to demonstrate proper ISP usage.
  */
-interface ServerControllers {
-    websocketServer: PatchBroadcaster | null;
+interface ServerControllers extends PatchBroadcastService {
     statusServer: StatusServerLifecycle | null;
 }
 
