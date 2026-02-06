@@ -4,8 +4,6 @@
  * Commands provided include:
  * - A wrapper around the GML-Prettier plugin to provide a convenient
  *   way to format GameMaker Language files.
- * - Watch mode for monitoring GML source files and coordinating the
- *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
  * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
@@ -32,10 +30,7 @@ import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./c
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
-import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
-import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
 function normalizeWriteChunk(chunk: string | Uint8Array, encoding?: BufferEncoding): string {
@@ -352,41 +347,11 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
-    command: createPrepareHotReloadCommand(),
-    run: ({ command }) => runPrepareHotReloadCommand(command),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to prepare hot-reload injection.",
-            exitCode: 1
-        })
-});
-
-cliCommandRegistry.registerCommand({
     command: createRefactorCommand(),
     run: ({ command }) => runRefactorCommand(command.opts()),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to perform refactor operation.",
-            exitCode: 1
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createWatchCommand(),
-    run: ({ command }) => runWatchCommand(command.args[0], command.opts()),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to start watch mode.",
-            exitCode: 1
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createWatchStatusCommand(),
-    run: ({ command }) => runWatchStatusCommand(command.opts()),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to query watch status.",
             exitCode: 1
         })
 });

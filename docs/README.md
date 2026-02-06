@@ -76,14 +76,8 @@ implementation details:
   — Research notes that detail why the CLI and plugin expose separate entry
   points, how shared utilities are packaged, and where the CLI wrapper inserts
   additional behaviour such as `.prettierignore` discovery.
-- [Live reloading concept](live-reloading-concept.md) &mdash; Exploration of the
-  HTML5 runtime fork, watcher pipeline, and runtime integration seams required
-  for hot-reload tooling. Start here when scoping runtime experimentation work
-  or cross-referencing the architecture audits. Use the `watch` CLI command to
-  monitor file changes during development.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
-  ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
-  dependency-aware reloads and editor integrations.
+  ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling.
 - [Project index cache design](legacy-identifier-case-plan.md#project-index-cache-design) —
   Captures the shipped cache shape plus the instrumentation used to keep
   bootstrap behaviour predictable.
