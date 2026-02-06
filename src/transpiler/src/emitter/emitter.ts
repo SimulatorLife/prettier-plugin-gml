@@ -315,7 +315,7 @@ export class GmlToJsEmitter {
             // Strings need quotes, numbers and booleans don't
             if (typeof folded === "string") {
                 // Escape special characters in the string
-                const escaped = folded.replaceAll('\\', "\\\\").replaceAll('"', String.raw`\"`);
+                const escaped = folded.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`);
                 return `"${escaped}"`;
             }
             return String(folded);

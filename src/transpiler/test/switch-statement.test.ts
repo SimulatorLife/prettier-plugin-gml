@@ -185,11 +185,6 @@ void test("GmlToJsEmitter handles switch with case expression calculations", () 
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    // DEBUG: Show actual result
-    if (!result.includes("case")) {
-        console.log("UNEXPECTED RESULT:", result);
-    }
-
     // Note: Depending on how the parser represents literals, constant folding may or may not occur
     // The important thing is that the transpiler handles both cases correctly
     assert.ok(

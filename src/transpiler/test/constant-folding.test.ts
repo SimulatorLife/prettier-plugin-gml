@@ -58,8 +58,7 @@ void test("constant folding: GML div operator", () => {
         operator: "div"
     };
     const result = tryFoldConstantExpression(ast);
-    assert.strictEqual(typeof result, "number", "Should return a number");
-    assert.ok((result as number) > 6.6 && (result as number) < 6.7, "Should fold 20 div 3 to approximately 6.666...");
+    assert.strictEqual(result, 6, "Should fold 20 div 3 to 6 (integer division)");
 });
 
 void test("constant folding: modulo operation", () => {

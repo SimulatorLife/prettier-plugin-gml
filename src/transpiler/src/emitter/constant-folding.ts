@@ -26,8 +26,8 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
         return null;
     }
 
-    const left = (ast.left).value;
-    const right = (ast.right).value;
+    const left = ast.left.value;
+    const right = ast.right.value;
 
     // Handle null/undefined operands conservatively
     if (left === null || left === undefined || right === null || right === undefined) {
@@ -48,10 +48,13 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
             case "*": {
                 return left * right;
             }
-            case "/":
-            case "div": {
+            case "/": {
                 // Avoid division by zero
                 return right === 0 ? null : left / right;
+            }
+            case "div": {
+                // GML's div performs integer division (floor division)
+                return right === 0 ? null : Math.floor(left / right);
             }
             case "%":
             case "mod": {
