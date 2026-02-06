@@ -20,11 +20,11 @@ import { Core } from "@gml-modules/core";
 
 import { DEFAULT_PRINT_WIDTH } from "../constants.js";
 
-type DocCommentPrinterOptions = Record<string, unknown> & {
+export type DocCommentPrinterOptions = Record<string, unknown> & {
     printWidth?: number;
 };
 
-type ResolvedDocCommentPrinterOptions = DocCommentPrinterOptions & {
+export type ResolvedDocCommentPrinterOptions = DocCommentPrinterOptions & {
     printWidth: number;
 };
 
