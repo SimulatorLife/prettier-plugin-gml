@@ -7,7 +7,6 @@
     { "path": "./src/transpiler" },
     { "path": "./src/plugin" },
     { "path": "./src/cli" },
-    { "path": "./src/runtime-wrapper" },
     { "path": "./src/refactor" }
   ]
 }
