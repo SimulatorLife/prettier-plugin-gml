@@ -1,7 +1,28 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { __normalizeFeatherMetadataForTests as normalizeFeatherMetadata } from "../src/resources/feather-metadata.js";
+import {
+    __normalizeFeatherMetadataForTests as normalizeFeatherMetadata,
+    clearFeatherMetadataCache,
+    getFeatherMetadata
+} from "../src/resources/feather-metadata.js";
+
+void describe("Feather metadata cache clearing", () => {
+    void it("should clear feather metadata cache and allow reload", () => {
+        // Load metadata to populate cache
+        const metadata1 = getFeatherMetadata();
+        assert.ok(metadata1, "Should load feather metadata");
+        assert.ok(Array.isArray(metadata1.diagnostics), "Should have diagnostics array");
+
+        // Clear cache
+        clearFeatherMetadataCache();
+
+        // Reload metadata - should work even after clearing
+        const metadata2 = getFeatherMetadata();
+        assert.ok(metadata2, "Should reload feather metadata after clearing");
+        assert.deepStrictEqual(metadata1.diagnostics, metadata2.diagnostics, "Reloaded metadata should match original");
+    });
+});
 
 void describe("normalizeFeatherMetadata", () => {
     void it("trims diagnostic identifiers while preserving other fields", () => {

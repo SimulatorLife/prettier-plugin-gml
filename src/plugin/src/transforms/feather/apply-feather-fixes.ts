@@ -31,6 +31,14 @@ import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-
 
 import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
 import {
+    buildDeprecatedBuiltinVariableReplacements,
+    buildFeatherTypeSystemInfo,
+    getDeprecatedBuiltinReplacementEntry,
+    getFeatherDiagnosticById,
+    getFeatherDiagnostics,
+    getFeatherMetadata
+} from "../../resources/index.js";
+import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet
@@ -148,7 +156,7 @@ function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.getOptionalString(value, "id") !== null;
 }
 
-const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = Core.buildDeprecatedBuiltinVariableReplacements();
+const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = buildDeprecatedBuiltinVariableReplacements();
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -157,7 +165,7 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
 ]);
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
-const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
@@ -2064,50 +2072,6 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
     attachFeatherFixMetadata(identifierNode, [fixDetail]);
 
     return fixDetail;
-}
-
-function buildFeatherTypeSystemInfo() {
-    const metadata = Core.getFeatherMetadata();
-    const typeSystem = metadata?.typeSystem;
-
-    const baseTypes = new Set();
-    const baseTypesLowercase = new Set();
-    const specifierBaseTypes = new Set();
-
-    const entries = Core.asArray(typeSystem?.baseTypes);
-
-    for (const entry of entries) {
-        const name = Core.toTrimmedString(Core.getOptionalString(entry, "name"));
-
-        if (!name) {
-            continue;
-        }
-
-        baseTypes.add(name);
-        baseTypesLowercase.add(name.toLowerCase());
-
-        const specifierExamples = Core.asArray(Core.getOptionalArray(entry, "specifierExamples"));
-        const hasDotSpecifier = specifierExamples.some((example) => {
-            if (typeof example !== "string") {
-                return false;
-            }
-
-            return example.trim().startsWith(".");
-        });
-
-        const description = Core.toTrimmedString(Core.getOptionalString(entry, "description")) ?? "";
-        const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
-
-        if (hasDotSpecifier || requiresSpecifier) {
-            specifierBaseTypes.add(name.toLowerCase());
-        }
-    }
-
-    return {
-        baseTypeNames: [...baseTypes],
-        baseTypeNamesLower: baseTypesLowercase,
-        specifierBaseTypeNamesLower: specifierBaseTypes
-    };
 }
 
 function registerFeatherFixer(registry, diagnosticId, implementation) {
@@ -4552,7 +4516,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
         return null;
     }
 
-    const replacementEntry = Core.getDeprecatedBuiltinReplacementEntry(normalizedName);
+    const replacementEntry = getDeprecatedBuiltinReplacementEntry(normalizedName);
 
     if (!replacementEntry) {
         return null;

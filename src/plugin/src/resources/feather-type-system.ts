@@ -1,5 +1,5 @@
-import { asArray } from "../utils/array.js";
-import { toTrimmedString } from "../utils/string.js";
+import { Core } from "@gml-modules/core";
+
 import { getFeatherMetadata } from "./feather-metadata.js";
 
 type FeatherTypeSystemEntry = {
@@ -22,10 +22,10 @@ export function buildFeatherTypeSystemInfo() {
     const baseTypesLowercase = new Set();
     const specifierBaseTypes = new Set();
 
-    const entries = asArray<FeatherTypeSystemEntry>(typeSystem?.baseTypes);
+    const entries = Core.asArray<FeatherTypeSystemEntry>(typeSystem?.baseTypes);
 
     for (const entry of entries) {
-        const name = toTrimmedString(entry?.name);
+        const name = Core.toTrimmedString(entry?.name);
 
         if (!name) {
             continue;
@@ -34,7 +34,7 @@ export function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = asArray(entry?.specifierExamples);
+        const specifierExamples = Core.asArray(entry?.specifierExamples);
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;

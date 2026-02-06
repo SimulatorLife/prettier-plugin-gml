@@ -4,21 +4,6 @@ import { describe, it } from "node:test";
 import { Core } from "../src/index.js";
 
 void describe("Metadata cache clearing", () => {
-    void it("should clear feather metadata cache and allow reload", () => {
-        // Load metadata to populate cache
-        const metadata1 = Core.getFeatherMetadata();
-        assert.ok(metadata1, "Should load feather metadata");
-        assert.ok(Array.isArray(metadata1.diagnostics), "Should have diagnostics array");
-
-        // Clear cache
-        Core.clearFeatherMetadataCache();
-
-        // Reload metadata - should work even after clearing
-        const metadata2 = Core.getFeatherMetadata();
-        assert.ok(metadata2, "Should reload feather metadata after clearing");
-        assert.deepStrictEqual(metadata1.diagnostics, metadata2.diagnostics, "Reloaded metadata should match original");
-    });
-
     void it("should clear identifier metadata cache and allow reload", () => {
         // Load metadata to populate cache
         const metadata1 = Core.getIdentifierMetadata();
@@ -41,7 +26,6 @@ void describe("Metadata cache clearing", () => {
 
         // Clear any existing cached metadata
         Core.clearIdentifierMetadataCache();
-        Core.clearFeatherMetadataCache();
 
         // Force multiple GC cycles to ensure clean baseline
         for (let i = 0; i < 5; i++) {
@@ -50,12 +34,10 @@ void describe("Metadata cache clearing", () => {
 
         const before = process.memoryUsage();
 
-        // Load both metadata files multiple times to ensure they're retained
+        // Load metadata file multiple times to ensure it's retained
         for (let i = 0; i < 10; i++) {
             const identifierMetadata = Core.getIdentifierMetadata();
-            const featherMetadata = Core.getFeatherMetadata();
             assert.ok(identifierMetadata, "Should load identifier metadata");
-            assert.ok(featherMetadata, "Should load feather metadata");
         }
 
         const afterLoad = process.memoryUsage();
@@ -64,7 +46,6 @@ void describe("Metadata cache clearing", () => {
 
         // Clear caches to release memory
         Core.clearIdentifierMetadataCache();
-        Core.clearFeatherMetadataCache();
 
         // Force multiple GC cycles to ensure memory is actually released
         for (let i = 0; i < 5; i++) {

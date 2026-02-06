@@ -1,13 +1,10 @@
 import fs from "node:fs";
 
-import { asArray, assertArray } from "../utils/array.js";
-import { assertPlainObject } from "../utils/object.js";
-import { toTrimmedString } from "../utils/string.js";
-import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
+import { Core } from "@gml-modules/core";
 
-export const FEATHER_METADATA_URL = resolveBundledResourceUrl("feather-metadata.json");
+export const FEATHER_METADATA_URL = Core.resolveBundledResourceUrl("feather-metadata.json");
 
-export const FEATHER_METADATA_PATH = resolveBundledResourcePath("feather-metadata.json");
+export const FEATHER_METADATA_PATH = Core.resolveBundledResourcePath("feather-metadata.json");
 
 export type FeatherDiagnostic = {
     id?: string | null;
@@ -26,11 +23,11 @@ export function loadBundledFeatherMetadata() {
 }
 
 function normalizeFeatherDiagnostic(diagnostic: unknown, index: number): FeatherDiagnostic {
-    const normalizedDiagnostic = assertPlainObject(diagnostic, {
+    const normalizedDiagnostic = Core.assertPlainObject(diagnostic, {
         name: `Feather metadata diagnostics[${index}]`
     });
 
-    const normalizedId = toTrimmedString(normalizedDiagnostic.id);
+    const normalizedId = Core.toTrimmedString(normalizedDiagnostic.id);
     if (normalizedId.length === 0) {
         throw new TypeError(`Feather metadata diagnostics[${index}] must declare a non-empty id.`);
     }
@@ -43,7 +40,7 @@ function normalizeFeatherDiagnostic(diagnostic: unknown, index: number): Feather
 }
 
 function normalizeFeatherDiagnostics(diagnostics) {
-    const normalizedDiagnostics = assertArray<FeatherDiagnostic>(diagnostics, {
+    const normalizedDiagnostics = Core.assertArray<FeatherDiagnostic>(diagnostics, {
         allowNull: true,
         errorMessage: "Feather metadata diagnostics must be provided as an array."
     });
@@ -52,7 +49,7 @@ function normalizeFeatherDiagnostics(diagnostics) {
 }
 
 function normalizeFeatherMetadata(payload: unknown) {
-    const metadata = assertPlainObject(payload, {
+    const metadata = Core.assertPlainObject(payload, {
         name: "Feather metadata"
     }) as FeatherMetadata;
 
@@ -123,7 +120,7 @@ export function clearFeatherMetadataCache(): void {
  */
 export function getFeatherDiagnostics() {
     const metadata = loadFeatherMetadata();
-    return asArray<FeatherDiagnostic>(metadata?.diagnostics);
+    return Core.asArray<FeatherDiagnostic>(metadata?.diagnostics);
 }
 
 /**
@@ -133,14 +130,14 @@ export function getFeatherDiagnostics() {
  * @returns {FeatherDiagnostic | null} Matching diagnostic when found; otherwise `null`.
  */
 export function getFeatherDiagnosticById(id: string | null | undefined): FeatherDiagnostic | null {
-    const normalizedId = toTrimmedString(id);
+    const normalizedId = Core.toTrimmedString(id);
     if (!normalizedId) {
         return null;
     }
 
     const diagnostics = getFeatherDiagnostics();
 
-    return diagnostics.find((diagnostic) => toTrimmedString(diagnostic?.id) === normalizedId) ?? null;
+    return diagnostics.find((diagnostic) => Core.toTrimmedString(diagnostic?.id) === normalizedId) ?? null;
 }
 
 export const __normalizeFeatherMetadataForTests = normalizeFeatherMetadata;
