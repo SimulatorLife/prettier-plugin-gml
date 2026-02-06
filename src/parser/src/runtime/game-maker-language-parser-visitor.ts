@@ -46,25 +46,12 @@ function callInheritedVisitChildren(instance: ParserVisitorPrototype, ctx: Parse
     ).call(instance, ctx) as unknown;
 }
 
-type VisitDispatchStrategy = {
-    dispatchVisit: (instance: ParserVisitorPrototype, methodName: string, ctx: ParserContext) => unknown;
-};
+function resolveVisitChildrenDelegate(options: VisitorOptions): (payload: VisitorPayload) => unknown {
+    if (typeof options?.visitChildrenDelegate === "function") {
+        return options.visitChildrenDelegate;
+    }
 
-function createVisitDispatchStrategy(options: VisitorOptions = {}): VisitDispatchStrategy {
-    const delegate =
-        typeof options?.visitChildrenDelegate === "function"
-            ? options.visitChildrenDelegate
-            : DEFAULT_VISIT_CHILDREN_DELEGATE;
-
-    return {
-        dispatchVisit(instance: ParserVisitorPrototype, methodName: string, ctx: ParserContext) {
-            return delegate({
-                methodName,
-                ctx,
-                fallback: () => callInheritedVisitChildren(instance, ctx)
-            });
-        }
-    };
+    return DEFAULT_VISIT_CHILDREN_DELEGATE;
 }
 
 ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
@@ -75,10 +62,10 @@ ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
 export default class GameMakerLanguageParserVisitor implements ParserVisitorPrototype {
     [methodName: string]: ParseTreeVisitorMethod;
     [methodSymbol: symbol]: unknown;
-    #visitDispatchStrategy: VisitDispatchStrategy;
+    #visitChildrenDelegate: (payload: VisitorPayload) => unknown;
 
     constructor(options: VisitorOptions = {}) {
-        this.#visitDispatchStrategy = createVisitDispatchStrategy(options);
+        this.#visitChildrenDelegate = resolveVisitChildrenDelegate(options);
         this[WRAPPER_INSTANCE_MARKER] = true;
     }
 
@@ -87,7 +74,11 @@ export default class GameMakerLanguageParserVisitor implements ParserVisitorProt
     }
 
     _visitUsingDelegate(methodName: string, ctx: ParserContext) {
-        return this.#visitDispatchStrategy.dispatchVisit(this, methodName, ctx);
+        return this.#visitChildrenDelegate({
+            methodName,
+            ctx,
+            fallback: () => callInheritedVisitChildren(this, ctx)
+        });
     }
 }
 
