@@ -761,7 +761,7 @@ function createDiagnosticMetadataFromHeading(element) {
 
     return {
         id,
-        title: getNonEmptyTrimmedString(title) ?? title.trim(),
+        title: getNonEmptyTrimmedString(title) ?? (typeof title === "string" ? title.trim() : ""),
         description: joinSections(descriptionParts),
         badExample,
         goodExample,
