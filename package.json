@@ -89,7 +89,7 @@
     "format": "pnpm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:check": "pnpm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "prettier": "pnpm run format:gml --",
-    "bump": "pnpm run format && pnpm run lint:fix && bash -lc \"if [ -n \\\"$(git status --porcelain)\\\" ]; then git add . && git commit --no-verify -m 'chore: formatting' && git push; fi\"",
+    "bump": "bash -lc \"git pull && git merge --ff-only @{u} && pnpm run format && pnpm run lint:fix && if [ -n \\\"$(git status --porcelain)\\\" ]; then git add . && git commit --no-verify -m 'chore: formatting' && git push; fi\"",
     "build": "pnpm run build:ts && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
     "build:antlr": "cd src/parser && pnpm run antlr",
     "build:gml-identifiers": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-gml-identifiers --quiet",
