@@ -57,7 +57,7 @@ void test("fallback pattern without type guard would throw TypeError", () => {
         },
         {
             name: "TypeError",
-            message: /Cannot read propert/
+            message: /Cannot read propert(?:y|ies)/
         },
         "Expected TypeError when calling .trim() on null"
     );
@@ -70,7 +70,7 @@ void test("fallback pattern without type guard would throw TypeError", () => {
         },
         {
             name: "TypeError",
-            message: /Cannot read propert/
+            message: /Cannot read propert(?:y|ies)/
         },
         "Expected TypeError when calling .trim() on undefined"
     );
