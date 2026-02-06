@@ -52,6 +52,7 @@ import type {
 } from "./ast.js";
 import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
+import { tryFoldConstantExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
@@ -307,6 +308,19 @@ export class GmlToJsEmitter {
     }
 
     private visitBinaryExpression(ast: BinaryExpressionNode): string {
+        // Try constant folding first for compile-time optimization
+        const folded = tryFoldConstantExpression(ast);
+        if (folded !== null) {
+            // Emit the folded constant directly
+            // Strings need quotes, numbers and booleans don't
+            if (typeof folded === "string") {
+                // Escape special characters in the string
+                const escaped = folded.replaceAll('\\', "\\\\").replaceAll('"', String.raw`\"`);
+                return `"${escaped}"`;
+            }
+            return String(folded);
+        }
+        // Fall back to runtime evaluation
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
         const op = mapBinaryOperator(ast.operator);
