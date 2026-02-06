@@ -1210,23 +1210,15 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
     const effectiveLimit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : items.length;
     const workerCount = Core.clamp(Math.ceil(effectiveLimit), 1, items.length);
     let nextIndex = 0;
-    const runWorker = async () => {
+    const runWorker = async (): Promise<void> => {
         ensureNotAborted();
-
-        const processNext = async (): Promise<void> => {
-            ensureNotAborted();
-            const currentIndex = nextIndex++;
-            if (currentIndex >= items.length) {
-                return;
-            }
-
-            ensureNotAborted();
-            await worker(items[currentIndex], currentIndex);
-            ensureNotAborted();
-            await processNext();
-        };
-
-        await processNext();
+        const currentIndex = nextIndex++;
+        if (currentIndex >= items.length) {
+            return;
+        }
+        ensureNotAborted();
+        await worker(items[currentIndex], currentIndex);
+        await runWorker();
     };
     const workerHandles = [];
     for (let index = 0; index < workerCount; index++) {
