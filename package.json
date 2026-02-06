@@ -9,6 +9,7 @@
     "src/core",
     "src/semantic",
     "src/transpiler",
+    "src/runtime-wrapper",
     "src/refactor"
   ],
   "config": {
@@ -18,6 +19,7 @@
     "cli_path": "src/cli",
     "semantic_path": "src/semantic",
     "transpiler_path": "src/transpiler",
+    "runtime_wrapper_path": "src/runtime-wrapper",
     "refactor_path": "src/refactor",
     "core_path": "src/core"
   },
@@ -73,6 +75,8 @@
     "test:refactor:report": "pnpm --filter @gml-modules/refactor run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/refactor.xml src/refactor/dist/test/*.test.js",
     "test:semantic": "pnpm --filter @gml-modules/semantic run build:types && node --test src/semantic/dist/test/*.test.js",
     "test:semantic:report": "pnpm --filter @gml-modules/semantic run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/semantic.xml src/semantic/dist/test/*.test.js",
+    "test:runtime-wrapper": "pnpm --filter @gml-modules/runtime-wrapper run build:types && node --test src/runtime-wrapper/dist/test/*.test.js",
+    "test:runtime-wrapper:report": "pnpm --filter @gml-modules/runtime-wrapper run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/runtime-wrapper.xml src/runtime-wrapper/dist/test/*.test.js",
     "test:transpiler": "pnpm --filter @gml-modules/transpiler run build:types && node --test src/transpiler/dist/test/*.test.js",
     "test:transpiler:report": "pnpm --filter @gml-modules/transpiler run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/transpiler.xml src/transpiler/dist/test/*.test.js",
     "test:plugin": "pnpm --filter @gml-modules/plugin run build:types && node --test src/plugin/dist/test/*.test.js",
@@ -97,6 +101,7 @@
     "prepare": "husky",
     "submodules": "git submodule foreach --recursive 'git reset --hard && git clean -fd' && git submodule sync --recursive && git submodule update --init --recursive --remote",
     "cli": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js",
+    "demo:watch": "pnpm --filter @gml-modules/runtime-wrapper run build:types && pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js prepare-hot-reload && node ./src/cli/dist/index.js watch vendor/3DSpider --verbose --no-runtime-server",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
     "lint:actions": "actionlint -color",
     "lint:duplicates:report": "jscpd --noSymlinks --format \"typescript\" --reporters \"json\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/",
@@ -148,6 +153,7 @@
     "@gml-modules/parser": "workspace:*",
     "@gml-modules/plugin": "workspace:*",
     "@gml-modules/refactor": "workspace:*",
+    "@gml-modules/runtime-wrapper": "workspace:*",
     "@gml-modules/semantic": "workspace:*",
     "@gml-modules/transpiler": "workspace:*",
     "globals": "^16.4.0",

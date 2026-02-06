@@ -1,0 +1,26 @@
+{
+  "name": "@gml-modules/runtime-wrapper",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@gml-modules/core": "workspace:*"
+  },
+  "scripts": {
+    "build:types": "tsc -p tsconfig.json",
+    "clean:types": "rm -rf dist",
+    "test": "pnpm run build:types && node --test dist/test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

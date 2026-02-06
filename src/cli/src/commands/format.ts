@@ -1114,7 +1114,9 @@ const KNOWN_COMMANDS = new Set([
     "generate-quality-report",
     "collect-stats",
     "generate-feather-metadata",
-    "refactor",
+    "prepare-hot-reload",
+    "watch",
+    "watch-status",
     "help"
 ]);
 

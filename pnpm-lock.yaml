@@ -26,6 +26,9 @@ importers:
       '@gml-modules/refactor':
         specifier: workspace:*
         version: link:src/refactor
+      '@gml-modules/runtime-wrapper':
+        specifier: workspace:*
+        version: link:src/runtime-wrapper
       '@gml-modules/semantic':
         specifier: workspace:*
         version: link:src/semantic
@@ -202,6 +205,12 @@ importers:
       '@gml-modules/semantic':
         specifier: workspace:*
         version: link:../semantic
+
+  src/runtime-wrapper:
+    dependencies:
+      '@gml-modules/core':
+        specifier: workspace:*
+        version: link:../core
 
   src/semantic:
     dependencies:

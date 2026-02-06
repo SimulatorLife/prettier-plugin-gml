@@ -9,6 +9,7 @@ const TARGET_WORKSPACES = [
     { name: "@gml-modules/parser", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/semantic", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/transpiler", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gml-modules/runtime-wrapper", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/refactor", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/cli", allowPrettierPeerDep: true, requirePrettierPeerDep: false },
     { name: "@gml-modules/plugin", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
