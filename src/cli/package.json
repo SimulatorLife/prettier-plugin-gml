@@ -28,7 +28,7 @@
     "@gml-modules/transpiler": "workspace:*",
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",
-    "fast-xml-parser": "^5.3.0",
+    "fast-xml-parser": "^5.3.4",
     "ws": "^8.18.0"
   },
   "engines": {
