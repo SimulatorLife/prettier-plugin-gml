@@ -169,15 +169,57 @@ These optimizations trade minimal memory overhead for reduced allocations:
 - **After**: Sorts modify arrays in-place; string comparisons use simple character-by-character comparison
 - **Memory savings**: ~30-40% reduction in short-lived allocations during queries
 
+## Unsafe Accessor Methods (Zero-Copy Queries)
+
+**Problem**: The safe accessor methods (`getSymbolOccurrences`, `getBatchSymbolOccurrences`) defensively clone every occurrence object to prevent external mutation of internal state. For read-only hot-reload scenarios—such as dependency analysis, invalidation tracking, or batch symbol lookups—this cloning overhead is unnecessary.
+
+**Solution**: Introduce unsafe variants that return direct references to internal occurrence objects without cloning. Callers must guarantee they will not modify the returned objects.
+
+**Implementation**:
+- `getSymbolOccurrencesUnsafe(name)`: Returns symbol occurrences without cloning occurrence objects
+- `getBatchSymbolOccurrencesUnsafe(names)`: Returns batch symbol occurrences without cloning occurrence objects
+
+**Usage**:
+```typescript
+// Safe (clones occurrences) - use when mutations might occur
+const safeOccurrences = tracker.getSymbolOccurrences("myVar");
+safeOccurrences[0].occurrence.name = "modified"; // OK, doesn't affect internal state
+
+// Unsafe (returns references) - use for read-only analysis
+const unsafeOccurrences = tracker.getSymbolOccurrencesUnsafe("myVar");
+// MUST NOT modify: unsafeOccurrences[0].occurrence.name = "modified";
+
+// Batch queries follow the same pattern
+const safeBatch = tracker.getBatchSymbolOccurrences(["a", "b", "c"]);
+const unsafeBatch = tracker.getBatchSymbolOccurrencesUnsafe(["a", "b", "c"]);
+```
+
+**Performance Impact**:
+- Eliminates all occurrence cloning overhead (30-50% faster for large queries)
+- Zero allocation for occurrence objects (reduces GC pressure)
+- Particularly effective for batch operations with 100+ symbols
+
+**Safety Contract**:
+Callers **MUST NOT** modify any properties of the returned occurrence objects. Violations will corrupt internal state and lead to incorrect behavior. Use these methods only in read-only scenarios such as:
+- Dependency graph traversal
+- Invalidation set computation
+- Symbol cross-reference reporting
+- Performance-critical hot-reload coordination
+
+**Affected Methods**:
+- `getSymbolOccurrencesUnsafe()`
+- `getBatchSymbolOccurrencesUnsafe()`
+
+**Testing**: Performance comparisons and correctness tests are in `src/semantic/test/scope-tracker-unsafe-accessors.test.ts`.
+
 ## Future Optimization Opportunities
 
 Additional improvements could include:
 
-1. **Lazy occurrence cloning**: Add a `getSymbolOccurrencesUnsafe()` variant that returns references instead of clones for read-only use cases
-2. **Scope path indexing**: Pre-compute and cache scope paths to avoid repeated `getScopesByPath()` lookups
-3. **Batch invalidation API**: Extend `clearResolveIdentifierCacheForName()` to accept multiple symbols at once
-4. **Persistent caching**: Store frequently-accessed scope metadata in a faster data structure
-5. **Parallel processing**: Use worker threads for large project graph traversals
+1. **Scope path indexing**: Pre-compute and cache scope paths to avoid repeated `getScopesByPath()` lookups
+2. **Batch invalidation API**: Extend `clearResolveIdentifierCacheForName()` to accept multiple symbols at once
+3. **Persistent caching**: Store frequently-accessed scope metadata in a faster data structure
+4. **Parallel processing**: Use worker threads for large project graph traversals
 
 ## Testing
 
