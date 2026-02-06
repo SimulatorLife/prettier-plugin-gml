@@ -47,16 +47,14 @@ import {
     type TranspilationContext,
     type TranspilationResult,
     transpileFile,
-    type TranspilerProvider} from "../modules/transpilation/coordinator.js";
+    type TranspilerProvider
+} from "../modules/transpilation/coordinator.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
-import {
-    type PatchWebSocketServer,
-    startPatchWebSocketServer
-} from "../modules/websocket/server.js";
+import { type PatchWebSocketServer, startPatchWebSocketServer } from "../modules/websocket/server.js";
 
 const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
