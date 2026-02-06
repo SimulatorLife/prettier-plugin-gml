@@ -97,16 +97,11 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
   step environment setup, validation commands, and a tour of the workspace
   scripts for new contributors.
-  when you need context on why the CLI and plugin expose separate entry points.
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator live in the dedicated
   `gamemaker-language-semantic` workspace package.
 - [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point
-  for the GML → JavaScript emitter that will feed the live reload pipeline as
-  it matures.
-- [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
-  hooks that accept transpiler patches and swap them into the running HTML5
-  export.
+  for the GML → JavaScript emitter.
 - [Refactor engine scaffold](src/refactor/README.md) &mdash; Interim guidance for the
   semantic-safe rename engine that will orchestrate WorkspaceEdits.
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
@@ -116,14 +111,8 @@ for (var i = 0; i < queue_count; i += 1) {
   keeping the generated metadata in `resources/` current, plus validation steps
   for reviewing diffs before publishing updates. Use the
   `generate-feather-metadata` CLI command to refresh the dataset.
-- [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
-  the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
-  during gameplay. The `watch` CLI command now integrates with the transpiler to
-  generate JavaScript patches when GML files change, providing the foundation for
-  hot-reload development. See [CLI README](src/cli/README.md) for usage details.
 - [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
-  ANTLR-based transpiler, semantic analysis, and dependency tracking that will
-  feed the live reloading pipeline.
+  ANTLR-based semantic analysis and dependency tracking.
 
 ---
 
@@ -386,11 +375,10 @@ points while sharing utilities via the `src/shared/src/` module.
 | --- | --- | --- |
 | `@gml-module/plugin` | `src/plugin/` | Prettier plugin entry point, printers, option handlers, CLI surface helpers, and regression fixtures. |
 | `@gml-module/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `@gml-module/cli` | `src/cli/` | Command-line interface (`dist/index.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
+| `@gml-module/cli` | `src/cli/` | Command-line interface (`dist/index.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
 | `@gml-module/semantic` | `src/semantic/` | Semantic layer for tracking variable scope, project-index orchestration. |
 | `@gml-module/core` | `src/core/` | Helper modules shared by the other packages/workspaces (AST utilities, string utilities, etc.). |
 | `@gml-module/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |
-| `@gml-module/runtime-wrapper` | `src/runtime-wrapper/` | Browser runtime hooks for live reloading during HTML5 gameplay. |
 | `@gml-module/refactor` | `src/refactor/` | Semantic-safe rename engine. |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
@@ -561,7 +549,6 @@ prettier-plugin-gml/
 ├─ src/plugin/            # Prettier plugin source, printer
 ├─ src/semantic/          # Scope trackers, project index coordinator
 ├─ src/refactor/          # Automated GML-project refactoring utilities (renaming identifiers, etc.)
-├─ src/runtime-wrapper/   # Wraps the GML HTML5 runtime
 ├─ src/core/              # Shared/core utilities and types (AST helpers, string helpers, file helpers, etc.)
 ├─ src/cli/               # Command-line interface for all developer-facing utilities
 ├─ src/transpiler/        # Transpiles/emits JS from GML ASTs
