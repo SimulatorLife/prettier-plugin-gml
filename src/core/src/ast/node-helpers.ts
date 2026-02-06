@@ -1207,11 +1207,44 @@ export function isBinaryOperator(node: GameMakerAstNode | null | undefined, oper
 }
 
 /**
- * Inspect a left-hand member expression and, when it references a property on
- * the provided identifier root, return a compact descriptor for the property
- * node and its start index. This mirrors the canonical helper used by the
- * plugin transforms and keeps the parser-local transform logic
- * self-contained.
+ * Inspect a member expression to extract property access information when it
+ * references a property on a specific identifier root.
+ *
+ * This helper analyzes member expressions (both dot and index notation) to
+ * determine if they access a property on a given identifier. When successful,
+ * it returns a descriptor containing the property node and its start location,
+ * which transforms use to rewrite struct property assignments or detect member
+ * access patterns. The function handles both `object.property` (dot notation)
+ * and `object[property]` (index notation) access patterns.
+ *
+ * @param left Potential member expression node to inspect. Should be either a
+ *     `MemberDotExpression` or `MemberIndexExpression` node.
+ * @param identifierName Optional identifier name to match against the object
+ *     being accessed. When provided, only member expressions on this specific
+ *     identifier are matched. When omitted, any identifier-based member access
+ *     is accepted.
+ * @returns A descriptor object containing the property node and its start
+ *     location when {@link left} is a member expression on the expected
+ *     identifier. Returns `null` when:
+ *     - {@link left} is not a member expression
+ *     - The object being accessed is not an identifier
+ *     - {@link identifierName} is provided but does not match the object's name
+ *     - The property cannot be resolved (e.g., multi-element index access)
+ *
+ * @example
+ * ```ts
+ * // Matches: player.health
+ * const result = getStructPropertyAccess(memberDotNode, "player");
+ * // result: { propertyNode: healthIdentifier, propertyStart: ... }
+ *
+ * // Matches: player[health]
+ * const result = getStructPropertyAccess(memberIndexNode, "player");
+ * // result: { propertyNode: healthIdentifier, propertyStart: ... }
+ *
+ * // No match: Different identifier
+ * const result = getStructPropertyAccess(enemyMemberNode, "player");
+ * // result: null
+ * ```
  */
 export function getStructPropertyAccess(
     left: GameMakerAstNode | null | undefined,
