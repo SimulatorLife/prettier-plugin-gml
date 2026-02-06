@@ -13,7 +13,6 @@ export * from "./line-breaks.js";
 export * from "./number.js";
 export * from "./numeric-options.js";
 export * from "./object.js";
-export * from "./path.js";
 export * from "./regexp.js";
 export * from "./string.js";
 export * from "./time.js";
