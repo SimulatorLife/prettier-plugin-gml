@@ -45,7 +45,7 @@ import {
 } from "./ast-traversal.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
-import {renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
+import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import {
     attachFeatherFixMetadata,
