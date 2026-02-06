@@ -1,8 +1,7 @@
 import { Core, type MutableDocCommentLines, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { formatDocLikeLineComment } from "../../comments/index.js";
-import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
-import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/index.js";
+import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "../../doc-comment/index.js";
 import { createParserTransform } from "../functional-transform.js";
 import {
     applyDescriptionContinuations,
