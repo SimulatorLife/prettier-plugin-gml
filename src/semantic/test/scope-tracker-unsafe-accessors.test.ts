@@ -359,6 +359,9 @@ void describe("ScopeTracker unsafe accessors", () => {
             const aOccurrences = results.get("a");
             const bOccurrences = results.get("b");
 
+            assert.ok(aOccurrences, "aOccurrences should be defined");
+            assert.ok(bOccurrences, "bOccurrences should be defined");
+
             assert.equal(aOccurrences.length, 2);
             assert.equal(bOccurrences.length, 1);
 
