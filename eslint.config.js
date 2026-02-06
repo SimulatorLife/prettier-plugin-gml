@@ -150,7 +150,6 @@ const tsConfig = defineConfig({
             { type: "semantic", pattern: "src/semantic/**" },
             { type: "plugin", pattern: "src/plugin/**" },
             { type: "refactor", pattern: "src/refactor/**" },
-            { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
             { type: "cli", pattern: "src/cli/**" }
         ]
     },
@@ -424,8 +423,7 @@ const tsConfig = defineConfig({
                             "transpiler",
                             "semantic",
                             "plugin",
-                            "refactor",
-                            "runtime-wrapper"
+                            "refactor"
                         ],
                         allow: ["index.ts", "index.js"]
                     }
@@ -460,16 +458,6 @@ const tsConfig = defineConfig({
                             "transpiler",
                             "semantic",
                             "refactor"
-                        ]
-                    },
-                    {
-                        from: "runtime-wrapper",
-                        allow: [
-                            "core",
-                            "parser",
-                            "transpiler",
-                            "semantic",
-                            "runtime-wrapper"
                         ]
                     },
                     {
@@ -525,17 +513,6 @@ export default [
 
     // All TS-related rules, presets, and overrides (scoped to **/*.ts)
     ...tsConfig,
-
-    // Runtime-Wrapper allow eval (needed for patches for dynamic code execution)
-    {
-        files: ["src/runtime-wrapper/**"],
-        plugins: {
-            ...typeScriptPlugin
-        },
-        rules: {
-            "@typescript-eslint/no-implied-eval": "off"
-        }
-    },
 
     // Localized TypeScript rule relaxations for files that trigger upstream
     // TypeScript lint engine bugs.
