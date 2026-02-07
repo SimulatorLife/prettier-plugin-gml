@@ -5,7 +5,6 @@ import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFu
 
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {
     filepath?: string;
-    loopLengthHoistFunctionSuffixes?: string | string[] | null;
 };
 
 /**
@@ -20,7 +19,7 @@ export function hoistLoopLengthBounds(
         return ast;
     }
 
-    const sizeFunctionSuffixes = getSizeRetrievalFunctionSuffixes(options ?? null);
+    const sizeFunctionSuffixes = getSizeRetrievalFunctionSuffixes();
 
     const body = Array.isArray(ast.body) ? (ast.body as Array<MutableGameMakerAstNode | null | undefined>) : null;
     if (body) {
