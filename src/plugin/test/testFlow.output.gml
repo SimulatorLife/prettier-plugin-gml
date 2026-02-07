@@ -43,10 +43,10 @@ var matrix2 = scr_matrix_build(
 
 #macro SQUARE(_value) ((_value)*(_value))
 
-var total   = 0;
-var limit   = 99;
-var arr     = global.some_array;
-var value   = 0;
+var total = 0;
+var limit = 99;
+var arr = global.some_array;
+var value = 0;
 var tracker = {data: arr, lastIndex: -1};
 
 do {

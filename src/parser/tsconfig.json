@@ -7,18 +7,17 @@
     "baseUrl": ".",
     "allowJs": true,
     "paths": {
-      "@gml-modules/parser": ["./index.ts"]
+      "@gml-modules/cli": ["../cli/index.ts"],
+      "@gml-modules/core": ["../core/index.ts"],
+      "@gml-modules/parser": ["./index.ts"],
+      "@gml-modules/plugin": ["../plugin/index.ts"],
+      "@gml-modules/refactor": ["../refactor/index.ts"],
+      "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
+      "@gml-modules/semantic": ["../semantic/index.ts"],
+      "@gml-modules/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [
-    { "path": "../core" }
-  ],
-  "include": [
-  "*.ts",
-  "src/**/*.ts",
-  "test/**/*.ts",
-  "generated/**/*.js",
-  "src/**/*.d.ts"
-],
+  "references": [{ "path": "../core" }],
+  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts", "generated/**/*.js", "src/**/*.d.ts"],
   "exclude": ["dist"]
 }
