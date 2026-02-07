@@ -13199,7 +13199,7 @@ function sanitizeFileFindCalls(statements, parent, fixes, diagnostic, metadataRo
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
-            target: getCallExpressionCalleeName(statement),
+            target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement)),
             range: {
                 start: Core.getNodeStartIndex(statement),
                 end: Core.getNodeEndIndex(statement)
@@ -13243,7 +13243,7 @@ function isFileFindBlockFunctionCall(statement) {
         return false;
     }
 
-    const calleeName = getCallExpressionCalleeName(statement);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement));
 
     if (!calleeName) {
         return false;
@@ -13269,20 +13269,9 @@ function isCallExpressionStatementWithName(statement, name) {
         return false;
     }
 
-    const calleeName = getCallExpressionCalleeName(statement);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement));
 
     return calleeName === name;
-}
-
-function getCallExpressionCalleeName(node): string | null {
-    const unwrapped = Core.unwrapExpressionStatement(node);
-
-    if (unwrapped?.type === "CallExpression") {
-        const name = (unwrapped.object as { name?: unknown })?.name;
-        return typeof name === "string" ? name : null;
-    }
-
-    return null;
 }
 
 function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
@@ -13531,7 +13520,7 @@ function removeDanglingVertexFormatDefinition({ statements, startIndex, stopInde
     const lastNode = statements[stopIndex - 1] ?? firstNode;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(firstNode) ?? null,
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(firstNode)) ?? null,
         range: createRangeFromNodes(firstNode, lastNode)
     });
 
@@ -13561,7 +13550,7 @@ function removeDanglingVertexFormatEndCall({ statements, index, diagnostic, fixe
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(statement),
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement)),
         range: {
             start: Core.getNodeStartIndex(statement),
             end: Core.getNodeEndIndex(statement)
@@ -13606,7 +13595,7 @@ function removeEmptyVertexFormatDefinition({ statements, beginIndex, endIndex, d
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(beginStatement) ?? null,
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(beginStatement)) ?? null,
         range: createRangeFromNodes(beginStatement, endStatement)
     });
 
@@ -13936,7 +13925,7 @@ function createCallExpressionCommentText(node) {
         return null;
     }
 
-    const calleeName = getCallExpressionCalleeName(node);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(node));
 
     if (!calleeName) {
         return null;
