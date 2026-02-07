@@ -37,6 +37,7 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "../runtime-options/sample-limits.js";
+import { CLI_COMMAND_NAMES } from "../shared/command-names.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -1127,38 +1128,27 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-/**
- * Detects if a path looks like a mistyped command name rather than a file path.
- * Returns true if the input is a simple word (no path separators) that might be
- * a command name the user meant to invoke.
- *
- * @param {string} target - The target path to check (should be the original input, not resolved)
- * @returns {boolean}
- */
-const KNOWN_COMMANDS = new Set([
-    "format",
-    "performance",
-    "memory",
-    "generate-gml-identifiers",
-    "generate-quality-report",
-    "collect-stats",
-    "generate-feather-metadata",
-    "prepare-hot-reload",
-    "watch",
-    "watch-status",
-    "help"
-]);
-
 const MAX_COMMAND_LENGTH_DIFFERENCE = 2;
 const MAX_COMMAND_CHARACTER_DIFFERENCES = 2;
 const COMMAND_PATTERN = /^[a-z][a-z0-9_-]*$/i;
 
+/**
+ * Determine whether the provided target looks like a command name rather than a file path.
+ *
+ * This function helps the format command provide better error messages when users
+ * accidentally provide a command name where a file path is expected. It checks if
+ * the input matches the pattern of known CLI commands or is similar enough to be
+ * a likely typo.
+ *
+ * @param target - The target path to check (should be the original input, not resolved)
+ * @returns true if the target looks like it might be a command name
+ */
 function looksLikeCommandName(target: string): boolean {
     if (!isCommandInputCandidate(target)) {
         return false;
     }
 
-    if (KNOWN_COMMANDS.has(target)) {
+    if (CLI_COMMAND_NAMES.has(target)) {
         return true;
     }
 
@@ -1166,7 +1156,7 @@ function looksLikeCommandName(target: string): boolean {
         return false;
     }
 
-    if (hasSimilarKnownCommand(target, KNOWN_COMMANDS)) {
+    if (hasSimilarKnownCommand(target, CLI_COMMAND_NAMES)) {
         return true;
     }
 
@@ -1243,12 +1233,21 @@ async function resolveTargetStats(
                 // Check if the original input (before path resolution) looks like a command name
                 const inputToCheck = originalInput ?? target;
                 if (looksLikeCommandName(inputToCheck)) {
-                    const guidanceParts = [
-                        `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
-                        'Run "prettier-plugin-gml --help" to see available commands.',
-                        "If you intended to format a file or directory, verify the path exists relative",
-                        `to the current working directory (${process.cwd()}) or provide an absolute path.`
-                    ];
+                    const isKnownCommand = CLI_COMMAND_NAMES.has(inputToCheck);
+                    const guidanceParts = isKnownCommand
+                        ? [
+                              `Did you mean to run the '${inputToCheck}' command?`,
+                              `If so, do not provide it as an argument to 'format'. Instead, run it directly:`,
+                              `"prettier-plugin-gml ${inputToCheck} --help" for usage information.`,
+                              "If you intended to format a file or directory, verify the path exists relative",
+                              `to the current working directory (${process.cwd()}) or provide an absolute path.`
+                          ]
+                        : [
+                              `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
+                              'Run "prettier-plugin-gml --help" to see available commands.',
+                              "If you intended to format a file or directory, verify the path exists relative",
+                              `to the current working directory (${process.cwd()}) or provide an absolute path.`
+                          ];
                     return guidanceParts.join(" ");
                 }
 
