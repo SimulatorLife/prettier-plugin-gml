@@ -60,6 +60,19 @@ export type FeatherRenameResolution = Readonly<{
     replacementName: string;
 }>;
 
+export type FeatherRenamePlanRequest = Readonly<{
+    identifierName: string;
+    preferredReplacementName: string;
+}>;
+
+export type FeatherRenamePlanEntry = Readonly<{
+    identifierName: string;
+    mode: SemanticSafetyMode;
+    preferredReplacementName: string;
+    replacementName: string | null;
+    skipReason?: string;
+}>;
+
 /**
  * Runtime contract used by plugin transforms/printer to request semantic-safe naming decisions.
  */
@@ -75,6 +88,12 @@ export type RefactorRuntime = Readonly<{
     listIdentifierOccurrenceFiles: (
         context: Readonly<{ filePath: string | null; identifierName: string }>
     ) => ReadonlySet<string>;
+    planFeatherRenames?: (
+        context: Readonly<{
+            filePath: string | null;
+            requests: ReadonlyArray<FeatherRenamePlanRequest>;
+        }>
+    ) => Promise<ReadonlyArray<FeatherRenamePlanEntry>>;
 }>;
 
 const DEFAULT_SEMANTIC_SAFETY_RUNTIME: SemanticSafetyRuntime = Object.freeze({
@@ -108,12 +127,16 @@ const DEFAULT_REFACTOR_RUNTIME: RefactorRuntime = Object.freeze({
     },
     listIdentifierOccurrenceFiles() {
         return new Set();
+    },
+    planFeatherRenames() {
+        return Promise.resolve([]);
     }
 });
 
 let semanticSafetyRuntime: SemanticSafetyRuntime = DEFAULT_SEMANTIC_SAFETY_RUNTIME;
 let refactorRuntime: RefactorRuntime = DEFAULT_REFACTOR_RUNTIME;
 const scopedSemanticSafetyReportService = new AsyncLocalStorage<SemanticSafetyReportService | null>();
+const scopedFeatherRenamePlanMap = new AsyncLocalStorage<Map<string, FeatherRenameResolution | null> | null>();
 
 /**
  * Runs an async operation with a scoped semantic-safety report callback.
@@ -135,6 +158,17 @@ export async function runWithSemanticSafetyReportService<T>(
     }
 
     return await scopedSemanticSafetyReportService.run(reportService, operation);
+}
+
+export async function runWithFeatherRenamePlan<T>(
+    planMap: Map<string, FeatherRenameResolution | null> | null,
+    operation: () => Promise<T>
+): Promise<T> {
+    if (!(planMap instanceof Map)) {
+        return await operation();
+    }
+
+    return await scopedFeatherRenamePlanMap.run(planMap, operation);
 }
 
 /**
@@ -404,6 +438,15 @@ export function resolveFeatherRename(context: FeatherRenameContext, options?: un
     const preferredReplacementName = normalizeIdentifier(context.preferredReplacementName);
     const localIdentifierNames = context.localIdentifierNames ?? new Set<string>();
     const filePath = context.filePath ?? null;
+    const plannedResolution = getPlannedFeatherRename(options, identifierName, preferredReplacementName);
+
+    if (plannedResolution !== undefined) {
+        if (plannedResolution === null) {
+            return null;
+        }
+
+        return plannedResolution;
+    }
 
     const occurrenceFiles = getIdentifierOccurrenceFiles(identifierName, filePath);
     if (occurrenceFiles.size > 1 || (occurrenceFiles.size === 1 && filePath && !occurrenceFiles.has(filePath))) {
@@ -443,6 +486,99 @@ export function resolveFeatherRename(context: FeatherRenameContext, options?: un
         mode,
         replacementName
     };
+}
+
+export async function prepareFeatherRenamePlan(
+    options: unknown,
+    context: Readonly<{
+        filePath: string | null;
+        requests: ReadonlyArray<FeatherRenamePlanRequest>;
+    }>
+): Promise<Map<string, FeatherRenameResolution | null> | null> {
+    if (!Core.isObjectLike(options)) {
+        return null;
+    }
+
+    if (!Array.isArray(context.requests) || context.requests.length === 0) {
+        return null;
+    }
+
+    const optionBag = options as Record<string, unknown>;
+
+    try {
+        const plannedEntries = await (refactorRuntime.planFeatherRenames?.({
+            filePath: context.filePath ?? null,
+            requests: context.requests
+        }) ?? Promise.resolve([]));
+
+        const planMap = new Map<string, FeatherRenameResolution | null>();
+        for (const entry of plannedEntries) {
+            if (
+                !entry ||
+                !Core.isNonEmptyString(entry.identifierName) ||
+                !Core.isNonEmptyString(entry.preferredReplacementName)
+            ) {
+                continue;
+            }
+
+            const key = buildFeatherRenamePlanKey(entry.identifierName, entry.preferredReplacementName);
+            if (!entry.replacementName) {
+                planMap.set(key, null);
+                if (Core.isNonEmptyString(entry.skipReason)) {
+                    emitSemanticSafetyReport(optionBag, {
+                        code: "GML_SEMANTIC_SAFETY_FEATHER_RENAME_PROJECT_SKIP",
+                        identifierName: entry.identifierName,
+                        message: entry.skipReason,
+                        mode: entry.mode,
+                        option: "applyFeatherFixes"
+                    });
+                }
+                continue;
+            }
+
+            planMap.set(key, {
+                identifierName: entry.identifierName,
+                mode: entry.mode,
+                replacementName: entry.replacementName
+            });
+        }
+
+        Reflect.set(optionBag, "__featherRenamePlanMap", planMap);
+        return planMap;
+    } catch (error) {
+        emitSemanticSafetyReport(optionBag, {
+            code: "GML_SEMANTIC_SAFETY_RUNTIME_ERROR",
+            message: `Refactor runtime failed while planning Feather renames: ${Core.getErrorMessage(error)}.`,
+            mode: LOCAL_FALLBACK_MODE,
+            option: "applyFeatherFixes"
+        });
+        return null;
+    }
+}
+
+function getPlannedFeatherRename(
+    options: unknown,
+    identifierName: string,
+    preferredReplacementName: string
+): FeatherRenameResolution | null | undefined {
+    if (!Core.isObjectLike(options)) {
+        return undefined;
+    }
+
+    const optionBag = options as Record<string, unknown>;
+    const mapCandidate = Reflect.get(optionBag, "__featherRenamePlanMap");
+    const activePlanMap =
+        mapCandidate instanceof Map ? mapCandidate : (scopedFeatherRenamePlanMap.getStore() ?? undefined);
+    if (!(activePlanMap instanceof Map)) {
+        return undefined;
+    }
+
+    const key = buildFeatherRenamePlanKey(identifierName, preferredReplacementName);
+    return activePlanMap.has(key) ? (activePlanMap.get(key) as FeatherRenameResolution | null) : undefined;
+}
+
+function buildFeatherRenamePlanKey(identifierName: string, preferredReplacementName: string): string {
+    return `${identifierName}::${preferredReplacementName}`;
 }
 
 function normalizeIdentifier(candidate: string): string {

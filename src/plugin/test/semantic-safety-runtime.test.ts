@@ -45,6 +45,56 @@ void test(
 );
 
 void test(
+    "uses refactor-engine planned Feather renames when runtime provides an explicit skip",
+    { concurrency: false },
+    async () => {
+        const reports: Array<SemanticSafetyReportRecord> = [];
+        const source = "#macro draw_text 1\nvar draw_text = 1;\nshow_debug_message(draw_text);\n";
+
+        try {
+            setRefactorRuntime({
+                isIdentifierNameOccupiedInProject() {
+                    return false;
+                },
+                listIdentifierOccurrenceFiles() {
+                    return new Set();
+                },
+                async planFeatherRenames() {
+                    return [
+                        {
+                            identifierName: "draw_text",
+                            mode: "project-aware",
+                            preferredReplacementName: "__featherFix_draw_text",
+                            replacementName: null,
+                            skipReason: "Rename requires project-wide edits and was explicitly skipped."
+                        }
+                    ];
+                }
+            });
+
+            const formatted = await Plugin.format(source, {
+                applyFeatherFixes: true,
+                filepath: "/workspace/scripts/a.gml",
+                __semanticSafetyReportService(report: SemanticSafetyReportRecord) {
+                    reports.push(report);
+                }
+            });
+
+            assert.ok(
+                formatted.includes("var draw_text = 1;"),
+                "Expected formatter to respect explicit refactor-runtime skip plans."
+            );
+            assert.ok(
+                reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_FEATHER_RENAME_PROJECT_SKIP"),
+                "Expected semantic-safety report for refactor planned skip."
+            );
+        } finally {
+            resetSemanticSafetyRuntimes();
+        }
+    }
+);
+
+void test(
     "skips Feather reserved-identifier renames when usage spans multiple files",
     { concurrency: false },
     async () => {

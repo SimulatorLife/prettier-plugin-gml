@@ -5,12 +5,8 @@
  * GML reserved words and built-ins. When a user-defined variable or macro shadows
  * a reserved identifier, this module automatically renames it to avoid conflicts.
  *
- * ARCHITECTURE NOTE: This is part of the larger Feather fix subsystem, extracted
- * from apply-feather-fixes.ts to improve maintainability. The identifier renaming
- * logic here is ad-hoc and does not consult full scope information.
- *
- * LONG-TERM: This functionality should eventually be consolidated into the 'refactor'
- * module, which is built on top of 'semantic' for scope-aware, conflict-free renaming.
+ * ARCHITECTURE NOTE: This module is part of the Feather fix subsystem and now uses
+ * semantic-safe rename planning provided through the plugin runtime contract.
  */
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
