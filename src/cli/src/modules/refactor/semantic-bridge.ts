@@ -12,6 +12,43 @@ import {
     type SymbolOccurrence,
     WorkspaceEdit
 } from "@gml-modules/refactor";
+import { Semantic } from "@gml-modules/semantic";
+
+type ResourceAssetReferenceRecord = {
+    propertyPath: string;
+    targetPath: string;
+};
+
+type ResourceMetadataRecord = {
+    assetReferences: Array<ResourceAssetReferenceRecord>;
+    path: string;
+};
+
+function isResourceAssetReferenceRecord(value: unknown): value is ResourceAssetReferenceRecord {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+    const reference = value as Record<string, unknown>;
+
+    return typeof reference.propertyPath === "string" && typeof reference.targetPath === "string";
+}
+
+function isResourceMetadataRecord(value: unknown): value is ResourceMetadataRecord {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+    const record = value as Record<string, unknown>;
+
+    if (typeof record.path !== "string") {
+        return false;
+    }
+
+    if (!Array.isArray(record.assetReferences)) {
+        return false;
+    }
+
+    return record.assetReferences.every((reference) => isResourceAssetReferenceRecord(reference));
+}
 
 /**
  * Semantic bridge that adapts @gml-modules/semantic ProjectIndex to the refactor engine.
@@ -153,8 +190,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
         this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
-        this.collectOccurrencesFromAssetReferences(symbolName, occurrences);
-
         // 4. Search all GML files for the name as an identifier
         // This handles references in code that might not have been picked up or classified
         // correctly by the semantic indexer (common for resource constants).
@@ -216,7 +251,91 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
+        this.addResourceMetadataEdits(edit, resource, oldName, newName);
+
         return edit;
+    }
+
+    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, oldName: string, newName: string): void {
+        const resources = this.resources;
+        if (!resources || !resource?.path) {
+            return;
+        }
+
+        const newResourcePath = path.posix.join(path.posix.dirname(resource.path), `${newName}.yy`);
+
+        for (const resourceEntry of Object.values(resources)) {
+            if (!isResourceMetadataRecord(resourceEntry)) {
+                continue;
+            }
+
+            const isResourceMetadataPath =
+                Semantic.isProjectResourceMetadataPath(resourceEntry.path) ||
+                Semantic.isProjectManifestPath(resourceEntry.path);
+            if (!isResourceMetadataPath) {
+                continue;
+            }
+
+            const absolutePath = path.resolve(this.projectRoot, resourceEntry.path);
+            if (!fs.existsSync(absolutePath)) {
+                continue;
+            }
+
+            let rawContent: string;
+            try {
+                rawContent = fs.readFileSync(absolutePath, "utf8");
+            } catch {
+                continue;
+            }
+
+            let parsed: Record<string, unknown>;
+            try {
+                parsed = Semantic.parseProjectMetadataDocumentWithSchema(rawContent, resourceEntry.path).document;
+            } catch {
+                continue;
+            }
+
+            let changed = false;
+
+            if (resourceEntry.path === resource.path) {
+                if (parsed.name !== newName) {
+                    parsed.name = newName;
+                    changed = true;
+                }
+
+                if (Core.isNonEmptyString(newResourcePath) && parsed.resourcePath !== newResourcePath) {
+                    parsed.resourcePath = newResourcePath;
+                    changed = true;
+                }
+            }
+
+            for (const reference of resourceEntry.assetReferences) {
+                if (reference.targetPath !== resource.path) {
+                    continue;
+                }
+
+                const updated = Semantic.updateProjectMetadataReferenceByPath({
+                    document: parsed,
+                    propertyPath: reference.propertyPath,
+                    newResourcePath,
+                    newName
+                });
+                if (updated) {
+                    changed = true;
+                }
+            }
+
+            if (!changed) {
+                continue;
+            }
+
+            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
+            if (updatedContent === rawContent) {
+                continue;
+            }
+
+            edit.addMetadataEdit(resourceEntry.path, updatedContent);
+        }
     }
 
     private findResourceBySymbol(entry: any, symbolId: string): any {
@@ -279,46 +398,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             }
         } catch {
             /* ignore */
-        }
-        return results;
-    }
-
-    /**
-     * Find exact string occurrences in a JSON file to avoid corrupting it with [0,0] edits.
-     */
-    private findJsonStringOccurrences(
-        relativePath: string,
-        searchString: string
-    ): Array<{ start: number; end: number }> {
-        const results: Array<{ start: number; end: number }> = [];
-        try {
-            const absolutePath = path.resolve(this.projectRoot, relativePath);
-            if (!fs.existsSync(absolutePath)) {
-                return results;
-            }
-
-            const content = fs.readFileSync(absolutePath, "utf8");
-
-            // SEARCH IMPROVEMENT: Also find the name within paths!
-            // Example: "path":"objects/oGravitySphere/oGravitySphere.yy"
-            // We search for the name as an identifier within any string literal.
-            const escapedSearch = Core.escapeRegExp(searchString);
-            // Look for the name inside double quotes, potentially as part of a path.
-            // We want to match "oGravitySphere" but NOT "another_oGravitySphere"
-            const regex = new RegExp(
-                String.raw`(?<=")(${escapedSearch})(?=[^a-zA-Z0-9_])|(?<=[^a-zA-Z0-9_])(${escapedSearch})(?=")|(?<=")(${escapedSearch})(?=")|(?<=[\/])(${escapedSearch})(?=[\.\/])`,
-                "g"
-            );
-
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                results.push({
-                    start: match.index,
-                    end: match.index + searchString.length
-                });
-            }
-        } catch (error) {
-            console.warn(`[GmlSemanticBridge] Failed to read ${relativePath} for occurrence search:`, error);
         }
         return results;
     }
@@ -389,54 +468,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     scopeId: call.from?.scopeId,
                     kind: OccurrenceKind.REFERENCE
                 });
-            }
-        }
-    }
-
-    /**
-     * Collect occurrences from asset references across all resources.
-     */
-    private collectOccurrencesFromAssetReferences(targetName: string, occurrences: Array<SymbolOccurrence>): void {
-        const resources = this.resources;
-        if (!resources) return;
-
-        // Also add the definition itself if we can find it in the resource file
-        const definitionResource = this.findResourceByName(targetName);
-        if (definitionResource) {
-            const defs = this.findJsonStringOccurrences(definitionResource.path, targetName);
-            for (const def of defs) {
-                occurrences.push({
-                    path: definitionResource.path,
-                    start: def.start,
-                    end: def.end,
-                    scopeId: null,
-                    kind: OccurrenceKind.DEFINITION
-                });
-            }
-        }
-
-        for (const key of Object.keys(resources)) {
-            const res = resources[key];
-            if (Array.isArray(res.assetReferences)) {
-                for (const ref of res.assetReferences) {
-                    if (ref.targetName === targetName) {
-                        // Find actual locations in the file
-                        const locations = this.findJsonStringOccurrences(res.path, targetName);
-
-                        // If we found locations, add them. If not, and we are sure it's a reference,
-                        // we skip adding a blind [0,0] edit because it corrupts the file.
-                        // Ideally we should warn, but for now we prioritize not breaking the file.
-                        for (const loc of locations) {
-                            occurrences.push({
-                                path: res.path,
-                                start: loc.start,
-                                end: loc.end,
-                                scopeId: null,
-                                kind: OccurrenceKind.REFERENCE
-                            });
-                        }
-                    }
-                }
             }
         }
     }

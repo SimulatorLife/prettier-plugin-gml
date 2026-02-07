@@ -1,6 +1,5 @@
 import type { GameMakerAstNode } from "@gml-modules/core";
 
-import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 import { prettierParserAdapter } from "../parsers/index.js";
 import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
@@ -92,33 +91,6 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 category: "gml",
                 default: true,
                 description: "Preserve 'globalvar' declarations instead of eliding them during formatting."
-            },
-            alignAssignmentsMinGroupSize: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
-            },
-            maxParamsPerLine: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 0,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
-            },
-            maxStructPropertiesPerLine: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 2,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Maximum number of properties in a struct expression before it is forced to break across multiple lines. Set to 0 to disable the limit (structs with comments will still break)."
             },
             applyFeatherFixes: {
                 since: "0.0.0",

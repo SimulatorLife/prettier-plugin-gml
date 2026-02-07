@@ -3,6 +3,17 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@gml-modules/core": ["src/core/index.ts"],
+      "@gml-modules/parser": ["src/parser/index.ts"],
+      "@gml-modules/plugin": ["src/plugin/index.ts"],
+      "@gml-modules/semantic": ["src/semantic/index.ts"],
+      "@gml-modules/transpiler": ["src/transpiler/index.ts"],
+      "@gml-modules/refactor": ["src/refactor/index.ts"],
+      "@gml-modules/runtime-wrapper": ["src/runtime-wrapper/index.ts"],
+      "@gml-modules/cli": ["src/cli/index.ts"]
+    },
     "lib": ["ES2023"],
     "moduleDetection": "force",
     "types": ["node"],

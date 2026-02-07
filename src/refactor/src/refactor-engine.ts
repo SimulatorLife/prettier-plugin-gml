@@ -558,6 +558,11 @@ export class RefactorEngine {
                     workspace.addFileRename(rename.oldPath, rename.newPath);
                 }
             }
+            if (additionalEdits && Array.isArray(additionalEdits.metadataEdits)) {
+                for (const metadataEdit of additionalEdits.metadataEdits) {
+                    workspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+                }
+            }
         }
 
         return workspace;
@@ -578,7 +583,13 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        if (workspace.edits.length === 0) {
+        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const hasTextEdits = workspace.edits.length > 0;
+        const hasMetadataEdits = metadataEdits.length > 0;
+        const hasFileRenames = fileRenames.length > 0;
+
+        if (!hasTextEdits && !hasMetadataEdits && !hasFileRenames) {
             errors.push("Workspace edit contains no changes");
             return { valid: false, errors, warnings };
         }
@@ -611,6 +622,31 @@ export class RefactorEngine {
                     `Large number of edits (${edits.length}) planned for ${filePath}. ` +
                         `Consider reviewing the scope of this refactoring.`
                 );
+            }
+        }
+
+        const metadataPaths = new Set<string>();
+        for (const metadataEdit of metadataEdits) {
+            if (!Core.isNonEmptyString(metadataEdit.path)) {
+                errors.push("Metadata edit path must be a non-empty string");
+                continue;
+            }
+
+            if (metadataPaths.has(metadataEdit.path)) {
+                errors.push(`Duplicate metadata edit detected for ${metadataEdit.path}`);
+                continue;
+            }
+
+            metadataPaths.add(metadataEdit.path);
+
+            if (typeof metadataEdit.content !== "string") {
+                errors.push(`Metadata edit content for ${metadataEdit.path} must be a string`);
+            }
+        }
+
+        for (const metadataPath of metadataPaths) {
+            if (grouped.has(metadataPath)) {
+                errors.push(`Cannot combine text and metadata edits for ${metadataPath}`);
             }
         }
 
@@ -695,15 +731,25 @@ export class RefactorEngine {
             }
         });
 
+        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+        await Core.runSequentially(metadataEdits, async (metadataEdit) => {
+            results.set(metadataEdit.path, metadataEdit.content);
+
+            if (!dryRun) {
+                await writeFile(metadataEdit.path, metadataEdit.content);
+            }
+        });
+
         // Process file renames last to ensure we don't move files before we're done
         // with their text edits. This stabilizes path references during the build phase.
-        if (!dryRun && workspace.fileRenames.length > 0) {
+        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        if (!dryRun && fileRenames.length > 0) {
             const { renameFile } = opts;
             if (typeof renameFile !== "function") {
                 throw new TypeError("applyWorkspaceEdit requires a renameFile implementation to process file renames");
             }
 
-            await Core.runSequentially(workspace.fileRenames, async (rename) => {
+            await Core.runSequentially(fileRenames, async (rename) => {
                 await renameFile(rename.oldPath, rename.newPath);
             });
         }
@@ -780,6 +826,14 @@ export class RefactorEngine {
         for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+            }
+            const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+            for (const metadataEdit of metadataEdits) {
+                merged.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+            }
+            const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+            for (const fileRename of fileRenames) {
+                merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
         }
 
@@ -1165,8 +1219,19 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        if (workspace.edits.length === 0) {
+        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const hasTextEdits = workspace.edits.length > 0;
+        const hasMetadataEdits = metadataEdits.length > 0;
+        const hasFileRenames = fileRenames.length > 0;
+
+        if (!hasTextEdits && !hasMetadataEdits && !hasFileRenames) {
             warnings.push("Workspace edit contains no changes - hot reload not needed");
+            return { valid: true, errors, warnings };
+        }
+
+        if (!hasTextEdits && hasMetadataEdits) {
+            warnings.push("Workspace edit contains metadata-only changes - hot reload patching not required");
             return { valid: true, errors, warnings };
         }
 

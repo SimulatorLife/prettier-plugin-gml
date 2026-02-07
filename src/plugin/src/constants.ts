@@ -38,16 +38,6 @@ export const DEFAULT_PRINT_WIDTH = 120;
 export const DEFAULT_TAB_WIDTH = 4;
 
 /**
- * Minimum number of consecutive assignment statements required before the
- * formatter will align their assignment operators.
- *
- * This threshold prevents the formatter from creating artificial alignment in
- * small groups of assignments where the visual benefit is minimal. Groups of
- * 3 or more assignments show clear readability improvements when aligned.
- */
-export const DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE = 3;
-
-/**
  * Minimum number of consecutive variable declarations required before the
  * formatter enforces blank line spacing after the declaration block.
  *
