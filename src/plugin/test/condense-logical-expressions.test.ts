@@ -229,7 +229,6 @@ void test("rewrites else-exit branches into early guard clauses", async () => {
             "if (!instance_exists(oPlayer)) {",
             "    exit;",
             "}",
-            "",
             "follow_id = oPlayer.id;",
             "follow_id.activePlayer = true;",
             ""
