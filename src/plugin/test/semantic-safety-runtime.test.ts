@@ -23,24 +23,24 @@ void test(
     "preserves uninitialized globalvar declarations when project-safe rewrite is unavailable",
     { concurrency: false },
     async () => {
-    const reports: Array<SemanticSafetyReportRecord> = [];
+        const reports: Array<SemanticSafetyReportRecord> = [];
 
-    try {
-        const formatted = await Plugin.format("globalvar score;\n", {
-            preserveGlobalVarStatements: false,
-            __semanticSafetyReportService(report: SemanticSafetyReportRecord) {
-                reports.push(report);
-            }
-        });
+        try {
+            const formatted = await Plugin.format("globalvar score;\n", {
+                preserveGlobalVarStatements: false,
+                __semanticSafetyReportService(report: SemanticSafetyReportRecord) {
+                    reports.push(report);
+                }
+            });
 
-        assert.strictEqual(formatted, "globalvar score;\n");
-        assert.ok(
-            reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_GLOBALVAR_SKIP"),
-            "Expected an explicit semantic-safety skip report for uninitialized globalvar rewrites."
-        );
-    } finally {
-        resetSemanticSafetyRuntimes();
-    }
+            assert.strictEqual(formatted, "globalvar score;\n");
+            assert.ok(
+                reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_GLOBALVAR_SKIP"),
+                "Expected an explicit semantic-safety skip report for uninitialized globalvar rewrites."
+            );
+        } finally {
+            resetSemanticSafetyRuntimes();
+        }
     }
 );
 

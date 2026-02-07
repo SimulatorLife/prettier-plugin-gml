@@ -183,9 +183,8 @@ async function format(source: string, options: SupportOptions = {}) {
         ...defaultOptions,
         ...options
     });
-    const semanticSafetyReportServiceCandidate = resolvedOptions[
-        "__semanticSafetyReportService" as keyof typeof resolvedOptions
-    ];
+    const semanticSafetyReportServiceCandidate =
+        resolvedOptions["__semanticSafetyReportService" as keyof typeof resolvedOptions];
     const semanticSafetyReportService =
         typeof semanticSafetyReportServiceCandidate === "function"
             ? (semanticSafetyReportServiceCandidate as (

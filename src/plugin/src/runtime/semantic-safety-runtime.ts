@@ -149,7 +149,10 @@ export async function runWithSemanticSafetyReportService<T>(
  */
 export function hasActiveSemanticSafetyReportService(options?: unknown): boolean {
     if (Core.isObjectLike(options)) {
-        const reportServiceCandidate = Reflect.get(options as Record<string, unknown>, SEMANTIC_SAFETY_REPORT_SERVICE_KEY);
+        const reportServiceCandidate = Reflect.get(
+            options as Record<string, unknown>,
+            SEMANTIC_SAFETY_REPORT_SERVICE_KEY
+        );
         if (typeof reportServiceCandidate === "function") {
             return true;
         }
@@ -396,10 +399,7 @@ export function assessGlobalVarRewrite(
 /**
  * Resolve a semantic-safe rename for Feather fix identifier rewrites.
  */
-export function resolveFeatherRename(
-    context: FeatherRenameContext,
-    options?: unknown
-): FeatherRenameResolution | null {
+export function resolveFeatherRename(context: FeatherRenameContext, options?: unknown): FeatherRenameResolution | null {
     const identifierName = normalizeIdentifier(context.identifierName);
     const preferredReplacementName = normalizeIdentifier(context.preferredReplacementName);
     const localIdentifierNames = context.localIdentifierNames ?? new Set<string>();

@@ -5,7 +5,12 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { countSourceLines, createExtensionMatcher, createWatchCommand, runWatchCommand } from "../src/commands/watch.js";
+import {
+    countSourceLines,
+    createExtensionMatcher,
+    createWatchCommand,
+    runWatchCommand
+} from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("watch command", () => {
