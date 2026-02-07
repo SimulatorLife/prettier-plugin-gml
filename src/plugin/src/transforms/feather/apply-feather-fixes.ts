@@ -16686,7 +16686,7 @@ function updateJSDocParamName(node: any, oldName: string, newName: string, colle
         return;
     }
 
-    const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
+    const escapedOld = Core.escapeRegExp(oldName);
     const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
 
     for (const comment of comments) {
