@@ -361,7 +361,7 @@ export class GmlSemanticBridge {
 
             let parsed: Record<string, unknown>;
             try {
-                parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, resourceEntry.path).document;
+                parsed = Semantic.readProjectMetadataDocumentForMutationFromFile(absolutePath).document;
             } catch {
                 continue;
             }

@@ -299,6 +299,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 - Completed additional Phase 4 follow-up (file-level delegation to `@bscotch/yy`):
   - Added file I/O helpers in `src/semantic/src/project-metadata/yy-adapter.ts` (`readProjectMetadataDocumentFromFile`, `readProjectMetadataDocumentForMutationFromFile`, `writeProjectMetadataDocumentToFile`) so semantic metadata workflows can delegate parsing/serialization decisions to `Yy.readSync`/`Yy.writeSync`.
   - Updated `src/semantic/src/identifier-case/asset-rename-executor.ts` to route default filesystem metadata writes through `writeProjectMetadataDocumentToFile`, preserving mocked `fsFacade` behavior in tests while using Stitch-native write semantics in production flows.
+  - Updated `src/cli/src/modules/refactor/semantic-bridge.ts` to parse mutation metadata via `readProjectMetadataDocumentForMutationFromFile`, so bridge planning uses the same schema-gated file parsing policy as semantic rename execution.
   - Expanded `src/semantic/test/project-metadata-yy-adapter.test.ts` with file-level read/write coverage, including `Yy.writeSync` no-op detection on unchanged metadata writes.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
@@ -310,6 +311,16 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 ### Remaining work to fully realize the plan
 1. Continue reducing duplicate metadata parsing utilities by deprecating remaining `.yy/.yyp` paths that still rely on generic JSON helpers outside the semantic adapter.
 2. Evaluate optional `Yy.schemas` strict-parse gates in adapter workflows where format stability is guaranteed (to avoid over-normalizing unknown/new fields); schema-validation reporting is now available, but strict enforcement policies are still pending.
+
+### Validation + audit update (2026-02-07)
+- Verified required gates:
+  - `pnpm run build:ts` ✅
+  - `pnpm run lint:quiet` ✅
+- Confirmed `.yy/.yyp` production code paths now route through the semantic `@bscotch/yy` adapter (`src/semantic/src/project-metadata/yy-adapter.ts`) and no remaining semantic/cli/refactor metadata mutation flow is using `Core.parseGameMakerJson`, `Core.parseJsonWithContext`, or `Core.stringifyJsonForFile`.
+- Confirmed remaining `Core.parseJsonWithContext` usages in semantic are non-GameMaker metadata contexts only (built-in identifier metadata + project-index cache), so they are not duplicate `.yy/.yyp` implementations.
+- Executed targeted runtime verification:
+  - `pnpm run test:semantic` ❌ (2 existing failures in dry-run reporting assertions: `src/semantic/dist/test/identifier-case-locals.integration.test.js`, `src/semantic/dist/test/identifier-case-report.test.js`; not in yy-adapter mutation paths)
+  - `pnpm run test:refactor` / `pnpm run test:cli` were not executed after semantic test failure short-circuited the chained command.
 
 ### Expected wins
 - Stable `.yy/.yyp` round-tripping with less GameMaker-induced diff churn.

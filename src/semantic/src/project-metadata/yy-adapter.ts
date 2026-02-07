@@ -150,6 +150,45 @@ function checkProjectMetadataDocumentSchema(
     }
 }
 
+function readProjectMetadataDocumentFromFileWithoutSchema(sourcePath: string): Record<string, unknown> {
+    let parsed: unknown;
+    try {
+        parsed = Yy.readSync(sourcePath);
+    } catch (error) {
+        throw new ProjectMetadataParseError(sourcePath, error);
+    }
+
+    return assertProjectMetadataDocumentIsPlainObject(parsed, sourcePath);
+}
+
+function checkProjectMetadataDocumentSchemaFromFile(
+    sourcePath: string,
+    schemaName: ProjectMetadataSchemaName | null
+): { schemaValidated: boolean; document: Record<string, unknown>; schemaError: unknown } {
+    if (!schemaName) {
+        return {
+            schemaValidated: false,
+            document: readProjectMetadataDocumentFromFileWithoutSchema(sourcePath),
+            schemaError: null
+        };
+    }
+
+    try {
+        const schemaParsed = Yy.readSync(sourcePath, schemaName);
+        return {
+            schemaValidated: true,
+            document: assertProjectMetadataDocumentIsPlainObject(schemaParsed, sourcePath),
+            schemaError: null
+        };
+    } catch (error) {
+        return {
+            schemaValidated: false,
+            document: readProjectMetadataDocumentFromFileWithoutSchema(sourcePath),
+            schemaError: error
+        };
+    }
+}
+
 /**
  * Parse a GameMaker metadata document using Stitch's yy parser.
  */
@@ -242,14 +281,35 @@ export function stringifyProjectMetadataDocument(document: Record<string, unknow
  * status in the same shape as {@link parseProjectMetadataDocumentWithSchema}.
  */
 export function readProjectMetadataDocumentFromFile(sourcePath: string) {
-    let rawContents: string;
-    try {
-        rawContents = fs.readFileSync(sourcePath, "utf8");
-    } catch (error) {
-        throw new ProjectMetadataParseError(sourcePath, error);
+    const pathDerivedSchemaName = resolveProjectMetadataSchemaName(sourcePath);
+    const pathDerivedSchemaResult = checkProjectMetadataDocumentSchemaFromFile(sourcePath, pathDerivedSchemaName);
+    if (pathDerivedSchemaResult.schemaValidated) {
+        return {
+            document: pathDerivedSchemaResult.document,
+            schemaName: pathDerivedSchemaName,
+            schemaValidated: true,
+            schemaError: null
+        };
     }
 
-    return parseProjectMetadataDocumentWithSchema(rawContents, sourcePath);
+    const fallbackDocument = pathDerivedSchemaResult.document;
+    const schemaName = resolveProjectMetadataSchemaName(sourcePath, fallbackDocument.resourceType);
+    if (!schemaName || schemaName === pathDerivedSchemaName) {
+        return {
+            document: fallbackDocument,
+            schemaName,
+            schemaValidated: false,
+            schemaError: pathDerivedSchemaResult.schemaError
+        };
+    }
+
+    const schemaResult = checkProjectMetadataDocumentSchemaFromFile(sourcePath, schemaName);
+    return {
+        document: schemaResult.document,
+        schemaName,
+        schemaValidated: schemaResult.schemaValidated,
+        schemaError: schemaResult.schemaError
+    };
 }
 
 /**
@@ -257,14 +317,13 @@ export function readProjectMetadataDocumentFromFile(sourcePath: string) {
  * through the same strict policy as {@link parseProjectMetadataDocumentForMutation}.
  */
 export function readProjectMetadataDocumentForMutationFromFile(sourcePath: string) {
-    let rawContents: string;
-    try {
-        rawContents = fs.readFileSync(sourcePath, "utf8");
-    } catch (error) {
-        throw new ProjectMetadataParseError(sourcePath, error);
+    const parsed = readProjectMetadataDocumentFromFile(sourcePath);
+    const requiresStrictValidation = parsed.schemaName && parsed.schemaName !== "project";
+    if (requiresStrictValidation && !parsed.schemaValidated) {
+        throw new ProjectMetadataSchemaValidationError(sourcePath, parsed.schemaName, parsed.schemaError);
     }
 
-    return parseProjectMetadataDocumentForMutation(rawContents, sourcePath);
+    return parsed;
 }
 
 /**
@@ -275,16 +334,12 @@ export function readProjectMetadataDocumentForMutationFromFile(sourcePath: strin
  */
 export function writeProjectMetadataDocumentToFile(sourcePath: string, document: Record<string, unknown>): boolean {
     const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    if (schemaName) {
-        try {
-            return Yy.writeSync(sourcePath, document, schemaName);
-        } catch {
-            // Fall through to a generic serializer write when schema-specific
-            // writing fails, matching stringify fallback behavior.
-        }
+    try {
+        return Yy.writeSync(sourcePath, document, schemaName ?? undefined);
+    } catch {
+        fs.writeFileSync(sourcePath, stringifyProjectMetadataDocument(document, sourcePath), "utf8");
     }
 
-    fs.writeFileSync(sourcePath, stringifyProjectMetadataDocument(document, sourcePath), "utf8");
     return true;
 }
 
