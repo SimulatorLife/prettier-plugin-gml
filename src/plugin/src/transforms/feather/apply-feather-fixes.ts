@@ -110,45 +110,18 @@ export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
 });
 
 /**
- * @typedef {typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION]} RoomNavigationDirection
- */
-
-const ROOM_NAVIGATION_DIRECTION_VALUES = new Set(Object.values(ROOM_NAVIGATION_DIRECTION));
-const ROOM_NAVIGATION_DIRECTION_LABELS = Array.from(ROOM_NAVIGATION_DIRECTION_VALUES).join(", ");
-
-const ROOM_NAVIGATION_HELPERS = Object.freeze({
-    [ROOM_NAVIGATION_DIRECTION.NEXT]: Object.freeze({
-        binary: "room_next",
-        goto: "room_goto_next"
-    }),
-    [ROOM_NAVIGATION_DIRECTION.PREVIOUS]: Object.freeze({
-        binary: "room_previous",
-        goto: "room_goto_previous"
-    })
-});
-
-type RoomNavigationDirection = (typeof ROOM_NAVIGATION_DIRECTION)[keyof typeof ROOM_NAVIGATION_DIRECTION];
-
-function normalizeRoomNavigationDirection(direction: unknown): RoomNavigationDirection {
-    if (typeof direction !== "string") {
-        throw new TypeError("Room navigation direction must be provided as a string.");
-    }
-
-    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction as RoomNavigationDirection)) {
-        throw new RangeError(
-            `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
-        );
-    }
-
-    return direction as RoomNavigationDirection;
-}
-
-/**
- * Look up the proper room helper names for a normalized Feather navigation direction.
+ * Look up the proper room helper names for a Feather navigation direction.
+ * Returns helper function names for binary expressions and goto calls based on direction.
  */
 export function getRoomNavigationHelpers(direction: unknown) {
-    const normalizedDirection = normalizeRoomNavigationDirection(direction);
-    return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+    if (direction === "next") {
+        return { binary: "room_next", goto: "room_goto_next" };
+    }
+    if (direction === "previous") {
+        return { binary: "room_previous", goto: "room_goto_previous" };
+    }
+    const displayValue = typeof direction === "string" ? direction : JSON.stringify(direction);
+    throw new RangeError(`Unsupported room navigation direction: ${displayValue}. Expected one of: next, previous.`);
 }
 
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
