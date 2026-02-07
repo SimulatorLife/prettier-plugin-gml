@@ -2416,11 +2416,7 @@ function shouldForceBreakStructArgument(argument, options, previousArgument) {
         return true;
     }
 
-    const maxStructPropertiesPerLine = Number.isFinite(options?.maxStructPropertiesPerLine)
-        ? options.maxStructPropertiesPerLine
-        : 0;
-    const threshold = maxStructPropertiesPerLine > 0 ? maxStructPropertiesPerLine : Infinity;
-    return properties.length > threshold;
+    return false;
 }
 
 function hasLineBreakBetweenArguments(previousArgument, argument, options) {

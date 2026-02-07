@@ -95,30 +95,29 @@ function assertProjectMetadataDocumentIsPlainObject(parsed: unknown, sourcePath:
 }
 
 function checkProjectMetadataDocumentSchema(
-    document: Record<string, unknown>,
+    rawContents: string,
     sourcePath: string,
     schemaName: ProjectMetadataSchemaName | null
 ): { schemaValidated: boolean; document: Record<string, unknown> } {
     if (!schemaName) {
         return {
             schemaValidated: false,
-            document
+            document: parseProjectMetadataDocument(rawContents, sourcePath)
         };
     }
 
-    const schema = Yy.getSchema(schemaName);
-    const schemaResult = schema.safeParse(document);
-    if (!schemaResult.success) {
+    try {
+        const schemaParsed = Yy.parse(rawContents, schemaName);
+        return {
+            schemaValidated: true,
+            document: assertProjectMetadataDocumentIsPlainObject(schemaParsed, sourcePath)
+        };
+    } catch {
         return {
             schemaValidated: false,
-            document
+            document: parseProjectMetadataDocument(rawContents, sourcePath)
         };
     }
-
-    return {
-        schemaValidated: true,
-        document: assertProjectMetadataDocumentIsPlainObject(schemaResult.data, sourcePath)
-    };
 }
 
 /**
@@ -140,9 +139,9 @@ export function parseProjectMetadataDocument(rawContents: string, sourcePath: st
  * the parsed payload matches the inferred schema.
  */
 export function parseProjectMetadataDocumentWithSchema(rawContents: string, sourcePath: string) {
-    const document = parseProjectMetadataDocument(rawContents, sourcePath);
-    const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    const schemaResult = checkProjectMetadataDocumentSchema(document, sourcePath, schemaName);
+    const baseDocument = parseProjectMetadataDocument(rawContents, sourcePath);
+    const schemaName = resolveProjectMetadataSchemaName(sourcePath, baseDocument.resourceType);
+    const schemaResult = checkProjectMetadataDocumentSchema(rawContents, sourcePath, schemaName);
 
     return {
         document: schemaResult.document,
@@ -154,7 +153,19 @@ export function parseProjectMetadataDocumentWithSchema(rawContents: string, sour
 /**
  * Stringify a metadata payload using Stitch's yy serializer.
  */
-export function stringifyProjectMetadataDocument(document: Record<string, unknown>) {
+export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
+    const schemaName = Core.isNonEmptyString(sourcePath)
+        ? resolveProjectMetadataSchemaName(sourcePath, document.resourceType)
+        : null;
+
+    if (schemaName) {
+        try {
+            return Yy.stringify(document, schemaName);
+        } catch {
+            return Yy.stringify(document);
+        }
+    }
+
     return Yy.stringify(document);
 }
 

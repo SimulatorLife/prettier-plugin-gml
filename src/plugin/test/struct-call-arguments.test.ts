@@ -27,7 +27,7 @@ void test("keeps small struct arguments inline", async () => {
     );
 });
 
-void test("keeps struct arguments inline by default when the struct limit is disabled", async () => {
+void test("keeps struct arguments inline when they fit print width", async () => {
     const source = [
         "function build() {",
         "    return create_instance(1, 2, {",
@@ -46,24 +46,24 @@ void test("keeps struct arguments inline by default when the struct limit is dis
     assert.strictEqual(
         lines[returnIndex],
         "    return create_instance(1, 2, {",
-        "Calls with larger struct arguments stay inline by default when the struct limit is disabled."
+        "Calls with larger struct arguments should stay inline when the line still fits."
     );
 });
 
-void test("breaks struct arguments when maxStructPropertiesPerLine is limited", async () => {
+void test("breaks struct arguments when print width requires wrapping", async () => {
     const source = [
         "function build() {",
         "    return create_instance(1, 2, {",
-        "        first: 1,",
-        "        second: 2,",
-        "        third: 3",
+        "        first: 123456789,",
+        "        second: 123456789,",
+        "        third: 123456789",
         "    });",
         "}",
         ""
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        maxStructPropertiesPerLine: 2
+        printWidth: 55
     });
     const lines = formatted.trim().split("\n");
     const returnIndex = lines.findIndex((line) => line.includes("return create_instance"));
@@ -71,11 +71,11 @@ void test("breaks struct arguments when maxStructPropertiesPerLine is limited", 
     assert.strictEqual(
         lines[returnIndex],
         "    return create_instance(",
-        "Calls with larger struct arguments should still break to preserve readability when the limit applies."
+        "Calls with larger struct arguments should break when print width is exceeded."
     );
     assert.strictEqual(
         lines[returnIndex + 1],
         "        1,",
-        "The first argument should be printed on its own line when the call breaks."
+        "The first argument should be printed on its own line when the call wraps."
     );
 });

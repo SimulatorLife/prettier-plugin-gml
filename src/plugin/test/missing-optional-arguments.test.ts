@@ -13,7 +13,11 @@ void test("prints undefined for missing optional arguments by default", async ()
 });
 
 void test("plugin no longer exposes removed options", async () => {
-    for (const optionName of ["missingOptionalArgumentPlaceholder", "allowTrailingCallArguments"]) {
+    for (const optionName of [
+        "missingOptionalArgumentPlaceholder",
+        "allowTrailingCallArguments",
+        "maxStructPropertiesPerLine"
+    ]) {
         assert.ok(!Object.hasOwn(Plugin.options, optionName), `${optionName} must be absent from plugin metadata`);
         assert.ok(
             !Object.hasOwn(Plugin.defaultOptions, optionName),

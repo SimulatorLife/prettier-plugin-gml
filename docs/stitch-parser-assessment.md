@@ -285,6 +285,10 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Fixed schema inference for absolute metadata paths (schema lookup now uses the resource parent directory instead of path-root assumptions), improving `@bscotch/yy` schema coverage in real project trees.
   - Added shared metadata path helpers in `src/semantic/src/project-metadata/yy-adapter.ts` (`getProjectMetadataValueAtPath`, `updateProjectMetadataReferenceByPath`) and switched both `src/semantic/src/identifier-case/asset-rename-executor.ts` and `src/cli/src/modules/refactor/semantic-bridge.ts` to use them, removing duplicate custom path traversal/mutation logic.
   - Expanded `.yyp` project reference extraction in `src/semantic/src/project-index/resource-reference-extractor.ts` to include folder/order/config-style manifest paths (`RoomOrderNodes[].roomId`, `Folders[].folderPath`, `Options[].path`) in addition to `resources[].id`.
+- Completed additional Phase 4 follow-up (schema-native parse/stringify delegation):
+  - Updated `src/semantic/src/project-metadata/yy-adapter.ts` so schema-aware parsing now delegates directly to `Yy.parse(raw, schemaName)` and falls back to loose parsing only when schema validation fails.
+  - Updated metadata stringification to infer schema from document/path and call `Yy.stringify(document, schemaName)` when possible, improving serializer consistency with Stitch defaults.
+  - Routed metadata rewrite callers (`src/semantic/src/identifier-case/asset-rename-executor.ts`, `src/cli/src/modules/refactor/semantic-bridge.ts`) through the schema-aware adapter path so rename/refactor operations delegate more responsibility to `@bscotch/yy`.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
   - `src/semantic/test/project-index-resource-analysis.test.ts`

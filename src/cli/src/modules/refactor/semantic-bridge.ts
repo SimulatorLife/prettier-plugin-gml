@@ -287,7 +287,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
 
             let parsed: Record<string, unknown>;
             try {
-                parsed = Semantic.parseProjectMetadataDocument(rawContent, resourceEntry.path);
+                parsed = Semantic.parseProjectMetadataDocumentWithSchema(rawContent, resourceEntry.path).document;
             } catch {
                 continue;
             }
@@ -326,7 +326,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                 continue;
             }
 
-            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed);
+            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
             if (updatedContent === rawContent) {
                 continue;
             }

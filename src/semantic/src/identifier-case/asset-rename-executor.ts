@@ -4,7 +4,7 @@ import { Core } from "@gml-modules/core";
 
 import {
     getProjectMetadataValueAtPath,
-    parseProjectMetadataDocument,
+    parseProjectMetadataDocumentWithSchema,
     stringifyProjectMetadataDocument,
     updateProjectMetadataReferenceByPath
 } from "../project-metadata/yy-adapter.js";
@@ -67,7 +67,7 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const resourceJson = parseProjectMetadataDocument(raw, absolutePath);
+    const resourceJson = parseProjectMetadataDocumentWithSchema(raw, absolutePath).document;
     if (cache) {
         cache.set(absolutePath, resourceJson);
     }
@@ -263,7 +263,7 @@ export function createAssetRenameExecutor({
         commit() {
             const writeActions = [...pendingWrites.entries()].map(([filePath, jsonData]) => ({
                 filePath,
-                contents: stringifyProjectMetadataDocument(jsonData)
+                contents: stringifyProjectMetadataDocument(jsonData, filePath)
             }));
 
             if (writeActions.length === 0 && renameActions.length === 0) {

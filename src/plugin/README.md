@@ -20,5 +20,11 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 - Prettier always formats functions with a space before the parameter list `function (o) {}`, but never for function calls `fn(o)`. This behavior is fixed and not configurable. For a function name and its parameter list (e.g. `function foo(x) {}`) Prettier does NOT add a space. We should use the same style/convention in this plugin.
 - Comments are never broken up or reflowed to fit the `printWidth` setting. This aligns with Prettier's default behavior for comments, preserving the developer's original line structure and preventing unintended corruption of commented-out code or manual formatting.
 
+## Deprecated And Removed Options
+- `maxStructPropertiesPerLine` was removed on February 7, 2026.
+- Why it was removed: struct layout is now fully opinionated and consistent with Prettier defaults, so struct wrapping is controlled by document shape and `printWidth` rather than a custom numeric threshold.
+- Migration: remove `maxStructPropertiesPerLine` from configuration files; no replacement option is provided.
+
 ## TODO
 - Remove option `maxParamsPerLine`; we should use Prettier's default behavior instead.
+- Remove constant `DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE` and plugin option `alignAssignmentsMinGroupSize` and use Prettier's default behavior instead. We should NOT align assignments *at all*. All test cases that currently use this option should be updated to not align assignments, and the option should be removed from the plugin.
