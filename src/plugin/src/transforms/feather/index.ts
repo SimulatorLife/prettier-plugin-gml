@@ -3,6 +3,7 @@
  */
 export * from "./ast-traversal.js";
 export * from "./enum-handling.js";
+export * from "./feather-rename-planning.js";
 export * from "./parser-bootstrap.js";
 export * from "./reserved-identifier-renaming.js";
 export * from "./semantic-safe-renaming.js";

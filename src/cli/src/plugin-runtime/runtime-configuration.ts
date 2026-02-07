@@ -1,9 +1,10 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+import { Refactor } from "@gml-modules/refactor";
 import { Semantic } from "@gml-modules/semantic";
 
-import { GmlSemanticBridge } from "../modules/refactor/index.js";
+import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 import { importPluginModule } from "./entry-point.js";
 
 type SemanticSafetyRuntimeModule = {
@@ -14,6 +15,7 @@ type SemanticSafetyRuntimeModule = {
 
 type RuntimeContext = {
     projectRoot: string;
+    refactorEngine: InstanceType<typeof Refactor.RefactorEngine>;
     semanticBridge: GmlSemanticBridge;
 };
 
@@ -73,6 +75,38 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
             }
 
             return files;
+        },
+        async planFeatherRenames({
+            filePath,
+            requests
+        }: {
+            filePath: string | null;
+            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>;
+        }) {
+            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+            const plannedEntries: Array<{
+                identifierName: string;
+                mode: "local-fallback" | "project-aware";
+                preferredReplacementName: string;
+                replacementName: string | null;
+                skipReason?: string;
+            }> = [];
+
+            await Core.runSequentially(requests, async (request) => {
+                const plannedEntry = await planSingleFeatherRenameRequest({
+                    normalizedFilePath,
+                    projectRoot: runtimeContext.projectRoot,
+                    refactorEngine: runtimeContext.refactorEngine,
+                    resolveSymbolId: (identifierName) => runtimeContext.semanticBridge.resolveSymbolId(identifierName),
+                    request
+                });
+
+                if (plannedEntry) {
+                    plannedEntries.push(plannedEntry);
+                }
+            });
+
+            return plannedEntries;
         }
     });
 
@@ -107,6 +141,121 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
     });
 }
 
+async function planSingleFeatherRenameRequest({
+    normalizedFilePath,
+    projectRoot,
+    refactorEngine,
+    resolveSymbolId,
+    request
+}: {
+    normalizedFilePath: string | null;
+    projectRoot: string;
+    refactorEngine: InstanceType<typeof Refactor.RefactorEngine>;
+    resolveSymbolId: (identifierName: string) => string | null;
+    request: { identifierName: string; preferredReplacementName: string };
+}): Promise<{
+    identifierName: string;
+    mode: "local-fallback" | "project-aware";
+    preferredReplacementName: string;
+    replacementName: string | null;
+    skipReason?: string;
+} | null> {
+    if (!request || !Core.isNonEmptyString(request.identifierName)) {
+        return null;
+    }
+
+    const symbolId = resolveSymbolId(request.identifierName);
+    if (!Core.isNonEmptyString(symbolId)) {
+        return {
+            identifierName: request.identifierName,
+            mode: "local-fallback",
+            preferredReplacementName: request.preferredReplacementName,
+            replacementName: request.preferredReplacementName
+        };
+    }
+
+    const candidateNames = enumerateRenameCandidates(request.preferredReplacementName);
+    const resolution = await resolveRefactorPlannedReplacement({
+        candidateNames,
+        normalizedFilePath,
+        projectRoot,
+        refactorEngine,
+        symbolId
+    });
+
+    return {
+        identifierName: request.identifierName,
+        mode: "project-aware",
+        preferredReplacementName: request.preferredReplacementName,
+        replacementName: resolution.replacementName,
+        skipReason: resolution.skipReason
+    };
+}
+
+async function resolveRefactorPlannedReplacement({
+    candidateNames,
+    normalizedFilePath,
+    projectRoot,
+    refactorEngine,
+    symbolId
+}: {
+    candidateNames: ReadonlyArray<string>;
+    normalizedFilePath: string | null;
+    projectRoot: string;
+    refactorEngine: InstanceType<typeof Refactor.RefactorEngine>;
+    symbolId: string;
+}): Promise<{ replacementName: string | null; skipReason?: string }> {
+    const tryCandidateAtIndex = async (
+        index: number,
+        lastSkipReason?: string
+    ): Promise<{ replacementName: string | null; skipReason?: string }> => {
+        if (index >= candidateNames.length) {
+            return {
+                replacementName: null,
+                skipReason: lastSkipReason
+            };
+        }
+
+        const candidateName = candidateNames[index];
+        try {
+            const plan = await refactorEngine.prepareRenamePlan(
+                {
+                    symbolId,
+                    newName: candidateName
+                },
+                {
+                    validateHotReload: false
+                }
+            );
+
+            if (!plan.validation.valid) {
+                return await tryCandidateAtIndex(index + 1, plan.validation.errors.join("; "));
+            }
+
+            const affectedAbsolutePaths = new Set<string>();
+            for (const edit of plan.workspace.edits) {
+                affectedAbsolutePaths.add(path.resolve(projectRoot, edit.path));
+            }
+
+            const touchesOnlyCurrentFile =
+                normalizedFilePath === null ||
+                [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === normalizedFilePath);
+            if (!touchesOnlyCurrentFile) {
+                return await tryCandidateAtIndex(
+                    index + 1,
+                    "Rename requires project-wide edits and cannot be applied safely inside formatter-only mode."
+                );
+            }
+
+            return { replacementName: candidateName };
+        } catch (error) {
+            return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
+        }
+    };
+
+    return await tryCandidateAtIndex(0);
+}
+
 async function getRuntimeContext(projectRoot: string): Promise<RuntimeContext | null> {
     const normalizedProjectRoot = path.resolve(projectRoot);
     const cached = runtimeContextCache.get(normalizedProjectRoot);
@@ -125,12 +274,31 @@ async function createRuntimeContext(projectRoot: string): Promise<RuntimeContext
         const projectIndex = await Semantic.buildProjectIndex(projectRoot, undefined, {
             logger: null
         });
+        const semanticBridge = new GmlSemanticBridge(projectIndex, projectRoot);
 
         return {
             projectRoot,
-            semanticBridge: new GmlSemanticBridge(projectIndex, projectRoot)
+            refactorEngine: new Refactor.RefactorEngine({
+                semantic: semanticBridge,
+                parser: new GmlParserBridge(),
+                formatter: new GmlTranspilerBridge()
+            }),
+            semanticBridge
         };
     } catch {
         return null;
     }
+}
+
+function enumerateRenameCandidates(preferredName: string): ReadonlyArray<string> {
+    if (!Core.isNonEmptyString(preferredName)) {
+        return ["__featherFix_reserved"];
+    }
+
+    const candidates = [preferredName];
+    for (let index = 1; index <= 32; index += 1) {
+        candidates.push(`${preferredName}_${index}`);
+    }
+
+    return candidates;
 }
