@@ -43,32 +43,32 @@ export const ScanStatus = Object.freeze({
 
 export type ScanStatus = (typeof ScanStatus)[keyof typeof ScanStatus];
 
-/**
- * Helpers for validating and normalizing test case status values.
- */
-const testCaseStatusHelpers = createEnumeratedOptionHelpers(Object.values(TestCaseStatus), {
-    formatError: (list, received) => `Test case status must be one of: ${list}. Received: ${received}.`,
-    enforceStringType: true,
-    valueLabel: "Test case status"
-});
+type StatusHelperSet<Status extends string> = {
+    helpers: ReturnType<typeof createEnumeratedOptionHelpers>;
+    requireStatus: (value: unknown, options?: { errorConstructor?: new (message: string) => Error }) => Status;
+    isStatus: (value: unknown) => value is Status;
+};
 
-/**
- * Helpers for validating and normalizing parse result status values.
- */
-const parseResultStatusHelpers = createEnumeratedOptionHelpers(Object.values(ParseResultStatus), {
-    formatError: (list, received) => `Parse result status must be one of: ${list}. Received: ${received}.`,
-    enforceStringType: true,
-    valueLabel: "Parse result status"
-});
+function createStatusHelperSet<Status extends string>(
+    values: readonly Status[],
+    label: string
+): StatusHelperSet<Status> {
+    const helpers = createEnumeratedOptionHelpers(values, {
+        formatError: (list, received) => `${label} must be one of: ${list}. Received: ${received}.`,
+        enforceStringType: true,
+        valueLabel: label
+    });
 
-/**
- * Helpers for validating and normalizing scan status values.
- */
-const scanStatusHelpers = createEnumeratedOptionHelpers(Object.values(ScanStatus), {
-    formatError: (list, received) => `Scan status must be one of: ${list}. Received: ${received}.`,
-    enforceStringType: true,
-    valueLabel: "Scan status"
-});
+    return {
+        helpers,
+        requireStatus: (value, { errorConstructor } = {}) => helpers.requireValue(value, errorConstructor) as Status,
+        isStatus: (value: unknown): value is Status => helpers.valueSet.has(value as string)
+    };
+}
+
+const testCaseStatusHelpers = createStatusHelperSet(Object.values(TestCaseStatus), "Test case status");
+const parseResultStatusHelpers = createStatusHelperSet(Object.values(ParseResultStatus), "Parse result status");
+const scanStatusHelpers = createStatusHelperSet(Object.values(ScanStatus), "Scan status");
 
 /**
  * Validate and normalize a test case status value.
@@ -82,7 +82,7 @@ export function normalizeTestCaseStatus(
     value: unknown,
     { errorConstructor }: { errorConstructor?: new (message: string) => Error } = {}
 ): TestCaseStatus {
-    return testCaseStatusHelpers.requireValue(value, errorConstructor) as TestCaseStatus;
+    return testCaseStatusHelpers.requireStatus(value, { errorConstructor });
 }
 
 /**
@@ -97,7 +97,7 @@ export function normalizeParseResultStatus(
     value: unknown,
     { errorConstructor }: { errorConstructor?: new (message: string) => Error } = {}
 ): ParseResultStatus {
-    return parseResultStatusHelpers.requireValue(value, errorConstructor) as ParseResultStatus;
+    return parseResultStatusHelpers.requireStatus(value, { errorConstructor });
 }
 
 /**
@@ -112,7 +112,7 @@ export function normalizeScanStatus(
     value: unknown,
     { errorConstructor }: { errorConstructor?: new (message: string) => Error } = {}
 ): ScanStatus {
-    return scanStatusHelpers.requireValue(value, errorConstructor) as ScanStatus;
+    return scanStatusHelpers.requireStatus(value, { errorConstructor });
 }
 
 /**
@@ -122,7 +122,7 @@ export function normalizeScanStatus(
  * @returns True if value is a valid test case status
  */
 export function isTestCaseStatus(value: unknown): value is TestCaseStatus {
-    return testCaseStatusHelpers.valueSet.has(value as string);
+    return testCaseStatusHelpers.isStatus(value);
 }
 
 /**
@@ -132,7 +132,7 @@ export function isTestCaseStatus(value: unknown): value is TestCaseStatus {
  * @returns True if value is a valid parse result status
  */
 export function isParseResultStatus(value: unknown): value is ParseResultStatus {
-    return parseResultStatusHelpers.valueSet.has(value as string);
+    return parseResultStatusHelpers.isStatus(value);
 }
 
 /**
@@ -142,5 +142,5 @@ export function isParseResultStatus(value: unknown): value is ParseResultStatus 
  * @returns True if value is a valid scan status
  */
 export function isScanStatus(value: unknown): value is ScanStatus {
-    return scanStatusHelpers.valueSet.has(value as string);
+    return scanStatusHelpers.isStatus(value);
 }

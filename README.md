@@ -488,18 +488,16 @@ Template strings that never interpolate expressions automatically collapse back 
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
-| `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
+| `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. Hoisted cache names are resolved through the semantic-safety runtime when available, with local collision-safe fallback naming otherwise. |
+| `condenseStructAssignments` | `false` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
 | `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only `return;` and `exit;` guard statements inside functions stay collapsed; other guard statements expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
-| `condenseLogicalExpressions` | `false` | Condenses and simplifies verbose logical expressions where safe. |
-| `preserveGlobalVarStatements` | `false` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. |
-| `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
-| `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
-| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
-| `useStringInterpolation` | `true` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `optimizeMathExpressions` | `true` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
+| `optimizeLogicalExpressions` | `false` | Runs logical-flow optimizations where safe: condenses complementary branches, rewrites else-early-exit blocks into guard clauses, eliminates temporary `var` + `return` pairs, caches repeated member access in conditions, and hoists invariant loop-condition member reads. |
+| `preserveGlobalVarStatements` | `true` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. When disabled, rewrites are gated by semantic-safety checks: project-aware runtimes can allow broader normalization, while fallback mode preserves declarations that cannot be proven safe. |
+| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`) and standardizes legacy `begin`/`end` block delimiters to `{`/`}`. Feather rename-style fixes now use semantic-safety runtime guardrails: project-aware runtimes can permit/adjust renames, while fallback mode only applies provably local-safe rewrites and reports project-wide skips. |
+| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
+| `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 
@@ -570,8 +568,6 @@ prettier-plugin-gml/
 └─ docs/                  # Design notes and guides
 ```
 
-The Prettier plugin printer centralizes semicolon emission, cleanup, and statement-order helpers in `src/plugin/src/printer/semicolons.ts` so formatting heuristics stay in one place.
-
 ### Set up the workspace
 
 ```bash
@@ -633,8 +629,3 @@ See [package.json](package.json) for the full list of available scripts.
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [Gemini CLI Configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md)
 - [jscpd CLI](https://github.com/kucherenko/jscpd/tree/master/apps/jscpd)
-
-----
-
-# TODO
-1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.

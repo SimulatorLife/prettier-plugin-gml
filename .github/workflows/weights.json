@@ -7,7 +7,7 @@
   "workflows": [
     {"weight":1,"name":"agent-02-resolve-merge-conflicts"},
     {"weight":0.7,"name":"agent-03-dry"},
-    {"weight":0.3,"name":"agent-04-style"},
+    {"weight":0.2,"name":"agent-04-style"},
     {"weight":0.16,"name":"agent-06-decouple"},
     {"weight":0.014,"name":"agent-09-dependencies"},
     {"weight":0.02,"name":"agent-10-documentation"},
@@ -35,7 +35,7 @@
     {"weight":0.08,"name":"agent-75-racey-test-isolation"},
     {"weight":0.08,"name":"agent-76-legacy-api-usage"},
     {"weight":0.2,"name":"agent-77-usability"},
-    {"weight":0.1,"name":"agent-78-architectural-audit"},
+    {"weight":0.125,"name":"agent-78-architectural-audit"},
     {"weight":0.25,"name":"agent-79-cohesion-refactor"},
     {"weight":0.08,"name":"agent-80-composition"},
     {"weight":0.02,"name":"agent-81-defensive"},

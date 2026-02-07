@@ -4,7 +4,25 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Plugin } from "../src/index.js";
+import { Semantic } from "@gml-modules/semantic";
+
+import { configureIdentifierCaseIntegration, Plugin } from "../src/index.js";
+
+configureIdentifierCaseIntegration({
+    runtime: {
+        createScopeTracker: () => new Semantic.SemanticScopeCoordinator(),
+        prepareIdentifierCaseEnvironment: Semantic.prepareIdentifierCaseEnvironment,
+        teardownIdentifierCaseEnvironment: Semantic.teardownIdentifierCaseEnvironment,
+        attachIdentifierCasePlanSnapshot: Semantic.attachIdentifierCasePlanSnapshot
+    },
+    identifierCaseOptions: Semantic.identifierCaseOptions,
+    printerServices: {
+        renameLookupService: Semantic.getIdentifierCaseRenameForNode,
+        applySnapshotService: Semantic.applyIdentifierCasePlanSnapshot,
+        dryRunReportService: Semantic.maybeReportIdentifierCaseDryRun,
+        teardownService: Semantic.teardownIdentifierCaseEnvironment
+    }
+});
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)

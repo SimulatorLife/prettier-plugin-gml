@@ -14,7 +14,7 @@ import { ConflictSeverity, normalizeConflictSeverityWithFallback } from "./confl
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { warnWithReason } from "./logger.js";
-import { setIdentifierCaseOption } from "./option-store.js";
+import { getIdentifierCaseOptionStore, setIdentifierCaseOption } from "./option-store.js";
 
 type IdentifierCaseReportSummary = {
     renameCount: number;
@@ -594,6 +594,27 @@ function resolveInlineReportContext(options, renamePlan) {
     };
 }
 
+function resolveStoredReportContext(options) {
+    const storeKey = Core.coalesceTrimmedString(options?.__identifierCaseOptionsStoreKey, options?.filepath);
+    if (!storeKey) {
+        return null;
+    }
+
+    const storedOptions = getIdentifierCaseOptionStore(storeKey);
+    if (!Core.isObjectLike(storedOptions)) {
+        return null;
+    }
+
+    const storedRenamePlan = getIdentifierCaseOption(storedOptions, "RenamePlan", {
+        fallback: null
+    });
+    if (!storedRenamePlan) {
+        return null;
+    }
+
+    return resolveInlineReportContext(storedOptions, storedRenamePlan);
+}
+
 function mergeReportContexts(primary, fallback) {
     if (!primary) {
         return fallback;
@@ -620,15 +641,16 @@ function resolveReportContext(options) {
     const inlinePlan = getIdentifierCaseOption(options, "RenamePlan", {
         fallback: null
     });
+    const storedContext = resolveStoredReportContext(options);
 
     const context = consumeIdentifierCaseDryRunContext(options.filepath ?? null);
 
     if (inlinePlan) {
         const inlineContext = resolveInlineReportContext(options, inlinePlan);
-        return mergeReportContexts(inlineContext, context);
+        return mergeReportContexts(mergeReportContexts(inlineContext, storedContext), context);
     }
 
-    return context;
+    return mergeReportContexts(storedContext, context);
 }
 
 function resolveDryRunFlag(options, contextDryRun) {

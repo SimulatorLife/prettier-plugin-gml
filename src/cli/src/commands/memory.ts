@@ -8,6 +8,7 @@ import type { Stream } from "node:stream";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
+import prettierStandaloneModule from "prettier/standalone.mjs";
 
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
 import {
@@ -472,9 +473,8 @@ function getSampleCacheLabels() {
 function resolveProjectPath(relativePath) {
     return resolveFromRepoRoot(relativePath);
 }
-async function loadPrettierStandalone() {
-    const module = await import("prettier/standalone.mjs");
-    return resolveModuleDefaultExport(module);
+function loadPrettierStandalone() {
+    return resolveModuleDefaultExport(prettierStandaloneModule);
 }
 
 async function loadSampleText(label, relativePath) {
@@ -1045,7 +1045,7 @@ async function runPluginFormatSuite({ iterations }) {
         }
     }
 
-    const prettier = await loadPrettierStandalone();
+    const prettier = loadPrettierStandalone();
     const pluginModule = await importPluginModule();
 
     const formatOptions = {

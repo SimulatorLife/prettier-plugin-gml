@@ -4,10 +4,19 @@ import test from "node:test";
 
 import { Semantic } from "@gml-modules/semantic";
 
-import { Plugin } from "../index.js";
+import { configureIdentifierCaseIntegration, Plugin } from "../index.js";
 
 const { prepareIdentifierCaseEnvironment, teardownIdentifierCaseEnvironment, clearIdentifierCaseOptionStore } =
     Semantic;
+
+configureIdentifierCaseIntegration({
+    runtime: {
+        createScopeTracker: () => new Semantic.SemanticScopeCoordinator(),
+        prepareIdentifierCaseEnvironment: Semantic.prepareIdentifierCaseEnvironment,
+        teardownIdentifierCaseEnvironment: Semantic.teardownIdentifierCaseEnvironment,
+        attachIdentifierCasePlanSnapshot: Semantic.attachIdentifierCasePlanSnapshot
+    }
+});
 
 function createBootstrap(dispose: any) {
     return {

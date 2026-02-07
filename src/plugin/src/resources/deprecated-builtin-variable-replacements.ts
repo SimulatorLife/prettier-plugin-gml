@@ -107,15 +107,13 @@ function extractUserIdentifiers(code: unknown): string[] {
     return identifiers;
 }
 
-type DeprecatedReplacementCacheHolder = {
-    _map?: ReturnType<typeof buildDeprecatedBuiltinVariableReplacements>;
-};
-
 export type DeprecatedReplacementEntry = {
     normalized: string;
     deprecated: string;
     replacement: string;
 };
+
+let deprecatedBuiltinReplacementsCache: Map<string, DeprecatedReplacementEntry> | null = null;
 
 export function getDeprecatedBuiltinReplacementEntry(
     name: string | null | undefined
@@ -124,12 +122,9 @@ export function getDeprecatedBuiltinReplacementEntry(
         return null;
     }
 
-    const cache = getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
-        DeprecatedReplacementCacheHolder;
-
-    if (!cache._map) {
-        cache._map = buildDeprecatedBuiltinVariableReplacements();
+    if (!deprecatedBuiltinReplacementsCache) {
+        deprecatedBuiltinReplacementsCache = buildDeprecatedBuiltinVariableReplacements();
     }
 
-    return cache._map.get(name) ?? null;
+    return deprecatedBuiltinReplacementsCache.get(name) ?? null;
 }

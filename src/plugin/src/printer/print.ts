@@ -16,14 +16,13 @@
  */
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
-import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
+import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -111,8 +110,6 @@ const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
-const GLOBAL_IDENTIFIER_PREFIX = "global.";
-const GLOBAL_IDENTIFIER_PREFIX_LENGTH = GLOBAL_IDENTIFIER_PREFIX.length;
 
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -142,22 +139,14 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
         return null;
     }
 
-    // Prefer the registered Semantic lookup service if available, but be defensive
-    // about lazy-initialized or dynamically-proxied modules. Some runtime environments
-    // (especially test harnesses or module systems with circular dependency resolution)
-    // may lazily wrap exports in a Proxy that hides properties from enumeration until
-    // first access. Attempting to destructure or directly call the facade helper can
-    // fail silently if the export isn't fully resolved yet. To keep printing deterministic
-    // even when the higher-level Semantic facade is unavailable (due to circular init,
-    // test-provider swaps, or partial module loading), we fall back to a direct lookup
-    // in the `renameMap` snapshot attached to the options bag. This two-tier approach
-    // ensures that identifier-case corrections still apply even when the Semantic module
-    // isn't fully initialized, which can happen during incremental builds or hot-reload
-    // scenarios where the printer runs before the semantic analyzer finishes its setup.
+    // Prefer an options-scoped rename lookup service when available, but be defensive
+    // about lazy-initialized or dynamically-proxied environments. If no service is
+    // registered, fall back to the rename map snapshot on options.
     let finalResult = null;
     try {
-        if (Semantic && typeof Semantic.getIdentifierCaseRenameForNode === "function") {
-            finalResult = Semantic.getIdentifierCaseRenameForNode(node, options);
+        const renameLookupService = options?.__identifierCaseRenameLookupService;
+        if (typeof renameLookupService === "function") {
+            finalResult = renameLookupService(node, options);
         }
     } catch {
         /* ignore */
@@ -649,17 +638,11 @@ function tryPrintVariableNode(node, path, options, print) {
             if (node.operator === "/=" && isStandaloneAssignment && hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)) {
                 return "";
             }
-            const padding =
-                node.operator === "=" && typeof node._alignAssignmentPadding === NUMBER_TYPE
-                    ? Math.max(0, node._alignAssignmentPadding)
-                    : 0;
-            const spacing = " ".repeat(padding + 1);
-
-            return group(concat([group(print("left")), spacing, node.operator, " ", group(print("right"))]));
+            return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {
             if (options.preserveGlobalVarStatements === false) {
-                const parts = buildGlobalVarAssignmentParts(node, path, print);
+                const parts = buildGlobalVarNormalizationParts(node, path, print, options);
 
                 if (parts.length === 0) {
                     return "";
@@ -668,17 +651,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 return join(hardline, parts);
             }
 
-            const decls =
-                node.declarations.length > 1
-                    ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                          leadingNewline: false,
-                          trailingNewline: false
-                      })
-                    : path.map(print, "declarations");
-
-            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
-
-            return concat([keyword, " ", decls]);
+            return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
@@ -994,45 +967,42 @@ function printCallExpressionNode(node, path, options, print) {
     if (node.arguments.length === 0) {
         printedArgs = [printEmptyParens(path, options)];
     } else {
-        const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine) ? options.maxParamsPerLine : 0;
-        const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
-
         const callbackArguments = node.arguments.filter(
             (argument) =>
                 argument?.type === FUNCTION_DECLARATION ||
                 argument?.type === FUNCTION_EXPRESSION ||
                 argument?.type === CONSTRUCTOR_DECLARATION
         );
-        const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-        const structArgumentsToBreak = structArguments.filter((argument) =>
-            shouldForceBreakStructArgument(argument, options)
-        );
+        const structArguments = [];
+        const structArgumentsToBreak = [];
+        for (let index = 0; index < node.arguments.length; index++) {
+            const argument = node.arguments[index];
+            if (argument?.type === STRUCT_EXPRESSION) {
+                structArguments.push(argument);
+                const previousArgument = index > 0 ? node.arguments[index - 1] : null;
+                if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
+                    structArgumentsToBreak.push(argument);
+                }
+            }
+        }
 
         structArgumentsToBreak.forEach((argument) => {
             forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
         });
 
         const shouldFavorInlineArguments =
-            maxParamsPerLine <= 0 &&
             callbackArguments.length === 0 &&
             structArguments.length === 0 &&
             node.arguments.length <= 3 &&
             node.arguments.every((argument) => !isComplexArgumentNode(argument));
 
-        const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
-
-        const hasSingleCallExpressionArgument =
-            maxParamsPerLine > 0 && node.arguments.length === 1 && node.arguments[0]?.type === CALL_EXPRESSION;
+        const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : Infinity;
 
         const simplePrefixLength = countLeadingSimpleCallArguments(node);
         const shouldForceCallbackBreaks = callbackArguments.length > 0 && simplePrefixLength <= 1;
 
         const shouldForceBreakArguments =
-            hasSingleCallExpressionArgument ||
-            (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
-            callbackArguments.length > 1 ||
-            structArgumentsToBreak.length > 0 ||
-            shouldForceCallbackBreaks;
+            callbackArguments.length > 1 || structArgumentsToBreak.length > 0 || shouldForceCallbackBreaks;
 
         const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
             (argumentNode) =>
@@ -1200,45 +1170,42 @@ function printNewExpressionNode(node, path, options, print) {
         return concat(["new ", print("expression"), printEmptyParens(path, options)]);
     }
 
-    const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine) ? options.maxParamsPerLine : 0;
-    const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
-
     const callbackArguments = node.arguments.filter(
         (argument) =>
             argument?.type === FUNCTION_DECLARATION ||
             argument?.type === FUNCTION_EXPRESSION ||
             argument?.type === CONSTRUCTOR_DECLARATION
     );
-    const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-    const structArgumentsToBreak = structArguments.filter((argument) =>
-        shouldForceBreakStructArgument(argument, options)
-    );
+    const structArguments = [];
+    const structArgumentsToBreak = [];
+    for (let index = 0; index < node.arguments.length; index++) {
+        const argument = node.arguments[index];
+        if (argument?.type === STRUCT_EXPRESSION) {
+            structArguments.push(argument);
+            const previousArgument = index > 0 ? node.arguments[index - 1] : null;
+            if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
+                structArgumentsToBreak.push(argument);
+            }
+        }
+    }
 
     structArgumentsToBreak.forEach((argument) => {
         forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
     });
 
     const shouldFavorInlineArguments =
-        maxParamsPerLine <= 0 &&
         callbackArguments.length === 0 &&
         structArguments.length === 0 &&
         node.arguments.length <= 3 &&
         node.arguments.every((argument) => !isComplexArgumentNode(argument));
 
-    const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
-
-    const hasSingleCallExpressionArgument =
-        maxParamsPerLine > 0 && node.arguments.length === 1 && node.arguments[0]?.type === CALL_EXPRESSION;
+    const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : Infinity;
 
     const simplePrefixLength = countLeadingSimpleCallArguments(node);
     const shouldForceCallbackBreaks = callbackArguments.length > 0 && simplePrefixLength <= 1;
 
     const shouldForceBreakArguments =
-        hasSingleCallExpressionArgument ||
-        (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
-        callbackArguments.length > 1 ||
-        structArgumentsToBreak.length > 0 ||
-        shouldForceCallbackBreaks;
+        callbackArguments.length > 1 || structArgumentsToBreak.length > 0 || shouldForceCallbackBreaks;
 
     const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
         (argumentNode) =>
@@ -1456,25 +1423,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                 identifierName = renamed;
             }
 
-            let extraPadding = 0;
-            if (
-                typeof path?.getParentNode === "function" &&
-                typeof path?.getName === "function" &&
-                path.getName() === "id"
-            ) {
-                const parentNode = path.getParentNode();
-                if (
-                    parentNode?.type === VARIABLE_DECLARATOR &&
-                    typeof parentNode._alignAssignmentPadding === NUMBER_TYPE
-                ) {
-                    extraPadding = Math.max(0, parentNode._alignAssignmentPadding);
-                }
-            }
-
             const docs = [prefix, identifierName];
-            if (extraPadding > 0) {
-                docs.push(" ".repeat(extraPadding));
-            }
 
             if (shouldSynthesizeUndefinedDefaultForIdentifier(path, node)) {
                 docs.push(" = undefined");
@@ -1537,7 +1486,11 @@ function tryPrintLiteralNode(node, path, options, print) {
                 literalTextParts.push(atom.value);
             }
 
-            if (shouldCollapseToLiteral && literalTextParts.length === atoms.length) {
+            if (
+                (options?.applyFeatherFixes ?? false) &&
+                shouldCollapseToLiteral &&
+                literalTextParts.length === atoms.length
+            ) {
                 const literalText = literalTextParts.join("");
                 const stringLiteral = JSON.stringify(literalText);
                 return concat(stringLiteral);
@@ -1562,19 +1515,20 @@ function printProgramNode(node, path, options, print) {
 
     if (node && node.__identifierCasePlanSnapshot) {
         try {
-            if (Semantic && typeof Semantic.applyIdentifierCasePlanSnapshot === "function") {
-                Semantic.applyIdentifierCasePlanSnapshot(node.__identifierCasePlanSnapshot, options);
+            const applySnapshotService = options?.__identifierCaseApplySnapshotService;
+            if (typeof applySnapshotService === "function") {
+                applySnapshotService(node.__identifierCasePlanSnapshot, options);
             }
         } catch {
             // Non-fatal: identifier case snapshot application is optional for printing.
-            // If the Semantic API isn't available, continue without it.
         }
     }
 
     try {
         try {
-            if (Semantic && typeof Semantic.maybeReportIdentifierCaseDryRun === "function") {
-                Semantic.maybeReportIdentifierCaseDryRun(options);
+            const dryRunReportService = options?.__identifierCaseDryRunReportService;
+            if (typeof dryRunReportService === "function") {
+                dryRunReportService(options);
             }
         } catch {
             /* ignore */
@@ -1589,8 +1543,9 @@ function printProgramNode(node, path, options, print) {
         return concat([programComments, concat(bodyParts)]);
     } finally {
         try {
-            if (Semantic && typeof Semantic.teardownIdentifierCaseEnvironment === "function") {
-                Semantic.teardownIdentifierCaseEnvironment(options);
+            const teardownService = options?.__identifierCaseTeardownService;
+            if (typeof teardownService === "function") {
+                teardownService(options);
             }
         } catch {
             /* ignore */
@@ -2378,12 +2333,16 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
 
-function shouldForceBreakStructArgument(argument, options) {
+function shouldForceBreakStructArgument(argument, options, previousArgument) {
     if (!argument || argument.type !== "StructExpression") {
         return false;
     }
 
     if (Core.hasComment(argument)) {
+        return true;
+    }
+
+    if (hasLineBreakBetweenArguments(previousArgument, argument, options)) {
         return true;
     }
 
@@ -2396,11 +2355,38 @@ function shouldForceBreakStructArgument(argument, options) {
         return true;
     }
 
-    const maxStructPropertiesPerLine = Number.isFinite(options?.maxStructPropertiesPerLine)
-        ? options.maxStructPropertiesPerLine
-        : 2;
-    const threshold = maxStructPropertiesPerLine > 0 ? maxStructPropertiesPerLine : Infinity;
-    return properties.length > threshold;
+    return false;
+}
+
+function hasLineBreakBetweenArguments(previousArgument, argument, options) {
+    if (!previousArgument || !argument) {
+        return false;
+    }
+
+    const originalText = getOriginalTextFromOptions(options);
+    if (typeof originalText !== STRING_TYPE) {
+        return false;
+    }
+
+    const previousArgumentEnd = Core.getNodeEndIndex(previousArgument);
+    const argumentStart = Core.getNodeStartIndex(argument);
+
+    if (
+        !Number.isFinite(previousArgumentEnd) ||
+        !Number.isFinite(argumentStart) ||
+        argumentStart <= previousArgumentEnd
+    ) {
+        return false;
+    }
+
+    for (let cursor = previousArgumentEnd; cursor < argumentStart; cursor++) {
+        const charCode = originalText.charCodeAt(cursor);
+        if (charCode === 10 || charCode === 13) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function buildStructPropertyCommentSuffix(path, options) {
@@ -2526,10 +2512,6 @@ function printStatements(path, options, print, childrenAttribute) {
     if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
         ensurePreservedGlobalVarNames(options, statements);
     }
-    if (statements) {
-        applyAssignmentAlignment(statements, options, path, childrenAttribute);
-    }
-
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const originalTextCache = sourceMetadata.originalText ?? options?.originalText ?? null;
@@ -3165,561 +3147,6 @@ function findNextTerminalCharacter(
     return null;
 }
 
-export function applyAssignmentAlignment(statements, options, path = null, childrenAttribute = null) {
-    const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
-    const currentGroup = [];
-    let currentGroupMaxLength = 0;
-
-    const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
-
-    const insideFunctionBody = isPathInsideFunctionBody(path, childrenAttribute);
-    const functionNode = insideFunctionBody ? findEnclosingFunctionNode(path) : null;
-    const functionParameterNames = insideFunctionBody ? getFunctionParameterNameSetFromPath(path) : null;
-
-    let previousEntry = null;
-
-    const resetGroup = () => {
-        currentGroup.length = 0;
-        currentGroupMaxLength = 0;
-    };
-
-    const flushGroup = () => {
-        if (currentGroup.length === 0) {
-            resetGroup();
-            return;
-        }
-
-        const groupEntries = [...currentGroup];
-        // Count entries with enablesAlignment without allocating intermediate filtered array.
-        // Measured 1.56x-2.71x faster than groupEntries.filter(e => e.enablesAlignment).length
-        let enablerCount = 0;
-        for (const entry of groupEntries) {
-            if (entry.enablesAlignment) enablerCount++;
-        }
-        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
-        const alignmentEnabled = minGroupSize > 0;
-        const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
-        const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
-        const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
-
-        if (!canAlign) {
-            for (const { node } of groupEntries) {
-                node._alignAssignmentPadding = 0;
-            }
-            resetGroup();
-            return;
-        }
-
-        const targetLength = currentGroupMaxLength;
-        for (const { node, nameLength, prefixLength } of groupEntries) {
-            node._alignAssignmentPadding = targetLength - (nameLength + prefixLength);
-        }
-
-        resetGroup();
-    };
-
-    for (const statement of statements) {
-        if (!statement) {
-            continue;
-        }
-        const entries = [];
-        if (statement.type === "VariableDeclaration") {
-            const kind = statement.kind || "var";
-            for (const declarator of statement.declarations) {
-                const entry = getSimpleAssignmentLikeEntry(
-                    declarator,
-                    insideFunctionBody,
-                    functionParameterNames,
-                    functionNode,
-                    options
-                );
-                if (entry) {
-                    entry.locationNode = statement;
-                    // Ensure the category and prefixLength match for all declarators in the group
-                    entry.category = kind === "var" ? "assignment" : kind;
-                    entry.prefixLength = kind.length + 1;
-                    entries.push(entry);
-                }
-            }
-        } else {
-            const entry = getSimpleAssignmentLikeEntry(
-                statement,
-                insideFunctionBody,
-                functionParameterNames,
-                functionNode,
-                options
-            );
-            if (entry) {
-                entries.push(entry);
-            }
-        }
-
-        if (entries.length > 0) {
-            for (const entry of entries) {
-                if (
-                    previousEntry &&
-                    (previousEntry.category !== entry.category ||
-                        (previousEntry.skipBreakAfter !== true &&
-                            shouldBreakAssignmentAlignment(
-                                previousEntry.locationNode,
-                                entry.locationNode,
-                                originalText,
-                                locStart,
-                                locEnd
-                            )))
-                ) {
-                    flushGroup();
-                }
-
-                const prefixLength = entry.prefixLength ?? 0;
-                currentGroup.push({
-                    node: entry.paddingTarget,
-                    nameLength: entry.nameLength,
-                    prefixLength,
-                    enablesAlignment: entry.enablesAlignment
-                });
-
-                const printedWidth = entry.nameLength + prefixLength;
-                if (printedWidth > currentGroupMaxLength) {
-                    currentGroupMaxLength = printedWidth;
-                }
-                previousEntry = entry;
-            }
-        } else {
-            flushGroup();
-            previousEntry = null;
-        }
-    }
-
-    flushGroup();
-}
-
-function isPathInsideFunctionBody(path, childrenAttribute) {
-    if (childrenAttribute !== "body") {
-        return false;
-    }
-
-    const containerNode = callPathMethod(path, "getValue", {
-        defaultValue: null
-    });
-    if (!containerNode || containerNode.type !== "BlockStatement") {
-        return false;
-    }
-
-    const functionNode = findEnclosingFunctionNode(path);
-    if (!functionNode || !functionNode.body) {
-        return false;
-    }
-
-    if (functionNode.body === containerNode) {
-        return true;
-    }
-
-    const getParentNode = path?.getParentNode;
-    if (typeof getParentNode !== "function") {
-        return false;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const ancestor = depth === 0 ? getParentNode.call(path) : getParentNode.call(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (ancestor === functionNode.body) {
-            return true;
-        }
-
-        if (ancestor === functionNode) {
-            break;
-        }
-    }
-
-    return false;
-}
-
-export interface AssignmentLikeEntry {
-    locationNode: any;
-    paddingTarget: any;
-    nameLength: number;
-    enablesAlignment: boolean;
-    prefixLength: number;
-    category: string;
-    skipBreakAfter?: boolean;
-}
-
-export function getSimpleAssignmentLikeEntry(
-    statement: any,
-    insideFunctionBody: any,
-    functionParameterNames: any,
-    functionNode: any,
-    options: any
-): AssignmentLikeEntry | null {
-    const memberLength = getMemberAssignmentLength(statement);
-    if (typeof memberLength === NUMBER_TYPE) {
-        const node = Core.unwrapExpressionStatement(statement);
-
-        return {
-            locationNode: statement,
-            paddingTarget: node,
-            nameLength: memberLength,
-            enablesAlignment: true,
-            prefixLength: 0,
-            category: "assignment"
-        };
-    }
-
-    if (isSimpleAssignment(statement)) {
-        const node = Core.unwrapExpressionStatement(statement);
-
-        if (!node) {
-            return null;
-        }
-
-        const identifier = node.left;
-        if (!identifier || typeof identifier.name !== STRING_TYPE) {
-            return null;
-        }
-
-        const originalName = getOriginalIdentifierName(identifier);
-        const identifierName = identifier.name as string;
-        const nameLength = originalName ? originalName.length : identifierName.length;
-
-        return {
-            locationNode: statement,
-            paddingTarget: node,
-            nameLength,
-            enablesAlignment: true,
-            prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options),
-            category: "assignment"
-        };
-    }
-
-    let declarator;
-    let keyword = "var";
-    if (statement.type === "VariableDeclarator") {
-        declarator = statement;
-    } else {
-        declarator = Core.getSingleVariableDeclarator(statement);
-        if (statement.type === "VariableDeclaration") {
-            keyword = statement.kind || "var";
-        }
-    }
-
-    if (!declarator) {
-        return null;
-    }
-
-    const id = declarator.id;
-    if (!id || id.type !== "Identifier" || typeof id.name !== STRING_TYPE) {
-        return null;
-    }
-
-    const init = declarator.init;
-    if (!init) {
-        return null;
-    }
-
-    let enablesAlignment = false;
-    if (init.type === "Identifier" && typeof init.name === STRING_TYPE) {
-        const argumentIndex = Core.getArgumentIndexFromIdentifier(init.name);
-
-        if (!insideFunctionBody && argumentIndex !== null) {
-            return null;
-        }
-
-        if (insideFunctionBody) {
-            const hasNamedParameters = functionParameterNames && functionParameterNames.size > 0;
-
-            if (argumentIndex !== null) {
-                if (!options?.applyFeatherFixes || !hasNamedParameters) {
-                    enablesAlignment = true;
-                }
-            } else if (functionParameterNames?.has(init.name) && !options?.applyFeatherFixes) {
-                enablesAlignment = true;
-            }
-        }
-    }
-
-    const skipBreakAfter = shouldOmitParameterAlias(declarator, functionNode, options);
-
-    const prefixLength = keyword.length + 1;
-
-    let nameLength = (id.name as string).length;
-    if (Core.isNonEmptyArray(id._appliedFeatherDiagnostics)) {
-        const firstFix = id._appliedFeatherDiagnostics[0];
-        if (firstFix && typeof firstFix.target === "string") {
-            nameLength = firstFix.target.length;
-        }
-    }
-
-    return {
-        locationNode: statement,
-        paddingTarget: declarator,
-        nameLength,
-        enablesAlignment: enablesAlignment || keyword === "var",
-        skipBreakAfter,
-        prefixLength,
-        category: keyword === "var" ? "assignment" : keyword
-    };
-}
-
-function getGlobalIdentifierAlignmentPrefixLength(identifier, options) {
-    if (!identifier || !identifier.isGlobalIdentifier) {
-        return 0;
-    }
-
-    const preservedNames =
-        options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
-    if (preservedNames && preservedNames.size > 0) {
-        const identifierName = Core.getIdentifierText(identifier);
-        if (Core.isNonEmptyString(identifierName) && preservedNames.has(identifierName)) {
-            return 0;
-        }
-    }
-
-    return GLOBAL_IDENTIFIER_PREFIX_LENGTH;
-}
-
-function getFunctionParameterNameSetFromPath(path) {
-    const functionNode = findEnclosingFunctionNode(path);
-    if (!functionNode) {
-        return null;
-    }
-
-    const params = getFunctionParams(functionNode);
-    if (params.length === 0) {
-        return null;
-    }
-
-    const names = new Set();
-    for (const param of params) {
-        const identifier = Core.getIdentifierFromParameterNode(param);
-        if (identifier && typeof identifier.name === STRING_TYPE && identifier.name.length > 0) {
-            names.add(identifier.name);
-        }
-    }
-
-    return names.size > 0 ? names : null;
-}
-
-function getMemberAssignmentLength(statement) {
-    const node = Core.unwrapExpressionStatement(statement);
-
-    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
-        return null;
-    }
-
-    return getMemberExpressionLength(node.left);
-}
-
-function getMemberExpressionLength(expression) {
-    if (!expression) {
-        return null;
-    }
-
-    if (expression.type === "MemberDotExpression") {
-        let length = 0;
-        let current = expression;
-
-        while (current && current.type === "MemberDotExpression") {
-            const { property, object } = current;
-            if (!property || property.type !== "Identifier" || typeof property.name !== STRING_TYPE) {
-                return null;
-            }
-
-            length += property.name.length + 1; // include the separating dot
-
-            if (!object) {
-                return null;
-            }
-
-            if (object.type === "Identifier") {
-                length += object.name.length;
-                return length;
-            }
-
-            if (object.type !== "MemberDotExpression") {
-                return null;
-            }
-
-            current = object;
-        }
-
-        return null;
-    }
-
-    if (expression.type === "MemberIndexExpression") {
-        const objectLength =
-            getMemberExpressionLength(expression.object) ??
-            (expression.object?.type === "Identifier"
-                ? typeof expression.object.name === STRING_TYPE
-                    ? expression.object.name.length
-                    : null
-                : null);
-
-        if (typeof objectLength !== NUMBER_TYPE) {
-            return null;
-        }
-
-        const propertyEntry = Core.getSingleMemberIndexPropertyEntry(expression);
-        if (!propertyEntry) {
-            return null;
-        }
-
-        let propertyLength = null;
-        if (propertyEntry.type === "Identifier" && typeof propertyEntry.name === STRING_TYPE) {
-            const propertyName = propertyEntry.name;
-            if (typeof propertyName === "string") {
-                propertyLength = propertyName.length;
-            }
-        }
-
-        if (typeof propertyLength !== NUMBER_TYPE) {
-            return null;
-        }
-
-        const accessorRaw = typeof expression.accessor === STRING_TYPE ? expression.accessor : "";
-        const accessorLength = accessorRaw.length > 1 ? accessorRaw.length + 1 : accessorRaw.length;
-
-        return objectLength + accessorLength + propertyLength + 1; // closing bracket
-    }
-
-    return null;
-}
-
-function getAssignmentAlignmentMinimum(options) {
-    return Core.coercePositiveIntegerOption(
-        options?.alignAssignmentsMinGroupSize,
-        DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
-        {
-            zeroReplacement: 0
-        }
-    );
-}
-
-function isSimpleAssignment(statement) {
-    const node = Core.unwrapExpressionStatement(statement);
-
-    return !!(
-        node &&
-        node.type === "AssignmentExpression" &&
-        node.operator === "=" &&
-        node.left &&
-        node.left.type === "Identifier" &&
-        typeof node.left.name === STRING_TYPE
-    );
-}
-
-function shouldBreakAssignmentAlignment(previousNode, nextNode, originalText, locStart, locEnd) {
-    if (!originalText || typeof originalText !== STRING_TYPE || !previousNode || !nextNode) {
-        return false;
-    }
-
-    const previousEnd = getNodeEndIndexForAlignment(previousNode, locEnd);
-    const nextStart = getNodeStartIndexForAlignment(nextNode, locStart);
-
-    if (!Number.isInteger(previousEnd) || !Number.isInteger(nextStart) || previousEnd >= nextStart) {
-        return false;
-    }
-
-    const between = originalText.slice(previousEnd + 1, nextStart);
-
-    if (isArgumentAliasGap(between)) {
-        return false;
-    }
-
-    if (/\n[^\S\r\n]*\n/.test(between)) {
-        return true;
-    }
-
-    if (shouldBreakAlignmentBeforeStatic(between)) {
-        return true;
-    }
-
-    return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
-}
-
-function shouldBreakAlignmentBeforeStatic(between) {
-    return /(?:^|\n)\s*static\b/.test(between);
-}
-
-function isArgumentAliasGap(text) {
-    if (typeof text !== STRING_TYPE || text.length === 0) {
-        return false;
-    }
-
-    const withoutBlock = text.replaceAll(/\/\*[\s\S]*?\*\//g, "");
-    const withoutLine = withoutBlock.replaceAll(/\/\/[^\r\n]*/g, "");
-    const trimmed = withoutLine.trim();
-    if (trimmed.length === 0) {
-        return false;
-    }
-
-    const statements = trimmed
-        .split(";")
-        .map((stmt) => stmt.trim())
-        .filter((stmt) => stmt.length > 0);
-    if (statements.length === 0) {
-        return false;
-    }
-
-    return statements.every((statement) => {
-        const match = statement.match(/^(?:var\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(argument\d+)$/);
-        return !!match && Core.GML_ARGUMENT_IDENTIFIER_PATTERN.test(match[1]);
-    });
-}
-
-function getNodeStartIndexForAlignment(node, locStart) {
-    if (!node) {
-        return null;
-    }
-
-    if (typeof locStart === "function") {
-        const resolved = locStart(node);
-        if (Number.isInteger(resolved)) {
-            return resolved;
-        }
-    }
-
-    const startProp = node.start;
-    if (typeof startProp === NUMBER_TYPE) {
-        return startProp;
-    }
-
-    if (startProp && typeof startProp.index === NUMBER_TYPE) {
-        return startProp.index;
-    }
-
-    return null;
-}
-
-function getNodeEndIndexForAlignment(node, locEnd) {
-    if (!node) {
-        return null;
-    }
-
-    if (typeof locEnd === "function") {
-        const resolved = locEnd(node);
-        if (Number.isInteger(resolved)) {
-            return resolved - 1;
-        }
-    }
-
-    const endProp = node.end;
-    if (typeof endProp === NUMBER_TYPE) {
-        return endProp;
-    }
-
-    if (endProp && typeof endProp.index === NUMBER_TYPE) {
-        return endProp.index;
-    }
-
-    const startIndex = getNodeStartIndexForAlignment(node, null);
-    return Number.isInteger(startIndex) ? startIndex : null;
-}
-
 /**
  * Detects when a call expression is missing separators between numeric arguments and
  * replays the original text while injecting synthetic commas to keep the formatter's
@@ -4087,21 +3514,6 @@ function findFunctionParameterContext(path) {
     return null;
 }
 
-function getOriginalIdentifierName(identifier) {
-    if (!identifier || typeof identifier !== "object") {
-        return null;
-    }
-
-    if (Core.isNonEmptyArray(identifier._appliedFeatherDiagnostics)) {
-        const firstFix = identifier._appliedFeatherDiagnostics[0];
-        if (firstFix && typeof firstFix.target === "string") {
-            return firstFix.target;
-        }
-    }
-
-    return typeof identifier.name === "string" ? identifier.name : null;
-}
-
 function shouldOmitParameterAlias(declarator, functionNode, options) {
     if (
         !declarator ||
@@ -4192,34 +3604,72 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
 }
 
 /**
- * Builds formatted global variable assignment parts from globalvar declarations.
+ * Builds formatted output parts for globalvar normalization.
  *
- * Transforms each initialized declaration into a standalone `global.name = value;` statement.
- * Declarations without initializers are skipped.
+ * Each declaration is either rewritten to `global.name = value;` when the semantic
+ * safety runtime deems the rewrite safe, or preserved as a `globalvar` declaration
+ * when the rewrite is unsafe for the current runtime context.
  *
  * @param {any} node - The GlobalVarStatement node
  * @param {any} path - Prettier path object for traversal
  * @param {Function} print - Prettier print function
+ * @param {any} options - Prettier option bag
  * @returns {Array<any>} Array of formatted assignment doc fragments
  */
-function buildGlobalVarAssignmentParts(node, path, print) {
+function buildGlobalVarNormalizationParts(node, path, print, options) {
     const parts = [];
     const declarationCount = node.declarations.length;
 
     for (let index = 0; index < declarationCount; index += 1) {
         const decl = node.declarations[index];
+        const identifierName = Core.getIdentifierText(decl?.id ?? null);
+        const rewriteAssessment = assessGlobalVarRewrite(
+            {
+                filePath: typeof options?.filepath === STRING_TYPE ? options.filepath : null,
+                hasInitializer: Boolean(decl?.init),
+                identifierName: identifierName ?? `declaration_${index}`
+            },
+            options
+        );
+
+        if (!rewriteAssessment.allowRewrite) {
+            if (!decl.init && !hasActiveSemanticSafetyReportService(options)) {
+                continue;
+            }
+
+            const declarationDoc = path.call(print, "declarations", index);
+            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
+            parts.push(group(concat([keyword, " ", declarationDoc])));
+            continue;
+        }
 
         if (!decl.init) {
+            const idDoc = path.call(print, "declarations", index, "id");
+            parts.push(group(concat(["global.", idDoc, " = undefined"])));
             continue;
         }
 
         const idDoc = path.call(print, "declarations", index, "id");
         const initDoc = path.call(print, "declarations", index, "init");
 
-        parts.push(group(concat(["global.", idDoc, " = ", initDoc, ";"])));
+        parts.push(group(concat(["global.", idDoc, " = ", initDoc])));
     }
 
     return parts;
+}
+
+function printGlobalVarStatementAsKeyword(node, path, print, options) {
+    const decls =
+        node.declarations.length > 1
+            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
+                  leadingNewline: false,
+                  trailingNewline: false
+              })
+            : path.map(print, "declarations");
+
+    const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
+
+    return concat([keyword, " ", decls]);
 }
 
 /**

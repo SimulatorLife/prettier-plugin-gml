@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Semantic } from "@gml-modules/semantic";
-
 import { handleComments, printComment } from "../src/comments/index.js";
 import { defaultGmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
@@ -27,7 +25,8 @@ void test("default dependency bundle exposes canonical components", () => {
     assert.strictEqual(resolved.print, print);
     assert.strictEqual(resolved.printComment, printComment);
     assert.strictEqual(resolved.handleComments, handleComments);
-    assert.strictEqual(resolved.identifierCaseOptions, Semantic.identifierCaseOptions);
+    assert.deepStrictEqual(resolved.identifierCaseOptions, {});
+    assert.ok(Object.isFrozen(resolved.identifierCaseOptions), "identifier-case option map should be immutable");
     assert.strictEqual(resolved.LogicalOperatorsStyle, LogicalOperatorsStyle);
 
     for (const key of REQUIRED_KEYS) {

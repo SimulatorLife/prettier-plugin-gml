@@ -2,6 +2,14 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import {
+    getProjectMetadataValueAtPath,
+    parseProjectMetadataDocumentForMutation,
+    readProjectMetadataDocumentForMutationFromFile,
+    stringifyProjectMetadataDocument,
+    updateProjectMetadataReferenceByPath,
+    writeProjectMetadataDocumentToFile
+} from "../project-metadata/yy-adapter.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
@@ -55,18 +63,14 @@ function resolveAbsolutePath(projectRoot, relativePath) {
     return path.join(projectRoot, systemRelative);
 }
 
-function readJsonFile(fsFacade, absolutePath, cache) {
+function readJsonFile(fsFacade, absolutePath, cache, preferYyFileIo = false) {
     if (cache && cache.has(absolutePath)) {
         return cache.get(absolutePath);
     }
 
-    const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const parsed = Core.parseJsonWithContext(raw, {
-        source: absolutePath
-    });
-    const resourceJson = Core.assertPlainObject(parsed, {
-        errorMessage: `Resource JSON at ${absolutePath} must be a plain object.`
-    });
+    const resourceJson = preferYyFileIo
+        ? readProjectMetadataDocumentForMutationFromFile(absolutePath).document
+        : parseProjectMetadataDocumentForMutation(fsFacade.readFileSync(absolutePath, "utf8"), absolutePath).document;
     if (cache) {
         cache.set(absolutePath, resourceJson);
     }
@@ -74,35 +78,11 @@ function readJsonFile(fsFacade, absolutePath, cache) {
 }
 
 function getObjectAtPath(json, propertyPath) {
-    if (!propertyPath) {
-        return json;
+    if (!Core.isObjectLike(json)) {
+        return null;
     }
 
-    const segments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
-
-    let current = json;
-    for (const segment of segments) {
-        if (Array.isArray(current)) {
-            const index = Number(segment);
-            if (!Number.isInteger(index) || index < 0 || index >= current.length) {
-                return null;
-            }
-            current = current[index];
-            continue;
-        }
-
-        if (!Core.isObjectLike(current)) {
-            return null;
-        }
-
-        if (!Object.hasOwn(current, segment)) {
-            return null;
-        }
-
-        current = current[segment];
-    }
-
-    return current;
+    return getProjectMetadataValueAtPath(json, propertyPath ?? "");
 }
 
 function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
@@ -110,24 +90,12 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
         return false;
     }
 
-    const target = getObjectAtPath(json, propertyPath);
-    if (!Core.isObjectLike(target)) {
-        return false;
-    }
-
-    let changed = false;
-
-    if (Core.isNonEmptyString(newResourcePath) && target.path !== newResourcePath) {
-        target.path = newResourcePath;
-        changed = true;
-    }
-
-    if (Core.isNonEmptyString(newName) && target.name !== newName) {
-        target.name = newName;
-        changed = true;
-    }
-
-    return changed;
+    return updateProjectMetadataReferenceByPath({
+        document: json,
+        propertyPath: Core.getNonEmptyString(propertyPath) ?? "",
+        newResourcePath: Core.getNonEmptyString(newResourcePath) ?? null,
+        newName: Core.getNonEmptyString(newName) ?? null
+    });
 }
 
 function hasWriteAccess(fsFacade, targetPath, probeMethod) {
@@ -176,6 +144,7 @@ export function createAssetRenameExecutor({
     }
 
     const effectiveFs = fsFacade ? { ...defaultFsFacade, ...fsFacade } : defaultFsFacade;
+    const preferYyFileIo = fsFacade === null;
     const projectRoot = projectIndex.projectRoot;
     const jsonCache = new Map();
     const pendingWrites = new Map();
@@ -199,7 +168,7 @@ export function createAssetRenameExecutor({
             }
 
             const resourceAbsolute = resolveAbsolutePath(projectRoot, rename.resourcePath);
-            const resourceJson = readJsonFile(effectiveFs, resourceAbsolute, jsonCache);
+            const resourceJson = readJsonFile(effectiveFs, resourceAbsolute, jsonCache, preferYyFileIo);
 
             if (!Core.isObjectLike(resourceJson)) {
                 throw new TypeError(`Unable to parse resource metadata at '${rename.resourcePath}'.`);
@@ -233,7 +202,7 @@ export function createAssetRenameExecutor({
                 const absolutePath = resolveAbsolutePath(projectRoot, filePath);
                 let targetJson;
                 try {
-                    targetJson = readJsonFile(effectiveFs, absolutePath, jsonCache);
+                    targetJson = readJsonFile(effectiveFs, absolutePath, jsonCache, preferYyFileIo);
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
                         const message = Core.getErrorMessageOrFallback(error);
@@ -298,9 +267,8 @@ export function createAssetRenameExecutor({
         commit() {
             const writeActions = [...pendingWrites.entries()].map(([filePath, jsonData]) => ({
                 filePath,
-                contents: Core.stringifyJsonForFile(jsonData, {
-                    space: 4
-                })
+                jsonData,
+                contents: stringifyProjectMetadataDocument(jsonData, filePath)
             }));
 
             if (writeActions.length === 0 && renameActions.length === 0) {
@@ -322,6 +290,11 @@ export function createAssetRenameExecutor({
 
             for (const action of writeActions) {
                 ensureWritableDirectory(effectiveFs, path.dirname(action.filePath));
+                if (preferYyFileIo) {
+                    writeProjectMetadataDocumentToFile(action.filePath, action.jsonData);
+                    continue;
+                }
+
                 effectiveFs.writeFileSync(action.filePath, action.contents);
             }
 

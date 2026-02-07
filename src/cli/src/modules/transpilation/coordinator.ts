@@ -147,29 +147,107 @@ function classifyTranspilationError(error: unknown): {
     };
 }
 
-export interface TranspilationContext {
+/**
+ * Lightweight patch summary for history tracking.
+ *
+ * Avoids retaining full JavaScript payloads in memory by storing only
+ * the byte size. This allows memory usage tracking without keeping
+ * the entire transpiled code in the history buffer.
+ */
+export interface PatchSummary {
+    id: string;
+    kind: string;
+    runtimeId?: string;
+    sourcePath?: string;
+    timestamp?: number;
+    jsBodyBytes: number;
+}
+
+/**
+ * Transpiler execution service.
+ *
+ * Provides access to the transpiler instance without coupling to
+ * metrics, error tracking, or broadcasting concerns.
+ */
+export interface TranspilerProvider {
     transpiler: RuntimeTranspiler;
+}
+
+/**
+ * Patch history management.
+ *
+ * Provides patch summary storage and successful patch caching without
+ * coupling to metrics, error tracking, or broadcasting operations.
+ */
+export interface PatchHistoryStore {
     /**
      * Lightweight summaries of recent patches, trimmed to avoid retaining full
      * JavaScript payloads in memory. `jsBodyBytes` records the payload size so
      * memory usage can be tracked without storing the full string.
      */
-    patches: Array<{
-        id: string;
-        kind: string;
-        runtimeId?: string;
-        sourcePath?: string;
-        timestamp?: number;
-        jsBodyBytes: number;
-    }>;
-    metrics: Array<TranspilationMetrics>;
-    errors: Array<TranspilationError>;
+    patches: Array<PatchSummary>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     totalPatchCount: number;
+}
+
+/**
+ * Metrics collection service.
+ *
+ * Provides transpilation metrics tracking without coupling to patch
+ * history, error tracking, or broadcasting operations.
+ */
+export interface MetricsCollector {
+    metrics: Array<TranspilationMetrics>;
+    maxPatchHistory: number;
+}
+
+/**
+ * Error collection service.
+ *
+ * Provides transpilation error tracking without coupling to metrics,
+ * patch history, or broadcasting operations.
+ */
+export interface ErrorCollector {
+    errors: Array<TranspilationError>;
+    maxPatchHistory: number;
+}
+
+/**
+ * Patch broadcasting service.
+ *
+ * Provides WebSocket patch distribution without coupling to metrics,
+ * error tracking, or history management.
+ */
+export interface PatchBroadcastService {
     websocketServer: PatchBroadcaster | null;
+}
+
+/**
+ * Script name registry.
+ *
+ * Provides script name tracking without coupling to transpilation,
+ * metrics, or broadcasting operations.
+ */
+export interface ScriptRegistry {
     scriptNames?: Set<string>;
 }
+
+/**
+ * Complete transpilation context interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * transpilation capabilities. Consumers should prefer depending on
+ * the minimal interface they need (TranspilerProvider, MetricsCollector, etc.)
+ * rather than this composite interface when possible.
+ */
+export interface TranspilationContext
+    extends TranspilerProvider,
+        PatchHistoryStore,
+        MetricsCollector,
+        ErrorCollector,
+        PatchBroadcastService,
+        ScriptRegistry {}
 
 export interface TranspilationOptions {
     verbose: boolean;
@@ -243,7 +321,7 @@ function createErrorNotification(
     };
 }
 
-function createPatchSummary(patchPayload: RuntimeTranspilerPatch) {
+function createPatchSummary(patchPayload: RuntimeTranspilerPatch): PatchSummary {
     const metadata = Core.isObjectLike(patchPayload.metadata) ? patchPayload.metadata : null;
     const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : undefined;
     const timestamp = Core.isFiniteNumber(metadata?.timestamp) ? metadata.timestamp : undefined;

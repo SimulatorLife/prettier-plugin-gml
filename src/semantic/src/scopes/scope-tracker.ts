@@ -656,6 +656,128 @@ export class ScopeTracker {
         return results;
     }
 
+    /**
+     * Returns symbol occurrences without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload dependency tracking, large-scale queries).
+     *
+     * For safe access with defensive copying, use `getSymbolOccurrences()`.
+     *
+     * @param name - Symbol name to query
+     * @returns Array of symbol occurrences with internal references (DO NOT MODIFY)
+     */
+    public getSymbolOccurrencesUnsafe(name: string | null | undefined): SymbolOccurrence[] {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const results: SymbolOccurrence[] = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const declaration of entry.declarations) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "declaration",
+                    occurrence: declaration
+                });
+            }
+
+            for (const reference of entry.references) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "reference",
+                    occurrence: reference
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Returns batch symbol occurrences without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload dependency tracking, bulk invalidation).
+     *
+     * For safe access with defensive copying, use `getBatchSymbolOccurrences()`.
+     *
+     * @param names - Iterable of symbol names to query
+     * @returns Map of symbol names to occurrence arrays with internal references (DO NOT MODIFY)
+     */
+    public getBatchSymbolOccurrencesUnsafe(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
+        const results = new Map<string, SymbolOccurrence[]>();
+
+        for (const name of names) {
+            if (!name) {
+                continue;
+            }
+
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const nameResults: SymbolOccurrence[] = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(name);
+                if (!entry) {
+                    continue;
+                }
+
+                for (const declaration of entry.declarations) {
+                    nameResults.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "declaration",
+                        occurrence: declaration
+                    });
+                }
+
+                for (const reference of entry.references) {
+                    nameResults.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: reference
+                    });
+                }
+            }
+
+            if (nameResults.length > 0) {
+                results.set(name, nameResults);
+            }
+        }
+
+        return results;
+    }
+
     public getScopesForSymbol(name: string | null | undefined): string[] {
         if (!name) {
             return [];

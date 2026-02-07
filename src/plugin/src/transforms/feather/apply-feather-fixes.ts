@@ -29,7 +29,13 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
+import {
+    buildDeprecatedBuiltinVariableReplacements,
+    buildFeatherTypeSystemInfo,
+    getDeprecatedBuiltinReplacementEntry,
+    getFeatherDiagnostics
+} from "../../resources/index.js";
 import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
@@ -45,7 +51,10 @@ import {
 } from "./ast-traversal.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
+import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
+import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
+import { annotateMissingUserEvents } from "./user-event-fixes.js";
 import {
     attachFeatherFixMetadata,
     createCallExpressionTargetFixDetail,
@@ -53,31 +62,6 @@ import {
     hasFeatherDiagnosticContext,
     hasFeatherSourceTextContext
 } from "./utils.js";
-
-type RenameOptions = {
-    // DUPLICATION WARNING: The identifier renaming logic in this file may overlap
-    // with functionality already implemented in the 'refactor' and 'semantic' modules.
-    //
-    // ARCHITECTURE: Identifier renaming should live in the 'refactor' module, which
-    // is built on top of 'semantic'. The 'semantic' module provides scope analysis
-    // and binding resolution (determining what each identifier refers to and where
-    // it's defined), while 'refactor' uses that information to perform safe renames
-    // that avoid shadowing conflicts and preserve program semantics.
-    //
-    // CURRENT STATE: This file implements ad-hoc renaming for Feather fixes (reserved
-    // identifiers, deprecated names, etc.) without consulting scope information. This
-    // risks introducing name conflicts, shadowing variables, or breaking references
-    // in nested scopes.
-    //
-    // RECOMMENDATION: Before adding new renaming logic here, check if 'refactor'
-    // already provides the capability. If it does, import it and use the scope-aware
-    // implementation. If it doesn't, consider adding the feature to 'refactor' so it
-    // can be shared across the codebase rather than duplicating the logic here.
-    //
-    // LONG-TERM: Extract all identifier renaming from this file and consolidate it
-    // into 'refactor', then import those functions here for Feather-specific fixes.
-    onRename?: (payload: { identifier: MutableGameMakerAstNode; originalName: string; replacement: string }) => void;
-};
 
 type ApplyFeatherFixesOptions = {
     sourceText?: string;
@@ -170,14 +154,8 @@ export function getRoomNavigationHelpers(direction: unknown) {
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.getOptionalString(value, "id") !== null;
 }
-let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
-function getReservedIdentifierNames() {
-    if (!RESERVED_IDENTIFIER_NAMES) {
-        RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
-    }
-    return RESERVED_IDENTIFIER_NAMES;
-}
-const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = Core.buildDeprecatedBuiltinVariableReplacements();
+
+const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = buildDeprecatedBuiltinVariableReplacements();
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -186,7 +164,7 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
 ]);
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
-const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
@@ -991,10 +969,11 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1008",
         (diagnostic) =>
-            ({ ast }) => {
+            ({ ast, options }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
-                    diagnostic
+                    diagnostic,
+                    options
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
@@ -1769,7 +1748,11 @@ function createAutomaticFeatherFixHandlers() {
                 })
         ],
         ["GM1033", ({ ast, sourceText, diagnostic }) => removeDuplicateSemicolons({ ast, sourceText, diagnostic })],
-        ["GM1030", ({ ast, sourceText, diagnostic }) => renameReservedIdentifiers({ ast, diagnostic, sourceText })],
+        [
+            "GM1030",
+            ({ ast, sourceText, diagnostic, options }) =>
+                renameReservedIdentifiers({ ast, diagnostic, options, sourceText })
+        ],
         ["GM1034", ({ ast, diagnostic }) => relocateArgumentReferencesInsideFunctions({ ast, diagnostic })],
         ["GM1036", ({ ast, diagnostic }) => normalizeMultidimensionalArrayIndexing({ ast, diagnostic })],
         ["GM1038", ({ ast, diagnostic }) => removeDuplicateMacroDeclarations({ ast, diagnostic })],
@@ -2093,50 +2076,6 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
     attachFeatherFixMetadata(identifierNode, [fixDetail]);
 
     return fixDetail;
-}
-
-function buildFeatherTypeSystemInfo() {
-    const metadata = Core.getFeatherMetadata();
-    const typeSystem = metadata?.typeSystem;
-
-    const baseTypes = new Set();
-    const baseTypesLowercase = new Set();
-    const specifierBaseTypes = new Set();
-
-    const entries = Core.asArray(typeSystem?.baseTypes);
-
-    for (const entry of entries) {
-        const name = Core.toTrimmedString(Core.getOptionalString(entry, "name"));
-
-        if (!name) {
-            continue;
-        }
-
-        baseTypes.add(name);
-        baseTypesLowercase.add(name.toLowerCase());
-
-        const specifierExamples = Core.asArray(Core.getOptionalArray(entry, "specifierExamples"));
-        const hasDotSpecifier = specifierExamples.some((example) => {
-            if (typeof example !== "string") {
-                return false;
-            }
-
-            return example.trim().startsWith(".");
-        });
-
-        const description = Core.toTrimmedString(Core.getOptionalString(entry, "description")) ?? "";
-        const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
-
-        if (hasDotSpecifier || requiresSpecifier) {
-            specifierBaseTypes.add(name.toLowerCase());
-        }
-    }
-
-    return {
-        baseTypeNames: [...baseTypes],
-        baseTypeNamesLower: baseTypesLowercase,
-        specifierBaseTypeNamesLower: specifierBaseTypes
-    };
 }
 
 function registerFeatherFixer(registry, diagnosticId, implementation) {
@@ -2550,7 +2489,7 @@ function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
     return slice.trim() || null;
 }
 
-function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
+function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -2575,7 +2514,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
         }
 
         if (node.type === "AssignmentExpression") {
-            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry);
+            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
                 fixes.push(fixDetail);
@@ -2593,7 +2532,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
     return fixes;
 }
 
-function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry) {
+function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, formattingOptions) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
@@ -2612,7 +2551,18 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
-    const replacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const preferredReplacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const renameResolution = resolveSemanticSafeFeatherRename({
+        formattingOptions,
+        identifierName: identifier.name,
+        localIdentifierNames: nameRegistry,
+        preferredReplacementName
+    });
+
+    if (!renameResolution || !Core.isNonEmptyString(renameResolution.replacementName)) {
+        return null;
+    }
+    const replacementName = renameResolution.replacementName;
     const replacementIdentifier = Core.createIdentifierNode(replacementName, identifier);
 
     const declarator = {
@@ -2647,8 +2597,10 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
+    fixDetail.replacement = replacementName;
     attachFeatherFixMetadata(declaration, [fixDetail]);
 
+    nameRegistry.add(replacementName);
     replaceReadOnlyIdentifierReferences(parent, property + 1, identifier.name, replacementName);
 
     return fixDetail;
@@ -2840,8 +2792,6 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
         suffix += 1;
         candidate = `__feather_${sanitized}_${suffix}`;
     }
-
-    nameRegistry.add(candidate);
 
     return candidate;
 }
@@ -4581,7 +4531,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
         return null;
     }
 
-    const replacementEntry = Core.getDeprecatedBuiltinReplacementEntry(normalizedName);
+    const replacementEntry = getDeprecatedBuiltinReplacementEntry(normalizedName);
 
     if (!replacementEntry) {
         return null;
@@ -11661,8 +11611,8 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic, stringLiteralA
         const leftIsNumeric = isNumericLiteralNode(node.left);
         const rightIsNumeric = isNumericLiteralNode(node.right);
 
-        const leftIdentifier = getIdentifierName(node.left);
-        const rightIdentifier = getIdentifierName(node.right);
+        const leftIdentifier = Core.getIdentifierName(node.left);
+        const rightIdentifier = Core.getIdentifierName(node.right);
 
         const leftTracked = typeof leftIdentifier === "string" && stringLiteralAssignments.has(leftIdentifier);
         const rightTracked = typeof rightIdentifier === "string" && stringLiteralAssignments.has(rightIdentifier);
@@ -11736,14 +11686,6 @@ function canWrapOperandWithReal(node) {
     return true;
 }
 
-function getIdentifierName(node) {
-    if (Core.isIdentifierNode(node) && typeof node.name === "string") {
-        return node.name;
-    }
-
-    return null;
-}
-
 function isCoercibleStringLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -11782,7 +11724,7 @@ function isCoercibleStringLiteral(node) {
 }
 
 function recordIdentifierStringAssignment(identifier, expression, assignments) {
-    const name = getIdentifierName(identifier);
+    const name = Core.getIdentifierName(identifier);
 
     if (!name || !assignments) {
         return;
@@ -14248,173 +14190,8 @@ function annotateVariableStructProperty(property, diagnostic) {
 }
 
 /**
- * Annotates missing user-event constant references in the AST.
- *
- * ORGANIZATION SMELL: All user-event-related functionality (detection, constant
- * insertion, validation) should be extracted into a dedicated module rather than
- * being scattered through this large Feather-fixes file.
- *
- * RECOMMENDATION: Create src/plugin/src/transforms/feather/user-event-fixes.ts and
- * move all user-event-specific logic there:
- *   - annotateMissingUserEvents
- *   - insertUserEventConstant
- *   - validateUserEventConstant
- *   - USER_EVENT_CONSTANTS (if defined)
- *
- * This makes the code easier to navigate and test, and reduces the size of this
- * already-oversized file.
+ * Harmonizes texture pointer ternary expressions that use -1 instead of pointer_null.
  */
-function annotateMissingUserEvents({ ast, diagnostic }) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
-        return [];
-    }
-
-    const fixes = [];
-
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "CallExpression") {
-            const fix = annotateUserEventCall(node, diagnostic);
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
-
-    return fixes;
-}
-
-function annotateUserEventCall(node, diagnostic) {
-    const eventInfo = getUserEventReference(node);
-
-    if (!eventInfo) {
-        return null;
-    }
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: eventInfo.name,
-        automatic: false,
-        range: {
-            start: Core.getNodeStartIndex(node),
-            end: Core.getNodeEndIndex(node)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    attachFeatherFixMetadata(node, [fixDetail]);
-
-    return fixDetail;
-}
-
-function createUserEventInfo(argumentNode: GameMakerAstNode) {
-    const eventIndex = resolveUserEventIndex(argumentNode);
-
-    if (eventIndex === null) {
-        return null;
-    }
-
-    return { index: eventIndex, name: formatUserEventName(eventIndex) };
-}
-
-function getUserEventReference(node) {
-    if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    const callee = Core.getCallExpressionIdentifier(node);
-    const args = Core.getCallExpressionArguments(node);
-
-    if (Core.isIdentifierWithName(callee, "event_user")) {
-        return createUserEventInfo(args[0]);
-    }
-
-    if (Core.isIdentifierWithName(callee, "event_perform")) {
-        if (args.length < 2 || !Core.isIdentifierWithName(args[0], "ev_user")) {
-            return null;
-        }
-
-        return createUserEventInfo(args[1]);
-    }
-
-    if (Core.isIdentifierWithName(callee, "event_perform_object")) {
-        if (args.length < 3) {
-            return null;
-        }
-
-        return createUserEventInfo(args[2]);
-    }
-
-    return null;
-}
-
-function resolveUserEventIndex(node) {
-    if (!node) {
-        return null;
-    }
-
-    if (node.type === "Literal") {
-        const numericValue = typeof node.value === "number" ? node.value : Number(node.value);
-
-        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
-            return null;
-        }
-
-        return numericValue;
-    }
-
-    if (node.type === "Identifier") {
-        const match = /^ev_user(\d+)$/.exec(node.name);
-
-        if (!match) {
-            return null;
-        }
-
-        const numericValue = Number.parseInt(match[1]);
-
-        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
-            return null;
-        }
-
-        return numericValue;
-    }
-
-    return null;
-}
-
-function formatUserEventName(index) {
-    if (!Number.isInteger(index)) {
-        return null;
-    }
-
-    return `User Event ${index}`;
-}
 function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     if (!node || node.type !== "TernaryExpression") {
         return null;
@@ -16192,451 +15969,6 @@ function extractParameterNameFromDocRemainder(remainder) {
     const match = remainder.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)/);
 
     return match ? match[1] : null;
-}
-
-/**
- * Renames identifiers that conflict with reserved words or GML built-ins.
- *
- * DUPLICATION WARNING: This function implements identifier renaming logic that likely
- * overlaps with functionality in the 'refactor' and 'semantic' modules.
- *
- * ARCHITECTURE: Identifier renaming should be a responsibility of the 'refactor' module,
- * which is built on top of 'semantic'. The 'semantic' module provides scope analysis and
- * binding resolution (determining what each identifier refers to and where it's defined),
- * while 'refactor' uses that information to perform safe renames that avoid shadowing
- * conflicts and preserve program semantics.
- *
- * CURRENT STATE: This function performs ad-hoc renaming for Feather-detected reserved
- * identifier conflicts without consulting scope information. This risks:
- *   - Introducing new name conflicts by choosing replacements that shadow other variables
- *   - Missing some references if the scope isn't properly analyzed
- *   - Renaming identifiers that don't actually conflict in their scope
- *
- * RECOMMENDATION: Before adding new renaming logic here, check if 'refactor' already
- * provides the capability. If it does, import it and use the scope-aware implementation.
- * If it doesn't, consider adding the feature to 'refactor' so it can be shared and
- * properly tested with scope analysis.
- *
- * LONG-TERM: Extract all identifier renaming from this file and consolidate it into
- * 'refactor', then import those functions here for Feather-specific fixes.
- */
-function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object" || getReservedIdentifierNames().size === 0) {
-        return [];
-    }
-
-    const fixes = [];
-    const renameMap = new Map();
-
-    // First pass: find all declarations that need to be renamed
-    const collectRenamings = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                collectRenamings(child);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "VariableDeclaration" && isSupportedVariableDeclaration(node)) {
-            const declarationFixes = renameReservedIdentifiersInVariableDeclaration(node, diagnostic);
-
-            if (Core.isNonEmptyArray(declarationFixes)) {
-                fixes.push(...declarationFixes);
-                // Collect the renamed identifiers
-                for (const fix of declarationFixes) {
-                    if (fix?.target && fix?.replacement) {
-                        renameMap.set(fix.target, fix.replacement);
-                    }
-                }
-            }
-        } else if (node.type === "MacroDeclaration") {
-            const macroFix = renameReservedIdentifierInMacro(node, diagnostic, sourceText);
-
-            if (macroFix) {
-                fixes.push(macroFix);
-                if (macroFix?.target && macroFix?.replacement) {
-                    renameMap.set(macroFix.target, macroFix.replacement);
-                }
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                collectRenamings(value);
-            }
-        }
-    };
-
-    collectRenamings(ast);
-
-    // Second pass: rename all identifier usages
-    if (renameMap.size > 0) {
-        const renameUsages = (node, parent, property, grandparent) => {
-            if (!node) {
-                return;
-            }
-
-            if (Array.isArray(node)) {
-                for (let i = 0; i < node.length; i++) {
-                    renameUsages(node[i], node, i, parent);
-                }
-                return;
-            }
-
-            if (typeof node !== "object") {
-                return;
-            }
-
-            // Skip renaming identifiers in certain contexts
-            if (shouldSkipIdentifierRenaming(node, parent, property, grandparent)) {
-                return;
-            }
-
-            if (node.type === "Identifier" && node.name && renameMap.has(node.name)) {
-                node.name = renameMap.get(node.name);
-            }
-
-            for (const [key, value] of Object.entries(node)) {
-                if (value && typeof value === "object") {
-                    renameUsages(value, node, key, parent);
-                }
-            }
-        };
-
-        renameUsages(ast, null, null, null);
-    }
-
-    return fixes;
-}
-
-function shouldSkipIdentifierRenaming(node, parent, property, grandparent) {
-    if (!parent) {
-        return false;
-    }
-
-    // Skip renaming the identifier in a variable declarator (already renamed in first pass)
-    if (parent.type === "VariableDeclarator" && property === "id") {
-        return true;
-    }
-
-    // Skip renaming in macro declarations (already renamed in first pass)
-    if (parent.type === "MacroDeclaration" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming property names in member access expressions
-    if (parent.type === "MemberDotExpression" && property === "property") {
-        return true;
-    }
-
-    // Skip renaming in enum declarations
-    if (parent.type === "EnumDeclaration" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming enum member names
-    if (parent.type === "EnumMember" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming function parameter names - they're lexically scoped and don't conflict
-    // with global reserved identifiers. Function parameters can shadow global names by design.
-    if (Array.isArray(parent) && grandparent && property === "params") {
-        // grandparent is the function node, parent is the params array, property is "params"
-        // This means we're looking at an identifier that's directly in the params array
-        return true;
-    }
-
-    // Also handle the case where parent is the params array and we have a numeric index
-    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type) {
-        // Check if grandparent is a function-like node with a params property
-        const isFunctionLike =
-            grandparent.type === "FunctionDeclaration" ||
-            grandparent.type === "FunctionExpression" ||
-            grandparent.type === "ConstructorDeclaration" ||
-            grandparent.type === "StructFunctionDeclaration";
-
-        if (isFunctionLike && grandparent.params === parent) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function isSupportedVariableDeclaration(node) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return false;
-    }
-
-    const kind = typeof node.kind === "string" ? Core.toNormalizedLowerCaseString(node.kind) : null;
-
-    return kind === "var" || kind === "static";
-}
-
-/**
- * Renames reserved identifiers within a VariableDeclaration node.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- */
-function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
-    const declarations = Core.asArray<any>(node?.declarations);
-
-    if (declarations.length === 0) {
-        return [];
-    }
-
-    const fixes = [];
-
-    for (const declarator of declarations) {
-        if (!declarator || declarator.type !== "VariableDeclarator") {
-            continue;
-        }
-
-        const fix = renameReservedIdentifierNode(declarator.id, diagnostic);
-
-        if (fix) {
-            fixes.push(fix);
-        }
-    }
-
-    return fixes;
-}
-
-/**
- * Renames a single identifier node if it conflicts with a reserved word.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- */
-function renameReservedIdentifierNode(identifier, diagnostic, options: RenameOptions = {}) {
-    if (!identifier || identifier.type !== "Identifier") {
-        return null;
-    }
-
-    const name = identifier.name;
-
-    if (!isReservedIdentifier(name)) {
-        return null;
-    }
-
-    const replacement = getReplacementIdentifierName(name);
-
-    if (!replacement || replacement === name) {
-        return null;
-    }
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: name ?? null,
-        range: {
-            start: Core.getNodeStartIndex(identifier),
-            end: Core.getNodeEndIndex(identifier)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    // Add the replacement name to the fix detail so it can be collected
-    fixDetail.replacement = replacement;
-
-    identifier.name = replacement;
-
-    if (typeof options.onRename === "function") {
-        try {
-            options.onRename({
-                identifier,
-                originalName: name,
-                replacement
-            });
-        } catch {
-            // Swallow callback errors to avoid interrupting the fix pipeline.
-        }
-    }
-
-    attachFeatherFixMetadata(identifier, [fixDetail]);
-
-    return fixDetail;
-}
-
-/**
- * Renames a reserved identifier in a macro declaration, updating the macro's text.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- *
- * SPECIAL CASE: Macros require additional handling because their body is stored as
- * unparsed text rather than an AST. When renaming a macro identifier, we must also
- * update the macro text to reflect the new name.
- */
-function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
-    if (!node || node.type !== "MacroDeclaration") {
-        return null;
-    }
-
-    return renameReservedIdentifierNode(node.name, diagnostic, {
-        onRename: ({ originalName, replacement }) => {
-            const updatedText = buildMacroReplacementText({
-                macro: node,
-                originalName,
-                replacement,
-                sourceText
-            });
-
-            if (typeof updatedText === "string") {
-                node._featherMacroText = updatedText;
-            }
-        }
-    });
-}
-
-/**
- * Checks whether a given identifier name is a GML reserved word or built-in.
- *
- * DUPLICATION WARNING: This check likely exists in 'refactor' or 'semantic' as well,
- * since reserved word detection is a fundamental part of identifier validation and
- * scope analysis.
- *
- * RECOMMENDATION: Check if 'semantic' or 'refactor' already provides this functionality.
- * If so, import it instead of maintaining a separate implementation. If not, consider
- * moving this to Core or Semantic so all packages can use the same reserved-word list.
- *
- * NOTE: This function checks if an identifier conflicts with GML built-ins, BUT it
- * only returns true for EXACT case matches. If the identifier differs only in case
- * from a reserved name (e.g., "color" vs "Color"), it's allowed because:
- * 1. PascalCase names in the metadata are often type annotations (Color, Array, etc.)
- * 2. Users can legitimately use lowercase versions as variable names
- * 3. Actual GML functions use snake_case (draw_text, show_debug_message)
- */
-function isReservedIdentifier(name) {
-    if (typeof name !== "string" || name.length === 0) {
-        return false;
-    }
-
-    const lowerName = name.toLowerCase();
-
-    // First check if the lowercase version is in the reserved set
-    if (!getReservedIdentifierNames().has(lowerName)) {
-        return false;
-    }
-
-    // If it is, we need to check if there's an exact case match in the original metadata
-    // to avoid false positives where "color" matches "Color" (a type annotation)
-    return hasExactCaseMatch(name);
-}
-
-/**
- * Checks if an identifier has an exact case match in the GML identifier metadata.
- * This prevents false positives where lowercase user variables (e.g., "color")
- * match PascalCase type annotations (e.g., "Color") after case-insensitive comparison.
- */
-function hasExactCaseMatch(name: string): boolean {
-    if (typeof name !== "string" || name.length === 0) {
-        return false;
-    }
-
-    try {
-        const metadata = Core.getIdentifierMetadata();
-        if (!metadata || typeof metadata !== "object") {
-            // If we can't load metadata, fall back to conservative behavior
-            // (don't rename unless we're sure)
-            return false;
-        }
-
-        const identifiers = metadata.identifiers;
-        if (!identifiers || typeof identifiers !== "object") {
-            return false;
-        }
-
-        // Check if there's an exact case match in the original metadata
-        return Object.hasOwn(identifiers, name);
-    } catch {
-        // On any error, be conservative and don't rename
-        return false;
-    }
-}
-
-function getReplacementIdentifierName(originalName) {
-    if (typeof originalName !== "string" || originalName.length === 0) {
-        return null;
-    }
-
-    let candidate = `__featherFix_${originalName}`;
-    const seen = new Set();
-
-    while (isReservedIdentifier(candidate)) {
-        if (seen.has(candidate)) {
-            return null;
-        }
-
-        seen.add(candidate);
-        candidate = `_${candidate}`;
-    }
-
-    return candidate;
-}
-
-function buildMacroReplacementText({ macro, originalName, replacement, sourceText }) {
-    if (!macro || macro.type !== "MacroDeclaration" || typeof replacement !== "string") {
-        return null;
-    }
-
-    const baseText = getMacroBaseText(macro, sourceText);
-
-    if (!Core.isNonEmptyString(baseText)) {
-        return null;
-    }
-
-    if (Core.isNonEmptyString(originalName)) {
-        // Use a regular expression with word boundaries to avoid partial matches during renaming.
-        // We use the 'g' flag even though macros usually only contain the name once in the
-        // declaration header, as macros are text-based and could potentially reference
-        // themselves or others in a way that requires global replacement within the line.
-        const escapedName = originalName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-        const regex = new RegExp(String.raw`\b${escapedName}\b`, "g");
-
-        if (regex.test(baseText)) {
-            return baseText.replace(regex, replacement);
-        }
-    }
-
-    return null;
-}
-
-function getMacroBaseText(macro, sourceText) {
-    if (!macro || macro.type !== "MacroDeclaration") {
-        return null;
-    }
-
-    if (Core.isNonEmptyString(macro._featherMacroText)) {
-        return macro._featherMacroText;
-    }
-
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return null;
-    }
-
-    const startIndex = Core.getNodeStartIndex(macro);
-    const endIndex = Core.getNodeEndIndex(macro);
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number" || endIndex < startIndex) {
-        return null;
-    }
-
-    return sourceText.slice(startIndex, endIndex);
 }
 
 function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
