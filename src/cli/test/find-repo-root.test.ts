@@ -30,6 +30,15 @@ async function createNestedDirectoryWithSentinel(root: string) {
     return nested;
 }
 
+async function createNestedDirectoryWithGitFile(root: string) {
+    const nested = path.join(root, "sub", "inner");
+    await fs.mkdir(nested, { recursive: true });
+    const gitPointer = path.join(root, ".git");
+    await fs.writeFile(gitPointer, "gitdir: ../.git/worktrees/tmp\n", "utf8");
+    const pkgOuter = path.join(root, "package.json");
+    await fs.writeFile(pkgOuter, JSON.stringify({ name: "outer" }), "utf8");
+    return nested;
+}
 async function createNestedDirectoryWithPackages(root: string) {
     const nested = path.join(root, "a", "b", "c");
     await fs.mkdir(nested, { recursive: true });
@@ -57,6 +66,14 @@ void describe("findRepoRoot helper (CLI)", () => {
             assert.strictEqual(resolved, tempDir);
         });
     });
+
+    void it("treats .git file worktree pointers as repository sentinels", async () => {
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithGitFile(tempDir);
+            const resolved = await findRepoRoot(nested);
+            assert.strictEqual(resolved, tempDir);
+        });
+    });
 });
 
 void describe("findRepoRootSync helper (CLI)", () => {
@@ -73,6 +90,14 @@ void describe("findRepoRootSync helper (CLI)", () => {
             const nested = await createNestedDirectoryWithPackages(tempDir);
             const resolved = findRepoRootSync(nested);
             // Top-most package.json should be returned (outermost)
+            assert.strictEqual(resolved, tempDir);
+        });
+    });
+
+    void it("treats .git file worktree pointers as repository sentinels", async () => {
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithGitFile(tempDir);
+            const resolved = findRepoRootSync(nested);
             assert.strictEqual(resolved, tempDir);
         });
     });
