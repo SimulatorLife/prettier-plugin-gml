@@ -2057,17 +2057,50 @@ function attemptConvertSquare(node, context) {
         return false;
     }
 
-    if (!areNodesEquivalent(left, right) && !areNodesApproximatelyEquivalent(left, right)) {
-        return false;
+    if (areNodesEquivalent(left, right) || areNodesApproximatelyEquivalent(left, right)) {
+        if (!isSafeOperand(left)) {
+            return false;
+        }
+
+        mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
+        unwrapEnclosingParentheses(node, context);
+        return true;
     }
 
-    if (!isSafeOperand(left)) {
-        return false;
+    const factors = [];
+    if (collectProductOperands(node, factors)) {
+        for (let i = 0; i < factors.length; i++) {
+            for (let j = i + 1; j < factors.length; j++) {
+                const a = unwrapExpression(factors[i]);
+                const b = unwrapExpression(factors[j]);
+                if (a && b && areNodesEquivalent(a, b) && isSafeOperand(a)) {
+                    const remainingFactors = factors.filter((_, idx) => idx !== i && idx !== j);
+                    const sqrNode = createCallExpressionNode("sqr", [Core.cloneAstNode(a)], node);
+
+                    if (remainingFactors.length === 0) {
+                        mutateToCallExpression(node, "sqr", [Core.cloneAstNode(a)], node);
+                        return true;
+                    }
+
+                    let product = Core.cloneAstNode(remainingFactors[0]);
+                    for (let k = 1; k < remainingFactors.length; k++) {
+                        product = createBinaryExpressionNode(
+                            "*",
+                            product,
+                            Core.cloneAstNode(remainingFactors[k]),
+                            node
+                        );
+                    }
+                    const result = createBinaryExpressionNode("*", product, sqrNode, node);
+
+                    replaceNode(node, result);
+                    return true;
+                }
+            }
+        }
     }
 
-    mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
-    unwrapEnclosingParentheses(node, context);
-    return true;
+    return false;
 }
 
 function attemptConvertRepeatedPower(node) {
