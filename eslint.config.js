@@ -448,16 +448,13 @@ const tsConfig = defineConfig({
                     },
                     {
                         from: "transpiler",
-                        allow: ["core", "parser", "semantic", "transpiler"]
+                        allow: ["core", "transpiler", "parser", "semantic"]
                     },
                     {
                         from: "semantic",
                         allow: ["core", "parser", "transpiler", "semantic"]
                     },
-                    {
-                        from: "plugin",
-                        allow: ["core", "parser", "semantic", "plugin"]
-                    },
+                    { from: "plugin", allow: ["core", "parser", "plugin"] },
                     {
                         from: "refactor",
                         allow: [
@@ -483,10 +480,12 @@ const tsConfig = defineConfig({
                         allow: [
                             "core",
                             "parser",
+                            "transpiler",
+                            "semantic",
+                            "runtime-wrapper",
                             "plugin",
                             "refactor",
-                            "transpiler",
-                            "semantic"
+                            "cli"
                         ]
                     },
                     { from: "test", allow: ["*"] }

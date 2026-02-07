@@ -5,19 +5,9 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { CliUsageError } from "../src/cli-core/errors.js";
-import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/skip-cli-run.js";
+import { __formatTest__ } from "../src/commands/format.js";
 
-const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];
-process.env[SKIP_CLI_RUN_ENV_VAR] = "1";
-
-const cliModule = await import("../src/cli.js");
-const { validateTargetPathInputForTests, resolveTargetPathFromInputForTests } = cliModule.__test__;
-
-if (originalSkipFlag === undefined) {
-    delete process.env[SKIP_CLI_RUN_ENV_VAR];
-} else {
-    process.env[SKIP_CLI_RUN_ENV_VAR] = originalSkipFlag;
-}
+const { validateTargetPathInputForTests, resolveTargetPathFromInputForTests } = __formatTest__;
 
 void test("validateTargetPathInput rejects non-string values", () => {
     const usage = "usage summary";

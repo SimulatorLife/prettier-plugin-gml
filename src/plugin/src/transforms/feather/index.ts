@@ -5,4 +5,5 @@ export * from "./ast-traversal.js";
 export * from "./enum-handling.js";
 export * from "./parser-bootstrap.js";
 export * from "./reserved-identifier-renaming.js";
+export * from "./semantic-safe-renaming.js";
 export * from "./user-event-fixes.js";

@@ -2,6 +2,6 @@
     "allowSingleLineIfStatements": false,
     "applyFeatherFixes": false,
     "optimizeMathExpressions": false,
-    "condenseLogicalExpressions": false,
+    "optimizeLogicalExpressions": false,
     "printWidth": 95
 }

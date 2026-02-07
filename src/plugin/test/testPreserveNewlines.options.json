@@ -2,7 +2,7 @@
 	"useStringInterpolation": true,
 	"preserveGlobalVarStatements": false,
 	"applyFeatherFixes": false,
-	"condenseLogicalExpressions": true,
+	"optimizeLogicalExpressions": true,
 	"optimizeLoopLengthHoisting": true,
 	"allowSingleLineIfStatements": true,
 	"optimizeMathExpressions": true,

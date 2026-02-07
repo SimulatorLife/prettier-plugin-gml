@@ -1,7 +1,18 @@
 import { readFile } from "node:fs/promises";
 
 import { Parser } from "@gml-modules/parser";
-import type { AstNode, ParserBridge } from "@gml-modules/refactor";
+
+type AstNode = {
+    children?: Array<AstNode>;
+    end: number;
+    name?: string;
+    start: number;
+    type?: string;
+};
+
+type ParserBridge = {
+    parse: (filePath: string) => Promise<AstNode>;
+};
 
 /**
  * Parser bridge that adapts @gml-modules/parser to the refactor engine.

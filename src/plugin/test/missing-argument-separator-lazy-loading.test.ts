@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-import { clearForbiddenCalleeIdentifiersCache } from "../src/transforms/missing-argument-separator-sanitizer.js";
+import {
+    clearForbiddenCalleeIdentifiersCache,
+    sanitizeMissingArgumentSeparators
+} from "../src/transforms/missing-argument-separator-sanitizer.js";
 
 // Memory test thresholds
 // The identifier metadata payload is ~1.3 MB on disk, but when loaded and parsed
@@ -78,15 +81,10 @@ void describe("Missing argument separator sanitizer lazy loading", () => {
         clearForbiddenCalleeIdentifiersCache();
     });
 
-    void it("should load metadata only when sanitizer is called", async () => {
+    void it("should load metadata only when sanitizer is called", () => {
         // Clear the cache to start fresh
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();
-
-        // Import the module
-        const { sanitizeMissingArgumentSeparators } = await import(
-            "../src/transforms/missing-argument-separator-sanitizer.js"
-        );
 
         // Verify the function exists
         assert.ok(typeof sanitizeMissingArgumentSeparators === "function", "Should export sanitizer function");
@@ -108,14 +106,10 @@ void describe("Missing argument separator sanitizer lazy loading", () => {
         clearForbiddenCalleeIdentifiersCache();
     });
 
-    void it("should handle empty input without loading metadata", async () => {
+    void it("should handle empty input without loading metadata", () => {
         // Clear the cache
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();
-
-        const { sanitizeMissingArgumentSeparators } = await import(
-            "../src/transforms/missing-argument-separator-sanitizer.js"
-        );
 
         // Empty input should short-circuit before needing metadata
         const result = sanitizeMissingArgumentSeparators("");

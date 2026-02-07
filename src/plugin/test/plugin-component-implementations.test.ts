@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Semantic } from "@gml-modules/semantic";
-
 import { handleComments, printComment } from "../src/comments/index.js";
 import { gmlPluginComponentImplementations } from "../src/components/plugin-component-bundles.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
@@ -16,6 +14,10 @@ void test("default implementation bundle is frozen and reuses canonical referenc
     assert.strictEqual(gmlPluginComponentImplementations.print, print);
     assert.strictEqual(gmlPluginComponentImplementations.printComment, printComment);
     assert.strictEqual(gmlPluginComponentImplementations.handleComments, handleComments);
-    assert.strictEqual(gmlPluginComponentImplementations.identifierCaseOptions, Semantic.identifierCaseOptions);
+    assert.deepStrictEqual(gmlPluginComponentImplementations.identifierCaseOptions, {});
+    assert.ok(
+        Object.isFrozen(gmlPluginComponentImplementations.identifierCaseOptions),
+        "identifier-case option map should be immutable"
+    );
     assert.strictEqual(gmlPluginComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
 });

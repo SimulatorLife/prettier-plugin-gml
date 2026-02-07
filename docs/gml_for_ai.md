@@ -7,11 +7,11 @@ GameMaker Language (GML) has similar grammar and syntax to JavaScript ES3 but do
 - GML uses the constant `infinity` (all lower-case) instead of capitalized `Infinity`
 - GML has a `typeof()` function instead of a `typeof` unary operator
 - GML has an `instanceof()` function instead of the `instanceof` binary operator
-- GML JSDoc comments use single-line comments indicated by `\\\`
+- GML JSDoc comments use single-line comments indicated by `///`
 - GML names can only include alphanumeric and underscore characters, though the first character must not be a number.
-- Instead of classes, GML uses "constructor functions" that insert the `constructor` keyword between the parameters and body: `function MyConstructorFunction () constructor {/* body */}`
+- Instead of classes, GML uses "constructor functions" (a.k.a. "structs") that insert the `constructor` keyword between the parameters and body: `function MyConstructorFunction () constructor {/* body */}`
 - GML strings can only be wrapped in double-quote characters
-- GML uses `var` but does not have `let` nor `const`
+- GML uses `var` for local variables, but does not have `let` nor `const`
 - GML has "macros", defined with the keyword `#macro`: `#macro my_macro "some_expression"`. Macros can be defined over multiple lines by ending each line with a `\` character. At compile time, macro references are replaced with their values as if they were copy-pasted.
 - GML arrays, strings, and functions have no internal functions, so the `.`-accessor cannot be used on them. For example, to get the length of an array you'd use `array_length(the_array)` instead of accessing a `length` property.
 - To access a struct property, GML uses `[$ the_field]` instead of `[the_field]`. Struct properties can also be accessed with the `.` operator, just like a JavaScript object.

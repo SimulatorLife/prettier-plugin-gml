@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -236,7 +236,6 @@ void describe("runtime static server", () => {
 
 async function getOpenFileDescriptorCount(): Promise<number> {
     try {
-        const { readdir } = await import("node:fs/promises");
         const fds = await readdir(`/proc/${process.pid}/fd`);
         return fds.length;
     } catch {

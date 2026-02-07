@@ -22,6 +22,7 @@ import { printComment, printDanglingComments, printDanglingCommentsAsGroup } fro
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
+import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -641,7 +642,7 @@ function tryPrintVariableNode(node, path, options, print) {
         }
         case "GlobalVarStatement": {
             if (options.preserveGlobalVarStatements === false) {
-                const parts = buildGlobalVarAssignmentParts(node, path, print);
+                const parts = buildGlobalVarNormalizationParts(node, path, print, options);
 
                 if (parts.length === 0) {
                     return "";
@@ -650,17 +651,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 return join(hardline, parts);
             }
 
-            const decls =
-                node.declarations.length > 1
-                    ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                          leadingNewline: false,
-                          trailingNewline: false
-                      })
-                    : path.map(print, "declarations");
-
-            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
-
-            return concat([keyword, " ", decls]);
+            return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
@@ -3613,34 +3604,72 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
 }
 
 /**
- * Builds formatted global variable assignment parts from globalvar declarations.
+ * Builds formatted output parts for globalvar normalization.
  *
- * Transforms each initialized declaration into a standalone `global.name = value;` statement.
- * Declarations without initializers are skipped.
+ * Each declaration is either rewritten to `global.name = value;` when the semantic
+ * safety runtime deems the rewrite safe, or preserved as a `globalvar` declaration
+ * when the rewrite is unsafe for the current runtime context.
  *
  * @param {any} node - The GlobalVarStatement node
  * @param {any} path - Prettier path object for traversal
  * @param {Function} print - Prettier print function
+ * @param {any} options - Prettier option bag
  * @returns {Array<any>} Array of formatted assignment doc fragments
  */
-function buildGlobalVarAssignmentParts(node, path, print) {
+function buildGlobalVarNormalizationParts(node, path, print, options) {
     const parts = [];
     const declarationCount = node.declarations.length;
 
     for (let index = 0; index < declarationCount; index += 1) {
         const decl = node.declarations[index];
+        const identifierName = Core.getIdentifierText(decl?.id ?? null);
+        const rewriteAssessment = assessGlobalVarRewrite(
+            {
+                filePath: typeof options?.filepath === STRING_TYPE ? options.filepath : null,
+                hasInitializer: Boolean(decl?.init),
+                identifierName: identifierName ?? `declaration_${index}`
+            },
+            options
+        );
+
+        if (!rewriteAssessment.allowRewrite) {
+            if (!decl.init && !hasActiveSemanticSafetyReportService(options)) {
+                continue;
+            }
+
+            const declarationDoc = path.call(print, "declarations", index);
+            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
+            parts.push(group(concat([keyword, " ", declarationDoc])));
+            continue;
+        }
 
         if (!decl.init) {
+            const idDoc = path.call(print, "declarations", index, "id");
+            parts.push(group(concat(["global.", idDoc, " = undefined"])));
             continue;
         }
 
         const idDoc = path.call(print, "declarations", index, "id");
         const initDoc = path.call(print, "declarations", index, "init");
 
-        parts.push(group(concat(["global.", idDoc, " = ", initDoc, ";"])));
+        parts.push(group(concat(["global.", idDoc, " = ", initDoc])));
     }
 
     return parts;
+}
+
+function printGlobalVarStatementAsKeyword(node, path, print, options) {
+    const decls =
+        node.declarations.length > 1
+            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
+                  leadingNewline: false,
+                  trailingNewline: false
+              })
+            : path.map(print, "declarations");
+
+    const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
+
+    return concat([keyword, " ", decls]);
 }
 
 /**
