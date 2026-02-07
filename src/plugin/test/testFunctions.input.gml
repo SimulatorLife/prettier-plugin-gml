@@ -78,7 +78,8 @@ function Oval(r1 = 1, r2 = 1) : Shape() constructor {
 
 /// @function Line
 function Line() : Shape() constructor {
-    function set_points(x1, y1, x2, y2) {
+
+    set_points = function(x1, y1, x2, y2) {
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
