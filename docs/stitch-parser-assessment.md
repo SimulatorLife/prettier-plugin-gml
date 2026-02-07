@@ -277,6 +277,10 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 - Completed Phase 3:
   - Replaced broad `{ path: string }` traversal in `src/semantic/src/project-index/resource-analysis.ts` with schema-aware key extraction from `src/semantic/src/project-index/resource-reference-extractor.ts`.
   - Kept the output contract unchanged (`relationships.assetReferences`) while filtering to metadata targets (`.yy/.yyp`) and preserving project-manifest (`resources[].id`) coverage.
+- Completed initial Phase 4 slice:
+  - Updated `src/semantic/src/project-metadata/yy-adapter.ts` to derive known schema names directly from `Yy.schemas` instead of maintaining a duplicate hard-coded folder map.
+  - Added schema-validation reporting (`schemaValidated`) in `parseProjectMetadataDocumentWithSchema` so callers can defer structural checks to `@bscotch/yy` while still using loose parse mode for compatibility.
+  - Routed `src/semantic/src/project-index/resource-analysis.ts` through schema-aware adapter parsing and surfaced schema-mismatch warnings in diagnostic logs.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
   - `src/semantic/test/project-index-resource-analysis.test.ts`
@@ -287,7 +291,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 ### Remaining work to fully realize the plan
 1. Phase 4 follow-up: continue reducing duplicate metadata parsing utilities by deprecating remaining `.yy/.yyp` paths that still rely on generic JSON helpers outside the semantic adapter.
 2. Expand `.yyp` integration coverage to folder/order nodes beyond `resources[].id` so rename behavior remains stable across more project layouts.
-3. Evaluate optional `Yy.schemas` strict-parse gates in adapter workflows where format stability is guaranteed (to avoid over-normalizing unknown/new fields).
+3. Evaluate optional `Yy.schemas` strict-parse gates in adapter workflows where format stability is guaranteed (to avoid over-normalizing unknown/new fields); schema-validation reporting is now available, but strict enforcement policies are still pending.
 
 ### Expected wins
 - Stable `.yy/.yyp` round-tripping with less GameMaker-induced diff churn.

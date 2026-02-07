@@ -15,26 +15,11 @@ const RESOURCE_TYPE_TO_SCHEMA_NAME = Object.freeze({
     GMRoomUI: "roomui"
 });
 
-const RESOURCE_FOLDER_TO_SCHEMA_NAME = Object.freeze({
-    animcurves: "animcurves",
-    extensions: "extensions",
-    fonts: "fonts",
-    notes: "notes",
-    objects: "objects",
-    particles: "particles",
-    paths: "paths",
-    rooms: "rooms",
-    roomui: "roomui",
-    scripts: "scripts",
-    sequences: "sequences",
-    shaders: "shaders",
-    sounds: "sounds",
-    sprites: "sprites",
-    tilesets: "tilesets",
-    timelines: "timelines"
-});
-
 export type ProjectMetadataSchemaName = keyof typeof Yy.schemas;
+
+const PROJECT_METADATA_SCHEMA_NAMES: ReadonlySet<ProjectMetadataSchemaName> = Object.freeze(
+    new Set(Object.keys(Yy.schemas) as Array<ProjectMetadataSchemaName>)
+);
 
 function mapResourceTypeToSchemaName(resourceType: unknown): ProjectMetadataSchemaName | null {
     if (!Core.isNonEmptyTrimmedString(resourceType)) {
@@ -61,9 +46,12 @@ function mapResourcePathToSchemaName(sourcePath: string): ProjectMetadataSchemaN
         return null;
     }
 
-    const folderSegment = segments[0].toLowerCase();
-    const schemaName = RESOURCE_FOLDER_TO_SCHEMA_NAME[folderSegment];
-    return schemaName ?? null;
+    const folderSegment = segments[0].toLowerCase() as ProjectMetadataSchemaName;
+    if (!PROJECT_METADATA_SCHEMA_NAMES.has(folderSegment)) {
+        return null;
+    }
+
+    return folderSegment;
 }
 
 /**
@@ -98,6 +86,24 @@ export function isProjectMetadataParseError(value: unknown): value is ProjectMet
     );
 }
 
+function assertProjectMetadataDocumentIsPlainObject(parsed: unknown, sourcePath: string) {
+    return Core.assertPlainObject(parsed, {
+        errorMessage: `Resource JSON at ${sourcePath} must be a plain object.`
+    });
+}
+
+function checkProjectMetadataDocumentSchema(
+    document: Record<string, unknown>,
+    schemaName: ProjectMetadataSchemaName | null
+): boolean {
+    if (!schemaName) {
+        return false;
+    }
+
+    const schema = Yy.getSchema(schemaName);
+    return schema.safeParse(document).success;
+}
+
 /**
  * Parse a GameMaker metadata document using Stitch's yy parser.
  */
@@ -109,21 +115,22 @@ export function parseProjectMetadataDocument(rawContents: string, sourcePath: st
         throw new ProjectMetadataParseError(sourcePath, error);
     }
 
-    return Core.assertPlainObject(parsed, {
-        errorMessage: `Resource JSON at ${sourcePath} must be a plain object.`
-    });
+    return assertProjectMetadataDocumentIsPlainObject(parsed, sourcePath);
 }
 
 /**
- * Parse metadata and infer a schema name from its resourceType/path.
+ * Parse metadata, infer a schema name from resourceType/path, and report whether
+ * the parsed payload matches the inferred schema.
  */
 export function parseProjectMetadataDocumentWithSchema(rawContents: string, sourcePath: string) {
     const document = parseProjectMetadataDocument(rawContents, sourcePath);
     const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
+    const schemaValidated = checkProjectMetadataDocumentSchema(document, schemaName);
 
     return {
         document,
-        schemaName
+        schemaName,
+        schemaValidated
     };
 }
 

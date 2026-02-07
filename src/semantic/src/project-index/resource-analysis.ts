@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { isProjectMetadataParseError, parseProjectMetadataDocument } from "../project-metadata/yy-adapter.js";
+import { isProjectMetadataParseError, parseProjectMetadataDocumentWithSchema } from "../project-metadata/yy-adapter.js";
 import {
     isProjectManifestPath,
     matchProjectResourceMetadataExtension,
@@ -184,7 +184,8 @@ function createResourceAnalysisContext() {
 async function loadResourceDocument(
     file,
     fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> = defaultFsFacade,
-    options = {}
+    options = {},
+    logger: { log: typeof console.log } | null = null
 ) {
     const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: RESOURCE_ANALYSIS_ABORT_MESSAGE
@@ -202,7 +203,14 @@ async function loadResourceDocument(
     ensureNotAborted();
 
     try {
-        return parseProjectMetadataDocument(rawContents, file.absolutePath ?? file.relativePath);
+        const parsed = parseProjectMetadataDocumentWithSchema(rawContents, file.absolutePath ?? file.relativePath);
+        if (parsed.schemaName && !parsed.schemaValidated && logger) {
+            logger.log(
+                `WARN: Resource metadata at '${file.relativePath}' does not fully match '${parsed.schemaName}' schema; continuing with parsed document.`
+            );
+        }
+
+        return parsed.document;
     } catch (error) {
         if (isProjectMetadataParseError(error)) {
             return null;
@@ -346,7 +354,7 @@ export async function analyseResourceFiles({
 
     await Core.runSequentially(yyFiles, async (file) => {
         Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
-        const parsed = await loadResourceDocument(file, fsFacade, { signal });
+        const parsed = await loadResourceDocument(file, fsFacade, { signal }, logger);
         if (!parsed) {
             skippedCount++;
             return;

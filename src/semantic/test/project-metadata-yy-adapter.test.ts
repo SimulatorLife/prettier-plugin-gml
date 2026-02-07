@@ -63,6 +63,23 @@ void test("parseProjectMetadataDocumentWithSchema returns inferred schema detail
     );
 
     assert.equal(parsed.schemaName, "objects");
+    assert.equal(parsed.schemaValidated, true);
+    assert.equal(parsed.document.name, "o_player");
+    assert.equal(parsed.document.resourceType, "GMObject");
+});
+
+void test("parseProjectMetadataDocumentWithSchema reports schema validation failures", () => {
+    const parsed = parseProjectMetadataDocumentWithSchema(
+        `{
+            "name":"o_player",
+            "resourceType":"GMObject",
+            "eventList":"invalid",
+        }`,
+        "/tmp/objects/o_player/o_player.yy"
+    );
+
+    assert.equal(parsed.schemaName, "objects");
+    assert.equal(parsed.schemaValidated, false);
     assert.equal(parsed.document.name, "o_player");
     assert.equal(parsed.document.resourceType, "GMObject");
 });
