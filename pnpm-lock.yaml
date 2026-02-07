@@ -187,9 +187,6 @@ importers:
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser
-      '@gml-modules/semantic':
-        specifier: workspace:*
-        version: link:../semantic
       prettier:
         specifier: ^3.0.0
         version: 3.6.2
