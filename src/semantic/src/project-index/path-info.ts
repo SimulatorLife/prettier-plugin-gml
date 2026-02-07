@@ -2,6 +2,26 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+function isWin32Absolute(candidate) {
+    return Core.isNonEmptyString(candidate) && path.win32.isAbsolute(candidate);
+}
+
+function resolveContainedRelativePathWithPath(pathApi, childPath, parentPath) {
+    const relative = pathApi.relative(parentPath, childPath);
+
+    if (relative === "") {
+        return "";
+    }
+
+    if (PARENT_SEGMENT_PATTERN.test(relative) || pathApi.isAbsolute(relative)) {
+        return null;
+    }
+
+    return relative;
+}
+
 /**
  * Resolve high-level metadata about how {@link filePath} relates to
  * {@link projectRoot}.
@@ -29,8 +49,11 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         return null;
     }
 
-    const absolutePath = path.resolve(filePath);
-    const inputWasAbsolute = path.isAbsolute(filePath);
+    const useWin32 = isWin32Absolute(filePath) || isWin32Absolute(projectRoot);
+    const pathApi = useWin32 ? path.win32 : path;
+
+    const absolutePath = pathApi.resolve(filePath);
+    const inputWasAbsolute = pathApi.isAbsolute(filePath);
 
     if (!Core.isNonEmptyString(projectRoot)) {
         return {
@@ -43,8 +66,8 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         };
     }
 
-    const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = Core.resolveContainedRelativePath(absolutePath, absoluteProjectRoot);
+    const absoluteProjectRoot = pathApi.resolve(projectRoot);
+    const containedRelative = resolveContainedRelativePathWithPath(pathApi, absolutePath, absoluteProjectRoot);
     const isInsideProjectRoot = containedRelative !== null;
 
     return {
@@ -53,6 +76,6 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         inputWasAbsolute,
         isInsideProjectRoot,
         projectRoot: absoluteProjectRoot,
-        relativePath: isInsideProjectRoot ? containedRelative : path.relative(absoluteProjectRoot, absolutePath)
+        relativePath: isInsideProjectRoot ? containedRelative : pathApi.relative(absoluteProjectRoot, absolutePath)
     };
 }
