@@ -343,18 +343,18 @@ function renameReservedIdentifierNode(
     }
 
     const mappedReplacementName = renameMap.get(name) ?? null;
-    const preferredReplacementName = mappedReplacementName ?? getReplacementIdentifierName(name);
-    const renameResolution = resolveSemanticSafeFeatherRename({
-        formattingOptions,
-        identifierName: name,
-        localIdentifierNames: identifierNames,
-        preferredReplacementName
-    });
+    const replacement =
+        mappedReplacementName ??
+        resolveSemanticSafeFeatherRename({
+            formattingOptions,
+            identifierName: name,
+            localIdentifierNames: identifierNames,
+            preferredReplacementName: getReplacementIdentifierName(name)
+        })?.replacementName;
 
-    if (!renameResolution || !renameResolution.replacementName || renameResolution.replacementName === name) {
+    if (!replacement || replacement === name) {
         return null;
     }
-    const replacement = renameResolution.replacementName;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: name ?? null,
