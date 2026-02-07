@@ -55,4 +55,50 @@ void describe("Semicolons helper utilities", () => {
 
         assert.strictEqual(Semicolons.isLastStatement(orphanPath), true);
     });
+
+    void it("handles Unicode whitespace characters beyond the basic ASCII set", () => {
+        // This test proves the generalization: Unicode whitespace (like em-space U+2003)
+        // should be recognized as whitespace when skipping to find the next meaningful token.
+        // The original implementation only handled 6 hardcoded ASCII values.
+
+        // U+2003 em-space is a valid Unicode whitespace character that matches /\s/
+        const textWithEmSpace = "\u2003\u2003}";
+        assert.strictEqual(
+            Semicolons.getNextNonWhitespaceCharacter(textWithEmSpace, 0),
+            "}",
+            "Should skip Unicode em-space (U+2003) whitespace"
+        );
+
+        // U+2009 thin-space is another Unicode whitespace
+        const textWithThinSpace = "\u2009\u2009bar";
+        assert.strictEqual(
+            Semicolons.getNextNonWhitespaceCharacter(textWithThinSpace, 0),
+            "b",
+            "Should skip Unicode thin-space (U+2009) whitespace"
+        );
+
+        // U+1680 Ogham space mark
+        const textWithOghamSpace = "\u1680{";
+        assert.strictEqual(
+            Semicolons.getNextNonWhitespaceCharacter(textWithOghamSpace, 0),
+            "{",
+            "Should skip Unicode Ogham space (U+1680) whitespace"
+        );
+    });
+
+    void it("handles Unicode whitespace in blank line counting", () => {
+        // Prove that Unicode whitespace between newlines should be recognized
+        // when counting blank lines, just like ASCII whitespace.
+
+        // Text with Unicode em-space between newlines
+        const textWithUnicodeSpaces = "foo();\n\u2003\n\u2003\nbar();";
+        const newlineIndex = textWithUnicodeSpaces.indexOf("\n");
+
+        // Should count 2 blank lines (same as with ASCII spaces)
+        assert.strictEqual(
+            Semicolons.countTrailingBlankLines(textWithUnicodeSpaces, newlineIndex),
+            2,
+            "Should count blank lines correctly with Unicode whitespace"
+        );
+    });
 });
