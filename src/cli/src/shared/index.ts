@@ -1,3 +1,4 @@
+export * from "./command-names.js";
 export * from "./ensure-dir.js";
 export * from "./error-guards.js";
 export { safeStatOrNull, writeFileArtifact, writeJsonArtifact } from "./fs-artifacts.js";
