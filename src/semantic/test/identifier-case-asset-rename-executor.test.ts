@@ -120,10 +120,9 @@ void describe("asset rename executor JSON helpers", () => {
         }
 
         assert.ok(error);
-        assert.equal(error.name, "JsonParseError");
-        assert.match(error.message, /Failed to parse JSON/);
+        assert.equal(error.name, "ProjectMetadataParseError");
+        assert.match(error.message, /Failed to parse GameMaker metadata/);
         assert.match(error.message, /\/tmp\/broken\.yy/);
-        assert.ok(error.cause instanceof SyntaxError);
     });
 
     void it("rejects resource payloads that are not plain objects", () => {

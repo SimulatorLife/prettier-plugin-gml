@@ -20,6 +20,7 @@
     "test": "pnpm run build:types && node --test dist/test/*.test.js"
   },
   "dependencies": {
+    "@bscotch/yy": "^2.7.0",
     "@gml-modules/core": "workspace:*",
     "@gml-modules/parser": "workspace:*",
     "@gml-modules/plugin": "workspace:*",

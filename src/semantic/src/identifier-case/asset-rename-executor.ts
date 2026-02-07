@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { parseProjectMetadataDocument, stringifyProjectMetadataDocument } from "../project-metadata/yy-adapter.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
@@ -61,12 +62,7 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const parsed = Core.parseJsonWithContext(raw, {
-        source: absolutePath
-    });
-    const resourceJson = Core.assertPlainObject(parsed, {
-        errorMessage: `Resource JSON at ${absolutePath} must be a plain object.`
-    });
+    const resourceJson = parseProjectMetadataDocument(raw, absolutePath);
     if (cache) {
         cache.set(absolutePath, resourceJson);
     }
@@ -298,9 +294,7 @@ export function createAssetRenameExecutor({
         commit() {
             const writeActions = [...pendingWrites.entries()].map(([filePath, jsonData]) => ({
                 filePath,
-                contents: Core.stringifyJsonForFile(jsonData, {
-                    space: 4
-                })
+                contents: stringifyProjectMetadataDocument(jsonData)
             }));
 
             if (writeActions.length === 0 && renameActions.length === 0) {

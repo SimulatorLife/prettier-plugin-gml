@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
+import { Semantic } from "@gml-modules/semantic";
 
 import {
     clearIdentifierCaseDryRunContexts,
@@ -103,22 +104,22 @@ void describe("asset rename execution", () => {
             await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.yy"));
             await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
 
-            const renamedYy = JSON.parse(await fs.readFile(newYyPath, "utf8"));
+            const renamedYy = Semantic.parseProjectMetadataDocument(await fs.readFile(newYyPath, "utf8"), newYyPath);
             assert.strictEqual(renamedYy.name, "DemoScript");
             assert.strictEqual(renamedYy.resourcePath, newYyRelative);
 
-            const objectData = JSON.parse(
-                await fs.readFile(
-                    path.join(projectRoot, Core.fromPosixPath("objects/obj_controller/obj_controller.yy")),
-                    "utf8"
-                )
-            );
+            const objectPath = path.join(projectRoot, Core.fromPosixPath("objects/obj_controller/obj_controller.yy"));
+            const objectData = Semantic.parseProjectMetadataDocument(await fs.readFile(objectPath, "utf8"), objectPath);
             assert.deepStrictEqual(objectData.scriptExecute, {
                 path: newYyRelative,
                 name: "DemoScript"
             });
 
-            const projectData = JSON.parse(await fs.readFile(path.join(projectRoot, "MyGame.yyp"), "utf8"));
+            const projectManifestPath = path.join(projectRoot, "MyGame.yyp");
+            const projectData = Semantic.parseProjectMetadataDocument(
+                await fs.readFile(projectManifestPath, "utf8"),
+                projectManifestPath
+            );
             assert.strictEqual(projectData.resources[0].id.path, newYyRelative);
             assert.strictEqual(projectData.resources[0].id.name, "DemoScript");
 

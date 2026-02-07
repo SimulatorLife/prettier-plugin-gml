@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { isProjectMetadataParseError, parseProjectMetadataDocument } from "../project-metadata/yy-adapter.js";
 import {
     isProjectManifestPath,
     matchProjectResourceMetadataExtension,
@@ -242,14 +243,9 @@ async function loadResourceDocument(
     ensureNotAborted();
 
     try {
-        // Use parseGameMakerJson which handles trailing commas in GameMaker's
-        // non-standard JSON format used by .yy and .yyp files
-        return Core.parseGameMakerJson(rawContents, {
-            source: file.absolutePath ?? file.relativePath,
-            description: "resource document"
-        });
+        return parseProjectMetadataDocument(rawContents, file.absolutePath ?? file.relativePath);
     } catch (error) {
-        if (Core.isJsonParseError(error)) {
+        if (isProjectMetadataParseError(error)) {
             return null;
         }
         throw error;

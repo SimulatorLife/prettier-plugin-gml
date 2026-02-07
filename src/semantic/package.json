@@ -12,6 +12,7 @@
     "dist"
   ],
   "dependencies": {
+    "@bscotch/yy": "^2.7.0",
     "@gml-modules/core": "workspace:*",
     "@gml-modules/parser": "workspace:*"
   },
