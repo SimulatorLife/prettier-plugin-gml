@@ -2,7 +2,6 @@
  * Expose shared feather helpers so plugin code can import a focused diagnostic toolkit.
  */
 export * from "./ast-traversal.js";
-export * from "./doc-comment-fixes.js";
 export * from "./enum-handling.js";
 export * from "./feather-rename-planning.js";
 export * from "./parser-bootstrap.js";

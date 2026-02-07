@@ -51,11 +51,8 @@ import {
 } from "./ast-traversal.js";
 import {
     applyOrderedDocNamesToImplicitEntries,
-    cacheFunctionTagParams,
-    findFunctionTagParamsFromSource,
     resolveFunctionTagParamList,
     sanitizeMalformedJsDocTypes,
-    updateJSDocParamName,
     updateStaticFunctionDocComments
 } from "./doc-comment-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
@@ -14914,6 +14911,241 @@ function getFunctionIdentifierName(node) {
 }
 
 /**
+ * Scans the AST for malformed JSDoc type annotations and attempts to fix them.
+ *
+ * LOCATION SMELL: JSDoc type parsing, validation, and normalization should live in the
+ * Core doc-comment service/manager, not in the Feather-fixes file. The doc-comment
+ * subsystem already handles JSDoc parsing, tag extraction, and type normalization for
+ * general formatting; Feather-specific fixes should import those helpers rather than
+ * reimplementing type manipulation logic here.
+ *
+ * RECOMMENDATION: Move this and related JSDoc type-handling functions to:
+ *   src/core/src/comments/doc-comment/service/type-normalization.ts
+ *
+ * The Core doc-comment service should expose functions like:
+ *   - parseTypeAnnotation(text): ParsedType
+ *   - normalizeTypeAnnotation(type, typeSystemInfo): string
+ *   - balanceTypeDelimiters(text): string
+ *
+ * Then Feather fixes can import and apply them without duplicating the logic.
+ *
+ * WHAT WOULD BREAK: Centralizing type-handling logic in Core makes it easier to maintain
+ * consistent JSDoc formatting across the codebase and prevents drift between the plugin's
+ * doc-comment formatter and Feather's type sanitization.
+ */
+
+function createTemporaryIdentifierName(argument, siblings) {
+    const existingNames = new Set();
+
+    if (Array.isArray(siblings)) {
+        for (const entry of siblings) {
+            collectIdentifierNames(entry, existingNames);
+        }
+    }
+
+    const baseName = sanitizeIdentifierName(Core.getIdentifierName(argument) || "value");
+    const prefix = `__featherFix_${baseName}`;
+    let candidate = prefix;
+    let suffix = 1;
+
+    while (existingNames.has(candidate)) {
+        candidate = `${prefix}_${suffix}`;
+        suffix += 1;
+    }
+
+    return candidate;
+}
+
+/**
+ * Removes invalid characters from an identifier name.
+ *
+ * LOCATION SMELL: This is a general identifier utility that should live with other
+ * identifier helpers in Core, not in the Feather-fixes file.
+ */
+function sanitizeIdentifierName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return "value";
+    }
+
+    let sanitized = name.replaceAll(/[^A-Za-z0-9_]/g, "_");
+
+    if (!/^[A-Za-z_]/.test(sanitized)) {
+        sanitized = `value_${sanitized}`;
+    }
+
+    return sanitized || "value";
+}
+
+/**
+ * Recursively collects all identifier names in a subtree and adds them to the registry.
+ *
+ * LOCATION SMELL: This is a general identifier collection utility that overlaps with
+ * similar functions elsewhere in this file and should be consolidated with other
+ * identifier utilities in Core or Semantic.
+ */
+function collectIdentifierNames(node, registry) {
+    if (!node || !registry) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const entry of node) {
+            collectIdentifierNames(entry, registry);
+        }
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    const identifierDetails = Core.getIdentifierDetails(node);
+    if (identifierDetails) {
+        registry.add(identifierDetails.name);
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            collectIdentifierNames(value, registry);
+        }
+    }
+}
+
+function isSpriteGetTextureCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return Core.isIdentifierWithName(node.object, "sprite_get_texture");
+}
+
+function isSurfaceResetTargetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return Core.isIdentifierWithName(node.object, "surface_reset_target");
+}
+
+function createSurfaceResetTargetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = Core.createIdentifierNode("surface_reset_target", template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    Core.assignClonedLocation(callExpression, template);
+
+    return callExpression;
+}
+
+function isDrawFunctionCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const identifier = node.object;
+
+    if (!Core.isIdentifierNode(identifier)) {
+        return false;
+    }
+
+    return typeof identifier.name === "string" && identifier.name.startsWith("draw_");
+}
+
+function isVertexSubmitCallUsingActiveTarget(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!Core.isIdentifierWithName(node.object, "vertex_submit")) {
+        return false;
+    }
+
+    const args = Core.getCallExpressionArguments(node);
+
+    if (args.length < 3) {
+        return false;
+    }
+
+    return isNegativeOneLiteral(args[2]);
+}
+
+function extractSurfaceTargetName(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const args = Core.getCallExpressionArguments(node);
+
+    if (args.length > 0 && Core.isIdentifierNode(args[0])) {
+        return args[0].name;
+    }
+
+    return node.object?.name ?? null;
+}
+
+function isNegativeOneLiteral(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Literal") {
+        return node.value === "-1" || node.value === -1;
+    }
+
+    if (node.type === "UnaryExpression" && node.operator === "-" && node.prefix) {
+        const argument = node.argument;
+
+        if (!argument || argument.type !== "Literal") {
+            return false;
+        }
+
+        return argument.value === "1" || argument.value === 1;
+    }
+
+    return false;
+}
+
+function isEventInheritedCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!Core.isIdentifierWithName(node.object, "event_inherited")) {
+        return false;
+    }
+
+    const args = Core.getCallExpressionArguments(node);
+
+    return args.length === 0;
+}
+
+function isStatementContainer(owner, ownerKey) {
+    if (!owner || typeof owner !== "object") {
+        return false;
+    }
+
+    if (ownerKey === "body") {
+        return Core.isProgramOrBlockStatement(owner);
+    }
+
+    if (owner.type === "SwitchCase" && ownerKey === "consequent") {
+        return true;
+    }
+
+    return false;
+}
 
 function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
     if (!ast || typeof ast !== "object" || !diagnostic?.id) {
