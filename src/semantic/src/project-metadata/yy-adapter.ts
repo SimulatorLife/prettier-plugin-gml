@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import { Yy } from "@bscotch/yy";
 import { Core } from "@gml-modules/core";
 
@@ -230,6 +232,60 @@ export function stringifyProjectMetadataDocument(document: Record<string, unknow
     }
 
     return Yy.stringify(document);
+}
+
+/**
+ * Read and parse a GameMaker metadata file from disk.
+ *
+ * When a schema can be inferred from path/resourceType, this uses
+ * schema-aware `Yy.readSync` parsing first and reports schema validation
+ * status in the same shape as {@link parseProjectMetadataDocumentWithSchema}.
+ */
+export function readProjectMetadataDocumentFromFile(sourcePath: string) {
+    let rawContents: string;
+    try {
+        rawContents = fs.readFileSync(sourcePath, "utf8");
+    } catch (error) {
+        throw new ProjectMetadataParseError(sourcePath, error);
+    }
+
+    return parseProjectMetadataDocumentWithSchema(rawContents, sourcePath);
+}
+
+/**
+ * Read metadata from disk for mutation workflows, enforcing schema validity
+ * through the same strict policy as {@link parseProjectMetadataDocumentForMutation}.
+ */
+export function readProjectMetadataDocumentForMutationFromFile(sourcePath: string) {
+    let rawContents: string;
+    try {
+        rawContents = fs.readFileSync(sourcePath, "utf8");
+    } catch (error) {
+        throw new ProjectMetadataParseError(sourcePath, error);
+    }
+
+    return parseProjectMetadataDocumentForMutation(rawContents, sourcePath);
+}
+
+/**
+ * Write a metadata document to disk using `@bscotch/yy` as the primary writer.
+ *
+ * Returns `true` when bytes were written and `false` when `Yy.writeSync`
+ * short-circuits because no file content changed.
+ */
+export function writeProjectMetadataDocumentToFile(sourcePath: string, document: Record<string, unknown>): boolean {
+    const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
+    if (schemaName) {
+        try {
+            return Yy.writeSync(sourcePath, document, schemaName);
+        } catch {
+            // Fall through to a generic serializer write when schema-specific
+            // writing fails, matching stringify fallback behavior.
+        }
+    }
+
+    fs.writeFileSync(sourcePath, stringifyProjectMetadataDocument(document, sourcePath), "utf8");
+    return true;
 }
 
 function resolveProjectMetadataPathTarget(

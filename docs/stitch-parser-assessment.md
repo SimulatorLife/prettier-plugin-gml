@@ -296,6 +296,10 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Added `parseProjectMetadataDocumentForMutation` in `src/semantic/src/project-metadata/yy-adapter.ts`, which enforces inferred `@bscotch/yy` schema validation for rename/refactor mutation workflows and throws a dedicated schema-validation error on mismatch.
   - Switched metadata mutation entry points (`src/semantic/src/identifier-case/asset-rename-executor.ts`, `src/cli/src/modules/refactor/semantic-bridge.ts`) to the stricter adapter API so malformed `.yy/.yyp` documents are skipped/blocked instead of being rewritten from loose parses.
   - Expanded adapter tests in `src/semantic/test/project-metadata-yy-adapter.test.ts` to verify schema mismatch reporting and strict mutation guard behavior.
+- Completed additional Phase 4 follow-up (file-level delegation to `@bscotch/yy`):
+  - Added file I/O helpers in `src/semantic/src/project-metadata/yy-adapter.ts` (`readProjectMetadataDocumentFromFile`, `readProjectMetadataDocumentForMutationFromFile`, `writeProjectMetadataDocumentToFile`) so semantic metadata workflows can delegate parsing/serialization decisions to `Yy.readSync`/`Yy.writeSync`.
+  - Updated `src/semantic/src/identifier-case/asset-rename-executor.ts` to route default filesystem metadata writes through `writeProjectMetadataDocumentToFile`, preserving mocked `fsFacade` behavior in tests while using Stitch-native write semantics in production flows.
+  - Expanded `src/semantic/test/project-metadata-yy-adapter.test.ts` with file-level read/write coverage, including `Yy.writeSync` no-op detection on unchanged metadata writes.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
   - `src/semantic/test/project-index-resource-analysis.test.ts`

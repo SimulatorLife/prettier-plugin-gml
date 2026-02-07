@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -8,9 +11,12 @@ import {
     parseProjectMetadataDocument,
     parseProjectMetadataDocumentForMutation,
     parseProjectMetadataDocumentWithSchema,
+    readProjectMetadataDocumentForMutationFromFile,
+    readProjectMetadataDocumentFromFile,
     resolveProjectMetadataSchemaName,
     stringifyProjectMetadataDocument,
-    updateProjectMetadataReferenceByPath
+    updateProjectMetadataReferenceByPath,
+    writeProjectMetadataDocumentToFile
 } from "../src/project-metadata/yy-adapter.js";
 
 void test("parseProjectMetadataDocument accepts trailing commas", () => {
@@ -168,4 +174,62 @@ void test("updateProjectMetadataReferenceByPath updates direct string paths", ()
 
     assert.equal(changed, true);
     assert.equal(getProjectMetadataValueAtPath(document, "Folders.0.folderPath"), "folders/Code.yy");
+});
+
+void test("readProjectMetadataDocumentFromFile parses metadata from disk", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-yy-adapter-read-"));
+    const metadataPath = path.join(tempRoot, "objects", "o_player", "o_player.yy");
+    fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+    fs.writeFileSync(
+        metadataPath,
+        `{
+            "name":"o_player",
+            "resourceType":"GMObject",
+        }`,
+        "utf8"
+    );
+
+    const parsed = readProjectMetadataDocumentFromFile(metadataPath);
+    assert.equal(parsed.document.name, "o_player");
+    assert.equal(parsed.schemaName, "objects");
+    assert.equal(parsed.schemaValidated, true);
+});
+
+void test("readProjectMetadataDocumentForMutationFromFile enforces schema checks", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-yy-adapter-strict-read-"));
+    const metadataPath = path.join(tempRoot, "objects", "o_player", "o_player.yy");
+    fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+    fs.writeFileSync(
+        metadataPath,
+        `{
+            "name":"o_player",
+            "resourceType":"GMObject",
+            "eventList":"invalid",
+        }`,
+        "utf8"
+    );
+
+    assert.throws(() => {
+        readProjectMetadataDocumentForMutationFromFile(metadataPath);
+    });
+});
+
+void test("writeProjectMetadataDocumentToFile delegates writes through yy writer", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-yy-adapter-write-"));
+    const metadataPath = path.join(tempRoot, "scripts", "demo", "demo.yy");
+    fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+
+    const firstWrite = writeProjectMetadataDocumentToFile(metadataPath, {
+        name: "demo",
+        resourceType: "GMScript"
+    });
+    const secondWrite = writeProjectMetadataDocumentToFile(metadataPath, {
+        name: "demo",
+        resourceType: "GMScript"
+    });
+
+    assert.equal(firstWrite, true);
+    assert.equal(secondWrite, false);
+    const written = fs.readFileSync(metadataPath, "utf8");
+    assert.match(written, /"resourceType"\s*:\s*"GMScript"/);
 });
