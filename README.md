@@ -519,8 +519,10 @@ var enemy = {
 var enemy = {name: "Slime", hp: 5};
 ```
 
-Bare decimal literals are always padded with leading and trailing zeroes (for
-example, `.5` becomes `0.5` and `1.` becomes `1.0`) to improve readability.
+Bare decimal literals always gain a leading zero, while empty or redundant
+fractional parts are dropped (for example, `.5` becomes `0.5` and `1.` or
+`1.000` becomes `1`) to mirror GameMaker's canonical numeric output and keep
+formatting stable.
 
 Banner line comments that open with long runs of `/` characters are rewritten
 into concise `//` comments. The formatter strips decorative separators (for
