@@ -8,7 +8,7 @@ import { Core } from "@gml-modules/core";
 
 import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 
-const { getErrorMessageOrFallback } = Core;
+const { getErrorMessageOrFallback, runSequentially } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
@@ -19,25 +19,6 @@ function resolveRepositoryPath(...segments: Array<string>) {
 
 async function ensureDirectoryExists(dirPath: string) {
     await fs.mkdir(dirPath, { recursive: true });
-}
-
-type HotReloadSequentialCallback<T> = (value: T, index: number) => void | Promise<void>;
-
-async function runSequentiallyLocal<T>(values: Iterable<T>, callback: HotReloadSequentialCallback<T>): Promise<void> {
-    const entries = Array.from(values);
-    let index = 0;
-
-    const runNext = async (): Promise<void> => {
-        if (index >= entries.length) {
-            return;
-        }
-
-        const currentIndex = index++;
-        await callback(entries[currentIndex], currentIndex);
-        await runNext();
-    };
-
-    await runNext();
 }
 
 /**
@@ -195,7 +176,7 @@ async function resolveHtml5Output({
     let best: Html5OutputResolution | null = null;
     let bestMtime = 0;
 
-    await runSequentiallyLocal(entries, async (entry) => {
+    await runSequentially(entries, async (entry) => {
         if (!entry.isDirectory()) {
             return;
         }
