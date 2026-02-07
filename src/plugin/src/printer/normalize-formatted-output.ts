@@ -371,10 +371,6 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     return normalized.join("\n");
 }
 
-function trimWhitespaceAfterBlockComments(formatted: string): string {
-    return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
-}
-
 function collectLineCommentTrailingWhitespace(source: string): Map<string, string[]> {
     const lines = source.split(/\r?\n/);
     const map = new Map<string, string[]>();
@@ -442,8 +438,7 @@ export function normalizeFormattedOutput(formatted: string, source: string): str
     const spacedComments = ensureBlankLineBeforeTopLevelLineComments(normalizedCommentSpacing);
     const trimmedDecorativeBlanks = trimDecorativeCommentBlankLines(spacedComments);
     const collapsedAfterDecorativeTrim = collapseDuplicateBlankLines(trimmedDecorativeBlanks);
-    const trimmedAfterBlockComments = trimWhitespaceAfterBlockComments(collapsedAfterDecorativeTrim);
-    const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(trimmedAfterBlockComments);
+    const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(collapsedAfterDecorativeTrim);
     const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(collapsedWhitespaceOnlyLines);
     const cleanedGuardComments = removeBlankLinesBeforeGuardComments(normalizedLineCommentBlockSpacing);
     const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(cleanedGuardComments, source);

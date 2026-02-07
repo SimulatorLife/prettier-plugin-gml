@@ -1356,13 +1356,11 @@ function formatDecorativeBlockComment(comment) {
 }
 
 function containsCommentedOutCodeLines(lines) {
+    const codeDetectionPatterns = Core.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+
     for (const line of lines) {
         const trimmed = line.trimStart();
-        if (!trimmed.startsWith("//")) {
-            continue;
-        }
-
-        const content = trimmed.slice(2).trim();
+        const content = normalizeCommentedCodeCandidate(trimmed);
         if (content === "") {
             continue;
         }
@@ -1371,10 +1369,27 @@ function containsCommentedOutCodeLines(lines) {
             continue;
         }
 
-        return true;
+        for (const pattern of codeDetectionPatterns) {
+            pattern.lastIndex = 0;
+            if (pattern.test(content)) {
+                return true;
+            }
+        }
     }
 
     return false;
+}
+
+function normalizeCommentedCodeCandidate(trimmedLine) {
+    if (trimmedLine.startsWith("//")) {
+        return trimmedLine.slice(2).trim();
+    }
+
+    if (trimmedLine.startsWith("*")) {
+        return trimmedLine.slice(1).trim();
+    }
+
+    return trimmedLine.trim();
 }
 
 function formatCommentedOutCodeBlockComment(comment) {
