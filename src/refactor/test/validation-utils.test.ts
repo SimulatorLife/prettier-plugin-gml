@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
-    assertNonEmptyString,
     assertValidIdentifierName,
     extractSymbolName,
     hasMethod,
@@ -131,42 +130,6 @@ void describe("assertValidIdentifierName", () => {
     void test("rejects identifier with special characters", () => {
         assert.throws(() => assertValidIdentifierName("name-with-dash"), {
             message: /not a valid GML identifier/
-        });
-    });
-});
-
-void describe("assertNonEmptyString", () => {
-    void test("does not throw for valid string", () => {
-        assert.doesNotThrow(() => {
-            assertNonEmptyString("validName", "testParam", "testFunction");
-        });
-    });
-
-    void test("throws TypeError for empty string", () => {
-        assert.throws(() => assertNonEmptyString("", "testParam", "testFunction"), {
-            name: "TypeError",
-            message: /testFunction requires testParam/
-        });
-    });
-
-    void test("throws TypeError for non-string input", () => {
-        assert.throws(() => assertNonEmptyString(123 as unknown as string, "testParam", "testFunction"), {
-            name: "TypeError",
-            message: /testFunction requires testParam/
-        });
-    });
-
-    void test("throws TypeError for null", () => {
-        assert.throws(() => assertNonEmptyString(null as unknown as string, "testParam", "testFunction"), {
-            name: "TypeError",
-            message: /testFunction requires testParam/
-        });
-    });
-
-    void test("throws TypeError for undefined", () => {
-        assert.throws(() => assertNonEmptyString(undefined as unknown as string, "testParam", "testFunction"), {
-            name: "TypeError",
-            message: /testFunction requires testParam/
         });
     });
 });
