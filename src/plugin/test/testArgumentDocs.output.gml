@@ -13,10 +13,10 @@
 /// @param color
 /// @returns {undefined}
 function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
-    var w         = width;
+    var w = width;
     var step_size = 1 / steps;
-    var xnet      = -1;
-    var ynet      = -1;
+    var xnet = -1;
+    var ynet = -1;
 
     for (var i = 0; i <= 1; i += step_size) {
         var x12 = lerp(x1, x2, i);

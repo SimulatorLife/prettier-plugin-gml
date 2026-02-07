@@ -360,8 +360,8 @@ function combineLengthdirScalarAssignments(ast) {
             continue;
         }
 
-        const baseName = getIdentifierName(declarator.id);
-        if (!baseName || getIdentifierName(assignment.left) !== baseName) {
+        const baseName = getUnwrappedIdentifierName(declarator.id);
+        if (!baseName || getUnwrappedIdentifierName(assignment.left) !== baseName) {
             continue;
         }
 
@@ -452,7 +452,7 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    const functionName = getIdentifierName(callExpression.object);
+    const functionName = getUnwrappedIdentifierName(callExpression.object);
     if (functionName !== "lengthdir_x") {
         return null;
     }
@@ -648,7 +648,7 @@ function findFirstNumericLiteral(node) {
  * normalization transform.
  */
 function isIdentifierNamed(node, name) {
-    const identifierName = getIdentifierName(node);
+    const identifierName = getUnwrappedIdentifierName(node);
     return typeof identifierName === "string" && identifierName === name;
 }
 
@@ -2326,7 +2326,7 @@ function attemptConvertPointDistanceCall(node) {
         return false;
     }
 
-    const calleeName = getIdentifierName(node.object);
+    const calleeName = getUnwrappedIdentifierName(node.object);
     const callArguments = Core.getCallExpressionArguments(node);
 
     let distanceExpression;
@@ -2375,7 +2375,7 @@ function attemptConvertPowerToSqrt(node) {
         return false;
     }
 
-    const calleeName = getIdentifierName(node.object);
+    const calleeName = getUnwrappedIdentifierName(node.object);
     if (calleeName !== "power") {
         return false;
     }
@@ -2399,7 +2399,7 @@ function attemptConvertPowerToExp(node) {
         return false;
     }
 
-    const calleeName = getIdentifierName(node.object);
+    const calleeName = getUnwrappedIdentifierName(node.object);
     if (calleeName !== "power") {
         return false;
     }
@@ -2425,7 +2425,7 @@ function attemptConvertPointDirection(node) {
         return false;
     }
 
-    const calleeName = getIdentifierName(node.object);
+    const calleeName = getUnwrappedIdentifierName(node.object);
     if (calleeName !== "arctan2") {
         return false;
     }
@@ -2464,7 +2464,7 @@ function attemptConvertTrigDegreeArguments(node) {
         return false;
     }
 
-    const calleeName = getIdentifierName(node.object);
+    const calleeName = getUnwrappedIdentifierName(node.object);
     if (calleeName !== "sin" && calleeName !== "cos") {
         return false;
     }
@@ -2658,7 +2658,7 @@ function matchLengthdirScaledOperand(node, context) {
         return null;
     }
 
-    const calleeName = getIdentifierName(expression.object);
+    const calleeName = getUnwrappedIdentifierName(expression.object);
     if (calleeName !== "lengthdir_x" && calleeName !== "lengthdir_y") {
         return null;
     }
@@ -2810,7 +2810,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
     }
 
     const minuend = unwrapExpression(leftExpression.left);
-    const identifierName = getIdentifierName(minuend);
+    const identifierName = getUnwrappedIdentifierName(minuend);
     const scaledOperandInfo = matchScaledOperand(leftExpression.right, context);
 
     if (!minuend || !scaledOperandInfo || !scaledOperandInfo.base) {
@@ -2949,7 +2949,7 @@ function promoteLengthdirHalfDifference(
         return;
     }
 
-    if (getIdentifierName(assignment.left) !== identifierName) {
+    if (getUnwrappedIdentifierName(assignment.left) !== identifierName) {
         return;
     }
 
@@ -3234,7 +3234,7 @@ function identifyTrigCall(node) {
         return null;
     }
 
-    const calleeName = getIdentifierName(expression.object);
+    const calleeName = getUnwrappedIdentifierName(expression.object);
     if (!Array.isArray(expression.arguments) || expression.arguments.length !== 1) {
         return null;
     }
@@ -3273,7 +3273,7 @@ function matchDegToRadCall(argument) {
     if (
         !expression ||
         expression.type !== CALL_EXPRESSION ||
-        getIdentifierName(expression.object) !== "degtorad" ||
+        getUnwrappedIdentifierName(expression.object) !== "degtorad" ||
         !Array.isArray(expression.arguments) ||
         expression.arguments.length !== 1
     ) {
@@ -3795,8 +3795,8 @@ function areNodesEquivalent(a, b) {
             return left.operator === right.operator && areNodesEquivalent(left.argument, right.argument);
         }
         case CALL_EXPRESSION: {
-            const leftName = getIdentifierName(left.object);
-            const rightName = getIdentifierName(right.object);
+            const leftName = getUnwrappedIdentifierName(left.object);
+            const rightName = getUnwrappedIdentifierName(right.object);
 
             if (leftName !== rightName) {
                 return false;
@@ -3884,26 +3884,15 @@ function unwrapExpression(node) {
 }
 
 /**
- * Extracts the identifier name from a node, unwrapping any ParenthesizedExpression layers.
- *
- * DUPLICATION WARNING: This function appears to duplicate identifier-extraction logic
- * that exists elsewhere in the codebase (e.g., in the Feather-fixes file and possibly
- * in Core or Semantic).
- *
- * LOCATION SMELL: This is a general identifier utility that should live in Core's
- * identifier-utils module, not in the math normalization transform.
- *
- * RECOMMENDATION: Audit the codebase for similar functions (extractIdentifierName,
- * getIdentifierNameFromNode, etc.) and consolidate them into a single implementation
- * in Core. Then import that function here instead of maintaining a duplicate.
+ * Extract the identifier name from an expression, unwrapping parenthesized layers.
  */
-function getIdentifierName(node) {
+function getUnwrappedIdentifierName(node: unknown): string | null {
     const expression = unwrapExpression(node);
-    if (!expression || expression.type !== IDENTIFIER) {
+    if (!expression) {
         return null;
     }
 
-    return expression.name ?? null;
+    return Core.getIdentifierName(expression);
 }
 
 function mutateToCallExpression(target, name, args, template) {
@@ -4015,7 +4004,7 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
         return;
     }
 
-    const baseName = getIdentifierName(declarator.id);
+    const baseName = getUnwrappedIdentifierName(declarator.id);
     if (typeof baseName !== "string" || baseName.length === 0) {
         return;
     }
@@ -4068,7 +4057,7 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
     }
 
     const declarator = findVariableDeclaratorForInit(root, simplifiedNode);
-    const baseName = getIdentifierName(declarator?.id);
+    const baseName = getUnwrappedIdentifierName(declarator?.id);
 
     if (typeof baseName !== "string" || baseName.length === 0) {
         return;
@@ -4410,7 +4399,7 @@ function findVariableDeclarationByName(root, identifierName) {
 
         if (node.type === "VariableDeclaration" && Array.isArray(node.declarations) && node.declarations.length === 1) {
             const [declarator] = node.declarations;
-            const name = getIdentifierName(declarator?.id);
+            const name = getUnwrappedIdentifierName(declarator?.id);
 
             if (name === identifierName) {
                 return node;
@@ -4603,7 +4592,7 @@ function hasInlineCommentBetween(left, right, context) {
 
 function isLnCall(node) {
     const expression = unwrapExpression(node);
-    if (!expression || expression.type !== CALL_EXPRESSION || getIdentifierName(expression.object) !== "ln") {
+    if (!expression || expression.type !== CALL_EXPRESSION || getUnwrappedIdentifierName(expression.object) !== "ln") {
         return false;
     }
 

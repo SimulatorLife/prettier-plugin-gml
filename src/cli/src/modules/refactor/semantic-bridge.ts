@@ -2,21 +2,129 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import {
-    type DependentSymbol,
-    type FileSymbol,
-    type MaybePromise,
-    OccurrenceKind,
-    type PartialSemanticAnalyzer,
-    type SymbolLookupResult,
-    type SymbolOccurrence,
-    WorkspaceEdit
-} from "@gml-modules/refactor";
+import { Semantic } from "@gml-modules/semantic";
+
+type ResourceAssetReferenceRecord = {
+    propertyPath: string;
+    targetPath: string;
+};
+
+type ResourceMetadataRecord = {
+    assetReferences: Array<ResourceAssetReferenceRecord>;
+    path: string;
+};
+
+type MaybePromise<T> = T | Promise<T>;
+
+type SymbolLookupResult = {
+    name: string;
+};
+
+type SymbolOccurrence = {
+    end: number;
+    kind?: "definition" | "reference";
+    path: string;
+    scopeId?: string;
+    start: number;
+};
+
+type FileSymbol = {
+    id: string;
+};
+
+type DependentSymbol = {
+    filePath: string;
+    symbolId: string;
+};
+
+type WorkspaceEdit = {
+    addEdit: (path: string, start: number, end: number, newText: string) => void;
+    addFileRename: (oldPath: string, newPath: string) => void;
+    addMetadataEdit: (path: string, content: string) => void;
+    edits: Array<{ end: number; newText: string; path: string; start: number }>;
+    fileRenames: Array<{ newPath: string; oldPath: string }>;
+    metadataEdits: Array<{ content: string; path: string }>;
+    groupByFile: () => BridgeGroupedTextEdits;
+};
+
+type BridgeTextEdit = {
+    end: number;
+    newText: string;
+    start: number;
+};
+
+type BridgeGroupedTextEdits = Map<string, Array<BridgeTextEdit>>;
+
+function createWorkspaceEdit(): WorkspaceEdit {
+    const workspace = {
+        edits: [] as Array<{ end: number; newText: string; path: string; start: number }>,
+        fileRenames: [] as Array<{ newPath: string; oldPath: string }>,
+        metadataEdits: [] as Array<{ content: string; path: string }>,
+        addEdit(filePath: string, start: number, end: number, newText: string) {
+            workspace.edits.push({ path: filePath, start, end, newText });
+        },
+        addFileRename(oldPath: string, newPath: string) {
+            workspace.fileRenames.push({ oldPath, newPath });
+        },
+        addMetadataEdit(filePath: string, content: string) {
+            workspace.metadataEdits.push({ path: filePath, content });
+        },
+        groupByFile() {
+            const grouped: BridgeGroupedTextEdits = new Map();
+            for (const edit of workspace.edits) {
+                const fileEdits = grouped.get(edit.path) ?? [];
+                fileEdits.push({
+                    start: edit.start,
+                    end: edit.end,
+                    newText: edit.newText
+                });
+                grouped.set(edit.path, fileEdits);
+            }
+
+            for (const [groupPath, fileEdits] of grouped.entries()) {
+                grouped.set(
+                    groupPath,
+                    fileEdits.toSorted((left, right) => right.start - left.start)
+                );
+            }
+
+            return grouped;
+        }
+    };
+
+    return workspace satisfies WorkspaceEdit;
+}
+
+function isResourceAssetReferenceRecord(value: unknown): value is ResourceAssetReferenceRecord {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+    const reference = value as Record<string, unknown>;
+
+    return typeof reference.propertyPath === "string" && typeof reference.targetPath === "string";
+}
+
+function isResourceMetadataRecord(value: unknown): value is ResourceMetadataRecord {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+    const record = value as Record<string, unknown>;
+
+    if (typeof record.path !== "string") {
+        return false;
+    }
+
+    if (!Array.isArray(record.assetReferences)) {
+        return false;
+    }
+
+    return record.assetReferences.every((reference) => isResourceAssetReferenceRecord(reference));
+}
 
 /**
  * Semantic bridge that adapts @gml-modules/semantic ProjectIndex to the refactor engine.
  */
-export class GmlSemanticBridge implements PartialSemanticAnalyzer {
+export class GmlSemanticBridge {
     private projectIndex: any;
     private projectRoot: string;
 
@@ -153,8 +261,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
         this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
-        this.collectOccurrencesFromAssetReferences(symbolName, occurrences);
-
         // 4. Search all GML files for the name as an identifier
         // This handles references in code that might not have been picked up or classified
         // correctly by the semantic indexer (common for resource constants).
@@ -174,7 +280,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
         const resource = this.findResourceBySymbol(entry, symbolId);
         if (!resource) return null;
 
-        const edit = new WorkspaceEdit();
+        const edit = createWorkspaceEdit();
         const oldName = entry.name;
         const oldPath = resource.path;
 
@@ -216,7 +322,91 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
+        this.addResourceMetadataEdits(edit, resource, oldName, newName);
+
         return edit;
+    }
+
+    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, oldName: string, newName: string): void {
+        const resources = this.resources;
+        if (!resources || !resource?.path) {
+            return;
+        }
+
+        const newResourcePath = path.posix.join(path.posix.dirname(resource.path), `${newName}.yy`);
+
+        for (const resourceEntry of Object.values(resources)) {
+            if (!isResourceMetadataRecord(resourceEntry)) {
+                continue;
+            }
+
+            const isResourceMetadataPath =
+                Semantic.isProjectResourceMetadataPath(resourceEntry.path) ||
+                Semantic.isProjectManifestPath(resourceEntry.path);
+            if (!isResourceMetadataPath) {
+                continue;
+            }
+
+            const absolutePath = path.resolve(this.projectRoot, resourceEntry.path);
+            if (!fs.existsSync(absolutePath)) {
+                continue;
+            }
+
+            let rawContent: string;
+            try {
+                rawContent = fs.readFileSync(absolutePath, "utf8");
+            } catch {
+                continue;
+            }
+
+            let parsed: Record<string, unknown>;
+            try {
+                parsed = Semantic.readProjectMetadataDocumentForMutationFromFile(absolutePath).document;
+            } catch {
+                continue;
+            }
+
+            let changed = false;
+
+            if (resourceEntry.path === resource.path) {
+                if (parsed.name !== newName) {
+                    parsed.name = newName;
+                    changed = true;
+                }
+
+                if (Core.isNonEmptyString(newResourcePath) && parsed.resourcePath !== newResourcePath) {
+                    parsed.resourcePath = newResourcePath;
+                    changed = true;
+                }
+            }
+
+            for (const reference of resourceEntry.assetReferences) {
+                if (reference.targetPath !== resource.path) {
+                    continue;
+                }
+
+                const updated = Semantic.updateProjectMetadataReferenceByPath({
+                    document: parsed,
+                    propertyPath: reference.propertyPath,
+                    newResourcePath,
+                    newName
+                });
+                if (updated) {
+                    changed = true;
+                }
+            }
+
+            if (!changed) {
+                continue;
+            }
+
+            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
+            if (updatedContent === rawContent) {
+                continue;
+            }
+
+            edit.addMetadataEdit(resourceEntry.path, updatedContent);
+        }
     }
 
     private findResourceBySymbol(entry: any, symbolId: string): any {
@@ -248,7 +438,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                         path: filePath,
                         start: hit.start,
                         end: hit.end,
-                        kind: OccurrenceKind.REFERENCE
+                        kind: "reference"
                     });
                 }
             }
@@ -284,46 +474,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
     }
 
     /**
-     * Find exact string occurrences in a JSON file to avoid corrupting it with [0,0] edits.
-     */
-    private findJsonStringOccurrences(
-        relativePath: string,
-        searchString: string
-    ): Array<{ start: number; end: number }> {
-        const results: Array<{ start: number; end: number }> = [];
-        try {
-            const absolutePath = path.resolve(this.projectRoot, relativePath);
-            if (!fs.existsSync(absolutePath)) {
-                return results;
-            }
-
-            const content = fs.readFileSync(absolutePath, "utf8");
-
-            // SEARCH IMPROVEMENT: Also find the name within paths!
-            // Example: "path":"objects/oGravitySphere/oGravitySphere.yy"
-            // We search for the name as an identifier within any string literal.
-            const escapedSearch = Core.escapeRegExp(searchString);
-            // Look for the name inside double quotes, potentially as part of a path.
-            // We want to match "oGravitySphere" but NOT "another_oGravitySphere"
-            const regex = new RegExp(
-                String.raw`(?<=")(${escapedSearch})(?=[^a-zA-Z0-9_])|(?<=[^a-zA-Z0-9_])(${escapedSearch})(?=")|(?<=")(${escapedSearch})(?=")|(?<=[\/])(${escapedSearch})(?=[\.\/])`,
-                "g"
-            );
-
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                results.push({
-                    start: match.index,
-                    end: match.index + searchString.length
-                });
-            }
-        } catch (error) {
-            console.warn(`[GmlSemanticBridge] Failed to read ${relativePath} for occurrence search:`, error);
-        }
-        return results;
-    }
-
-    /**
      * Collect occurrences from an entry.
      */
     private collectOccurrencesFromEntry(entry: any, symbolName: string, occurrences: Array<SymbolOccurrence>): void {
@@ -343,7 +493,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                         start: decl.start?.index ?? 0,
                         end: decl.end?.index ?? 0,
                         scopeId: decl.scopeId,
-                        kind: OccurrenceKind.DEFINITION
+                        kind: "definition"
                     });
                 }
             }
@@ -361,7 +511,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                         start,
                         end,
                         scopeId: ref.scopeId,
-                        kind: OccurrenceKind.REFERENCE
+                        kind: "reference"
                     });
                 }
             }
@@ -387,56 +537,8 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     start,
                     end,
                     scopeId: call.from?.scopeId,
-                    kind: OccurrenceKind.REFERENCE
+                    kind: "reference"
                 });
-            }
-        }
-    }
-
-    /**
-     * Collect occurrences from asset references across all resources.
-     */
-    private collectOccurrencesFromAssetReferences(targetName: string, occurrences: Array<SymbolOccurrence>): void {
-        const resources = this.resources;
-        if (!resources) return;
-
-        // Also add the definition itself if we can find it in the resource file
-        const definitionResource = this.findResourceByName(targetName);
-        if (definitionResource) {
-            const defs = this.findJsonStringOccurrences(definitionResource.path, targetName);
-            for (const def of defs) {
-                occurrences.push({
-                    path: definitionResource.path,
-                    start: def.start,
-                    end: def.end,
-                    scopeId: null,
-                    kind: OccurrenceKind.DEFINITION
-                });
-            }
-        }
-
-        for (const key of Object.keys(resources)) {
-            const res = resources[key];
-            if (Array.isArray(res.assetReferences)) {
-                for (const ref of res.assetReferences) {
-                    if (ref.targetName === targetName) {
-                        // Find actual locations in the file
-                        const locations = this.findJsonStringOccurrences(res.path, targetName);
-
-                        // If we found locations, add them. If not, and we are sure it's a reference,
-                        // we skip adding a blind [0,0] edit because it corrupts the file.
-                        // Ideally we should warn, but for now we prioritize not breaking the file.
-                        for (const loc of locations) {
-                            occurrences.push({
-                                path: res.path,
-                                start: loc.start,
-                                end: loc.end,
-                                scopeId: null,
-                                kind: OccurrenceKind.REFERENCE
-                            });
-                        }
-                    }
-                }
             }
         }
     }
@@ -453,7 +555,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     start: decl.start?.index ?? 0,
                     end: decl.end?.index ?? 0,
                     scopeId: decl.scopeId,
-                    kind: OccurrenceKind.DEFINITION
+                    kind: "definition"
                 });
             }
         }
@@ -469,7 +571,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     start,
                     end,
                     scopeId: ref.scopeId,
-                    kind: OccurrenceKind.REFERENCE
+                    kind: "reference"
                 });
             }
         }
@@ -740,7 +842,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     filePath: resource.path,
                     start: { index: 0, line: 0, column: 0 },
                     end: { index: 0, line: 0, column: 0 },
-                    kind: OccurrenceKind.DEFINITION
+                    kind: "definition"
                 }
             ],
             references: [], // We'd need to populate this via asset scan if we want references visible here

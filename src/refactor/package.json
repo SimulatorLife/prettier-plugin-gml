@@ -14,8 +14,7 @@
   "dependencies": {
     "@gml-modules/core": "workspace:*",
     "@gml-modules/parser": "workspace:*",
-    "@gml-modules/semantic": "workspace:*",
-    "@gml-modules/plugin": "workspace:*"
+    "@gml-modules/semantic": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

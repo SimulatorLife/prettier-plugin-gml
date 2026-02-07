@@ -27,7 +27,7 @@ void test("keeps small struct arguments inline", async () => {
     );
 });
 
-void test("still breaks struct arguments with many properties", async () => {
+void test("keeps struct arguments inline when they fit print width", async () => {
     const source = [
         "function build() {",
         "    return create_instance(1, 2, {",
@@ -45,12 +45,37 @@ void test("still breaks struct arguments with many properties", async () => {
 
     assert.strictEqual(
         lines[returnIndex],
-        "    return create_instance(",
-        "Calls with larger struct arguments should still break to preserve readability."
+        "    return create_instance(1, 2, {",
+        "Calls with larger struct arguments should stay inline when the line still fits."
+    );
+});
+
+void test("keeps struct argument calls inline when only the struct body wraps", async () => {
+    const source = [
+        "function build() {",
+        "    return create_instance(1, 2, {",
+        "        first: 123456789,",
+        "        second: 123456789,",
+        "        third: 123456789",
+        "    });",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        printWidth: 55
+    });
+    const lines = formatted.trim().split("\n");
+    const returnIndex = lines.findIndex((line) => line.includes("return create_instance"));
+
+    assert.strictEqual(
+        lines[returnIndex],
+        "    return create_instance(1, 2, {",
+        "Calls with struct arguments should keep the call signature inline while the struct body wraps."
     );
     assert.strictEqual(
         lines[returnIndex + 1],
-        "        1,",
-        "The first argument should be printed on its own line when the call breaks."
+        "        first: 123456789,",
+        "The struct body should wrap to the next line when it exceeds print width."
     );
 });

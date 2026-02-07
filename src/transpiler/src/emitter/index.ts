@@ -2,6 +2,7 @@ export type * from "./ast.js";
 export type { BuiltInEmitter } from "./builtins.js";
 export { builtInFunctions } from "./builtins.js";
 export { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
+export { tryFoldConstantExpression } from "./constant-folding.js";
 export { GmlToJsEmitter } from "./emitter.js";
 export { emitJavaScript, makeDummyOracle } from "./emitter-entrypoints.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";

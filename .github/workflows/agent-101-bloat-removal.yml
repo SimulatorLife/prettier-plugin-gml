@@ -23,11 +23,10 @@ jobs:
       prompt: >-
         Investigate the repository in search of a **single clearly bloated feature** that is detrimental to performance,
         unnecessary to ship, and harder to justify than it is to remove. For the chosen feature you must:
-        - Confirm it is not required by any active feature, integration, or planned effort;
-        - Remove **every trace** of it, including source code, configuration, assets, and **its dedicated tests** or fixtures;
-        - Show that the removal is self-contained, refactors nothing, and leaves no lingering references or dead exports;
-        - Provide a concrete rationale (with references to source files, workload impact, or historical reasons) that explains why
-          deletion is preferable to porting, modularizing, or reworking the feature.
+        - Stay within the target architecture described in `AGENTS.md` and the workspace overview in `README.md`: do not remove, refactor, or break the top-level workspaces such as `cli`, `transpiler`, `plugin`, `semantic`, `core`, `runtime-wrapper`, `refactor`, or any documented supported workspace, nor should you delete any of the documented CLI commands, golden fixtures, or documented plans referenced there.
+        - Confirm it is not required by any active feature, integration, or planned effort, and cite the README/AGENTS ownership guidance when arguing the feature is expendable.
+        - Remove **every trace** of the bloated feature, including source code, configuration, assets, and its dedicated tests or fixtures (unless the fixtures are part of the preserved golden dataset noted in AGENTS).
+        - Ensure the change is self-contained, introduces no cross-cutting refactors, and leaves no lingering references, exports, or runtime noise.
+        - Provide a concrete rationale (with references to source files, workload impact, or documented history) explaining why deletion is preferable to porting, modularizing, or reworking the feature.
 
-        Keep the pull request focused: only delete what is strictly necessary for this removal, document why it is safe,
-        and ensure the test suite still passes.
+        Keep the pull request focused: delete only what the removed feature requires, explain its safety with reference to the README/AGENTS mandates, and make sure the test suite still passes.

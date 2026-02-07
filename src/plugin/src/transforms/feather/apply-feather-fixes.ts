@@ -29,7 +29,13 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
+import {
+    buildDeprecatedBuiltinVariableReplacements,
+    buildFeatherTypeSystemInfo,
+    getDeprecatedBuiltinReplacementEntry,
+    getFeatherDiagnostics
+} from "../../resources/index.js";
 import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
@@ -46,6 +52,7 @@ import {
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
 import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
+import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import { annotateMissingUserEvents } from "./user-event-fixes.js";
 import {
@@ -148,7 +155,7 @@ function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.getOptionalString(value, "id") !== null;
 }
 
-const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = Core.buildDeprecatedBuiltinVariableReplacements();
+const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = buildDeprecatedBuiltinVariableReplacements();
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -157,7 +164,7 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
 ]);
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
-const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
@@ -962,10 +969,11 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1008",
         (diagnostic) =>
-            ({ ast }) => {
+            ({ ast, options }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
-                    diagnostic
+                    diagnostic,
+                    options
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
@@ -1740,7 +1748,11 @@ function createAutomaticFeatherFixHandlers() {
                 })
         ],
         ["GM1033", ({ ast, sourceText, diagnostic }) => removeDuplicateSemicolons({ ast, sourceText, diagnostic })],
-        ["GM1030", ({ ast, sourceText, diagnostic }) => renameReservedIdentifiers({ ast, diagnostic, sourceText })],
+        [
+            "GM1030",
+            ({ ast, sourceText, diagnostic, options }) =>
+                renameReservedIdentifiers({ ast, diagnostic, options, sourceText })
+        ],
         ["GM1034", ({ ast, diagnostic }) => relocateArgumentReferencesInsideFunctions({ ast, diagnostic })],
         ["GM1036", ({ ast, diagnostic }) => normalizeMultidimensionalArrayIndexing({ ast, diagnostic })],
         ["GM1038", ({ ast, diagnostic }) => removeDuplicateMacroDeclarations({ ast, diagnostic })],
@@ -2064,50 +2076,6 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
     attachFeatherFixMetadata(identifierNode, [fixDetail]);
 
     return fixDetail;
-}
-
-function buildFeatherTypeSystemInfo() {
-    const metadata = Core.getFeatherMetadata();
-    const typeSystem = metadata?.typeSystem;
-
-    const baseTypes = new Set();
-    const baseTypesLowercase = new Set();
-    const specifierBaseTypes = new Set();
-
-    const entries = Core.asArray(typeSystem?.baseTypes);
-
-    for (const entry of entries) {
-        const name = Core.toTrimmedString(Core.getOptionalString(entry, "name"));
-
-        if (!name) {
-            continue;
-        }
-
-        baseTypes.add(name);
-        baseTypesLowercase.add(name.toLowerCase());
-
-        const specifierExamples = Core.asArray(Core.getOptionalArray(entry, "specifierExamples"));
-        const hasDotSpecifier = specifierExamples.some((example) => {
-            if (typeof example !== "string") {
-                return false;
-            }
-
-            return example.trim().startsWith(".");
-        });
-
-        const description = Core.toTrimmedString(Core.getOptionalString(entry, "description")) ?? "";
-        const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
-
-        if (hasDotSpecifier || requiresSpecifier) {
-            specifierBaseTypes.add(name.toLowerCase());
-        }
-    }
-
-    return {
-        baseTypeNames: [...baseTypes],
-        baseTypeNamesLower: baseTypesLowercase,
-        specifierBaseTypeNamesLower: specifierBaseTypes
-    };
 }
 
 function registerFeatherFixer(registry, diagnosticId, implementation) {
@@ -2521,7 +2489,7 @@ function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
     return slice.trim() || null;
 }
 
-function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
+function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -2546,7 +2514,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
         }
 
         if (node.type === "AssignmentExpression") {
-            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry);
+            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
                 fixes.push(fixDetail);
@@ -2564,7 +2532,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
     return fixes;
 }
 
-function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry) {
+function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, formattingOptions) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
@@ -2583,7 +2551,18 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
-    const replacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const preferredReplacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const renameResolution = resolveSemanticSafeFeatherRename({
+        formattingOptions,
+        identifierName: identifier.name,
+        localIdentifierNames: nameRegistry,
+        preferredReplacementName
+    });
+
+    if (!renameResolution || !Core.isNonEmptyString(renameResolution.replacementName)) {
+        return null;
+    }
+    const replacementName = renameResolution.replacementName;
     const replacementIdentifier = Core.createIdentifierNode(replacementName, identifier);
 
     const declarator = {
@@ -2618,8 +2597,10 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
+    fixDetail.replacement = replacementName;
     attachFeatherFixMetadata(declaration, [fixDetail]);
 
+    nameRegistry.add(replacementName);
     replaceReadOnlyIdentifierReferences(parent, property + 1, identifier.name, replacementName);
 
     return fixDetail;
@@ -2811,8 +2792,6 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
         suffix += 1;
         candidate = `__feather_${sanitized}_${suffix}`;
     }
-
-    nameRegistry.add(candidate);
 
     return candidate;
 }
@@ -4552,7 +4531,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
         return null;
     }
 
-    const replacementEntry = Core.getDeprecatedBuiltinReplacementEntry(normalizedName);
+    const replacementEntry = getDeprecatedBuiltinReplacementEntry(normalizedName);
 
     if (!replacementEntry) {
         return null;
@@ -11632,8 +11611,8 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic, stringLiteralA
         const leftIsNumeric = isNumericLiteralNode(node.left);
         const rightIsNumeric = isNumericLiteralNode(node.right);
 
-        const leftIdentifier = getIdentifierName(node.left);
-        const rightIdentifier = getIdentifierName(node.right);
+        const leftIdentifier = Core.getIdentifierName(node.left);
+        const rightIdentifier = Core.getIdentifierName(node.right);
 
         const leftTracked = typeof leftIdentifier === "string" && stringLiteralAssignments.has(leftIdentifier);
         const rightTracked = typeof rightIdentifier === "string" && stringLiteralAssignments.has(rightIdentifier);
@@ -11707,14 +11686,6 @@ function canWrapOperandWithReal(node) {
     return true;
 }
 
-function getIdentifierName(node) {
-    if (Core.isIdentifierNode(node) && typeof node.name === "string") {
-        return node.name;
-    }
-
-    return null;
-}
-
 function isCoercibleStringLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -11753,7 +11724,7 @@ function isCoercibleStringLiteral(node) {
 }
 
 function recordIdentifierStringAssignment(identifier, expression, assignments) {
-    const name = getIdentifierName(identifier);
+    const name = Core.getIdentifierName(identifier);
 
     if (!name || !assignments) {
         return;

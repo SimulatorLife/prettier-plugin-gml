@@ -74,7 +74,7 @@ function Circle(r) : Shape() constructor {
 }
 
 var myCircle = new Circle(10);
-var circle2  = new Circle(myCircle.r);
+var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
@@ -104,9 +104,9 @@ function Line() : Shape() constructor {
 /// @param settings
 /// @param fallback
 function choose_profile(settings, fallback) {
-    var config         = settings ?? global.default_settings;
+    var config = settings ?? global.default_settings;
     var themeCandidate = config.theme_override ?? fallback.theme_override;
-    var finalTheme     = themeCandidate ?? global.theme_defaults;
+    var finalTheme = themeCandidate ?? global.theme_defaults;
     if (is_undefined(config ?? fallback)) {
         return "guest";
     }
@@ -138,11 +138,11 @@ var best = choose_profile(undefined, {profile: "dev"});
 ///              .__GetString()
 ///              .__GetBuffer()
 function __ChatterboxBufferBatch() constructor {
-    __destroyed  = false;
-    __inBuffer   = undefined;
+    __destroyed = false;
+    __inBuffer = undefined;
     __workBuffer = undefined;
-    __outBuffer  = undefined;
-    __commands   = [];
+    __outBuffer = undefined;
+    __commands = [];
 
     static __Destroy = function () {
         if (__destroyed) { return; }
@@ -175,7 +175,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {real} [multiplier] The multiplier to apply to the light direction
 /// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
-    var dir    = light_dir;
+    var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
@@ -200,7 +200,7 @@ function scr_spring(a, b, dst, force, push_out, pull_in) {
     }
 
     var push_out = argument_count > 4 ? argument[4] : true;
-    var pull_in  = argument_count > 5 ? argument[5] : true;
+    var pull_in = argument_count > 5 ? argument[5] : true;
 
     var xoff = a.x - b.x;
     var yoff = a.y - b.y;
@@ -211,7 +211,7 @@ function scr_spring(a, b, dst, force, push_out, pull_in) {
     }
     if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
         actual_dist = sqrt(actual_dist);
-        var diff    = actual_dist - dst;
+        var diff = actual_dist - dst;
 
         // normalize and multiply with diff and amount
         var norm = (force * diff) / actual_dist;
@@ -262,7 +262,7 @@ get_debug_text = function () {
 /// @param [trans_mat]
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
-    var hx = 0.5, hy = 0.5, h  = 1;
+    var hx = 0.5, hy = 0.5, h = 1;
 
     // Base corners (Z = 0)
     var L0 = [-hx, -hy, 0]; // x-, y-

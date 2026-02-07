@@ -15,7 +15,6 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import { normalizeFormattedOutput } from "@gml-modules/plugin";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 
@@ -25,7 +24,11 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point.js";
+import {
+    configurePluginRuntimeAdapters,
+    importPluginModule,
+    resolvePluginEntryPoint as resolveCliPluginEntryPoint
+} from "../plugin-runtime/index.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -243,6 +246,7 @@ function isMissingPrettierDependency(error) {
 }
 
 let prettierModulePromise = null;
+let pluginOutputNormalizerPromise: Promise<null | ((formatted: string, source: string) => string)> | null = null;
 
 function resolvePrettier() {
     if (!prettierModulePromise) {
@@ -264,6 +268,31 @@ function resolvePrettier() {
     }
 
     return prettierModulePromise;
+}
+
+async function resolvePluginOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
+    if (pluginOutputNormalizerPromise === null) {
+        pluginOutputNormalizerPromise = importPluginModule()
+            .then((moduleValue) => {
+                const normalizer = (moduleValue as { normalizeFormattedOutput?: unknown }).normalizeFormattedOutput;
+                return typeof normalizer === "function"
+                    ? (normalizer as (formatted: string, source: string) => string)
+                    : null;
+            })
+            .catch(() => null);
+    }
+
+    return await pluginOutputNormalizerPromise;
+}
+
+async function normalizeFormattedOutputWithPlugin(formatted: string, source: string): Promise<string> {
+    const normalizer = await resolvePluginOutputNormalizer();
+
+    if (typeof normalizer !== "function") {
+        return formatted;
+    }
+
+    return normalizer(formatted, source);
 }
 
 const DEFAULT_EXTENSIONS = resolveDefaultExtensions();
@@ -1401,7 +1430,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
             formatted = await prettier.format(data, formattingOptions);
             storeFormattingCacheEntry(cacheKey, formatted);
         }
-        const normalizedOutput = normalizeFormattedOutput(formatted, data);
+        const normalizedOutput = await normalizeFormattedOutputWithPlugin(formatted, data);
 
         if (normalizedOutput === data) {
             return;
@@ -1666,6 +1695,7 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
  */
 async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, originalInput }) {
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
+    await configurePluginRuntimeAdapters(projectRoot);
 
     await processResolvedTarget({
         targetPath,

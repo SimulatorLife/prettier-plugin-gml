@@ -1,6 +1,5 @@
 import type { GameMakerAstNode } from "@gml-modules/core";
 
-import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 import { prettierParserAdapter } from "../parsers/index.js";
 import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
@@ -34,7 +33,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 category: "gml",
                 default: true,
                 description:
-                    "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable."
+                    "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable, using semantic-safe runtime naming when available and local collision-safe fallback naming otherwise."
             },
             condenseStructAssignments: {
                 since: "0.0.0",
@@ -78,47 +77,21 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                     }
                 ]
             },
-            condenseLogicalExpressions: {
+            optimizeLogicalExpressions: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: false,
                 description:
-                    "Condense complementary logical return branches into simplified boolean expressions when it is safe to do so."
+                    "Optimize logical flow by condensing complementary boolean branches, normalizing early-exit guards, removing redundant temporary-return pairs, caching repeated member access in conditions, and hoisting invariant loop condition members when safe."
             },
             preserveGlobalVarStatements: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: true,
-                description: "Preserve 'globalvar' declarations instead of eliding them during formatting."
-            },
-            alignAssignmentsMinGroupSize: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
-                range: { start: 0, end: Infinity, step: 1 },
                 description:
-                    "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
-            },
-            maxParamsPerLine: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 0,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
-            },
-            maxStructPropertiesPerLine: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 2,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Maximum number of properties in a struct expression before it is forced to break across multiple lines. Set to 0 to disable the limit (structs with comments will still break)."
+                    "Preserve 'globalvar' declarations instead of eliding them during formatting. When disabled, rewrites only run when semantic-safety checks mark them safe."
             },
             applyFeatherFixes: {
                 since: "0.0.0",

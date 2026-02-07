@@ -42,6 +42,7 @@ void test("createRefactorEngine accepts dependencies", () => {
 void test("WorkspaceEdit starts empty", () => {
     const ws = new WorkspaceEditFactory();
     assert.equal(ws.edits.length, 0);
+    assert.equal(ws.metadataEdits.length, 0);
 });
 
 void test("WorkspaceEdit can add edits", () => {
@@ -52,6 +53,14 @@ void test("WorkspaceEdit can add edits", () => {
     assert.equal(ws.edits[0].start, 0);
     assert.equal(ws.edits[0].end, 10);
     assert.equal(ws.edits[0].newText, "newText");
+});
+
+void test("WorkspaceEdit can add metadata edits", () => {
+    const ws = new WorkspaceEditFactory();
+    ws.addMetadataEdit("objects/o_player/o_player.yy", '{"name":"o_player"}');
+
+    assert.equal(ws.metadataEdits.length, 1);
+    assert.equal(ws.metadataEdits[0].path, "objects/o_player/o_player.yy");
 });
 
 void test("WorkspaceEdit groups edits by file", () => {
@@ -315,6 +324,16 @@ void test("validateRename passes with valid non-overlapping edits", async () => 
     assert.equal(result.errors.length, 0);
 });
 
+void test("validateRename accepts metadata-only workspace edits", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addMetadataEdit("objects/o_player/o_player.yy", '{"name":"o_player"}');
+
+    const result = await engine.validateRename(ws);
+    assert.equal(result.valid, true);
+    assert.equal(result.errors.length, 0);
+});
+
 void test("gatherSymbolOccurrences returns empty array without semantic", async () => {
     const engine = new RefactorEngineClass();
     const occurrences = await engine.gatherSymbolOccurrences("test");
@@ -506,6 +525,27 @@ void test("applyWorkspaceEdit handles multiple files", async () => {
     assert.equal(results.size, 2);
     assert.equal(results.get("file1.gml"), "abc content");
     assert.equal(results.get("file2.gml"), "xyz content");
+});
+
+void test("applyWorkspaceEdit applies metadata edits as full-document replacements", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addMetadataEdit("objects/o_player/o_player.yy", '{"name":"o_hero"}');
+
+    const readFile: WorkspaceReadFile = async () => '{"name":"o_player"}';
+    const writes: Record<string, string> = {};
+    const writeFile: WorkspaceWriteFile = async (targetPath, content) => {
+        writes[targetPath] = content;
+    };
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        writeFile,
+        dryRun: false
+    });
+
+    assert.equal(results.get("objects/o_player/o_player.yy"), '{"name":"o_hero"}');
+    assert.equal(writes["objects/o_player/o_player.yy"], '{"name":"o_hero"}');
 });
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {
@@ -1642,6 +1682,16 @@ void test("validateHotReloadCompatibility warns about non-GML files", async () =
     ws.addEdit("test.txt", 0, 5, "new");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("not a GML script")));
+});
+
+void test("validateHotReloadCompatibility reports metadata-only edits as non-hot-reload changes", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addMetadataEdit("objects/o_player/o_player.yy", '{"name":"o_hero"}');
+
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.equal(result.valid, true);
+    assert.ok(result.warnings.some((warning) => warning.includes("metadata-only")));
 });
 
 void test("validateHotReloadCompatibility detects globalvar changes", async () => {

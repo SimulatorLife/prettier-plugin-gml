@@ -10,11 +10,20 @@ export interface FileRename {
     newPath: string;
 }
 
+/**
+ * Full-document metadata rewrite for `.yy/.yyp` resources.
+ */
+export interface MetadataEdit {
+    path: string;
+    content: string;
+}
+
 export type GroupedTextEdits = Map<string, Array<Pick<TextEdit, "start" | "end" | "newText">>>;
 
 export class WorkspaceEdit {
     readonly edits: Array<TextEdit>;
     readonly fileRenames: Array<FileRename> = [];
+    readonly metadataEdits: Array<MetadataEdit> = [];
 
     /**
      * Create a WorkspaceEdit container for managing text edits and file operations across files.
@@ -31,6 +40,13 @@ export class WorkspaceEdit {
 
     addFileRename(oldPath: string, newPath: string): void {
         this.fileRenames.push({ oldPath, newPath });
+    }
+
+    /**
+     * Queue a full-document metadata rewrite.
+     */
+    addMetadataEdit(path: string, content: string): void {
+        this.metadataEdits.push({ path, content });
     }
 
     groupByFile(): GroupedTextEdits {
