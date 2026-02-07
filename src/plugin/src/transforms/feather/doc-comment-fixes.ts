@@ -11,12 +11,8 @@
 
 import { Core } from "@gml-modules/core";
 
-import {
-    attachFeatherFixMetadata,
-    createFeatherFixDetail,
-    hasFeatherDiagnosticContext
-} from "./utils.js";
 import { getStartFromNode } from "./ast-traversal.js";
+import { attachFeatherFixMetadata, createFeatherFixDetail, hasFeatherDiagnosticContext } from "./utils.js";
 
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
@@ -575,77 +571,113 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText ?? "";
     }
 
-    if (!Core.isSetLike(specifierBaseTypes)) {
+    if (!Core.isSetLike(specifierBaseTypes) || !Core.hasIterableItems(specifierBaseTypes)) {
         return typeText;
     }
 
-    const segments = splitTypeSegments(typeText);
-    const normalized = [];
+    const patternSource = [...specifierBaseTypes].map((name) => Core.escapeRegExp(name)).join("|");
 
-    for (const segment of segments) {
-        if (!segment || segment.length === 0) {
-            normalized.push(segment);
-            continue;
-        }
-
-        const match = segment.match(/^([A-Za-z_][A-Za-z0-9_]*)<(.+)>$/);
-
-        if (!match) {
-            normalized.push(segment);
-            continue;
-        }
-
-        const [, baseName, specifier] = match;
-        const baseLower = baseName.toLowerCase();
-
-        if (!specifierBaseTypes.has(baseLower)) {
-            normalized.push(segment);
-            continue;
-        }
-
-        const specifierToken = readSpecifierToken(specifier);
-
-        if (!specifierToken) {
-            normalized.push(segment);
-            continue;
-        }
-
-        normalized.push(`${baseName}<${specifierToken}>`);
+    if (!patternSource) {
+        return typeText;
     }
 
-    return normalized.join(" | ");
+    const regex = new RegExp(String.raw`\b(${patternSource})\b`, "gi");
+    let result = "";
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(typeText)) !== null) {
+        const matchStart = match.index;
+        const matchEnd = regex.lastIndex;
+        const before = typeText.slice(lastIndex, matchStart);
+        const matchedText = typeText.slice(matchStart, matchEnd);
+        result += before + matchedText;
+
+        const remainder = typeText.slice(matchEnd);
+        const specifierInfo = readSpecifierToken(remainder);
+
+        if (specifierInfo) {
+            result += specifierInfo.needsDot
+                ? `.${specifierInfo.token}`
+                : remainder.slice(0, specifierInfo.consumedLength);
+
+            regex.lastIndex = matchEnd + specifierInfo.consumedLength;
+            lastIndex = regex.lastIndex;
+        } else {
+            lastIndex = matchEnd;
+        }
+    }
+
+    result += typeText.slice(lastIndex);
+    return result;
 }
 
 /**
- * Extracts the type specifier from angle-bracket delimited text.
- *
- * PURPOSE: JSDoc type annotations can have specifiers (e.g., "Array<String>").
- * This helper extracts the content between angle brackets, e.g., "String" from "Array<String>".
+ * Reads and parses a type specifier token from the beginning of the text.
  *
  * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
  */
 function readSpecifierToken(text) {
-    if (typeof text !== "string") {
+    if (typeof text !== "string" || text.length === 0) {
         return null;
     }
 
-    const trimmed = text.trim();
+    let offset = 0;
 
-    if (trimmed.length === 0) {
+    while (offset < text.length && WHITESPACE_PATTERN.test(text[offset])) {
+        offset += 1;
+    }
+
+    if (offset === 0) {
         return null;
     }
 
-    const segments = splitTypeSegments(trimmed);
+    const firstChar = text[offset];
 
-    if (segments.length === 0) {
-        return null;
+    if (!firstChar || firstChar === "." || firstChar === "," || firstChar === "|" || firstChar === "}") {
+        return {
+            consumedLength: offset,
+            needsDot: false
+        };
     }
 
-    return segments[0];
+    let consumed = offset;
+    let token = "";
+    const delimiterDepth = createDelimiterDepthState();
+
+    while (consumed < text.length) {
+        const char = text[consumed];
+
+        if (WHITESPACE_PATTERN.test(char) && isAtTopLevelDepth(delimiterDepth)) {
+            break;
+        }
+
+        if ((char === "," || char === "|" || char === "}") && isAtTopLevelDepth(delimiterDepth)) {
+            break;
+        }
+
+        updateDelimiterDepthState(delimiterDepth, char);
+
+        token += char;
+        consumed += 1;
+    }
+
+    if (token.length === 0) {
+        return {
+            consumedLength: offset,
+            needsDot: false
+        };
+    }
+
+    return {
+        consumedLength: consumed,
+        token,
+        needsDot: true
+    };
 }
 
 /**
- * Normalizes spacing around type union operators (|).
+ * Normalizes spacing around union type separators (|).
  *
  * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
  */
@@ -654,53 +686,55 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!hasDelimiterOutsideNesting(typeText, ["|"])) {
+    if (!Core.isSetLike(baseTypesLower) || !Core.hasIterableItems(baseTypesLower)) {
+        return typeText;
+    }
+
+    if (!WHITESPACE_PATTERN.test(typeText)) {
+        return typeText;
+    }
+
+    if (hasDelimiterOutsideNesting(typeText, [",", "|"])) {
         return typeText;
     }
 
     const segments = splitTypeSegments(typeText);
-    const normalized = [];
 
-    for (const segment of segments) {
-        if (!segment || segment.length === 0) {
-            continue;
-        }
-
-        const baseName = extractBaseTypeName(segment);
-
-        if (!baseName) {
-            normalized.push(segment);
-            continue;
-        }
-
-        const baseLower = baseName.toLowerCase();
-
-        if (!Core.isSetLike(baseTypesLower) || !baseTypesLower.has(baseLower)) {
-            normalized.push(segment);
-            continue;
-        }
-
-        normalized.push(segment);
-    }
-
-    if (normalized.length === 0) {
+    if (segments.length <= 1) {
         return typeText;
     }
 
-    return normalized.join(" | ");
+    const trimmedSegments = segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0);
+
+    if (trimmedSegments.length <= 1) {
+        return typeText;
+    }
+
+    const recognizedCount = trimmedSegments.reduce((count, segment) => {
+        const baseTypeName = extractBaseTypeName(segment);
+
+        if (baseTypeName && baseTypesLower.has(baseTypeName.toLowerCase())) {
+            return count + 1;
+        }
+
+        return count;
+    }, 0);
+
+    if (recognizedCount < 2) {
+        return typeText;
+    }
+
+    return trimmedSegments.join(",");
 }
 
-/**
- * Standardizes delimiters for collection types (e.g., arrays, structs).
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
+// Convert legacy square-bracket collection syntax (e.g. Array[String]) into
+// Feather's preferred angle-bracket form.
 function normalizeCollectionTypeDelimiters(typeText) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
     }
 
-    return typeText;
+    return typeText.replaceAll("[", "<").replaceAll("]", ">");
 }
 
 /**
@@ -818,13 +852,12 @@ function updateJSDocParamName(node: any, oldName: string, newName: string, colle
 }
 
 export {
-    updateStaticFunctionDocComments,
-    collectPrecedingFunctionComments,
-    updateFunctionTagName,
-    resolveFunctionTagParamList,
-    findFunctionTagParamsFromSource,
-    cacheFunctionTagParams,
     applyOrderedDocNamesToImplicitEntries,
+    cacheFunctionTagParams,
+    collectPrecedingFunctionComments,
+    findFunctionTagParamsFromSource,
+    resolveFunctionTagParamList,
     sanitizeMalformedJsDocTypes,
-    updateJSDocParamName
-};
+    updateFunctionTagName,
+    updateJSDocParamName,
+    updateStaticFunctionDocComments};
