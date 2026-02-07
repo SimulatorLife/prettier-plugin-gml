@@ -5,7 +5,6 @@
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { Parser, type ScopeTracker } from "@gml-modules/parser";
-import { Semantic } from "@gml-modules/semantic";
 import { util } from "prettier";
 
 import * as Transforms from "../transforms/index.js";
@@ -48,7 +47,7 @@ export type GmlParserAdapterOptions = {
     sanitizeMissingArgumentSeparators?: boolean;
     condenseStructAssignments?: boolean;
     useStringInterpolation?: boolean;
-    condenseLogicalExpressions?: boolean;
+    optimizeLogicalExpressions?: boolean;
     optimizeMathExpressions?: boolean;
     stripComments?: boolean;
 
@@ -82,6 +81,38 @@ export type GmlParserAdapterOptions = {
     normalizeDocComments?: boolean;
     [key: string]: unknown;
 };
+
+/**
+ * Runtime hooks used by the parser adapter for identifier-case coordination.
+ */
+export type IdentifierCaseRuntime = {
+    readonly createScopeTracker: ScopeTrackerFactory;
+    readonly prepareIdentifierCaseEnvironment: (options?: GmlParserAdapterOptions) => Promise<void>;
+    readonly teardownIdentifierCaseEnvironment: (options?: GmlParserAdapterOptions) => void;
+    readonly attachIdentifierCasePlanSnapshot: (
+        ast: MutableGameMakerAstNode,
+        options?: GmlParserAdapterOptions
+    ) => void;
+};
+
+const DEFAULT_IDENTIFIER_CASE_RUNTIME = Object.freeze({
+    createScopeTracker: () => null,
+    prepareIdentifierCaseEnvironment: async () => {},
+    teardownIdentifierCaseEnvironment: () => {},
+    attachIdentifierCasePlanSnapshot: () => {}
+}) as IdentifierCaseRuntime;
+
+let identifierCaseRuntime = DEFAULT_IDENTIFIER_CASE_RUNTIME;
+
+/**
+ * Configure identifier-case runtime hooks used by the default parser adapter.
+ *
+ * @param {IdentifierCaseRuntime} runtime Runtime hooks for scope tracking,
+ *        environment lifecycle, and plan snapshot attachment.
+ */
+export function setIdentifierCaseRuntime(runtime: IdentifierCaseRuntime): void {
+    identifierCaseRuntime = runtime;
+}
 
 type ParserPreparationContext = {
     parseSource: string;
@@ -131,7 +162,7 @@ async function parseImpl(
         const preparation = preprocessSource(text, activeOptions);
         const ast = parseSourceWithRecovery(preparation.parseSource, parserOptions, activeOptions);
 
-        Semantic.attachIdentifierCasePlanSnapshot(ast, activeOptions);
+        identifierCaseRuntime.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
 
         if (!ast || typeof ast !== "object") {
@@ -142,7 +173,7 @@ async function parseImpl(
         return ast;
     } catch (error) {
         if (environmentPrepared || activeOptions?.__identifierCaseProjectIndexBootstrap) {
-            Semantic.teardownIdentifierCaseEnvironment(activeOptions);
+            identifierCaseRuntime.teardownIdentifierCaseEnvironment(activeOptions);
         }
 
         throw error;
@@ -154,7 +185,7 @@ async function prepareIdentifierCaseEnvironment(options?: GmlParserAdapterOption
         return false;
     }
 
-    await Semantic.prepareIdentifierCaseEnvironment(options);
+    await identifierCaseRuntime.prepareIdentifierCaseEnvironment(options);
     return true;
 }
 
@@ -352,9 +383,9 @@ function applyOptionalTransforms(
         Transforms.convertStringConcatenationsTransform.transform(ast);
     }
 
-    if (options?.condenseLogicalExpressions) {
+    if (options?.optimizeLogicalExpressions) {
         Transforms.condenseGuardStatementsTransform.transform(ast);
-        Transforms.condenseLogicalExpressionsTransform.transform(ast);
+        Transforms.optimizeLogicalExpressionsTransform.transform(ast);
     }
 
     if (options?.optimizeMathExpressions) {
@@ -425,9 +456,10 @@ export function createGmlParserAdapter(config: GmlParserAdapterConfig) {
 }
 
 /**
- * Default GML parser adapter instance with the standard Semantic scope tracker.
- * Preserved for backward compatibility with existing consumers.
+ * Default GML parser adapter instance.
+ * Scope tracking and identifier-case lifecycle hooks are injected at runtime
+ * via {@link setIdentifierCaseRuntime}.
  */
 export const gmlParserAdapter = createGmlParserAdapter({
-    scopeTrackerFactory: () => new Semantic.SemanticScopeCoordinator()
+    scopeTrackerFactory: () => identifierCaseRuntime.createScopeTracker()
 });

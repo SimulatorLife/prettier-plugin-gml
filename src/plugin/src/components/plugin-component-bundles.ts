@@ -1,5 +1,3 @@
-import { Semantic } from "@gml-modules/semantic";
-
 import { handleComments, printComment } from "../comments/index.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 // Concrete adapter imports - encapsulated at this module boundary.
@@ -8,6 +6,8 @@ import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
+
+const IDENTIFIER_CASE_OPTIONS = Object.freeze({});
 
 /**
  * Dependencies required to build the plugin component implementations.
@@ -34,9 +34,7 @@ export function createDefaultGmlPluginComponentImplementations(
         print: dependencies.print,
         handleComments: dependencies.handleComments,
         printComment: dependencies.printComment,
-        // Semantic provides identifier case option definitions; cast to satisfy
-        // Prettier's SupportOptions type during migration.
-        identifierCaseOptions: Semantic.identifierCaseOptions as any,
+        identifierCaseOptions: IDENTIFIER_CASE_OPTIONS,
         LogicalOperatorsStyle
     });
 }

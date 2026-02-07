@@ -496,6 +496,32 @@ void describe("GameMaker parser fixtures", () => {
         assert.doesNotThrow(() => GMLParser.parse(source));
     });
 
+    void it("parses begin/end block delimiters as standard blocks", () => {
+        const source = ["if (true) begin", "    x = 1;", "end", ""].join("\n");
+        const ast = parseFixture(source);
+
+        assert.ok(ast, "Parser returned no AST when parsing begin/end source.");
+        const [ifStatement] = ast.body;
+        assert.ok(ifStatement && ifStatement.type === "IfStatement", "Expected an if statement.");
+        assert.ok(ifStatement.consequent, "Expected if statement to have a consequent.");
+        assert.strictEqual(
+            ifStatement.consequent.type,
+            "BlockStatement",
+            "begin/end should parse as a BlockStatement."
+        );
+        assert.ok(Array.isArray(ifStatement.consequent.body), "Expected block consequent to expose a statement list.");
+        assert.strictEqual(
+            ifStatement.consequent.body.length,
+            1,
+            "begin/end block should contain the enclosed assignment."
+        );
+        assert.strictEqual(
+            ifStatement.consequent.body[0]?.type,
+            "AssignmentExpression",
+            "Expected assignment statement to remain inside the block."
+        );
+    });
+
     void it("allows single equals for equality in complex expressions", () => {
         const source = 'if ((vendor = "7e05") && (product = "0920")) { }';
         assert.doesNotThrow(() => GMLParser.parse(source));

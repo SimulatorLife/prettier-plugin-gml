@@ -77,13 +77,13 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                     }
                 ]
             },
-            condenseLogicalExpressions: {
+            optimizeLogicalExpressions: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: false,
                 description:
-                    "Condense complementary logical return branches into simplified boolean expressions when it is safe to do so."
+                    "Optimize logical flow by condensing complementary boolean branches, normalizing early-exit guards, removing redundant temporary-return pairs, caching repeated member access in conditions, and hoisting invariant loop condition members when safe."
             },
             preserveGlobalVarStatements: {
                 since: "0.0.0",

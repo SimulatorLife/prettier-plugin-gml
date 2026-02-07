@@ -488,16 +488,16 @@ Template strings that never interpolate expressions automatically collapse back 
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
-| `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
+| `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
+| `condenseStructAssignments` | `false` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
-| `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only single-line guards inside functions (for example `return;`, `exit;`, or simple calls without an `else`) stay collapsed; guards that return a value expand across multiple lines. |
+| `allowSingleLineIfStatements` | `true` | Enable to keep trivial `if` statements on one line. When disabled, only single-line guards inside functions (for example `return;`, `exit;`, or simple calls without an `else`) stay collapsed; guards that return a value expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
-| `condenseLogicalExpressions` | `false` | Condenses and simplifies verbose logical expressions where safe, including rewriting `if (...) { ... } else { exit; }` branches into negated early-exit guard clauses. |
-| `preserveGlobalVarStatements` | `false` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. |
-| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
-| `useStringInterpolation` | `true` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `optimizeMathExpressions` | `true` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
+| `optimizeLogicalExpressions` | `false` | Runs logical-flow optimizations where safe: condenses complementary branches, rewrites else-early-exit blocks into guard clauses, eliminates temporary `var` + `return` pairs, caches repeated member access in conditions, and hoists invariant loop-condition member reads. |
+| `preserveGlobalVarStatements` | `true` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. |
+| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`) and standardizes legacy `begin`/`end` block delimiters to `{`/`}`. |
+| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
+| `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 

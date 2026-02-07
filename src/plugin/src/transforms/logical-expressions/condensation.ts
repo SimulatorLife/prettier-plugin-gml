@@ -501,7 +501,11 @@ function isEarlyExitStatement(node, helpers) {
         }
         case "ReturnStatement": {
             const argument = node.argument ?? null;
-            return !argument || !helpers.hasComment(argument);
+            if (argument && helpers.hasComment(argument)) {
+                return false;
+            }
+
+            return argument === null;
         }
         default: {
             return false;
