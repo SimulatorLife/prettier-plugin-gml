@@ -29,7 +29,7 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
 import {
     buildDeprecatedBuiltinVariableReplacements,
     buildFeatherTypeSystemInfo,
@@ -52,6 +52,7 @@ import {
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
 import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
+import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import { annotateMissingUserEvents } from "./user-event-fixes.js";
 import {
@@ -968,10 +969,11 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1008",
         (diagnostic) =>
-            ({ ast }) => {
+            ({ ast, options }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
-                    diagnostic
+                    diagnostic,
+                    options
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
@@ -1746,7 +1748,11 @@ function createAutomaticFeatherFixHandlers() {
                 })
         ],
         ["GM1033", ({ ast, sourceText, diagnostic }) => removeDuplicateSemicolons({ ast, sourceText, diagnostic })],
-        ["GM1030", ({ ast, sourceText, diagnostic }) => renameReservedIdentifiers({ ast, diagnostic, sourceText })],
+        [
+            "GM1030",
+            ({ ast, sourceText, diagnostic, options }) =>
+                renameReservedIdentifiers({ ast, diagnostic, options, sourceText })
+        ],
         ["GM1034", ({ ast, diagnostic }) => relocateArgumentReferencesInsideFunctions({ ast, diagnostic })],
         ["GM1036", ({ ast, diagnostic }) => normalizeMultidimensionalArrayIndexing({ ast, diagnostic })],
         ["GM1038", ({ ast, diagnostic }) => removeDuplicateMacroDeclarations({ ast, diagnostic })],
@@ -2483,7 +2489,7 @@ function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
     return slice.trim() || null;
 }
 
-function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
+function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -2508,7 +2514,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
         }
 
         if (node.type === "AssignmentExpression") {
-            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry);
+            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
                 fixes.push(fixDetail);
@@ -2526,7 +2532,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
     return fixes;
 }
 
-function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry) {
+function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, formattingOptions) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
@@ -2545,7 +2551,18 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
-    const replacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const preferredReplacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const renameResolution = resolveSemanticSafeFeatherRename({
+        formattingOptions,
+        identifierName: identifier.name,
+        localIdentifierNames: nameRegistry,
+        preferredReplacementName
+    });
+
+    if (!renameResolution || !Core.isNonEmptyString(renameResolution.replacementName)) {
+        return null;
+    }
+    const replacementName = renameResolution.replacementName;
     const replacementIdentifier = Core.createIdentifierNode(replacementName, identifier);
 
     const declarator = {
@@ -2580,8 +2597,10 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
+    fixDetail.replacement = replacementName;
     attachFeatherFixMetadata(declaration, [fixDetail]);
 
+    nameRegistry.add(replacementName);
     replaceReadOnlyIdentifierReferences(parent, property + 1, identifier.name, replacementName);
 
     return fixDetail;
@@ -2773,8 +2792,6 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
         suffix += 1;
         candidate = `__feather_${sanitized}_${suffix}`;
     }
-
-    nameRegistry.add(candidate);
 
     return candidate;
 }

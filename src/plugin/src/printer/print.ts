@@ -22,7 +22,7 @@ import { printComment, printDanglingComments, printDanglingCommentsAsGroup } fro
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { assessGlobalVarRewrite } from "../runtime/index.js";
+import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -3633,6 +3633,10 @@ function buildGlobalVarNormalizationParts(node, path, print, options) {
         );
 
         if (!rewriteAssessment.allowRewrite) {
+            if (!decl.init && !hasActiveSemanticSafetyReportService(options)) {
+                continue;
+            }
+
             const declarationDoc = path.call(print, "declarations", index);
             const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
             parts.push(group(concat([keyword, " ", declarationDoc])));

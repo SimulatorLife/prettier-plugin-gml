@@ -1,4 +1,6 @@
 export type {
+    FeatherRenameContext,
+    FeatherRenameResolution,
     GlobalVarRewriteAssessment,
     GlobalVarRewriteContext,
     LoopHoistIdentifierContext,
@@ -11,9 +13,12 @@ export type {
 export {
     assessGlobalVarRewrite,
     emitSemanticSafetyReport,
+    hasActiveSemanticSafetyReportService,
+    resolveFeatherRename,
     resolveLoopHoistIdentifier,
     restoreDefaultRefactorRuntime,
     restoreDefaultSemanticSafetyRuntime,
+    runWithSemanticSafetyReportService,
     setRefactorRuntime,
     setSemanticSafetyRuntime
 } from "./semantic-safety-runtime.js";

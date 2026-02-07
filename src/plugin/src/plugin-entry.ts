@@ -195,7 +195,7 @@ async function format(source: string, options: SupportOptions = {}) {
             : null;
 
     try {
-        const formatted = await runWithSemanticSafetyReportService(semanticSafetyReportService, async () =>
+        const formatted = await runWithSemanticSafetyReportService(semanticSafetyReportService, () =>
             prettier.format(source, {
                 ...(resolvedOptions as SupportOptions),
                 parser: "gml-parse",
@@ -215,7 +215,8 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 }
 
-export { defaultOptions, normalizeFormattedOutput, parsers, pluginOptions, printers };
+export { defaultOptions, parsers, pluginOptions, printers };
+export { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 export { pluginOptions as options };
 
 export const Plugin: GmlPlugin = {

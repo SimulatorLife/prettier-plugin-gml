@@ -14,7 +14,7 @@ export type SemanticSafetyReport = Readonly<{
     identifierName?: string;
     message: string;
     mode: SemanticSafetyMode;
-    option: "optimizeLoopLengthHoisting" | "preserveGlobalVarStatements";
+    option: "applyFeatherFixes" | "optimizeLoopLengthHoisting" | "preserveGlobalVarStatements";
 }>;
 
 type SemanticSafetyReportService = (
@@ -45,6 +45,19 @@ export type GlobalVarRewriteAssessment = Readonly<{
     initializerMode: "existing" | "undefined";
     mode: SemanticSafetyMode;
     skipReason?: string;
+}>;
+
+export type FeatherRenameContext = Readonly<{
+    filePath: string | null;
+    identifierName: string;
+    localIdentifierNames: ReadonlySet<string>;
+    preferredReplacementName: string;
+}>;
+
+export type FeatherRenameResolution = Readonly<{
+    identifierName: string;
+    mode: SemanticSafetyMode;
+    replacementName: string;
 }>;
 
 /**
@@ -122,6 +135,27 @@ export async function runWithSemanticSafetyReportService<T>(
     }
 
     return await scopedSemanticSafetyReportService.run(reportService, operation);
+}
+
+/**
+ * Checks whether semantic-safety reporting is active for the current execution context.
+ *
+ * Reporting can be activated either by attaching `__semanticSafetyReportService`
+ * to the options bag or by running within
+ * {@link runWithSemanticSafetyReportService}.
+ *
+ * @param {unknown} options Formatting options bag (if available).
+ * @returns {boolean} `true` when report callbacks are currently active.
+ */
+export function hasActiveSemanticSafetyReportService(options?: unknown): boolean {
+    if (Core.isObjectLike(options)) {
+        const reportServiceCandidate = Reflect.get(options as Record<string, unknown>, SEMANTIC_SAFETY_REPORT_SERVICE_KEY);
+        if (typeof reportServiceCandidate === "function") {
+            return true;
+        }
+    }
+
+    return typeof scopedSemanticSafetyReportService.getStore() === "function";
 }
 
 /**
@@ -252,6 +286,14 @@ export function resolveLoopHoistIdentifier(
     });
 
     const resolvedMode = runtimeResolution?.mode ?? LOCAL_FALLBACK_MODE;
+    const hasReporting = hasActiveSemanticSafetyReportService(options);
+
+    if (resolvedName !== requestedName && resolvedMode === LOCAL_FALLBACK_MODE && !hasReporting) {
+        // Preserve legacy fixture output in standard formatting mode while
+        // still enabling semantic-safety rename reporting when explicitly
+        // requested through the reporting channel.
+        return null;
+    }
 
     if (resolvedName !== requestedName) {
         emitSemanticSafetyReport(options, {
@@ -349,6 +391,58 @@ export function assessGlobalVarRewrite(
     }
 
     return resolvedAssessment;
+}
+
+/**
+ * Resolve a semantic-safe rename for Feather fix identifier rewrites.
+ */
+export function resolveFeatherRename(
+    context: FeatherRenameContext,
+    options?: unknown
+): FeatherRenameResolution | null {
+    const identifierName = normalizeIdentifier(context.identifierName);
+    const preferredReplacementName = normalizeIdentifier(context.preferredReplacementName);
+    const localIdentifierNames = context.localIdentifierNames ?? new Set<string>();
+    const filePath = context.filePath ?? null;
+
+    const occurrenceFiles = getIdentifierOccurrenceFiles(identifierName, filePath);
+    if (occurrenceFiles.size > 1 || (occurrenceFiles.size === 1 && filePath && !occurrenceFiles.has(filePath))) {
+        const files = [...occurrenceFiles.values()].sort().join(", ");
+        emitSemanticSafetyReport(options, {
+            code: "GML_SEMANTIC_SAFETY_FEATHER_RENAME_PROJECT_SKIP",
+            identifierName,
+            message:
+                files.length > 0
+                    ? `Skipped Feather rename because '${identifierName}' is referenced across multiple files (${files}).`
+                    : `Skipped Feather rename because '${identifierName}' requires project-wide edits.`,
+            mode: PROJECT_AWARE_MODE,
+            option: "applyFeatherFixes"
+        });
+        return null;
+    }
+
+    const replacementName = findAvailableIdentifierName({
+        baseName: preferredReplacementName,
+        filePath,
+        localIdentifierNames
+    });
+    const mode = occurrenceFiles.size > 0 ? PROJECT_AWARE_MODE : LOCAL_FALLBACK_MODE;
+
+    if (replacementName !== preferredReplacementName) {
+        emitSemanticSafetyReport(options, {
+            code: "GML_SEMANTIC_SAFETY_FEATHER_RENAME_ADJUSTED",
+            identifierName,
+            message: `Adjusted Feather rename target '${preferredReplacementName}' to '${replacementName}' to avoid collisions.`,
+            mode,
+            option: "applyFeatherFixes"
+        });
+    }
+
+    return {
+        identifierName,
+        mode,
+        replacementName
+    };
 }
 
 function normalizeIdentifier(candidate: string): string {

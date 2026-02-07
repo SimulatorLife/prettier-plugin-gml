@@ -45,6 +45,86 @@ void test(
 );
 
 void test(
+    "skips Feather reserved-identifier renames when usage spans multiple files",
+    { concurrency: false },
+    async () => {
+        const reports: Array<SemanticSafetyReportRecord> = [];
+        const source = "var image_index = 1;\nshow_debug_message(image_index);\n";
+
+        try {
+            setRefactorRuntime({
+                isIdentifierNameOccupiedInProject() {
+                    return false;
+                },
+                listIdentifierOccurrenceFiles({ identifierName }) {
+                    if (identifierName === "image_index") {
+                        return new Set(["/workspace/scripts/a.gml", "/workspace/scripts/b.gml"]);
+                    }
+                    return new Set();
+                }
+            });
+
+            const formatted = await Plugin.format(source, {
+                applyFeatherFixes: true,
+                filepath: "/workspace/scripts/a.gml",
+                __semanticSafetyReportService(report: SemanticSafetyReportRecord) {
+                    reports.push(report);
+                }
+            });
+
+            assert.ok(
+                formatted.includes("var image_index = 1;"),
+                "Expected reserved identifier rename to be skipped when project-wide edits are required."
+            );
+            assert.ok(
+                reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_FEATHER_RENAME_PROJECT_SKIP"),
+                "Expected explicit semantic-safety report when Feather rename is skipped."
+            );
+        } finally {
+            resetSemanticSafetyRuntimes();
+        }
+    }
+);
+
+void test(
+    "adjusts Feather replacement names when project occupancy reports a collision",
+    { concurrency: false },
+    async () => {
+        const reports: Array<SemanticSafetyReportRecord> = [];
+        const source = "var image_index = 1;\nshow_debug_message(image_index);\n";
+
+        try {
+            setRefactorRuntime({
+                isIdentifierNameOccupiedInProject({ identifierName }) {
+                    return identifierName === "__featherFix_image_index";
+                },
+                listIdentifierOccurrenceFiles() {
+                    return new Set();
+                }
+            });
+
+            const formatted = await Plugin.format(source, {
+                applyFeatherFixes: true,
+                __semanticSafetyReportService(report: SemanticSafetyReportRecord) {
+                    reports.push(report);
+                }
+            });
+
+            assert.ok(
+                formatted.includes("var __featherFix_image_index_1 = 1;"),
+                "Expected Feather rename to choose a collision-free identifier."
+            );
+            assert.ok(
+                reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_FEATHER_RENAME_ADJUSTED"),
+                "Expected semantic-safety report when Feather rename target is adjusted."
+            );
+        } finally {
+            resetSemanticSafetyRuntimes();
+        }
+    }
+);
+
+void test(
     "rewrites uninitialized globalvar declarations when project-aware runtime allows undefined initialization",
     { concurrency: false },
     async () => {
