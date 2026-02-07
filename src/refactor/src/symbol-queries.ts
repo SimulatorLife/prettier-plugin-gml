@@ -4,6 +4,8 @@
  * from the semantic analyzer and parser.
  */
 
+import { Core } from "@gml-modules/core";
+
 import type {
     AstNode,
     DependentSymbol,
@@ -13,7 +15,7 @@ import type {
     SymbolLocation,
     SymbolOccurrence
 } from "./types.js";
-import { assertArray, assertNonEmptyString, hasMethod } from "./validation-utils.js";
+import { hasMethod } from "./validation-utils.js";
 
 /**
  * Find the symbol at a specific location in a file.
@@ -160,7 +162,9 @@ export async function getFileSymbols(
     filePath: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<Array<FileSymbol>> {
-    assertNonEmptyString(filePath, "a valid file path string", "getFileSymbols");
+    Core.assertNonEmptyString(filePath, {
+        errorMessage: "getFileSymbols requires a valid file path string"
+    });
 
     if (!semantic) {
         return [];
@@ -182,7 +186,9 @@ export async function getSymbolDependents(
     symbolIds: Array<string>,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<Array<DependentSymbol>> {
-    assertArray(symbolIds, "an array of symbol IDs", "getSymbolDependents");
+    Core.assertArray(symbolIds, {
+        errorMessage: "getSymbolDependents requires an array of symbol IDs"
+    });
 
     if (symbolIds.length === 0) {
         return [];
