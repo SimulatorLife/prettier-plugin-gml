@@ -271,19 +271,23 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Added semantic metadata adapter at `src/semantic/src/project-metadata/yy-adapter.ts` and exported it from `src/semantic/src/project-metadata/index.ts` plus `src/semantic/src/index.ts`.
   - Switched `src/semantic/src/identifier-case/asset-rename-executor.ts` to parse/stringify metadata through the new adapter.
   - Switched `src/semantic/src/project-index/resource-analysis.ts` metadata parse path to the adapter and dedicated parse-error guard.
-- Partially completed Phase 2:
-  - Replaced regex/string-offset `.yy` edits in `src/cli/src/modules/refactor/semantic-bridge.ts` with structured object mutation + full-document rewrite via `Yy.parse`/`Yy.stringify`.
-  - `.gml` text-edit flow remains unchanged.
+- Completed Phase 2:
+  - Replaced regex/string-offset `.yy` edits in `src/cli/src/modules/refactor/semantic-bridge.ts` with structured object mutation + metadata rewrite operations backed by `Semantic.parseProjectMetadataDocument`/`Semantic.stringifyProjectMetadataDocument`.
+  - Extended the refactor contract with first-class metadata operations (`WorkspaceEdit.metadataEdits` + `addMetadataEdit`) and updated the refactor engine (`planRename`, `planBatchRename`, `validateRename`, `applyWorkspaceEdit`) to validate/apply these operations directly.
+- Completed Phase 3:
+  - Replaced broad `{ path: string }` traversal in `src/semantic/src/project-index/resource-analysis.ts` with schema-aware key extraction from `src/semantic/src/project-index/resource-reference-extractor.ts`.
+  - Kept the output contract unchanged (`relationships.assetReferences`) while filtering to metadata targets (`.yy/.yyp`) and preserving project-manifest (`resources[].id`) coverage.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
+  - `src/semantic/test/project-index-resource-analysis.test.ts`
   - Updated parse-failure expectations in `src/semantic/test/identifier-case-asset-rename-executor.test.ts`
-  - Added bridge test coverage for structured `.yy` metadata edits in `src/cli/test/gml-semantic-bridge.test.ts`
+  - Added bridge test coverage for metadata edit operations in `src/cli/test/gml-semantic-bridge.test.ts`
+  - Added refactor-engine coverage for metadata-only validation/apply paths in `src/refactor/test/index.test.ts`
 
 ### Remaining work to fully realize the plan
-1. Tighten asset-reference extraction in `resource-analysis` by resource-type/schema (instead of broad `{ path: string }` traversal) to reduce false positives.
-2. Extend refactor pipeline contracts so metadata edits are first-class operation types (not just text edits), then keep `.yy` mutation behavior encapsulated in semantic metadata APIs.
-3. Add `.yyp`-level integration tests for rename flows that update folder/resource entries in addition to per-resource `.yy` documents.
-4. Evaluate optional usage of `Yy.schemas` in adapter calls for stricter validation where schema stability is acceptable.
+1. Phase 4 follow-up: continue reducing duplicate metadata parsing utilities by deprecating remaining `.yy/.yyp` paths that still rely on generic JSON helpers outside the semantic adapter.
+2. Expand `.yyp` integration coverage to folder/order nodes beyond `resources[].id` so rename behavior remains stable across more project layouts.
+3. Evaluate optional `Yy.schemas` strict-parse gates in adapter workflows where format stability is guaranteed (to avoid over-normalizing unknown/new fields).
 
 ### Expected wins
 - Stable `.yy/.yyp` round-tripping with less GameMaker-induced diff churn.

@@ -4,6 +4,8 @@ import test from "node:test";
 import {
     isProjectMetadataParseError,
     parseProjectMetadataDocument,
+    parseProjectMetadataDocumentWithSchema,
+    resolveProjectMetadataSchemaName,
     stringifyProjectMetadataDocument
 } from "../src/project-metadata/yy-adapter.js";
 
@@ -39,4 +41,28 @@ void test("stringifyProjectMetadataDocument emits GameMaker-compatible output", 
 
     assert.match(output, /"name"\s*:\s*"scr_demo"/);
     assert.match(output, /"resourceType"\s*:\s*"GMScript"/);
+});
+
+void test("resolveProjectMetadataSchemaName prefers resourceType mapping", () => {
+    const schema = resolveProjectMetadataSchemaName("objects/oPlayer/oPlayer.yy", "GMScript");
+    assert.equal(schema, "scripts");
+});
+
+void test("resolveProjectMetadataSchemaName falls back to source path", () => {
+    const schema = resolveProjectMetadataSchemaName("rooms/room_start/room_start.yy");
+    assert.equal(schema, "rooms");
+});
+
+void test("parseProjectMetadataDocumentWithSchema returns inferred schema details", () => {
+    const parsed = parseProjectMetadataDocumentWithSchema(
+        `{
+            "name":"o_player",
+            "resourceType":"GMObject",
+        }`,
+        "/tmp/objects/o_player/o_player.yy"
+    );
+
+    assert.equal(parsed.schemaName, "objects");
+    assert.equal(parsed.document.name, "o_player");
+    assert.equal(parsed.document.resourceType, "GMObject");
 });

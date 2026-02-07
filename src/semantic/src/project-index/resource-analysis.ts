@@ -10,6 +10,7 @@ import {
 } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
+import { extractAssetReferencesFromMetadataDocument } from "./resource-reference-extractor.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -170,48 +171,6 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     return path.posix.join(resourceRelativeDir, `${resourceRecord.name}_${displayName}.gml`);
 }
 
-function pushChildNode(stack, parentPath, key, candidate) {
-    if (!Core.isObjectLike(candidate)) {
-        return;
-    }
-
-    const childPath = parentPath ? `${parentPath}.${key}` : String(key);
-    stack.push({ value: candidate, path: childPath });
-}
-
-function collectAssetReferences(root, callback) {
-    if (!Core.isObjectLike(root)) {
-        return;
-    }
-
-    const stack = [{ value: root, path: "" }];
-
-    while (stack.length > 0) {
-        const { value, path: nodePath } = stack.pop();
-
-        if (Array.isArray(value)) {
-            for (let index = value.length - 1; index >= 0; index -= 1) {
-                pushChildNode(stack, nodePath, index, value[index]);
-            }
-            continue;
-        }
-
-        if (typeof value.path === "string") {
-            callback({
-                propertyPath: nodePath,
-                targetPath: value.path,
-                targetName: typeof value.name === "string" ? value.name : null
-            });
-        }
-
-        const entries = Object.entries(value);
-        for (let i = entries.length - 1; i >= 0; i -= 1) {
-            const [key, child] = entries[i];
-            pushChildNode(stack, nodePath, key, child);
-        }
-    }
-}
-
 function createResourceAnalysisContext() {
     return {
         resourcesMap: new Map(),
@@ -308,26 +267,25 @@ function registerResourceEvents({ context, parsed, resourceRecord, resourceDir }
 }
 
 function collectResourceAssetReferences({ context, parsed, resourceRecord, resourcePath, projectRoot }) {
-    collectAssetReferences(parsed, ({ propertyPath, targetPath, targetName }) => {
-        const normalizedTarget = normalizeProjectResourcePath(targetPath, {
-            projectRoot
-        });
-        if (!normalizedTarget) {
-            return;
-        }
+    const extractedReferences = extractAssetReferencesFromMetadataDocument({
+        document: parsed,
+        sourcePath: resourcePath,
+        projectRoot
+    });
 
+    for (const { propertyPath, targetPath, targetName } of extractedReferences) {
         const referenceRecord = {
             fromResourcePath: resourcePath,
             fromResourceName: resourceRecord.name,
             propertyPath,
-            targetPath: normalizedTarget,
+            targetPath,
             targetName: targetName ?? null,
             targetResourceType: null
         };
 
         context.assetReferences.push(referenceRecord);
         resourceRecord.assetReferences.push(referenceRecord);
-    });
+    }
 }
 
 function processResourceDocument({ context, parsed, resourceRecord, resourcePath, projectRoot }) {

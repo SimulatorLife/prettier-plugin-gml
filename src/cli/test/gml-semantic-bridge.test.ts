@@ -233,12 +233,12 @@ void describe("GmlSemanticBridge tests", () => {
         const edits = bridge.getAdditionalSymbolEdits("gml/objects/oGravitySphere", "oGravityWell");
 
         assert.ok(edits, "Expected additional edits for resource rename");
-        assert.ok(edits.edits.some((entry) => entry.path === resourcePath));
-        assert.ok(edits.edits.some((entry) => entry.path === refPath));
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === resourcePath));
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === refPath));
 
-        const referenceEdit = edits.edits.find((entry) => entry.path === refPath);
+        const referenceEdit = edits.metadataEdits.find((entry) => entry.path === refPath);
         assert.ok(referenceEdit);
-        assert.match(referenceEdit.newText, /"name"\s*:\s*"oGravityWell"/);
-        assert.match(referenceEdit.newText, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+        assert.match(referenceEdit.content, /"name"\s*:\s*"oGravityWell"/);
+        assert.match(referenceEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
     });
 });

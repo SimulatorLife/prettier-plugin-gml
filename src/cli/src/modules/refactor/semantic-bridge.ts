@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import path from "node:path";
 
-import { Yy } from "@bscotch/yy";
 import { Core } from "@gml-modules/core";
 import {
     type DependentSymbol,
@@ -13,6 +12,7 @@ import {
     type SymbolOccurrence,
     WorkspaceEdit
 } from "@gml-modules/refactor";
+import { Semantic } from "@gml-modules/semantic";
 
 type ResourceAssetReferenceRecord = {
     propertyPath: string;
@@ -287,7 +287,7 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
 
             let parsed: Record<string, unknown>;
             try {
-                parsed = Yy.parse(rawContent) as Record<string, unknown>;
+                parsed = Semantic.parseProjectMetadataDocument(rawContent, resourceEntry.path);
             } catch {
                 continue;
             }
@@ -321,12 +321,12 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                 continue;
             }
 
-            const updatedContent = Yy.stringify(parsed);
+            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed);
             if (updatedContent === rawContent) {
                 continue;
             }
 
-            edit.addEdit(resourceEntry.path, 0, rawContent.length, updatedContent);
+            edit.addMetadataEdit(resourceEntry.path, updatedContent);
         }
     }
 
