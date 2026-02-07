@@ -16,7 +16,6 @@
  */
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
@@ -139,22 +138,14 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
         return null;
     }
 
-    // Prefer the registered Semantic lookup service if available, but be defensive
-    // about lazy-initialized or dynamically-proxied modules. Some runtime environments
-    // (especially test harnesses or module systems with circular dependency resolution)
-    // may lazily wrap exports in a Proxy that hides properties from enumeration until
-    // first access. Attempting to destructure or directly call the facade helper can
-    // fail silently if the export isn't fully resolved yet. To keep printing deterministic
-    // even when the higher-level Semantic facade is unavailable (due to circular init,
-    // test-provider swaps, or partial module loading), we fall back to a direct lookup
-    // in the `renameMap` snapshot attached to the options bag. This two-tier approach
-    // ensures that identifier-case corrections still apply even when the Semantic module
-    // isn't fully initialized, which can happen during incremental builds or hot-reload
-    // scenarios where the printer runs before the semantic analyzer finishes its setup.
+    // Prefer an options-scoped rename lookup service when available, but be defensive
+    // about lazy-initialized or dynamically-proxied environments. If no service is
+    // registered, fall back to the rename map snapshot on options.
     let finalResult = null;
     try {
-        if (Semantic && typeof Semantic.getIdentifierCaseRenameForNode === "function") {
-            finalResult = Semantic.getIdentifierCaseRenameForNode(node, options);
+        const renameLookupService = options?.__identifierCaseRenameLookupService;
+        if (typeof renameLookupService === "function") {
+            finalResult = renameLookupService(node, options);
         }
     } catch {
         /* ignore */
@@ -1504,7 +1495,11 @@ function tryPrintLiteralNode(node, path, options, print) {
                 literalTextParts.push(atom.value);
             }
 
-            if (shouldCollapseToLiteral && literalTextParts.length === atoms.length) {
+            if (
+                (options?.applyFeatherFixes ?? false) &&
+                shouldCollapseToLiteral &&
+                literalTextParts.length === atoms.length
+            ) {
                 const literalText = literalTextParts.join("");
                 const stringLiteral = JSON.stringify(literalText);
                 return concat(stringLiteral);
@@ -1529,19 +1524,20 @@ function printProgramNode(node, path, options, print) {
 
     if (node && node.__identifierCasePlanSnapshot) {
         try {
-            if (Semantic && typeof Semantic.applyIdentifierCasePlanSnapshot === "function") {
-                Semantic.applyIdentifierCasePlanSnapshot(node.__identifierCasePlanSnapshot, options);
+            const applySnapshotService = options?.__identifierCaseApplySnapshotService;
+            if (typeof applySnapshotService === "function") {
+                applySnapshotService(node.__identifierCasePlanSnapshot, options);
             }
         } catch {
             // Non-fatal: identifier case snapshot application is optional for printing.
-            // If the Semantic API isn't available, continue without it.
         }
     }
 
     try {
         try {
-            if (Semantic && typeof Semantic.maybeReportIdentifierCaseDryRun === "function") {
-                Semantic.maybeReportIdentifierCaseDryRun(options);
+            const dryRunReportService = options?.__identifierCaseDryRunReportService;
+            if (typeof dryRunReportService === "function") {
+                dryRunReportService(options);
             }
         } catch {
             /* ignore */
@@ -1556,8 +1552,9 @@ function printProgramNode(node, path, options, print) {
         return concat([programComments, concat(bodyParts)]);
     } finally {
         try {
-            if (Semantic && typeof Semantic.teardownIdentifierCaseEnvironment === "function") {
-                Semantic.teardownIdentifierCaseEnvironment(options);
+            const teardownService = options?.__identifierCaseTeardownService;
+            if (typeof teardownService === "function") {
+                teardownService(options);
             }
         } catch {
             /* ignore */

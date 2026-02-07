@@ -4,7 +4,9 @@ import test from "node:test";
 import {
     getProjectMetadataValueAtPath,
     isProjectMetadataParseError,
+    isProjectMetadataSchemaValidationError,
     parseProjectMetadataDocument,
+    parseProjectMetadataDocumentForMutation,
     parseProjectMetadataDocumentWithSchema,
     resolveProjectMetadataSchemaName,
     stringifyProjectMetadataDocument,
@@ -87,8 +89,42 @@ void test("parseProjectMetadataDocumentWithSchema reports schema validation fail
 
     assert.equal(parsed.schemaName, "objects");
     assert.equal(parsed.schemaValidated, false);
+    assert.ok(parsed.schemaError);
     assert.equal(parsed.document.name, "o_player");
     assert.equal(parsed.document.resourceType, "GMObject");
+});
+
+void test("parseProjectMetadataDocumentForMutation enforces inferred schema validation", () => {
+    let caught: unknown;
+    try {
+        parseProjectMetadataDocumentForMutation(
+            `{
+                "name":"o_player",
+                "resourceType":"GMObject",
+                "eventList":"invalid",
+            }`,
+            "/tmp/objects/o_player/o_player.yy"
+        );
+    } catch (error) {
+        caught = error;
+    }
+
+    assert.ok(isProjectMetadataSchemaValidationError(caught));
+});
+
+void test("parseProjectMetadataDocumentForMutation allows loose project manifest parsing", () => {
+    const parsed = parseProjectMetadataDocumentForMutation(
+        `{
+            "name":"MyProject",
+            "resourceType":"GMProject",
+            "resources":[{"id":{"name":"o_player","path":"objects/o_player/o_player.yy",}}],
+        }`,
+        "/tmp/project.yyp"
+    );
+
+    assert.equal(parsed.schemaName, "project");
+    assert.equal(parsed.schemaValidated, false);
+    assert.equal(parsed.document.resourceType, "GMProject");
 });
 
 void test("updateProjectMetadataReferenceByPath updates object references", () => {

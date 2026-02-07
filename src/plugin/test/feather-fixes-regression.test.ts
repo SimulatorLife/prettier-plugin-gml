@@ -40,4 +40,24 @@ void describe("Feather fix regressions", () => {
             "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here\n"
         );
     });
+
+    void it("removes template-string dollar prefixes only when feather fixes are enabled", async () => {
+        const source = [`var plain = $"Hello World!";`, `var interpolated = $"Hello {name}!";`].join("\n");
+
+        const featherFormatted = await Plugin.format(source, {
+            applyFeatherFixes: true
+        });
+        const baselineFormatted = await Plugin.format(source, {
+            applyFeatherFixes: false
+        });
+
+        assert.strictEqual(
+            featherFormatted,
+            [`var plain = "Hello World!";`, `var interpolated = $"Hello {name}!";`, ""].join("\n")
+        );
+        assert.strictEqual(
+            baselineFormatted,
+            [`var plain = $"Hello World!";`, `var interpolated = $"Hello {name}!";`, ""].join("\n")
+        );
+    });
 });

@@ -2,6 +2,7 @@ import { Yy } from "@bscotch/yy";
 import { Core } from "@gml-modules/core";
 
 const PROJECT_METADATA_PARSE_ERROR = "ProjectMetadataParseError";
+const PROJECT_METADATA_SCHEMA_VALIDATION_ERROR = "ProjectMetadataSchemaValidationError";
 
 const RESOURCE_TYPE_TO_SCHEMA_NAME = Object.freeze({
     GMProject: "project",
@@ -79,12 +80,36 @@ export class ProjectMetadataParseError extends Error {
 }
 
 /**
+ * Error raised when metadata fails validation against an inferred yy schema.
+ */
+export class ProjectMetadataSchemaValidationError extends Error {
+    constructor(sourcePath: string, schemaName: string, cause: unknown) {
+        const details = Core.getErrorMessageOrFallback(cause);
+        super(
+            `Metadata at '${sourcePath}' does not match inferred '${schemaName}' schema required for safe mutation: ${details}`
+        );
+        this.name = PROJECT_METADATA_SCHEMA_VALIDATION_ERROR;
+        this.cause = cause instanceof Error ? cause : undefined;
+    }
+}
+
+/**
  * Type guard for {@link ProjectMetadataParseError}.
  */
 export function isProjectMetadataParseError(value: unknown): value is ProjectMetadataParseError {
     return (
         value instanceof ProjectMetadataParseError ||
         Core.getNonEmptyString((value as { name?: string })?.name) === PROJECT_METADATA_PARSE_ERROR
+    );
+}
+
+/**
+ * Type guard for {@link ProjectMetadataSchemaValidationError}.
+ */
+export function isProjectMetadataSchemaValidationError(value: unknown): value is ProjectMetadataSchemaValidationError {
+    return (
+        value instanceof ProjectMetadataSchemaValidationError ||
+        Core.getNonEmptyString((value as { name?: string })?.name) === PROJECT_METADATA_SCHEMA_VALIDATION_ERROR
     );
 }
 
@@ -98,11 +123,12 @@ function checkProjectMetadataDocumentSchema(
     rawContents: string,
     sourcePath: string,
     schemaName: ProjectMetadataSchemaName | null
-): { schemaValidated: boolean; document: Record<string, unknown> } {
+): { schemaValidated: boolean; document: Record<string, unknown>; schemaError: unknown } {
     if (!schemaName) {
         return {
             schemaValidated: false,
-            document: parseProjectMetadataDocument(rawContents, sourcePath)
+            document: parseProjectMetadataDocument(rawContents, sourcePath),
+            schemaError: null
         };
     }
 
@@ -110,12 +136,14 @@ function checkProjectMetadataDocumentSchema(
         const schemaParsed = Yy.parse(rawContents, schemaName);
         return {
             schemaValidated: true,
-            document: assertProjectMetadataDocumentIsPlainObject(schemaParsed, sourcePath)
+            document: assertProjectMetadataDocumentIsPlainObject(schemaParsed, sourcePath),
+            schemaError: null
         };
-    } catch {
+    } catch (error) {
         return {
             schemaValidated: false,
-            document: parseProjectMetadataDocument(rawContents, sourcePath)
+            document: parseProjectMetadataDocument(rawContents, sourcePath),
+            schemaError: error
         };
     }
 }
@@ -139,15 +167,50 @@ export function parseProjectMetadataDocument(rawContents: string, sourcePath: st
  * the parsed payload matches the inferred schema.
  */
 export function parseProjectMetadataDocumentWithSchema(rawContents: string, sourcePath: string) {
-    const baseDocument = parseProjectMetadataDocument(rawContents, sourcePath);
-    const schemaName = resolveProjectMetadataSchemaName(sourcePath, baseDocument.resourceType);
+    const pathDerivedSchemaName = resolveProjectMetadataSchemaName(sourcePath);
+    const pathDerivedSchemaResult = checkProjectMetadataDocumentSchema(rawContents, sourcePath, pathDerivedSchemaName);
+    if (pathDerivedSchemaResult.schemaValidated) {
+        return {
+            document: pathDerivedSchemaResult.document,
+            schemaName: pathDerivedSchemaName,
+            schemaValidated: true,
+            schemaError: null
+        };
+    }
+
+    const fallbackDocument = pathDerivedSchemaResult.document;
+    const schemaName = resolveProjectMetadataSchemaName(sourcePath, fallbackDocument.resourceType);
+    if (!schemaName || schemaName === pathDerivedSchemaName) {
+        return {
+            document: fallbackDocument,
+            schemaName,
+            schemaValidated: false,
+            schemaError: pathDerivedSchemaResult.schemaError
+        };
+    }
+
     const schemaResult = checkProjectMetadataDocumentSchema(rawContents, sourcePath, schemaName);
 
     return {
         document: schemaResult.document,
         schemaName,
-        schemaValidated: schemaResult.schemaValidated
+        schemaValidated: schemaResult.schemaValidated,
+        schemaError: schemaResult.schemaError
     };
+}
+
+/**
+ * Parse metadata for mutation workflows, enforcing inferred schema validation
+ * whenever a concrete schema can be derived from file path or resource type.
+ */
+export function parseProjectMetadataDocumentForMutation(rawContents: string, sourcePath: string) {
+    const parsed = parseProjectMetadataDocumentWithSchema(rawContents, sourcePath);
+    const requiresStrictValidation = parsed.schemaName && parsed.schemaName !== "project";
+    if (requiresStrictValidation && !parsed.schemaValidated) {
+        throw new ProjectMetadataSchemaValidationError(sourcePath, parsed.schemaName, parsed.schemaError);
+    }
+
+    return parsed;
 }
 
 /**

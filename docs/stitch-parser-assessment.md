@@ -292,6 +292,10 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 - Completed additional Phase 4 follow-up (project-manifest metadata rewrites):
   - Updated `src/cli/src/modules/refactor/semantic-bridge.ts` so metadata rewrite planning now covers both resource metadata (`.yy`) and project manifests (`.yyp`) when applying rename-driven reference updates.
   - Added manifest rewrite verification to `src/cli/test/gml-semantic-bridge.test.ts` to confirm `resources[].id` references are rewritten via the same schema-aware metadata pipeline.
+- Completed additional Phase 4 follow-up (strict schema-gated mutation parsing):
+  - Added `parseProjectMetadataDocumentForMutation` in `src/semantic/src/project-metadata/yy-adapter.ts`, which enforces inferred `@bscotch/yy` schema validation for rename/refactor mutation workflows and throws a dedicated schema-validation error on mismatch.
+  - Switched metadata mutation entry points (`src/semantic/src/identifier-case/asset-rename-executor.ts`, `src/cli/src/modules/refactor/semantic-bridge.ts`) to the stricter adapter API so malformed `.yy/.yyp` documents are skipped/blocked instead of being rewritten from loose parses.
+  - Expanded adapter tests in `src/semantic/test/project-metadata-yy-adapter.test.ts` to verify schema mismatch reporting and strict mutation guard behavior.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
   - `src/semantic/test/project-index-resource-analysis.test.ts`

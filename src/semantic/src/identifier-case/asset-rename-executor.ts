@@ -4,7 +4,7 @@ import { Core } from "@gml-modules/core";
 
 import {
     getProjectMetadataValueAtPath,
-    parseProjectMetadataDocumentWithSchema,
+    parseProjectMetadataDocumentForMutation,
     stringifyProjectMetadataDocument,
     updateProjectMetadataReferenceByPath
 } from "../project-metadata/yy-adapter.js";
@@ -67,7 +67,7 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const resourceJson = parseProjectMetadataDocumentWithSchema(raw, absolutePath).document;
+    const resourceJson = parseProjectMetadataDocumentForMutation(raw, absolutePath).document;
     if (cache) {
         cache.set(absolutePath, resourceJson);
     }
