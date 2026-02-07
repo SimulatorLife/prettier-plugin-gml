@@ -4,6 +4,11 @@ import type { AstPath } from "prettier";
 
 const STRING_TYPE = "string";
 
+// Cached regex pattern for whitespace detection to avoid recreating it on every
+// character check. This single pattern matches all 25 standard JavaScript
+// whitespace characters (ASCII and Unicode).
+const WHITESPACE_REGEX = /\s/;
+
 // Using a Set avoids re-allocating the list for every membership check when
 // these helpers run inside tight printer loops.
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
@@ -34,12 +39,12 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
  * @param {number} charCode Character code to classify.
  * @returns {boolean} `true` when the character is whitespace.
  */
-function isAsciiWhitespaceCharacterCode(charCode: number) {
+function isWhitespaceCharacterCode(charCode: number) {
     // Test the character against JavaScript's whitespace regex pattern.
     // This handles all 25 standard whitespace characters including:
     // - ASCII whitespace: tab(9), LF(10), VT(11), FF(12), CR(13), space(32)
     // - Unicode whitespace: NBSP(160), em-space(8195), etc.
-    return /\s/.test(String.fromCharCode(charCode));
+    return WHITESPACE_REGEX.test(String.fromCharCode(charCode));
 }
 
 /**
@@ -86,7 +91,7 @@ export function getNextNonWhitespaceCharacter(text: string | null | undefined, s
     for (let index = startIndex; index < length; index += 1) {
         const characterCode = text.charCodeAt(index);
 
-        if (isAsciiWhitespaceCharacterCode(characterCode)) {
+        if (isWhitespaceCharacterCode(characterCode)) {
             continue;
         }
 
@@ -136,7 +141,7 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
             continue;
         }
 
-        if (isAsciiWhitespaceCharacterCode(characterCode)) {
+        if (isWhitespaceCharacterCode(characterCode)) {
             index += 1;
             continue;
         }
@@ -159,11 +164,11 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
  * @returns {boolean} `true` when the code belongs to a skippable whitespace.
  */
 export function isSkippableSemicolonWhitespace(charCode: number) {
-    // The generalized isAsciiWhitespaceCharacterCode now handles all Unicode
+    // The generalized isWhitespaceCharacterCode now handles all Unicode
     // whitespace via /\s/, including NBSP (160), line separator (0x2028), and
     // paragraph separator (0x2029) that GameMaker may serialize when copying
     // from the IDE or importing JSON exports.
-    return isAsciiWhitespaceCharacterCode(charCode);
+    return isWhitespaceCharacterCode(charCode);
 }
 
 /**
