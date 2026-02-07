@@ -32,15 +32,7 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
-import {
-    assertArray,
-    assertFunction,
-    assertNonEmptyString,
-    assertRenameRequest,
-    assertValidIdentifierName,
-    extractSymbolName,
-    hasMethod
-} from "./validation-utils.js";
+import { assertRenameRequest, assertValidIdentifierName, extractSymbolName, hasMethod } from "./validation-utils.js";
 import { type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -688,10 +680,14 @@ export class RefactorEngine {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
-        assertFunction(readFile, "readFile", "applyWorkspaceEdit");
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "applyWorkspaceEdit requires a readFile function"
+        });
 
         if (!dryRun) {
-            assertFunction(writeFile, "writeFile", "applyWorkspaceEdit (when not in dry-run mode)");
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "applyWorkspaceEdit (when not in dry-run mode) requires a writeFile function"
+            });
         }
 
         // Verify the workspace edit is structurally sound and free of conflicts
@@ -764,7 +760,9 @@ export class RefactorEngine {
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
     async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
-        assertArray(renames, "an array of renames", "planBatchRename");
+        Core.assertArray(renames, {
+            errorMessage: "planBatchRename requires an array of renames"
+        });
 
         if (renames.length === 0) {
             throw new Error("planBatchRename requires at least one rename");
@@ -867,8 +865,12 @@ export class RefactorEngine {
         } = request ?? ({} as ExecuteRenameRequest);
 
         assertRenameRequest({ symbolId, newName }, "executeRename");
-        assertFunction(readFile, "readFile", "executeRename");
-        assertFunction(writeFile, "writeFile", "executeRename");
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeRename requires a readFile function"
+        });
+        Core.assertFunction(writeFile, "writeFile", {
+            errorMessage: "executeRename requires a writeFile function"
+        });
 
         // Plan the rename
         const workspace = await this.planRename({ symbolId, newName });
@@ -916,9 +918,15 @@ export class RefactorEngine {
     async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
         const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
 
-        assertArray(renames, "renames array", "executeBatchRename");
-        assertFunction(readFile, "readFile", "executeBatchRename");
-        assertFunction(writeFile, "writeFile", "executeBatchRename");
+        Core.assertArray(renames, {
+            errorMessage: "executeBatchRename requires renames array"
+        });
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeBatchRename requires a readFile function"
+        });
+        Core.assertFunction(writeFile, "writeFile", {
+            errorMessage: "executeBatchRename requires a writeFile function"
+        });
 
         // Plan the batch rename
         const workspace = await this.planBatchRename(renames);
@@ -1812,9 +1820,15 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        assertNonEmptyString(oldName, "oldName as a non-empty string", "detectRenameConflicts");
-        assertNonEmptyString(newName, "newName as a non-empty string", "detectRenameConflicts");
-        assertArray(occurrences, "occurrences as an array", "detectRenameConflicts");
+        Core.assertNonEmptyString(oldName, {
+            errorMessage: "detectRenameConflicts requires oldName as a non-empty string"
+        });
+        Core.assertNonEmptyString(newName, {
+            errorMessage: "detectRenameConflicts requires newName as a non-empty string"
+        });
+        Core.assertArray(occurrences, {
+            errorMessage: "detectRenameConflicts requires occurrences as an array"
+        });
 
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer

@@ -24,15 +24,7 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectRenameConflicts } from "./validation.js";
-import {
-    assertArray,
-    assertFunction,
-    assertNonEmptyString,
-    assertValidIdentifierName,
-    extractSymbolName,
-    hasMethod,
-    parseSymbolIdParts
-} from "./validation-utils.js";
+import { assertValidIdentifierName, extractSymbolName, hasMethod, parseSymbolIdParts } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -127,7 +119,9 @@ export async function computeHotReloadCascade(
     changedSymbolIds: Array<string>,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<HotReloadCascadeResult> {
-    assertArray(changedSymbolIds, "an array of symbol IDs", "computeHotReloadCascade");
+    Core.assertArray(changedSymbolIds, {
+        errorMessage: "computeHotReloadCascade requires an array of symbol IDs"
+    });
 
     if (changedSymbolIds.length === 0) {
         return {
@@ -595,8 +589,12 @@ export async function generateTranspilerPatches(
     readFile: WorkspaceReadFile,
     formatter: TranspilerBridge | null
 ): Promise<Array<TranspilerPatch>> {
-    assertArray(hotReloadUpdates, "an array of hot reload updates", "generateTranspilerPatches");
-    assertFunction(readFile, "readFile", "generateTranspilerPatches");
+    Core.assertArray(hotReloadUpdates, {
+        errorMessage: "generateTranspilerPatches requires an array of hot reload updates"
+    });
+    Core.assertFunction(readFile, "readFile", {
+        errorMessage: "generateTranspilerPatches requires a readFile function"
+    });
 
     const patches: Array<TranspilerPatch> = [];
 
@@ -671,7 +669,9 @@ export async function computeRenameImpactGraph(
     symbolId: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<RenameImpactGraph> {
-    assertNonEmptyString(symbolId, "a valid symbolId", "computeRenameImpactGraph");
+    Core.assertNonEmptyString(symbolId, {
+        errorMessage: "computeRenameImpactGraph requires a valid symbolId"
+    });
 
     const nodes = new Map<string, RenameImpactNode>();
     const symbolName = extractSymbolName(symbolId);

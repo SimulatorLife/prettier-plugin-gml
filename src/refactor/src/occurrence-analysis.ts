@@ -4,8 +4,9 @@
  * rename planning, hot reload coordination, and impact preview.
  */
 
+import { Core } from "@gml-modules/core";
+
 import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
-import { assertArray } from "./validation-utils.js";
 
 /**
  * Check if an occurrence object is valid (non-null, defined, and an object).
@@ -49,7 +50,9 @@ export interface OccurrenceClassification {
  * console.log(`Affects ${classification.byFile.size} files`);
  */
 export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): OccurrenceClassification {
-    assertArray(occurrences, "an array of occurrences", "classifyOccurrences");
+    Core.assertArray(occurrences, {
+        errorMessage: "classifyOccurrences requires an array of occurrences"
+    });
 
     const classification: OccurrenceClassification = {
         total: occurrences.length,
@@ -102,8 +105,12 @@ export function filterOccurrencesByKind(
     occurrences: Array<SymbolOccurrence>,
     kinds: Array<string>
 ): Array<SymbolOccurrence> {
-    assertArray(occurrences, "an array of occurrences", "filterOccurrencesByKind");
-    assertArray(kinds, "an array of kinds", "filterOccurrencesByKind");
+    Core.assertArray(occurrences, {
+        errorMessage: "filterOccurrencesByKind requires an array of occurrences"
+    });
+    Core.assertArray(kinds, {
+        errorMessage: "filterOccurrencesByKind requires an array of kinds"
+    });
 
     const kindSet = new Set(kinds);
     return occurrences.filter((occ) => {
