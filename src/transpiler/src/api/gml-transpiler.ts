@@ -1,5 +1,4 @@
 import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
 
 import {
     type CallTargetAnalyzer,
@@ -9,6 +8,8 @@ import {
     type IdentifierAnalyzer,
     makeDummyOracle
 } from "../emitter/index.js";
+
+const { Parser } = await import("@gml-modules/parser");
 
 export interface TranspileScriptRequest {
     /**

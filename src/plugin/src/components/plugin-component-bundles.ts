@@ -7,7 +7,7 @@ import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
 
-const IDENTIFIER_CASE_OPTIONS = Object.freeze({});
+const IDENTIFIER_CASE_OPTIONS: GmlPluginComponentContract["identifierCaseOptions"] = Object.freeze({});
 
 /**
  * Dependencies required to build the plugin component implementations.

@@ -488,13 +488,13 @@ Template strings that never interpolate expressions automatically collapse back 
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
+| `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. Hoisted cache names are resolved through the semantic-safety runtime when available, with local collision-safe fallback naming otherwise. |
 | `condenseStructAssignments` | `false` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
 | `allowSingleLineIfStatements` | `true` | Enable to keep trivial `if` statements on one line. When disabled, only single-line guards inside functions (for example `return;`, `exit;`, or simple calls without an `else`) stay collapsed; guards that return a value expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `optimizeLogicalExpressions` | `false` | Runs logical-flow optimizations where safe: condenses complementary branches, rewrites else-early-exit blocks into guard clauses, eliminates temporary `var` + `return` pairs, caches repeated member access in conditions, and hoists invariant loop-condition member reads. |
-| `preserveGlobalVarStatements` | `true` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. |
+| `preserveGlobalVarStatements` | `true` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. When disabled, rewrites are gated by semantic-safety checks: project-aware runtimes can allow broader normalization, while fallback mode preserves declarations that cannot be proven safe. |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`) and standardizes legacy `begin`/`end` block delimiters to `{`/`}`. |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |

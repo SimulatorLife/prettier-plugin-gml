@@ -1,5 +1,10 @@
-import type { MaybePromise, TranspilerBridge } from "@gml-modules/refactor";
 import { Transpiler } from "@gml-modules/transpiler";
+
+type MaybePromise<T> = T | Promise<T>;
+
+type TranspilerBridge = {
+    transpileScript: (request: { sourceText: string; symbolId: string }) => MaybePromise<Record<string, unknown>>;
+};
 
 /**
  * Transpiler bridge that adapts @gml-modules/transpiler to the refactor engine.
