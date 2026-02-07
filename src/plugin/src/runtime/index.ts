@@ -1,5 +1,7 @@
 export type {
     FeatherRenameContext,
+    FeatherRenamePlanEntry,
+    FeatherRenamePlanRequest,
     FeatherRenameResolution,
     GlobalVarRewriteAssessment,
     GlobalVarRewriteContext,
@@ -14,10 +16,12 @@ export {
     assessGlobalVarRewrite,
     emitSemanticSafetyReport,
     hasActiveSemanticSafetyReportService,
+    prepareFeatherRenamePlan,
     resolveFeatherRename,
     resolveLoopHoistIdentifier,
     restoreDefaultRefactorRuntime,
     restoreDefaultSemanticSafetyRuntime,
+    runWithFeatherRenamePlan,
     runWithSemanticSafetyReportService,
     setRefactorRuntime,
     setSemanticSafetyRuntime
