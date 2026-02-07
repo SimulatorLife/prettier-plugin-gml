@@ -641,7 +641,8 @@ export function normalizeFunctionDocCommentDocs({
     const descriptionContinuations = DescriptionUtils.collectDescriptionContinuations(docCommentDocs);
     const preserveDescriptionBreaks =
         Array.isArray(docCommentDocs) && (docCommentDocs as any)._preserveDescriptionBreaks === true;
-    if (Core.shouldGenerateSyntheticDocForFunction(path, docCommentDocs, docCommentOptions)) {
+    const parent = safeGetParentNode(path);
+    if (Core.shouldGenerateSyntheticDocForFunction(node, parent, docCommentDocs, docCommentOptions)) {
         docCommentDocs = Core.toMutableArray(
             Core.mergeSyntheticDocComments(node, docCommentDocs, docCommentOptions, overrides)
         ) as MutableDocCommentLines;
@@ -656,8 +657,7 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentDocs.shift();
             }
         }
-        const parentNode = safeGetParentNode(path);
-        if (parentNode && parentNode.type === "BlockStatement" && !needsLeadingBlankLine) {
+        if (parent && parent.type === "BlockStatement" && !needsLeadingBlankLine) {
             needsLeadingBlankLine = true;
         }
     }
