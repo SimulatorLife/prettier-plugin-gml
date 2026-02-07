@@ -115,7 +115,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 since: "0.0.0",
                 type: "int",
                 category: "gml",
-                default: 2,
+                default: 0,
                 range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Maximum number of properties in a struct expression before it is forced to break across multiple lines. Set to 0 to disable the limit (structs with comments will still break)."

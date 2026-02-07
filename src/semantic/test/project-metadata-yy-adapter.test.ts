@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    getProjectMetadataValueAtPath,
     isProjectMetadataParseError,
     parseProjectMetadataDocument,
     parseProjectMetadataDocumentWithSchema,
     resolveProjectMetadataSchemaName,
-    stringifyProjectMetadataDocument
+    stringifyProjectMetadataDocument,
+    updateProjectMetadataReferenceByPath
 } from "../src/project-metadata/yy-adapter.js";
 
 void test("parseProjectMetadataDocument accepts trailing commas", () => {
@@ -53,6 +55,11 @@ void test("resolveProjectMetadataSchemaName falls back to source path", () => {
     assert.equal(schema, "rooms");
 });
 
+void test("resolveProjectMetadataSchemaName infers schema names from absolute metadata paths", () => {
+    const schema = resolveProjectMetadataSchemaName("/tmp/project/objects/o_player/o_player.yy");
+    assert.equal(schema, "objects");
+});
+
 void test("parseProjectMetadataDocumentWithSchema returns inferred schema details", () => {
     const parsed = parseProjectMetadataDocumentWithSchema(
         `{
@@ -82,4 +89,47 @@ void test("parseProjectMetadataDocumentWithSchema reports schema validation fail
     assert.equal(parsed.schemaValidated, false);
     assert.equal(parsed.document.name, "o_player");
     assert.equal(parsed.document.resourceType, "GMObject");
+});
+
+void test("updateProjectMetadataReferenceByPath updates object references", () => {
+    const document: Record<string, unknown> = {
+        spriteId: {
+            name: "spr_player",
+            path: "sprites/spr_player/spr_player.yy"
+        }
+    };
+
+    const changed = updateProjectMetadataReferenceByPath({
+        document,
+        propertyPath: "spriteId",
+        newResourcePath: "sprites/spr_hero/spr_hero.yy",
+        newName: "spr_hero"
+    });
+
+    assert.equal(changed, true);
+    assert.deepEqual(document.spriteId, {
+        name: "spr_hero",
+        path: "sprites/spr_hero/spr_hero.yy"
+    });
+});
+
+void test("updateProjectMetadataReferenceByPath updates direct string paths", () => {
+    const document: Record<string, unknown> = {
+        Folders: [
+            {
+                name: "Scripts",
+                folderPath: "folders/Scripts.yy"
+            }
+        ]
+    };
+
+    const changed = updateProjectMetadataReferenceByPath({
+        document,
+        propertyPath: "Folders.0.folderPath",
+        newResourcePath: "folders/Code.yy",
+        newName: null
+    });
+
+    assert.equal(changed, true);
+    assert.equal(getProjectMetadataValueAtPath(document, "Folders.0.folderPath"), "folders/Code.yy");
 });

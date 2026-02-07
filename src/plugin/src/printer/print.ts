@@ -1003,10 +1003,18 @@ function printCallExpressionNode(node, path, options, print) {
                 argument?.type === FUNCTION_EXPRESSION ||
                 argument?.type === CONSTRUCTOR_DECLARATION
         );
-        const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-        const structArgumentsToBreak = structArguments.filter((argument) =>
-            shouldForceBreakStructArgument(argument, options)
-        );
+        const structArguments = [];
+        const structArgumentsToBreak = [];
+        for (let index = 0; index < node.arguments.length; index++) {
+            const argument = node.arguments[index];
+            if (argument?.type === STRUCT_EXPRESSION) {
+                structArguments.push(argument);
+                const previousArgument = index > 0 ? node.arguments[index - 1] : null;
+                if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
+                    structArgumentsToBreak.push(argument);
+                }
+            }
+        }
 
         structArgumentsToBreak.forEach((argument) => {
             forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
@@ -1209,10 +1217,18 @@ function printNewExpressionNode(node, path, options, print) {
             argument?.type === FUNCTION_EXPRESSION ||
             argument?.type === CONSTRUCTOR_DECLARATION
     );
-    const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-    const structArgumentsToBreak = structArguments.filter((argument) =>
-        shouldForceBreakStructArgument(argument, options)
-    );
+    const structArguments = [];
+    const structArgumentsToBreak = [];
+    for (let index = 0; index < node.arguments.length; index++) {
+        const argument = node.arguments[index];
+        if (argument?.type === STRUCT_EXPRESSION) {
+            structArguments.push(argument);
+            const previousArgument = index > 0 ? node.arguments[index - 1] : null;
+            if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
+                structArgumentsToBreak.push(argument);
+            }
+        }
+    }
 
     structArgumentsToBreak.forEach((argument) => {
         forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
@@ -2378,12 +2394,16 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
 
-function shouldForceBreakStructArgument(argument, options) {
+function shouldForceBreakStructArgument(argument, options, previousArgument) {
     if (!argument || argument.type !== "StructExpression") {
         return false;
     }
 
     if (Core.hasComment(argument)) {
+        return true;
+    }
+
+    if (hasLineBreakBetweenArguments(previousArgument, argument, options)) {
         return true;
     }
 
@@ -2398,9 +2418,40 @@ function shouldForceBreakStructArgument(argument, options) {
 
     const maxStructPropertiesPerLine = Number.isFinite(options?.maxStructPropertiesPerLine)
         ? options.maxStructPropertiesPerLine
-        : 2;
+        : 0;
     const threshold = maxStructPropertiesPerLine > 0 ? maxStructPropertiesPerLine : Infinity;
     return properties.length > threshold;
+}
+
+function hasLineBreakBetweenArguments(previousArgument, argument, options) {
+    if (!previousArgument || !argument) {
+        return false;
+    }
+
+    const originalText = getOriginalTextFromOptions(options);
+    if (typeof originalText !== STRING_TYPE) {
+        return false;
+    }
+
+    const previousArgumentEnd = Core.getNodeEndIndex(previousArgument);
+    const argumentStart = Core.getNodeStartIndex(argument);
+
+    if (
+        !Number.isFinite(previousArgumentEnd) ||
+        !Number.isFinite(argumentStart) ||
+        argumentStart <= previousArgumentEnd
+    ) {
+        return false;
+    }
+
+    for (let cursor = previousArgumentEnd; cursor < argumentStart; cursor++) {
+        const charCode = originalText.charCodeAt(cursor);
+        if (charCode === 10 || charCode === 13) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function buildStructPropertyCommentSuffix(path, options) {

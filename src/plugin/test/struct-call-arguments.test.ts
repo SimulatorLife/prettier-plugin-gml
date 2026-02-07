@@ -27,7 +27,7 @@ void test("keeps small struct arguments inline", async () => {
     );
 });
 
-void test("still breaks struct arguments with many properties", async () => {
+void test("keeps struct arguments inline by default when the struct limit is disabled", async () => {
     const source = [
         "function build() {",
         "    return create_instance(1, 2, {",
@@ -45,8 +45,33 @@ void test("still breaks struct arguments with many properties", async () => {
 
     assert.strictEqual(
         lines[returnIndex],
+        "    return create_instance(1, 2, {",
+        "Calls with larger struct arguments stay inline by default when the struct limit is disabled."
+    );
+});
+
+void test("breaks struct arguments when maxStructPropertiesPerLine is limited", async () => {
+    const source = [
+        "function build() {",
+        "    return create_instance(1, 2, {",
+        "        first: 1,",
+        "        second: 2,",
+        "        third: 3",
+        "    });",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        maxStructPropertiesPerLine: 2
+    });
+    const lines = formatted.trim().split("\n");
+    const returnIndex = lines.findIndex((line) => line.includes("return create_instance"));
+
+    assert.strictEqual(
+        lines[returnIndex],
         "    return create_instance(",
-        "Calls with larger struct arguments should still break to preserve readability."
+        "Calls with larger struct arguments should still break to preserve readability when the limit applies."
     );
     assert.strictEqual(
         lines[returnIndex + 1],

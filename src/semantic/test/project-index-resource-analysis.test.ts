@@ -64,6 +64,8 @@ void test("analyseResourceFiles captures project manifest resource references", 
                     name: "MyGame",
                     resourceType: "GMProject",
                     resources: [{ id: { name: "demo_script", path: scriptPath } }],
+                    RoomOrderNodes: [{ roomId: { name: "rm_start", path: "rooms/rm_start/rm_start.yy" } }],
+                    Options: [{ name: "Main", path: "options/main/options_main.yy" }],
                     Folders: [{ name: "Scripts", folderPath: "folders/Scripts.yy" }]
                 });
             }
@@ -71,9 +73,26 @@ void test("analyseResourceFiles captures project manifest resource references", 
     });
 
     const manifestReferences = context.assetReferences.filter((entry) => entry.fromResourcePath === relativePath);
-    assert.equal(manifestReferences.length, 1);
-    assert.equal(manifestReferences[0].propertyPath, "resources.0.id");
-    assert.equal(manifestReferences[0].targetPath, scriptPath);
+    assert.equal(manifestReferences.length, 4);
+    assert.ok(
+        manifestReferences.some((entry) => entry.propertyPath === "resources.0.id" && entry.targetPath === scriptPath)
+    );
+    assert.ok(
+        manifestReferences.some(
+            (entry) =>
+                entry.propertyPath === "RoomOrderNodes.0.roomId" && entry.targetPath === "rooms/rm_start/rm_start.yy"
+        )
+    );
+    assert.ok(
+        manifestReferences.some(
+            (entry) => entry.propertyPath === "Options.0.path" && entry.targetPath === "options/main/options_main.yy"
+        )
+    );
+    assert.ok(
+        manifestReferences.some(
+            (entry) => entry.propertyPath === "Folders.0.folderPath" && entry.targetPath === "folders/Scripts.yy"
+        )
+    );
 });
 
 void test("analyseResourceFiles limits object references to supported resource-id fields", async () => {

@@ -3,10 +3,20 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-void test("breaks struct with 3 properties when maxStructPropertiesPerLine is 2 (default)", async () => {
+void test("keeps struct with 3 properties inline by default when the struct limit is disabled", async () => {
     const source = "my_func({ a: 1, b: 2, c: 3 });";
 
     const formatted = await Plugin.format(source);
+
+    assert.strictEqual(formatted, "my_func({a: 1, b: 2, c: 3});\n");
+});
+
+void test("breaks struct with 3 properties when maxStructPropertiesPerLine is 2", async () => {
+    const source = "my_func({ a: 1, b: 2, c: 3 });";
+
+    const formatted = await Plugin.format(source, {
+        maxStructPropertiesPerLine: 2
+    });
 
     assert.strictEqual(
         formatted,
@@ -14,10 +24,12 @@ void test("breaks struct with 3 properties when maxStructPropertiesPerLine is 2 
     );
 });
 
-void test("keeps struct with 2 properties inline when maxStructPropertiesPerLine is 2 (default)", async () => {
+void test("keeps struct with 2 properties inline when maxStructPropertiesPerLine is 2", async () => {
     const source = "my_func({ a: 1, b: 2 });";
 
-    const formatted = await Plugin.format(source);
+    const formatted = await Plugin.format(source, {
+        maxStructPropertiesPerLine: 2
+    });
 
     assert.strictEqual(formatted, "my_func({a: 1, b: 2});\n");
 });
@@ -55,7 +67,7 @@ void test("breaks struct with 4 properties when maxStructPropertiesPerLine is 3"
     );
 });
 
-void test("disables struct property limit when maxStructPropertiesPerLine is 0", async () => {
+void test("keeps struct inline when maxStructPropertiesPerLine is 0", async () => {
     const source = "my_func({ a: 1, b: 2, c: 3, d: 4, e: 5 });";
 
     const formatted = await Plugin.format(source, {

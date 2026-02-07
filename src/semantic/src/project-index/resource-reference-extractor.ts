@@ -86,10 +86,86 @@ function pushChildNode(
     });
 }
 
+function pushAssetReferenceCandidate(
+    candidates: Array<AssetReferenceCandidate>,
+    propertyPath: string,
+    targetPath: unknown,
+    targetName: unknown = null
+) {
+    if (!Core.isNonEmptyString(propertyPath) || !Core.isNonEmptyString(targetPath)) {
+        return;
+    }
+
+    candidates.push({
+        propertyPath,
+        targetPath,
+        targetName: Core.getNonEmptyString(targetName)
+    });
+}
+
+function collectProjectManifestReferenceCandidates(root: Record<string, unknown>): Array<AssetReferenceCandidate> {
+    const collected: Array<AssetReferenceCandidate> = [];
+
+    const resources = root.resources;
+    if (Array.isArray(resources)) {
+        for (const [index, entry] of resources.entries()) {
+            if (!Core.isObjectLike(entry) || !Core.isObjectLike(entry.id)) {
+                continue;
+            }
+
+            pushAssetReferenceCandidate(collected, `resources.${index}.id`, entry.id.path, entry.id.name);
+        }
+    }
+
+    const roomOrderNodes = root.RoomOrderNodes;
+    if (Array.isArray(roomOrderNodes)) {
+        for (const [index, node] of roomOrderNodes.entries()) {
+            if (!Core.isObjectLike(node) || !Core.isObjectLike(node.roomId)) {
+                continue;
+            }
+
+            pushAssetReferenceCandidate(
+                collected,
+                `RoomOrderNodes.${index}.roomId`,
+                node.roomId.path,
+                node.roomId.name
+            );
+        }
+    }
+
+    const folders = root.Folders;
+    if (Array.isArray(folders)) {
+        for (const [index, folder] of folders.entries()) {
+            if (!Core.isObjectLike(folder)) {
+                continue;
+            }
+
+            pushAssetReferenceCandidate(collected, `Folders.${index}.folderPath`, folder.folderPath, folder.name);
+        }
+    }
+
+    const options = root.Options;
+    if (Array.isArray(options)) {
+        for (const [index, option] of options.entries()) {
+            if (!Core.isObjectLike(option)) {
+                continue;
+            }
+
+            pushAssetReferenceCandidate(collected, `Options.${index}.path`, option.path, option.name);
+        }
+    }
+
+    return collected;
+}
+
 function collectAssetReferenceCandidates(
     root: Record<string, unknown>,
     schemaName: ProjectMetadataSchemaName | null
 ): Array<AssetReferenceCandidate> {
+    if (schemaName === "project") {
+        return collectProjectManifestReferenceCandidates(root);
+    }
+
     const acceptedReferenceKeys = getReferenceKeySet(schemaName);
     const collected: Array<AssetReferenceCandidate> = [];
     const stack: Array<{ value: Record<string, unknown> | Array<unknown>; path: string }> = [{ value: root, path: "" }];

@@ -36,22 +36,24 @@ function mapResourcePathToSchemaName(sourcePath: string): ProjectMetadataSchemaN
         return "project";
     }
 
+    if (!normalizedPath.toLowerCase().endsWith(".yy")) {
+        return null;
+    }
+
     const segments = Core.trimStringEntries(normalizedPath.split("/"));
-    if (segments.length === 0) {
+    if (segments.length < 2) {
         return null;
     }
 
-    const fileName = segments.at(-1);
-    if (!fileName || !fileName.toLowerCase().endsWith(".yy")) {
-        return null;
+    const directorySegments = segments.slice(0, -1);
+    for (let index = directorySegments.length - 1; index >= 0; index -= 1) {
+        const candidate = directorySegments[index]?.toLowerCase() as ProjectMetadataSchemaName | undefined;
+        if (candidate && PROJECT_METADATA_SCHEMA_NAMES.has(candidate)) {
+            return candidate;
+        }
     }
 
-    const folderSegment = segments[0].toLowerCase() as ProjectMetadataSchemaName;
-    if (!PROJECT_METADATA_SCHEMA_NAMES.has(folderSegment)) {
-        return null;
-    }
-
-    return folderSegment;
+    return null;
 }
 
 /**
@@ -94,14 +96,29 @@ function assertProjectMetadataDocumentIsPlainObject(parsed: unknown, sourcePath:
 
 function checkProjectMetadataDocumentSchema(
     document: Record<string, unknown>,
+    sourcePath: string,
     schemaName: ProjectMetadataSchemaName | null
-): boolean {
+): { schemaValidated: boolean; document: Record<string, unknown> } {
     if (!schemaName) {
-        return false;
+        return {
+            schemaValidated: false,
+            document
+        };
     }
 
     const schema = Yy.getSchema(schemaName);
-    return schema.safeParse(document).success;
+    const schemaResult = schema.safeParse(document);
+    if (!schemaResult.success) {
+        return {
+            schemaValidated: false,
+            document
+        };
+    }
+
+    return {
+        schemaValidated: true,
+        document: assertProjectMetadataDocumentIsPlainObject(schemaResult.data, sourcePath)
+    };
 }
 
 /**
@@ -125,12 +142,12 @@ export function parseProjectMetadataDocument(rawContents: string, sourcePath: st
 export function parseProjectMetadataDocumentWithSchema(rawContents: string, sourcePath: string) {
     const document = parseProjectMetadataDocument(rawContents, sourcePath);
     const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    const schemaValidated = checkProjectMetadataDocumentSchema(document, schemaName);
+    const schemaResult = checkProjectMetadataDocumentSchema(document, sourcePath, schemaName);
 
     return {
-        document,
+        document: schemaResult.document,
         schemaName,
-        schemaValidated
+        schemaValidated: schemaResult.schemaValidated
     };
 }
 
@@ -139,4 +156,133 @@ export function parseProjectMetadataDocumentWithSchema(rawContents: string, sour
  */
 export function stringifyProjectMetadataDocument(document: Record<string, unknown>) {
     return Yy.stringify(document);
+}
+
+function resolveProjectMetadataPathTarget(
+    document: Record<string, unknown>,
+    propertyPath: string
+): {
+    container: Record<string, unknown> | Array<unknown>;
+    key: string | number;
+    value: unknown;
+} | null {
+    const segments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
+    if (segments.length === 0) {
+        return null;
+    }
+
+    let current: unknown = document;
+    for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        const isLast = index === segments.length - 1;
+
+        if (Array.isArray(current)) {
+            const arrayIndex = Number(segment);
+            if (!Number.isInteger(arrayIndex) || arrayIndex < 0 || arrayIndex >= current.length) {
+                return null;
+            }
+
+            if (isLast) {
+                return {
+                    container: current,
+                    key: arrayIndex,
+                    value: current[arrayIndex]
+                };
+            }
+
+            current = current[arrayIndex];
+            continue;
+        }
+
+        if (!Core.isObjectLike(current)) {
+            return null;
+        }
+
+        const objectRecord = current as Record<string, unknown>;
+        if (!Object.hasOwn(objectRecord, segment)) {
+            return null;
+        }
+
+        if (isLast) {
+            return {
+                container: objectRecord,
+                key: segment,
+                value: objectRecord[segment]
+            };
+        }
+
+        current = objectRecord[segment];
+    }
+
+    return null;
+}
+
+/**
+ * Resolve a nested value from parsed metadata by property path.
+ */
+export function getProjectMetadataValueAtPath(document: Record<string, unknown>, propertyPath: string): unknown {
+    if (!Core.isNonEmptyString(propertyPath)) {
+        return document;
+    }
+
+    const target = resolveProjectMetadataPathTarget(document, propertyPath);
+    return target ? target.value : null;
+}
+
+/**
+ * Update a metadata reference at a property path.
+ *
+ * Supports both object references (`{ name, path }`) and direct string path fields.
+ */
+export function updateProjectMetadataReferenceByPath({
+    document,
+    propertyPath,
+    newResourcePath,
+    newName
+}: {
+    document: Record<string, unknown>;
+    propertyPath: string;
+    newResourcePath: string | null;
+    newName: string | null;
+}): boolean {
+    if (!Core.isNonEmptyString(propertyPath) || !Core.isObjectLike(document)) {
+        return false;
+    }
+
+    const target = resolveProjectMetadataPathTarget(document, propertyPath);
+    if (!target) {
+        return false;
+    }
+
+    if (Core.isObjectLike(target.value)) {
+        const targetRecord = target.value as Record<string, unknown>;
+        let changed = false;
+
+        if (Core.isNonEmptyString(newResourcePath) && targetRecord.path !== newResourcePath) {
+            targetRecord.path = newResourcePath;
+            changed = true;
+        }
+
+        if (Core.isNonEmptyString(newName) && targetRecord.name !== newName) {
+            targetRecord.name = newName;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    if (
+        typeof target.value === "string" &&
+        Core.isNonEmptyString(newResourcePath) &&
+        target.value !== newResourcePath
+    ) {
+        if (Array.isArray(target.container)) {
+            target.container[target.key as number] = newResourcePath;
+        } else {
+            target.container[target.key as string] = newResourcePath;
+        }
+        return true;
+    }
+
+    return false;
 }

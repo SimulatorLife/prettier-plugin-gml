@@ -2,7 +2,12 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { parseProjectMetadataDocument, stringifyProjectMetadataDocument } from "../project-metadata/yy-adapter.js";
+import {
+    getProjectMetadataValueAtPath,
+    parseProjectMetadataDocument,
+    stringifyProjectMetadataDocument,
+    updateProjectMetadataReferenceByPath
+} from "../project-metadata/yy-adapter.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
@@ -70,35 +75,11 @@ function readJsonFile(fsFacade, absolutePath, cache) {
 }
 
 function getObjectAtPath(json, propertyPath) {
-    if (!propertyPath) {
-        return json;
+    if (!Core.isObjectLike(json)) {
+        return null;
     }
 
-    const segments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
-
-    let current = json;
-    for (const segment of segments) {
-        if (Array.isArray(current)) {
-            const index = Number(segment);
-            if (!Number.isInteger(index) || index < 0 || index >= current.length) {
-                return null;
-            }
-            current = current[index];
-            continue;
-        }
-
-        if (!Core.isObjectLike(current)) {
-            return null;
-        }
-
-        if (!Object.hasOwn(current, segment)) {
-            return null;
-        }
-
-        current = current[segment];
-    }
-
-    return current;
+    return getProjectMetadataValueAtPath(json, propertyPath ?? "");
 }
 
 function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
@@ -106,24 +87,12 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
         return false;
     }
 
-    const target = getObjectAtPath(json, propertyPath);
-    if (!Core.isObjectLike(target)) {
-        return false;
-    }
-
-    let changed = false;
-
-    if (Core.isNonEmptyString(newResourcePath) && target.path !== newResourcePath) {
-        target.path = newResourcePath;
-        changed = true;
-    }
-
-    if (Core.isNonEmptyString(newName) && target.name !== newName) {
-        target.name = newName;
-        changed = true;
-    }
-
-    return changed;
+    return updateProjectMetadataReferenceByPath({
+        document: json,
+        propertyPath: Core.getNonEmptyString(propertyPath) ?? "",
+        newResourcePath: Core.getNonEmptyString(newResourcePath) ?? null,
+        newName: Core.getNonEmptyString(newName) ?? null
+    });
 }
 
 function hasWriteAccess(fsFacade, targetPath, probeMethod) {

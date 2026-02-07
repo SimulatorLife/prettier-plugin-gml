@@ -311,7 +311,12 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                     continue;
                 }
 
-                const updated = this.updateReferenceObject(parsed, reference.propertyPath, newResourcePath, newName);
+                const updated = Semantic.updateProjectMetadataReferenceByPath({
+                    document: parsed,
+                    propertyPath: reference.propertyPath,
+                    newResourcePath,
+                    newName
+                });
                 if (updated) {
                     changed = true;
                 }
@@ -328,64 +333,6 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
 
             edit.addMetadataEdit(resourceEntry.path, updatedContent);
         }
-    }
-
-    private updateReferenceObject(
-        document: Record<string, unknown>,
-        propertyPath: string | undefined,
-        newResourcePath: string,
-        newName: string
-    ): boolean {
-        if (!propertyPath || !Core.isObjectLike(document)) {
-            return false;
-        }
-
-        const target = this.getObjectAtPath(document, propertyPath);
-        if (!Core.isObjectLike(target)) {
-            return false;
-        }
-        const targetRecord = target as Record<string, unknown>;
-
-        let changed = false;
-        if (targetRecord.path !== newResourcePath) {
-            targetRecord.path = newResourcePath;
-            changed = true;
-        }
-        if (targetRecord.name !== newName) {
-            targetRecord.name = newName;
-            changed = true;
-        }
-
-        return changed;
-    }
-
-    private getObjectAtPath(document: Record<string, unknown>, propertyPath: string) {
-        const segments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
-        let current: unknown = document;
-
-        for (const segment of segments) {
-            if (Array.isArray(current)) {
-                const index = Number(segment);
-                if (!Number.isInteger(index) || index < 0 || index >= current.length) {
-                    return null;
-                }
-                current = current[index];
-                continue;
-            }
-
-            if (!Core.isObjectLike(current)) {
-                return null;
-            }
-            const currentRecord = current as Record<string, unknown>;
-
-            if (!Object.hasOwn(currentRecord, segment)) {
-                return null;
-            }
-
-            current = currentRecord[segment];
-        }
-
-        return current;
     }
 
     private findResourceBySymbol(entry: any, symbolId: string): any {
