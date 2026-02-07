@@ -24,6 +24,29 @@ void test("preserves compact return guards inside functions when disabled", asyn
     );
 });
 
+void test("expands expression guards inside functions when single-line formatting is disabled", async () => {
+    const source = ["function bump_counter() {", "    if (ready) counter += 1;", "    return counter;", "}", ""].join(
+        "\n"
+    );
+
+    const formatted = await Plugin.format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "function bump_counter() {",
+            "    if (ready) {",
+            "        counter += 1;",
+            "    }",
+            "    return counter;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("expands guarded returns with values when single-line is disabled", async () => {
     const source = [
         "function guard_with_value() {",
