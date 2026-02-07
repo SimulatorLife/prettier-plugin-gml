@@ -568,8 +568,6 @@ prettier-plugin-gml/
 └─ docs/                  # Design notes and guides
 ```
 
-The Prettier plugin printer centralizes semicolon emission, cleanup, and statement-order helpers in `src/plugin/src/printer/semicolons.ts` so formatting heuristics stay in one place.
-
 ### Set up the workspace
 
 ```bash
@@ -631,8 +629,3 @@ See [package.json](package.json) for the full list of available scripts.
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [Gemini CLI Configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md)
 - [jscpd CLI](https://github.com/kucherenko/jscpd/tree/master/apps/jscpd)
-
-----
-
-# TODO
-1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.

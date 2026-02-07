@@ -54,11 +54,11 @@ const MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE = 10;
  * Options controlling how logical-expression condensation should interpret AST
  * comments while traversing.
  */
-export type CondenseLogicalExpressionsOptions = {
+export type OptimizeLogicalExpressionsOptions = {
     helpers?: { hasComment: (node: unknown) => boolean } | ((node: unknown) => boolean) | null;
 };
 
-function resolveHelpers(helpers?: CondenseLogicalExpressionsOptions["helpers"]) {
+function resolveHelpers(helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
     const resolvedHasComment =
         typeof helpers === "function"
             ? helpers
@@ -73,7 +73,7 @@ function resolveHelpers(helpers?: CondenseLogicalExpressionsOptions["helpers"]) 
  * Condenses logical control-flow branches into simplified boolean return
  * expressions.
  */
-export function applyLogicalExpressionCondensation(ast: any, helpers?: CondenseLogicalExpressionsOptions["helpers"]) {
+export function applyLogicalExpressionCondensation(ast: any, helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
     if (!isNode(ast)) {
         return ast;
     }
@@ -207,7 +207,7 @@ function condenseWithinStatements(statements, helpers) {
         }
 
         if (statement.type === "IfStatement") {
-            const extractedGuard = tryExtractExitGuardClause(statements, index, helpers);
+            const extractedGuard = tryExtractEarlyExitGuardClause(statements, index, helpers);
             if (extractedGuard) {
                 continue;
             }
@@ -223,7 +223,7 @@ function condenseWithinStatements(statements, helpers) {
     }
 }
 
-function tryExtractExitGuardClause(statements, index, helpers) {
+function tryExtractEarlyExitGuardClause(statements, index, helpers) {
     const statement = statements[index];
     if (!statement || statement.type !== "IfStatement") {
         return false;
@@ -236,7 +236,7 @@ function tryExtractExitGuardClause(statements, index, helpers) {
         return false;
     }
 
-    const extractedAlternateExit = extractExitStatement(statement.alternate, helpers);
+    const extractedAlternateExit = extractEarlyExitStatement(statement.alternate, helpers);
     if (!extractedAlternateExit) {
         return false;
     }
@@ -368,7 +368,7 @@ function extractConsequentStatementsForGuardClause(node) {
     return [node];
 }
 
-function extractExitStatement(node, helpers) {
+function extractEarlyExitStatement(node, helpers) {
     if (!node || !isNode(node)) {
         return null;
     }
@@ -393,12 +393,12 @@ function extractExitStatement(node, helpers) {
         }
 
         const firstStatement = body[firstStatementIndex];
-        if (!isNode(firstStatement) || firstStatement.type !== "ExitStatement") {
+        if (!isNode(firstStatement) || !isEarlyExitStatement(firstStatement, helpers)) {
             return null;
         }
 
         for (let index = firstStatementIndex + 1; index < body.length; index += 1) {
-            if (!canDropStatementAfterExit(body[index], helpers)) {
+            if (!canDropStatementAfterEarlyExit(body[index], helpers)) {
                 return null;
             }
         }
@@ -406,7 +406,7 @@ function extractExitStatement(node, helpers) {
         return firstStatement;
     }
 
-    return node.type === "ExitStatement" ? node : null;
+    return isEarlyExitStatement(node, helpers) ? node : null;
 }
 
 function extractReturnExpression(node, helpers) {
@@ -470,18 +470,43 @@ function extractReturnExpression(node, helpers) {
     return argument;
 }
 
-function canDropStatementAfterExit(node, helpers) {
+function canDropStatementAfterEarlyExit(node, helpers) {
     if (!isNode(node)) {
         return false;
     }
     if (typeof node.type !== "string") {
         return false;
     }
-    if (node.type === "ExitStatement") {
+    if (isEarlyExitStatement(node, helpers)) {
         return !helpers.hasComment(node);
     }
 
     return canDropUnreachableStatement(node, helpers);
+}
+
+function isEarlyExitStatement(node, helpers) {
+    if (!isNode(node)) {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    switch (node.type) {
+        case "ExitStatement":
+        case "BreakStatement":
+        case "ContinueStatement": {
+            return true;
+        }
+        case "ReturnStatement": {
+            const argument = node.argument ?? null;
+            return !argument || !helpers.hasComment(argument);
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function isIgnorableEmptyStatement(node, helpers) {
