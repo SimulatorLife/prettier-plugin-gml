@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { Core } from "@gml-modules/core";
 
 const SEMANTIC_SAFETY_REPORTS_KEY = "__semanticSafetyReports";
@@ -14,6 +16,11 @@ export type SemanticSafetyReport = Readonly<{
     mode: SemanticSafetyMode;
     option: "optimizeLoopLengthHoisting" | "preserveGlobalVarStatements";
 }>;
+
+type SemanticSafetyReportService = (
+    report: SemanticSafetyReport,
+    options: Record<string, unknown> | null | undefined
+) => void;
 
 export type LoopHoistIdentifierContext = Readonly<{
     filePath: string | null;
@@ -93,6 +100,29 @@ const DEFAULT_REFACTOR_RUNTIME: RefactorRuntime = Object.freeze({
 
 let semanticSafetyRuntime: SemanticSafetyRuntime = DEFAULT_SEMANTIC_SAFETY_RUNTIME;
 let refactorRuntime: RefactorRuntime = DEFAULT_REFACTOR_RUNTIME;
+const scopedSemanticSafetyReportService = new AsyncLocalStorage<SemanticSafetyReportService | null>();
+
+/**
+ * Runs an async operation with a scoped semantic-safety report callback.
+ *
+ * This ensures parser and printer internals can emit reports even when
+ * formatting options are normalized or cloned by upstream tooling.
+ *
+ * @template T
+ * @param {SemanticSafetyReportService | null} reportService Callback invoked for emitted reports.
+ * @param {() => Promise<T>} operation Async operation to run within the scoped callback context.
+ * @returns {Promise<T>} Result of {@link operation}.
+ */
+export async function runWithSemanticSafetyReportService<T>(
+    reportService: SemanticSafetyReportService | null,
+    operation: () => Promise<T>
+): Promise<T> {
+    if (typeof reportService !== "function") {
+        return await operation();
+    }
+
+    return await scopedSemanticSafetyReportService.run(reportService, operation);
+}
 
 /**
  * Register a semantic-safety runtime adapter.
@@ -150,33 +180,29 @@ export function restoreDefaultRefactorRuntime(): void {
  * Emit a semantic-safety report entry onto the active options bag.
  */
 export function emitSemanticSafetyReport(options: unknown, report: SemanticSafetyReport): void {
-    if (!Core.isObjectLike(options)) {
-        return;
+    const optionsObject = Core.isObjectLike(options) ? (options as Record<string, unknown>) : null;
+    let optionsScopedReportService: SemanticSafetyReportService | null = null;
+
+    if (optionsObject) {
+        const reportListCandidate = Reflect.get(optionsObject, SEMANTIC_SAFETY_REPORTS_KEY);
+        const reportList = Array.isArray(reportListCandidate) ? reportListCandidate : [];
+
+        if (!Array.isArray(reportListCandidate)) {
+            Reflect.set(optionsObject, SEMANTIC_SAFETY_REPORTS_KEY, reportList);
+        }
+
+        reportList.push(report);
+
+        const reportServiceCandidate = Reflect.get(optionsObject, SEMANTIC_SAFETY_REPORT_SERVICE_KEY);
+        if (typeof reportServiceCandidate === "function") {
+            optionsScopedReportService = reportServiceCandidate as SemanticSafetyReportService;
+        }
     }
 
-    const optionsObject = options as Record<string, unknown>;
-    const reportListCandidate = Reflect.get(optionsObject, SEMANTIC_SAFETY_REPORTS_KEY);
-    const reportList = Array.isArray(reportListCandidate) ? reportListCandidate : [];
-
-    if (!Array.isArray(reportListCandidate)) {
-        Reflect.set(optionsObject, SEMANTIC_SAFETY_REPORTS_KEY, reportList);
+    const activeReportService = optionsScopedReportService ?? scopedSemanticSafetyReportService.getStore();
+    if (typeof activeReportService === "function") {
+        activeReportService(report, optionsObject);
     }
-
-    reportList.push(report);
-
-    const reportService = Reflect.get(optionsObject, SEMANTIC_SAFETY_REPORT_SERVICE_KEY);
-    if (typeof reportService === "function") {
-        reportService(report, optionsObject);
-    }
-}
-
-function hasSemanticSafetyReportService(options: unknown): boolean {
-    if (!Core.isObjectLike(options)) {
-        return false;
-    }
-
-    const reportService = Reflect.get(options as Record<string, unknown>, SEMANTIC_SAFETY_REPORT_SERVICE_KEY);
-    return typeof reportService === "function";
 }
 
 /**
@@ -226,16 +252,6 @@ export function resolveLoopHoistIdentifier(
     });
 
     const resolvedMode = runtimeResolution?.mode ?? LOCAL_FALLBACK_MODE;
-
-    if (
-        resolvedName !== requestedName &&
-        resolvedMode === LOCAL_FALLBACK_MODE &&
-        !hasSemanticSafetyReportService(options)
-    ) {
-        // Preserve legacy formatter output when semantic-safety reporting is
-        // not explicitly enabled for the current formatting run.
-        return null;
-    }
 
     if (resolvedName !== requestedName) {
         emitSemanticSafetyReport(options, {

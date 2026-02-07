@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { countSourceLines, createExtensionMatcher, createWatchCommand } from "../src/commands/watch.js";
+import { countSourceLines, createExtensionMatcher, createWatchCommand, runWatchCommand } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("watch command", () => {
@@ -57,8 +57,6 @@ void describe("watch command", () => {
 
 void describe("watch command integration", () => {
     void it("should handle non-existent directory gracefully", async () => {
-        const { runWatchCommand } = await import("../src/commands/watch.js");
-
         const nonExistentPath = "/tmp/non-existent-test-directory-12345";
 
         // We expect the command to exit with code 1
@@ -97,8 +95,6 @@ void describe("watch command integration", () => {
         await mkdir(testDir, { recursive: true });
 
         try {
-            const { runWatchCommand } = await import("../src/commands/watch.js");
-
             const abortController = new AbortController();
 
             const watchPromise = runWatchCommand(testDir, {
@@ -143,8 +139,6 @@ void describe("watch command integration", () => {
         const testFile = path.join(testDir, "test_script.gml");
 
         try {
-            const { runWatchCommand } = await import("../src/commands/watch.js");
-
             const abortController = new AbortController();
 
             // Mock transpiler to capture patches

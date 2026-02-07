@@ -3633,13 +3633,6 @@ function buildGlobalVarNormalizationParts(node, path, print, options) {
         );
 
         if (!rewriteAssessment.allowRewrite) {
-            if (!decl.init && !hasSemanticSafetyReportingEnabled(options)) {
-                // Legacy fixture compatibility: in standard formatting runs we
-                // drop uninitialized declarations rather than preserving
-                // `globalvar` statements when rewrite safety data is absent.
-                continue;
-            }
-
             const declarationDoc = path.call(print, "declarations", index);
             const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
             parts.push(group(concat([keyword, " ", declarationDoc])));
@@ -3648,21 +3641,17 @@ function buildGlobalVarNormalizationParts(node, path, print, options) {
 
         if (!decl.init) {
             const idDoc = path.call(print, "declarations", index, "id");
-            parts.push(group(concat(["global.", idDoc, " = undefined;"])));
+            parts.push(group(concat(["global.", idDoc, " = undefined"])));
             continue;
         }
 
         const idDoc = path.call(print, "declarations", index, "id");
         const initDoc = path.call(print, "declarations", index, "init");
 
-        parts.push(group(concat(["global.", idDoc, " = ", initDoc, ";"])));
+        parts.push(group(concat(["global.", idDoc, " = ", initDoc])));
     }
 
     return parts;
-}
-
-function hasSemanticSafetyReportingEnabled(options) {
-    return typeof options?.__semanticSafetyReportService === "function";
 }
 
 function printGlobalVarStatementAsKeyword(node, path, print, options) {

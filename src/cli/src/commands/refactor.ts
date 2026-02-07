@@ -12,6 +12,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
+import { Refactor } from "@gml-modules/refactor";
 import { Semantic } from "@gml-modules/semantic";
 import { Command, Option } from "commander";
 
@@ -20,7 +21,6 @@ import { formatCliError } from "../cli-core/errors.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 
 const { buildProjectIndex } = Semantic;
-const { Refactor } = await import("@gml-modules/refactor");
 const { RefactorEngine, generateRenamePreview, formatRenamePlanReport } = Refactor;
 
 interface RefactorCommandOptions {

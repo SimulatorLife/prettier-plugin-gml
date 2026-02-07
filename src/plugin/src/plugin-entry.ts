@@ -13,6 +13,7 @@ import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./constants.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { type IdentifierCaseRuntime, setIdentifierCaseRuntime } from "./parsers/index.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
+import { runWithSemanticSafetyReportService } from "./runtime/semantic-safety-runtime.js";
 
 const parsers = gmlPluginComponents.parsers;
 const printers = gmlPluginComponents.printers;
@@ -182,13 +183,25 @@ async function format(source: string, options: SupportOptions = {}) {
         ...defaultOptions,
         ...options
     });
+    const semanticSafetyReportServiceCandidate = resolvedOptions[
+        "__semanticSafetyReportService" as keyof typeof resolvedOptions
+    ];
+    const semanticSafetyReportService =
+        typeof semanticSafetyReportServiceCandidate === "function"
+            ? (semanticSafetyReportServiceCandidate as (
+                  report: unknown,
+                  options: Record<string, unknown> | null | undefined
+              ) => void)
+            : null;
 
     try {
-        const formatted = await prettier.format(source, {
-            ...(resolvedOptions as SupportOptions),
-            parser: "gml-parse",
-            plugins: [Plugin]
-        });
+        const formatted = await runWithSemanticSafetyReportService(semanticSafetyReportService, async () =>
+            prettier.format(source, {
+                ...(resolvedOptions as SupportOptions),
+                parser: "gml-parse",
+                plugins: [Plugin]
+            })
+        );
 
         identifierCasePrinterServices.dryRunReportService(resolvedOptions);
 
@@ -202,7 +215,7 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 }
 
-export { defaultOptions, parsers, pluginOptions, printers };
+export { defaultOptions, normalizeFormattedOutput, parsers, pluginOptions, printers };
 export { pluginOptions as options };
 
 export const Plugin: GmlPlugin = {
