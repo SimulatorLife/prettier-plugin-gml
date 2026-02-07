@@ -269,7 +269,10 @@ export class GmlSemanticBridge implements PartialSemanticAnalyzer {
                 continue;
             }
 
-            if (!resourceEntry.path.endsWith(".yy")) {
+            const isResourceMetadataPath =
+                Semantic.isProjectResourceMetadataPath(resourceEntry.path) ||
+                Semantic.isProjectManifestPath(resourceEntry.path);
+            if (!isResourceMetadataPath) {
                 continue;
             }
 

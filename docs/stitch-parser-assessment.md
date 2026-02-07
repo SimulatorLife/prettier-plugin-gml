@@ -289,6 +289,9 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Updated `src/semantic/src/project-metadata/yy-adapter.ts` so schema-aware parsing now delegates directly to `Yy.parse(raw, schemaName)` and falls back to loose parsing only when schema validation fails.
   - Updated metadata stringification to infer schema from document/path and call `Yy.stringify(document, schemaName)` when possible, improving serializer consistency with Stitch defaults.
   - Routed metadata rewrite callers (`src/semantic/src/identifier-case/asset-rename-executor.ts`, `src/cli/src/modules/refactor/semantic-bridge.ts`) through the schema-aware adapter path so rename/refactor operations delegate more responsibility to `@bscotch/yy`.
+- Completed additional Phase 4 follow-up (project-manifest metadata rewrites):
+  - Updated `src/cli/src/modules/refactor/semantic-bridge.ts` so metadata rewrite planning now covers both resource metadata (`.yy`) and project manifests (`.yyp`) when applying rename-driven reference updates.
+  - Added manifest rewrite verification to `src/cli/test/gml-semantic-bridge.test.ts` to confirm `resources[].id` references are rewritten via the same schema-aware metadata pipeline.
 - Added focused tests:
   - `src/semantic/test/project-metadata-yy-adapter.test.ts`
   - `src/semantic/test/project-index-resource-analysis.test.ts`

@@ -188,9 +188,11 @@ void describe("GmlSemanticBridge tests", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-"));
         const resourcePath = "objects/oGravitySphere/oGravitySphere.yy";
         const refPath = "objects/oRef/oRef.yy";
+        const projectManifestPath = "project.yyp";
 
         const resourceAbsolute = path.join(tmpRoot, resourcePath);
         const refAbsolute = path.join(tmpRoot, refPath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
         fs.mkdirSync(path.dirname(resourceAbsolute), { recursive: true });
         fs.mkdirSync(path.dirname(refAbsolute), { recursive: true });
 
@@ -202,6 +204,15 @@ void describe("GmlSemanticBridge tests", () => {
         fs.writeFileSync(
             refAbsolute,
             `{"name":"oRef","resourceType":"GMObject","spriteId":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",},}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+            }`,
             "utf8"
         );
 
@@ -225,6 +236,18 @@ void describe("GmlSemanticBridge tests", () => {
                             targetName: "oGravitySphere"
                         }
                     ]
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: resourcePath,
+                            targetName: "oGravitySphere"
+                        }
+                    ]
                 }
             }
         };
@@ -235,10 +258,16 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(edits, "Expected additional edits for resource rename");
         assert.ok(edits.metadataEdits.some((entry) => entry.path === resourcePath));
         assert.ok(edits.metadataEdits.some((entry) => entry.path === refPath));
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === projectManifestPath));
 
         const referenceEdit = edits.metadataEdits.find((entry) => entry.path === refPath);
         assert.ok(referenceEdit);
         assert.match(referenceEdit.content, /"name"\s*:\s*"oGravityWell"/);
         assert.match(referenceEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+
+        const manifestEdit = edits.metadataEdits.find((entry) => entry.path === projectManifestPath);
+        assert.ok(manifestEdit);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
+        assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
     });
 });

@@ -52,8 +52,6 @@ export interface GameMakerAstNode {
     _removedByConsolidation?: boolean;
     /** Optional boolean used by some transforms to indicate trailing inline comments */
     _hasTrailingInlineComment?: boolean;
-    /** Optional padding used by assignment alignment transforms */
-    _alignAssignmentPadding?: number | null;
     /** Optional marker used by annotate-static-overrides transform */
     _overridesStaticFunction?: boolean;
     /** Optional marker used by feather fixes to mark optional parameters */

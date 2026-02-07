@@ -2,7 +2,6 @@
     "allowSingleLineIfStatements": false,
     "applyFeatherFixes": false,
     "optimizeMathExpressions": false,
-    "alignAssignmentsMinGroupSize": 2,
     "condenseLogicalExpressions": false,
     "printWidth": 95
 }
