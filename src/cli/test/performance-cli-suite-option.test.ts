@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { Core } from "@gml-modules/core";
 import type { ParseOptions } from "commander";
 
 import { createPerformanceCommand } from "../src/commands/performance.js";
@@ -47,7 +48,7 @@ void describe("performance CLI suite option", () => {
             new RegExp(
                 String.raw`Available suites:\s*${suiteList
                     .split(", ")
-                    .map((entry) => entry.replaceAll(/[-/\\^$*+?.()|[\]{}]/g, String.raw`\$&`))
+                    .map((entry) => Core.escapeRegExp(entry))
                     .join(String.raw`\s*,\s*`)}`
             ),
             "Expected performance help to list available suites"

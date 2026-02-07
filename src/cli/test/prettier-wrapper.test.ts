@@ -78,10 +78,6 @@ async function createTemporaryDirectory() {
     return fs.mkdtemp(directoryPrefix);
 }
 
-function escapeForRegex(value) {
-    return value.replaceAll(/[|\\{}()[\]^$+*?.-]/g, String.raw`\$&`);
-}
-
 void describe("Prettier wrapper CLI", () => {
     void it("formats files with uppercase .GML extensions", async () => {
         const tempDirectory = await createTemporaryDirectory();
@@ -608,14 +604,14 @@ void describe("Prettier wrapper CLI", () => {
             assert.match(
                 stdout,
                 new RegExp(
-                    String.raw`${escapeForRegex(path.basename(targetFile))} was skipped by ignore rules and not formatted\.`,
+                    String.raw`${Core.escapeRegExp(path.basename(targetFile))} was skipped by ignore rules and not formatted\.`,
                     "m"
                 ),
                 "Expected summary output to explain that the file was ignored"
             );
 
             const expectedPattern = new RegExp(
-                String.raw`Skipping ${escapeForRegex(targetFile)} \(ignored by ${escapeForRegex(ignorePath)}\)`,
+                String.raw`Skipping ${Core.escapeRegExp(targetFile)} \(ignored by ${Core.escapeRegExp(ignorePath)}\)`,
                 "m"
             );
 
@@ -841,7 +837,7 @@ void describe("Prettier wrapper CLI", () => {
                 assert.ok(error, "Expected the wrapper to throw when changes are needed");
                 assert.strictEqual(error.code, 1, "Expected a non-zero exit code");
 
-                const escapedPath = escapeForRegex(targetFile);
+                const escapedPath = Core.escapeRegExp(targetFile);
                 assert.match(
                     error.stdout,
                     new RegExp(`Would format ${escapedPath}`),
