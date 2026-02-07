@@ -15,6 +15,7 @@
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { collectIdentifierNamesFromNode, resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { attachFeatherFixMetadata, createFeatherFixDetail } from "./utils.js";
 
 /**
@@ -66,10 +67,12 @@ function getReservedIdentifierNames(): Set<string> {
 export function renameReservedIdentifiers({
     ast,
     diagnostic,
+    options,
     sourceText
 }: {
     ast: any;
     diagnostic: any;
+    options?: Record<string, unknown>;
     sourceText?: string;
 }): Array<any> {
     if (!diagnostic || !ast || typeof ast !== "object" || getReservedIdentifierNames().size === 0) {
@@ -78,6 +81,7 @@ export function renameReservedIdentifiers({
 
     const fixes: Array<any> = [];
     const renameMap = new Map<string, string>();
+    const identifierNames = collectIdentifierNamesFromNode(ast);
 
     // First pass: find all declarations that need to be renamed
     const collectRenamings = (node: any): void => {
@@ -97,7 +101,13 @@ export function renameReservedIdentifiers({
         }
 
         if (node.type === "VariableDeclaration" && isSupportedVariableDeclaration(node)) {
-            const declarationFixes = renameReservedIdentifiersInVariableDeclaration(node, diagnostic);
+            const declarationFixes = renameReservedIdentifiersInVariableDeclaration(
+                node,
+                diagnostic,
+                options,
+                identifierNames,
+                renameMap
+            );
 
             if (Core.isNonEmptyArray(declarationFixes)) {
                 fixes.push(...declarationFixes);
@@ -109,7 +119,14 @@ export function renameReservedIdentifiers({
                 }
             }
         } else if (node.type === "MacroDeclaration") {
-            const macroFix = renameReservedIdentifierInMacro(node, diagnostic, sourceText);
+            const macroFix = renameReservedIdentifierInMacro(
+                node,
+                diagnostic,
+                options,
+                sourceText,
+                identifierNames,
+                renameMap
+            );
 
             if (macroFix) {
                 fixes.push(macroFix);
@@ -266,7 +283,13 @@ function isSupportedVariableDeclaration(node: any): boolean {
  * @param diagnostic - The Feather diagnostic that triggered this fix
  * @returns Array of fix details for each renamed identifier
  */
-function renameReservedIdentifiersInVariableDeclaration(node: any, diagnostic: any): Array<any> {
+function renameReservedIdentifiersInVariableDeclaration(
+    node: any,
+    diagnostic: any,
+    options: Record<string, unknown> | undefined,
+    identifierNames: Set<string>,
+    renameMap: Map<string, string>
+): Array<any> {
     const declarations = Core.asArray<any>(node?.declarations);
 
     if (declarations.length === 0) {
@@ -280,7 +303,7 @@ function renameReservedIdentifiersInVariableDeclaration(node: any, diagnostic: a
             continue;
         }
 
-        const fix = renameReservedIdentifierNode(declarator.id, diagnostic);
+        const fix = renameReservedIdentifierNode(declarator.id, diagnostic, options, identifierNames, renameMap);
 
         if (fix) {
             fixes.push(fix);
@@ -301,7 +324,14 @@ function renameReservedIdentifiersInVariableDeclaration(node: any, diagnostic: a
  * @param options - Optional rename options (e.g., callback)
  * @returns Fix detail if the identifier was renamed, null otherwise
  */
-function renameReservedIdentifierNode(identifier: any, diagnostic: any, options: RenameOptions = {}): any {
+function renameReservedIdentifierNode(
+    identifier: any,
+    diagnostic: any,
+    formattingOptions: Record<string, unknown> | undefined,
+    identifierNames: Set<string>,
+    renameMap: Map<string, string>,
+    options: RenameOptions = {}
+): any {
     if (!identifier || identifier.type !== "Identifier") {
         return null;
     }
@@ -312,7 +342,15 @@ function renameReservedIdentifierNode(identifier: any, diagnostic: any, options:
         return null;
     }
 
-    const replacement = getReplacementIdentifierName(name);
+    const mappedReplacementName = renameMap.get(name) ?? null;
+    const replacement =
+        mappedReplacementName ??
+        resolveSemanticSafeFeatherRename({
+            formattingOptions,
+            identifierName: name,
+            localIdentifierNames: identifierNames,
+            preferredReplacementName: getReplacementIdentifierName(name)
+        })?.replacementName;
 
     if (!replacement || replacement === name) {
         return null;
@@ -334,6 +372,7 @@ function renameReservedIdentifierNode(identifier: any, diagnostic: any, options:
     fixDetail.replacement = replacement;
 
     identifier.name = replacement;
+    identifierNames.add(replacement);
 
     if (typeof options.onRename === "function") {
         try {
@@ -364,12 +403,19 @@ function renameReservedIdentifierNode(identifier: any, diagnostic: any, options:
  * @param sourceText - The original source text (needed to extract macro text)
  * @returns Fix detail if the macro was renamed, null otherwise
  */
-function renameReservedIdentifierInMacro(node: any, diagnostic: any, sourceText: string | undefined): any {
+function renameReservedIdentifierInMacro(
+    node: any,
+    diagnostic: any,
+    formattingOptions: Record<string, unknown> | undefined,
+    sourceText: string | undefined,
+    identifierNames: Set<string>,
+    renameMap: Map<string, string>
+): any {
     if (!node || node.type !== "MacroDeclaration") {
         return null;
     }
 
-    return renameReservedIdentifierNode(node.name, diagnostic, {
+    return renameReservedIdentifierNode(node.name, diagnostic, formattingOptions, identifierNames, renameMap, {
         onRename: ({ originalName, replacement }) => {
             const updatedText = buildMacroReplacementText({
                 macro: node,

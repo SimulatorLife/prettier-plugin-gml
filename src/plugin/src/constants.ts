@@ -46,3 +46,8 @@ export const DEFAULT_TAB_WIDTH = 4;
  * variable groups.
  */
 export const DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS = 4;
+
+/**
+ * Pattern for validating numeric literal strings, including optional sign and exponent parts.
+ */
+export const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;

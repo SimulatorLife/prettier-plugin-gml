@@ -60,4 +60,14 @@ void describe("Feather fix regressions", () => {
             [`var plain = $"Hello World!";`, `var interpolated = $"Hello {name}!";`, ""].join("\n")
         );
     });
+
+    void it("standardizes begin/end delimiters to curly braces when feather fixes are enabled", async () => {
+        const source = ["if (ready) begin", "    do_work();", "end", ""].join("\n");
+
+        const formatted = await Plugin.format(source, {
+            applyFeatherFixes: true
+        });
+
+        assert.strictEqual(formatted, ["if (ready) {", "    do_work();", "}", ""].join("\n"));
+    });
 });

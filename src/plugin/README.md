@@ -28,3 +28,4 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 - Migration: remove `maxParamsPerLine` from configuration files; no replacement option is provided.
 
 ## TODO
+1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.

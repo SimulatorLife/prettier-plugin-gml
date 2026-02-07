@@ -33,7 +33,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 category: "gml",
                 default: true,
                 description:
-                    "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable."
+                    "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable, using semantic-safe runtime naming when available and local collision-safe fallback naming otherwise."
             },
             condenseStructAssignments: {
                 since: "0.0.0",
@@ -77,20 +77,21 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                     }
                 ]
             },
-            condenseLogicalExpressions: {
+            optimizeLogicalExpressions: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: false,
                 description:
-                    "Condense complementary logical return branches into simplified boolean expressions when it is safe to do so."
+                    "Optimize logical flow by condensing complementary boolean branches, normalizing early-exit guards, removing redundant temporary-return pairs, caching repeated member access in conditions, and hoisting invariant loop condition members when safe."
             },
             preserveGlobalVarStatements: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: true,
-                description: "Preserve 'globalvar' declarations instead of eliding them during formatting."
+                description:
+                    "Preserve 'globalvar' declarations instead of eliding them during formatting. When disabled, rewrites only run when semantic-safety checks mark them safe."
             },
             applyFeatherFixes: {
                 since: "0.0.0",
