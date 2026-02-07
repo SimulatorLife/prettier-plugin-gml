@@ -207,3 +207,32 @@ void test("prioritizes negated guard when condensing guard fallbacks", async () 
         "Expected condensed expression to place the negated guard before the positive operand."
     );
 });
+
+void test("rewrites else-exit branches into early guard clauses", async () => {
+    const source = [
+        "if (instance_exists(oPlayer)) {",
+        "    follow_id = oPlayer.id;",
+        "    follow_id.activePlayer = true;",
+        "} else {",
+        "    exit;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "if (!instance_exists(oPlayer)) {",
+            "    exit;",
+            "}",
+            "",
+            "follow_id = oPlayer.id;",
+            "follow_id.activePlayer = true;",
+            ""
+        ].join("\n")
+    );
+});
