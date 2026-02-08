@@ -2196,5 +2196,38 @@ export const __formatTest__ = Object.freeze({
     }),
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
         storeFormattingCacheEntry(cacheKey, formatted),
-    getFormattingCacheKeysForTests: () => [...formattingCache.keys()]
+    getFormattingCacheKeysForTests: () => [...formattingCache.keys()],
+    // Memory management test helpers
+    getMemoryManagementStatsForTests: () => ({
+        inMemorySnapshotCount,
+        maxInMemorySnapshots: MAX_IN_MEMORY_SNAPSHOTS,
+        processedFileCount,
+        periodicCleanupInterval: PERIODIC_CLEANUP_INTERVAL,
+        formattedFileOriginalContentsSize: formattedFileOriginalContents.size
+    }),
+    setInMemorySnapshotCountForTests: (count: number) => {
+        inMemorySnapshotCount = count;
+    },
+    setProcessedFileCountForTests: (count: number) => {
+        processedFileCount = count;
+    },
+    addFormattedFileSnapshotForTests: (
+        filePath: string,
+        inlineContents: string | null,
+        snapshotPath: string | null = null
+    ) => {
+        formattedFileOriginalContents.set(filePath, {
+            snapshotPath,
+            inlineContents
+        });
+        if (inlineContents !== null) {
+            inMemorySnapshotCount += 1;
+        }
+    },
+    clearFormattedFileSnapshotsForTests: () => {
+        formattedFileOriginalContents.clear();
+        inMemorySnapshotCount = 0;
+    },
+    enforceSnapshotMemoryLimitForTests: enforceSnapshotMemoryLimit,
+    performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup
 });
