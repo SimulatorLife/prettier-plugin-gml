@@ -790,16 +790,12 @@ async function enforceSnapshotMemoryLimit() {
     const snapshotsToRelease = inMemorySnapshotCount - MAX_IN_MEMORY_SNAPSHOTS;
     const entries = [...formattedFileOriginalContents.entries()];
 
-    // Collect snapshots to release (oldest first)
-    const snapshotsToDelete: Array<{ filePath: string; snapshot: unknown }> = [];
-    for (let i = 0; i < Math.min(snapshotsToRelease, entries.length); i++) {
-        const [filePath, snapshot] = entries[i];
-
-        // Only release in-memory snapshots (not disk-backed ones)
-        if (snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null) {
-            snapshotsToDelete.push({ filePath, snapshot });
-        }
-    }
+    // Collect snapshots to release (oldest first): take the first N entries and filter for in-memory snapshots
+    const snapshotsToDelete = entries
+        .slice(0, snapshotsToRelease)
+        .flatMap(([filePath, snapshot]) =>
+            snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null ? [{ filePath, snapshot }] : []
+        );
 
     // Release snapshots sequentially to maintain correct accounting
     await Core.runSequentially(snapshotsToDelete, async ({ filePath, snapshot }) => {
