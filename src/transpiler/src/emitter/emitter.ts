@@ -432,13 +432,13 @@ export class GmlToJsEmitter {
             return "{\n}";
         }
         // Build block body with StringBuilder for efficiency
+        // Capacity: statements count + opening brace + closing brace
         const builder = new StringBuilder(stmts.length + 2);
         builder.append("{\n");
         for (const stmt of stmts) {
             const code = this.emit(stmt);
             if (code) {
-                builder.append(this.ensureStatementTermination(code));
-                builder.append("\n");
+                builder.append(`${this.ensureStatementTermination(code)}\n`);
             }
         }
         builder.append("}");

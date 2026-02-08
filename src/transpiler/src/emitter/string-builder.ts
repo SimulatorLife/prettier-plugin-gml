@@ -19,16 +19,17 @@
  */
 export class StringBuilder {
     private readonly parts: string[];
-    private count: number;
 
     /**
      * Create a new StringBuilder with optional capacity hint.
      *
-     * @param capacity - Expected number of parts (default: 16)
+     * @param _capacity - Expected number of parts (reserved for future optimization)
      */
-    constructor(capacity = 16) {
-        this.parts = Array.from({ length: capacity });
-        this.count = 0;
+    constructor(_capacity = 16) {
+        // Note: We use a simple array rather than pre-allocating to avoid
+        // potential undefined values in the output. V8 handles array growth
+        // efficiently for incremental push operations.
+        this.parts = [];
     }
 
     /**
@@ -40,11 +41,7 @@ export class StringBuilder {
         if (str.length === 0) {
             return;
         }
-        if (this.count >= this.parts.length) {
-            // Grow by 50% when capacity exceeded (rare in practice)
-            this.parts.length = Math.floor(this.parts.length * 1.5);
-        }
-        this.parts[this.count++] = str;
+        this.parts.push(str);
     }
 
     /**
@@ -65,20 +62,20 @@ export class StringBuilder {
      * @returns Combined string from all appended parts
      */
     toString(separator = ""): string {
-        return this.parts.slice(0, this.count).join(separator);
+        return this.parts.join(separator);
     }
 
     /**
      * Get the current number of parts in the buffer.
      */
     get length(): number {
-        return this.count;
+        return this.parts.length;
     }
 
     /**
      * Clear the buffer for reuse (avoids allocation).
      */
     clear(): void {
-        this.count = 0;
+        this.parts.length = 0;
     }
 }
