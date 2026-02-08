@@ -23,5 +23,5 @@
 /// @param name Script name; as a string
 /// @param function Function to call
 function ChatterboxAddFunction(_name, _function) {
-	// Implementation goes here
+    // Implementation goes here
 }

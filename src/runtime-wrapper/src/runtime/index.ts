@@ -13,6 +13,7 @@ export { createChangeEventLogger, createLogger, LogLevels, parseLogLevel } from 
 export { testPatchInShadow } from "./patch-utils.js";
 export { createRuntimeWrapper } from "./runtime-wrapper.js";
 export { installScriptCallAdapter } from "./script-call-adapter.js";
+export { getHighResolutionTime, getWallClockTime, measureDuration } from "./timing-utils.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,

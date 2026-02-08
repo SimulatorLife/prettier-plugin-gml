@@ -2,6 +2,20 @@
 
 Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
+## Architecture Role: Composition Root
+
+The CLI owns cross-workspace wiring for formatter runtime adapters.
+
+- It imports `@gml-modules/semantic` and `@gml-modules/refactor`.
+- It constructs concrete adapter implementations from those modules.
+- It injects adapters into plugin runtime contracts (for example via `configurePluginRuntimeAdapters(...)`).
+
+This keeps ownership clean:
+
+- `@gml-modules/plugin`: formatting + runtime ports
+- `@gml-modules/semantic`: analysis only
+- `@gml-modules/refactor`: rename/refactor planning
+
 ## Commands
 
 ### `format` - Format GML Files

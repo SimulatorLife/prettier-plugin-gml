@@ -7,5 +7,5 @@ enum FRUIT {
     DATE = 5
 }
 
-var first = FRUIT.APPLE;
-var second = FRUIT.CHERRY;
+first = FRUIT.APPLE;
+second = FRUIT.CHERRY;

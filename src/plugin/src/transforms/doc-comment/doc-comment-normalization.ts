@@ -16,22 +16,6 @@ type DocCommentNormalizationTransformOptions = {
     pluginOptions?: Record<string, unknown>;
 };
 
-type DocCommentPath = {
-    getValue(): MutableGameMakerAstNode | null;
-    getParentNode(): MutableGameMakerAstNode | null;
-};
-
-function createDocCommentPath(node: MutableGameMakerAstNode, parent?: MutableGameMakerAstNode | null): DocCommentPath {
-    return {
-        getValue() {
-            return node;
-        },
-        getParentNode() {
-            return parent ?? null;
-        }
-    };
-}
-
 function isStaticFirstStatementInAncestorBlock(
     node: MutableGameMakerAstNode,
     parentByNode: WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>
@@ -147,9 +131,14 @@ function execute(
         ensureDescriptionContinuations(filteredDocLines);
 
         const docHostAncestor = findDocCommentHostAncestor(mutableNode, parentByNode);
-        const docPath = createDocCommentPath(mutableNode, parentByNode.get(mutableNode) ?? null);
+        const parent = parentByNode.get(mutableNode) ?? null;
 
-        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions);
+        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(
+            mutableNode,
+            parent,
+            filteredDocLines,
+            docCommentOptions
+        );
         if (!shouldGenerate) {
             return;
         }

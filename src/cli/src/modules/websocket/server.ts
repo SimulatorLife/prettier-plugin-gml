@@ -151,22 +151,43 @@ export async function startPatchWebSocketServer({
             }
         }
 
-        ws.on("close", () => {
+        let cleanedUp = false;
+        const cleanupClient = (reason: "close" | "error", error?: Error) => {
+            if (cleanedUp) {
+                return;
+            }
+            cleanedUp = true;
+
             clients.delete(ws);
             clientIds.delete(ws);
 
             if (verbose) {
-                console.log(`[WebSocket] Client disconnected: ${clientId}`);
+                if (reason === "error") {
+                    console.error(
+                        `[WebSocket] Client error (${clientId}):`,
+                        error instanceof Error ? error.message : "unknown error"
+                    );
+                } else {
+                    console.log(`[WebSocket] Client disconnected: ${clientId}`);
+                }
             }
 
             if (onClientDisconnect) {
                 onClientDisconnect(clientId);
             }
+        };
+
+        ws.on("close", () => {
+            cleanupClient("close");
         });
 
         ws.on("error", (error) => {
-            if (verbose) {
-                console.error(`[WebSocket] Client error (${clientId}):`, error.message);
+            cleanupClient("error", error);
+
+            try {
+                ws.close();
+            } catch {
+                // Ignore close errors
             }
         });
     });

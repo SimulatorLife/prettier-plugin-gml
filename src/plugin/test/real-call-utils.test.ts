@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { getNumericValueFromRealCall } from "../src/printer/real-call-utils.js";
+import { getNumericValueFromRealCall } from "../src/printer/call-expressions/real-call-value.js";
 
 function buildRealCall(name, literalValue, skipFlag = true) {
     return {

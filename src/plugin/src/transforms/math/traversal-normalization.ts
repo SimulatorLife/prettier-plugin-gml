@@ -52,12 +52,12 @@ const BINARY_SIMPLIFIERS: SimplificationHandler[] = [
     (node, context) => attemptCondenseNumericChainWithMultipleBases(node, context),
     (node, context) => attemptCollectDistributedScalars(node, context),
     (node, context) => attemptSimplifyLengthdirHalfDifference(node, context),
-    (node) => attemptConvertRepeatedPower(node),
+    (node, context) => attemptConvertRepeatedPower(node, context),
     (node, context) => attemptConvertSquare(node, context),
-    (node) => attemptConvertMean(node),
-    (node) => attemptConvertLog2(node),
-    (node) => attemptConvertLengthDir(node),
-    (node) => attemptConvertDotProducts(node)
+    (node, context) => attemptConvertMean(node, context),
+    (node, context) => attemptConvertLog2(node, context),
+    (node, context) => attemptConvertLengthDir(node, context),
+    (node, context) => attemptConvertDotProducts(node, context)
 ];
 
 const ASSIGNMENT_SIMPLIFIERS: SimplificationHandler[] = [
@@ -65,10 +65,10 @@ const ASSIGNMENT_SIMPLIFIERS: SimplificationHandler[] = [
 ];
 
 const CALL_SIMPLIFIERS: SimplificationHandler[] = [
-    (node) => attemptConvertPointDistanceCall(node),
-    (node) => attemptConvertPowerToSqrt(node),
-    (node) => attemptConvertPowerToExp(node),
-    (node) => attemptConvertPointDirection(node),
+    (node, context) => attemptConvertPointDistanceCall(node, context),
+    (node, context) => attemptConvertPowerToSqrt(node, context),
+    (node, context) => attemptConvertPowerToExp(node, context),
+    (node, context) => attemptConvertPointDirection(node, context),
     (node) => attemptConvertTrigDegreeArguments(node)
 ];
 
@@ -2103,7 +2103,7 @@ function attemptConvertSquare(node, context) {
     return false;
 }
 
-function attemptConvertRepeatedPower(node) {
+function attemptConvertRepeatedPower(node, context) {
     if (!isBinaryOperator(node, "*") || Core.hasComment(node)) {
         return false;
     }
@@ -2131,10 +2131,11 @@ function attemptConvertRepeatedPower(node) {
 
     const exponentLiteral = createNumericLiteral(factors.length, node);
     mutateToCallExpression(node, "power", [Core.cloneAstNode(base), exponentLiteral], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertMean(node) {
+function attemptConvertMean(node, context) {
     if (Core.hasComment(node)) {
         return false;
     }
@@ -2190,10 +2191,11 @@ function attemptConvertMean(node) {
     }
 
     mutateToCallExpression(node, "mean", [Core.cloneAstNode(leftTerm), Core.cloneAstNode(rightTerm)], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertLog2(node) {
+function attemptConvertLog2(node, context) {
     if (!isBinaryOperator(node, "/") || Core.hasComment(node)) {
         return false;
     }
@@ -2217,10 +2219,11 @@ function attemptConvertLog2(node) {
     }
 
     mutateToCallExpression(node, "log2", [Core.cloneAstNode(numeratorArg)], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertLengthDir(node) {
+function attemptConvertLengthDir(node, context) {
     if (!isBinaryOperator(node, "*") || Core.hasComment(node)) {
         return false;
     }
@@ -2257,6 +2260,7 @@ function attemptConvertLengthDir(node) {
                 [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
                 node
             );
+            unwrapEnclosingParentheses(node, context);
             return true;
         }
 
@@ -2271,6 +2275,7 @@ function attemptConvertLengthDir(node) {
                 [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
                 node
             );
+            unwrapEnclosingParentheses(node, context);
             return true;
         }
     }
@@ -2278,7 +2283,7 @@ function attemptConvertLengthDir(node) {
     return false;
 }
 
-function attemptConvertDotProducts(node) {
+function attemptConvertDotProducts(node, context) {
     if (!isBinaryOperator(node, "+") || Core.hasComment(node)) {
         return false;
     }
@@ -2320,6 +2325,7 @@ function attemptConvertDotProducts(node) {
     const functionName = terms.length === 2 ? "dot_product" : "dot_product_3d";
 
     mutateToCallExpression(node, functionName, [...leftVector, ...rightVector], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
@@ -2354,7 +2360,7 @@ function isPotentialSquareMultiplication(node) {
     return true;
 }
 
-function attemptConvertPointDistanceCall(node) {
+function attemptConvertPointDistanceCall(node, context) {
     if (Core.hasComment(node)) {
         return false;
     }
@@ -2400,10 +2406,11 @@ function attemptConvertPointDistanceCall(node) {
     const functionName = match.length === 2 ? "point_distance" : "point_distance_3d";
 
     mutateToCallExpression(node, functionName, args, node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertPowerToSqrt(node) {
+function attemptConvertPowerToSqrt(node, context) {
     if (Core.hasComment(node)) {
         return false;
     }
@@ -2424,10 +2431,11 @@ function attemptConvertPowerToSqrt(node) {
     }
 
     mutateToCallExpression(node, "sqrt", [Core.cloneAstNode(args[0])], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertPowerToExp(node) {
+function attemptConvertPowerToExp(node, context) {
     if (Core.hasComment(node)) {
         return false;
     }
@@ -2450,10 +2458,11 @@ function attemptConvertPowerToExp(node) {
     }
 
     mutateToCallExpression(node, "exp", [Core.cloneAstNode(exponent)], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
-function attemptConvertPointDirection(node) {
+function attemptConvertPointDirection(node, context) {
     if (Core.hasComment(node)) {
         return false;
     }
@@ -2489,6 +2498,7 @@ function attemptConvertPointDirection(node) {
         ],
         node
     );
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 

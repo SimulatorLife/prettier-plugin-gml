@@ -33,10 +33,10 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10, undefined, 20);
 
+/// @ignore
 /// @description Base class for all shapes. Shapes can be solid or not solid.
 ///              Solid shapes will collide with other solid shapes, and
 ///              non-solid shapes will not collide with anything.
-/// @ignore
 /// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
@@ -56,9 +56,8 @@ function Shape(color = undefined) constructor {
     };
 
     /// @param solid
-    /// @argument <boolean> solid Whether the shape is solid or not
+    /// @param {bool} solid Whether the shape is solid or not
     /// @returns {undefined}
-    /// @param <boolean> solid Whether the shape is solid or not
     static setSolid = function (solid) {
         if (solid) {
             group |= cmGroupSolid; // Flag as solid
@@ -86,19 +85,17 @@ function Oval(r1 = 1, r2 = 1) : Shape() constructor {
 }
 
 function Line() : Shape() constructor {
-
     /// @param x1
     /// @param y1
     /// @param x2
     /// @param y2
     /// @returns {undefined}
-    function set_points(x1, y1, x2, y2) {
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-    }
-
+    set_points = function (x1, y1, x2, y2) {
+        self.x1 = x1;
+        self.y1 = y1;
+        self.x2 = x2;
+        self.y2 = y2;
+    };
 }
 
 /// @param settings
@@ -116,27 +113,18 @@ function choose_profile(settings, fallback) {
 var best = choose_profile(undefined, {profile: "dev"});
 
 // Feather disable all
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-/// @description .__Destroy()
-///              .__FromBuffer(buffer)
-///              .__CopyFromBuffer(buffer)
-///              .__FromString(string, )
-///              .__Delete(position, count)
-///              .__Insert(position, string, )
-///              .__Overwrite(position, string, )
-///              .__Prefix(string, )
-///              .__Suffix(string, )
-///              .__GetString()
-///              .__GetBuffer()
+// .__Destroy()
+// .__FromBuffer(buffer)
+// .__CopyFromBuffer(buffer)
+// .__FromString(string, )
+// .__Delete(position, count)
+// .__Insert(position, string, )
+// .__Overwrite(position, string, )
+// .__Prefix(string, )
+// .__Suffix(string, )
+// .__GetString()
+// .__GetBuffer()
+
 function __ChatterboxBufferBatch() constructor {
     __destroyed = false;
     __inBuffer = undefined;
@@ -157,7 +145,6 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
-
 }
 
 /// @param [name="friend"]
