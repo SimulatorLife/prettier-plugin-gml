@@ -204,3 +204,21 @@ export async function getSymbolDependents(
 
     return [];
 }
+
+/**
+ * Resolve a symbol ID from an identifier name.
+ */
+export async function resolveSymbolId(
+    identifierName: string,
+    semantic: PartialSemanticAnalyzer | null
+): Promise<string | null> {
+    if (!semantic) {
+        return null;
+    }
+
+    if (hasMethod(semantic, "resolveSymbolId")) {
+        return await semantic.resolveSymbolId(identifierName);
+    }
+
+    return null;
+}

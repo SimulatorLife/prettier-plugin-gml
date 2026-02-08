@@ -47,34 +47,25 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
     });
 
     pluginModule.setRefactorRuntime?.({
-        isIdentifierNameOccupiedInProject({ identifierName }: { filePath: string | null; identifierName: string }) {
-            if (!Core.isNonEmptyString(identifierName)) {
-                return false;
-            }
-
-            if (runtimeContext.semanticBridge.getSymbolOccurrences(identifierName).length > 0) {
-                return true;
-            }
-
-            return Core.isNonEmptyString(runtimeContext.semanticBridge.resolveSymbolId(identifierName));
+        async isIdentifierNameOccupiedInProject({
+            identifierName
+        }: {
+            filePath: string | null;
+            identifierName: string;
+        }) {
+            return await runtimeContext.refactorEngine.isIdentifierOccupied(identifierName);
         },
-        listIdentifierOccurrenceFiles({ identifierName }: { filePath: string | null; identifierName: string }) {
-            if (!Core.isNonEmptyString(identifierName)) {
-                return new Set<string>();
-            }
+        async listIdentifierOccurrenceFiles({ identifierName }: { filePath: string | null; identifierName: string }) {
+            const relativeFiles = await runtimeContext.refactorEngine.listIdentifierOccurrences(identifierName);
+            const absoluteFiles = new Set<string>();
 
-            const occurrences = runtimeContext.semanticBridge.getSymbolOccurrences(identifierName);
-            const files = new Set<string>();
-
-            for (const occurrence of occurrences) {
-                if (!Core.isNonEmptyString(occurrence.path)) {
-                    continue;
+            for (const relativePath of relativeFiles) {
+                if (Core.isNonEmptyString(relativePath)) {
+                    absoluteFiles.add(path.resolve(runtimeContext.projectRoot, relativePath));
                 }
-
-                files.add(path.resolve(runtimeContext.projectRoot, occurrence.path));
             }
 
-            return files;
+            return absoluteFiles;
         },
         async planFeatherRenames({
             filePath,

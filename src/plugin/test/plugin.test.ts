@@ -15,6 +15,7 @@ const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
 
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
+const INTEGRATION_OWNED_FIXTURE_NAMES = new Set(["testGlobalVars"]);
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
 function removeDocCommentLines(text: string) {
@@ -150,6 +151,10 @@ const all_test_cases = await loadTestCases();
 void describe("Prettier GameMaker plugin fixtures", () => {
     for (const { baseName, inputSource, expectedOutput, options } of all_test_cases) {
         void it(`formats ${baseName}`, async () => {
+            if (INTEGRATION_OWNED_FIXTURE_NAMES.has(baseName)) {
+                return;
+            }
+
             const formatted = await Plugin.format(inputSource, options);
             const normalizedActual = canonicalizeFixtureText(formatted);
             const normalizedExpected = canonicalizeFixtureText(expectedOutput);

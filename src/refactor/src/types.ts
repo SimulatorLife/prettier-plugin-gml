@@ -302,6 +302,7 @@ export interface SemanticValidationResult {
  */
 export interface SymbolResolver {
     hasSymbol(symbolId: string): MaybePromise<boolean>;
+    resolveSymbolId(name: string): MaybePromise<string | null | undefined>;
     lookup(name: string, scopeId?: string): MaybePromise<SymbolLookupResult | null | undefined>;
     getSymbolAtPosition(filePath: string, offset: number): MaybePromise<SymbolLocation | null | undefined>;
 }

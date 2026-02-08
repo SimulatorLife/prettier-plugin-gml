@@ -92,6 +92,44 @@ export class RefactorEngine {
     }
 
     /**
+     * Check if an identifier name is already occupied in the project.
+     * This is used by the plugin to determing if a proposed variable name is safe to use.
+     */
+    async isIdentifierOccupied(identifierName: string): Promise<boolean> {
+        if (!this.semantic) {
+            return false;
+        }
+
+        const occurrences = await this.gatherSymbolOccurrences(identifierName);
+        if (occurrences.length > 0) {
+            return true;
+        }
+
+        const symbolId = await SymbolQueries.resolveSymbolId(identifierName, this.semantic);
+        return Core.isNonEmptyString(symbolId);
+    }
+
+    /**
+     * List all files where an identifier occurs.
+     * This is used by the plugin to determine if a rename would affect multiple files.
+     */
+    async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
+        const files = new Set<string>();
+        if (!this.semantic) {
+            return files;
+        }
+
+        const occurrences = await this.gatherSymbolOccurrences(identifierName);
+        for (const occurrence of occurrences) {
+            if (Core.isNonEmptyString(occurrence.path)) {
+                files.add(occurrence.path);
+            }
+        }
+
+        return files;
+    }
+
+    /**
      * Validate a rename request before planning edits.
      * Unlike planRename, this method returns validation results without throwing errors,
      * making it suitable for providing user feedback in IDE integrations and CLI tools.

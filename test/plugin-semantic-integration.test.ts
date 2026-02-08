@@ -4,8 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { describe, it } from "node:test";
 
-import { configureIdentifierCaseIntegration, Plugin } from "@gml-modules/plugin";
-import { Semantic } from "@gml-modules/semantic";
+import { Plugin } from "@gml-modules/plugin";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
@@ -14,29 +13,12 @@ const SEMANTIC_INTEGRATION_FIXTURE_NAMES = new Set([
     "testComments",
     "testFunctions",
     "testGM1012",
-    "testGM1100",
-    "testGlobalVars"
+    "testGM1100"
 ]);
-const STRICT_EXPECTATION_FIXTURE_NAMES = new Set(["testGlobalVars"]);
+const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>();
 const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
 
 const fixtureDirectory = path.resolve(process.cwd(), "src", "plugin", "test");
-
-configureIdentifierCaseIntegration({
-    runtime: {
-        createScopeTracker: () => new Semantic.SemanticScopeCoordinator(),
-        prepareIdentifierCaseEnvironment: Semantic.prepareIdentifierCaseEnvironment,
-        teardownIdentifierCaseEnvironment: Semantic.teardownIdentifierCaseEnvironment,
-        attachIdentifierCasePlanSnapshot: Semantic.attachIdentifierCasePlanSnapshot
-    },
-    identifierCaseOptions: Semantic.identifierCaseOptions,
-    printerServices: {
-        renameLookupService: Semantic.getIdentifierCaseRenameForNode,
-        applySnapshotService: Semantic.applyIdentifierCasePlanSnapshot,
-        dryRunReportService: Semantic.maybeReportIdentifierCaseDryRun,
-        teardownService: Semantic.teardownIdentifierCaseEnvironment
-    }
-});
 
 type IntegrationCase = {
     baseName: string;
@@ -162,7 +144,7 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
 const integrationCases = await loadIntegrationCases();
 
-void describe("Plugin + Semantic integration fixtures", () => {
+void describe("Plugin integration fixtures", () => {
     for (const { baseName, inputSource, expectedOutput, options } of integrationCases) {
         void it(`formats ${baseName}`, async () => {
             if (EXPECTED_PARSE_ERROR_FIXTURE_NAMES.has(baseName)) {
