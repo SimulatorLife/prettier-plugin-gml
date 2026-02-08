@@ -10,6 +10,7 @@ import {
     validatePatchDependencies
 } from "./patch-utils.js";
 import { cloneObjectEntries, isErrorLike } from "./runtime-core-helpers.js";
+import { getHighResolutionTime, getWallClockTime } from "./timing-utils.js";
 import type {
     ApplyPatchResult,
     BatchApplyResult,
@@ -73,7 +74,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             patchKind: patch.kind,
             category,
             error: errorMessage,
-            timestamp: Date.now(),
+            timestamp: getWallClockTime(),
             stackTrace
         });
     }
@@ -144,14 +145,14 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         }
 
         const resolvedSnapshot = snapshot ?? captureSnapshot(state.registry, patch);
-        const startTime = Date.now();
+        const startTime = getHighResolutionTime();
 
         try {
             const { registry: nextRegistry, result } = applyPatchInternal(state.registry, patch);
-            const durationMs = Date.now() - startTime;
+            const durationMs = getHighResolutionTime() - startTime;
 
             state.registry = nextRegistry;
-            recordAppliedPatch(patch, resolvedSnapshot, startTime, durationMs);
+            recordAppliedPatch(patch, resolvedSnapshot, getWallClockTime(), durationMs);
 
             return result;
         } catch (error) {
@@ -240,30 +241,31 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             historySize: state.patchHistory.length
         };
 
-        const startTime = Date.now();
+        const startTime = getHighResolutionTime();
+        const wallClockStartTime = getWallClockTime();
         let appliedCount = 0;
 
         try {
             for (const patch of validatedPatches) {
                 const snapshot = captureSnapshot(state.registry, patch);
-                const patchStartTime = Date.now();
+                const patchStartTime = getHighResolutionTime();
 
                 const { registry: nextRegistry } = applyPatchInternal(state.registry, patch);
-                const durationMs = Date.now() - patchStartTime;
+                const durationMs = getHighResolutionTime() - patchStartTime;
 
                 state.registry = nextRegistry;
-                recordAppliedPatch(patch, snapshot, patchStartTime, durationMs);
+                recordAppliedPatch(patch, snapshot, getWallClockTime(), durationMs);
                 appliedCount++;
             }
 
-            const totalDuration = Date.now() - startTime;
+            const totalDuration = getHighResolutionTime() - startTime;
             state.patchHistory.push({
                 patch: {
                     kind: "script",
                     id: `batch:${appliedCount}_patches`
                 },
                 version: state.registry.version,
-                timestamp: startTime,
+                timestamp: wallClockStartTime,
                 action: "apply",
                 durationMs: totalDuration
             });
@@ -292,7 +294,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     id: `batch:${appliedCount}_of_${validatedPatches.length}`
                 },
                 version: state.registry.version,
-                timestamp: Date.now(),
+                timestamp: getWallClockTime(),
                 action: "rollback",
                 error: message
             });
@@ -325,7 +327,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         state.patchHistory.push({
             patch: { kind: snapshot.kind, id: snapshot.id },
             version: state.registry.version,
-            timestamp: Date.now(),
+            timestamp: getWallClockTime(),
             action: "undo"
         });
 
@@ -410,7 +412,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
                 version: state.registry.version,
-                timestamp: Date.now(),
+                timestamp: getWallClockTime(),
                 action: "rollback",
                 error: message
             });
