@@ -18,6 +18,7 @@ import type {
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
+const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
 
 type RuntimeReadyGlobals = Record<string, unknown> & {
     g_pBuiltIn?: Record<string, unknown>;
@@ -213,9 +214,12 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
         queueState.queueHead += 1;
         queueMetrics.totalDropped += 1;
 
-        // Periodically compact the queue to prevent unbounded growth
-        // Only compact when head has advanced significantly
-        if (queueState.queueHead > maxQueueSize) {
+        // Periodically compact the queue to prevent unbounded growth.
+        // Compact only when head has advanced significantly (2x maxQueueSize)
+        // to amortize the cost of the slice operation over more enqueue calls.
+        // This reduces allocation pressure and improves hot-reload throughput.
+        const compactionThreshold = maxQueueSize * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
+        if (queueState.queueHead >= compactionThreshold) {
             const activePatches = queueState.queue.slice(queueState.queueHead);
             queueState.queue = activePatches;
             queueState.queueHead = 0;
