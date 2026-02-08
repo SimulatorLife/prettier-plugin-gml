@@ -832,7 +832,14 @@ function printBinaryExpressionNode(node, path, options, print) {
         const divisorValue = Number(node.right.value);
         if (Number.isFinite(divisorValue) && divisorValue !== 0) {
             const reciprocal = 1 / divisorValue;
-            if (Number.isFinite(reciprocal)) {
+            // Only convert if both divisor and reciprocal are within reasonable bounds
+            // to avoid precision issues with very small divisors or very large reciprocals
+            const MIN_SAFE_DIVISOR = 1e-10;
+            const MAX_SAFE_RECIPROCAL = 1e10;
+            const absDivisor = Math.abs(divisorValue);
+            const absReciprocal = Math.abs(reciprocal);
+
+            if (Number.isFinite(reciprocal) && absDivisor >= MIN_SAFE_DIVISOR && absReciprocal <= MAX_SAFE_RECIPROCAL) {
                 reciprocalString = String(reciprocal);
             }
         }
