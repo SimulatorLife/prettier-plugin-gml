@@ -1873,7 +1873,7 @@ export class RefactorEngine {
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return await SymbolQueries.detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+        return await detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
     }
 
     /**
