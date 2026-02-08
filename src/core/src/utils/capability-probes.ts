@@ -147,7 +147,7 @@ export function hasIterableItems(iterable) {
     }
 
     // Try to get an iterator method and call it
-    const method = iterable[Symbol.iterator] ?? iterable.entries ?? iterable.values;
+    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
     if (typeof method !== "function") {
         return false;
     }
@@ -224,33 +224,30 @@ function resolveMapEntries(candidate) {
         return candidate;
     }
 
-    if (isObjectLike(candidate) && !hasIterator(candidate)) {
-        return Object.entries(candidate);
-    }
-
     // Try to extract entries from iterable
     const method = candidate?.[Symbol.iterator] ?? candidate?.entries ?? candidate?.values;
-    if (typeof method !== "function") {
-        return [];
-    }
-
-    try {
-        const iterator = method.call(candidate);
-        if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
-            return [];
-        }
-
-        const entries = [];
-        for (const entry of iterator) {
-            if (!Array.isArray(entry) || entry.length < 2) {
+    if (typeof method === "function") {
+        try {
+            const iterator = method.call(candidate);
+            if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
                 return [];
             }
-            entries.push([entry[0], entry[1]]);
+
+            const entries = [];
+            for (const entry of iterator) {
+                if (!Array.isArray(entry) || entry.length < 2) {
+                    return [];
+                }
+                entries.push([entry[0], entry[1]]);
+            }
+            return entries;
+        } catch {
+            return [];
         }
-        return entries;
-    } catch {
-        return [];
     }
+
+    // Fallback to Object.entries for plain objects
+    return isObjectLike(candidate) ? Object.entries(candidate) : [];
 }
 
 /**
