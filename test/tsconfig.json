@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../src/core" },
+    { "path": "../src/parser" },
+    { "path": "../src/plugin" },
+    { "path": "../src/semantic" }
+  ],
+  "include": ["*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

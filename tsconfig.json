@@ -8,6 +8,7 @@
     { "path": "./src/plugin" },
     { "path": "./src/cli" },
     { "path": "./src/runtime-wrapper" },
-    { "path": "./src/refactor" }
+    { "path": "./src/refactor" },
+    { "path": "./test" }
   ]
 }
