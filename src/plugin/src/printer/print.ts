@@ -827,18 +827,18 @@ function printBinaryExpressionNode(node, path, options, print) {
         !Core.hasComment(node) &&
         !Core.hasComment(node.left);
 
-    let reciprocalValue: string | null = null;
+    let reciprocalString: string | null = null;
     if (canConvertDivisionToReciprocal) {
         const divisorValue = Number(node.right.value);
         if (Number.isFinite(divisorValue) && divisorValue !== 0) {
             const reciprocal = 1 / divisorValue;
             if (Number.isFinite(reciprocal)) {
-                reciprocalValue = String(reciprocal);
+                reciprocalString = String(reciprocal);
             }
         }
     }
 
-    if (reciprocalValue === null) {
+    if (reciprocalString === null) {
         right = print("right");
         const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
@@ -869,7 +869,7 @@ function printBinaryExpressionNode(node, path, options, print) {
         const literal = node.right;
         const originalValue = literal.value;
 
-        literal.value = reciprocalValue;
+        literal.value = reciprocalString;
         try {
             right = print("right");
         } finally {
