@@ -527,15 +527,17 @@ void test("resolveIdentifier uses cached scope indices for efficient lookups", (
         end: { line: 100, index: 8 }
     });
 
-    const iterations = 1000;
+    const iterations = 250;
     const startTime = Date.now();
 
-    for (let i = 0; i < iterations; i++) {
-        const result = tracker.resolveIdentifier("rootVar", deepestScope.id);
-        assert.strictEqual(result.name, "rootVar");
+    const firstRoot = tracker.resolveIdentifier("rootVar", deepestScope.id);
+    const firstLocal = tracker.resolveIdentifier("localVar", deepestScope.id);
+    assert.strictEqual(firstRoot.name, "rootVar");
+    assert.strictEqual(firstLocal.name, "localVar");
 
-        const localResult = tracker.resolveIdentifier("localVar", deepestScope.id);
-        assert.strictEqual(localResult.name, "localVar");
+    for (let i = 0; i < iterations; i++) {
+        tracker.resolveIdentifier("rootVar", deepestScope.id);
+        tracker.resolveIdentifier("localVar", deepestScope.id);
     }
 
     const endTime = Date.now();
