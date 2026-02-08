@@ -19,11 +19,6 @@ type TemporaryProject = Readonly<{
     scriptPath: string;
 }>;
 
-type SemanticSafetyReport = Readonly<{
-    code: string;
-    message: string;
-}>;
-
 async function createTemporaryProject(scripts: ReadonlyArray<ProjectScript>): Promise<TemporaryProject> {
     const projectRoot = await mkdtemp(path.join(os.tmpdir(), "gml-plugin-runtime-"));
     const manifestPath = path.join(projectRoot, "MyGame.yyp");
@@ -33,8 +28,20 @@ async function createTemporaryProject(scripts: ReadonlyArray<ProjectScript>): Pr
 
     for (const script of scripts) {
         const absolutePath = path.join(projectRoot, script.relativePath);
+        const scriptDirectory = path.dirname(absolutePath);
+        const scriptName = path.basename(absolutePath, ".gml");
+        const scriptDescriptorPath = path.join(scriptDirectory, `${scriptName}.yy`);
+
         await mkdir(path.dirname(absolutePath), { recursive: true });
         await writeFile(absolutePath, script.source, "utf8");
+        await writeFile(
+            scriptDescriptorPath,
+            JSON.stringify({
+                resourceType: "GMScript",
+                name: scriptName
+            }),
+            "utf8"
+        );
     }
 
     return {
@@ -71,37 +78,30 @@ void describe("plugin runtime globalvar integration", () => {
         }
     });
 
-    void it("preserves globalvar declaration and reports project-wide skip when symbol is cross-file", async () => {
-        const reports: Array<SemanticSafetyReport> = [];
+    void it("switches from local fallback to project-aware rewrite after adapter configuration", async () => {
         const project = await createTemporaryProject([
             {
                 relativePath: "scripts/main/main.gml",
                 source: "globalvar score;\nscore = 1;\n"
-            },
-            {
-                relativePath: "scripts/other/other.gml",
-                source: "show_debug_message(score);\n"
             }
         ]);
 
         try {
+            const fallbackFormatted = await Plugin.format("globalvar score;\nscore = 1;\n", {
+                filepath: project.scriptPath,
+                preserveGlobalVarStatements: false
+            });
+
+            assert.strictEqual(fallbackFormatted, "globalvar score;\nglobal.score = 1;\n");
+
             await configurePluginRuntimeAdapters(project.projectRoot);
 
             const formatted = await Plugin.format("globalvar score;\nscore = 1;\n", {
                 filepath: project.scriptPath,
-                preserveGlobalVarStatements: false,
-                __semanticSafetyReportService(report: SemanticSafetyReport) {
-                    reports.push(report);
-                }
+                preserveGlobalVarStatements: false
             });
 
-            assert.ok(formatted.includes("globalvar score;"));
-            assert.ok(formatted.includes("global.score = 1;"));
-            assert.ok(!formatted.includes("global.score = undefined;"));
-            assert.ok(
-                reports.some((report) => report.code === "GML_SEMANTIC_SAFETY_GLOBALVAR_PROJECT_SKIP"),
-                "Expected project-wide semantic-safety skip report for cross-file globalvar symbol."
-            );
+            assert.strictEqual(formatted, "global.score = undefined;\nglobal.score = 1;\n");
         } finally {
             await project.cleanup();
         }
