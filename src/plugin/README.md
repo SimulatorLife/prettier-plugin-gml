@@ -2,6 +2,24 @@
 
 This directory contains the source code for the [gml-modules/plugin](https://github.com/gml-modules/plugin) package.
 
+## Ownership Boundaries
+
+The plugin workspace owns formatting and parser-to-printer orchestration only.
+
+- The plugin **must not** depend directly on `@gml-modules/semantic` or `@gml-modules/refactor`.
+- Semantic-safe and refactor-aware behavior is exposed through runtime ports:
+  - `setSemanticSafetyRuntime(...)`
+  - `setRefactorRuntime(...)`
+  - `setIdentifierCaseRuntime(...)`
+- Concrete adapters are created in the integration/composition root (CLI) and injected into the plugin at runtime.
+
+This keeps formatter-only usage lightweight while still allowing project-aware rename planning when an integration host provides adapters.
+
+## Test Tiering
+
+- Plugin fixture/unit tests validate local formatter behavior and local-safe fallback behavior.
+- Project-aware rename behavior (for example `preserveGlobalVarStatements: false` when cross-file symbols exist) is validated in integration tests that build a temporary project and inject runtime adapters through CLI wiring.
+
 ## Plugin Architecture
 
 ### Constants (`src/constants.ts`)

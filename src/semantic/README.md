@@ -2,6 +2,20 @@
 
 This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
+## Ownership Boundaries
+
+`@gml-modules/semantic` is analysis-only.
+
+- Owns project indexing, scope/symbol metadata, identifier occurrence discovery, and semantic classification.
+- Does **not** own refactor edit planning or rename application.
+- Does **not** depend on `@gml-modules/refactor`.
+
+Downstream tools consume semantic data:
+
+- `@gml-modules/refactor` uses semantic data to validate and plan workspace edits.
+- `@gml-modules/cli` composes semantic + refactor adapters and injects them into plugin runtime ports.
+- `@gml-modules/plugin` consumes only runtime contracts, not semantic internals.
+
 ## Semantic Oracle
 
 The `BasicSemanticOracle` class bridges the scope tracker and transpiler, providing identifier classification and symbol resolution for accurate code generation.
