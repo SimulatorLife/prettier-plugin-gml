@@ -395,6 +395,15 @@ points while sharing utilities via the `src/shared/src/` module.
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
+### Semantic vs Refactor ownership
+
+- `@gml-modules/semantic` owns analysis: project indexing, symbol/scope metadata, and occurrence discovery.
+- `@gml-modules/refactor` owns change planning: semantic-safe rename validation and workspace edit plans.
+- `@gml-modules/plugin` stays decoupled from both and only exposes runtime contracts (`setSemanticSafetyRuntime`, `setRefactorRuntime`) used by transforms.
+- `@gml-modules/cli` is the composition root that imports semantic/refactor implementations and injects concrete adapters into the plugin runtime.
+
+This means formatter-only runs stay lightweight with local-safe fallbacks, while project-aware semantic/refactor behavior is enabled only when the integration layer wires the adapters.
+
 The `pnpm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same
 plugin entry. Regeneration helpers such as `pnpm run build:gml-identifiers` and

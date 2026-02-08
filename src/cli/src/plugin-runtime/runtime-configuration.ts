@@ -47,34 +47,25 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
     });
 
     pluginModule.setRefactorRuntime?.({
-        isIdentifierNameOccupiedInProject({ identifierName }: { filePath: string | null; identifierName: string }) {
-            if (!Core.isNonEmptyString(identifierName)) {
-                return false;
-            }
-
-            if (runtimeContext.semanticBridge.getSymbolOccurrences(identifierName).length > 0) {
-                return true;
-            }
-
-            return Core.isNonEmptyString(runtimeContext.semanticBridge.resolveSymbolId(identifierName));
+        async isIdentifierNameOccupiedInProject({
+            identifierName
+        }: {
+            filePath: string | null;
+            identifierName: string;
+        }) {
+            return await runtimeContext.refactorEngine.isIdentifierOccupied(identifierName);
         },
-        listIdentifierOccurrenceFiles({ identifierName }: { filePath: string | null; identifierName: string }) {
-            if (!Core.isNonEmptyString(identifierName)) {
-                return new Set<string>();
-            }
+        async listIdentifierOccurrenceFiles({ identifierName }: { filePath: string | null; identifierName: string }) {
+            const relativeFiles = await runtimeContext.refactorEngine.listIdentifierOccurrences(identifierName);
+            const absoluteFiles = new Set<string>();
 
-            const occurrences = runtimeContext.semanticBridge.getSymbolOccurrences(identifierName);
-            const files = new Set<string>();
-
-            for (const occurrence of occurrences) {
-                if (!Core.isNonEmptyString(occurrence.path)) {
-                    continue;
+            for (const relativePath of relativeFiles) {
+                if (Core.isNonEmptyString(relativePath)) {
+                    absoluteFiles.add(path.resolve(runtimeContext.projectRoot, relativePath));
                 }
-
-                files.add(path.resolve(runtimeContext.projectRoot, occurrence.path));
             }
 
-            return files;
+            return absoluteFiles;
         },
         async planFeatherRenames({
             filePath,
@@ -83,30 +74,11 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
             filePath: string | null;
             requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>;
         }) {
-            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-            const plannedEntries: Array<{
-                identifierName: string;
-                mode: "local-fallback" | "project-aware";
-                preferredReplacementName: string;
-                replacementName: string | null;
-                skipReason?: string;
-            }> = [];
-
-            await Core.runSequentially(requests, async (request) => {
-                const plannedEntry = await planSingleFeatherRenameRequest({
-                    normalizedFilePath,
-                    projectRoot: runtimeContext.projectRoot,
-                    refactorEngine: runtimeContext.refactorEngine,
-                    resolveSymbolId: (identifierName) => runtimeContext.semanticBridge.resolveSymbolId(identifierName),
-                    request
-                });
-
-                if (plannedEntry) {
-                    plannedEntries.push(plannedEntry);
-                }
-            });
-
-            return plannedEntries;
+            return await runtimeContext.refactorEngine.planFeatherRenames(
+                requests,
+                filePath,
+                runtimeContext.projectRoot
+            );
         }
     });
 
@@ -119,12 +91,7 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
             hasInitializer: boolean;
             identifierName: string;
         }) {
-            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-            return {
-                allowRewrite: hasInitializer || normalizedFilePath !== null,
-                initializerMode: hasInitializer ? "existing" : "undefined",
-                mode: "project-aware"
-            };
+            return runtimeContext.refactorEngine.assessGlobalVarRewrite(filePath, hasInitializer);
         },
         resolveLoopHoistIdentifier({
             preferredName
@@ -133,127 +100,9 @@ export async function configurePluginRuntimeAdapters(projectRoot: string): Promi
             localIdentifierNames: ReadonlySet<string>;
             preferredName: string;
         }) {
-            return {
-                identifierName: preferredName,
-                mode: "project-aware"
-            };
+            return runtimeContext.refactorEngine.resolveLoopHoistIdentifier(preferredName);
         }
     });
-}
-
-async function planSingleFeatherRenameRequest({
-    normalizedFilePath,
-    projectRoot,
-    refactorEngine,
-    resolveSymbolId,
-    request
-}: {
-    normalizedFilePath: string | null;
-    projectRoot: string;
-    refactorEngine: InstanceType<typeof Refactor.RefactorEngine>;
-    resolveSymbolId: (identifierName: string) => string | null;
-    request: { identifierName: string; preferredReplacementName: string };
-}): Promise<{
-    identifierName: string;
-    mode: "local-fallback" | "project-aware";
-    preferredReplacementName: string;
-    replacementName: string | null;
-    skipReason?: string;
-} | null> {
-    if (!request || !Core.isNonEmptyString(request.identifierName)) {
-        return null;
-    }
-
-    const symbolId = resolveSymbolId(request.identifierName);
-    if (!Core.isNonEmptyString(symbolId)) {
-        return {
-            identifierName: request.identifierName,
-            mode: "local-fallback",
-            preferredReplacementName: request.preferredReplacementName,
-            replacementName: request.preferredReplacementName
-        };
-    }
-
-    const candidateNames = enumerateRenameCandidates(request.preferredReplacementName);
-    const resolution = await resolveRefactorPlannedReplacement({
-        candidateNames,
-        normalizedFilePath,
-        projectRoot,
-        refactorEngine,
-        symbolId
-    });
-
-    return {
-        identifierName: request.identifierName,
-        mode: "project-aware",
-        preferredReplacementName: request.preferredReplacementName,
-        replacementName: resolution.replacementName,
-        skipReason: resolution.skipReason
-    };
-}
-
-async function resolveRefactorPlannedReplacement({
-    candidateNames,
-    normalizedFilePath,
-    projectRoot,
-    refactorEngine,
-    symbolId
-}: {
-    candidateNames: ReadonlyArray<string>;
-    normalizedFilePath: string | null;
-    projectRoot: string;
-    refactorEngine: InstanceType<typeof Refactor.RefactorEngine>;
-    symbolId: string;
-}): Promise<{ replacementName: string | null; skipReason?: string }> {
-    const tryCandidateAtIndex = async (
-        index: number,
-        lastSkipReason?: string
-    ): Promise<{ replacementName: string | null; skipReason?: string }> => {
-        if (index >= candidateNames.length) {
-            return {
-                replacementName: null,
-                skipReason: lastSkipReason
-            };
-        }
-
-        const candidateName = candidateNames[index];
-        try {
-            const plan = await refactorEngine.prepareRenamePlan(
-                {
-                    symbolId,
-                    newName: candidateName
-                },
-                {
-                    validateHotReload: false
-                }
-            );
-
-            if (!plan.validation.valid) {
-                return await tryCandidateAtIndex(index + 1, plan.validation.errors.join("; "));
-            }
-
-            const affectedAbsolutePaths = new Set<string>();
-            for (const edit of plan.workspace.edits) {
-                affectedAbsolutePaths.add(path.resolve(projectRoot, edit.path));
-            }
-
-            const touchesOnlyCurrentFile =
-                normalizedFilePath === null ||
-                [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === normalizedFilePath);
-            if (!touchesOnlyCurrentFile) {
-                return await tryCandidateAtIndex(
-                    index + 1,
-                    "Rename requires project-wide edits and cannot be applied safely inside formatter-only mode."
-                );
-            }
-
-            return { replacementName: candidateName };
-        } catch (error) {
-            return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
-        }
-    };
-
-    return await tryCandidateAtIndex(0);
 }
 
 async function getRuntimeContext(projectRoot: string): Promise<RuntimeContext | null> {
@@ -288,17 +137,4 @@ async function createRuntimeContext(projectRoot: string): Promise<RuntimeContext
     } catch {
         return null;
     }
-}
-
-function enumerateRenameCandidates(preferredName: string): ReadonlyArray<string> {
-    if (!Core.isNonEmptyString(preferredName)) {
-        return ["__featherFix_reserved"];
-    }
-
-    const candidates = [preferredName];
-    for (let index = 1; index <= 32; index += 1) {
-        candidates.push(`${preferredName}_${index}`);
-    }
-
-    return candidates;
 }

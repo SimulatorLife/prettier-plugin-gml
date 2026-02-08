@@ -2,6 +2,12 @@
 
 This package implements the GML → JavaScript transpiler for the prettier-plugin-gml project. The transpiler converts GML source code into JavaScript that can be executed in the runtime wrapper for hot-reload functionality.
 
+## Ownership Boundaries
+
+- The transpiler may consume semantic classification data from `@gml-modules/semantic`.
+- It does **not** own refactor/rename planning and should not depend on `@gml-modules/refactor`.
+- Refactor operations remain in the refactor engine and integration layer (CLI).
+
 ## Architecture
 
 The transpiler consists of three main components:
