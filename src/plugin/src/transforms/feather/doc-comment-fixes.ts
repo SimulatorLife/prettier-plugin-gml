@@ -860,4 +860,5 @@ export {
     sanitizeMalformedJsDocTypes,
     updateFunctionTagName,
     updateJSDocParamName,
-    updateStaticFunctionDocComments};
+    updateStaticFunctionDocComments
+};

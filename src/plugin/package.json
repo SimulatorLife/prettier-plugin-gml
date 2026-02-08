@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
+    "@gml-modules/parser": "workspace:*",
+    "@gml-modules/semantic": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"
