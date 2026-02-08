@@ -5625,8 +5625,7 @@ function shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)
         return false;
     }
 
-    const operatorText =
-        isBinaryExpression && typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+    const operatorText = isBinaryExpression ? Core.getNormalizedOperator(expression) : null;
     const isMultiplicativeExpression =
         isBinaryExpression && operatorText !== null && MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
 
