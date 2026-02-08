@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
@@ -1871,7 +1873,201 @@ export class RefactorEngine {
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return await detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+        return await SymbolQueries.detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+    }
+
+    /**
+     * Plan renames for Feather quick fixes.
+     * Checks if the replacement name is safe and if edits are contained within the file.
+     */
+    async planFeatherRenames(
+        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
+        filePath: string | null,
+        projectRoot: string
+    ): Promise<
+        Array<{
+            identifierName: string;
+            mode: "local-fallback" | "project-aware";
+            preferredReplacementName: string;
+            replacementName: string | null;
+            skipReason?: string;
+        }>
+    > {
+        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+        const plannedEntries: Array<{
+            identifierName: string;
+            mode: "local-fallback" | "project-aware";
+            preferredReplacementName: string;
+            replacementName: string | null;
+            skipReason?: string;
+        }> = [];
+
+        await Core.runSequentially(requests, async (request) => {
+            const plannedEntry = await this.planSingleFeatherRenameRequest(request, normalizedFilePath, projectRoot);
+
+            if (plannedEntry) {
+                plannedEntries.push(plannedEntry);
+            }
+        });
+
+        return plannedEntries;
+    }
+
+    /**
+     * Assess whether a global variable rewrite is safe/allowed.
+     */
+    assessGlobalVarRewrite(
+        filePath: string | null,
+        hasInitializer: boolean
+    ): {
+        allowRewrite: boolean;
+        initializerMode: "existing" | "undefined";
+        mode: "project-aware";
+    } {
+        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+        return {
+            allowRewrite: hasInitializer || normalizedFilePath !== null,
+            initializerMode: hasInitializer ? "existing" : "undefined",
+            mode: "project-aware"
+        };
+    }
+
+    /**
+     * Resolve identifier for loop hoisting.
+     */
+    resolveLoopHoistIdentifier(preferredName: string): {
+        identifierName: string;
+        mode: "project-aware";
+    } {
+        return {
+            identifierName: preferredName,
+            mode: "project-aware"
+        };
+    }
+
+    /**
+     * Plan a single feather rename request.
+     * @private
+     */
+    private async planSingleFeatherRenameRequest(
+        request: { identifierName: string; preferredReplacementName: string },
+        normalizedFilePath: string | null,
+        projectRoot: string
+    ): Promise<{
+        identifierName: string;
+        mode: "local-fallback" | "project-aware";
+        preferredReplacementName: string;
+        replacementName: string | null;
+        skipReason?: string;
+    } | null> {
+        if (!request || !Core.isNonEmptyString(request.identifierName)) {
+            return null;
+        }
+
+        const symbolId = await SymbolQueries.resolveSymbolId(request.identifierName, this.semantic);
+
+        if (!Core.isNonEmptyString(symbolId)) {
+            return {
+                identifierName: request.identifierName,
+                mode: "local-fallback",
+                preferredReplacementName: request.preferredReplacementName,
+                replacementName: request.preferredReplacementName
+            };
+        }
+
+        const candidateNames = this.enumerateRenameCandidates(request.preferredReplacementName);
+        const resolution = await this.resolveRefactorPlannedReplacement(
+            candidateNames,
+            normalizedFilePath,
+            projectRoot,
+            symbolId // We checked for null above
+        );
+
+        return {
+            identifierName: request.identifierName,
+            mode: "project-aware",
+            preferredReplacementName: request.preferredReplacementName,
+            replacementName: resolution.replacementName,
+            skipReason: resolution.skipReason
+        };
+    }
+
+    /**
+     * Enumerate potential rename candidates.
+     * @private
+     */
+    private enumerateRenameCandidates(preferredName: string): ReadonlyArray<string> {
+        if (!Core.isNonEmptyString(preferredName)) {
+            return ["__featherFix_reserved"];
+        }
+
+        const candidates = [preferredName];
+        for (let index = 1; index <= 32; index += 1) {
+            candidates.push(`${preferredName}_${index}`);
+        }
+
+        return candidates;
+    }
+
+    /**
+     * Resolve planned replacement name by checking candidates.
+     * @private
+     */
+    private async resolveRefactorPlannedReplacement(
+        candidateNames: ReadonlyArray<string>,
+        normalizedFilePath: string | null,
+        projectRoot: string,
+        symbolId: string
+    ): Promise<{ replacementName: string | null; skipReason?: string }> {
+        const tryCandidateAtIndex = async (
+            index: number,
+            lastSkipReason?: string
+        ): Promise<{ replacementName: string | null; skipReason?: string }> => {
+            if (index >= candidateNames.length) {
+                return {
+                    replacementName: null,
+                    skipReason: lastSkipReason
+                };
+            }
+
+            const candidateName = candidateNames[index];
+            try {
+                const plan = await this.prepareRenamePlan(
+                    {
+                        symbolId,
+                        newName: candidateName
+                    },
+                    {
+                        validateHotReload: false
+                    }
+                );
+
+                if (!plan.validation.valid) {
+                    return await tryCandidateAtIndex(index + 1, plan.validation.errors.join("; "));
+                }
+
+                const affectedAbsolutePaths = new Set<string>();
+                for (const edit of plan.workspace.edits) {
+                    affectedAbsolutePaths.add(path.resolve(projectRoot, edit.path));
+                }
+
+                const touchesOnlyCurrentFile =
+                    normalizedFilePath === null ||
+                    [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === normalizedFilePath);
+                if (!touchesOnlyCurrentFile) {
+                    return await tryCandidateAtIndex(
+                        index + 1,
+                        "Rename requires project-wide edits and cannot be applied safely inside formatter-only mode."
+                    );
+                }
+
+                return { replacementName: candidateName };
+            } catch (error) {
+                return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
+            }
+        };
+
+        return await tryCandidateAtIndex(0);
     }
 }
 

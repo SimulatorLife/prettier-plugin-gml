@@ -6,14 +6,17 @@
 
 import { Core } from "@gml-modules/core";
 
-import type {
-    AstNode,
-    DependentSymbol,
-    FileSymbol,
-    ParserBridge,
-    PartialSemanticAnalyzer,
-    SymbolLocation,
-    SymbolOccurrence
+import {
+    type AstNode,
+    type ConflictEntry,
+    ConflictType,
+    type DependentSymbol,
+    type FileSymbol,
+    type ParserBridge,
+    type PartialSemanticAnalyzer,
+    type SemanticAnalyzer,
+    type SymbolLocation,
+    type SymbolOccurrence
 } from "./types.js";
 import { hasMethod } from "./validation-utils.js";
 
@@ -221,4 +224,51 @@ export async function resolveSymbolId(
     }
 
     return null;
+}
+
+/**
+ * Detect conflicts for a proposed rename operation.
+ */
+export async function detectRenameConflicts(
+    oldName: string,
+    newName: string,
+    occurrences: Array<SymbolOccurrence>,
+    resolver: Partial<SemanticAnalyzer> | null,
+    keywords: Partial<SemanticAnalyzer> | null
+): Promise<Array<ConflictEntry>> {
+    const conflicts: Array<ConflictEntry> = [];
+
+    // Check for reserved keywords
+    if (keywords && hasMethod(keywords, "getReservedKeywords")) {
+        try {
+            const reserved = await keywords.getReservedKeywords();
+            if (reserved.includes(newName)) {
+                conflicts.push({
+                    type: ConflictType.RESERVED,
+                    message: `New name '${newName}' is a reserved keyword`,
+                    severity: "error"
+                });
+            }
+        } catch {
+            // changes nothing
+        }
+    }
+
+    // Check for shadowing/existing symbols
+    if (resolver && hasMethod(resolver, "getSymbolOccurrences")) {
+        try {
+            const existing = await resolver.getSymbolOccurrences(newName);
+            if (existing.length > 0) {
+                conflicts.push({
+                    type: ConflictType.SHADOW,
+                    message: `New name '${newName}' is already used in the project`,
+                    severity: "error"
+                });
+            }
+        } catch {
+            // changes nothing
+        }
+    }
+
+    return conflicts;
 }
