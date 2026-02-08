@@ -820,27 +820,25 @@ function printBinaryExpressionNode(node, path, options, print) {
         return booleanSimplification;
     }
 
-    const canConvertDivisionToHalf =
+    const canConvertDivisionToReciprocal =
         optimizeMathExpressions &&
         operator === "/" &&
         node?.right?.type === LITERAL &&
-        node.right.value === "2" &&
         !Core.hasComment(node) &&
         !Core.hasComment(node.left);
 
-    if (canConvertDivisionToHalf) {
-        operator = "*";
-
-        const literal = node.right;
-        const originalValue = literal.value;
-
-        literal.value = "0.5";
-        try {
-            right = print("right");
-        } finally {
-            literal.value = originalValue;
+    let reciprocalString: string | null = null;
+    if (canConvertDivisionToReciprocal) {
+        const divisorValue = Number(node.right.value);
+        if (Number.isFinite(divisorValue) && divisorValue !== 0) {
+            const reciprocal = 1 / divisorValue;
+            if (Number.isFinite(reciprocal)) {
+                reciprocalString = String(reciprocal);
+            }
         }
-    } else {
+    }
+
+    if (reciprocalString === null) {
         right = print("right");
         const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
@@ -864,6 +862,18 @@ function printBinaryExpressionNode(node, path, options, print) {
             }
         } else {
             operator = styledOperator;
+        }
+    } else {
+        operator = "*";
+
+        const literal = node.right;
+        const originalValue = literal.value;
+
+        literal.value = reciprocalString;
+        try {
+            right = print("right");
+        } finally {
+            literal.value = originalValue;
         }
     }
 
