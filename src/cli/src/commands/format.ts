@@ -65,7 +65,8 @@ const {
 
 const formattingCache = new Map<string, string>();
 // Bound cache growth so large formatting runs do not retain every unique file payload.
-const MAX_FORMATTING_CACHE_ENTRIES = 100;
+// Reduced from 100 to 20 to prevent memory exhaustion on large projects.
+const MAX_FORMATTING_CACHE_ENTRIES = 20;
 
 function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
     if (!Number.isFinite(limit)) {
@@ -661,6 +662,15 @@ let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
+// Limit the number of in-memory snapshots to prevent unbounded memory growth
+// when disk writes fail. When this limit is reached, old snapshots are released.
+const MAX_IN_MEMORY_SNAPSHOTS = 50;
+let inMemorySnapshotCount = 0;
+
+// Track processed files for periodic cache cleanup
+let processedFileCount = 0;
+const PERIODIC_CLEANUP_INTERVAL = 50;
+
 function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
         return revertSnapshotDirectory;
@@ -710,7 +720,13 @@ async function releaseSnapshot(snapshot) {
     await withObjectLike(
         snapshot,
         async (snapshotObject) => {
-            const { snapshotPath } = snapshotObject;
+            const { snapshotPath, inlineContents } = snapshotObject;
+
+            // Track in-memory snapshot count for garbage collection
+            if (inlineContents !== null && inMemorySnapshotCount > 0) {
+                inMemorySnapshotCount -= 1;
+            }
+
             if (!snapshotPath) {
                 return;
             }
@@ -757,6 +773,51 @@ async function discardFormattedFileOriginalContents() {
     }
 }
 
+/**
+ * Release old snapshots when the in-memory snapshot count exceeds the limit.
+ * This prevents unbounded memory growth when disk writes fail and snapshots
+ * must be kept in memory.
+ */
+async function enforceSnapshotMemoryLimit() {
+    if (inMemorySnapshotCount <= MAX_IN_MEMORY_SNAPSHOTS) {
+        return;
+    }
+
+    const snapshotsToRelease = inMemorySnapshotCount - MAX_IN_MEMORY_SNAPSHOTS;
+    const entries = [...formattedFileOriginalContents.entries()];
+
+    // Collect snapshots to release (oldest first)
+    const snapshotsToDelete: Array<{ filePath: string; snapshot: unknown }> = [];
+    for (let i = 0; i < Math.min(snapshotsToRelease, entries.length); i++) {
+        const [filePath, snapshot] = entries[i];
+
+        // Only release in-memory snapshots (not disk-backed ones)
+        if (snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null) {
+            snapshotsToDelete.push({ filePath, snapshot });
+        }
+    }
+
+    // Release snapshots sequentially to maintain correct accounting
+    await Core.runSequentially(snapshotsToDelete, async ({ filePath, snapshot }) => {
+        formattedFileOriginalContents.delete(filePath);
+        await releaseSnapshot(snapshot);
+    });
+}
+
+/**
+ * Perform periodic memory cleanup to prevent accumulation during large formatting runs.
+ * This includes clearing the formatting cache and triggering garbage collection if available.
+ */
+function performPeriodicMemoryCleanup() {
+    // Clear the formatting cache to free memory
+    formattingCache.clear();
+
+    // Trigger garbage collection if exposed (e.g., when running with --expose-gc)
+    if (typeof globalThis.gc === "function") {
+        globalThis.gc();
+    }
+}
+
 async function readSnapshotContents(snapshot) {
     if (!snapshot || typeof snapshot !== "object") {
         return "";
@@ -799,6 +860,8 @@ async function resetFormattingSession(onParseError) {
     resetCheckModeTracking();
     resetFormattedFileTracking();
     formattingCache.clear();
+    inMemorySnapshotCount = 0;
+    processedFileCount = 0;
 }
 
 /**
@@ -843,9 +906,13 @@ async function recordFormattedFileOriginalContents(filePath, contents) {
         // can still proceed even if disk I/O fails, though it consumes more memory
         // and won't survive process crashes.
         snapshot.inlineContents = contents;
+        inMemorySnapshotCount += 1;
     }
 
     formattedFileOriginalContents.set(filePath, snapshot);
+
+    // Enforce memory limit by releasing old snapshots when the limit is exceeded
+    await enforceSnapshotMemoryLimit();
 }
 
 async function revertFormattedFiles() {
@@ -1445,6 +1512,12 @@ async function processFile(filePath, activeIgnorePaths = []) {
         await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
+
+        // Increment processed file counter and perform periodic cleanup
+        processedFileCount += 1;
+        if (processedFileCount % PERIODIC_CLEANUP_INTERVAL === 0) {
+            performPeriodicMemoryCleanup();
+        }
     } catch (error) {
         await handleFormattingError(error, filePath);
     }
