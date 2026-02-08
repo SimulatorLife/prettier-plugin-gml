@@ -111,6 +111,21 @@ const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
 
+/**
+ * Bounds for safe division-to-multiplication optimization.
+ *
+ * When converting `x / divisor` to `x * reciprocal`, we must ensure both the divisor
+ * and reciprocal are within reasonable numerical ranges to avoid precision loss.
+ *
+ * MIN_SAFE_DIVISOR: Divisors smaller than this (near machine epsilon) would produce
+ * reciprocals so large that the conversion loses precision or changes semantics.
+ *
+ * MAX_SAFE_RECIPROCAL: Reciprocals larger than this indicate the original divisor
+ * was too small, leading to potential overflow or precision issues in the multiplication.
+ */
+const MIN_SAFE_DIVISOR = 1e-10;
+const MAX_SAFE_RECIPROCAL = 1e10;
+
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
 // `getCommentArray(...)`.
@@ -820,27 +835,28 @@ function printBinaryExpressionNode(node, path, options, print) {
         return booleanSimplification;
     }
 
-    const canConvertDivisionToHalf =
+    const canConvertDivisionToReciprocal =
         optimizeMathExpressions &&
         operator === "/" &&
         node?.right?.type === LITERAL &&
-        node.right.value === "2" &&
         !Core.hasComment(node) &&
         !Core.hasComment(node.left);
 
-    if (canConvertDivisionToHalf) {
-        operator = "*";
+    let reciprocalString: string | null = null;
+    if (canConvertDivisionToReciprocal) {
+        const divisorValue = Number(node.right.value);
+        if (Number.isFinite(divisorValue) && divisorValue !== 0) {
+            const reciprocal = 1 / divisorValue;
+            const absDivisor = Math.abs(divisorValue);
+            const absReciprocal = Math.abs(reciprocal);
 
-        const literal = node.right;
-        const originalValue = literal.value;
-
-        literal.value = "0.5";
-        try {
-            right = print("right");
-        } finally {
-            literal.value = originalValue;
+            if (Number.isFinite(reciprocal) && absDivisor >= MIN_SAFE_DIVISOR && absReciprocal <= MAX_SAFE_RECIPROCAL) {
+                reciprocalString = String(reciprocal);
+            }
         }
-    } else {
+    }
+
+    if (reciprocalString === null) {
         right = print("right");
         const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
@@ -864,6 +880,18 @@ function printBinaryExpressionNode(node, path, options, print) {
             }
         } else {
             operator = styledOperator;
+        }
+    } else {
+        operator = "*";
+
+        const literal = node.right;
+        const originalValue = literal.value;
+
+        literal.value = reciprocalString;
+        try {
+            right = print("right");
+        } finally {
+            literal.value = originalValue;
         }
     }
 
