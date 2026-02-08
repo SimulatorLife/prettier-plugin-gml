@@ -15,59 +15,6 @@ export function hasFunction(value, property) {
 }
 
 /**
- * Retrieve the iterator method from a candidate iterable. Attempts to resolve
- * `Symbol.iterator` first, then falls back to explicit `entries` or `values`
- * methods to support collection-like objects that expose iteration without
- * implementing the standard protocol.
- *
- * @param {unknown} iterable Candidate collection to inspect.
- * @returns {Function | null} Iterator method when present and callable, otherwise `null`.
- */
-function getIteratorMethod(iterable) {
-    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values ?? null;
-
-    return typeof method === "function" ? method : null;
-}
-
-/**
- * Obtain an actual iterator instance from a candidate iterable by calling the
- * resolved iterator method. Validates that the result is itself iterable to
- * ensure consumers can safely delegate to `for...of` loops without risking
- * runtime errors from malformed iterables.
- *
- * @param {unknown} iterable Candidate collection to materialize an iterator from.
- * @returns {Iterable<unknown> | null} Iterator instance when valid, otherwise `null`.
- */
-function getIterator(iterable) {
-    const iterator = getIteratorMethod(iterable)?.call(iterable) ?? null;
-    return iterator && typeof iterator[Symbol.iterator] === "function" ? iterator : null;
-}
-
-/**
- * Quick check for whether a value supports iteration. Relies on the iterator
- * method presence rather than materializing an actual iterator to keep the
- * probe lightweight when callers only need to guard entry points.
- *
- * @param {unknown} iterable Candidate value to evaluate.
- * @returns {boolean} `true` when an iterator method is present, otherwise `false`.
- */
-function hasIterator(iterable) {
-    return Boolean(getIteratorMethod(iterable));
-}
-
-/**
- * Normalize a size-like value to a finite number or `null`. Guards against
- * `NaN`, `Infinity`, and non-numeric inputs so callers can safely trust the
- * returned value in arithmetic without repeating the same validation.
- *
- * @param {unknown} candidate Size hint to validate.
- * @returns {number | null} Finite number when valid, otherwise `null`.
- */
-function getFiniteSize(candidate) {
-    return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
-}
-
-/**
  * Extract a numeric size hint from a collection-like object. Checks both `size`
  * and `length` properties in that order to support Map, Set, Array, and
  * array-like structures uniformly without branching on type checks.
@@ -75,8 +22,9 @@ function getFiniteSize(candidate) {
  * @param {unknown} iterable Candidate collection to inspect.
  * @returns {number | null} Finite numeric hint when present, otherwise `null`.
  */
-function getLengthHint(iterable) {
-    return getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null;
+function getLengthHint(iterable): number | null {
+    const sizeCandidate = iterable?.size ?? iterable?.length;
+    return typeof sizeCandidate === "number" && Number.isFinite(sizeCandidate) ? sizeCandidate : null;
 }
 
 /**
@@ -134,6 +82,17 @@ export function isRegExpLike(value) {
 }
 
 /**
+ * Quick check for whether a value supports iteration.
+ *
+ * @param {unknown} iterable Candidate value to evaluate.
+ * @returns {boolean} `true` when an iterator method is present, otherwise `false`.
+ */
+function hasIterator(iterable): boolean {
+    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
+    return typeof method === "function";
+}
+
+/**
  * Determine whether a value implements the `Map` interface by confirming it
  * exposes `get`, `set`, `has`, and an iterator method. Accepts cross-realm Map
  * instances and Map-like polyfills so the formatter can treat collection-like
@@ -187,16 +146,25 @@ export function hasIterableItems(iterable) {
         return lengthHint > 0;
     }
 
-    const iterator = getIterator(iterable);
-    if (!iterator) {
+    // Try to get an iterator method and call it
+    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
+    if (typeof method !== "function") {
         return false;
     }
 
-    for (const item of iterator) {
-        // Mark the first yielded value as intentionally unused so linting rules
-        // recognize that the loop only probes for existence.
-        void item;
-        return true;
+    try {
+        const iterator = method.call(iterable);
+        if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
+            return false;
+        }
+
+        // Check if iterator yields at least one item
+        for (const item of iterator) {
+            void item;
+            return true;
+        }
+    } catch {
+        return false;
     }
 
     return false;
@@ -218,48 +186,27 @@ export function getIterableSize(iterable) {
         return lengthHint;
     }
 
-    const iterator = getIterator(iterable);
-    if (!iterator) {
+    // Try to get an iterator method and call it
+    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
+    if (typeof method !== "function") {
         return 0;
     }
 
-    let count = 0;
-    for (const item of iterator) {
-        // The iterator may yield expensive objects, so explicitly ignore the
-        // value after confirming iteration succeeded.
-        void item;
-        count += 1;
-    }
-
-    return count;
-}
-
-/**
- * Consume an iterable and extract key-value tuples in the form `[key, value]`.
- * Validates that each yielded item is an array with at least two elements,
- * bailing out by returning an empty array when malformed entries are
- * encountered. This ensures downstream `Map` constructors receive clean input.
- *
- * @param {unknown} iterable Candidate iterable to drain.
- * @returns {Array<[unknown, unknown]>} Array of key-value pairs, or an empty
- *          array when the iterable is invalid or yields malformed tuples.
- */
-function getIteratorEntries(iterable) {
-    const iterator = getIterator(iterable);
-    if (!iterator) {
-        return [];
-    }
-
-    const entries = [];
-    for (const entry of iterator) {
-        if (!Array.isArray(entry) || entry.length < 2) {
-            return [];
+    try {
+        const iterator = method.call(iterable);
+        if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
+            return 0;
         }
 
-        entries.push([entry[0], entry[1]]);
+        let count = 0;
+        for (const item of iterator) {
+            void item;
+            count += 1;
+        }
+        return count;
+    } catch {
+        return 0;
     }
-
-    return entries;
 }
 
 /**
@@ -277,10 +224,29 @@ function resolveMapEntries(candidate) {
         return candidate;
     }
 
-    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
-        return getIteratorEntries(candidate);
+    // Try to extract entries from iterable
+    const method = candidate?.[Symbol.iterator] ?? candidate?.entries ?? candidate?.values;
+    if (typeof method === "function") {
+        try {
+            const iterator = method.call(candidate);
+            if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
+                return [];
+            }
+
+            const entries = [];
+            for (const entry of iterator) {
+                if (!Array.isArray(entry) || entry.length < 2) {
+                    return [];
+                }
+                entries.push([entry[0], entry[1]]);
+            }
+            return entries;
+        } catch {
+            return [];
+        }
     }
 
+    // Fallback to Object.entries for plain objects
     return isObjectLike(candidate) ? Object.entries(candidate) : [];
 }
 
@@ -299,12 +265,12 @@ export function ensureSet(candidate) {
         return candidate;
     }
 
-    if (Array.isArray(candidate)) {
-        return new Set(candidate);
-    }
-
-    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
-        return new Set(candidate);
+    if (Array.isArray(candidate) || (candidate && typeof candidate !== "string" && hasIterator(candidate))) {
+        try {
+            return new Set(candidate);
+        } catch {
+            return new Set();
+        }
     }
 
     return new Set();
