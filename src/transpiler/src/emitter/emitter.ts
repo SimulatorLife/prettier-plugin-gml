@@ -56,6 +56,7 @@ import { tryFoldConstantExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
+import { StringBuilder } from "./string-builder.js";
 import { lowerWithStatement } from "./with-lowering.js";
 
 type StatementLike = GmlNode | undefined | null;
@@ -358,12 +359,13 @@ export class GmlToJsEmitter {
         if (props.length === 0) {
             return object;
         }
-        // Multiple indices: build string efficiently
-        let result = object;
+        // Multiple indices: use StringBuilder for efficiency
+        const builder = new StringBuilder(props.length + 1);
+        builder.append(object);
         for (const prop of props) {
-            result += `[${this.visit(prop)}]`;
+            builder.append(`[${this.visit(prop)}]`);
         }
-        return result;
+        return builder.toString();
     }
 
     private visitMemberDotExpression(ast: MemberDotExpressionNode): string {
@@ -413,15 +415,15 @@ export class GmlToJsEmitter {
             const code = this.emit(stmts[0]);
             return code ? this.ensureStatementTermination(code) : "";
         }
-        // Multiple statements: build efficiently
-        const parts: string[] = [];
+        // Multiple statements: use StringBuilder for efficiency
+        const builder = new StringBuilder(stmts.length);
         for (const stmt of stmts) {
             const code = this.emit(stmt);
             if (code) {
-                parts.push(this.ensureStatementTermination(code));
+                builder.append(this.ensureStatementTermination(code));
             }
         }
-        return parts.join("\n");
+        return builder.toString("\n");
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
@@ -429,15 +431,18 @@ export class GmlToJsEmitter {
         if (stmts.length === 0) {
             return "{\n}";
         }
-        // Build block body efficiently
-        const parts: string[] = [];
+        // Build block body with StringBuilder for efficiency
+        const builder = new StringBuilder(stmts.length + 2);
+        builder.append("{\n");
         for (const stmt of stmts) {
             const code = this.emit(stmt);
             if (code) {
-                parts.push(this.ensureStatementTermination(code));
+                builder.append(this.ensureStatementTermination(code));
+                builder.append("\n");
             }
         }
-        return `{\n${parts.join("\n")}\n}`;
+        builder.append("}");
+        return builder.toString();
     }
 
     private visitIfStatement(ast: IfStatementNode): string {
@@ -533,8 +538,8 @@ export class GmlToJsEmitter {
             return `switch ${discriminant} {\n}`;
         }
 
-        // Build cases efficiently
-        const caseParts: string[] = [];
+        // Build cases with StringBuilder for efficiency
+        const builder = new StringBuilder(caseNodes.length * 2);
         for (const caseNode of caseNodes) {
             const header = caseNode.test === null ? "default:" : `case ${this.visit(caseNode.test)}:`;
             const stmts = caseNode.body ?? [];
@@ -544,27 +549,27 @@ export class GmlToJsEmitter {
                 // when a case has no body, execution falls through to the next case label.
                 // We don't emit any code for these empty cases—just the case header—so
                 // that the transpiled JavaScript preserves the same fall-through semantics.
-                caseParts.push(header);
+                builder.append(header);
                 continue;
             }
 
             // Process statements for this case
-            const bodyParts: string[] = [];
+            const caseBuilder = new StringBuilder(stmts.length);
             for (const stmt of stmts) {
                 const code = this.visit(stmt);
                 if (code) {
-                    bodyParts.push(this.ensureStatementTermination(code));
+                    caseBuilder.append(this.ensureStatementTermination(code));
                 }
             }
 
-            if (bodyParts.length === 0) {
-                caseParts.push(header);
+            if (caseBuilder.length === 0) {
+                builder.append(header);
             } else {
-                caseParts.push(`${header}\n${bodyParts.join("\n")}`);
+                builder.append(`${header}\n${caseBuilder.toString("\n")}`);
             }
         }
 
-        return `switch ${discriminant} {\n${caseParts.join("\n")}\n}`;
+        return `switch ${discriminant} {\n${builder.toString("\n")}\n}`;
     }
 
     private visitGlobalVarStatement(ast: GlobalVarStatementNode): string {
@@ -595,16 +600,16 @@ export class GmlToJsEmitter {
             }
             return `${ast.kind} ${result}`;
         }
-        // Multiple declarations: pre-allocate array
-        const parts: string[] = Array.from({ length: decls.length });
-        for (const [i, decl] of decls.entries()) {
+        // Multiple declarations: use StringBuilder for efficiency
+        const builder = new StringBuilder(decls.length);
+        for (const decl of decls) {
             let part = this.visit(decl.id);
             if (decl.init) {
                 part += ` = ${this.visit(decl.init)}`;
             }
-            parts[i] = part;
+            builder.append(part);
         }
-        return `${ast.kind} ${parts.join(", ")}`;
+        return `${ast.kind} ${builder.toString(", ")}`;
     }
 
     private visitVariableDeclarator(ast: VariableDeclaratorNode): string {
