@@ -111,6 +111,21 @@ const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
 
+/**
+ * Bounds for safe division-to-multiplication optimization.
+ *
+ * When converting `x / divisor` to `x * reciprocal`, we must ensure both the divisor
+ * and reciprocal are within reasonable numerical ranges to avoid precision loss.
+ *
+ * MIN_SAFE_DIVISOR: Divisors smaller than this (near machine epsilon) would produce
+ * reciprocals so large that the conversion loses precision or changes semantics.
+ *
+ * MAX_SAFE_RECIPROCAL: Reciprocals larger than this indicate the original divisor
+ * was too small, leading to potential overflow or precision issues in the multiplication.
+ */
+const MIN_SAFE_DIVISOR = 1e-10;
+const MAX_SAFE_RECIPROCAL = 1e10;
+
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
 // `getCommentArray(...)`.
@@ -832,10 +847,6 @@ function printBinaryExpressionNode(node, path, options, print) {
         const divisorValue = Number(node.right.value);
         if (Number.isFinite(divisorValue) && divisorValue !== 0) {
             const reciprocal = 1 / divisorValue;
-            // Only convert if both divisor and reciprocal are within reasonable bounds
-            // to avoid precision issues with very small divisors or very large reciprocals
-            const MIN_SAFE_DIVISOR = 1e-10;
-            const MAX_SAFE_RECIPROCAL = 1e10;
             const absDivisor = Math.abs(divisorValue);
             const absReciprocal = Math.abs(reciprocal);
 
