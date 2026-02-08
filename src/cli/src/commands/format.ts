@@ -43,7 +43,11 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "../shared/ignore-path-registry.js";
-import { ignoreRuleNegations } from "../shared/ignore-rules-negation-tracker.js";
+import {
+    hasNegatedIgnoreRules,
+    markNegatedIgnoreRulesDetected,
+    resetNegatedIgnoreRulesFlag
+} from "../shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 
 const {
@@ -855,7 +859,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattingError = false;
     formattingErrorCount = 0;
     resetRegisteredIgnorePaths();
-    ignoreRuleNegations.detected = false;
+    resetNegatedIgnoreRulesFlag();
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
@@ -1023,7 +1027,7 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
         const contents = await readFile(ignoreFilePath, "utf8");
 
         if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-            ignoreRuleNegations.detected = true;
+            markNegatedIgnoreRulesDetected();
         }
     } catch {
         // Tolerate missing or inaccessible ignore files during negation detection.
@@ -1051,7 +1055,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 
     registerIgnorePath(ignoreFilePath);
 
-    if (ignoreRuleNegations.detected) {
+    if (hasNegatedIgnoreRules()) {
         return;
     }
 
@@ -1073,7 +1077,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
-    if (ignoreRuleNegations.detected) {
+    if (hasNegatedIgnoreRules()) {
         return false;
     }
 
