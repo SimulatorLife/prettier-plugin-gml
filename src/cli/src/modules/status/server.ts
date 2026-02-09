@@ -223,7 +223,12 @@ function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnap
     }
 }
 
-function handlePingRequest(_req: IncomingMessage, res: ServerResponse, _getSnapshot: () => StatusSnapshot): void {
+function handlePingRequest(
+    _req: IncomingMessage,
+    res: ServerResponse,
+    // Parameter required for EndpointHandler type conformance, but not used by ping
+    _getSnapshot: () => StatusSnapshot
+): void {
     sendJsonResponse(res, 200, { status: "ok", timestamp: Date.now() });
 }
 
