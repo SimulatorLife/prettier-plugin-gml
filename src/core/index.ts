@@ -9,5 +9,6 @@ export type {
     GameMakerAstLocation,
     GameMakerAstNode,
     MutableDocCommentLines,
-    MutableGameMakerAstNode
+    MutableGameMakerAstNode,
+    StringCommentScanState
 } from "./src/index.js";
