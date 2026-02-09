@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
-import { runWatchCommand } from "../../src/commands/watch.js";
+import * as Cli from "@gml-modules/cli";
+
 import { findAvailablePort } from "./free-port.js";
 
-type WatchCommandOptions = Parameters<typeof runWatchCommand>[1];
+type WatchCommandOptions = Parameters<typeof Cli.CLI.Commands.runWatchCommand>[1];
 
 export interface WatchTestContext {
     testDir: string;
@@ -46,7 +47,7 @@ export async function runWatchTest(
             mergedOptions.quiet = false;
         }
 
-        watchPromise = runWatchCommand(testDir, mergedOptions);
+        watchPromise = Cli.CLI.Commands.runWatchCommand(testDir, mergedOptions);
 
         // Give the server time to start
         await new Promise((resolve) => setTimeout(resolve, 100));
