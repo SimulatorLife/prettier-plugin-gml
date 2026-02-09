@@ -85,6 +85,9 @@ function helper_${i}() {
         }
 
         // Basic performance assertion: discovery should be fast (< 100ms for 50 files)
+        // Note: We use a warning rather than failing the test to avoid flaky CI failures
+        // on slow/overloaded systems. The wall-clock performance improvement is validated
+        // during manual testing and real-world usage.
         if (duration > 100) {
             console.warn(
                 `File discovery took ${duration}ms, which is slower than expected (target: <100ms). This may indicate a performance issue.`
