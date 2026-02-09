@@ -39,7 +39,10 @@ void describe("asset rename utilities", () => {
             await assertRejectsNotFound(path.join(projectRoot, "scripts/demo_script/demo_script.yy"));
             await assertRejectsNotFound(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
 
-            const scriptData = JSON.parse(await fs.readFile(renamedYyPath, "utf8"));
+            const scriptData = Semantic.parseProjectMetadataDocument(
+                await fs.readFile(renamedYyPath, "utf8"),
+                renamedYyPath
+            );
             assert.strictEqual(scriptData.name, "DemoScript");
             assert.strictEqual(scriptData.resourcePath, renamedYyRelative);
             assert.deepStrictEqual(scriptData.linkedScript, {
@@ -47,16 +50,16 @@ void describe("asset rename utilities", () => {
                 name: "DemoScript"
             });
 
-            const projectData = JSON.parse(await fs.readFile(path.join(projectRoot, "MyGame.yyp"), "utf8"));
+            const projectManifestPath = path.join(projectRoot, "MyGame.yyp");
+            const projectData = Semantic.parseProjectMetadataDocument(
+                await fs.readFile(projectManifestPath, "utf8"),
+                projectManifestPath
+            );
             assert.strictEqual(projectData.resources[0].id.path, renamedYyRelative);
             assert.strictEqual(projectData.resources[0].id.name, "DemoScript");
 
-            const objectData = JSON.parse(
-                await fs.readFile(
-                    path.join(projectRoot, fromPosixPath("objects/obj_controller/obj_controller.yy")),
-                    "utf8"
-                )
-            );
+            const objectPath = path.join(projectRoot, fromPosixPath("objects/obj_controller/obj_controller.yy"));
+            const objectData = Semantic.parseProjectMetadataDocument(await fs.readFile(objectPath, "utf8"), objectPath);
             assert.deepStrictEqual(objectData.scriptExecute, {
                 path: renamedYyRelative,
                 name: "DemoScript"
@@ -66,9 +69,8 @@ void describe("asset rename utilities", () => {
                 name: "DemoScript"
             });
 
-            const roomData = JSON.parse(
-                await fs.readFile(path.join(projectRoot, fromPosixPath("rooms/room_start/room_start.yy")), "utf8")
-            );
+            const roomPath = path.join(projectRoot, fromPosixPath("rooms/room_start/room_start.yy"));
+            const roomData = Semantic.parseProjectMetadataDocument(await fs.readFile(roomPath, "utf8"), roomPath);
             assert.deepStrictEqual(roomData.creationCodeScript, {
                 path: renamedYyRelative,
                 name: "DemoScript"

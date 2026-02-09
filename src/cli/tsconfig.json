@@ -2,47 +2,22 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/cli": [
-        "./index.ts"
-      ]
+      "@gml-modules/cli": ["./index.ts"],
+      "@gml-modules/core": ["../core/index.ts"],
+      "@gml-modules/parser": ["../parser/index.ts"],
+      "@gml-modules/plugin": ["../plugin/index.ts"],
+      "@gml-modules/refactor": ["../refactor/index.ts"],
+      "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
+      "@gml-modules/semantic": ["../semantic/index.ts"],
+      "@gml-modules/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../parser"
-    },
-    {
-      "path": "../plugin"
-    },
-    {
-      "path": "../refactor"
-    },
-    {
-      "path": "../semantic"
-    },
-    {
-      "path": "../transpiler"
-    }
-  ],
-  "include": [
-    "*.ts",
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "test/**/*.ts"
-  ],
-  "exclude": [
-    "dist"
-  ]
+  "references": [{ "path": "../core" }, { "path": "../parser" }, { "path": "../plugin" }, { "path": "../refactor" }, { "path": "../semantic" }, { "path": "../transpiler" }],
+  "include": ["*.ts", "src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"],
+  "exclude": ["dist"]
 }

@@ -35,21 +35,26 @@ type RuntimeBindingGlobals = {
     };
 };
 
-const EVENT_INDEX_MAP: Record<string, string> = {
-    PreCreateEvent: "EVENT_PRE_CREATE",
-    CreateEvent: "EVENT_CREATE",
-    DestroyEvent: "EVENT_DESTROY",
-    CleanUpEvent: "EVENT_CLEAN_UP",
-    StepBeginEvent: "EVENT_STEP_BEGIN",
-    StepNormalEvent: "EVENT_STEP_NORMAL",
-    StepEndEvent: "EVENT_STEP_END",
-    DrawEvent: "EVENT_DRAW",
-    DrawGUI: "EVENT_DRAW_GUI",
-    DrawEventBegin: "EVENT_DRAW_BEGIN",
-    DrawEventEnd: "EVENT_DRAW_END",
-    DrawGUIBegin: "EVENT_DRAW_GUI_BEGIN",
-    DrawGUIEnd: "EVENT_DRAW_GUI_END"
+type EventMapping = {
+    standard: string;
+    minified: string;
 };
+
+const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
+    ["PreCreateEvent", { standard: "EVENT_PRE_CREATE", minified: "_qI" }],
+    ["CreateEvent", { standard: "EVENT_CREATE", minified: "_rI" }],
+    ["DestroyEvent", { standard: "EVENT_DESTROY", minified: "_tI" }],
+    ["CleanUpEvent", { standard: "EVENT_CLEAN_UP", minified: "_aI" }],
+    ["StepBeginEvent", { standard: "EVENT_STEP_BEGIN", minified: "_sB2" }],
+    ["StepNormalEvent", { standard: "EVENT_STEP_NORMAL", minified: "_uB2" }],
+    ["StepEndEvent", { standard: "EVENT_STEP_END", minified: "_wB2" }],
+    ["DrawEvent", { standard: "EVENT_DRAW", minified: "_6E2" }],
+    ["DrawGUI", { standard: "EVENT_DRAW_GUI", minified: "_2G2" }],
+    ["DrawEventBegin", { standard: "EVENT_DRAW_BEGIN", minified: "_4G2" }],
+    ["DrawEventEnd", { standard: "EVENT_DRAW_END", minified: "_5G2" }],
+    ["DrawGUIBegin", { standard: "EVENT_DRAW_GUI_BEGIN", minified: "_6G2" }],
+    ["DrawGUIEnd", { standard: "EVENT_DRAW_GUI_END", minified: "_7G2" }]
+]);
 
 function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string, unknown> | undefined {
     if (globalScope._cx?._dx) {
@@ -92,65 +97,23 @@ function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
     return [runtimeId];
 }
 
-function resolveEventIndexName(eventKey: string): string | null {
-    switch (eventKey) {
-        case "PreCreateEvent": {
-            return "_qI";
-        }
-        case "CreateEvent": {
-            return "_rI";
-        }
-        case "DestroyEvent": {
-            return "_tI";
-        }
-        case "CleanUpEvent": {
-            return "_aI";
-        }
-        case "StepBeginEvent": {
-            return "_sB2";
-        }
-        case "StepNormalEvent": {
-            return "_uB2";
-        }
-        case "StepEndEvent": {
-            return "_wB2";
-        }
-        case "DrawEvent": {
-            return "_6E2";
-        }
-        case "DrawGUI": {
-            return "_2G2";
-        }
-        case "DrawEventBegin": {
-            return "_4G2";
-        }
-        case "DrawEventEnd": {
-            return "_5G2";
-        }
-        case "DrawGUIBegin": {
-            return "_6G2";
-        }
-        case "DrawGUIEnd": {
-            return "_7G2";
-        }
-        default: {
-            return null;
-        }
-    }
-}
-
 function resolveEventIndex(
     globalScope: RuntimeBindingGlobals & Record<string, unknown>,
     eventKey: string
 ): number | null {
-    const minifiedEventIndexName = resolveEventIndexName(eventKey);
-    if (minifiedEventIndexName && typeof globalScope[minifiedEventIndexName] === "number") {
-        return globalScope[minifiedEventIndexName];
+    const mapping = EVENT_MAPPINGS.get(eventKey);
+    if (!mapping) {
+        return null;
     }
 
-    const standardEventIndexName = EVENT_INDEX_MAP[eventKey];
-    if (standardEventIndexName && typeof globalScope[standardEventIndexName] === "number") {
-        return globalScope[standardEventIndexName];
+    const minifiedValue = globalScope[mapping.minified];
+    if (typeof minifiedValue === "number") {
+        return minifiedValue;
+    }
+
+    const standardValue = globalScope[mapping.standard];
+    if (typeof standardValue === "number") {
+        return standardValue;
     }
 
     return null;
@@ -273,8 +236,8 @@ function updateInstance(
         // Also update the object definition (pObject) which the event loop uses
         const pObject = (instance as any).pObject || (instance as any)._kx;
         if (pObject && typeof pObject === "object" && pObject[key] !== fn) {
-                pObject[key] = fn;
-            }
+            pObject[key] = fn;
+        }
 
         const eventIndex = resolveEventIndex(globalScope, key);
         markEventIndexAsEnabled((instance as { Event?: unknown }).Event, eventIndex);

@@ -39,24 +39,22 @@ import {
 import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
 import {
     displayTranspilationStatistics,
+    type ErrorCollector,
+    type MetricsCollector,
+    type PatchBroadcastService,
+    type PatchHistoryStore,
     registerScriptNamesFromSymbols,
-    type RuntimeTranspilerPatch,
     type TranspilationContext,
-    type TranspilationError,
-    type TranspilationMetrics,
     type TranspilationResult,
-    transpileFile
+    transpileFile,
+    type TranspilerProvider
 } from "../modules/transpilation/coordinator.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
-import {
-    type PatchBroadcaster,
-    type PatchWebSocketServer,
-    startPatchWebSocketServer
-} from "../modules/websocket/server.js";
+import { type PatchWebSocketServer, startPatchWebSocketServer } from "../modules/websocket/server.js";
 
 const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
@@ -165,9 +163,11 @@ interface WatchCommandOptions
 /**
  * Core transpilation capabilities required for processing file changes.
  * Focuses on the essential dependencies needed to transpile GML files.
+ *
+ * Extends TranspilerProvider to demonstrate proper ISP usage with
+ * segregated interfaces.
  */
-interface TranspilationDependencies {
-    transpiler: InstanceType<typeof Transpiler.GmlTranspiler>;
+interface TranspilationDependencies extends TranspilerProvider {
     dependencyTracker: DependencyTracker;
 }
 
@@ -186,21 +186,20 @@ interface RuntimePackageInfo {
 /**
  * Patch history and metrics tracking.
  * Groups patch management and monitoring concerns together.
+ *
+ * Composes segregated interfaces to demonstrate proper ISP usage.
+ * Prefer depending on individual interfaces (PatchHistoryStore, MetricsCollector, ErrorCollector)
+ * when only specific capabilities are needed.
  */
-interface PatchHistory {
-    patches: TranspilationContext["patches"];
-    metrics: Array<TranspilationMetrics>;
-    errors: Array<TranspilationError>;
-    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
-    maxPatchHistory: number;
-}
+interface PatchHistory extends PatchHistoryStore, MetricsCollector, ErrorCollector {}
 
 /**
  * Server controllers for patch streaming and status endpoints.
  * Isolates server infrastructure from core transpilation logic.
+ *
+ * Extends PatchBroadcastService to demonstrate proper ISP usage.
  */
-interface ServerControllers {
-    websocketServer: PatchBroadcaster | null;
+interface ServerControllers extends PatchBroadcastService {
     statusServer: StatusServerLifecycle | null;
 }
 
@@ -498,17 +497,27 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            await Core.runSequentially(entries, async (entry) => {
+            // Separate files and directories for optimal parallel processing
+            const files: Array<string> = [];
+            const directories: Array<string> = [];
+
+            for (const entry of entries) {
                 const fullPath = path.join(currentPath, entry.name);
-
                 if (entry.isDirectory()) {
-                    await scanDirectory(fullPath);
-                    return;
+                    directories.push(fullPath);
+                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    files.push(fullPath);
                 }
+            }
 
-                if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                    await processFile(fullPath);
-                }
+            // Process all files in this directory concurrently for maximum throughput
+            await Core.runInParallel(files, async (filePath) => {
+                await processFile(filePath);
+            });
+
+            // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
+            await Core.runSequentially(directories, async (subDirPath) => {
+                await scanDirectory(subDirPath);
             });
         } catch (error) {
             if (verbose && !quiet) {

@@ -33,10 +33,10 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10, undefined, 20);
 
+/// @ignore
 /// @description Base class for all shapes. Shapes can be solid or not solid.
 ///              Solid shapes will collide with other solid shapes, and
 ///              non-solid shapes will not collide with anything.
-/// @ignore
 /// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
@@ -46,10 +46,9 @@ function Shape(color = undefined) constructor {
         show_debug_message("I'm a shape");
     };
 
-    /// @description It will not delete any geometry added to a ColMesh.
-    ///              After a mesh has been frozen, it can no longer be added to a colmesh.
-    /// @returns {undefined}
     /// @description This will delete any geometry info contained within the mesh itself.
+    ///              It will not delete any geometry added to a ColMesh.
+    ///              After a mesh has been frozen, it can no longer be added to a colmesh.
     /// @returns {undefined}
     static freeze = function () {
         triangles = [];
@@ -57,9 +56,8 @@ function Shape(color = undefined) constructor {
     };
 
     /// @param solid
-    /// @argument <boolean> solid Whether the shape is solid or not
+    /// @param {bool} solid Whether the shape is solid or not
     /// @returns {undefined}
-    /// @param <boolean> solid Whether the shape is solid or not
     static setSolid = function (solid) {
         if (solid) {
             group |= cmGroupSolid; // Flag as solid
@@ -75,7 +73,7 @@ function Circle(r) : Shape() constructor {
 }
 
 var myCircle = new Circle(10);
-var circle2  = new Circle(myCircle.r);
+var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
@@ -87,27 +85,25 @@ function Oval(r1 = 1, r2 = 1) : Shape() constructor {
 }
 
 function Line() : Shape() constructor {
-
     /// @param x1
     /// @param y1
     /// @param x2
     /// @param y2
     /// @returns {undefined}
-    function set_points(x1, y1, x2, y2) {
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-    }
-
+    set_points = function (x1, y1, x2, y2) {
+        self.x1 = x1;
+        self.y1 = y1;
+        self.x2 = x2;
+        self.y2 = y2;
+    };
 }
 
 /// @param settings
 /// @param fallback
 function choose_profile(settings, fallback) {
-    var config         = settings ?? global.default_settings;
+    var config = settings ?? global.default_settings;
     var themeCandidate = config.theme_override ?? fallback.theme_override;
-    var finalTheme     = themeCandidate ?? global.theme_defaults;
+    var finalTheme = themeCandidate ?? global.theme_defaults;
     if (is_undefined(config ?? fallback)) {
         return "guest";
     }
@@ -117,33 +113,24 @@ function choose_profile(settings, fallback) {
 var best = choose_profile(undefined, {profile: "dev"});
 
 // Feather disable all
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-/// @description .__Destroy()
-///              .__FromBuffer(buffer)
-///              .__CopyFromBuffer(buffer)
-///              .__FromString(string, )
-///              .__Delete(position, count)
-///              .__Insert(position, string, )
-///              .__Overwrite(position, string, )
-///              .__Prefix(string, )
-///              .__Suffix(string, )
-///              .__GetString()
-///              .__GetBuffer()
+// .__Destroy()
+// .__FromBuffer(buffer)
+// .__CopyFromBuffer(buffer)
+// .__FromString(string, )
+// .__Delete(position, count)
+// .__Insert(position, string, )
+// .__Overwrite(position, string, )
+// .__Prefix(string, )
+// .__Suffix(string, )
+// .__GetString()
+// .__GetBuffer()
+
 function __ChatterboxBufferBatch() constructor {
-    __destroyed  = false;
-    __inBuffer   = undefined;
+    __destroyed = false;
+    __inBuffer = undefined;
     __workBuffer = undefined;
-    __outBuffer  = undefined;
-    __commands   = [];
+    __outBuffer = undefined;
+    __commands = [];
 
     static __Destroy = function () {
         if (__destroyed) { return; }
@@ -158,7 +145,6 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
-
 }
 
 /// @param [name="friend"]
@@ -176,7 +162,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {real} [multiplier] The multiplier to apply to the light direction
 /// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
-    var dir    = light_dir;
+    var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
@@ -201,7 +187,7 @@ function scr_spring(a, b, dst, force, push_out, pull_in) {
     }
 
     var push_out = argument_count > 4 ? argument[4] : true;
-    var pull_in  = argument_count > 5 ? argument[5] : true;
+    var pull_in = argument_count > 5 ? argument[5] : true;
 
     var xoff = a.x - b.x;
     var yoff = a.y - b.y;
@@ -212,7 +198,7 @@ function scr_spring(a, b, dst, force, push_out, pull_in) {
     }
     if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
         actual_dist = sqrt(actual_dist);
-        var diff    = actual_dist - dst;
+        var diff = actual_dist - dst;
 
         // normalize and multiply with diff and amount
         var norm = (force * diff) / actual_dist;
@@ -263,7 +249,7 @@ get_debug_text = function () {
 /// @param [trans_mat]
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
-    var hx = 0.5, hy = 0.5, h  = 1;
+    var hx = 0.5, hy = 0.5, h = 1;
 
     // Base corners (Z = 0)
     var L0 = [-hx, -hy, 0]; // x-, y-
@@ -387,4 +373,3 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
         trans_mat
     );
 }
-

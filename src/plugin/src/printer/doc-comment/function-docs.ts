@@ -1,10 +1,9 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 import { formatDocLikeLineComment } from "../../comments/index.js";
-import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
+import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "../../doc-comment/index.js";
 import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
 import { safeGetParentNode } from "../path-utils.js";
-import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
@@ -15,6 +14,7 @@ const PARAM_DOC_LINE_PATTERN = /^\/\/\/\s*@param\b(?:\s*\{[^}]+\})?\s+([A-Za-z0-
 const IMPLICIT_ARGUMENT_NAME_PATTERN = /^argument[0-9]+$/i;
 
 const METHOD_LIST_COMMENT_PATTERN = /^\s*\/\/\s*\./;
+const BLANK_LINE_GAP_PATTERN = /\r?\n[ \t]*\r?\n/;
 
 function resolveProgramNode(path): any {
     let programNode = null;
@@ -200,7 +200,7 @@ function collectBlockCommentDocEntries(comment: any, node: any, commentStart: nu
     const isDocLike = value.startsWith("*") || value.includes("@") || PARAM_PATTERN.test(value) || hasDocLine;
 
     if (!isDocLike) {
-        return [];
+        return null;
     }
 
     const paramNames = new Set<string>();
@@ -300,7 +300,7 @@ function collectNodeLeadingDocs({
         }
 
         const blockEntries = collectBlockCommentDocEntries(comment, node, commentStart);
-        if (blockEntries.length > 0) {
+        if (blockEntries !== null && blockEntries.length > 0) {
             nodeLeadingDocs.push(...blockEntries);
             comment.printed = true;
             detachPrintedCommentFromNode(node, comment);
@@ -314,12 +314,60 @@ function dedupeDocCommentLines(lines: string[]): string[] {
     const seen = new Set<string>();
     const deduped: string[] = [];
     for (const line of lines) {
+        if (line.trim() === "///") {
+            deduped.push(line);
+            continue;
+        }
         if (!seen.has(line)) {
             seen.add(line);
             deduped.push(line);
         }
     }
     return deduped;
+}
+
+function insertBlankDocSeparators(
+    lines: { start: number; text: string }[],
+    originalText: string | undefined
+): { start: number; text: string }[] {
+    if (typeof originalText !== STRING_TYPE || lines.length < 2) {
+        return lines;
+    }
+
+    const sorted = [...lines].toSorted((a, b) => a.start - b.start);
+    const result: { start: number; text: string }[] = [];
+
+    for (let index = 0; index < sorted.length; index += 1) {
+        const current = sorted[index];
+        const next = sorted[index + 1];
+        result.push(current);
+
+        if (!next) {
+            continue;
+        }
+
+        const lineEnd = originalText.indexOf("\n", current.start);
+        const endIndex = lineEnd === -1 ? originalText.length : lineEnd;
+        if (endIndex >= next.start) {
+            continue;
+        }
+
+        const between = originalText.slice(endIndex, next.start);
+        const blankDocLineCount = between.split(/\r?\n/).filter((line) => /^\s*\/\/\/\s*$/.test(line)).length;
+
+        if (blankDocLineCount > 0) {
+            for (let count = 0; count < blankDocLineCount; count += 1) {
+                result.push({ start: endIndex + 1 + count, text: "///" });
+            }
+            continue;
+        }
+
+        if (BLANK_LINE_GAP_PATTERN.test(between) && next.text.trim() !== "///") {
+            result.push({ start: endIndex + 1, text: "///" });
+        }
+    }
+
+    return result;
 }
 
 function addImplicitParamName(names: Set<string>, value: unknown) {
@@ -402,7 +450,7 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
         }
 
         const normalizedDocComments = docComments
-            .map((comment) => Core.formatLineComment(comment, lineCommentOptions))
+            .map((comment) => formatDocLikeLineComment(comment, lineCommentOptions, originalText))
             .filter((text) => typeof text === STRING_TYPE && text.trim() !== "");
 
         docCommentDocs.length = 0;
@@ -520,8 +568,9 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     const filteredOriginalDocs = filterDocLines(originalDocDocs);
 
     const mergedDocs = [...filteredOriginalDocs, ...filteredNodeDocs].toSorted((a, b) => a.start - b.start);
+    const mergedDocsWithBlanks = insertBlankDocSeparators(mergedDocs, originalText);
 
-    const newDocCommentDocs = mergedDocs.map((x) => x.text);
+    const newDocCommentDocs = mergedDocsWithBlanks.map((x) => x.text);
     const uniqueDocCommentDocs = dedupeDocCommentLines(newDocCommentDocs);
 
     const hasDeclaredParams = !!(Array.isArray(node?.params) && node.params.length > 0);
@@ -592,7 +641,8 @@ export function normalizeFunctionDocCommentDocs({
     const descriptionContinuations = DescriptionUtils.collectDescriptionContinuations(docCommentDocs);
     const preserveDescriptionBreaks =
         Array.isArray(docCommentDocs) && (docCommentDocs as any)._preserveDescriptionBreaks === true;
-    if (Core.shouldGenerateSyntheticDocForFunction(path, docCommentDocs, docCommentOptions)) {
+    const parent = safeGetParentNode(path);
+    if (Core.shouldGenerateSyntheticDocForFunction(node, parent, docCommentDocs, docCommentOptions)) {
         docCommentDocs = Core.toMutableArray(
             Core.mergeSyntheticDocComments(node, docCommentDocs, docCommentOptions, overrides)
         ) as MutableDocCommentLines;
@@ -607,8 +657,7 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentDocs.shift();
             }
         }
-        const parentNode = safeGetParentNode(path);
-        if (parentNode && parentNode.type === "BlockStatement" && !needsLeadingBlankLine) {
+        if (parent && parent.type === "BlockStatement" && !needsLeadingBlankLine) {
             needsLeadingBlankLine = true;
         }
     }

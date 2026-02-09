@@ -6,4 +6,4 @@ enum FRUIT {
     SIZEOF
 }
 
-var best = FRUIT.KIWI;
+best = FRUIT.KIWI;

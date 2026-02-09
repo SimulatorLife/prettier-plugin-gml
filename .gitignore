@@ -15,6 +15,7 @@ tools/
 
 # We only want extra markdown files in docs/
 *.md
+!docs/**/*.md
 
 # TypeScript
 *.tsbuildinfo

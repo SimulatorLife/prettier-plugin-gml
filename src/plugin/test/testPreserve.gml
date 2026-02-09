@@ -92,7 +92,7 @@ global.settings = {
 var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));
 
 // The following math expressions should be preserved; parentheses make no difference to order of operations
-var calc  = 3 + 4 + 5;
+var calc = 3 + 4 + 5;
 var calc2 = 3 - 4 + 5;
 var calc3 = 3 * 7 * 4 * 5;
 
@@ -141,10 +141,10 @@ z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;
 /// @param {real} [octmap_size=1024] The size of the octmap
 function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {
     self.octahedron_scale = octahedron_scale;
-    self.octmap_size      = octmap_size;
-    self.octmap_texel     = 1 / octmap_size;
-    self.skyformat        = -1;
-    self.cullmode         = cull_clockwise;
+    self.octmap_size = octmap_size;
+    self.octmap_texel = 1 / octmap_size;
+    self.skyformat = -1;
+    self.cullmode = cull_clockwise;
 
     /// @override
     /// @description Draw the zmodel

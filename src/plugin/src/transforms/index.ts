@@ -3,7 +3,6 @@ import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 import { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
-import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
@@ -13,6 +12,7 @@ import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
 import type { ParserTransform } from "./functional-transform.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
+import { optimizeLogicalExpressionsTransform } from "./optimize-logical-expressions.js";
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
@@ -29,7 +29,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
     convertStringConcatenationsTransform,
-    condenseLogicalExpressionsTransform,
+    optimizeLogicalExpressionsTransform,
     condenseGuardStatementsTransform,
     optimizeMathExpressionsTransform,
     docCommentNormalizationTransform,
@@ -105,7 +105,6 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
 export { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
-export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
@@ -115,6 +114,7 @@ export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assi
 export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
 export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
+export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export {
     applyFeatherFixesTransform,
@@ -128,6 +128,7 @@ export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
+export { optimizeLogicalExpressionsTransform } from "./optimize-logical-expressions.js";
 export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";

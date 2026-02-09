@@ -4,9 +4,11 @@
  * operations before applying them, essential for IDE integrations and CLI tools.
  */
 
+import { Core } from "@gml-modules/core";
+
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
 import type { BatchRenamePlanSummary, RenamePlanSummary, SymbolOccurrence } from "./types.js";
-import { assertArray, assertNonEmptyString, extractSymbolName } from "./validation-utils.js";
+import { extractSymbolName } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -97,8 +99,12 @@ export function generateRenamePreview(workspace: WorkspaceEdit, oldName: string,
         throw new TypeError("generateRenamePreview requires a valid WorkspaceEdit");
     }
 
-    assertNonEmptyString(oldName, "oldName as a non-empty string", "generateRenamePreview");
-    assertNonEmptyString(newName, "newName as a non-empty string", "generateRenamePreview");
+    Core.assertNonEmptyString(oldName, {
+        errorMessage: "generateRenamePreview requires oldName as a non-empty string"
+    });
+    Core.assertNonEmptyString(newName, {
+        errorMessage: "generateRenamePreview requires newName as a non-empty string"
+    });
 
     const grouped = workspace.groupByFile();
     const files: Array<FilePreview> = [];
@@ -394,9 +400,15 @@ export function formatOccurrencePreview(
     oldName: string,
     newName: string
 ): string {
-    assertArray(occurrences, "an array of occurrences", "formatOccurrencePreview");
-    assertNonEmptyString(oldName, "oldName as a non-empty string", "formatOccurrencePreview");
-    assertNonEmptyString(newName, "newName as a non-empty string", "formatOccurrencePreview");
+    Core.assertArray(occurrences, {
+        errorMessage: "formatOccurrencePreview requires an array of occurrences"
+    });
+    Core.assertNonEmptyString(oldName, {
+        errorMessage: "formatOccurrencePreview requires oldName as a non-empty string"
+    });
+    Core.assertNonEmptyString(newName, {
+        errorMessage: "formatOccurrencePreview requires newName as a non-empty string"
+    });
 
     const lines: Array<string> = [];
     const grouped = groupOccurrencesByFile(occurrences);

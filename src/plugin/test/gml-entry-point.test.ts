@@ -21,6 +21,9 @@ void test("GML entry point exports static plugin components", () => {
     // Verify default options are properly set
     assert.ok(gmlPlugin.defaultOptions, "default options should be exported");
     assert.ok(typeof gmlPlugin.defaultOptions === "object", "default options should be an object");
+    assert.ok(typeof gmlPlugin.setSemanticSafetyRuntime === "function", "semantic safety runtime setter should exist");
+    assert.ok(typeof gmlPlugin.setRefactorRuntime === "function", "refactor runtime setter should exist");
+    assert.ok(typeof gmlPlugin.setIdentifierCaseRuntime === "function", "identifier-case runtime setter should exist");
 
     // Verify that the exports are consistent with the component bundle
     assert.strictEqual(

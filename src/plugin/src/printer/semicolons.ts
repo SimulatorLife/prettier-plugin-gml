@@ -4,6 +4,11 @@ import type { AstPath } from "prettier";
 
 const STRING_TYPE = "string";
 
+// Cached regex pattern for whitespace detection to avoid recreating it on every
+// character check. This single pattern matches all 25 standard JavaScript
+// whitespace characters (ASCII and Unicode).
+const WHITESPACE_REGEX = /\s/;
+
 // Using a Set avoids re-allocating the list for every membership check when
 // these helpers run inside tight printer loops.
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
@@ -22,27 +27,24 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
 ]);
 
 /**
- * Identify ASCII whitespace characters that the printer treats as skippable
- * when trimming semicolons. This intentionally mirrors the classic C-style
- * whitespace set used by the GML parser.
+ * Identify whitespace characters that the printer treats as skippable when
+ * trimming semicolons. Uses JavaScript's standard whitespace classification
+ * (`\s` regex) to handle all Unicode whitespace characters, not just the
+ * basic ASCII subset.
+ *
+ * This generalized approach ensures the formatter correctly processes GML
+ * code containing any valid whitespace character, including Unicode spaces
+ * that may appear when code is copied from external sources or IDEs.
  *
  * @param {number} charCode Character code to classify.
- * @returns {boolean} `true` when the character is ASCII whitespace.
+ * @returns {boolean} `true` when the character is whitespace.
  */
-function isAsciiWhitespaceCharacterCode(charCode: number) {
-    switch (charCode) {
-        case 9: // \t
-        case 10: // \n
-        case 11: // vertical tab
-        case 12: // form feed
-        case 13: // \r
-        case 32: {
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
+function isWhitespaceCharacterCode(charCode: number) {
+    // Test the character against JavaScript's whitespace regex pattern.
+    // This handles all 25 standard whitespace characters including:
+    // - ASCII whitespace: tab(9), LF(10), VT(11), FF(12), CR(13), space(32)
+    // - Unicode whitespace: NBSP(160), em-space(8195), etc.
+    return WHITESPACE_REGEX.test(String.fromCharCode(charCode));
 }
 
 /**
@@ -89,7 +91,7 @@ export function getNextNonWhitespaceCharacter(text: string | null | undefined, s
     for (let index = startIndex; index < length; index += 1) {
         const characterCode = text.charCodeAt(index);
 
-        if (isAsciiWhitespaceCharacterCode(characterCode)) {
+        if (isWhitespaceCharacterCode(characterCode)) {
             continue;
         }
 
@@ -139,7 +141,7 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
             continue;
         }
 
-        if (isAsciiWhitespaceCharacterCode(characterCode)) {
+        if (isWhitespaceCharacterCode(characterCode)) {
             index += 1;
             continue;
         }
@@ -162,29 +164,11 @@ export function countTrailingBlankLines(text: string | null | undefined, startIn
  * @returns {boolean} `true` when the code belongs to a skippable whitespace.
  */
 export function isSkippableSemicolonWhitespace(charCode: number) {
-    // Mirrors the range of characters matched by /\s/ without incurring the
-    // per-iteration RegExp machinery cost.
-    if (isAsciiWhitespaceCharacterCode(charCode)) {
-        return true;
-    }
-
-    switch (charCode) {
-        case 160:
-        case 0x20_28:
-        case 0x20_29: {
-            // GameMaker occasionally serializes or copy/pastes scripts with the
-            // U+00A0 non-breaking space and the U+2028/U+2029 line and
-            // paragraph separators—for example when creators paste snippets
-            // from the IDE or import JSON exports. Treat them as
-            // semicolon-trimmable whitespace so the cleanup logic keeps
-            // matching GameMaker's parser expectations instead of leaving stray
-            // semicolons behind.
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
+    // The generalized isWhitespaceCharacterCode now handles all Unicode
+    // whitespace via /\s/, including NBSP (160), line separator (0x2028), and
+    // paragraph separator (0x2029) that GameMaker may serialize when copying
+    // from the IDE or importing JSON exports.
+    return isWhitespaceCharacterCode(charCode);
 }
 
 /**

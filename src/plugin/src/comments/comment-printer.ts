@@ -24,6 +24,7 @@ type PrinterComment = {
 };
 
 const FEATHER_INLINE_SPACING_FIX_IDS = new Set(["GM2007"]);
+const FUNCTION_INITIALIZER_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ConstructorDeclaration"]);
 
 function hasTypeProperty(value: unknown): value is { type?: string } {
     return value !== null && typeof value === "object";
@@ -126,6 +127,9 @@ function runCommentHandlers(handlers, comment, text, options, ast, isLastComment
 }
 
 function shouldSuppressComment(comment, options) {
+    if (comment.printed === true) {
+        return true;
+    }
     if (comment.type !== "CommentLine") {
         return false;
     }
@@ -135,10 +139,72 @@ function shouldSuppressComment(comment, options) {
         originalText: options.originalText
     };
     const formatted = Core.formatLineComment(comment, formattingOptions);
+    const syntheticOwner = comment.followingNode ?? comment.enclosingNode ?? comment.precedingNode;
+    const rawText = Core.getLineCommentRawText(comment, {
+        originalText: options.originalText ?? undefined
+    });
+    const isDocLikeComment = Core.isLineCommentDocLike(formatted ?? rawText);
+    if (isDocLikeComment && isFunctionAssignmentDocCommentTarget(syntheticOwner)) {
+        return true;
+    }
+    if (
+        syntheticOwner &&
+        Array.isArray(syntheticOwner._syntheticDocLines) &&
+        Core.isLineCommentDocLike(formatted ?? rawText)
+    ) {
+        return true;
+    }
     if (isFunctionDocCommentLine(formatted)) {
         return true;
     }
     return formatted === null || formatted === "";
+}
+
+function isFunctionAssignmentDocCommentTarget(node: unknown): boolean {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (Core.isFunctionAssignmentStatement(node)) {
+        return true;
+    }
+
+    if ((node as { type?: string }).type === "AssignmentExpression") {
+        const assignment = node as { operator?: string; right?: { type?: string } };
+        if (assignment.operator !== "=") {
+            return false;
+        }
+        return FUNCTION_INITIALIZER_TYPES.has(assignment.right?.type ?? "");
+    }
+
+    if ((node as { type?: string }).type === "VariableDeclaration") {
+        const declaration = node as {
+            kind?: string;
+            declarations?: Array<{ type?: string; id?: { type?: string }; init?: { type?: string } }>;
+        };
+        const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
+        if (declarators.length !== 1) {
+            return false;
+        }
+        const declarator = declarators[0];
+        if (!declarator || declarator.type !== "VariableDeclarator") {
+            return false;
+        }
+        if (declarator.id?.type !== "Identifier") {
+            return false;
+        }
+        return FUNCTION_INITIALIZER_TYPES.has(declarator.init?.type ?? "");
+    }
+
+    if ((node as { type?: string }).type === "VariableDeclarator") {
+        const declarator = node as { id?: { type?: string }; init?: { type?: string } };
+        if (declarator.id?.type !== "Identifier") {
+            return false;
+        }
+        return FUNCTION_INITIALIZER_TYPES.has(declarator.init?.type ?? "");
+    }
+
+    return false;
 }
 
 function suppressFormattedComment(comment, options) {
@@ -198,6 +264,10 @@ function printComment(commentPath, options) {
             const trimmed = comment.value.trim();
             if (trimmed === "" || trimmed === "*") {
                 return "";
+            }
+            const preservedCommentedOut = formatCommentedOutCodeBlockComment(comment);
+            if (preservedCommentedOut !== null) {
+                return preservedCommentedOut;
             }
             const decorated = formatDecorativeBlockComment(comment);
             if (decorated !== null) {
@@ -1166,8 +1236,8 @@ function attachDocCommentToFollowingNode(comment, options) {
     }
 
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
-    const formatted = Core.formatLineComment(comment, lineCommentOptions);
-    if (!formatted || !formatted.startsWith("///")) {
+    const formatted = formatDocLikeLineComment(comment, lineCommentOptions, options?.originalText);
+    if (!formatted || !formatted.trimStart().startsWith("///")) {
         return false;
     }
 
@@ -1231,6 +1301,9 @@ function formatDecorativeBlockComment(comment) {
     const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    if (containsCommentedOutCodeLines(lines)) {
+        return null;
+    }
     const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));
     if (significantLines.length === 0) {
         return null;
@@ -1280,6 +1353,57 @@ function formatDecorativeBlockComment(comment) {
 
     // Single-line non-decorative comments are not formatted
     return null;
+}
+
+function containsCommentedOutCodeLines(lines) {
+    const codeDetectionPatterns = Core.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+
+    for (const line of lines) {
+        const trimmed = line.trimStart();
+        const content = normalizeCommentedCodeCandidate(trimmed);
+        if (content === "") {
+            continue;
+        }
+
+        if (/^\/+$/.test(content)) {
+            continue;
+        }
+
+        for (const pattern of codeDetectionPatterns) {
+            pattern.lastIndex = 0;
+            if (pattern.test(content)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function normalizeCommentedCodeCandidate(trimmedLine) {
+    if (trimmedLine.startsWith("//")) {
+        return trimmedLine.slice(2).trim();
+    }
+
+    if (trimmedLine.startsWith("*")) {
+        return trimmedLine.slice(1).trim();
+    }
+
+    return trimmedLine.trim();
+}
+
+function formatCommentedOutCodeBlockComment(comment) {
+    const value = typeof comment?.value === "string" ? comment.value : null;
+    if (value === null) {
+        return null;
+    }
+
+    if (!containsCommentedOutCodeLines(value.split(/\r?\n/))) {
+        return null;
+    }
+
+    const normalized = value.replace(/^(?:\r?\n){2}([ \t]*\/\/)/, "\n$1");
+    return `/*${normalized}*/`;
 }
 
 function whitespaceToDoc(text) {

@@ -4,7 +4,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Plugin } from "../src/index.js";
+import { configureIdentifierCaseIntegration, Plugin } from "../src/index.js";
+
+configureIdentifierCaseIntegration();
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
@@ -13,9 +15,9 @@ const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
 
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
+const INTEGRATION_OWNED_FIXTURE_NAMES = new Set(["testGlobalVars"]);
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
-
 function removeDocCommentLines(text: string) {
     return text
         .split(/\r?\n/)
@@ -149,6 +151,10 @@ const all_test_cases = await loadTestCases();
 void describe("Prettier GameMaker plugin fixtures", () => {
     for (const { baseName, inputSource, expectedOutput, options } of all_test_cases) {
         void it(`formats ${baseName}`, async () => {
+            if (INTEGRATION_OWNED_FIXTURE_NAMES.has(baseName)) {
+                return;
+            }
+
             const formatted = await Plugin.format(inputSource, options);
             const normalizedActual = canonicalizeFixtureText(formatted);
             const normalizedExpected = canonicalizeFixtureText(expectedOutput);

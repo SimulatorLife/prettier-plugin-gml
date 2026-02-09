@@ -5,7 +5,6 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     type MutableDocCommentLines,
-    safeGetParentNode,
     toMutableArray,
     toTrimmedString
 } from "../utils.js";
@@ -953,12 +952,11 @@ function reorderDocLines({
  * Merge synthetic doc comments with existing metadata while preserving order.
  */
 export function shouldGenerateSyntheticDocForFunction(
-    path: any,
+    node: any,
+    parent: any,
     existingDocLines: DocCommentLines | string[],
     options: any
 ): boolean {
-    const node = path.getValue();
-    const parent = safeGetParentNode(path);
     if (!node || !parent || (parent.type !== "Program" && parent.type !== "BlockStatement")) {
         return false;
     }

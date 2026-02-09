@@ -1191,6 +1191,27 @@ export function unwrapParenthesizedExpression(
 }
 
 /**
+ * Extract and normalize the operator from an AST node.
+ *
+ * This helper consolidates the repeated pattern of safely extracting an operator
+ * string from expression nodes (BinaryExpression, UnaryExpression, etc.) with
+ * consistent null handling and lowercase normalization. GML operators are
+ * case-insensitive, so normalization ensures reliable comparison across
+ * transforms and printer logic.
+ *
+ * @param node AST node that may contain an operator property.
+ * @returns Lowercase operator string, or `null` if the operator is missing,
+ *   empty, or not a string.
+ */
+export function getNormalizedOperator(node: GameMakerAstNode | null | undefined): string | null {
+    if (!node) {
+        return null;
+    }
+    const operator = (node as { operator?: unknown }).operator;
+    return typeof operator === "string" && operator.length > 0 ? operator.toLowerCase() : null;
+}
+
+/**
  * Check whether {@link node} is a binary expression with the specified operator.
  *
  * This convenience predicate simplifies operator-specific checks in math
@@ -1203,15 +1224,49 @@ export function unwrapParenthesizedExpression(
  *     {@link operator}.
  */
 export function isBinaryOperator(node: GameMakerAstNode | null | undefined, operator: string): boolean {
-    return node?.type === BINARY_EXPRESSION && (node as { operator?: string }).operator?.toLowerCase() === operator;
+    return node?.type === BINARY_EXPRESSION && getNormalizedOperator(node) === operator;
 }
 
 /**
- * Inspect a left-hand member expression and, when it references a property on
- * the provided identifier root, return a compact descriptor for the property
- * node and its start index. This mirrors the canonical helper used by the
- * plugin transforms and keeps the parser-local transform logic
- * self-contained.
+ * Inspect a member expression to extract property access information when it
+ * references a property on a specific identifier root.
+ *
+ * This helper analyzes member expressions (both dot and index notation) to
+ * determine if they access a property on a given identifier. When successful,
+ * it returns a descriptor containing the property node and its start location,
+ * which transforms use to rewrite struct property assignments or detect member
+ * access patterns. The function handles both `object.property` (dot notation)
+ * and `object[property]` (index notation) access patterns.
+ *
+ * @param left Potential member expression node to inspect. Accepts any AST node
+ *     type, but only processes `MemberDotExpression` or `MemberIndexExpression`
+ *     nodes. All other node types result in `null` being returned.
+ * @param identifierName Optional identifier name to match against the object
+ *     being accessed. When provided, only member expressions on this specific
+ *     identifier are matched. When omitted, any identifier-based member access
+ *     is accepted.
+ * @returns A descriptor object containing the property node and its start
+ *     location when {@link left} is a member expression on the expected
+ *     identifier. Returns `null` when:
+ *     - {@link left} is not a member expression
+ *     - The object being accessed is not an identifier
+ *     - {@link identifierName} is provided but does not match the object's name
+ *     - The property cannot be resolved (e.g., multi-element index access)
+ *
+ * @example
+ * ```ts
+ * // Matches: player.health (dot notation)
+ * const result = getStructPropertyAccess(memberDotNode, "player");
+ * // result: { propertyNode: healthIdentifier, propertyStart: ... }
+ *
+ * // Matches: player["health"] (index notation with string literal)
+ * const result = getStructPropertyAccess(memberIndexNode, "player");
+ * // result: { propertyNode: healthIdentifier, propertyStart: ... }
+ *
+ * // No match: Different identifier
+ * const result = getStructPropertyAccess(enemyMemberNode, "player");
+ * // result: null
+ * ```
  */
 export function getStructPropertyAccess(
     left: GameMakerAstNode | null | undefined,

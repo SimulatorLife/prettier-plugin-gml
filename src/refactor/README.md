@@ -5,6 +5,19 @@ This package will power semantic refactoring workflows such as safe renames, as 
 It consumes parser spans and semantic bindings to plan WorkspaceEdits that the CLI can apply
 atomically across the project.
 
+## Ownership Boundaries
+
+`@gml-modules/refactor` owns project-aware code-change planning.
+
+- Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
+- Owns rename validation, conflict detection, and workspace edit planning/application.
+- Is the only layer that should decide whether a rename requires cross-file edits.
+
+It does not replace the formatter:
+
+- `@gml-modules/plugin` keeps local formatting transforms and runtime ports only.
+- `@gml-modules/cli` is the composition root that wires refactor adapters into plugin runtime contracts.
+
 ## Responsibilities
 - Query parser span data and semantic bindings to map identifiers to source ranges.
 - Plan edits that avoid scope capture or shadowing, and surface validation diagnostics.

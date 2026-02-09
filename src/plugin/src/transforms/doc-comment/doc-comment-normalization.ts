@@ -1,8 +1,7 @@
 import { Core, type MutableDocCommentLines, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { formatDocLikeLineComment } from "../../comments/index.js";
-import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
-import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/index.js";
+import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "../../doc-comment/index.js";
 import { createParserTransform } from "../functional-transform.js";
 import {
     applyDescriptionContinuations,
@@ -16,22 +15,6 @@ type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;
     pluginOptions?: Record<string, unknown>;
 };
-
-type DocCommentPath = {
-    getValue(): MutableGameMakerAstNode | null;
-    getParentNode(): MutableGameMakerAstNode | null;
-};
-
-function createDocCommentPath(node: MutableGameMakerAstNode, parent?: MutableGameMakerAstNode | null): DocCommentPath {
-    return {
-        getValue() {
-            return node;
-        },
-        getParentNode() {
-            return parent ?? null;
-        }
-    };
-}
 
 function isStaticFirstStatementInAncestorBlock(
     node: MutableGameMakerAstNode,
@@ -148,9 +131,14 @@ function execute(
         ensureDescriptionContinuations(filteredDocLines);
 
         const docHostAncestor = findDocCommentHostAncestor(mutableNode, parentByNode);
-        const docPath = createDocCommentPath(mutableNode, parentByNode.get(mutableNode) ?? null);
+        const parent = parentByNode.get(mutableNode) ?? null;
 
-        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions);
+        const shouldGenerate = Core.shouldGenerateSyntheticDocForFunction(
+            mutableNode,
+            parent,
+            filteredDocLines,
+            docCommentOptions
+        );
         if (!shouldGenerate) {
             return;
         }

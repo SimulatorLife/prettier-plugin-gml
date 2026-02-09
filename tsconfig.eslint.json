@@ -2,21 +2,22 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "baseUrl": ".",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
-      "@gml-modules/core": ["src/core/src/index.ts"],
-      "@gml-modules/plugin": ["src/plugin/src/index.ts"],
-      "@gml-modules/transpiler": ["src/transpiler/src/index.ts"],
-      "@gml-modules/semantic": ["src/semantic/src/index.ts"],
-      "@gml-modules/parser": ["src/parser/src/index.ts"],
-      "@gml-modules/refactor": ["src/refactor/src/index.ts"],
-      "@gml-modules/runtime-wrapper": ["src/runtime-wrapper/src/index.ts"]
+      "@gml-modules/core": ["src/core/index.ts"],
+      "@gml-modules/parser": ["src/parser/index.ts"],
+      "@gml-modules/plugin": ["src/plugin/index.ts"],
+      "@gml-modules/semantic": ["src/semantic/index.ts"],
+      "@gml-modules/transpiler": ["src/transpiler/index.ts"],
+      "@gml-modules/refactor": ["src/refactor/index.ts"],
+      "@gml-modules/runtime-wrapper": ["src/runtime-wrapper/index.ts"],
+      "@gml-modules/cli": ["src/cli/index.ts"]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
+    "test/**/*.ts",
     "types/*.d.ts",
     "*.ts"
   ],
@@ -26,5 +27,5 @@
     "vendor",
     "src/**/dist",
     "src/parser/generated"
-  ],
+  ]
 }

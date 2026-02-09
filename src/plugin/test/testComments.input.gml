@@ -42,9 +42,9 @@ function scribble_font_has_character(_font_name, _character) {
 // Script assets have changed for v2.3.0 see
 // https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information
 function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2){
-	/// @description twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2)
-	/*
-	    This function calculates the position of a two jointed IK chain.
+    /// @description twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2)
+    /*
+        This function calculates the position of a two jointed IK chain.
         It returns an array with the position of the joint and the end effector.
         x1, y1, z1 : The position of the root of the chain
         x2dir, y2dir, z2dir : The direction the first joint should face

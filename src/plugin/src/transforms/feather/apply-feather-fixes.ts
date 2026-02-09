@@ -29,7 +29,13 @@
 
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
+import {
+    buildDeprecatedBuiltinVariableReplacements,
+    buildFeatherTypeSystemInfo,
+    getDeprecatedBuiltinReplacementEntry,
+    getFeatherDiagnostics
+} from "../../resources/index.js";
 import {
     getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
@@ -43,9 +49,18 @@ import {
     hasArrayParentWithNumericIndex,
     resolveCallExpressionArrayContext
 } from "./ast-traversal.js";
+import {
+    applyOrderedDocNamesToImplicitEntries,
+    resolveFunctionTagParamList,
+    sanitizeMalformedJsDocTypes,
+    updateStaticFunctionDocComments
+} from "./doc-comment-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
+import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
+import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
+import { annotateMissingUserEvents } from "./user-event-fixes.js";
 import {
     attachFeatherFixMetadata,
     createCallExpressionTargetFixDetail,
@@ -53,31 +68,6 @@ import {
     hasFeatherDiagnosticContext,
     hasFeatherSourceTextContext
 } from "./utils.js";
-
-type RenameOptions = {
-    // DUPLICATION WARNING: The identifier renaming logic in this file may overlap
-    // with functionality already implemented in the 'refactor' and 'semantic' modules.
-    //
-    // ARCHITECTURE: Identifier renaming should live in the 'refactor' module, which
-    // is built on top of 'semantic'. The 'semantic' module provides scope analysis
-    // and binding resolution (determining what each identifier refers to and where
-    // it's defined), while 'refactor' uses that information to perform safe renames
-    // that avoid shadowing conflicts and preserve program semantics.
-    //
-    // CURRENT STATE: This file implements ad-hoc renaming for Feather fixes (reserved
-    // identifiers, deprecated names, etc.) without consulting scope information. This
-    // risks introducing name conflicts, shadowing variables, or breaking references
-    // in nested scopes.
-    //
-    // RECOMMENDATION: Before adding new renaming logic here, check if 'refactor'
-    // already provides the capability. If it does, import it and use the scope-aware
-    // implementation. If it doesn't, consider adding the feature to 'refactor' so it
-    // can be shared across the codebase rather than duplicating the logic here.
-    //
-    // LONG-TERM: Extract all identifier renaming from this file and consolidate it
-    // into 'refactor', then import those functions here for Feather-specific fixes.
-    onRename?: (payload: { identifier: MutableGameMakerAstNode; originalName: string; replacement: string }) => void;
-};
 
 type ApplyFeatherFixesOptions = {
     sourceText?: string;
@@ -126,58 +116,25 @@ export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
 });
 
 /**
- * @typedef {typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION]} RoomNavigationDirection
- */
-
-const ROOM_NAVIGATION_DIRECTION_VALUES = new Set(Object.values(ROOM_NAVIGATION_DIRECTION));
-const ROOM_NAVIGATION_DIRECTION_LABELS = Array.from(ROOM_NAVIGATION_DIRECTION_VALUES).join(", ");
-
-const ROOM_NAVIGATION_HELPERS = Object.freeze({
-    [ROOM_NAVIGATION_DIRECTION.NEXT]: Object.freeze({
-        binary: "room_next",
-        goto: "room_goto_next"
-    }),
-    [ROOM_NAVIGATION_DIRECTION.PREVIOUS]: Object.freeze({
-        binary: "room_previous",
-        goto: "room_goto_previous"
-    })
-});
-
-type RoomNavigationDirection = (typeof ROOM_NAVIGATION_DIRECTION)[keyof typeof ROOM_NAVIGATION_DIRECTION];
-
-function normalizeRoomNavigationDirection(direction: unknown): RoomNavigationDirection {
-    if (typeof direction !== "string") {
-        throw new TypeError("Room navigation direction must be provided as a string.");
-    }
-
-    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction as RoomNavigationDirection)) {
-        throw new RangeError(
-            `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
-        );
-    }
-
-    return direction as RoomNavigationDirection;
-}
-
-/**
- * Look up the proper room helper names for a normalized Feather navigation direction.
+ * Look up the proper room helper names for a Feather navigation direction.
+ * Returns helper function names for binary expressions and goto calls based on direction.
  */
 export function getRoomNavigationHelpers(direction: unknown) {
-    const normalizedDirection = normalizeRoomNavigationDirection(direction);
-    return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+    if (direction === "next") {
+        return { binary: "room_next", goto: "room_goto_next" };
+    }
+    if (direction === "previous") {
+        return { binary: "room_previous", goto: "room_goto_previous" };
+    }
+    const displayValue = typeof direction === "string" ? direction : JSON.stringify(direction);
+    throw new RangeError(`Unsupported room navigation direction: ${displayValue}. Expected one of: next, previous.`);
 }
 
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.getOptionalString(value, "id") !== null;
 }
-let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
-function getReservedIdentifierNames() {
-    if (!RESERVED_IDENTIFIER_NAMES) {
-        RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
-    }
-    return RESERVED_IDENTIFIER_NAMES;
-}
-const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = Core.buildDeprecatedBuiltinVariableReplacements();
+
+const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = buildDeprecatedBuiltinVariableReplacements();
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -186,81 +143,7 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
 ]);
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
-const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
-
-function updateStaticFunctionDocComments(ast: any) {
-    const allComments = ast.comments || [];
-
-    Core.walkAst(ast, (node) => {
-        if (node.type === "VariableDeclaration" && node.kind === "static") {
-            if (node.declarations.length !== 1) {
-                return;
-            }
-
-            const declarator = node.declarations[0];
-            if (
-                declarator.type !== "VariableDeclarator" ||
-                declarator.id.type !== "Identifier" ||
-                !declarator.init ||
-                (declarator.init.type !== "FunctionExpression" &&
-                    declarator.init.type !== "FunctionDeclaration" &&
-                    declarator.init.type !== "ArrowFunctionExpression")
-            ) {
-                return;
-            }
-
-            const functionName = declarator.id.name;
-
-            // Try to find comments attached to the node first
-            let commentsToSearch = [
-                ...(node.comments || []),
-                ...(declarator.comments || []),
-                ...(declarator.init.comments || [])
-            ];
-
-            // If no attached comments, search in global comments
-            if (commentsToSearch.length === 0 && allComments.length > 0) {
-                commentsToSearch = collectPrecedingFunctionComments(node, allComments);
-            }
-
-            if (commentsToSearch.length > 0) {
-                updateFunctionTagName(commentsToSearch, functionName);
-            }
-        }
-    });
-}
-
-function collectPrecedingFunctionComments(node: any, allComments: Array<any>): Array<any> {
-    const nodeStart = getStartFromNode(node);
-    if (nodeStart === undefined) {
-        return [];
-    }
-
-    // We only care about the closest block of comments that end before this node.
-    // It's unlikely that another @function block exists between the comment and
-    // the node we're analyzing, so we just pick the most recent candidates.
-    return allComments.filter((comment) => comment.end <= nodeStart).toSorted((a: any, b: any) => b.end - a.end);
-}
-
-function updateFunctionTagName(comments: Array<any>, functionName: string) {
-    for (const comment of comments) {
-        const value = comment.value;
-        const match = /(@function\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(value);
-        if (!match) {
-            continue;
-        }
-
-        const currentTagName = match[2];
-        if (currentTagName !== functionName) {
-            comment.value = value.replace(/(@function\s+)[A-Za-z_][A-Za-z0-9_]*/, `$1${functionName}`);
-            delete comment.start;
-            delete comment.end;
-            delete comment.loc;
-        }
-
-        break;
-    }
-}
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 
 function regenerateMissingGM1033Fixes(
     ast: any,
@@ -991,10 +874,11 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1008",
         (diagnostic) =>
-            ({ ast }) => {
+            ({ ast, options }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
                     ast,
-                    diagnostic
+                    diagnostic,
+                    options
                 });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
@@ -1769,7 +1653,11 @@ function createAutomaticFeatherFixHandlers() {
                 })
         ],
         ["GM1033", ({ ast, sourceText, diagnostic }) => removeDuplicateSemicolons({ ast, sourceText, diagnostic })],
-        ["GM1030", ({ ast, sourceText, diagnostic }) => renameReservedIdentifiers({ ast, diagnostic, sourceText })],
+        [
+            "GM1030",
+            ({ ast, sourceText, diagnostic, options }) =>
+                renameReservedIdentifiers({ ast, diagnostic, options, sourceText })
+        ],
         ["GM1034", ({ ast, diagnostic }) => relocateArgumentReferencesInsideFunctions({ ast, diagnostic })],
         ["GM1036", ({ ast, diagnostic }) => normalizeMultidimensionalArrayIndexing({ ast, diagnostic })],
         ["GM1038", ({ ast, diagnostic }) => removeDuplicateMacroDeclarations({ ast, diagnostic })],
@@ -2093,50 +1981,6 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
     attachFeatherFixMetadata(identifierNode, [fixDetail]);
 
     return fixDetail;
-}
-
-function buildFeatherTypeSystemInfo() {
-    const metadata = Core.getFeatherMetadata();
-    const typeSystem = metadata?.typeSystem;
-
-    const baseTypes = new Set();
-    const baseTypesLowercase = new Set();
-    const specifierBaseTypes = new Set();
-
-    const entries = Core.asArray(typeSystem?.baseTypes);
-
-    for (const entry of entries) {
-        const name = Core.toTrimmedString(Core.getOptionalString(entry, "name"));
-
-        if (!name) {
-            continue;
-        }
-
-        baseTypes.add(name);
-        baseTypesLowercase.add(name.toLowerCase());
-
-        const specifierExamples = Core.asArray(Core.getOptionalArray(entry, "specifierExamples"));
-        const hasDotSpecifier = specifierExamples.some((example) => {
-            if (typeof example !== "string") {
-                return false;
-            }
-
-            return example.trim().startsWith(".");
-        });
-
-        const description = Core.toTrimmedString(Core.getOptionalString(entry, "description")) ?? "";
-        const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
-
-        if (hasDotSpecifier || requiresSpecifier) {
-            specifierBaseTypes.add(name.toLowerCase());
-        }
-    }
-
-    return {
-        baseTypeNames: [...baseTypes],
-        baseTypeNamesLower: baseTypesLowercase,
-        specifierBaseTypeNamesLower: specifierBaseTypes
-    };
 }
 
 function registerFeatherFixer(registry, diagnosticId, implementation) {
@@ -2550,7 +2394,7 @@ function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
     return slice.trim() || null;
 }
 
-function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
+function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -2575,7 +2419,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
         }
 
         if (node.type === "AssignmentExpression") {
-            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry);
+            const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
                 fixes.push(fixDetail);
@@ -2593,7 +2437,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
     return fixes;
 }
 
-function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry) {
+function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, formattingOptions) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
@@ -2612,7 +2456,18 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
-    const replacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const preferredReplacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const renameResolution = resolveSemanticSafeFeatherRename({
+        formattingOptions,
+        identifierName: identifier.name,
+        localIdentifierNames: nameRegistry,
+        preferredReplacementName
+    });
+
+    if (!renameResolution || !Core.isNonEmptyString(renameResolution.replacementName)) {
+        return null;
+    }
+    const replacementName = renameResolution.replacementName;
     const replacementIdentifier = Core.createIdentifierNode(replacementName, identifier);
 
     const declarator = {
@@ -2647,8 +2502,10 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
         return null;
     }
 
+    fixDetail.replacement = replacementName;
     attachFeatherFixMetadata(declaration, [fixDetail]);
 
+    nameRegistry.add(replacementName);
     replaceReadOnlyIdentifierReferences(parent, property + 1, identifier.name, replacementName);
 
     return fixDetail;
@@ -2840,8 +2697,6 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
         suffix += 1;
         candidate = `__feather_${sanitized}_${suffix}`;
     }
-
-    nameRegistry.add(candidate);
 
     return candidate;
 }
@@ -3668,138 +3523,6 @@ export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-function resolveFunctionTagParamList(functionNode, collectionService, sourceText) {
-    const serviceComments =
-        typeof collectionService?.getComments === "function" ? collectionService.getComments(functionNode) : null;
-    const docComments = Array.isArray(serviceComments)
-        ? serviceComments
-        : Array.isArray(functionNode?.docComments)
-          ? functionNode.docComments
-          : Array.isArray(functionNode?.comments)
-            ? functionNode.comments
-            : null;
-    if (!Array.isArray(docComments) || docComments.length === 0) {
-        return null;
-    }
-
-    for (const comment of docComments) {
-        if (!comment || comment.type !== "CommentLine") {
-            continue;
-        }
-
-        const value = typeof comment.value === "string" ? comment.value : null;
-        if (!Core.isNonEmptyString(value)) {
-            continue;
-        }
-
-        const params = Core.extractFunctionTagParams(value);
-        if (params.length > 0) {
-            cacheFunctionTagParams(functionNode, params);
-            return params;
-        }
-    }
-
-    const fromSource = findFunctionTagParamsFromSource(functionNode, sourceText);
-    if (fromSource && fromSource.length > 0) {
-        cacheFunctionTagParams(functionNode, fromSource);
-        return fromSource;
-    }
-
-    return null;
-}
-
-function findFunctionTagParamsFromSource(functionNode, sourceText) {
-    if (!Core.isNonEmptyString(sourceText)) {
-        return null;
-    }
-
-    const startLine = Core.getNodeStartLine(functionNode);
-    if (!Number.isFinite(startLine)) {
-        return null;
-    }
-
-    const lines = Core.splitLines(sourceText);
-    const startIndex = Math.max(startLine - 2, 0);
-
-    for (let lineIndex = startIndex; lineIndex >= 0; lineIndex -= 1) {
-        const line = lines[lineIndex];
-        if (!Core.isNonEmptyString(line)) {
-            break;
-        }
-
-        const trimmed = line.trim();
-        if (trimmed.length === 0) {
-            break;
-        }
-
-        if (!trimmed.startsWith("//")) {
-            break;
-        }
-
-        const commentValue = trimmed.replace(/^\/\/\s*\/?/, "").trimStart();
-        if (commentValue.length === 0) {
-            continue;
-        }
-
-        const params = Core.extractFunctionTagParams(commentValue);
-        if (params.length > 0) {
-            return params;
-        }
-    }
-
-    return null;
-}
-
-function cacheFunctionTagParams(functionNode, params) {
-    if (!functionNode || typeof functionNode !== "object") {
-        return;
-    }
-
-    if (Array.isArray(functionNode._functionTagParamNames)) {
-        return;
-    }
-
-    functionNode._functionTagParamNames = params;
-}
-
-function applyOrderedDocNamesToImplicitEntries(functionNode, orderedDocNames, collectionService, sourceText) {
-    const entries = functionNode?._featherImplicitArgumentDocEntries;
-    const functionTagParams = resolveFunctionTagParamList(functionNode, collectionService, sourceText);
-    const resolvedDocNames = functionTagParams ?? orderedDocNames;
-    if (!entries || !resolvedDocNames || resolvedDocNames.length === 0) {
-        return;
-    }
-
-    for (const entry of entries) {
-        if (!entry || typeof entry.index !== "number") {
-            continue;
-        }
-
-        if (entry.index >= resolvedDocNames.length) {
-            continue;
-        }
-
-        const docName = resolvedDocNames[entry.index];
-        if (!docName) {
-            continue;
-        }
-
-        // Prefer the alias name unless the entry still uses a generic fallback.
-        const docNameIsFallback = /^argument\d+$/.test(docName);
-        const entryNameIsFallback = /^argument\d+$/.test(entry.name);
-
-        if (entryNameIsFallback) {
-            entry.name = docName;
-            entry.canonical = docName.toLowerCase();
-            continue;
-        }
-
-        if (docNameIsFallback && docName !== entry.name) {
-            updateJSDocParamName(functionNode, docName, entry.name, collectionService);
-        }
-    }
-}
-
 function fixArgumentReferencesWithinFunction(
     functionNode,
     diagnostic,
@@ -4581,7 +4304,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
         return null;
     }
 
-    const replacementEntry = Core.getDeprecatedBuiltinReplacementEntry(normalizedName);
+    const replacementEntry = getDeprecatedBuiltinReplacementEntry(normalizedName);
 
     if (!replacementEntry) {
         return null;
@@ -11661,8 +11384,8 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic, stringLiteralA
         const leftIsNumeric = isNumericLiteralNode(node.left);
         const rightIsNumeric = isNumericLiteralNode(node.right);
 
-        const leftIdentifier = getIdentifierName(node.left);
-        const rightIdentifier = getIdentifierName(node.right);
+        const leftIdentifier = Core.getIdentifierName(node.left);
+        const rightIdentifier = Core.getIdentifierName(node.right);
 
         const leftTracked = typeof leftIdentifier === "string" && stringLiteralAssignments.has(leftIdentifier);
         const rightTracked = typeof rightIdentifier === "string" && stringLiteralAssignments.has(rightIdentifier);
@@ -11736,14 +11459,6 @@ function canWrapOperandWithReal(node) {
     return true;
 }
 
-function getIdentifierName(node) {
-    if (Core.isIdentifierNode(node) && typeof node.name === "string") {
-        return node.name;
-    }
-
-    return null;
-}
-
 function isCoercibleStringLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -11782,7 +11497,7 @@ function isCoercibleStringLiteral(node) {
 }
 
 function recordIdentifierStringAssignment(identifier, expression, assignments) {
-    const name = getIdentifierName(identifier);
+    const name = Core.getIdentifierName(identifier);
 
     if (!name || !assignments) {
         return;
@@ -13257,7 +12972,7 @@ function sanitizeFileFindCalls(statements, parent, fixes, diagnostic, metadataRo
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
-            target: getCallExpressionCalleeName(statement),
+            target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement)),
             range: {
                 start: Core.getNodeStartIndex(statement),
                 end: Core.getNodeEndIndex(statement)
@@ -13301,7 +13016,7 @@ function isFileFindBlockFunctionCall(statement) {
         return false;
     }
 
-    const calleeName = getCallExpressionCalleeName(statement);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement));
 
     if (!calleeName) {
         return false;
@@ -13327,20 +13042,9 @@ function isCallExpressionStatementWithName(statement, name) {
         return false;
     }
 
-    const calleeName = getCallExpressionCalleeName(statement);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement));
 
     return calleeName === name;
-}
-
-function getCallExpressionCalleeName(node): string | null {
-    const unwrapped = Core.unwrapExpressionStatement(node);
-
-    if (unwrapped?.type === "CallExpression") {
-        const name = (unwrapped.object as { name?: unknown })?.name;
-        return typeof name === "string" ? name : null;
-    }
-
-    return null;
 }
 
 function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
@@ -13589,7 +13293,7 @@ function removeDanglingVertexFormatDefinition({ statements, startIndex, stopInde
     const lastNode = statements[stopIndex - 1] ?? firstNode;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(firstNode) ?? null,
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(firstNode)) ?? null,
         range: createRangeFromNodes(firstNode, lastNode)
     });
 
@@ -13619,7 +13323,7 @@ function removeDanglingVertexFormatEndCall({ statements, index, diagnostic, fixe
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(statement),
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(statement)),
         range: {
             start: Core.getNodeStartIndex(statement),
             end: Core.getNodeEndIndex(statement)
@@ -13664,7 +13368,7 @@ function removeEmptyVertexFormatDefinition({ statements, beginIndex, endIndex, d
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getCallExpressionCalleeName(beginStatement) ?? null,
+        target: Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(beginStatement)) ?? null,
         range: createRangeFromNodes(beginStatement, endStatement)
     });
 
@@ -13994,7 +13698,7 @@ function createCallExpressionCommentText(node) {
         return null;
     }
 
-    const calleeName = getCallExpressionCalleeName(node);
+    const calleeName = Core.getCallExpressionIdentifierName(Core.unwrapExpressionStatement(node));
 
     if (!calleeName) {
         return null;
@@ -14248,181 +13952,8 @@ function annotateVariableStructProperty(property, diagnostic) {
 }
 
 /**
- * Annotates missing user-event constant references in the AST.
- *
- * ORGANIZATION SMELL: All user-event-related functionality (detection, constant
- * insertion, validation) should be extracted into a dedicated module rather than
- * being scattered through this large Feather-fixes file.
- *
- * RECOMMENDATION: Create src/plugin/src/transforms/feather/user-event-fixes.ts and
- * move all user-event-specific logic there:
- *   - annotateMissingUserEvents
- *   - insertUserEventConstant
- *   - validateUserEventConstant
- *   - USER_EVENT_CONSTANTS (if defined)
- *
- * This makes the code easier to navigate and test, and reduces the size of this
- * already-oversized file.
+ * Harmonizes texture pointer ternary expressions that use -1 instead of pointer_null.
  */
-function annotateMissingUserEvents({ ast, diagnostic }) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
-        return [];
-    }
-
-    const fixes = [];
-
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "CallExpression") {
-            const fix = annotateUserEventCall(node, diagnostic);
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
-
-    return fixes;
-}
-
-function annotateUserEventCall(node, diagnostic) {
-    const eventInfo = getUserEventReference(node);
-
-    if (!eventInfo) {
-        return null;
-    }
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: eventInfo.name,
-        automatic: false,
-        range: {
-            start: Core.getNodeStartIndex(node),
-            end: Core.getNodeEndIndex(node)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    attachFeatherFixMetadata(node, [fixDetail]);
-
-    return fixDetail;
-}
-
-function getUserEventReference(node) {
-    if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    const callee = Core.getCallExpressionIdentifier(node);
-    const args = Core.getCallExpressionArguments(node);
-
-    if (Core.isIdentifierWithName(callee, "event_user")) {
-        const eventIndex = resolveUserEventIndex(args[0]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
-    }
-
-    if (Core.isIdentifierWithName(callee, "event_perform")) {
-        if (args.length < 2 || !Core.isIdentifierWithName(args[0], "ev_user")) {
-            return null;
-        }
-
-        const eventIndex = resolveUserEventIndex(args[1]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
-    }
-
-    if (Core.isIdentifierWithName(callee, "event_perform_object")) {
-        if (args.length < 3) {
-            return null;
-        }
-
-        const eventIndex = resolveUserEventIndex(args[2]);
-
-        if (eventIndex === null) {
-            return null;
-        }
-
-        return { index: eventIndex, name: formatUserEventName(eventIndex) };
-    }
-
-    return null;
-}
-
-function resolveUserEventIndex(node) {
-    if (!node) {
-        return null;
-    }
-
-    if (node.type === "Literal") {
-        const numericValue = typeof node.value === "number" ? node.value : Number(node.value);
-
-        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
-            return null;
-        }
-
-        return numericValue;
-    }
-
-    if (node.type === "Identifier") {
-        const match = /^ev_user(\d+)$/.exec(node.name);
-
-        if (!match) {
-            return null;
-        }
-
-        const numericValue = Number.parseInt(match[1]);
-
-        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
-            return null;
-        }
-
-        return numericValue;
-    }
-
-    return null;
-}
-
-function formatUserEventName(index) {
-    if (!Number.isInteger(index)) {
-        return null;
-    }
-
-    return `User Event ${index}`;
-}
 function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     if (!node || node.type !== "TernaryExpression") {
         return null;
@@ -15402,554 +14933,6 @@ function getFunctionIdentifierName(node) {
  * consistent JSDoc formatting across the codebase and prevents drift between the plugin's
  * doc-comment formatter and Feather's type sanitization.
  */
-function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
-        return [];
-    }
-
-    const comments = Core.collectCommentNodes(ast);
-
-    if (comments.length === 0) {
-        return [];
-    }
-
-    const fixes = [];
-
-    for (const comment of comments) {
-        const result = sanitizeDocCommentType(comment, typeSystemInfo);
-
-        if (!result) {
-            continue;
-        }
-
-        const fixDetail = createFeatherFixDetail(diagnostic, {
-            target: result.target ?? null,
-            range: {
-                start: Core.getNodeStartIndex(comment),
-                end: Core.getNodeEndIndex(comment)
-            }
-        });
-
-        if (!fixDetail) {
-            continue;
-        }
-
-        attachFeatherFixMetadata(comment, [fixDetail]);
-        fixes.push(fixDetail);
-    }
-
-    return fixes;
-}
-
-/**
- * Sanitizes a single JSDoc comment's type annotation.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment service, not in Feather fixes.
- * See the comment on sanitizeMalformedJsDocTypes for details.
- */
-function sanitizeDocCommentType(comment, typeSystemInfo) {
-    if (!comment || comment.type !== "CommentLine") {
-        return null;
-    }
-
-    const rawValue = Core.getCommentValue(comment);
-
-    if (!rawValue || !rawValue.includes("@") || !rawValue.includes("{")) {
-        return null;
-    }
-
-    const tagMatch = rawValue.match(/\/\s*@([A-Za-z]+)/);
-
-    if (!tagMatch) {
-        return null;
-    }
-
-    const tagName = tagMatch[1]?.toLowerCase();
-
-    if (tagName !== "param" && tagName !== "return" && tagName !== "returns") {
-        return null;
-    }
-
-    const annotation = extractTypeAnnotation(rawValue);
-
-    if (!annotation) {
-        return null;
-    }
-
-    const { beforeBrace, typeText, remainder, hadClosingBrace } = annotation;
-
-    if (typeof typeText !== "string") {
-        return null;
-    }
-
-    const sanitizedType = sanitizeTypeAnnotationText(typeText, typeSystemInfo);
-    const needsClosingBrace = hadClosingBrace === false;
-    const hasTypeChange = sanitizedType !== typeText.trim();
-
-    if (!hasTypeChange && !needsClosingBrace) {
-        return null;
-    }
-
-    const updatedValue = `${beforeBrace}${sanitizedType}}${remainder}`;
-
-    if (updatedValue === rawValue) {
-        return null;
-    }
-
-    comment.value = updatedValue;
-
-    if (typeof comment.raw === "string") {
-        comment.raw = `//${updatedValue}`;
-    }
-
-    const target = tagName === "param" ? extractParameterNameFromDocRemainder(remainder) : null;
-
-    return {
-        target
-    };
-}
-
-/**
- * LOCATION SMELL: The following delimiter depth tracking helpers belong in Core's
- * doc-comment service. Bracket/delimiter tracking is a general doc-comment parsing
- * concern, not a Feather-specific fix.
- */
-type DelimiterDepthState = {
-    square: number;
-    angle: number;
-    paren: number;
-};
-
-function createDelimiterDepthState(): DelimiterDepthState {
-    return { square: 0, angle: 0, paren: 0 };
-}
-
-function updateDelimiterDepthState(depths: DelimiterDepthState, char: string) {
-    switch (char) {
-        case "[": {
-            depths.square += 1;
-
-            break;
-        }
-        case "]": {
-            depths.square = Math.max(0, depths.square - 1);
-
-            break;
-        }
-        case "<": {
-            depths.angle += 1;
-
-            break;
-        }
-        case ">": {
-            depths.angle = Math.max(0, depths.angle - 1);
-
-            break;
-        }
-        case "(": {
-            depths.paren += 1;
-
-            break;
-        }
-        case ")": {
-            depths.paren = Math.max(0, depths.paren - 1);
-
-            break;
-        }
-        // Omit a default case because this switch only manages delimiter nesting
-        // depth for brackets ([, ], <, >, (, )). All other characters are
-        // ignored by design so the calling loop can continue processing them
-        // without extra branching noise.
-    }
-}
-
-function isAtTopLevelDepth(depths: DelimiterDepthState) {
-    return depths.square === 0 && depths.angle === 0 && depths.paren === 0;
-}
-
-/**
- * Extracts the type annotation portion from a JSDoc tag value.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment service. Type annotation parsing
- * is a core doc-comment concern, not a Feather-specific fix.
- */
-function extractTypeAnnotation(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const braceIndex = value.indexOf("{");
-
-    if (braceIndex === -1) {
-        return null;
-    }
-
-    const beforeBrace = value.slice(0, braceIndex + 1);
-    const afterBrace = value.slice(braceIndex + 1);
-
-    const closingIndex = afterBrace.indexOf("}");
-    let typeText;
-    let remainder;
-    let hadClosingBrace = true;
-
-    if (closingIndex === -1) {
-        const split = splitTypeAndRemainder(afterBrace);
-        typeText = split.type;
-        remainder = split.remainder;
-        hadClosingBrace = false;
-    } else {
-        typeText = afterBrace.slice(0, closingIndex);
-        remainder = afterBrace.slice(closingIndex + 1);
-    }
-
-    const trimmedType = Core.toTrimmedString(typeText);
-
-    return {
-        beforeBrace,
-        typeText: trimmedType,
-        remainder,
-        hadClosingBrace
-    };
-}
-
-/**
- * Splits a JSDoc tag value into its type annotation and remaining description text.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment service. Tag parsing is a general
- * doc-comment operation, not a Feather-specific fix.
- */
-function splitTypeAndRemainder(text) {
-    if (typeof text !== "string") {
-        return { type: "", remainder: "" };
-    }
-
-    const delimiterDepth = createDelimiterDepthState();
-
-    for (let index = 0; index < text.length; index += 1) {
-        const char = text[index];
-
-        updateDelimiterDepthState(delimiterDepth, char);
-
-        if (WHITESPACE_PATTERN.test(char) && isAtTopLevelDepth(delimiterDepth)) {
-            const typePart = text.slice(0, index).trimEnd();
-            const remainder = text.slice(index);
-            return { type: typePart, remainder };
-        }
-    }
-
-    return {
-        type: text.trim(),
-        remainder: ""
-    };
-}
-
-const WHITESPACE_PATTERN = /\s/;
-
-/**
- * Normalizes whitespace and formatting in a type annotation string.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
-    if (typeof typeText !== "string" || typeText.length === 0) {
-        return typeText ?? "";
-    }
-
-    const normalized = typeText.trim();
-    const balanced = balanceTypeAnnotationDelimiters(normalized);
-
-    const specifierSanitized = fixSpecifierSpacing(balanced, typeSystemInfo?.specifierBaseTypeNamesLower);
-
-    const unionSanitized = fixTypeUnionSpacing(specifierSanitized, typeSystemInfo?.baseTypeNamesLower);
-
-    return normalizeCollectionTypeDelimiters(unionSanitized);
-}
-
-/**
- * Ensures that angle brackets, braces, and parentheses are balanced in a type annotation.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function balanceTypeAnnotationDelimiters(typeText) {
-    if (typeof typeText !== "string" || typeText.length === 0) {
-        return typeText ?? "";
-    }
-
-    const stack = [];
-
-    for (const char of typeText) {
-        switch (char) {
-            case "[": {
-                stack.push("]");
-
-                break;
-            }
-            case "<": {
-                stack.push(">");
-
-                break;
-            }
-            case "(": {
-                stack.push(")");
-
-                break;
-            }
-            case "]":
-            case ">":
-            case ")": {
-                if (stack.length > 0 && stack.at(-1) === char) {
-                    stack.pop();
-                }
-
-                break;
-            }
-            // Omit a default case because this switch only processes bracket
-            // delimiters ([, <, (, ], >, )) to track and balance them via the
-            // stack. All other characters (type names, whitespace, punctuation)
-            // do not affect delimiter matching and are implicitly passed over by
-            // the loop. Adding a default branch would serve no purpose and
-            // obscure the fact that the function deliberately ignores non-bracket
-            // characters while scanning.
-        }
-    }
-
-    if (stack.length === 0) {
-        return typeText;
-    }
-
-    return typeText + stack.reverse().join("");
-}
-
-/**
- * Fixes spacing around type specifiers (e.g., "Array<" vs "Array <").
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function fixSpecifierSpacing(typeText, specifierBaseTypes) {
-    if (typeof typeText !== "string" || typeText.length === 0) {
-        return typeText ?? "";
-    }
-
-    if (!Core.isSetLike(specifierBaseTypes) || !Core.hasIterableItems(specifierBaseTypes)) {
-        return typeText;
-    }
-
-    const patternSource = [...specifierBaseTypes].map((name) => Core.escapeRegExp(name)).join("|");
-
-    if (!patternSource) {
-        return typeText;
-    }
-
-    const regex = new RegExp(String.raw`\b(${patternSource})\b`, "gi");
-    let result = "";
-    let lastIndex = 0;
-    let match;
-
-    while ((match = regex.exec(typeText)) !== null) {
-        const matchStart = match.index;
-        const matchEnd = regex.lastIndex;
-        const before = typeText.slice(lastIndex, matchStart);
-        const matchedText = typeText.slice(matchStart, matchEnd);
-        result += before + matchedText;
-
-        const remainder = typeText.slice(matchEnd);
-        const specifierInfo = readSpecifierToken(remainder);
-
-        if (specifierInfo) {
-            result += specifierInfo.needsDot
-                ? `.${specifierInfo.token}`
-                : remainder.slice(0, specifierInfo.consumedLength);
-
-            regex.lastIndex = matchEnd + specifierInfo.consumedLength;
-            lastIndex = regex.lastIndex;
-        } else {
-            lastIndex = matchEnd;
-        }
-    }
-
-    result += typeText.slice(lastIndex);
-    return result;
-}
-
-/**
- * Reads and parses a type specifier token from the beginning of the text.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function readSpecifierToken(text) {
-    if (typeof text !== "string" || text.length === 0) {
-        return null;
-    }
-
-    let offset = 0;
-
-    while (offset < text.length && WHITESPACE_PATTERN.test(text[offset])) {
-        offset += 1;
-    }
-
-    if (offset === 0) {
-        return null;
-    }
-
-    const firstChar = text[offset];
-
-    if (!firstChar || firstChar === "." || firstChar === "," || firstChar === "|" || firstChar === "}") {
-        return {
-            consumedLength: offset,
-            needsDot: false
-        };
-    }
-
-    let consumed = offset;
-    let token = "";
-    const delimiterDepth = createDelimiterDepthState();
-
-    while (consumed < text.length) {
-        const char = text[consumed];
-
-        if (WHITESPACE_PATTERN.test(char) && isAtTopLevelDepth(delimiterDepth)) {
-            break;
-        }
-
-        if ((char === "," || char === "|" || char === "}") && isAtTopLevelDepth(delimiterDepth)) {
-            break;
-        }
-
-        updateDelimiterDepthState(delimiterDepth, char);
-
-        token += char;
-        consumed += 1;
-    }
-
-    if (token.length === 0) {
-        return {
-            consumedLength: offset,
-            needsDot: false
-        };
-    }
-
-    return {
-        consumedLength: consumed,
-        token,
-        needsDot: true
-    };
-}
-
-/**
- * Normalizes spacing around union type separators (|).
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function fixTypeUnionSpacing(typeText, baseTypesLower) {
-    if (typeof typeText !== "string" || typeText.length === 0) {
-        return typeText ?? "";
-    }
-
-    if (!Core.isSetLike(baseTypesLower) || !Core.hasIterableItems(baseTypesLower)) {
-        return typeText;
-    }
-
-    if (!WHITESPACE_PATTERN.test(typeText)) {
-        return typeText;
-    }
-
-    if (hasDelimiterOutsideNesting(typeText, [",", "|"])) {
-        return typeText;
-    }
-
-    const segments = splitTypeSegments(typeText);
-
-    if (segments.length <= 1) {
-        return typeText;
-    }
-
-    const trimmedSegments = segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0);
-
-    if (trimmedSegments.length <= 1) {
-        return typeText;
-    }
-
-    const recognizedCount = trimmedSegments.reduce((count, segment) => {
-        const baseTypeName = extractBaseTypeName(segment);
-
-        if (baseTypeName && baseTypesLower.has(baseTypeName.toLowerCase())) {
-            return count + 1;
-        }
-
-        return count;
-    }, 0);
-
-    if (recognizedCount < 2) {
-        return typeText;
-    }
-
-    return trimmedSegments.join(",");
-}
-
-// Convert legacy square-bracket collection syntax (e.g. Array[String]) into
-// Feather's preferred angle-bracket form.
-function normalizeCollectionTypeDelimiters(typeText) {
-    if (typeof typeText !== "string" || typeText.length === 0) {
-        return typeText ?? "";
-    }
-
-    return typeText.replaceAll("[", "<").replaceAll("]", ">");
-}
-
-/**
- * Splits a complex type annotation into logical segments for processing.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function splitTypeSegments(text) {
-    const segments = [];
-    let current = "";
-    const delimiterDepth = createDelimiterDepthState();
-
-    for (const char of text) {
-        updateDelimiterDepthState(delimiterDepth, char);
-
-        if ((WHITESPACE_PATTERN.test(char) || char === "," || char === "|") && isAtTopLevelDepth(delimiterDepth)) {
-            if (Core.isNonEmptyTrimmedString(current)) {
-                segments.push(current.trim());
-            }
-            current = "";
-            continue;
-        }
-
-        current += char;
-    }
-
-    if (Core.isNonEmptyTrimmedString(current)) {
-        segments.push(current.trim());
-    }
-
-    return segments;
-}
-
-/**
- * Checks whether a delimiter character appears outside of nested brackets/parens.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- */
-function hasDelimiterOutsideNesting(text, delimiters) {
-    if (typeof text !== "string" || text.length === 0) {
-        return false;
-    }
-
-    const delimiterSet = Core.hasIterableItems(delimiters) ? new Set(delimiters) : new Set();
-    const delimiterDepth = createDelimiterDepthState();
-
-    for (const char of text) {
-        updateDelimiterDepthState(delimiterDepth, char);
-
-        if (delimiterSet.has(char) && isAtTopLevelDepth(delimiterDepth)) {
-            return true;
-        }
-    }
-
-    return false;
-}
 
 function createTemporaryIdentifierName(argument, siblings) {
     const existingNames = new Set();
@@ -16162,489 +15145,6 @@ function isStatementContainer(owner, ownerKey) {
     }
 
     return false;
-}
-
-/**
- * Extracts the base type name from a type segment string.
- *
- * PURPOSE: JSDoc type annotations can have specifiers (e.g., "Array<String>").
- * This function extracts just the base type name ("Array") from the full segment.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
- * See the comments on sanitizeMalformedJsDocTypes for details on consolidating
- * JSDoc type handling logic.
- */
-function extractBaseTypeName(segment) {
-    if (typeof segment !== "string") {
-        return null;
-    }
-
-    const match = segment.match(/^[A-Za-z_][A-Za-z0-9_]*/);
-
-    return match ? match[0] : null;
-}
-
-/**
- * Extracts the parameter name from a JSDoc tag's remainder text.
- *
- * PURPOSE: After parsing the type annotation from a @param tag, this function
- * extracts the parameter identifier from the remaining description text.
- *
- * LOCATION SMELL: This belongs in Core's doc-comment parsing service.
- */
-function extractParameterNameFromDocRemainder(remainder) {
-    if (typeof remainder !== "string") {
-        return null;
-    }
-
-    const match = remainder.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)/);
-
-    return match ? match[1] : null;
-}
-
-/**
- * Renames identifiers that conflict with reserved words or GML built-ins.
- *
- * DUPLICATION WARNING: This function implements identifier renaming logic that likely
- * overlaps with functionality in the 'refactor' and 'semantic' modules.
- *
- * ARCHITECTURE: Identifier renaming should be a responsibility of the 'refactor' module,
- * which is built on top of 'semantic'. The 'semantic' module provides scope analysis and
- * binding resolution (determining what each identifier refers to and where it's defined),
- * while 'refactor' uses that information to perform safe renames that avoid shadowing
- * conflicts and preserve program semantics.
- *
- * CURRENT STATE: This function performs ad-hoc renaming for Feather-detected reserved
- * identifier conflicts without consulting scope information. This risks:
- *   - Introducing new name conflicts by choosing replacements that shadow other variables
- *   - Missing some references if the scope isn't properly analyzed
- *   - Renaming identifiers that don't actually conflict in their scope
- *
- * RECOMMENDATION: Before adding new renaming logic here, check if 'refactor' already
- * provides the capability. If it does, import it and use the scope-aware implementation.
- * If it doesn't, consider adding the feature to 'refactor' so it can be shared and
- * properly tested with scope analysis.
- *
- * LONG-TERM: Extract all identifier renaming from this file and consolidate it into
- * 'refactor', then import those functions here for Feather-specific fixes.
- */
-function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object" || getReservedIdentifierNames().size === 0) {
-        return [];
-    }
-
-    const fixes = [];
-    const renameMap = new Map();
-
-    // First pass: find all declarations that need to be renamed
-    const collectRenamings = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                collectRenamings(child);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "VariableDeclaration" && isSupportedVariableDeclaration(node)) {
-            const declarationFixes = renameReservedIdentifiersInVariableDeclaration(node, diagnostic);
-
-            if (Core.isNonEmptyArray(declarationFixes)) {
-                fixes.push(...declarationFixes);
-                // Collect the renamed identifiers
-                for (const fix of declarationFixes) {
-                    if (fix?.target && fix?.replacement) {
-                        renameMap.set(fix.target, fix.replacement);
-                    }
-                }
-            }
-        } else if (node.type === "MacroDeclaration") {
-            const macroFix = renameReservedIdentifierInMacro(node, diagnostic, sourceText);
-
-            if (macroFix) {
-                fixes.push(macroFix);
-                if (macroFix?.target && macroFix?.replacement) {
-                    renameMap.set(macroFix.target, macroFix.replacement);
-                }
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                collectRenamings(value);
-            }
-        }
-    };
-
-    collectRenamings(ast);
-
-    // Second pass: rename all identifier usages
-    if (renameMap.size > 0) {
-        const renameUsages = (node, parent, property, grandparent) => {
-            if (!node) {
-                return;
-            }
-
-            if (Array.isArray(node)) {
-                for (let i = 0; i < node.length; i++) {
-                    renameUsages(node[i], node, i, parent);
-                }
-                return;
-            }
-
-            if (typeof node !== "object") {
-                return;
-            }
-
-            // Skip renaming identifiers in certain contexts
-            if (shouldSkipIdentifierRenaming(node, parent, property, grandparent)) {
-                return;
-            }
-
-            if (node.type === "Identifier" && node.name && renameMap.has(node.name)) {
-                node.name = renameMap.get(node.name);
-            }
-
-            for (const [key, value] of Object.entries(node)) {
-                if (value && typeof value === "object") {
-                    renameUsages(value, node, key, parent);
-                }
-            }
-        };
-
-        renameUsages(ast, null, null, null);
-    }
-
-    return fixes;
-}
-
-function shouldSkipIdentifierRenaming(node, parent, property, grandparent) {
-    if (!parent) {
-        return false;
-    }
-
-    // Skip renaming the identifier in a variable declarator (already renamed in first pass)
-    if (parent.type === "VariableDeclarator" && property === "id") {
-        return true;
-    }
-
-    // Skip renaming in macro declarations (already renamed in first pass)
-    if (parent.type === "MacroDeclaration" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming property names in member access expressions
-    if (parent.type === "MemberDotExpression" && property === "property") {
-        return true;
-    }
-
-    // Skip renaming in enum declarations
-    if (parent.type === "EnumDeclaration" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming enum member names
-    if (parent.type === "EnumMember" && property === "name") {
-        return true;
-    }
-
-    // Skip renaming function parameter names - they're lexically scoped and don't conflict
-    // with global reserved identifiers. Function parameters can shadow global names by design.
-    if (Array.isArray(parent) && grandparent && property === "params") {
-        // grandparent is the function node, parent is the params array, property is "params"
-        // This means we're looking at an identifier that's directly in the params array
-        return true;
-    }
-
-    // Also handle the case where parent is the params array and we have a numeric index
-    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type) {
-        // Check if grandparent is a function-like node with a params property
-        const isFunctionLike =
-            grandparent.type === "FunctionDeclaration" ||
-            grandparent.type === "FunctionExpression" ||
-            grandparent.type === "ConstructorDeclaration" ||
-            grandparent.type === "StructFunctionDeclaration";
-
-        if (isFunctionLike && grandparent.params === parent) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function isSupportedVariableDeclaration(node) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return false;
-    }
-
-    const kind = typeof node.kind === "string" ? Core.toNormalizedLowerCaseString(node.kind) : null;
-
-    return kind === "var" || kind === "static";
-}
-
-/**
- * Renames reserved identifiers within a VariableDeclaration node.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- */
-function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
-    const declarations = Core.asArray<any>(node?.declarations);
-
-    if (declarations.length === 0) {
-        return [];
-    }
-
-    const fixes = [];
-
-    for (const declarator of declarations) {
-        if (!declarator || declarator.type !== "VariableDeclarator") {
-            continue;
-        }
-
-        const fix = renameReservedIdentifierNode(declarator.id, diagnostic);
-
-        if (fix) {
-            fixes.push(fix);
-        }
-    }
-
-    return fixes;
-}
-
-/**
- * Renames a single identifier node if it conflicts with a reserved word.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- */
-function renameReservedIdentifierNode(identifier, diagnostic, options: RenameOptions = {}) {
-    if (!identifier || identifier.type !== "Identifier") {
-        return null;
-    }
-
-    const name = identifier.name;
-
-    if (!isReservedIdentifier(name)) {
-        return null;
-    }
-
-    const replacement = getReplacementIdentifierName(name);
-
-    if (!replacement || replacement === name) {
-        return null;
-    }
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: name ?? null,
-        range: {
-            start: Core.getNodeStartIndex(identifier),
-            end: Core.getNodeEndIndex(identifier)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    // Add the replacement name to the fix detail so it can be collected
-    fixDetail.replacement = replacement;
-
-    identifier.name = replacement;
-
-    if (typeof options.onRename === "function") {
-        try {
-            options.onRename({
-                identifier,
-                originalName: name,
-                replacement
-            });
-        } catch {
-            // Swallow callback errors to avoid interrupting the fix pipeline.
-        }
-    }
-
-    attachFeatherFixMetadata(identifier, [fixDetail]);
-
-    return fixDetail;
-}
-
-/**
- * Renames a reserved identifier in a macro declaration, updating the macro's text.
- *
- * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
- * This is part of the identifier renaming subsystem that should be consolidated
- * with the 'refactor' and 'semantic' modules.
- *
- * SPECIAL CASE: Macros require additional handling because their body is stored as
- * unparsed text rather than an AST. When renaming a macro identifier, we must also
- * update the macro text to reflect the new name.
- */
-function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
-    if (!node || node.type !== "MacroDeclaration") {
-        return null;
-    }
-
-    return renameReservedIdentifierNode(node.name, diagnostic, {
-        onRename: ({ originalName, replacement }) => {
-            const updatedText = buildMacroReplacementText({
-                macro: node,
-                originalName,
-                replacement,
-                sourceText
-            });
-
-            if (typeof updatedText === "string") {
-                node._featherMacroText = updatedText;
-            }
-        }
-    });
-}
-
-/**
- * Checks whether a given identifier name is a GML reserved word or built-in.
- *
- * DUPLICATION WARNING: This check likely exists in 'refactor' or 'semantic' as well,
- * since reserved word detection is a fundamental part of identifier validation and
- * scope analysis.
- *
- * RECOMMENDATION: Check if 'semantic' or 'refactor' already provides this functionality.
- * If so, import it instead of maintaining a separate implementation. If not, consider
- * moving this to Core or Semantic so all packages can use the same reserved-word list.
- *
- * NOTE: This function checks if an identifier conflicts with GML built-ins, BUT it
- * only returns true for EXACT case matches. If the identifier differs only in case
- * from a reserved name (e.g., "color" vs "Color"), it's allowed because:
- * 1. PascalCase names in the metadata are often type annotations (Color, Array, etc.)
- * 2. Users can legitimately use lowercase versions as variable names
- * 3. Actual GML functions use snake_case (draw_text, show_debug_message)
- */
-function isReservedIdentifier(name) {
-    if (typeof name !== "string" || name.length === 0) {
-        return false;
-    }
-
-    const lowerName = name.toLowerCase();
-
-    // First check if the lowercase version is in the reserved set
-    if (!getReservedIdentifierNames().has(lowerName)) {
-        return false;
-    }
-
-    // If it is, we need to check if there's an exact case match in the original metadata
-    // to avoid false positives where "color" matches "Color" (a type annotation)
-    return hasExactCaseMatch(name);
-}
-
-/**
- * Checks if an identifier has an exact case match in the GML identifier metadata.
- * This prevents false positives where lowercase user variables (e.g., "color")
- * match PascalCase type annotations (e.g., "Color") after case-insensitive comparison.
- */
-function hasExactCaseMatch(name: string): boolean {
-    if (typeof name !== "string" || name.length === 0) {
-        return false;
-    }
-
-    try {
-        const metadata = Core.getIdentifierMetadata();
-        if (!metadata || typeof metadata !== "object") {
-            // If we can't load metadata, fall back to conservative behavior
-            // (don't rename unless we're sure)
-            return false;
-        }
-
-        const identifiers = metadata.identifiers;
-        if (!identifiers || typeof identifiers !== "object") {
-            return false;
-        }
-
-        // Check if there's an exact case match in the original metadata
-        return Object.hasOwn(identifiers, name);
-    } catch {
-        // On any error, be conservative and don't rename
-        return false;
-    }
-}
-
-function getReplacementIdentifierName(originalName) {
-    if (typeof originalName !== "string" || originalName.length === 0) {
-        return null;
-    }
-
-    let candidate = `__featherFix_${originalName}`;
-    const seen = new Set();
-
-    while (isReservedIdentifier(candidate)) {
-        if (seen.has(candidate)) {
-            return null;
-        }
-
-        seen.add(candidate);
-        candidate = `_${candidate}`;
-    }
-
-    return candidate;
-}
-
-function buildMacroReplacementText({ macro, originalName, replacement, sourceText }) {
-    if (!macro || macro.type !== "MacroDeclaration" || typeof replacement !== "string") {
-        return null;
-    }
-
-    const baseText = getMacroBaseText(macro, sourceText);
-
-    if (!Core.isNonEmptyString(baseText)) {
-        return null;
-    }
-
-    if (Core.isNonEmptyString(originalName)) {
-        // Use a regular expression with word boundaries to avoid partial matches during renaming.
-        // We use the 'g' flag even though macros usually only contain the name once in the
-        // declaration header, as macros are text-based and could potentially reference
-        // themselves or others in a way that requires global replacement within the line.
-        const escapedName = originalName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-        const regex = new RegExp(String.raw`\b${escapedName}\b`, "g");
-
-        if (regex.test(baseText)) {
-            return baseText.replace(regex, replacement);
-        }
-    }
-
-    return null;
-}
-
-function getMacroBaseText(macro, sourceText) {
-    if (!macro || macro.type !== "MacroDeclaration") {
-        return null;
-    }
-
-    if (Core.isNonEmptyString(macro._featherMacroText)) {
-        return macro._featherMacroText;
-    }
-
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return null;
-    }
-
-    const startIndex = Core.getNodeStartIndex(macro);
-    const endIndex = Core.getNodeEndIndex(macro);
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number" || endIndex < startIndex) {
-        return null;
-    }
-
-    return sourceText.slice(startIndex, endIndex);
 }
 
 function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
@@ -17349,25 +15849,4 @@ function collectGM1100Candidates(node) {
     visit(node);
 
     return index;
-}
-
-function updateJSDocParamName(node: any, oldName: string, newName: string, collectionService: any) {
-    if (!node) {
-        return;
-    }
-
-    const comments = collectionService ? collectionService.getComments(node) : node.comments;
-
-    if (!Array.isArray(comments)) {
-        return;
-    }
-
-    const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
-    const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
-
-    for (const comment of comments) {
-        if (typeof comment.value === "string" && comment.value.includes("@param")) {
-            comment.value = comment.value.replace(regex, newName);
-        }
-    }
 }

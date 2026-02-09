@@ -12,6 +12,21 @@ import {
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;
 
+function normalizeDocLikeFormattedLine(formatted: string): string {
+    const match = formatted.match(/^(\s*)\/\/\s+\/(.*)$/);
+    if (!match) {
+        return formatted;
+    }
+
+    const [, indent = "", remainder = ""] = match;
+    const trimmedRemainder = remainder.trimStart();
+    if (trimmedRemainder.startsWith("/")) {
+        return formatted;
+    }
+
+    return `${indent}///${remainder}`;
+}
+
 function getNodeStartIndexForDocComments(node: any, locStart: unknown) {
     if (!node) {
         return null;
@@ -192,6 +207,9 @@ function collectNodeDocCommentLines(
         }
 
         comment.printed = true;
+        if (typeof formatted === "string") {
+            formatted = normalizeDocLikeFormattedLine(formatted);
+        }
         if (typeof formatted === "string" && formatted.includes("\n")) {
             const parts = formatted.split(/\r?\n/);
             for (const part of parts) {
@@ -248,7 +266,10 @@ function tryCollectDocLinesFromProgramComments(
     }
 
     const fallbackOptions = resolveLineCommentOptions(options);
-    const collected = docCandidates.map((c) => formatLineComment(c, fallbackOptions));
+    const collected = docCandidates.map((c) => {
+        const formatted = formatLineComment(c, fallbackOptions);
+        return typeof formatted === STRING_TYPE ? normalizeDocLikeFormattedLine(formatted) : formatted;
+    });
     const flattenedCollected = flattenDocEntries(collected);
     for (const c of docCandidates) {
         c.printed = true;
@@ -314,7 +335,10 @@ function tryCollectDocLinesFromSourceText(
         });
         if (matchNode) {
             matchNode.printed = true;
-            return formatLineComment(matchNode, fallbackOptions);
+            const formattedComment = formatLineComment(matchNode, fallbackOptions);
+            return typeof formattedComment === STRING_TYPE
+                ? normalizeDocLikeFormattedLine(formattedComment)
+                : formattedComment;
         }
         const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
         return inner.length > 0 ? `/// ${inner}` : "///";

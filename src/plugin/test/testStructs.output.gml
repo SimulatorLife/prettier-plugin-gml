@@ -49,8 +49,8 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 /// @param bar
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
     self.foo = _foo;
-    value    = 0;
-    bar      = _bar;
+    value = 0;
+    bar = _bar;
 
     /// @override
     /// @description Print a debug message showing foo value
@@ -125,3 +125,5 @@ kbInput.cleanup();
 delete kbInput; // delete the struct
 
 global.camera.punch(undefined, undefined, _num_hearts);
+
+array_push(points, {x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1});

@@ -5,6 +5,7 @@ import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 
 import { Plugin } from "../src/index.js";
+import { getFeatherDiagnosticById, getFeatherMetadata } from "../src/resources/index.js";
 import * as Transforms from "../src/transforms/index.js";
 
 // Using Plugin.format wrapper instead of pluginPath

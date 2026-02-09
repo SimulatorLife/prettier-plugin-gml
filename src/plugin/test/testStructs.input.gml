@@ -138,3 +138,5 @@ delete kbInput    // delete the struct
 
 
 global.camera.punch(,, _num_hearts);
+
+array_push(points, {x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1});

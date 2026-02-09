@@ -1,8 +1,10 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { resolveLoopHoistIdentifier } from "../../runtime/index.js";
 import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes } from "./helpers.js";
 
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {
+    filepath?: string;
     loopLengthHoistFunctionSuffixes?: string | string[] | null;
 };
 
@@ -22,7 +24,7 @@ export function hoistLoopLengthBounds(
 
     const body = Array.isArray(ast.body) ? (ast.body as Array<MutableGameMakerAstNode | null | undefined>) : null;
     if (body) {
-        processStatementList(body, sizeFunctionSuffixes);
+        processStatementList(body, sizeFunctionSuffixes, options);
     }
 
     return ast;
@@ -30,7 +32,8 @@ export function hoistLoopLengthBounds(
 
 function processStatementList(
     statements: Array<MutableGameMakerAstNode | null | undefined>,
-    sizeFunctionSuffixes: Map<string, string>
+    sizeFunctionSuffixes: Map<string, string>,
+    options?: LoopLengthHoistTransformOptions
 ) {
     if (!Array.isArray(statements)) {
         return;
@@ -43,38 +46,43 @@ function processStatementList(
         }
 
         if (statement.type === "ForStatement") {
-            maybeHoistLoopLength(statement, statements, index, sizeFunctionSuffixes);
+            maybeHoistLoopLength(statement, statements, index, sizeFunctionSuffixes, options);
         }
 
-        visitStatementChildren(statement, sizeFunctionSuffixes);
+        visitStatementChildren(statement, sizeFunctionSuffixes, options);
     }
 }
 
-function visitStatementChildren(statement: MutableGameMakerAstNode, sizeFunctionSuffixes: Map<string, string>) {
+function visitStatementChildren(
+    statement: MutableGameMakerAstNode,
+    sizeFunctionSuffixes: Map<string, string>,
+    options?: LoopLengthHoistTransformOptions
+) {
     if (!statement || typeof statement !== "object") {
         return;
     }
 
     const body = statement.body;
     if (Array.isArray(body)) {
-        processStatementList(body as Array<MutableGameMakerAstNode | null | undefined>, sizeFunctionSuffixes);
+        processStatementList(body as Array<MutableGameMakerAstNode | null | undefined>, sizeFunctionSuffixes, options);
     } else if (body && typeof body === "object") {
-        visitStatementChildren(body as MutableGameMakerAstNode, sizeFunctionSuffixes);
+        visitStatementChildren(body as MutableGameMakerAstNode, sizeFunctionSuffixes, options);
     }
 
     if (statement.type === "IfStatement") {
-        visitStatementChildren(statement.consequent as MutableGameMakerAstNode, sizeFunctionSuffixes);
-        visitStatementChildren(statement.alternate as MutableGameMakerAstNode, sizeFunctionSuffixes);
+        visitStatementChildren(statement.consequent as MutableGameMakerAstNode, sizeFunctionSuffixes, options);
+        visitStatementChildren(statement.alternate as MutableGameMakerAstNode, sizeFunctionSuffixes, options);
     }
 
     if (Array.isArray(statement.cases)) {
         for (const caseNode of statement.cases) {
             if (caseNode) {
-                visitStatementChildren(caseNode as MutableGameMakerAstNode, sizeFunctionSuffixes);
+                visitStatementChildren(caseNode as MutableGameMakerAstNode, sizeFunctionSuffixes, options);
                 if (Array.isArray(caseNode.body)) {
                     processStatementList(
                         caseNode.body as Array<MutableGameMakerAstNode | null | undefined>,
-                        sizeFunctionSuffixes
+                        sizeFunctionSuffixes,
+                        options
                     );
                 }
             }
@@ -86,7 +94,8 @@ function maybeHoistLoopLength(
     node: MutableGameMakerAstNode,
     statements: Array<MutableGameMakerAstNode | null | undefined>,
     index: number,
-    sizeFunctionSuffixes: Map<string, string>
+    sizeFunctionSuffixes: Map<string, string>,
+    options?: LoopLengthHoistTransformOptions
 ) {
     const test = node.test as MutableGameMakerAstNode & {
         right?: MutableGameMakerAstNode;
@@ -96,9 +105,20 @@ function maybeHoistLoopLength(
         return;
     }
 
-    const cachedLengthName = buildCachedSizeVariableName(hoistInfo.sizeIdentifierName, hoistInfo.cachedLengthSuffix);
+    const preferredCachedLengthName = buildCachedSizeVariableName(
+        hoistInfo.sizeIdentifierName,
+        hoistInfo.cachedLengthSuffix
+    );
+    const cachedLengthName = resolveLoopHoistIdentifier(
+        {
+            filePath: resolveFormatterFilePath(options),
+            localIdentifierNames: collectIdentifierNamesFromStatementList(statements),
+            preferredName: preferredCachedLengthName
+        },
+        options
+    )?.identifierName;
 
-    if (hasIdentifierConflict(statements, cachedLengthName, index)) {
+    if (!Core.isNonEmptyString(cachedLengthName)) {
         return;
     }
 
@@ -119,55 +139,42 @@ function maybeHoistLoopLength(
     statements.splice(index, 0, declaration);
 }
 
-function hasIdentifierConflict(
-    statements: Array<MutableGameMakerAstNode | null | undefined>,
-    identifierName: string,
-    currentIndex: number
-): boolean {
-    if (!Array.isArray(statements) || typeof identifierName !== "string" || identifierName.length === 0) {
-        return false;
+function resolveFormatterFilePath(options?: LoopLengthHoistTransformOptions): string | null {
+    if (!options) {
+        return null;
     }
 
-    for (const [index, statement] of statements.entries()) {
-        if (index === currentIndex) {
-            continue;
-        }
-
-        if (nodeDeclaresIdentifier(statement, identifierName)) {
-            return true;
-        }
-    }
-
-    return false;
+    const filePathCandidate = options.filepath;
+    return Core.isNonEmptyString(filePathCandidate) ? filePathCandidate : null;
 }
 
-function nodeDeclaresIdentifier(node: MutableGameMakerAstNode | null | undefined, identifierName: string): boolean {
-    if (!node || typeof identifierName !== "string") {
-        return false;
+function collectIdentifierNamesFromStatementList(
+    statements: Array<MutableGameMakerAstNode | null | undefined>
+): ReadonlySet<string> {
+    const identifierNames = new Set<string>();
+
+    for (const statement of statements) {
+        collectIdentifierNamesFromNode(statement, identifierNames);
     }
 
-    if (node.type === "VariableDeclaration") {
-        const declarations = Core.asArray<any>(node.declarations);
+    return identifierNames;
+}
 
-        for (const declarator of declarations) {
-            if (
-                declarator &&
-                declarator.type === "VariableDeclarator" &&
-                Core.getIdentifierText(declarator.id) === identifierName
-            ) {
-                return true;
-            }
-        }
-
-        return false;
+function collectIdentifierNamesFromNode(
+    node: MutableGameMakerAstNode | null | undefined,
+    identifierNames: Set<string>
+): void {
+    if (!node || typeof node !== "object") {
+        return;
     }
 
-    if (node.type === "ForStatement") {
-        return nodeDeclaresIdentifier(node.init as MutableGameMakerAstNode | null | undefined, identifierName);
+    if (node.type === "Identifier" && Core.isNonEmptyString(node.name)) {
+        identifierNames.add(node.name);
     }
 
-    const nodeIdName = Core.getIdentifierText(node.id);
-    return nodeIdName === identifierName;
+    Core.forEachNodeChild(node, (child) =>
+        collectIdentifierNamesFromNode(child as MutableGameMakerAstNode | null | undefined, identifierNames)
+    );
 }
 
 function createLengthDeclaration(name: string, initializer: MutableGameMakerAstNode) {

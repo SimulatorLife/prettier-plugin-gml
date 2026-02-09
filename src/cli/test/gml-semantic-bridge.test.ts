@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { OccurrenceKind } from "@gml-modules/refactor";
@@ -179,5 +182,92 @@ void describe("GmlSemanticBridge tests", () => {
 
         // Also test case insensitivity
         assert.ok(bridge.hasSymbol("gml/objects/ogravitysphere"), "Should find object resource case-insensitively");
+    });
+
+    void it("getAdditionalSymbolEdits rewrites yy metadata using structured updates", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-"));
+        const resourcePath = "objects/oGravitySphere/oGravitySphere.yy";
+        const refPath = "objects/oRef/oRef.yy";
+        const projectManifestPath = "project.yyp";
+
+        const resourceAbsolute = path.join(tmpRoot, resourcePath);
+        const refAbsolute = path.join(tmpRoot, refPath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(resourceAbsolute), { recursive: true });
+        fs.mkdirSync(path.dirname(refAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            resourceAbsolute,
+            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            refAbsolute,
+            `{"name":"oRef","resourceType":"GMObject","spriteId":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",},}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [resourcePath]: {
+                    path: resourcePath,
+                    name: "oGravitySphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [refPath]: {
+                    path: refPath,
+                    name: "oRef",
+                    resourceType: "GMObject",
+                    assetReferences: [
+                        {
+                            propertyPath: "spriteId",
+                            targetPath: resourcePath,
+                            targetName: "oGravitySphere"
+                        }
+                    ]
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: resourcePath,
+                            targetName: "oGravitySphere"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const edits = bridge.getAdditionalSymbolEdits("gml/objects/oGravitySphere", "oGravityWell");
+
+        assert.ok(edits, "Expected additional edits for resource rename");
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === resourcePath));
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === refPath));
+        assert.ok(edits.metadataEdits.some((entry) => entry.path === projectManifestPath));
+
+        const referenceEdit = edits.metadataEdits.find((entry) => entry.path === refPath);
+        assert.ok(referenceEdit);
+        assert.match(referenceEdit.content, /"name"\s*:\s*"oGravityWell"/);
+        assert.match(referenceEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+
+        const manifestEdit = edits.metadataEdits.find((entry) => entry.path === projectManifestPath);
+        assert.ok(manifestEdit);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
+        assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
     });
 });

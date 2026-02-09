@@ -1,2 +1,2 @@
 /// @ignore
-var foo = function () {};
+var _foo = function () {};

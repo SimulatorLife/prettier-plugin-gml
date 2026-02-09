@@ -54,11 +54,11 @@ const MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE = 10;
  * Options controlling how logical-expression condensation should interpret AST
  * comments while traversing.
  */
-export type CondenseLogicalExpressionsOptions = {
+export type OptimizeLogicalExpressionsOptions = {
     helpers?: { hasComment: (node: unknown) => boolean } | ((node: unknown) => boolean) | null;
 };
 
-function resolveHelpers(helpers?: CondenseLogicalExpressionsOptions["helpers"]) {
+function resolveHelpers(helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
     const resolvedHasComment =
         typeof helpers === "function"
             ? helpers
@@ -73,7 +73,7 @@ function resolveHelpers(helpers?: CondenseLogicalExpressionsOptions["helpers"]) 
  * Condenses logical control-flow branches into simplified boolean return
  * expressions.
  */
-export function applyLogicalExpressionCondensation(ast: any, helpers?: CondenseLogicalExpressionsOptions["helpers"]) {
+export function applyLogicalExpressionCondensation(ast: any, helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
     if (!isNode(ast)) {
         return ast;
     }
@@ -111,7 +111,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
         }
         case "UnaryExpression":
         case "IncDecExpression": {
-            const operator = (node.operator ?? "").toLowerCase();
+            const operator = Core.getNormalizedOperator(node);
             if (operator === "!" || operator === "not") {
                 // GML does not support the operator 'not'; this is included to automatic fixing
                 return isBooleanBranchExpression(node.argument, allowValueLiterals);
@@ -122,7 +122,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
             return false;
         }
         case "BinaryExpression": {
-            const operator = (node.operator ?? "").toLowerCase();
+            const operator = Core.getNormalizedOperator(node);
 
             if (Core.isLogicalBinaryOperator(operator)) {
                 return (
@@ -207,6 +207,11 @@ function condenseWithinStatements(statements, helpers) {
         }
 
         if (statement.type === "IfStatement") {
+            const extractedGuard = tryExtractEarlyExitGuardClause(statements, index, helpers);
+            if (extractedGuard) {
+                continue;
+            }
+
             const condensed = tryCondenseIfStatement(statements, index, helpers);
             if (condensed) {
                 // Reprocess the new return statement in case nested condensing applies later.
@@ -216,6 +221,36 @@ function condenseWithinStatements(statements, helpers) {
 
         visit(statement, helpers);
     }
+}
+
+function tryExtractEarlyExitGuardClause(statements, index, helpers) {
+    const statement = statements[index];
+    if (!statement || statement.type !== "IfStatement") {
+        return false;
+    }
+
+    if (helpers.hasComment(statement) || helpers.hasComment(statement.test)) {
+        return false;
+    }
+    if (helpers.hasComment(statement.consequent) || helpers.hasComment(statement.alternate)) {
+        return false;
+    }
+
+    const extractedAlternateExit = extractEarlyExitStatement(statement.alternate, helpers);
+    if (!extractedAlternateExit) {
+        return false;
+    }
+
+    const consequentStatements = extractConsequentStatementsForGuardClause(statement.consequent);
+    if (consequentStatements.length === 0) {
+        return false;
+    }
+
+    const negatedTest = createNegatedTestExpression(statement.test);
+    const guardIfStatement = buildGuardIfStatement(negatedTest, extractedAlternateExit, statement);
+
+    statements.splice(index, 1, guardIfStatement, ...consequentStatements);
+    return true;
 }
 
 function tryCondenseIfStatement(statements, index, helpers) {
@@ -321,6 +356,59 @@ function tryCondenseIfStatement(statements, index, helpers) {
     return true;
 }
 
+function extractConsequentStatementsForGuardClause(node) {
+    if (!isNode(node)) {
+        return [];
+    }
+
+    if (node.type === "BlockStatement") {
+        return asArray(node.body).filter((statement) => isNode(statement));
+    }
+
+    return [node];
+}
+
+function extractEarlyExitStatement(node, helpers) {
+    if (!node || !isNode(node)) {
+        return null;
+    }
+
+    if (helpers.hasComment(node)) {
+        return null;
+    }
+
+    if (node.type === "BlockStatement") {
+        const body = asArray(node.body);
+        if (body.length === 0) {
+            return null;
+        }
+
+        let firstStatementIndex = 0;
+        while (firstStatementIndex < body.length && isIgnorableEmptyStatement(body[firstStatementIndex], helpers)) {
+            firstStatementIndex += 1;
+        }
+
+        if (firstStatementIndex >= body.length) {
+            return null;
+        }
+
+        const firstStatement = body[firstStatementIndex];
+        if (!isNode(firstStatement) || !isEarlyExitStatement(firstStatement, helpers)) {
+            return null;
+        }
+
+        for (let index = firstStatementIndex + 1; index < body.length; index += 1) {
+            if (!canDropStatementAfterEarlyExit(body[index], helpers)) {
+                return null;
+            }
+        }
+
+        return firstStatement;
+    }
+
+    return isEarlyExitStatement(node, helpers) ? node : null;
+}
+
 function extractReturnExpression(node, helpers) {
     if (!node) {
         return null;
@@ -380,6 +468,49 @@ function extractReturnExpression(node, helpers) {
     }
 
     return argument;
+}
+
+function canDropStatementAfterEarlyExit(node, helpers) {
+    if (!isNode(node)) {
+        return false;
+    }
+    if (typeof node.type !== "string") {
+        return false;
+    }
+    if (isEarlyExitStatement(node, helpers)) {
+        return !helpers.hasComment(node);
+    }
+
+    return canDropUnreachableStatement(node, helpers);
+}
+
+function isEarlyExitStatement(node, helpers) {
+    if (!isNode(node)) {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    switch (node.type) {
+        case "ExitStatement":
+        case "BreakStatement":
+        case "ContinueStatement": {
+            return true;
+        }
+        case "ReturnStatement": {
+            const argument = node.argument ?? null;
+            if (argument && helpers.hasComment(argument)) {
+                return false;
+            }
+
+            return argument === null;
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function isIgnorableEmptyStatement(node, helpers) {
@@ -489,6 +620,51 @@ function buildCondensedReturn(
     };
 }
 
+function createNegatedTestExpression(testNode) {
+    const unwrapped = Core.unwrapParenthesizedExpression(testNode) ?? testNode;
+    const normalized = cloneAstNode(unwrapped) as {
+        type?: string;
+        operator?: string;
+        argument?: unknown;
+        start?: unknown;
+        end?: unknown;
+    };
+
+    if (normalized && normalized.type === "UnaryExpression" && normalized.operator === "!") {
+        return cloneAstNode(normalized.argument);
+    }
+
+    return {
+        type: "UnaryExpression",
+        operator: "!",
+        prefix: true,
+        argument: wrapUnaryArgument(normalized),
+        start: cloneLocation(normalized.start),
+        end: cloneLocation(normalized.end)
+    };
+}
+
+function buildGuardIfStatement(test, exitStatement, originalIfStatement) {
+    const guardExitStatement = cloneAstNode(exitStatement) as {
+        start?: unknown;
+        end?: unknown;
+    };
+
+    return {
+        type: "IfStatement",
+        test,
+        consequent: {
+            type: "BlockStatement",
+            body: [guardExitStatement],
+            start: cloneLocation(guardExitStatement.start),
+            end: cloneLocation(guardExitStatement.end)
+        },
+        alternate: null,
+        start: cloneLocation(originalIfStatement.start),
+        end: cloneLocation(originalIfStatement.end)
+    };
+}
+
 function createBooleanContext() {
     return {
         variables: [],
@@ -532,8 +708,8 @@ function toBooleanExpression(node, context) {
     }
 
     if (node.type === "UnaryExpression" || node.type === "IncDecExpression") {
-        const operator = node.operator ?? "";
-        if (operator === "!" || operator.toLowerCase() === "not") {
+        const operator = Core.getNormalizedOperator(node);
+        if (operator === "!" || operator === "not") {
             // GML does not support the operator 'not'; this is included to automatic fixing
             const argumentExpr = toBooleanExpression(node.argument, context);
             if (!argumentExpr) {
@@ -544,7 +720,7 @@ function toBooleanExpression(node, context) {
     }
 
     if (node.type === "BinaryExpression") {
-        const operator = (node.operator ?? "").toLowerCase();
+        const operator = Core.getNormalizedOperator(node);
         if (operator === "&&" || operator === "and") {
             const left = toBooleanExpression(node.left, context);
             const right = toBooleanExpression(node.right, context);

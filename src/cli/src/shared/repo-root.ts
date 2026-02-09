@@ -57,7 +57,7 @@ export async function findRepoRoot(startDir: string): Promise<string> {
                     return dir;
                 }
 
-                if (await pathExists(path.join(dir, ".git"), (stat) => stat.isDirectory())) {
+                if (await pathExists(path.join(dir, ".git"), (stat) => stat.isDirectory() || stat.isFile())) {
                     return dir;
                 }
 
@@ -96,7 +96,7 @@ export function findRepoRootSync(startDir: string): string {
             return dir;
         }
 
-        if (pathExistsSync(path.join(dir, ".git"), (stat) => stat.isDirectory())) {
+        if (pathExistsSync(path.join(dir, ".git"), (stat) => stat.isDirectory() || stat.isFile())) {
             return dir;
         }
 

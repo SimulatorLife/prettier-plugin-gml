@@ -1,0 +1,59 @@
+import { Core } from "@gml-modules/core";
+
+import { getFeatherMetadata } from "./feather-metadata.js";
+
+type FeatherTypeSystemEntry = {
+    name?: string | null;
+    specifierExamples?: Array<string | null> | null;
+    description?: string | null;
+    [key: string]: unknown;
+};
+
+type FeatherTypeSystem = {
+    baseTypes?: Array<FeatherTypeSystemEntry> | null;
+    [key: string]: unknown;
+};
+
+export function buildFeatherTypeSystemInfo() {
+    const metadata = getFeatherMetadata();
+    const typeSystem = metadata?.typeSystem as FeatherTypeSystem | undefined;
+
+    const baseTypes = new Set<string>();
+    const baseTypesLowercase = new Set<string>();
+    const specifierBaseTypes = new Set<string>();
+
+    const entries = Core.asArray<FeatherTypeSystemEntry>(typeSystem?.baseTypes);
+
+    for (const entry of entries) {
+        const name = Core.toTrimmedString(entry?.name);
+
+        if (!name) {
+            continue;
+        }
+
+        baseTypes.add(name);
+        baseTypesLowercase.add(name.toLowerCase());
+
+        const specifierExamples = Core.asArray(entry?.specifierExamples);
+        const hasDotSpecifier = specifierExamples.some((example) => {
+            if (typeof example !== "string") {
+                return false;
+            }
+
+            return example.trim().startsWith(".");
+        });
+
+        const description = Core.toTrimmedString(entry?.description) ?? "";
+        const requiresSpecifier = /requires specifiers/i.test(description) || /constructor/i.test(description);
+
+        if (hasDotSpecifier || requiresSpecifier) {
+            specifierBaseTypes.add(name.toLowerCase());
+        }
+    }
+
+    return {
+        baseTypeNames: [...baseTypes],
+        baseTypeNamesLower: baseTypesLowercase,
+        specifierBaseTypeNamesLower: specifierBaseTypes
+    };
+}
