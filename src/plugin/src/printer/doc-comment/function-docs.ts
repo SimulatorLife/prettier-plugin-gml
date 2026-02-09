@@ -200,7 +200,7 @@ function collectBlockCommentDocEntries(comment: any, node: any, commentStart: nu
     const isDocLike = value.startsWith("*") || value.includes("@") || PARAM_PATTERN.test(value) || hasDocLine;
 
     if (!isDocLike) {
-        return [];
+        return null;
     }
 
     const paramNames = new Set<string>();
@@ -300,7 +300,7 @@ function collectNodeLeadingDocs({
         }
 
         const blockEntries = collectBlockCommentDocEntries(comment, node, commentStart);
-        if (blockEntries.length > 0) {
+        if (blockEntries !== null && blockEntries.length > 0) {
             nodeLeadingDocs.push(...blockEntries);
             comment.printed = true;
             detachPrintedCommentFromNode(node, comment);
