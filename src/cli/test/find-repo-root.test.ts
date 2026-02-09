@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { findRepoRoot, findRepoRootSync } from "../src/shared/repo-root.js";
 
 async function createTemporaryDirectory() {
     const directoryPrefix = path.join(os.tmpdir(), "gml-core-find-repo");
@@ -44,7 +44,7 @@ void describe("findRepoRoot helper (CLI)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithSentinel(tempDir);
-            const resolved = await Core.findRepoRoot(nested);
+            const resolved = await findRepoRoot(nested);
             assert.strictEqual(resolved, tempDir);
         });
     });
@@ -52,7 +52,7 @@ void describe("findRepoRoot helper (CLI)", () => {
     void it("falls back to the top-most package.json when no sentinel is present", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithPackages(tempDir);
-            const resolved = await Core.findRepoRoot(nested);
+            const resolved = await findRepoRoot(nested);
             // Top-most package.json should be returned (outermost)
             assert.strictEqual(resolved, tempDir);
         });
@@ -63,7 +63,7 @@ void describe("findRepoRootSync helper (CLI)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithSentinel(tempDir);
-            const resolved = Core.findRepoRootSync(nested);
+            const resolved = findRepoRootSync(nested);
             assert.strictEqual(resolved, tempDir);
         });
     });
@@ -71,7 +71,7 @@ void describe("findRepoRootSync helper (CLI)", () => {
     void it("falls back to the top-most package.json when no sentinel is present", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithPackages(tempDir);
-            const resolved = Core.findRepoRootSync(nested);
+            const resolved = findRepoRootSync(nested);
             // Top-most package.json should be returned (outermost)
             assert.strictEqual(resolved, tempDir);
         });

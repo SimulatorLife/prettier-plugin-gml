@@ -379,7 +379,7 @@ Replay Latest Patches
 | Phase                  | Duration      | Notes                        |
 |------------------------|---------------|------------------------------|
 | File change detection  | < 1ms         | Native OS events             |
-| Debounce delay         | 200ms         | Configurable                 |
+| Debounce delay         | 100ms         | Optimized for latency        |
 | File read              | 1-5ms         | Depends on file size         |
 | Parsing                | 10-50ms       | Depends on complexity        |
 | JavaScript emission    | 5-20ms        | AST traversal                |
@@ -387,7 +387,7 @@ Replay Latest Patches
 | WebSocket broadcast    | 1-2ms         | Local network                |
 | Client reception       | < 1ms         | JSON parsing                 |
 | Runtime application    | 1-2ms         | Function creation            |
-| **Total (typical)**    | **220-280ms** | From edit to live update     |
+| **Total (typical)**    | **120-180ms** | From edit to live update     |
 
 ### Optimization Strategies
 

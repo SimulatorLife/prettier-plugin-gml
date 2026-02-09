@@ -32,6 +32,7 @@ import {
     type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
+import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -453,9 +454,9 @@ function printNodeDocComments(node, path, options) {
     }
 
     let includeOverrideTag = false;
-    const parentNode = path.getParentNode();
+    const parentNode = safeGetParentNode(path);
     if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-        const grandParentNode = path.getParentNode(1);
+        const grandParentNode = safeGetParentNode(path, 1);
         if (
             grandParentNode &&
             grandParentNode.type === VARIABLE_DECLARATION &&
@@ -520,9 +521,9 @@ function markDocCommentsAsPrinted(node, path) {
             comment.printed = true;
         });
     } else {
-        const parentNode = path.getParentNode();
+        const parentNode = safeGetParentNode(path);
         if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-            const grandParentNode = path.getParentNode(1);
+            const grandParentNode = safeGetParentNode(path, 1);
             if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
                     comment.printed = true;
@@ -906,11 +907,11 @@ function printBinaryExpressionNode(node, path, options, print) {
 
     const parts = [left, " ", operator, line, right];
 
-    let parent = path.getParentNode();
+    let parent = safeGetParentNode(path);
     let depth = 0;
     while (parent && parent.type === "ParenthesizedExpression" && parent.synthetic === true) {
         depth++;
-        parent = path.getParentNode(depth);
+        parent = safeGetParentNode(path, depth);
     }
 
     const isChain =
@@ -1661,9 +1662,7 @@ function printBlockStatementNode(node, path, options, print) {
         );
 
         const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
-        const isConstructor =
-            parentNode?.type === "ConstructorDeclaration" ||
-            (parentNode?.type === "FunctionDeclaration" && parentNode.constructor);
+        const isConstructor = parentNode?.type === "ConstructorDeclaration";
 
         const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
             node,
@@ -1693,12 +1692,55 @@ function printBlockStatementNode(node, path, options, print) {
             }
         }
 
-        // For constructors, preserve blank lines between header and first statement
+        // Check if the first statement will have a synthetic doc comment.
+        // If so, the synthetic doc provides visual separation, so we don't need
+        // to preserve a blank line from the source.
+        let firstStatementHasSyntheticDoc = false;
+        if (isConstructor) {
+            // We need to get the program node to check for synthetic docs
+            let programNode = null;
+            try {
+                let depth = 0;
+                while (depth < 20) {
+                    const ancestor = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
+                    if (!ancestor) break;
+                    if (ancestor.type === "Program") {
+                        programNode = ancestor;
+                        break;
+                    }
+                    depth += 1;
+                }
+            } catch {
+                // Fallback: try without depth parameter
+                const ancestor = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+                if (ancestor?.type === "Program") {
+                    programNode = ancestor;
+                }
+            }
+
+            const syntheticDocForStatic = getSyntheticDocCommentForStaticVariable(
+                firstStatement,
+                options,
+                programNode,
+                originalText
+            );
+            const syntheticDocForFunction = getSyntheticDocCommentForFunctionAssignment(
+                firstStatement,
+                options,
+                programNode,
+                originalText
+            );
+            firstStatementHasSyntheticDoc = syntheticDocForStatic !== null || syntheticDocForFunction !== null;
+        }
+
+        // For constructors, preserve blank lines between header and first statement,
+        // unless the first statement will have a synthetic doc comment (which provides
+        // visual separation already)
         shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine ||
-            preserveForConstructorText ||
-            preserveForLeadingComment ||
-            preserveForInitialSpacing;
+            (shouldPreserveInitialBlankLine && !firstStatementHasSyntheticDoc) ||
+            (preserveForConstructorText && !firstStatementHasSyntheticDoc) ||
+            (preserveForLeadingComment && !firstStatementHasSyntheticDoc) ||
+            (preserveForInitialSpacing && !firstStatementHasSyntheticDoc);
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -2568,9 +2610,13 @@ function buildStatementPartsForPrinter({
 
     const syntheticDocRecord = syntheticDocByNode.get(node);
     const syntheticDocComment = syntheticDocRecord?.doc ?? null;
+
+    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
+
     appendSyntheticDocCommentParts({
         parts,
-        syntheticDocRecord
+        syntheticDocRecord,
+        isFirstStatementInBlock
     });
 
     const textForSemicolons = originalTextCache || "";
@@ -2595,8 +2641,6 @@ function buildStatementPartsForPrinter({
             const initType = declaration?.init?.type;
             return initType === FUNCTION_EXPRESSION || initType === FUNCTION_DECLARATION;
         });
-
-    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
 
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
@@ -2729,10 +2773,12 @@ function hasDocCommentTags(docLines: string[] | null | undefined) {
 
 function appendSyntheticDocCommentParts({
     parts,
-    syntheticDocRecord
+    syntheticDocRecord,
+    isFirstStatementInBlock = false
 }: {
     parts: any[];
     syntheticDocRecord: SyntheticDocCommentPayload | undefined;
+    isFirstStatementInBlock?: boolean;
 }) {
     const syntheticPlainLeadingLines = syntheticDocRecord?.plainLeadingLines ?? [];
     const syntheticDocComment = syntheticDocRecord?.doc ?? null;
@@ -2747,6 +2793,12 @@ function appendSyntheticDocCommentParts({
     }
 
     if (shouldPrintDocComment && syntheticDocComment) {
+        // Always add a leading hardline before the synthetic doc comment to ensure
+        // proper indentation. For first statements in blocks, the block already
+        // contributes the leading hardline, so avoid inserting an extra blank line.
+        if (!isFirstStatementInBlock) {
+            parts.push(hardline);
+        }
         parts.push(syntheticDocComment, hardline);
     }
 }
@@ -3037,12 +3089,24 @@ function handleTerminalTrailingSpacing({
             hasExplicitTrailingBlankLine &&
             !shouldCollapseExcessBlankLines
         ) {
-            shouldPreserveTrailingBlankLine = true;
+            if (Core.isNonEmptyArray(node?._syntheticDocLines)) {
+                shouldPreserveTrailingBlankLine = false;
+            }
+            const nextCharacter =
+                originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+            shouldPreserveTrailingBlankLine =
+                isConstructorBlock && nextCharacter !== "}"
+                    ? false
+                    : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
-            const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
+            if (isConstructorBlock && nextCharacter !== "}") {
+                shouldPreserveTrailingBlankLine = false;
+            } else {
+                const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
 
-            shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
+                shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
+            }
         }
     }
 
@@ -3980,7 +4044,7 @@ function findEnclosingFunctionNode(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4000,7 +4064,7 @@ function findFunctionParameterContext(path) {
 
     let candidate = path.getValue();
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4241,7 +4305,7 @@ function isInsideConstructorFunction(path) {
     let functionAncestorDepth = null;
 
     for (let depth = 0; ; depth += 1) {
-        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
             break;
         }
@@ -4270,7 +4334,7 @@ function findEnclosingFunctionDeclaration(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -4292,7 +4356,7 @@ function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
         return false;
     }
 
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
     if (!parent || parent.type !== "FunctionDeclaration") {
         return false;
     }
@@ -4900,7 +4964,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
 
     let depth = 0;
     while (true) {
-        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
             break;
         }
@@ -5413,7 +5477,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
         return false;
     }
 
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
     if (!parent) return true;
 
     const type = parent.type;
@@ -5591,7 +5655,7 @@ function shouldOmitSyntheticParens(path) {
 
     let depth = 1;
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
         if (!ancestor) {
             return false;
         }
@@ -5613,7 +5677,7 @@ function isControlFlowLogicalTest(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
@@ -5773,7 +5837,7 @@ function isComparisonWithinLogicalChain(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
@@ -6489,7 +6553,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    const parentNode = path.getParentNode();
+    const parentNode = safeGetParentNode(path);
     if (!parentNode || parentNode.type === "Program") {
         return false;
     }
@@ -6755,7 +6819,7 @@ function findEnclosingFunctionForPath(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = safeGetParentNode(path, depth);
         if (!parent) {
             break;
         }
@@ -6958,7 +7022,7 @@ function isInLValueChain(path) {
     }
 
     const node = path.getValue();
-    const parent = path.getParentNode();
+    const parent = safeGetParentNode(path);
 
     if (!parent || typeof parent.type !== STRING_TYPE) {
         return false;

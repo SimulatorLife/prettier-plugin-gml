@@ -190,7 +190,7 @@ revealed three practical improvements:
    spiked.
 
 The `performance` CLI command (for example,
-`node ./src/cli/src/cli.js performance --suite identifier-text`) ran the selected
+`pnpm run cli -- performance --suite identifier-text`) ran the selected
 benchmark suites and printed the captured metrics as structured JSON. Passing
 `--stdout` kept the JSON stream clean for tooling like `jq` by redirecting the
 "report written" summary to stderr. The command also emitted a short stderr

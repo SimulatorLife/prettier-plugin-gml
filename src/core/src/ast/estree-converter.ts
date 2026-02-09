@@ -1,4 +1,5 @@
-import { Core } from "@gml-modules/core";
+import { isObjectLike } from "../utils/object.js";
+import { isNonEmptyString } from "../utils/string.js";
 
 const COMMENT_TYPE_MAP = new Map([
     ["CommentLine", "Line"],
@@ -70,11 +71,11 @@ function convertNode(value, state) {
         return value.map((item) => convertNode(item, state));
     }
 
-    if (!Core.isObjectLike(value)) {
+    if (!isObjectLike(value)) {
         return value;
     }
 
-    const isAstNode = Core.isNonEmptyString(value.type);
+    const isAstNode = isNonEmptyString(value.type);
     const result: any = isAstNode ? { type: value.type } : {};
 
     // Avoid Object.entries allocation in this hot path by walking own enumerable

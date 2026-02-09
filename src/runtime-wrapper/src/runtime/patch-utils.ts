@@ -254,15 +254,13 @@ function updateInstance(
 
             // Resolve event index (try minified first, then standard)
             const eventIndexName = resolveEventIndexName(key);
+            const standardName = EVENT_INDEX_MAP[key];
             let index: number | null = null;
 
             if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
                 index = globalScope[eventIndexName];
-            } else {
-                const standardName = EVENT_INDEX_MAP[key];
-                if (standardName && typeof globalScope[standardName] === "number") {
-                    index = globalScope[standardName];
-                }
+            } else if (standardName && typeof globalScope[standardName] === "number") {
+                index = globalScope[standardName];
             }
 
             if (typeof index === "number" && Array.isArray(pObject.Event)) {
@@ -271,13 +269,18 @@ function updateInstance(
         }
 
         const eventIndexName = resolveEventIndexName(key);
-        if (eventIndexName) {
-            const eventIndexValue = globalScope[eventIndexName];
-            const index = typeof eventIndexValue === "number" ? eventIndexValue : null;
-            const eventArray = instance.Event as Array<boolean> | undefined;
-            if (typeof index === "number" && Array.isArray(eventArray)) {
-                eventArray[index] = true;
-            }
+        const standardName = EVENT_INDEX_MAP[key];
+        let index: number | null = null;
+
+        if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
+            index = globalScope[eventIndexName];
+        } else if (standardName && typeof globalScope[standardName] === "number") {
+            index = globalScope[standardName];
+        }
+
+        const eventArray = instance.Event as Array<boolean> | undefined;
+        if (typeof index === "number" && Array.isArray(eventArray)) {
+            eventArray[index] = true;
         }
     }
 
