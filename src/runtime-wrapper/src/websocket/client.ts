@@ -20,6 +20,8 @@ const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
 const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
 
+const textDecoder = new TextDecoder();
+
 type RuntimeReadyGlobals = Record<string, unknown> & {
     g_pBuiltIn?: Record<string, unknown>;
     JSON_game?: {
@@ -750,7 +752,7 @@ function decodeBinaryPayload(
 ): unknown {
     try {
         const view = toUint8Array(payload);
-        const decoded = new TextDecoder().decode(view);
+        const decoded = textDecoder.decode(view);
         return JSON.parse(decoded);
     } catch (error) {
         if (onError) {
