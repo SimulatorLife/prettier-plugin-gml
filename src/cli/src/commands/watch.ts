@@ -1481,18 +1481,28 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-        await Core.runSequentially(entries, async (entry) => {
+
+        // Separate files and directories for optimal parallel processing
+        const files: Array<string> = [];
+        const directories: Array<string> = [];
+
+        for (const entry of entries) {
             const candidatePath = path.join(currentPath, entry.name);
             if (entry.isDirectory()) {
-                await scan(candidatePath);
-                return;
+                directories.push(candidatePath);
+            } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                files.push(candidatePath);
             }
+        }
 
-            if (!entry.isFile() || !extensionMatcher.matches(entry.name)) {
-                return;
-            }
+        // Process all files in this directory concurrently for maximum throughput
+        await Core.runInParallel(files, async (filePath) => {
+            await addScriptNamesFromFile(filePath, scriptNames);
+        });
 
-            await addScriptNamesFromFile(candidatePath, scriptNames);
+        // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
+        await Core.runSequentially(directories, async (subDirPath) => {
+            await scan(subDirPath);
         });
     }
 
