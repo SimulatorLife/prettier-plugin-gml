@@ -1,10 +1,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
-import {
-    applyLogicalExpressionCondensation,
-    type OptimizeLogicalExpressionsOptions
-} from "./logical-expressions/condensation.js";
+import { createParserTransform } from "../functional-transform.js";
+import { applyLogicalExpressionCondensation, type OptimizeLogicalExpressionsOptions } from "./condensation.js";
 
 type StatementList = Array<MutableGameMakerAstNode | null | undefined>;
 type MutableAstRecord = MutableGameMakerAstNode & Record<string, unknown>;
@@ -404,11 +401,7 @@ function replaceMemberAccessPathInternal(
         getMemberAccessPath(currentValue) === targetPath
     ) {
         const replacement = createIdentifierNode(replacementIdentifier, currentValue);
-        if (Array.isArray(parentContainer)) {
-            parentContainer[property] = replacement;
-        } else {
-            parentContainer[property] = replacement;
-        }
+        parentContainer[property] = Array.isArray(parentContainer) ? replacement : replacement;
         return 1;
     }
 
