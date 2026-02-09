@@ -60,3 +60,4 @@ export type { GameMakerAstLocation, GameMakerAstNode, MutableGameMakerAstNode } 
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
+export type { StringCommentScanState } from "./utils/text-scan.js";

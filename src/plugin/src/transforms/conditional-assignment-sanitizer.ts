@@ -3,13 +3,7 @@
  * The sanitizer inserts harmless guard operators so the parser and printer treat the expression as a comparison while
  * recording how indices shift so downstream diagnostics can stay in sync.
  */
-import { Core } from "@gml-modules/core";
-
-import {
-    advanceStringCommentScan,
-    createStringCommentScanState,
-    type StringCommentScanState
-} from "./source-text/string-comment-scan.js";
+import { Core, type StringCommentScanState } from "@gml-modules/core";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
 
@@ -54,7 +48,7 @@ function appendCharacter(state: ConditionalAssignmentScanState, character: strin
 }
 
 function advanceThroughStringOrComment(state: ConditionalAssignmentScanState, text: string, length: number) {
-    const nextIndex = advanceStringCommentScan(text, length, state.index, state);
+    const nextIndex = Core.advanceStringCommentScan(text, length, state.index, state);
     if (nextIndex === state.index) {
         return false;
     }
@@ -166,7 +160,7 @@ function scanConditionalAssignments(text: string) {
         adjustmentPositions: [],
         index: 0,
         modified: false,
-        ...createStringCommentScanState(),
+        ...Core.createStringCommentScanState(),
         justSawIfKeyword: false,
         ifConditionDepth: 0,
         insertionsSoFar: 0

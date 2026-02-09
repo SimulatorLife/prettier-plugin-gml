@@ -2,15 +2,7 @@
  * Adds missing commas between numeric arguments when argument separators have been omitted in source text.
  * The sanitizer emits index adjustments for downstream location remapping.
  */
-import { Core } from "@gml-modules/core";
-
-import {
-    advanceThroughComment,
-    advanceThroughStringLiteral,
-    createStringCommentScanState,
-    type StringCommentScanState,
-    tryStartStringOrComment
-} from "./source-text/string-comment-scan.js";
+import { Core, type StringCommentScanState } from "@gml-modules/core";
 
 const FALLBACK_FORBIDDEN_CALLEE = [
     "if",
@@ -97,7 +89,7 @@ interface CallProcessingResult {
  */
 function createCallProcessingState(): CallProcessingState {
     return {
-        ...createStringCommentScanState(),
+        ...Core.createStringCommentScanState(),
         depth: 1
     };
 }
@@ -296,16 +288,16 @@ export function sanitizeMissingArgumentSeparators(sourceText: unknown): Sanitize
             const character = text[currentIndex];
 
             if (state.stringQuote !== null) {
-                currentIndex = advanceThroughStringLiteral(text, currentIndex, state);
+                currentIndex = Core.advanceThroughStringLiteral(text, currentIndex, state);
                 continue;
             }
 
             if (state.inLineComment || state.inBlockComment) {
-                currentIndex = advanceThroughComment(text, length, currentIndex, state);
+                currentIndex = Core.advanceThroughComment(text, length, currentIndex, state);
                 continue;
             }
 
-            const stringOrCommentIndex = tryStartStringOrComment(text, length, currentIndex, state);
+            const stringOrCommentIndex = Core.tryStartStringOrComment(text, length, currentIndex, state);
             if (stringOrCommentIndex !== currentIndex) {
                 currentIndex = stringOrCommentIndex;
                 continue;
@@ -495,22 +487,22 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
     let index = startIndex + 1;
     let depth = 1;
     // State is only used for string/comment tracking, not depth tracking
-    const state = createStringCommentScanState();
+    const state = Core.createStringCommentScanState();
 
     while (index < length && depth > 0) {
         const character = sourceText[index];
 
         if (state.stringQuote !== null) {
-            index = advanceThroughStringLiteral(sourceText, index, state);
+            index = Core.advanceThroughStringLiteral(sourceText, index, state);
             continue;
         }
 
         if (state.inLineComment || state.inBlockComment) {
-            index = advanceThroughComment(sourceText, length, index, state);
+            index = Core.advanceThroughComment(sourceText, length, index, state);
             continue;
         }
 
-        const stringOrCommentIndex = tryStartStringOrComment(sourceText, length, index, state);
+        const stringOrCommentIndex = Core.tryStartStringOrComment(sourceText, length, index, state);
         if (stringOrCommentIndex !== index) {
             index = stringOrCommentIndex;
             continue;
