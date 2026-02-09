@@ -145,7 +145,7 @@ The WebSocket URL injected into the HTML5 output will match the `--websocket-hos
 
 **Debouncing File Changes:**
 
-The watch command includes intelligent debouncing to prevent unnecessary transpilations when files change rapidly (e.g., during IDE auto-save or when making multiple quick edits). By default, the watcher waits 200ms after the last file change before transpiling, which:
+The watch command includes intelligent debouncing to prevent unnecessary transpilations when files change rapidly (e.g., during IDE auto-save or when making multiple quick edits). By default, the watcher waits 100ms after the last file change before transpiling, which:
 
 - **Reduces system load** - Only transpiles once per burst of edits instead of on every keystroke
 - **Minimizes WebSocket traffic** - Sends one patch instead of many rapid updates
@@ -155,7 +155,7 @@ The watch command includes intelligent debouncing to prevent unnecessary transpi
 Configure the debounce delay with `--debounce-delay`:
 
 ```bash
-# Use default 200ms debounce
+# Use default 100ms debounce
 pnpm run cli -- watch
 
 # Increase debounce for slower systems
