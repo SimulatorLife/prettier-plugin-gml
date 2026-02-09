@@ -79,7 +79,7 @@ function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
     }
 
     if (ancestor.type === BINARY_EXPRESSION) {
-        const operator = String(ancestor.operator ?? "").toLowerCase();
+        const operator = Core.getNormalizedOperator(ancestor);
 
         if (operator === "mod" || operator === "%") {
             return true;

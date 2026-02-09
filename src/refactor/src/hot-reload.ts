@@ -45,45 +45,59 @@ export async function prepareHotReloadUpdates(
     const grouped = workspace.groupByFile();
     const updatesBySymbol = new Map<string, HotReloadUpdate>();
 
-    await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
-        // Determine which symbols are defined in this file
-        let affectedSymbols = [];
+    // Parallelize file symbol queries for better hot reload performance.
+    // Each file's symbol lookup is independent, so we can query them concurrently
+    // to reduce total latency during hot reload preparation.
+    const fileResults = await Promise.all(
+        Array.from(grouped.entries()).map(async ([filePath, edits]) => {
+            // Determine which symbols are defined in this file
+            let affectedSymbols = [];
 
-        if (hasMethod(semantic, "getFileSymbols")) {
-            affectedSymbols = await semantic.getFileSymbols(filePath);
-        }
-
-        // If we have specific symbol information, create targeted updates
-        if (affectedSymbols.length > 0) {
-            for (const symbol of affectedSymbols) {
-                const update: HotReloadUpdate = {
-                    symbolId: symbol.id,
-                    action: "recompile",
-                    filePath,
-                    affectedRanges: edits.map((e) => ({
-                        start: e.start,
-                        end: e.end
-                    }))
-                };
-                updates.push(update);
-                updatesBySymbol.set(symbol.id, update);
+            if (hasMethod(semantic, "getFileSymbols")) {
+                affectedSymbols = await semantic.getFileSymbols(filePath);
             }
-            return;
-        }
 
-        // Fallback: create a generic update for the file
-        const update: HotReloadUpdate = {
-            symbolId: `file://${filePath}`,
-            action: "recompile",
-            filePath,
-            affectedRanges: edits.map((e) => ({
-                start: e.start,
-                end: e.end
-            }))
-        };
-        updates.push(update);
-        updatesBySymbol.set(update.symbolId, update);
-    });
+            const fileUpdates: Array<HotReloadUpdate> = [];
+
+            // If we have specific symbol information, create targeted updates
+            if (affectedSymbols.length > 0) {
+                for (const symbol of affectedSymbols) {
+                    const update: HotReloadUpdate = {
+                        symbolId: symbol.id,
+                        action: "recompile",
+                        filePath,
+                        affectedRanges: edits.map((e) => ({
+                            start: e.start,
+                            end: e.end
+                        }))
+                    };
+                    fileUpdates.push(update);
+                }
+                return fileUpdates;
+            }
+
+            // Fallback: create a generic update for the file
+            const update: HotReloadUpdate = {
+                symbolId: `file://${filePath}`,
+                action: "recompile",
+                filePath,
+                affectedRanges: edits.map((e) => ({
+                    start: e.start,
+                    end: e.end
+                }))
+            };
+            fileUpdates.push(update);
+            return fileUpdates;
+        })
+    );
+
+    // Flatten results and build the updatesBySymbol map
+    for (const fileUpdates of fileResults) {
+        for (const update of fileUpdates) {
+            updates.push(update);
+            updatesBySymbol.set(update.symbolId, update);
+        }
+    }
 
     // Expand to transitive dependents using the cascade helper so hot reload
     // consumers receive a full picture of which symbols should be refreshed.
@@ -598,54 +612,67 @@ export async function generateTranspilerPatches(
 
     const patches: Array<TranspilerPatch> = [];
 
-    await Core.runSequentially(hotReloadUpdates, async (update) => {
-        // Filter to recompile actions since only script recompilations produce
-        // runtime patches that can be hot-reloaded. Asset renames and other
-        // non-code changes don't require transpilation or runtime updates.
-        if (update.action !== "recompile") {
-            return;
-        }
+    // Parallelize transpilation for faster hot reload patch generation.
+    // Each update's file read and transpilation is independent, so we can
+    // process them concurrently to minimize total latency during hot reload.
+    const patchResults = await Promise.all(
+        hotReloadUpdates.map(async (update) => {
+            // Filter to recompile actions since only script recompilations produce
+            // runtime patches that can be hot-reloaded. Asset renames and other
+            // non-code changes don't require transpilation or runtime updates.
+            if (update.action !== "recompile") {
+                return null;
+            }
 
-        try {
-            const sourceText = await readFile(update.filePath);
+            try {
+                const sourceText = await readFile(update.filePath);
 
-            // Transpile the updated script into a hot-reload patch if a transpiler
-            // is available. The patch contains executable JavaScript code that the
-            // GameMaker runtime can inject without restarting the game.
-            if (hasMethod(formatter, "transpileScript")) {
-                const patch = await formatter.transpileScript({
-                    sourceText,
-                    symbolId: update.symbolId
-                });
-
-                patches.push({
-                    symbolId: update.symbolId,
-                    patch,
-                    filePath: update.filePath
-                });
-            } else {
-                // Fall back to a basic patch structure containing only the source
-                // text when transpilation isn't available. This still allows the
-                // caller to process the updated files, though it won't be directly
-                // executable by GameMaker's runtime without manual intervention.
-                patches.push({
-                    symbolId: update.symbolId,
-                    patch: {
-                        kind: "script",
-                        id: update.symbolId,
+                // Transpile the updated script into a hot-reload patch if a transpiler
+                // is available. The patch contains executable JavaScript code that the
+                // GameMaker runtime can inject without restarting the game.
+                if (hasMethod(formatter, "transpileScript")) {
+                    const patch = await formatter.transpileScript({
                         sourceText,
-                        version: Date.now()
-                    },
-                    filePath: update.filePath
-                });
+                        symbolId: update.symbolId
+                    });
+
+                    return {
+                        symbolId: update.symbolId,
+                        patch,
+                        filePath: update.filePath
+                    };
+                } else {
+                    // Fall back to a basic patch structure containing only the source
+                    // text when transpilation isn't available. This still allows the
+                    // caller to process the updated files, though it won't be directly
+                    // executable by GameMaker's runtime without manual intervention.
+                    return {
+                        symbolId: update.symbolId,
+                        patch: {
+                            kind: "script" as const,
+                            id: update.symbolId,
+                            sourceText,
+                            version: Date.now()
+                        },
+                        filePath: update.filePath
+                    };
+                }
+            } catch (error) {
+                // Log error but continue processing other updates
+                if (typeof console !== "undefined" && console.warn) {
+                    console.warn(`Failed to generate patch for ${update.symbolId}: ${Core.getErrorMessage(error)}`);
+                }
+                return null;
             }
-        } catch (error) {
-            // Log error but continue processing other updates
-            if (typeof console !== "undefined" && console.warn) {
-                console.warn(`Failed to generate patch for ${update.symbolId}: ${error.message}`);
-            }
+        })
+    );
+
+    // Filter out null results (skipped updates or errors) and collect patches
+    for (const patch of patchResults) {
+        if (patch !== null) {
+            patches.push(patch);
         }
-    });
+    }
 
     return patches;
 }

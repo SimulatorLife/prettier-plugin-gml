@@ -1191,6 +1191,27 @@ export function unwrapParenthesizedExpression(
 }
 
 /**
+ * Extract and normalize the operator from an AST node.
+ *
+ * This helper consolidates the repeated pattern of safely extracting an operator
+ * string from expression nodes (BinaryExpression, UnaryExpression, etc.) with
+ * consistent null handling and lowercase normalization. GML operators are
+ * case-insensitive, so normalization ensures reliable comparison across
+ * transforms and printer logic.
+ *
+ * @param node AST node that may contain an operator property.
+ * @returns Lowercase operator string, or `null` if the operator is missing,
+ *   empty, or not a string.
+ */
+export function getNormalizedOperator(node: GameMakerAstNode | null | undefined): string | null {
+    if (!node) {
+        return null;
+    }
+    const operator = (node as { operator?: unknown }).operator;
+    return typeof operator === "string" && operator.length > 0 ? operator.toLowerCase() : null;
+}
+
+/**
  * Check whether {@link node} is a binary expression with the specified operator.
  *
  * This convenience predicate simplifies operator-specific checks in math
@@ -1203,7 +1224,7 @@ export function unwrapParenthesizedExpression(
  *     {@link operator}.
  */
 export function isBinaryOperator(node: GameMakerAstNode | null | undefined, operator: string): boolean {
-    return node?.type === BINARY_EXPRESSION && (node as { operator?: string }).operator?.toLowerCase() === operator;
+    return node?.type === BINARY_EXPRESSION && getNormalizedOperator(node) === operator;
 }
 
 /**
