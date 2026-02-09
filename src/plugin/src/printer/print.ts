@@ -58,7 +58,6 @@ import {
 import {
     getOriginalTextFromOptions,
     hasBlankLineAfterOpeningBrace,
-    hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
@@ -1601,16 +1600,22 @@ function isDecorativeBlockComment(comment) {
         return false;
     }
 
-    // Process lines in a single pass, short-circuiting on first match to avoid
-    // unnecessary allocations from map/filter intermediate arrays
     const lines = value.split(/\r?\n/);
+    let hasDecorativeContent = false;
     for (const line_ of lines) {
         const normalizedLine = line_.replaceAll("\t", "    ");
-        if (Core.isNonEmptyTrimmedString(normalizedLine) && DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
-            return true;
+        if (!Core.isNonEmptyTrimmedString(normalizedLine)) {
+            continue;
         }
+
+        if (!DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
+            // Found a non-decorative line -> treat entire comment as normal content
+            return false;
+        }
+        hasDecorativeContent = true;
     }
-    return false;
+
+    return hasDecorativeContent;
 }
 
 function printBlockStatementNode(node, path, options, print) {
@@ -1627,13 +1632,11 @@ function printBlockStatementNode(node, path, options, print) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const { originalText } = sourceMetadata;
     const firstStatement = node.body[0];
-    const constructorStartLine = node?.loc?.start?.line ?? node?.start?.line ?? null;
-    const firstStatementStartLine = firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
-    const constructorHasLineGap =
-        constructorStartLine !== null &&
-        firstStatementStartLine !== null &&
-        firstStatementStartLine > constructorStartLine + 1;
-    let shouldPreserveInitialBlankLine = constructorHasLineGap;
+
+    // We no longer use line-based gap detection here because it incorrectly triggers
+    // when comments fill the gap between the block opening and the first statement.
+    // Instead, we rely on hasBlankLineAfterOpeningBrace to check for actual blank lines.
+    let shouldPreserveInitialBlankLine = false;
 
     if (firstStatement) {
         const { startIndex: firstStatementStartIndex } = resolveNodeIndexRangeWithSource(
@@ -1643,13 +1646,6 @@ function printBlockStatementNode(node, path, options, print) {
 
         const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
         const isConstructor = parentNode?.type === "ConstructorDeclaration";
-
-        const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
-            node,
-            sourceMetadata,
-            originalText,
-            firstStatementStartIndex
-        );
 
         const preserveForConstructorText =
             isConstructor &&
@@ -1719,7 +1715,6 @@ function printBlockStatementNode(node, path, options, print) {
         shouldPreserveInitialBlankLine =
             (shouldPreserveInitialBlankLine && !firstStatementHasSyntheticDoc) ||
             (preserveForConstructorText && !firstStatementHasSyntheticDoc) ||
-            (preserveForLeadingComment && !firstStatementHasSyntheticDoc) ||
             (preserveForInitialSpacing && !firstStatementHasSyntheticDoc);
     }
 
