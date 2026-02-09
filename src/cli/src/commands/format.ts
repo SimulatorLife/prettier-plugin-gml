@@ -5,7 +5,7 @@
  * GameMaker Language files.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -69,8 +69,9 @@ const {
 
 const formattingCache = new Map<string, string>();
 // Bound cache growth so large formatting runs do not retain every unique file payload.
-// Reduced from 100 to 20 to prevent memory exhaustion on large projects.
-const MAX_FORMATTING_CACHE_ENTRIES = 20;
+// Reduced from 100 to 10 since cache keys now use hashes instead of full file content,
+// and we perform more frequent periodic cleanups.
+const MAX_FORMATTING_CACHE_ENTRIES = 10;
 
 function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
     if (!Number.isFinite(limit)) {
@@ -131,6 +132,10 @@ function stringifyCacheComponent(value: unknown) {
 function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
     const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
     const pluginKey = Array.isArray(plugins) ? plugins.map(String).toSorted().join(",") : "";
+    // Use a hash of the file content instead of the full content to prevent memory bloat.
+    // The cache key previously included the entire file content, which caused unbounded
+    // memory growth when formatting large projects with many large files.
+    const contentHash = createHash("sha256").update(data, "utf8").digest("hex");
     return [
         stringifyCacheComponent(parser),
         stringifyCacheComponent(tabWidth),
@@ -138,7 +143,7 @@ function createFormattingCacheKey(data: string, formattingOptions: PrettierOptio
         stringifyCacheComponent(semi),
         stringifyCacheComponent(useTabs),
         pluginKey,
-        data
+        contentHash
     ].join("|");
 }
 
@@ -673,7 +678,8 @@ let inMemorySnapshotCount = 0;
 
 // Track processed files for periodic cache cleanup
 let processedFileCount = 0;
-const PERIODIC_CLEANUP_INTERVAL = 50;
+// Reduced from 50 to 10 to perform more frequent cleanups and prevent memory buildup
+const PERIODIC_CLEANUP_INTERVAL = 10;
 
 function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
@@ -806,11 +812,12 @@ async function enforceSnapshotMemoryLimit() {
 
 /**
  * Perform periodic memory cleanup to prevent accumulation during large formatting runs.
- * This includes clearing the formatting cache and triggering garbage collection if available.
+ * This includes trimming the formatting cache and triggering garbage collection if available.
  */
 function performPeriodicMemoryCleanup() {
-    // Clear the formatting cache to free memory
-    formattingCache.clear();
+    // Trim the formatting cache more aggressively to limit memory usage.
+    // Instead of clearing completely, we keep only a small number of recent entries.
+    trimFormattingCache(5);
 
     // Trigger garbage collection if exposed (e.g., when running with --expose-gc)
     if (typeof globalThis.gc === "function") {
