@@ -2204,6 +2204,7 @@ export const __formatTest__ = Object.freeze({
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
         storeFormattingCacheEntry(cacheKey, formatted),
     getFormattingCacheKeysForTests: () => [...formattingCache.keys()],
+    createFormattingCacheKeyForTests: createFormattingCacheKey,
     // Memory management test helpers
     getMemoryManagementStatsForTests: () => ({
         inMemorySnapshotCount,
