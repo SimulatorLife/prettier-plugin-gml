@@ -43,7 +43,11 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "../shared/ignore-path-registry.js";
-import { ignoreRuleNegations } from "../shared/ignore-rules-negation-tracker.js";
+import {
+    hasNegatedIgnoreRules,
+    markNegatedIgnoreRulesDetected,
+    resetNegatedIgnoreRulesFlag
+} from "../shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 
 const {
@@ -65,7 +69,8 @@ const {
 
 const formattingCache = new Map<string, string>();
 // Bound cache growth so large formatting runs do not retain every unique file payload.
-const MAX_FORMATTING_CACHE_ENTRIES = 100;
+// Reduced from 100 to 20 to prevent memory exhaustion on large projects.
+const MAX_FORMATTING_CACHE_ENTRIES = 20;
 
 function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
     if (!Number.isFinite(limit)) {
@@ -661,6 +666,15 @@ let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
+// Limit the number of in-memory snapshots to prevent unbounded memory growth
+// when disk writes fail. When this limit is reached, old snapshots are released.
+const MAX_IN_MEMORY_SNAPSHOTS = 50;
+let inMemorySnapshotCount = 0;
+
+// Track processed files for periodic cache cleanup
+let processedFileCount = 0;
+const PERIODIC_CLEANUP_INTERVAL = 50;
+
 function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
         return revertSnapshotDirectory;
@@ -710,7 +724,13 @@ async function releaseSnapshot(snapshot) {
     await withObjectLike(
         snapshot,
         async (snapshotObject) => {
-            const { snapshotPath } = snapshotObject;
+            const { snapshotPath, inlineContents } = snapshotObject;
+
+            // Track in-memory snapshot count for garbage collection
+            if (inlineContents !== null && inMemorySnapshotCount > 0) {
+                inMemorySnapshotCount -= 1;
+            }
+
             if (!snapshotPath) {
                 return;
             }
@@ -757,6 +777,47 @@ async function discardFormattedFileOriginalContents() {
     }
 }
 
+/**
+ * Release old snapshots when the in-memory snapshot count exceeds the limit.
+ * This prevents unbounded memory growth when disk writes fail and snapshots
+ * must be kept in memory.
+ */
+async function enforceSnapshotMemoryLimit() {
+    if (inMemorySnapshotCount <= MAX_IN_MEMORY_SNAPSHOTS) {
+        return;
+    }
+
+    const snapshotsToRelease = inMemorySnapshotCount - MAX_IN_MEMORY_SNAPSHOTS;
+    const entries = [...formattedFileOriginalContents.entries()];
+
+    // Collect snapshots to release (oldest first): take the first N entries and filter for in-memory snapshots
+    const snapshotsToDelete = entries
+        .slice(0, snapshotsToRelease)
+        .flatMap(([filePath, snapshot]) =>
+            snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null ? [{ filePath, snapshot }] : []
+        );
+
+    // Release snapshots sequentially to maintain correct accounting
+    await Core.runSequentially(snapshotsToDelete, async ({ filePath, snapshot }) => {
+        formattedFileOriginalContents.delete(filePath);
+        await releaseSnapshot(snapshot);
+    });
+}
+
+/**
+ * Perform periodic memory cleanup to prevent accumulation during large formatting runs.
+ * This includes clearing the formatting cache and triggering garbage collection if available.
+ */
+function performPeriodicMemoryCleanup() {
+    // Clear the formatting cache to free memory
+    formattingCache.clear();
+
+    // Trigger garbage collection if exposed (e.g., when running with --expose-gc)
+    if (typeof globalThis.gc === "function") {
+        globalThis.gc();
+    }
+}
+
 async function readSnapshotContents(snapshot) {
     if (!snapshot || typeof snapshot !== "object") {
         return "";
@@ -794,11 +855,13 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattingError = false;
     formattingErrorCount = 0;
     resetRegisteredIgnorePaths();
-    ignoreRuleNegations.detected = false;
+    resetNegatedIgnoreRulesFlag();
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
     formattingCache.clear();
+    inMemorySnapshotCount = 0;
+    processedFileCount = 0;
 }
 
 /**
@@ -843,9 +906,13 @@ async function recordFormattedFileOriginalContents(filePath, contents) {
         // can still proceed even if disk I/O fails, though it consumes more memory
         // and won't survive process crashes.
         snapshot.inlineContents = contents;
+        inMemorySnapshotCount += 1;
     }
 
     formattedFileOriginalContents.set(filePath, snapshot);
+
+    // Enforce memory limit by releasing old snapshots when the limit is exceeded
+    await enforceSnapshotMemoryLimit();
 }
 
 async function revertFormattedFiles() {
@@ -956,7 +1023,7 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
         const contents = await readFile(ignoreFilePath, "utf8");
 
         if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-            ignoreRuleNegations.detected = true;
+            markNegatedIgnoreRulesDetected();
         }
     } catch {
         // Tolerate missing or inaccessible ignore files during negation detection.
@@ -984,7 +1051,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 
     registerIgnorePath(ignoreFilePath);
 
-    if (ignoreRuleNegations.detected) {
+    if (hasNegatedIgnoreRules()) {
         return;
     }
 
@@ -1006,7 +1073,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
-    if (ignoreRuleNegations.detected) {
+    if (hasNegatedIgnoreRules()) {
         return false;
     }
 
@@ -1445,6 +1512,12 @@ async function processFile(filePath, activeIgnorePaths = []) {
         await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
+
+        // Increment processed file counter and perform periodic cleanup
+        processedFileCount += 1;
+        if (processedFileCount % PERIODIC_CLEANUP_INTERVAL === 0) {
+            performPeriodicMemoryCleanup();
+        }
     } catch (error) {
         await handleFormattingError(error, filePath);
     }
@@ -2123,5 +2196,38 @@ export const __formatTest__ = Object.freeze({
     }),
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
         storeFormattingCacheEntry(cacheKey, formatted),
-    getFormattingCacheKeysForTests: () => [...formattingCache.keys()]
+    getFormattingCacheKeysForTests: () => [...formattingCache.keys()],
+    // Memory management test helpers
+    getMemoryManagementStatsForTests: () => ({
+        inMemorySnapshotCount,
+        maxInMemorySnapshots: MAX_IN_MEMORY_SNAPSHOTS,
+        processedFileCount,
+        periodicCleanupInterval: PERIODIC_CLEANUP_INTERVAL,
+        formattedFileOriginalContentsSize: formattedFileOriginalContents.size
+    }),
+    setInMemorySnapshotCountForTests: (count: number) => {
+        inMemorySnapshotCount = count;
+    },
+    setProcessedFileCountForTests: (count: number) => {
+        processedFileCount = count;
+    },
+    addFormattedFileSnapshotForTests: (
+        filePath: string,
+        inlineContents: string | null,
+        snapshotPath: string | null = null
+    ) => {
+        formattedFileOriginalContents.set(filePath, {
+            snapshotPath,
+            inlineContents
+        });
+        if (inlineContents !== null) {
+            inMemorySnapshotCount += 1;
+        }
+    },
+    clearFormattedFileSnapshotsForTests: () => {
+        formattedFileOriginalContents.clear();
+        inMemorySnapshotCount = 0;
+    },
+    enforceSnapshotMemoryLimitForTests: enforceSnapshotMemoryLimit,
+    performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup
 });

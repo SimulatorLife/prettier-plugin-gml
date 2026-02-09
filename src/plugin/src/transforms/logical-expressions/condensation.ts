@@ -111,7 +111,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
         }
         case "UnaryExpression":
         case "IncDecExpression": {
-            const operator = (node.operator ?? "").toLowerCase();
+            const operator = Core.getNormalizedOperator(node);
             if (operator === "!" || operator === "not") {
                 // GML does not support the operator 'not'; this is included to automatic fixing
                 return isBooleanBranchExpression(node.argument, allowValueLiterals);
@@ -122,7 +122,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
             return false;
         }
         case "BinaryExpression": {
-            const operator = (node.operator ?? "").toLowerCase();
+            const operator = Core.getNormalizedOperator(node);
 
             if (Core.isLogicalBinaryOperator(operator)) {
                 return (
@@ -708,8 +708,8 @@ function toBooleanExpression(node, context) {
     }
 
     if (node.type === "UnaryExpression" || node.type === "IncDecExpression") {
-        const operator = node.operator ?? "";
-        if (operator === "!" || operator.toLowerCase() === "not") {
+        const operator = Core.getNormalizedOperator(node);
+        if (operator === "!" || operator === "not") {
             // GML does not support the operator 'not'; this is included to automatic fixing
             const argumentExpr = toBooleanExpression(node.argument, context);
             if (!argumentExpr) {
@@ -720,7 +720,7 @@ function toBooleanExpression(node, context) {
     }
 
     if (node.type === "BinaryExpression") {
-        const operator = (node.operator ?? "").toLowerCase();
+        const operator = Core.getNormalizedOperator(node);
         if (operator === "&&" || operator === "and") {
             const left = toBooleanExpression(node.left, context);
             const right = toBooleanExpression(node.right, context);

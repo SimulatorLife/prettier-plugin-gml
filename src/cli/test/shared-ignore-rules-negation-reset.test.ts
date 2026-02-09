@@ -26,20 +26,18 @@ void describe("formatting session negation tracking", () => {
                 import("../src/shared/ignore-rules-negation-tracker.js")
             ]);
 
-            const { ignoreRuleNegations } = tracker;
+            const { hasNegatedIgnoreRules, markNegatedIgnoreRulesDetected } = tracker;
 
-            ignoreRuleNegations.detected = false;
-            ignoreRuleNegations.detected = true;
-            assert.equal(ignoreRuleNegations.detected, true);
+            assert.equal(hasNegatedIgnoreRules(), false);
+            markNegatedIgnoreRulesDetected();
+            assert.equal(hasNegatedIgnoreRules(), true);
 
             const resetPromise = __test__.resetFormattingSessionForTests("skip");
 
             restoreSkipEnv();
             await resetPromise;
 
-            assert.equal(ignoreRuleNegations.detected, false);
-
-            ignoreRuleNegations.detected = false;
+            assert.equal(hasNegatedIgnoreRules(), false);
         } catch (error) {
             restoreSkipEnv();
             throw error;

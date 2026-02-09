@@ -1,6 +1,7 @@
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import { isErrorLike, toArray } from "../runtime/runtime-core-helpers.js";
+import { getHighResolutionTime, getWallClockTime } from "../runtime/timing-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type {
     MessageEventLike,
@@ -17,6 +18,7 @@ import type {
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
+const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
 
 type RuntimeReadyGlobals = Record<string, unknown> & {
     g_pBuiltIn?: Record<string, unknown>;
@@ -153,9 +155,9 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
 
     queueMetrics.flushCount += 1;
     queueMetrics.lastFlushSize = flushSize;
-    queueMetrics.lastFlushedAt = Date.now();
+    queueMetrics.lastFlushedAt = getWallClockTime();
 
-    const flushStartTime = Date.now();
+    const flushStartTime = getHighResolutionTime();
 
     if (wrapper.applyPatchBatch) {
         const result = wrapper.applyPatchBatch(patchesToFlush);
@@ -170,7 +172,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         queueMetrics.totalFlushed += flushSize;
 
         if (result.success && applied > 0) {
-            connectionMetrics.lastPatchAppliedAt = Date.now();
+            connectionMetrics.lastPatchAppliedAt = getWallClockTime();
         }
     } else {
         for (const patch of patchesToFlush) {
@@ -179,7 +181,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         queueMetrics.totalFlushed += flushSize;
     }
 
-    const flushDuration = Date.now() - flushStartTime;
+    const flushDuration = getHighResolutionTime() - flushStartTime;
     if (logger) {
         logger.patchQueueFlushed(flushSize, flushDuration);
     }
@@ -212,9 +214,12 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
         queueState.queueHead += 1;
         queueMetrics.totalDropped += 1;
 
-        // Periodically compact the queue to prevent unbounded growth
-        // Only compact when head has advanced significantly
-        if (queueState.queueHead > maxQueueSize) {
+        // Periodically compact the queue to prevent unbounded growth.
+        // Compact only when head has advanced significantly (2x maxQueueSize)
+        // to amortize the cost of the slice operation over more enqueue calls.
+        // This reduces allocation pressure and improves hot-reload throughput.
+        const compactionThreshold = maxQueueSize * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
+        if (queueState.queueHead >= compactionThreshold) {
             const activePatches = queueState.queue.slice(queueState.queueHead);
             queueState.queue = activePatches;
             queueState.queueHead = 0;
@@ -250,7 +255,7 @@ type ApplyIncomingPatchOptions = {
 };
 
 function recordPatchReceived(state: WebSocketClientState): number {
-    const receivedAt = Date.now();
+    const receivedAt = getWallClockTime();
     state.connectionMetrics.patchesReceived += 1;
     state.connectionMetrics.lastPatchReceivedAt = receivedAt;
     return receivedAt;
@@ -260,7 +265,7 @@ function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean
     const { incoming, state, wrapper, onError, logger, alreadyRecordedReceived = false } = options;
 
     const receivedAt = alreadyRecordedReceived
-        ? (state.connectionMetrics.lastPatchReceivedAt ?? Date.now())
+        ? (state.connectionMetrics.lastPatchReceivedAt ?? getWallClockTime())
         : recordPatchReceived(state);
 
     const patchResult = validatePatchCandidate(incoming, onError);
@@ -291,7 +296,7 @@ function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean
 
     const recordSuccess = (applyDuration: number) => {
         state.connectionMetrics.patchesApplied += 1;
-        state.connectionMetrics.lastPatchAppliedAt = Date.now();
+        state.connectionMetrics.lastPatchAppliedAt = getWallClockTime();
         if (logger) {
             logger.info(`Patch ${patch.id} applied in ${applyDuration}ms`);
         }
@@ -303,10 +308,10 @@ function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean
     };
 
     if (wrapper && wrapper.trySafeApply) {
-        const appliedStartAt = Date.now();
+        const appliedStartAt = getHighResolutionTime();
         const applied = applyPatchSafely(patch, wrapper, onError);
         if (applied) {
-            recordSuccess(Date.now() - appliedStartAt);
+            recordSuccess(getHighResolutionTime() - appliedStartAt);
         } else {
             recordFailure();
         }
@@ -314,10 +319,10 @@ function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean
     }
 
     if (wrapper) {
-        const appliedStartAt = Date.now();
+        const appliedStartAt = getHighResolutionTime();
         const applied = applyPatchDirectly(patch, wrapper, onError);
         if (applied) {
-            recordSuccess(Date.now() - appliedStartAt);
+            recordSuccess(getHighResolutionTime() - appliedStartAt);
         } else {
             recordFailure();
         }
@@ -655,7 +660,7 @@ function createOpenHandler(
         const websocketState = state;
         websocketState.isConnected = true;
         websocketState.connectionMetrics.totalConnections += 1;
-        websocketState.connectionMetrics.lastConnectedAt = Date.now();
+        websocketState.connectionMetrics.lastConnectedAt = getWallClockTime();
 
         if (websocketState.reconnectTimer) {
             clearTimeout(websocketState.reconnectTimer);
@@ -778,7 +783,7 @@ function createCloseHandler({
         websocketState.isConnected = false;
         websocketState.ws = null;
         websocketState.connectionMetrics.totalDisconnections += 1;
-        websocketState.connectionMetrics.lastDisconnectedAt = Date.now();
+        websocketState.connectionMetrics.lastDisconnectedAt = getWallClockTime();
 
         if (logger) {
             logger.websocketDisconnected();

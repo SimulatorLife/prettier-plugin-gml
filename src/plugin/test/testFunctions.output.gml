@@ -90,7 +90,7 @@ function Line() : Shape() constructor {
     /// @param x2
     /// @param y2
     /// @returns {undefined}
-    set_points = function(x1, y1, x2, y2) {
+    set_points = function (x1, y1, x2, y2) {
         self.x1 = x1;
         self.y1 = y1;
         self.x2 = x2;

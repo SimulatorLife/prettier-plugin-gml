@@ -508,7 +508,7 @@ function matchIdentifierTimesFactor(expression, identifierName) {
         return null;
     }
 
-    const operator = typeof unwrapped.operator === "string" ? unwrapped.operator.toLowerCase() : null;
+    const operator = Core.getNormalizedOperator(unwrapped);
 
     let factorNode;
     let factorValue;
@@ -813,7 +813,7 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
             continue;
         }
 
-        const operator = typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+        const operator = Core.getNormalizedOperator(expression);
 
         if (operator !== "/") {
             continue;
@@ -3440,7 +3440,7 @@ function hasCommentsInDegreesToRadiansPattern(node, context, skipSelfCheck = fal
         return false;
     }
 
-    const operator = typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+    const operator = Core.getNormalizedOperator(expression);
 
     if (operator !== "*" && operator !== "/") {
         return false;
@@ -3468,12 +3468,7 @@ function hasCommentsInDegreesToRadiansPattern(node, context, skipSelfCheck = fal
 }
 
 function isBinaryOperator(node, operator) {
-    return (
-        node &&
-        node.type === BINARY_EXPRESSION &&
-        typeof node.operator === "string" &&
-        node.operator.toLowerCase() === operator
-    );
+    return Core.isBinaryOperator(node, operator);
 }
 
 function computeNumericTolerance(expected, providedTolerance?) {
@@ -3623,7 +3618,7 @@ function evaluateNumericExpression(node) {
     }
 
     if (expression.type === BINARY_EXPRESSION) {
-        const operator = typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+        const operator = Core.getNormalizedOperator(expression);
 
         if (operator === "+" || operator === "-") {
             const left = evaluateNumericExpression(expression.left);
@@ -3674,7 +3669,7 @@ function evaluateOneMinusNumeric(node) {
         return null;
     }
 
-    const operator = typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+    const operator = Core.getNormalizedOperator(expression);
 
     if (operator !== "-") {
         return null;
@@ -3705,7 +3700,7 @@ function parseNumericFactor(node) {
     }
 
     if (expression.type === BINARY_EXPRESSION) {
-        const operator = typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+        const operator = Core.getNormalizedOperator(expression);
 
         if (operator === "*" || operator === "/") {
             const leftValue = parseNumericFactor(expression.left);

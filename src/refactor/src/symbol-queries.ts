@@ -6,14 +6,14 @@
 
 import { Core } from "@gml-modules/core";
 
-import type {
-    AstNode,
-    DependentSymbol,
-    FileSymbol,
-    ParserBridge,
-    PartialSemanticAnalyzer,
-    SymbolLocation,
-    SymbolOccurrence
+import {
+    type AstNode,
+    type DependentSymbol,
+    type FileSymbol,
+    type ParserBridge,
+    type PartialSemanticAnalyzer,
+    type SymbolLocation,
+    type SymbolOccurrence
 } from "./types.js";
 import { hasMethod } from "./validation-utils.js";
 
@@ -203,4 +203,22 @@ export async function getSymbolDependents(
     }
 
     return [];
+}
+
+/**
+ * Resolve a symbol ID from an identifier name.
+ */
+export async function resolveSymbolId(
+    identifierName: string,
+    semantic: PartialSemanticAnalyzer | null
+): Promise<string | null> {
+    if (!semantic) {
+        return null;
+    }
+
+    if (hasMethod(semantic, "resolveSymbolId")) {
+        return await semantic.resolveSymbolId(identifierName);
+    }
+
+    return null;
 }

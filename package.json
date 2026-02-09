@@ -49,7 +49,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "clean": "find . -name node_modules -type d -prune -exec rm -rf '{}' + && rm -rf .eslintcache reports tmp node_debug.log eslint-suppressions.json && pnpm -r run clean:types && pnpm run clean:src-js && pnpm store prune",
+    "clean": "find . -name node_modules -type d -prune -exec rm -rf '{}' + && rm -rf .eslintcache tsconfig.eslint.tsbuildinfo reports tmp node_debug.log eslint-suppressions.json test/dist && pnpm -r run clean:types && pnpm run clean:src-js && pnpm store prune",
     "clean:src-js:preview": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\)",
     "clean:src-js": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\) -delete",
     "clean:generated": "rm -rf src/parser/generated",
@@ -61,7 +61,7 @@
     "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml",
     "report": "bash -lc 'status=0; pnpm run build:ts || status=$?; pnpm run lint:report || status=$?; pnpm run lint:duplicates:report || status=$?; pnpm run test:ci || status=$?; pnpm run stats:report || status=$?; pnpm run tree:report || status=$?; pnpm run cli generate-quality-report || status=$?; exit $status'",
     "check": "pnpm run format:check && pnpm run lint:ci && pnpm test",
-    "test:files": "find src test -type f \\( -path \"*/dist/test/*.test.js\" -o -path \"test/*.test.js\" \\) -not -path \"*/node_modules/*\"",
+    "test:files": "find src test -type f \\( -path \"*/dist/test/*.test.js\" -o -path \"test/dist/*.test.js\" \\) -not -path \"*/node_modules/*\"",
     "test:ensure-junit": "node -e \"const fs=require('fs'); const p='reports/tests.xml'; const status=process.env.TEST_STATUS ?? 'unknown'; const xml=fs.existsSync(p)?fs.readFileSync(p,'utf8').trim():''; const ok=xml.startsWith('<?xml')&&xml.includes('<testsuites')&&xml.includes('</testsuites>'); if(!ok){const m='Test runner exited with status '+status+' before producing a valid JUnit report.'; const e=m.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\\"/g,'&quot;').replace(/\\x27/g,'&apos;'); fs.writeFileSync(p,`<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n<testsuites>\\n  <testsuite name=\\\"test-runner\\\" tests=\\\"1\\\" failures=\\\"1\\\" errors=\\\"0\\\" skipped=\\\"0\\\">\\n    <testcase name=\\\"test-runner\\\"><failure message=\\\"${e}\\\">${e}</failure></testcase>\\n  </testsuite>\\n</testsuites>\\n`,'utf8'); }\"",
     "test": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:files); ((${#tests[@]})) || { echo \"No compiled test files found under dist/ or test/\" >&2; exit 1; }; node --test --test-timeout=120000 \"${tests[@]}\"'",
     "test:report": "bash -lc 'mkdir -p reports; rm -f reports/tests.xml; mapfile -t tests < <(pnpm -s test:files); ((${#tests[@]})) || { echo \"No compiled test files found under dist/ or test/\" >&2; exit 1; }; node --test --test-reporter=junit --test-reporter-destination=reports/tests.xml \"${tests[@]}\"; status=$?; TEST_STATUS=$status pnpm -s test:ensure-junit; exit $status'",
@@ -83,14 +83,14 @@
     "test:plugin:report": "pnpm --filter @gml-modules/plugin run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/dist/test/*.test.js",
     "test:cli": "pnpm --filter @gml-modules/cli run build:types && node --test src/cli/dist/test/*.test.js",
     "test:cli:report": "pnpm --filter @gml-modules/cli run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/dist/test/*.test.js",
-    "test:root": "node --test test/*.test.js",
-    "test:root:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/root.xml test/*.test.js",
+    "test:root": "pnpm run build:ts && node --test test/dist/*.test.js",
+    "test:root:report": "pnpm run build:ts && node --test --test-reporter=junit --test-reporter-destination=./reports/root.xml test/dist/*.test.js",
     "format:gml": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js format",
     "format": "pnpm exec -- prettier --cache --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:quiet": "pnpm run format > /dev/null",
     "format:check": "pnpm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "prettier": "pnpm run format:gml --",
-    "commit": "bash -lc 'msg=${BUMP_COMMIT_MESSAGE:-${npm_config_commit_message:-\"chore: formatting\"}}; if [ $# -gt 0 ]; then msg=\"$*\"; fi; git pull && git merge --ff-only @{u} && if [ -z \"${SKIP_FORMAT:-}\" ]; then pnpm run format:quiet; fi && pnpm run lint:fix && if [ -n \"$(git status --porcelain)\" ]; then git add . && git commit --no-verify -m \"$msg\" && git push; fi' --",
+    "commit": "bash -lc 'msg=${BUMP_COMMIT_MESSAGE:-${npm_config_commit_message:-\"chore: formatting\"}}; if [ $# -gt 0 ]; then msg=\"$*\"; fi; if [ -n \"$(git status --porcelain)\" ]; then if [ -z \"${SKIP_FORMAT:-}\" ]; then pnpm run format:quiet; fi && pnpm run lint:fix && git add . && git commit --no-verify -m \"$msg\"; fi && git pull --rebase && git push' --",
     "build": "pnpm run build:ts && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
     "build:antlr": "cd src/parser && pnpm run antlr",
     "build:gml-identifiers": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-gml-identifiers --quiet",
@@ -167,5 +167,5 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.47.0"
   },
-  "packageManager": "pnpm@10.28.2"
+  "packageManager": "pnpm@10.29.2"
 }

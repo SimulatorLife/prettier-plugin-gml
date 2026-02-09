@@ -58,7 +58,6 @@ import {
 import {
     getOriginalTextFromOptions,
     hasBlankLineAfterOpeningBrace,
-    hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
@@ -110,6 +109,21 @@ const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
+
+/**
+ * Bounds for safe division-to-multiplication optimization.
+ *
+ * When converting `x / divisor` to `x * reciprocal`, we must ensure both the divisor
+ * and reciprocal are within reasonable numerical ranges to avoid precision loss.
+ *
+ * MIN_SAFE_DIVISOR: Divisors smaller than this (near machine epsilon) would produce
+ * reciprocals so large that the conversion loses precision or changes semantics.
+ *
+ * MAX_SAFE_RECIPROCAL: Reciprocals larger than this indicate the original divisor
+ * was too small, leading to potential overflow or precision issues in the multiplication.
+ */
+const MIN_SAFE_DIVISOR = 1e-10;
+const MAX_SAFE_RECIPROCAL = 1e10;
 
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -820,27 +834,28 @@ function printBinaryExpressionNode(node, path, options, print) {
         return booleanSimplification;
     }
 
-    const canConvertDivisionToHalf =
+    const canConvertDivisionToReciprocal =
         optimizeMathExpressions &&
         operator === "/" &&
         node?.right?.type === LITERAL &&
-        node.right.value === "2" &&
         !Core.hasComment(node) &&
         !Core.hasComment(node.left);
 
-    if (canConvertDivisionToHalf) {
-        operator = "*";
+    let reciprocalString: string | null = null;
+    if (canConvertDivisionToReciprocal) {
+        const divisorValue = Number(node.right.value);
+        if (Number.isFinite(divisorValue) && divisorValue !== 0) {
+            const reciprocal = 1 / divisorValue;
+            const absDivisor = Math.abs(divisorValue);
+            const absReciprocal = Math.abs(reciprocal);
 
-        const literal = node.right;
-        const originalValue = literal.value;
-
-        literal.value = "0.5";
-        try {
-            right = print("right");
-        } finally {
-            literal.value = originalValue;
+            if (Number.isFinite(reciprocal) && absDivisor >= MIN_SAFE_DIVISOR && absReciprocal <= MAX_SAFE_RECIPROCAL) {
+                reciprocalString = String(reciprocal);
+            }
         }
-    } else {
+    }
+
+    if (reciprocalString === null) {
         right = print("right");
         const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
@@ -864,6 +879,18 @@ function printBinaryExpressionNode(node, path, options, print) {
             }
         } else {
             operator = styledOperator;
+        }
+    } else {
+        operator = "*";
+
+        const literal = node.right;
+        const originalValue = literal.value;
+
+        literal.value = reciprocalString;
+        try {
+            right = print("right");
+        } finally {
+            literal.value = originalValue;
         }
     }
 
@@ -1573,16 +1600,22 @@ function isDecorativeBlockComment(comment) {
         return false;
     }
 
-    // Process lines in a single pass, short-circuiting on first match to avoid
-    // unnecessary allocations from map/filter intermediate arrays
     const lines = value.split(/\r?\n/);
+    let hasDecorativeContent = false;
     for (const line_ of lines) {
         const normalizedLine = line_.replaceAll("\t", "    ");
-        if (Core.isNonEmptyTrimmedString(normalizedLine) && DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
-            return true;
+        if (!Core.isNonEmptyTrimmedString(normalizedLine)) {
+            continue;
         }
+
+        if (!DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
+            // Found a non-decorative line -> treat entire comment as normal content
+            return false;
+        }
+        hasDecorativeContent = true;
     }
-    return false;
+
+    return hasDecorativeContent;
 }
 
 function printBlockStatementNode(node, path, options, print) {
@@ -1599,13 +1632,11 @@ function printBlockStatementNode(node, path, options, print) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const { originalText } = sourceMetadata;
     const firstStatement = node.body[0];
-    const constructorStartLine = node?.loc?.start?.line ?? node?.start?.line ?? null;
-    const firstStatementStartLine = firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
-    const constructorHasLineGap =
-        constructorStartLine !== null &&
-        firstStatementStartLine !== null &&
-        firstStatementStartLine > constructorStartLine + 1;
-    let shouldPreserveInitialBlankLine = constructorHasLineGap;
+
+    // We no longer use line-based gap detection here because it incorrectly triggers
+    // when comments fill the gap between the block opening and the first statement.
+    // Instead, we rely on hasBlankLineAfterOpeningBrace to check for actual blank lines.
+    let shouldPreserveInitialBlankLine = false;
 
     if (firstStatement) {
         const { startIndex: firstStatementStartIndex } = resolveNodeIndexRangeWithSource(
@@ -1615,13 +1646,6 @@ function printBlockStatementNode(node, path, options, print) {
 
         const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
         const isConstructor = parentNode?.type === "ConstructorDeclaration";
-
-        const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
-            node,
-            sourceMetadata,
-            originalText,
-            firstStatementStartIndex
-        );
 
         const preserveForConstructorText =
             isConstructor &&
@@ -1691,7 +1715,6 @@ function printBlockStatementNode(node, path, options, print) {
         shouldPreserveInitialBlankLine =
             (shouldPreserveInitialBlankLine && !firstStatementHasSyntheticDoc) ||
             (preserveForConstructorText && !firstStatementHasSyntheticDoc) ||
-            (preserveForLeadingComment && !firstStatementHasSyntheticDoc) ||
             (preserveForInitialSpacing && !firstStatementHasSyntheticDoc);
     }
 
@@ -5597,8 +5620,7 @@ function shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)
         return false;
     }
 
-    const operatorText =
-        isBinaryExpression && typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
+    const operatorText = isBinaryExpression ? Core.getNormalizedOperator(expression) : null;
     const isMultiplicativeExpression =
         isBinaryExpression && operatorText !== null && MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
 
