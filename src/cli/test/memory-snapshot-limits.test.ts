@@ -130,8 +130,8 @@ void describe("periodic memory cleanup", () => {
         setProcessedFileCountForTests(0);
     });
 
-    void it("clears formatting cache during cleanup", () => {
-        // Populate the cache
+    void it("trims formatting cache during cleanup instead of clearing completely", () => {
+        // Populate the cache with more entries than the trim target
         for (let i = 0; i < 10; i++) {
             setFormattingCacheEntryForTests(`key-${i}`, `formatted-${i}`);
         }
@@ -139,11 +139,11 @@ void describe("periodic memory cleanup", () => {
         const statsBefore = getFormattingCacheStatsForTests();
         assert.equal(statsBefore.size, 10);
 
-        // Perform cleanup
+        // Perform cleanup - should trim to 5 entries instead of clearing completely
         performPeriodicMemoryCleanupForTests();
 
         const statsAfter = getFormattingCacheStatsForTests();
-        assert.equal(statsAfter.size, 0, "cache should be cleared after cleanup");
+        assert.equal(statsAfter.size, 5, "cache should be trimmed to 5 entries after cleanup, not cleared");
     });
 
     void it("tracks processed file count", () => {
@@ -164,7 +164,7 @@ void describe("periodic memory cleanup", () => {
 
     void it("verifies PERIODIC_CLEANUP_INTERVAL is set correctly", () => {
         const { periodicCleanupInterval } = getMemoryManagementStatsForTests();
-        assert.equal(periodicCleanupInterval, 50, "periodic cleanup should trigger every 50 files");
+        assert.equal(periodicCleanupInterval, 10, "periodic cleanup should trigger every 10 files");
     });
 });
 
@@ -173,9 +173,9 @@ void describe("formatting cache memory limits", () => {
         clearFormattingCacheForTests();
     });
 
-    void it("verifies reduced MAX_FORMATTING_CACHE_ENTRIES (20)", () => {
+    void it("verifies reduced MAX_FORMATTING_CACHE_ENTRIES (10)", () => {
         const { maxEntries } = getFormattingCacheStatsForTests();
-        assert.equal(maxEntries, 20, "cache should be limited to 20 entries to prevent memory exhaustion");
+        assert.equal(maxEntries, 10, "cache should be limited to 10 entries to prevent memory exhaustion");
     });
 
     void it("evicts oldest entries when cache exceeds limit", () => {
