@@ -102,7 +102,7 @@ function processMemberIndex(memberNode: MemberIndexNode): void {
  * Traverse and normalize accessor operators in the AST.
  */
 function visitAndNormalize(node: unknown): void {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return;
     }
 

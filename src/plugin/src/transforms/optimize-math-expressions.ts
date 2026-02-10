@@ -98,7 +98,7 @@ function extractReciprocalScalar(node: GameMakerAstNode | null | undefined): num
 }
 
 function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): number | null {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return null;
     }
 
@@ -208,7 +208,7 @@ function attemptConvertDivisionToMultiplication(node: MutableGameMakerAstNode): 
  * Walk the AST and turn division-by-constant patterns into multiplications by the reciprocal.
  */
 function applyDivisionToMultiplication(node: MutableGameMakerAstNode) {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return;
     }
 
