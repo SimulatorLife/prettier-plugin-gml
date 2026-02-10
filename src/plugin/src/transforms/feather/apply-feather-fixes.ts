@@ -66,7 +66,8 @@ import {
     createCallExpressionTargetFixDetail,
     createFeatherFixDetail,
     hasFeatherDiagnosticContext,
-    hasFeatherSourceTextContext
+    hasFeatherSourceTextContext,
+    visitFeatherAST
 } from "./utils.js";
 
 type ApplyFeatherFixesOptions = {
@@ -1890,22 +1891,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "CallExpression") {
             const calleeName = Core.getCallExpressionIdentifierName(node);
 
@@ -1931,13 +1917,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
                 }
             }
         }
-
-        Core.forEachNodeChild(node, (value) => {
-            visit(value);
-        });
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
@@ -3116,24 +3096,7 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            const items = node.slice();
-
-            for (const item of items) {
-                visit(item);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "BinaryExpression") {
             const fix = normalizeDivisionBinaryExpression(node, diagnostic);
 
@@ -3147,15 +3110,7 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
                 fixes.push(fix);
             }
         }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
@@ -5694,22 +5649,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "CallExpression") {
             const args = Core.getCallExpressionArguments(node);
 
@@ -5721,15 +5661,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
                 }
             }
         }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }

@@ -88,26 +88,14 @@ export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allow
  * Generic AST visitor that handles common traversal boilerplate, allowing callers
  * to provide a custom handler for individual nodes. Automatically skips falsy values,
  * recursively processes arrays, and filters out non-object primitives.
+ *
+ * The handler receives three arguments: the current node, its parent (object or array),
+ * and the property/index key by which the node is referenced. The handler can return
+ * `false` to prevent descending into the node's children.
  */
-export function visitFeatherAST(ast: unknown, handler: (node: any) => void): void {
-    const visit = (node: unknown): void => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            Core.visitChildNodes(node, visit);
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        handler(node);
-
-        Core.visitChildNodes(node, visit);
-    };
-
-    visit(ast);
+export function visitFeatherAST(
+    ast: unknown,
+    handler: (node: any, parent: unknown, property: string | number | null) => void | boolean
+): void {
+    Core.walkAst(ast, handler);
 }
