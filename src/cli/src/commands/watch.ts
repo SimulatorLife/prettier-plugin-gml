@@ -1216,22 +1216,34 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    await Core.runSequentially(entries, async ([filePath, lastModified]) => {
+    const changedEntries = await Core.runInParallel(entries, async ([filePath, lastModified]) => {
         try {
             const stats = await stat(filePath);
             if (stats.mtimeMs <= lastModified) {
-                return;
+                return null;
             }
 
-            await handleFileChange(filePath, "change", {
-                verbose,
-                quiet,
-                runtimeContext,
-                fileStats: stats
-            });
+            return {
+                filePath,
+                stats
+            };
         } catch {
             cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+            return null;
         }
+    });
+
+    await Core.runSequentially(changedEntries, async (entry) => {
+        if (entry === null) {
+            return;
+        }
+
+        await handleFileChange(entry.filePath, "change", {
+            verbose,
+            quiet,
+            runtimeContext,
+            fileStats: entry.stats
+        });
     });
 }
 
