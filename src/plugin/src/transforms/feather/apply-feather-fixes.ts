@@ -1740,37 +1740,16 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent = null, property = null) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node, parent, property) => {
         if (node.type === "MemberDotExpression") {
             const fix = convertLengthAccess(node, parent, property, diagnostic);
 
             if (fix) {
                 fixes.push(fix);
-                return;
+                return false;
             }
         }
-
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
-        });
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
@@ -1984,22 +1963,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent = null, property = null) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node, parent, property) => {
         if (node.type === "GlobalVarStatement") {
             const fixDetails = splitGlobalVarStatementInitializers({
                 statement: node,
@@ -2012,15 +1976,9 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
                 fixes.push(...fixDetails);
             }
 
-            return;
+            return false;
         }
-
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
-        });
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
@@ -2382,37 +2340,16 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     const fixes = [];
     const nameRegistry = collectAllIdentifierNames(ast);
 
-    const visit = (node, parent = null, property = null) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node, parent, property) => {
         if (node.type === "AssignmentExpression") {
             const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
                 fixes.push(fixDetail);
-                return;
+                return false;
             }
         }
-
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
-        });
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
@@ -4502,39 +4439,16 @@ function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent = null, property = null) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node, parent, property) => {
         if (node.type === "MemberIndexExpression") {
             const fix = convertMultidimensionalMemberIndex(node, parent, property, diagnostic);
 
             if (fix) {
                 fixes.push(fix);
-                return;
+                return false;
             }
         }
-
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
