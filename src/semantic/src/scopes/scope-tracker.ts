@@ -1629,6 +1629,106 @@ export class ScopeTracker {
         return reads;
     }
 
+    /**
+     * Returns symbol writes without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload write tracking, dependency analysis).
+     *
+     * For safe access with defensive copying, use `getSymbolWrites()`.
+     *
+     * @param name - Symbol name to query
+     * @returns Array of write occurrences with internal references (DO NOT MODIFY)
+     */
+    public getSymbolWritesUnsafe(name: string | null | undefined): SymbolOccurrence[] {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const writes: SymbolOccurrence[] = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isWrite) {
+                    writes.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: reference
+                    });
+                }
+            }
+        }
+
+        return writes;
+    }
+
+    /**
+     * Returns symbol reads without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload read tracking, dependency analysis).
+     *
+     * For safe access with defensive copying, use `getSymbolReads()`.
+     *
+     * @param name - Symbol name to query
+     * @returns Array of read occurrences with internal references (DO NOT MODIFY)
+     */
+    public getSymbolReadsUnsafe(name: string | null | undefined): SymbolOccurrence[] {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const reads: SymbolOccurrence[] = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isRead) {
+                    reads.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: reference
+                    });
+                }
+            }
+        }
+
+        return reads;
+    }
+
     public withRole<T>(role: ScopeRole | null, callback: () => T): T {
         return this.identifierRoleTracker.withRole(role, callback);
     }
