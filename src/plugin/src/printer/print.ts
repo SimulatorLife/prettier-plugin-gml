@@ -641,7 +641,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
-            const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+            const parentNode = safeGetParentNode(path);
             const parentType = parentNode?.type;
             const isStandaloneAssignment =
                 parentType === "Program" ||
@@ -1160,7 +1160,7 @@ function printStructExpressionNode(node, path, options, print) {
 }
 
 function printPropertyNode(node, path, options, print) {
-    const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const parentNode = safeGetParentNode(path);
     const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
     const nameDoc = print("name");
     const valueDoc = print("value");
@@ -1644,7 +1644,7 @@ function printBlockStatementNode(node, path, options, print) {
             sourceMetadata
         );
 
-        const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+        const parentNode = safeGetParentNode(path);
         const isConstructor = parentNode?.type === "ConstructorDeclaration";
 
         const preserveForConstructorText =
@@ -1678,7 +1678,7 @@ function printBlockStatementNode(node, path, options, print) {
             try {
                 let depth = 0;
                 while (depth < 20) {
-                    const ancestor = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
+                    const ancestor = safeGetParentNode(path, depth);
                     if (!ancestor) break;
                     if (ancestor.type === "Program") {
                         programNode = ancestor;
@@ -1688,7 +1688,7 @@ function printBlockStatementNode(node, path, options, print) {
                 }
             } catch {
                 // Fallback: try without depth parameter
-                const ancestor = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+                const ancestor = safeGetParentNode(path);
                 if (ancestor?.type === "Program") {
                     programNode = ancestor;
                 }
@@ -2505,7 +2505,7 @@ function printStatements(path, options, print, childrenAttribute) {
     let programNode = null;
     try {
         for (let depth = 0; ; depth += 1) {
-            const p = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
+            const p = safeGetParentNode(path, depth);
             if (!p) break;
             programNode = p.type === PROGRAM ? p : programNode;
         }
@@ -2529,7 +2529,7 @@ function printStatements(path, options, print, childrenAttribute) {
             programNode = cachedProgram;
         }
     }
-    const containerNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
     if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
@@ -2663,12 +2663,8 @@ function buildStatementPartsForPrinter({
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             isPreviousLineEmpty(originalTextCache, nodeStartIndex);
-        const blockAncestor =
-            typeof childPath.getParentNode === "function" ? childPath.getParentNode() : (childPath.parent ?? null);
-        const constructorAncestor =
-            typeof childPath.getParentNode === "function"
-                ? childPath.getParentNode(1)
-                : (blockAncestor?.parent ?? null);
+        const blockAncestor = safeGetParentNode(childPath) ?? childPath.parent ?? null;
+        const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockAncestor?.parent ?? null;
         const shouldForceConstructorPadding =
             blockAncestor?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
 
@@ -3073,9 +3069,8 @@ function handleTerminalTrailingSpacing({
     const trailingProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
-    const blockParent = typeof childPath.getParentNode === "function" ? childPath.getParentNode() : childPath.parent;
-    const constructorAncestor =
-        typeof childPath.getParentNode === "function" ? childPath.getParentNode(1) : (blockParent?.parent ?? null);
+    const blockParent = safeGetParentNode(childPath) ?? childPath.parent;
+    const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
