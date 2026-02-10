@@ -47,3 +47,4 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 
 ## TODO
 1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.
+2. Split Prettier plugin into a formatter-only package and a separate feather-fixer/linter package that includes fixes that require project-aware scope analysis (e.g., `preserveGlobalVarStatements: false` when cross-file symbols exist).
