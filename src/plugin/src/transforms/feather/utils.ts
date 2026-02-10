@@ -92,6 +92,12 @@ export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allow
  * The handler receives three arguments: the current node, its parent (object or array),
  * and the property/index key by which the node is referenced. The handler can return
  * `false` to prevent descending into the node's children.
+ *
+ * This function delegates to `Core.walkAst`, which ensures consistent traversal behavior
+ * across the codebase and maintains circular reference detection.
+ *
+ * Note: The node parameter uses `any` type for backward compatibility with existing
+ * visitor implementations that need to access node properties without type guards.
  */
 export function visitFeatherAST(
     ast: unknown,
