@@ -16,30 +16,24 @@ export type WalkObjectGraphOptions = {
     ) => boolean | void;
 };
 
-type WalkFrame = {
-    value: object | Array<unknown>;
-    parent: ObjectRecord | Array<unknown> | null;
-    key: string | number | null;
-};
-
 export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions = {}) {
     if (!isObjectLike(root) && !Array.isArray(root)) {
         return;
     }
 
     const { enterObject, enterArray } = options;
-    const stack: WalkFrame[] = [
-        {
-            value: root as object | Array<unknown>,
-            parent: null,
-            key: null
-        }
-    ];
+    // Keep traversal state in parallel arrays instead of allocating `{ value, parent, key }`
+    // frame objects for every edge we visit. This is on the parser/formatter hot path and
+    // reducing per-node allocations measurably improves walk throughput.
+    const stackValues: Array<object | Array<unknown>> = [root as object | Array<unknown>];
+    const stackParents: Array<ObjectRecord | Array<unknown> | null> = [null];
+    const stackKeys: Array<string | number | null> = [null];
     const seen = new WeakSet<object | Array<unknown>>();
 
-    while (stack.length > 0) {
-        const frame = stack.pop();
-        const { value, parent, key } = frame;
+    while (stackValues.length > 0) {
+        const value = stackValues.pop();
+        const parent = stackParents.pop();
+        const key = stackKeys.pop();
 
         if (!value || typeof value !== "object") {
             continue;
@@ -65,11 +59,9 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
                     continue;
                 }
 
-                stack.push({
-                    value: item as object | Array<unknown>,
-                    parent: value,
-                    key: index
-                });
+                stackValues.push(item as object | Array<unknown>);
+                stackParents.push(value);
+                stackKeys.push(index);
             }
 
             continue;
@@ -95,11 +87,9 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
                 continue;
             }
 
-            stack.push({
-                value: childValue as object | Array<unknown>,
-                parent: objectValue,
-                key: childKey
-            });
+            stackValues.push(childValue as object | Array<unknown>);
+            stackParents.push(objectValue);
+            stackKeys.push(childKey);
         }
     }
 }
