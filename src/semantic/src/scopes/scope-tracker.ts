@@ -1908,6 +1908,43 @@ export class ScopeTracker {
 
         return scopes;
     }
+
+    /**
+     * Batch-retrieves metadata for multiple scopes in a single operation.
+     *
+     * This method is optimized for hot-reload invalidation scenarios where
+     * you need metadata for a set of scopes (e.g., from getInvalidationSet).
+     * It reduces overhead by performing a single pass through the scope IDs
+     * rather than calling getScopeMetadata repeatedly.
+     *
+     * @param scopeIds - Iterable of scope IDs to retrieve metadata for
+     * @returns Map of scope IDs to their metadata (omits scopes that don't exist)
+     */
+    public getBatchScopeMetadata(scopeIds: Iterable<string>): Map<string, ScopeDetails> {
+        const results = new Map<string, ScopeDetails>();
+
+        for (const scopeId of scopeIds) {
+            if (!scopeId) {
+                continue;
+            }
+
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            results.set(scopeId, {
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                name: scope.metadata.name,
+                path: scope.metadata.path,
+                start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
+                end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
+            });
+        }
+
+        return results;
+    }
 }
 
 export default ScopeTracker;
