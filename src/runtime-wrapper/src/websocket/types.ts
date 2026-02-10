@@ -50,6 +50,7 @@ export interface WebSocketClientState {
     patchQueue: PatchQueueState | null;
     pendingPatches: Array<unknown>;
     readinessTimer: ReturnType<typeof setInterval> | null;
+    runtimeReady: boolean;
 }
 
 export interface PatchQueueMetrics {
