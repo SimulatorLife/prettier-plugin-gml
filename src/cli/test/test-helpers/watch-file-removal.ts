@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { runWatchCommand } from "../../src/commands/watch.js";
-import { DependencyTracker } from "../../src/modules/dependency-tracker.js";
+import * as Cli from "@gml-modules/cli";
+
 import { withTemporaryProperty } from "./temporary-property.js";
 import { createMockWatchFactory } from "./watch-fixtures.js";
 
@@ -30,12 +30,15 @@ export async function runFileRemovalTest(options: FileRemovalTestOptions): Promi
 
     const abortController = new AbortController();
     const listenerCapture: { listener: WatchListener<string> | undefined } = { listener: undefined };
-    const removeFileDescriptor = Object.getOwnPropertyDescriptor(DependencyTracker.prototype, "removeFile");
+    const removeFileDescriptor = Object.getOwnPropertyDescriptor(
+        Cli.CLI.Modules.DependencyTracker.prototype,
+        "removeFile"
+    );
     if (!removeFileDescriptor || typeof removeFileDescriptor.value !== "function") {
         throw new Error("Expected DependencyTracker.removeFile to be defined");
     }
     const callOriginalRemoveFile = Function.prototype.call.bind(removeFileDescriptor.value) as (
-        tracker: DependencyTracker,
+        tracker: Cli.CLI.Modules.DependencyTracker,
         filePath: string
     ) => void;
     let removedFilePath: string | null = null;
@@ -47,15 +50,15 @@ export async function runFileRemovalTest(options: FileRemovalTestOptions): Promi
     const watchFactory = createMockWatchFactory(listenerCapture);
 
     await withTemporaryProperty(
-        DependencyTracker.prototype,
+        Cli.CLI.Modules.DependencyTracker.prototype,
         "removeFile",
-        function (this: DependencyTracker, filePath: string): void {
+        function (this: Cli.CLI.Modules.DependencyTracker, filePath: string): void {
             removedFilePath = filePath;
             resolveRemoval?.();
             return callOriginalRemoveFile(this, filePath);
         },
         async () => {
-            const watchPromise = runWatchCommand(root, {
+            const watchPromise = Cli.CLI.Commands.runWatchCommand(root, {
                 extensions: [".gml"],
                 verbose: false,
                 quiet: true,
