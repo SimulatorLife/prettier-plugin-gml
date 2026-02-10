@@ -7,7 +7,12 @@
 
 import { Core, type GameMakerAstNode } from "@gml-modules/core";
 
-import { attachFeatherFixMetadata, createFeatherFixDetail, hasFeatherDiagnosticContext } from "./utils.js";
+import {
+    attachFeatherFixMetadata,
+    createFeatherFixDetail,
+    hasFeatherDiagnosticContext,
+    visitFeatherAST
+} from "./utils.js";
 
 /**
  * Annotates missing user-event constant references in the AST.
@@ -26,39 +31,15 @@ export function annotateMissingUserEvents({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "CallExpression") {
             const fix = annotateUserEventCall(node, diagnostic);
 
             if (fix) {
                 fixes.push(fix);
-                return;
             }
         }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
