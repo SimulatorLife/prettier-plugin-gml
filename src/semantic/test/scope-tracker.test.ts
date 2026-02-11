@@ -813,3 +813,85 @@ function createNestedFunctionAndBlockScopes() {
 
     return { tracker, outerScope, innerScope };
 }
+
+void test("getBatchScopeMetadata retrieves metadata for multiple scopes efficiently", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope1 = tracker.enterScope("function", { name: "func1", path: "/test/file1.gml" });
+    tracker.exitScope();
+    const scope2 = tracker.enterScope("block", { name: "block1", path: "/test/file2.gml" });
+    tracker.exitScope();
+    const scope3 = tracker.enterScope("script", { name: "script1" });
+    tracker.exitScope();
+
+    const result = tracker.getBatchScopeMetadata([scope1.id, scope2.id, scope3.id]);
+
+    assert.strictEqual(result.size, 3);
+    assert.strictEqual(result.get(scope1.id)?.scopeKind, "function");
+    assert.strictEqual(result.get(scope1.id)?.name, "func1");
+    assert.strictEqual(result.get(scope1.id)?.path, "/test/file1.gml");
+    assert.strictEqual(result.get(scope2.id)?.scopeKind, "block");
+    assert.strictEqual(result.get(scope2.id)?.name, "block1");
+    assert.strictEqual(result.get(scope2.id)?.path, "/test/file2.gml");
+    assert.strictEqual(result.get(scope3.id)?.scopeKind, "script");
+    assert.strictEqual(result.get(scope3.id)?.name, "script1");
+    assert.strictEqual(result.get(scope3.id)?.path, undefined);
+});
+
+void test("getBatchScopeMetadata handles non-existent scope IDs gracefully", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope1 = tracker.enterScope("function");
+    tracker.exitScope();
+
+    const result = tracker.getBatchScopeMetadata([scope1.id, "non-existent-scope", ""]);
+
+    assert.strictEqual(result.size, 1);
+    assert.ok(result.has(scope1.id));
+    assert.ok(!result.has("non-existent-scope"));
+});
+
+void test("getBatchScopeMetadata returns empty map for empty input", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+
+    const result = tracker.getBatchScopeMetadata([]);
+
+    assert.strictEqual(result.size, 0);
+});
+
+void test("getBatchScopeMetadata is faster than individual getScopeMetadata calls for large sets", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scopes = [];
+    const scopeCount = 100;
+
+    for (let i = 0; i < scopeCount; i++) {
+        scopes.push(tracker.enterScope("function", { name: `func${i}`, path: `/test/file${i}.gml` }));
+        tracker.exitScope();
+    }
+
+    const scopeIds = scopes.map((s) => s.id);
+
+    // Batch retrieval
+    const batchStart = performance.now();
+    const batchResult = tracker.getBatchScopeMetadata(scopeIds);
+    const batchTime = performance.now() - batchStart;
+
+    // Individual retrieval
+    const individualStart = performance.now();
+    const individualResults = new Map();
+    for (const scopeId of scopeIds) {
+        const metadata = tracker.getScopeMetadata(scopeId);
+        if (metadata) {
+            individualResults.set(scopeId, metadata);
+        }
+    }
+    const individualTime = performance.now() - individualStart;
+
+    assert.strictEqual(batchResult.size, scopeCount);
+    assert.strictEqual(individualResults.size, scopeCount);
+
+    // Batch should be faster or at least not significantly slower
+    // We allow a small margin for variance
+    assert.ok(
+        batchTime <= individualTime * 1.5,
+        `Batch time (${batchTime}ms) should be faster than individual time (${individualTime}ms)`
+    );
+});

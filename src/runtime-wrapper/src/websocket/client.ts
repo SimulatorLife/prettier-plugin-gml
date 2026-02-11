@@ -50,6 +50,14 @@ function isRuntimeReady(): boolean {
     return Scripts.some((entry) => typeof entry === "function");
 }
 
+function resolveRuntimeReadiness(runtimeReady: boolean): boolean {
+    if (runtimeReady) {
+        return true;
+    }
+
+    return isRuntimeReady();
+}
+
 function ensureApplicationSurfaceAccessor(): void {
     const globals = globalThis as Record<string, unknown>;
     const builtins = globals.g_pBuiltIn;
@@ -357,7 +365,8 @@ export function createWebSocketClient({
         connectionMetrics: createInitialMetrics(),
         patchQueue: queueEnabled ? createPatchQueueState() : null,
         pendingPatches: [],
-        readinessTimer: null
+        readinessTimer: null,
+        runtimeReady: false
     };
 
     const clearReadinessTimer = (): void => {
@@ -368,7 +377,9 @@ export function createWebSocketClient({
     };
 
     const flushPendingPatches = (): void => {
-        if (!isRuntimeReady()) {
+        const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+        state.runtimeReady = runtimeReady;
+        if (!runtimeReady) {
             return;
         }
 
@@ -390,7 +401,9 @@ export function createWebSocketClient({
         }
 
         state.readinessTimer = setInterval(() => {
-            if (isRuntimeReady()) {
+            const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+            state.runtimeReady = runtimeReady;
+            if (runtimeReady) {
                 flushPendingPatches();
             }
         }, READINESS_POLL_INTERVAL_MS);
@@ -447,7 +460,9 @@ export function createWebSocketClient({
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
-        if (!isRuntimeReady()) {
+        const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+        state.runtimeReady = runtimeReady;
+        if (!runtimeReady) {
             queuePendingPatch(incoming);
             return true;
         }
@@ -530,6 +545,7 @@ export function createWebSocketClient({
 
         state.isConnected = false;
         state.pendingPatches.length = 0;
+        state.runtimeReady = false;
         clearReadinessTimer();
     }
 

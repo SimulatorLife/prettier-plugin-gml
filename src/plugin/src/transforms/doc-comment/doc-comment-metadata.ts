@@ -1,3 +1,5 @@
+import { Core } from "@gml-modules/core";
+
 export type DocCommentMetadata = {
     documentedParamNames?: Set<string>;
     hasDeprecatedDocComment?: boolean;
@@ -7,11 +9,11 @@ const DOC_COMMENT_METADATA_KEY = Symbol("gmlDocCommentMetadata");
 const DOC_COMMENT_DEPRECATED_SET_KEY = Symbol("gmlDocCommentDeprecatedFunctionNames");
 
 export function getDocCommentMetadata(node: unknown): DocCommentMetadata | null {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return null;
     }
 
-    const payload = Reflect.get(node, DOC_COMMENT_METADATA_KEY);
+    const payload = Reflect.get(node as object, DOC_COMMENT_METADATA_KEY);
 
     if (!payload || typeof payload !== "object") {
         return null;
@@ -36,16 +38,16 @@ export function getDocCommentMetadata(node: unknown): DocCommentMetadata | null 
 }
 
 export function setDocCommentMetadata(node: unknown, payload: DocCommentMetadata | null) {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return;
     }
 
     if (!payload) {
-        Reflect.deleteProperty(node, DOC_COMMENT_METADATA_KEY);
+        Reflect.deleteProperty(node as object, DOC_COMMENT_METADATA_KEY);
         return;
     }
 
-    Reflect.set(node, DOC_COMMENT_METADATA_KEY, payload);
+    Reflect.set(node as object, DOC_COMMENT_METADATA_KEY, payload);
 }
 
 export function setDeprecatedDocCommentFunctionSet(ast: unknown, functions: Set<string> | null) {

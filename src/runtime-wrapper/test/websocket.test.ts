@@ -533,6 +533,72 @@ void test("WebSocket client waits for JSON_game before applying patches", async 
     }
 });
 
+void test("WebSocket client caches runtime readiness checks after first successful probe", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const globals = globalThis as Record<string, unknown>;
+    const savedJson = globals.JSON_game;
+
+    const scripts = [() => void 0] as Array<unknown> & { someCallCount: number };
+    const originalSome = scripts.some.bind(scripts);
+    scripts.someCallCount = 0;
+    scripts.some = ((predicate, thisArg) => {
+        scripts.someCallCount += 1;
+        return originalSome(predicate, thisArg);
+    }) as Array<unknown>["some"];
+
+    globals.JSON_game = {
+        ScriptNames: ["gml_Script_probe"],
+        Scripts: scripts
+    };
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    try {
+        await wait(50);
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:cached_ready_one",
+                js_body: "return 1;"
+            })
+        );
+
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:cached_ready_two",
+                js_body: "return 2;"
+            })
+        );
+
+        await wait(10);
+
+        assert.strictEqual(wrapper.hasScript("script:cached_ready_one"), true);
+        assert.strictEqual(wrapper.hasScript("script:cached_ready_two"), true);
+        assert.strictEqual(scripts.someCallCount, 1);
+    } finally {
+        client.disconnect();
+
+        if (savedJson === undefined) {
+            delete globals.JSON_game;
+        } else {
+            globals.JSON_game = savedJson;
+        }
+
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client accepts structured payloads", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 

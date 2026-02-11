@@ -27,7 +27,7 @@ function execute(
 }
 
 function collapseRedundantMissingCallArguments(ast: MutableGameMakerAstNode) {
-    if (!ast || typeof ast !== "object") {
+    if (Core.shouldSkipTraversal(ast)) {
         return;
     }
 
@@ -37,7 +37,7 @@ function collapseRedundantMissingCallArguments(ast: MutableGameMakerAstNode) {
      * Depth-first walk that only visits each AST node once.
      */
     const visit = (node: MutableGameMakerAstNode) => {
-        if (!node || typeof node !== "object" || visited.has(node)) {
+        if (Core.shouldSkipTraversal(node, visited)) {
             return;
         }
 
