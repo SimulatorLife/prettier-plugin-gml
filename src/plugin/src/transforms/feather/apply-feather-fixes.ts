@@ -27,7 +27,7 @@
  * The transforms here mutate the AST, gather fix metadata, and expose diagnostics-driven helpers to the CLI plugin.
  */
 
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type LiteralNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
 import {
@@ -74,6 +74,14 @@ type ApplyFeatherFixesOptions = {
     sourceText?: string;
     preprocessedFixMetadata?: unknown;
     options?: Record<string, unknown>;
+};
+
+/**
+ * Extended literal node with optional skip coercion flag.
+ * Used by numeric string literal coercion fixes to mark literals that should not be converted.
+ */
+type LiteralNodeWithSkipFlag = LiteralNode & {
+    _skipNumericStringCoercion?: boolean;
 };
 
 export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -382,7 +390,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     Core.walkAst(ast, (node) => {
         if (
             node &&
-            (node.type === "FunctionDeclaration" || node.type === "StructFunctionDeclaration") &&
+            (Core.isFunctionDeclarationNode(node) || Core.isStructFunctionDeclarationNode(node)) &&
             Array.isArray(node._featherImplicitArgumentDocEntries)
         ) {
             const entries = node._featherImplicitArgumentDocEntries;
@@ -666,7 +674,7 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
             return false;
         }
 
-        if (node.type === "BreakStatement" && breakableDepth === 0) {
+        if (Core.isBreakStatementNode(node) && breakableDepth === 0) {
             if (!Core.isArrayIndex(parent, property)) {
                 return false;
             }
@@ -1217,7 +1225,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
 
         const insideWithOther = Boolean(context?.insideWithOther);
 
-        if (insideWithOther && node.type === "Identifier") {
+        if (insideWithOther && Core.isIdentifierNode(node)) {
             convertIdentifierReference({
                 identifier: node,
                 parent,
@@ -1234,7 +1242,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "WithStatement" && isWithStatementTargetingOther(node)) {
+        if (Core.isWithStatementNode(node) && isWithStatementTargetingOther(node)) {
             visit(node.test, node, "test", null, null, {
                 insideWithOther,
                 withBodies: context?.withBodies ?? []
@@ -1741,7 +1749,7 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node, parent, property) => {
-        if (node.type === "MemberDotExpression") {
+        if (Core.isMemberDotExpressionNode(node)) {
             const fix = convertLengthAccess(node, parent, property, diagnostic);
 
             if (fix) {
@@ -1841,7 +1849,7 @@ function isStringReturningExpression(node) {
         return false;
     }
 
-    if (node.type === "CallExpression") {
+    if (Core.isCallExpressionNode(node)) {
         const calleeName = Core.getCallExpressionIdentifierName(node);
         if (!calleeName) {
             return false;
@@ -1871,7 +1879,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node) => {
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const calleeName = Core.getCallExpressionIdentifierName(node);
 
             if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
@@ -1906,7 +1914,7 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
         return null;
     }
 
-    if (!argument || argument.type !== "Literal" || typeof argument.value !== "string") {
+    if (!argument || !Core.isLiteralNode(argument) || typeof argument.value !== "string") {
         return null;
     }
 
@@ -1964,7 +1972,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node, parent, property) => {
-        if (node.type === "GlobalVarStatement") {
+        if (Core.isGlobalVarStatementNode(node)) {
             const fixDetails = splitGlobalVarStatementInitializers({
                 statement: node,
                 parent,
@@ -2134,7 +2142,7 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
             return null;
         }
 
-        if (node.type === "ExpressionStatement") {
+        if (Core.isExpressionStatementNode(node)) {
             const removalFix = removeInvalidAssignmentExpression({
                 statement: node,
                 container,
@@ -2150,7 +2158,7 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
             }
         }
 
-        if (node.type === "AssignmentExpression") {
+        if (Core.isAssignmentExpressionNode(node)) {
             const fix = flagInvalidAssignmentTarget(ast, node, diagnostic, sourceText);
 
             if (fix) {
@@ -2299,11 +2307,11 @@ function isAssignableTarget(node) {
         return false;
     }
 
-    if (node.type === "Identifier") {
+    if (Core.isIdentifierNode(node)) {
         return true;
     }
 
-    if (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") {
+    if (Core.isMemberDotExpressionNode(node) || Core.isMemberIndexExpressionNode(node)) {
         return true;
     }
 
@@ -2341,7 +2349,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic, options }) {
     const nameRegistry = collectAllIdentifierNames(ast);
 
     visitFeatherAST(ast, (node, parent, property) => {
-        if (node.type === "AssignmentExpression") {
+        if (Core.isAssignmentExpressionNode(node)) {
             const fixDetail = convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry, options);
 
             if (fixDetail) {
@@ -2483,7 +2491,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
             continue;
         }
 
-        if (node.type === "Identifier" && node.name === originalName) {
+        if (Core.isIdentifierNode(node) && node.name === originalName) {
             if (
                 !shouldSkipIdentifierReplacement({
                     parent,
@@ -2721,11 +2729,11 @@ function unwrapIdentifierFromExpression(node) {
         return null;
     }
 
-    if (node.type === "Identifier") {
+    if (Core.isIdentifierNode(node)) {
         return node;
     }
 
-    if (node.type === "ParenthesizedExpression") {
+    if (Core.isParenthesizedExpressionNode(node)) {
         return unwrapIdentifierFromExpression(node.expression);
     }
 
@@ -2737,11 +2745,11 @@ function unwrapLiteralFromExpression(node) {
         return null;
     }
 
-    if (node.type === "Literal") {
+    if (Core.isLiteralNode(node)) {
         return node;
     }
 
-    if (node.type === "ParenthesizedExpression") {
+    if (Core.isParenthesizedExpressionNode(node)) {
         return unwrapLiteralFromExpression(node.expression);
     }
 
@@ -2765,7 +2773,7 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
     const fixes = [];
 
     Core.walkAst(ast, (node, parent, property) => {
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = rewriteRoomGotoCall({
                 node,
                 diagnostic,
@@ -3034,13 +3042,13 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node) => {
-        if (node.type === "BinaryExpression") {
+        if (Core.isBinaryExpressionNode(node)) {
             const fix = normalizeDivisionBinaryExpression(node, diagnostic);
 
             if (fix) {
                 fixes.push(fix);
             }
-        } else if (node.type === "AssignmentExpression") {
+        } else if (Core.isAssignmentExpressionNode(node)) {
             const fix = normalizeDivisionAssignmentExpression(node, diagnostic);
 
             if (fix) {
@@ -3147,11 +3155,11 @@ function findZeroLiteralInfo(node) {
         return null;
     }
 
-    if (node.type === "Literal") {
+    if (Core.isLiteralNode(node)) {
         return isZeroLiteral(node) ? { literal: node, container: null, property: null } : null;
     }
 
-    if (node.type === "ParenthesizedExpression") {
+    if (Core.isParenthesizedExpressionNode(node)) {
         if (!node.expression || typeof node.expression !== "object") {
             return null;
         }
@@ -3173,7 +3181,7 @@ function findZeroLiteralInfo(node) {
         return innerInfo;
     }
 
-    if (node.type === "UnaryExpression") {
+    if (Core.isUnaryExpressionNode(node)) {
         if (node.operator !== "+" && node.operator !== "-") {
             return null;
         }
@@ -3563,7 +3571,7 @@ function collectArgumentReferenceState({
             return;
         }
 
-        if (node.type === "VariableDeclarator") {
+        if (Core.isVariableDeclaratorNode(node)) {
             const aliasIndex = getArgumentIdentifierIndex(node.init);
 
             if (
@@ -4096,8 +4104,8 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return false;
         }
 
-        if (node.type === "MacroDeclaration") {
-            const macroName = node.name?.name;
+        if (Core.isMacroDeclarationNode(node)) {
+            const macroName = Core.getIdentifierText(node.name);
 
             if (!macroName) {
                 return false;
@@ -4165,7 +4173,7 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "Identifier") {
+        if (Core.isIdentifierNode(node)) {
             const fix = replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, diagnostic);
 
             if (fix) {
@@ -4302,7 +4310,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "IncDecStatement") {
+        if (Core.isIncDecStatementNode(node)) {
             const fix = rewritePostfixStatement(node, parent, property, diagnostic, owner);
 
             if (fix) {
@@ -4312,7 +4320,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
         }
 
         const nextOwner =
-            node.type === "BlockStatement" || node.type === "Program" || node.type === "SwitchCase" ? node : owner;
+            Core.isBlockStatementNode(node) || Core.isProgramNode(node) || Core.isSwitchCaseNode(node) ? node : owner;
 
         Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key, nextOwner);
@@ -4440,7 +4448,7 @@ function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node, parent, property) => {
-        if (node.type === "MemberIndexExpression") {
+        if (Core.isMemberIndexExpressionNode(node)) {
             const fix = convertMultidimensionalMemberIndex(node, parent, property, diagnostic);
 
             if (fix) {
@@ -4566,15 +4574,15 @@ function getMemberExpressionRootIdentifier(node) {
         return null;
     }
 
-    if (node.type === "Identifier") {
+    if (Core.isIdentifierNode(node)) {
         return node.name ?? null;
     }
 
-    if (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") {
+    if (Core.isMemberDotExpressionNode(node) || Core.isMemberIndexExpressionNode(node)) {
         return getMemberExpressionRootIdentifier(node.object);
     }
 
-    if (node.type === "CallExpression") {
+    if (Core.isCallExpressionNode(node)) {
         return getMemberExpressionRootIdentifier(node.object);
     }
 
@@ -4657,10 +4665,10 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (node.type === "MacroDeclaration") {
+        if (Core.isMacroDeclarationNode(node)) {
             const fixInfo = sanitizeMacroDeclaration(node, sourceText, diagnostic);
             if (fixInfo) {
-                registerSanitizedMacroName(ast, node?.name?.name);
+                registerSanitizedMacroName(ast, Core.getIdentifierText(node.name));
                 fixes.push(fixInfo);
             }
         }
@@ -4829,7 +4837,7 @@ function replaceDeprecatedConstantReferences({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "Identifier" && node.name === deprecatedConstant) {
+        if (Core.isIdentifierNode(node) && node.name === deprecatedConstant) {
             const start = Core.getNodeStartIndex(node);
             const end = Core.getNodeEndIndex(node);
 
@@ -5041,7 +5049,7 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
             return;
         }
 
-        if (node.type === "BlockStatement") {
+        if (Core.isBlockStatementNode(node)) {
             if (bestMatch) {
                 const bestStart = Core.getNodeStartIndex(bestMatch);
                 const bestEnd = Core.getNodeEndIndex(bestMatch);
@@ -5504,7 +5512,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic);
 
             if (fix) {
@@ -5564,7 +5572,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
     const fixes = [];
 
     visitFeatherAST(ast, (node) => {
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const args = Core.getCallExpressionArguments(node);
 
             for (const argument of args) {
@@ -5587,7 +5595,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    if (literal._skipNumericStringCoercion) {
+    if ((literal as LiteralNodeWithSkipFlag)._skipNumericStringCoercion) {
         return null;
     }
 
@@ -5631,11 +5639,11 @@ function extractLiteral(node) {
         return null;
     }
 
-    if (node.type === "Literal") {
+    if (Core.isLiteralNode(node)) {
         return node;
     }
 
-    if (node.type === "ParenthesizedExpression") {
+    if (Core.isParenthesizedExpressionNode(node)) {
         return extractLiteral(node.expression);
     }
 
@@ -6005,7 +6013,7 @@ function renameDuplicateFunctionParameters({
             return;
         }
 
-        if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+        if (Core.isFunctionDeclarationNode(node) || Core.isConstructorDeclarationNode(node)) {
             const functionFixes = renameDuplicateParametersInFunction(node, diagnostic);
             if (Core.isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
@@ -6214,8 +6222,8 @@ function getDeleteTargetName(node) {
         return node.name;
     }
 
-    if (node.type === "MemberDotExpression") {
-        return node.property?.name ?? null;
+    if (Core.isMemberDotExpressionNode(node)) {
+        return Core.resolveNodeName(node.property as MutableGameMakerAstNode);
     }
 
     return null;
@@ -6720,7 +6728,7 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "AssignmentExpression") {
+        if (Core.isAssignmentExpressionNode(node)) {
             const fix = convertAllAssignment(node, parent, property, diagnostic);
             if (fix) {
                 fixes.push(fix);
@@ -6802,7 +6810,7 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
         // Check and transform CallExpressions AFTER visiting children
         // This ensures inner/nested calls are transformed before outer calls,
         // which is necessary for proper hoisting order in GM2023 fixes
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = normalizeCallExpressionArguments({
                 node,
                 diagnostic,
@@ -7514,7 +7522,7 @@ function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureShaderResetAfterSet(node, parent, property, diagnostic, sourceText);
 
             if (fix) {
@@ -7619,7 +7627,7 @@ function ensureFogIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureFogResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -7731,7 +7739,7 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -7848,7 +7856,7 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureBlendEnableResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -7973,7 +7981,7 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureBlendModeResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -8108,7 +8116,7 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureFileFindFirstBeforeCloseCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -8193,11 +8201,11 @@ function containsFileFindFirstCall(node) {
         return false;
     }
 
-    if (node.type === "FunctionDeclaration" || node.type === "FunctionExpression") {
+    if (Core.isFunctionDeclarationNode(node) || Core.isFunctionExpressionNode(node)) {
         return false;
     }
 
-    if (node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "file_find_first")) {
+    if (Core.isCallExpressionNode(node) && Core.isIdentifierWithName(node.object, "file_find_first")) {
         return true;
     }
 
@@ -8233,7 +8241,7 @@ function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureAlphaTestEnableResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -8277,7 +8285,7 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -8396,7 +8404,7 @@ function ensureHalignIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureHalignResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -9123,7 +9131,7 @@ function ensureSurfaceTargetResetForGM2005({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureSurfaceTargetResetAfterCallForGM2005(node, parent, property, diagnostic);
 
             if (fix) {
@@ -9634,7 +9642,7 @@ function ensureCullModeIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureCullModeResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -9896,7 +9904,7 @@ function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureVertexEndInserted(node, parent, property, diagnostic);
 
             if (fix) {
@@ -10779,7 +10787,7 @@ function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
             return false;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = removeEventInheritedCall(node, parent, property, owner, ownerKey, diagnostic);
 
             if (fix) {
@@ -10855,7 +10863,7 @@ function ensureColourWriteEnableIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureColourWriteEnableResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -10998,7 +11006,7 @@ function ensureRequiredArgumentProvided({ ast, diagnostic, callTemplate }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureCallHasRequiredArgument(node, diagnostic, callTemplate);
 
             if (fix) {
@@ -11108,7 +11116,7 @@ function findFirstCallExpression(node) {
         return null;
     }
 
-    if (node.type === "CallExpression") {
+    if (Core.isCallExpressionNode(node)) {
         return node;
     }
 
@@ -11183,15 +11191,15 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "AssignmentExpression") {
+        if (Core.isAssignmentExpressionNode(node)) {
             recordIdentifierStringAssignment(node.left, node.right, stringLiteralAssignments);
         }
 
-        if (node.type === "VariableDeclarator") {
+        if (Core.isVariableDeclaratorNode(node)) {
             recordIdentifierStringAssignment(node.id, node.init, stringLiteralAssignments);
         }
 
-        if (node.type === "BinaryExpression") {
+        if (Core.isBinaryExpressionNode(node)) {
             const fix = coerceStringLiteralsInBinaryExpression(node, diagnostic, stringLiteralAssignments);
 
             if (fix) {
@@ -11295,9 +11303,9 @@ function canWrapOperandWithReal(node) {
         return false;
     }
 
-    if (node.type === "CallExpression") {
+    if (Core.isCallExpressionNode(node)) {
         const object = node.object;
-        if (object && object.type === "Identifier" && object.name === "real") {
+        if (object && Core.isIdentifierNode(object) && object.name === "real") {
             return false;
         }
     }
@@ -11428,7 +11436,7 @@ function addMissingEnumMembers({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "MemberDotExpression") {
+        if (Core.isMemberDotExpressionNode(node)) {
             const fix = addMissingEnumMember(node, enumRegistry, diagnostic);
 
             if (fix) {
@@ -11640,7 +11648,7 @@ function ensureTextureRepeatIsReset({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic);
 
             if (fix) {
@@ -11871,7 +11879,7 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
             return;
         }
 
-        if (node.type === "MemberIndexExpression") {
+        if (Core.isMemberIndexExpressionNode(node)) {
             const fix = updateMemberIndexAccessor(node, {
                 incorrectAccessor,
                 correctAccessor,
@@ -12606,11 +12614,11 @@ function containsGpuPopStateCall(node) {
         return false;
     }
 
-    if (node.type === "ExpressionStatement") {
+    if (Core.isExpressionStatementNode(node)) {
         return containsGpuPopStateCall(node.expression);
     }
 
-    if (node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "gpu_pop_state")) {
+    if (Core.isCallExpressionNode(node) && Core.isIdentifierWithName(node.object, "gpu_pop_state")) {
         return true;
     }
 
@@ -12733,7 +12741,7 @@ function isGpuStateCall(node, expectedName, { allowStatements = false } = {}) {
 
     if (allowStatements) {
         expression = getCallExpression(node);
-    } else if (node && node.type === "CallExpression") {
+    } else if (node && Core.isCallExpressionNode(node)) {
         expression = node;
     }
 
@@ -12916,7 +12924,7 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic, ast);
 
             if (fix) {
@@ -13494,11 +13502,11 @@ function nodeContainsVertexFormatEndCall(node) {
 }
 
 function isVertexFormatEndCall(node) {
-    return !!node && node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "vertex_format_end");
+    return !!node && Core.isCallExpressionNode(node) && Core.isIdentifierWithName(node.object, "vertex_format_end");
 }
 
 function isVertexFormatBeginCall(node) {
-    return !!node && node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "vertex_format_begin");
+    return !!node && Core.isCallExpressionNode(node) && Core.isIdentifierWithName(node.object, "vertex_format_begin");
 }
 
 function isVertexFormatAddCall(node) {
@@ -13659,7 +13667,7 @@ function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const callFixes = annotateInstanceCreateCall(node, diagnostic);
 
             if (Core.isNonEmptyArray(callFixes)) {
@@ -14366,7 +14374,7 @@ function isBlendModeNormalArgument(node) {
         return true;
     }
 
-    if (node.type === "Literal") {
+    if (Core.isLiteralNode(node)) {
         return node.value === "bm_normal";
     }
 
@@ -14946,14 +14954,14 @@ function isNegativeOneLiteral(node) {
         return false;
     }
 
-    if (node.type === "Literal") {
+    if (Core.isLiteralNode(node)) {
         return node.value === "-1" || node.value === -1;
     }
 
-    if (node.type === "UnaryExpression" && node.operator === "-" && node.prefix) {
+    if (Core.isUnaryExpressionNode(node) && node.operator === "-" && node.prefix) {
         const argument = node.argument;
 
-        if (!argument || argument.type !== "Literal") {
+        if (!argument || !Core.isLiteralNode(argument)) {
             return false;
         }
 
@@ -15340,7 +15348,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "CallExpression") {
+        if (Core.isCallExpressionNode(node)) {
             const fix = correctMissingFunctionCall(node, replacements, diagnostic);
 
             if (fix) {
