@@ -21,7 +21,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
    ```ts
    // src/lint/src/index.ts
    export const Lint = Object.freeze({
-     plugin,      // ESLint plugin object (rules + languages + configs)
+     plugin,      // ESLint plugin object (rules + languages)
      configs,     // recommended / feather / performance
      ruleIds,     // frozen map of canonical rule IDs
      services     // project-context factories + helpers
@@ -64,6 +64,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
      - affects only `gml/*` rules listed in this plan’s performance appendix baseline; it does not modify `feather/*` severities.
      - applies severity/enablement overrides only and does not change rule option objects.
      - source of truth for performance-targeted rule IDs is a frozen constant `PERFORMANCE_OVERRIDE_RULE_IDS` in lint workspace code (`src/lint/src/configs/performance-rule-ids.ts`).
+     - `PERFORMANCE_OVERRIDE_RULE_IDS` contains canonical full ESLint rule IDs (for example `gml/prefer-loop-length-hoist`), matching `Lint.ruleIds` value forms.
      - `PERFORMANCE_OVERRIDE_RULE_IDS` contents must match this plan’s performance appendix baseline and are semver-major to change.
    - canonical composition order and precedence:
      - recommended only: `...Lint.configs.recommended`
@@ -77,6 +78,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
 
 ## ESLint v9 Language Wiring Contract (Pinned)
 1. `Lint.plugin` is the object registered under `plugins.gml`.
+   - public contract scope: `Lint.plugin` is the rules/languages surface; preset configs are semver-governed through `Lint.configs`.
 2. `Lint.plugin.languages.gml` is the ESLint v9 language object used via `language: "gml/gml"`.
 3. This migration implements a **language plugin**, not `languageOptions.parser`.
 4. Commonly used flat-config keys in blocks applying `language: "gml/gml"` are `files`, `ignores`, `plugins`, `language`, `languageOptions`, `rules`, `linterOptions` (documentation only).
@@ -127,8 +129,16 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
    - CLI uses process `cwd` as ESLint `cwd` for discovery/resolution.
    - overlay UX guardrail:
      - per-file resolved config view is read via `ESLint#calculateConfigForFile(filePath)`.
-     - a rule is treated as applied for that file when it exists in `config.rules` and its resolved severity is not `"off"`/`0`.
-     - CLI emits one `--verbose` warning code `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` when, for a linted `.gml` file, resolved config has any applied rule whose ID starts with `feather/` or is in `PERFORMANCE_OVERRIDE_RULE_IDS`, and the same resolved config does not include both `plugins.gml === Lint.plugin` and `language: "gml/gml"` for that file.
+     - wiring presence is determined only from that resolved config object: wired only when `config.plugins?.gml === Lint.plugin` and `config.language === "gml/gml"`.
+     - any other resolved wiring combination (including present-but-non-identical `plugins.gml`) is treated as not wired.
+     - if either wiring field is missing/`undefined` in the resolved view, treat as not wired; do not use alternate inference paths.
+     - if `config.rules` is missing/`undefined` in the resolved view, treat as no applied rules for guardrail evaluation.
+     - severity normalization for applied-rule detection:
+       - treat rule as off when value is `"off"` or `0`, or when value is an array whose first element is `"off"` or `0`.
+       - treat rule as applied when value is `"warn"`/`"error"` or `1`/`2`, or when value is an array whose first element is `"warn"`/`"error"` or `1`/`2`.
+       - recognized forms are `"off"|"warn"|"error"|0|1|2`, or arrays whose first element is one of those values.
+       - anything else (including `null`, booleans, objects, and empty arrays) is treated as applied (conservative) for guardrail purposes and must not crash guardrail evaluation.
+     - CLI emits one `--verbose` warning code `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` when, for a linted `.gml` file, resolved config has any applied rule whose ID starts with `feather/` or is a canonical full ID in `PERFORMANCE_OVERRIDE_RULE_IDS`, and the same resolved config does not include both `plugins.gml === Lint.plugin` and `language: "gml/gml"` for that file.
 2. If `--config` is provided, CLI sets `overrideConfigFile` to that path.
 3. If `--config` is absent, CLI uses ESLint flat-config discovery over this candidate filename set:
    - `eslint.config.js`
@@ -259,6 +269,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
 6. `Lint.configs.performance` baseline:
    - composition: overlay preset with `files: ["**/*.gml"]` guard and `gml/*` severity/enablement overrides only; no language/plugin wiring.
    - source-of-truth rule-ID set is frozen constant `PERFORMANCE_OVERRIDE_RULE_IDS` (`src/lint/src/configs/performance-rule-ids.ts`).
+   - `PERFORMANCE_OVERRIDE_RULE_IDS` entries are canonical full ESLint rule IDs.
    - disables or downgrades project-aware expensive rules:
      - `gml/prefer-loop-length-hoist`: `off`
      - `gml/prefer-struct-literal-assignments`: `off`
@@ -409,6 +420,8 @@ Internal/runtime contracts for language integration, indexing lifecycle, parser 
      defineNameRange: [number, number] | null; // non-null when `directiveKind === "define"`
    };
    ```
+   - `defineNameRange` follows standard range semantics in this plan: original-source UTF-16 `[start, end)`.
+   - when non-null, `defineName` must equal the exact original-source substring at `defineNameRange`.
 4. `GmlEnumInfo` stable entry shape:
    ```ts
    type GmlEnumInfo = {
@@ -583,6 +596,7 @@ Internal/runtime contracts for language integration, indexing lifecycle, parser 
     - lint targets outside forced root are linted, with missing-context handling defined in **Rule Access to Language Services (Pinned)**.
     - out-of-root classification uses the same canonicalized absolute paths as registry/lookups (no separate logical-path comparison path).
     - out-of-root comparison rule: a file is in-root only when canonical `filePath` is under canonical forced root by path-segment boundary comparison (for example, `/root2/file.gml` is not in-root for forced root `/root`).
+    - UNC boundary rule uses the same path-segment boundary semantics as drive-letter paths (for example, `\\\\server\\share\\root2\\file.gml` is out-of-root for forced root `\\\\server\\share\\root\\`).
     - CLI emits a warning (unless `--quiet`) listing out-of-root files.
 18. `--project-strict` mode:
     - when enabled, any out-of-root lint target is treated as a runtime failure with exit code `2`.
@@ -947,6 +961,9 @@ Verification coverage, regression protections, and phased delivery criteria for 
    - Forced-root Windows boundary test:
      - forced root `C:\\root`, file `C:\\root2\\file.gml` => out-of-root.
      - forced root `C:\\root`, file `C:\\root\\sub\\file.gml` => in-root.
+   - Forced-root UNC boundary test:
+     - forced root `\\\\server\\share\\root\\`, file `\\\\server\\share\\root2\\file.gml` => out-of-root.
+     - forced root `\\\\server\\share\\root\\`, file `\\\\server\\share\\root\\sub\\file.gml` => in-root.
    - Project-analysis degradation tests for missing/partial semantic-refactor outputs => `missingProjectContext` behavior (no unsafe permissive fixes).
    - Regression tests proving formatter no longer applies migrated semantic transforms.
    - Dependency policy tests updated to include `@gml-modules/lint` and enforce no Prettier dependency in lint workspace.
@@ -968,6 +985,10 @@ Verification coverage, regression protections, and phased delivery criteria for 
      - `recommended + performance` reduces findings for pinned expensive-rule fixtures according to the appendix baseline.
      - `recommended + feather + performance` preserves feather defaults while applying performance overrides to listed `gml/*` rules only.
    - Overlay wiring UX test: using per-file `ESLint#calculateConfigForFile(filePath)` resolution, `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` emits only when rules applied at non-off severity include `feather/*` or IDs in `PERFORMANCE_OVERRIDE_RULE_IDS`, and resolved wiring lacks either `plugins.gml === Lint.plugin` (reference identity) or `language: "gml/gml"` for that file.
+   - Overlay configured-but-not-applied test: if overlay rules are present in project config but do not apply to the linted `.gml` file’s resolved config, `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` is not emitted.
+   - Overlay partial-wiring mismatch tests:
+     - `plugins.gml === Lint.plugin` present but `language !== "gml/gml"` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
+     - `language === "gml/gml"` present but `plugins.gml !== Lint.plugin` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
 
 ## Implementation Phases and Exit Criteria
 1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
