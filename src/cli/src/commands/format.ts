@@ -428,8 +428,8 @@ configureConsoleMethods(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL ?? DEFAULT_PRE
 
 export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
-        "--extensions <list>",
-        `File extensions to format (e.g., ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
+        "--extensions <extensions...>",
+        `File extensions to format. Supports space-separated, repeated, or comma-separated values (e.g., ${GML_EXTENSION} .yy or ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
     )
         .argParser((value, previous) => {
             const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
@@ -477,7 +477,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
         new Command()
             .name(name)
-            .usage("[options] [path]")
+            .usage("[options] [targetPath]")
             .description("Format GameMaker Language files using the prettier plugin.")
     )
         .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")

@@ -1,3 +1,4 @@
+import { isFunctionLikeNode } from "../../../ast/node-helpers.js";
 import {
     getIdentifierText,
     getNodeEndIndex,
@@ -257,13 +258,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             return;
         }
 
-        if (
-            node !== functionNode &&
-            (node.type === "FunctionDeclaration" ||
-                node.type === "StructFunctionDeclaration" ||
-                node.type === "FunctionExpression" ||
-                node.type === "ConstructorDeclaration")
-        ) {
+        if (node !== functionNode && isFunctionLikeNode(node)) {
             return;
         }
 

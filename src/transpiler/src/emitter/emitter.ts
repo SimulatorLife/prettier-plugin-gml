@@ -650,17 +650,19 @@ export class GmlToJsEmitter {
         if (atoms.length === 1 && atoms[0]?.type === "TemplateStringText") {
             return `\`${Core.escapeTemplateText(atoms[0].value)}\``;
         }
-        // Build template string efficiently
-        let result = "`";
+        // Build template string with StringBuilder to avoid O(n²) string concatenation
+        const builder = new StringBuilder(atoms.length + 2);
+        builder.append("`");
         for (const atom of atoms) {
             if (!atom) {
                 continue;
             }
-            result +=
-                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`;
+            builder.append(
+                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
+            );
         }
-        result += "`";
-        return result;
+        builder.append("`");
+        return builder.toString();
     }
 
     private visitTemplateStringText(ast: TemplateStringTextNode): string {
@@ -679,14 +681,14 @@ export class GmlToJsEmitter {
             const value = this.visit(prop.value);
             return `{${key}: ${value}}`;
         }
-        // Multiple properties: build efficiently
-        const parts: string[] = Array.from({ length: props.length });
-        for (const [i, prop] of props.entries()) {
+        // Multiple properties: use StringBuilder to avoid sparse array allocation
+        const builder = new StringBuilder(props.length);
+        for (const prop of props) {
             const key = this.resolveStructKey(prop);
             const value = this.visit(prop.value);
-            parts[i] = `${key}: ${value}`;
+            builder.append(`${key}: ${value}`);
         }
-        return `{${parts.join(", ")}}`;
+        return `{${builder.toString(", ")}}`;
     }
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
@@ -769,12 +771,12 @@ export class GmlToJsEmitter {
         if (!params || params.length === 0) {
             return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
         }
-        // Build parameter list efficiently
-        const paramParts: string[] = Array.from({ length: params.length });
-        for (const [i, param] of params.entries()) {
-            paramParts[i] = typeof param === "string" ? param : this.visit(param);
+        // Build parameter list with StringBuilder to avoid sparse array allocation
+        const builder = new StringBuilder(params.length);
+        for (const param of params) {
+            builder.append(typeof param === "string" ? param : this.visit(param));
         }
-        return `${keyword} ${id}(${paramParts.join(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+        return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
     }
 
     private ensureStatementTermination(code: string): string {
