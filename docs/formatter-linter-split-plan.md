@@ -6,6 +6,7 @@
 3. Keep formatter deterministic and non-semantic; move all non-layout rewrites to lint rules with explicit diagnostics and optional `--fix`.
 
 ## Public API Contracts
+Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-facing preset behavior.
 
 ## Public API and Workspace Changes
 1. Add new workspace at `src/lint` with package name `@gml-modules/lint`.
@@ -33,17 +34,39 @@
      - `Gml<RuleName>` (for example `GmlNoGlobalvar`)
      - `FeatherGM####` (for example `FeatherGM1051`)
    - keys are semver-public and stable across minor/patch; removals/renames are semver-major only.
+   - values are semver-public and stable across minor/patch; rule-ID removals/renames are semver-major only.
+   - object key iteration order is not semver-public and must not be used as a behavioral contract.
 7. `Lint.configs` contract:
    - `configs.recommended`, `configs.feather`, and `configs.performance` are readonly flat-config arrays (`FlatConfig[]` shape), not functions.
    - each config surface is directly consumable in `eslint.config.*` via array spread.
+   - shared files-glob contract:
+     - all shipped lint presets use the same files-glob source (`GML_LINT_FILES_GLOB`), currently `["**/*.gml"]`.
+     - `recommended`, `feather`, and `performance` must remain glob-aligned by deriving from that shared source.
    - composition model:
      - `configs.recommended`: complete preset with `files` + `plugins` + `language` wiring and recommended gml rules.
-     - `configs.feather`: overlay preset intended to be spread after `recommended`; enables feather rules only (no duplicate language wiring block).
-     - `configs.performance`: overlay preset intended to be spread after `recommended`; reduces expensive/project-aware rule cost (rule severity downgrades/disablement only, no language wiring changes).
+     - `configs.feather`: overlay preset intended to be spread after `recommended`; contains `files: ["**/*.gml"]` guard and feather-rule entries only (no duplicate language wiring block).
+     - `configs.performance`: overlay preset intended to be spread after `recommended`; contains `files: ["**/*.gml"]` guard and performance tuning rule entries only (no duplicate language wiring block).
+   - overlay dependency contract:
+     - supported usage is `recommended` + overlay(s), or overlay(s) with an equivalent user-provided `plugins` + `language` wiring block.
+     - overlays alone do not provide complete language wiring and are not standalone presets.
+     - equivalent user-provided wiring means all of:
+       - `plugins: { gml: Lint.plugin }`
+       - `language: "gml/gml"`
+       - `files` scope equal to the overlay `files` guard (`GML_LINT_FILES_GLOB`).
    - feather severity source:
      - `configs.feather` default severities come from feather parity manifest `defaultSeverity` values.
+     - severity mapping is exact: manifest `warn` -> ESLint `"warn"`, manifest `error` -> ESLint `"error"`.
+     - `configs.feather` does not set feather rules to `"off"` by default.
    - performance preset scope:
      - does not change parsing mode (`languageOptions.recovery` unchanged unless explicitly overridden by user config).
+     - affects only `gml/*` rules listed in this plan’s performance appendix baseline; it does not modify `feather/*` severities.
+     - applies severity/enablement overrides only and does not change rule option objects.
+   - canonical composition order and precedence:
+     - recommended only: `...Lint.configs.recommended`
+     - recommended + feather: `...Lint.configs.recommended, ...Lint.configs.feather`
+     - recommended + performance: `...Lint.configs.recommended, ...Lint.configs.performance`
+     - recommended + feather + performance: `...Lint.configs.recommended, ...Lint.configs.feather, ...Lint.configs.performance`
+     - later flat-config entries win on conflict; user-authored overrides should be placed last.
 8. Feather manifest export contract:
    - parity manifest is exported as typed runtime data from lint workspace code (not generated ad-hoc at runtime).
    - manifest schema version is explicit (`schemaVersion`) and semver-governed.
@@ -221,19 +244,28 @@
 3. Derived project-aware rule IDs are generated from `meta.docs.requiresProjectContext === true` and must match this appendix.
 4. Any change to this appendix must be accompanied by matching updates to fallback-mode docs/tests and config snapshots.
 5. `Lint.configs.feather` baseline:
-   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
+   - composition: overlay preset with `files: ["**/*.gml"]` guard and feather-rule entries only; no language/plugin wiring.
    - enables all feather parity rules listed in this plan.
    - severity source: per-rule `defaultSeverity` from feather parity manifest.
+   - standalone note: supported when paired with `recommended` (or equivalent user-provided language/plugin wiring).
 6. `Lint.configs.performance` baseline:
-   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
+   - composition: overlay preset with `files: ["**/*.gml"]` guard and `gml/*` severity/enablement overrides only; no language/plugin wiring.
    - disables or downgrades project-aware expensive rules:
      - `gml/prefer-loop-length-hoist`: `off`
      - `gml/prefer-struct-literal-assignments`: `off`
      - `gml/no-globalvar`: `warn`
      - `gml/prefer-string-interpolation`: `off`
    - keeps parse behavior unchanged (`recovery` default unchanged).
+   - does not modify `feather/*` severities and does not alter rule option objects.
+7. Canonical overlay composition patterns for docs/examples:
+   - `...Lint.configs.recommended`
+   - `...Lint.configs.recommended, ...Lint.configs.feather`
+   - `...Lint.configs.recommended, ...Lint.configs.performance`
+   - `...Lint.configs.recommended, ...Lint.configs.feather, ...Lint.configs.performance`
+   - precedence follows flat-config order (later entries override earlier entries).
 
 ## Internal Implementation Contracts
+Internal/runtime contracts for language integration, indexing lifecycle, parser services, and compatibility enforcement.
 
 ## ESLint v9 Language Object Interface (Pinned)
 1. `Lint.plugin.languages.gml` implements the ESLint v9 `Language` interface exactly as documented by ESLint/@eslint-core for the pinned major version.
@@ -257,21 +289,20 @@
    }>;
    ```
 6. `parse(...)` return-channel contract (single source of truth):
-   - `parse(...)` returns the ESLint-facing v9 parse result channel directly (no separate public wrapper layer).
+   - `parse(...)` returns the structure ESLint expects for the pinned version range (`>=9.39.0 <10`), validated by runtime contract tests.
    - success returns ESLint-compatible parse success payload containing AST + parser services for `createSourceCode(...)`.
    - parse failure returns through ESLint v9 parse-failure return channel (no uncaught throw).
    - exact object field names are pinned by runtime contract tests against the installed ESLint version.
-   - pinned implementation shape for the supported range (`>=9.39.0 <10`) is:
+   - semver-governed stability for consumers is the rule-facing output contract (`parserServices.gml`, AST/token/comment invariants), not raw parse-channel field names.
+   - documentation aliases below describe the normalized internal adapter view used by tests/docs; they are not semver-public runtime field-name guarantees:
      ```ts
-     type GmlParseSuccess = {
-       ok: true;
+     type GmlParseSuccessAlias = {
        ast: Program;
        parserServices: { gml: GmlParserServices };
        visitorKeys: VisitorKeys;
      };
 
-     type GmlParseFailure = {
-       ok: false;
+     type GmlParseFailureAlias = {
        errors: ReadonlyArray<{
          message: string;
          line: number;
@@ -281,13 +312,15 @@
        }>;
      };
      ```
-   - this parse shape is an internal language-implementation contract (not a semver-public API for external consumers).
+   - these aliases are internal language-implementation documentation, not a semver-public API for external consumers.
    - if ESLint v9 minors require channel adjustments, the language implementation may adapt internally while preserving documented rule-facing contracts (`parserServices.gml`, AST/token/comment invariants).
 7. Parse failure contract:
    - Parse failures are surfaced through ESLint v9’s documented language parse-failure mechanism (returned, not thrown uncaught).
 8. `createSourceCode(...)` contract:
    - receives the parse success payload for the same file and uses these fields: `ast`, `parserServices`, and `visitorKeys`, plus ESLint-provided file text/filename context.
    - field-level compatibility with ESLint v9 is pinned by runtime contract tests.
+   - filename source of truth is ESLint’s per-file filename input for that parse call.
+   - `parserServices.gml.filePath` must be derived from that filename via this normalization pipeline: absolute resolution -> realpath when available -> fallback to resolved absolute path when realpath fails.
    - no custom `SourceCode` subclass is used in this migration.
 9. SourceCode contract:
    - Implementation uses ESLint `SourceCode` (no custom SourceCode class), so `getText()`, token APIs, comment APIs, and location helpers behave per ESLint defaults.
@@ -332,7 +365,7 @@
    ```ts
    type GmlParserServices = {
      schemaVersion: 1;
-     filePath: string; // normalized absolute realpath, platform-native separators
+     filePath: string; // normalized absolute path from ESLint filename (realpath when available; fallback absolute path), platform-native separators
      recovery: ReadonlyArray<GmlRecoveryInsertion>;
      directives: ReadonlyArray<GmlDirectiveInfo>;
      enums: ReadonlyArray<GmlEnumInfo>;
@@ -491,6 +524,8 @@
    - relative `--project` paths are resolved against CLI `cwd` before normalization.
 2. Without `--project`, root resolution is nearest ancestor containing a GameMaker manifest (`.yyp`) from each linted file path; fallback is CLI `cwd`.
    - root discovery resolves candidate paths through `realpath` before `.yyp` ancestry checks.
+   - if realpath resolution fails for a candidate lint target, runtime falls back to resolved absolute path for that target and treats project-aware services for that file as missing-context.
+   - in this realpath-failure case, lint still runs local/non-project-aware rules for the file; project-aware rules emit `missingProjectContext` (once per file per rule) and do not crash.
    - symlinks are normalized to canonical paths for registry keys and deduplication.
    - discovery is per concrete lint target file after ESLint file enumeration.
 3. Runtime owns one invocation-scoped `ProjectLintContextRegistry` keyed by resolved root.
@@ -600,9 +635,11 @@
    - run CLI lint in a simulated consumer layout (pnpm-style nested `node_modules`) and assert single-ESLint-instance behavior.
 
 ## Rule System Contracts
+Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries, and parity metadata requirements.
 
 ## Rule Access to Language Services (Pinned)
 1. Rules access language-specific metadata through `context.sourceCode.parserServices.gml`.
+   - canonical path policy: rules and project-context lookups must use `parserServices.gml.filePath`; `context.getFilename()` is informational only.
 2. Rules must not infer parse/recovery metadata from `context.languageOptions`; `languageOptions` is configuration input, not parse output.
 3. Project-aware data access is via `Lint.services` helpers injected into rule execution context.
 4. Injection path is pinned: project services are exposed under `context.settings.gml.project`.
@@ -618,7 +655,7 @@
      getContext(filePath: string): ProjectContext | null;
    };
    ```
-   - `filePath` input must be normalized absolute realpath with platform-native separators.
+   - `filePath` input must use the shared normalization pipeline: absolute resolution -> realpath when available -> fallback absolute path when realpath fails; platform-native separators.
    `ProjectContext` exposes project-aware helpers such as:
    - `capabilities: ReadonlySet<ProjectCapability>`
    - `isIdentifierNameOccupiedInProject`
@@ -642,6 +679,7 @@
 10. Emission constraints:
    - project-aware rules emit `missingProjectContext` at most once per file per rule.
    - all project-aware rules must define `missingProjectContext` in `meta.messages`.
+   - `missingProjectContext` and `unsafeFix` are mutually exclusive for the same file/rule execution path.
 11. `reportUnsafe` interaction:
    - `missingProjectContext` is independent of `reportUnsafe`.
    - `reportUnsafe: false` suppresses unsafe-fix diagnostics only; it does not suppress missing-context diagnostics.
@@ -687,7 +725,6 @@
 4. Changing/removing existing reason codes is semver-major; adding new reason codes is semver-minor.
 5. Minimum starter reason-code set:
    - `MISSING_PROJECT_CONTEXT`
-   - `MISSING_CAPABILITY`
    - `NAME_COLLISION`
    - `CROSS_FILE_CONFLICT`
    - `SEMANTIC_AMBIGUITY`
@@ -755,7 +792,11 @@
    - eligibility preconditions: same accessor call appears in loop test on each iteration and hoist target can be declared in the loop’s containing lexical scope.
    - messageIds: `preferLoopLengthHoist`, `unsafeFix`, `missingProjectContext`.
    - fix canonical form: insert a single `var <name> = <accessorCall>;` immediately before the loop statement in the containing block/program, then replace loop-test call sites with `<name>`.
-   - unsafe conditions: name collision, ambiguous containing scope insertion point, or cross-file symbol conflict evidence.
+   - unsafe conditions: name collision, non-block insertion context requiring brace synthesis, or cross-file symbol conflict evidence.
+   - scope insertion rule: fixer must not synthesize new braces/blocks; if loop statement is not directly insertable in an existing `Program`/`BlockStatement` statement list, report unsafe.
+   - insertion examples:
+     - safe: loop statement is already an item in a `Program`/`BlockStatement` list (declaration can be inserted immediately before it).
+     - unsafe: loop appears as a bare single-statement child (for example directly under `if` without braces) where insertion would require block synthesis.
    - required capabilities: `IDENTIFIER_OCCUPANCY`, `LOOP_HOIST_NAME_RESOLUTION`.
 2. `gml/prefer-hoistable-loop-accessors`:
    - trigger: repeated loop accessor patterns meeting `minOccurrences`.
@@ -768,7 +809,9 @@
    - trigger: consecutive compatible member assignments to the same struct target.
    - eligibility preconditions: assignment cluster is contiguous, target base is stable, and rewrite preserves original assignment order/side effects.
    - messageIds: `preferStructLiteralAssignments`, `unsafeFix`, `missingProjectContext`.
-   - fix canonical form: rewrite assignment cluster to a single literal-style initialization/assignment expression in the same block.
+   - fix canonical form: rewrite assignment cluster to a single `target = { memberA: exprA, memberB: exprB, ... };` assignment in the same block.
+   - eligible assignment pattern: contiguous `target.<member> = <expr>;` statements with stable `target` base and no interleaved control-flow/side-effecting writes.
+   - conservative stability rule: if target base is not a plain identifier (for example indexed/member-computed bases like `arr[i]`), treat as unsafe unless stability is proven by rule-local analysis.
    - unsafe conditions: potential target aliasing, conflicting writes between assignments, or rename/conflict-plan uncertainty.
    - required capabilities: `IDENTIFIER_OCCURRENCES`, `RENAME_CONFLICT_PLANNING`.
 4. `gml/optimize-logical-flow`:
@@ -779,10 +822,12 @@
    - unsafe conditions: none (no project-aware safety gates).
 5. `gml/no-globalvar`:
    - trigger: `globalvar` declarations/usages.
-   - eligibility preconditions: declaration/usage can be mapped to `global.<identifier>` without local-scope ambiguity.
+   - eligibility preconditions: declaration/usage can be mapped to `global.<identifier>` without local-scope ambiguity, including comma-declaration forms (`globalvar a, b;`) when grammar supports them.
    - messageIds: `noGlobalvar`, `unsafeFix`, `missingProjectContext`.
    - fix canonical form: remove `globalvar` declaration statement and rewrite symbol reads/writes to `global.<name>` in the same file.
+   - declaration-removal rule: remove a `globalvar` statement only when all declared names in that statement are rewritten in the same fix; otherwise report unsafe.
    - unsafe conditions: shadowing, `with`-scope ambiguity, or conflict evidence from project analysis.
+   - `with` handling rule: usages inside `with (...) { ... }` are treated as unsafe and are not autofixed.
    - required capabilities: `IDENTIFIER_OCCUPANCY`, `RENAME_CONFLICT_PLANNING`.
 6. `gml/normalize-doc-comments`:
    - trigger: non-canonical documentation comment content.
@@ -795,6 +840,10 @@
    - messageIds: `preferStringInterpolation`, `unsafeFix`, `missingProjectContext`.
    - fix canonical form: replace eligible concatenation chain with one template/interpolated string expression.
    - unsafe conditions: non-idempotent expressions, ambiguous coercion/ordering semantics, or missing occurrence/collision confidence.
+   - reason-code mapping examples:
+     - side-effecting call/member access in concatenation chain -> `NON_IDEMPOTENT_EXPRESSION`
+     - ambiguous numeric/string coercion ordering -> `SEMANTIC_AMBIGUITY`
+   - non-idempotent heuristic (minimum conservative set): treat `CallExpression`, `UpdateExpression`, `AssignmentExpression`, and member access on non-identifier bases as non-idempotent for autofix safety.
    - required capabilities: `IDENTIFIER_OCCURRENCES`.
 8. `gml/optimize-math-expressions`:
    - trigger: locally simplifiable arithmetic/identity patterns.
@@ -805,7 +854,8 @@
    - trigger: missing-separator recovery entries from `parserServices.gml.recovery`.
    - eligibility preconditions: recovery entry `kind === "inserted-argument-separator"` and valid projected offset.
    - messageIds: `requireArgumentSeparators`.
-   - fix canonical form: comma insertion at recorded original-source UTF-16 offsets in ascending order.
+   - fix canonical form: comma insertion at recorded original-source UTF-16 offsets.
+   - insertion ordering/tie-break: sort entries by `(offset ASC, argumentIndex ASC)` for identity/dedup, collapse duplicates for the same `(callRange, argumentIndex, offset)`, then apply text edits in `offset DESC` order to avoid offset-shift compensation.
 10. Rule-level safety requirements:
     - any rule emitting `unsafeFix` must declare its reason-code set in metadata and docs.
     - project-aware rules must declare required capabilities in metadata; missing capabilities route to `missingProjectContext`.
@@ -813,10 +863,10 @@
     - `meta.docs.gml.requiredCapabilities: ReadonlyArray<ProjectCapability>`
     - `meta.docs.gml.unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>`
 12. Minimum rule->reason-code mapping:
-    - `gml/prefer-loop-length-hoist`: `NAME_COLLISION`, `MISSING_CAPABILITY`, `CROSS_FILE_CONFLICT`
-    - `gml/prefer-struct-literal-assignments`: `SEMANTIC_AMBIGUITY`, `MISSING_CAPABILITY`
-    - `gml/no-globalvar`: `NAME_COLLISION`, `SEMANTIC_AMBIGUITY`, `MISSING_CAPABILITY`
-    - `gml/prefer-string-interpolation`: `NON_IDEMPOTENT_EXPRESSION`, `SEMANTIC_AMBIGUITY`, `MISSING_CAPABILITY`
+    - `gml/prefer-loop-length-hoist`: `NAME_COLLISION`, `CROSS_FILE_CONFLICT`, `SEMANTIC_AMBIGUITY`
+    - `gml/prefer-struct-literal-assignments`: `SEMANTIC_AMBIGUITY`, `CROSS_FILE_CONFLICT`
+    - `gml/no-globalvar`: `NAME_COLLISION`, `SEMANTIC_AMBIGUITY`, `CROSS_FILE_CONFLICT`
+    - `gml/prefer-string-interpolation`: `NON_IDEMPOTENT_EXPRESSION`, `SEMANTIC_AMBIGUITY`
 
 ## Feather Parity Manifest Contract (Pinned)
 1. Parity is defined by manifest data, not only by ID presence.
@@ -852,6 +902,7 @@
 4. No deprecation between these two rules in this migration.
 
 ## Testing and Delivery
+Verification coverage, regression protections, and phased delivery criteria for this migration.
 
 ## Fixtures and Testing Strategy
 1. New lint fixtures live only under `src/lint/test/fixtures`.
@@ -863,6 +914,8 @@
    - Unsafe-fix reporting tests with `reportUnsafe: true|false`.
    - CLI integration tests for config search, `--config`, `--project`, ignore behavior, formatter output, and exit codes.
    - Config discovery tests covering candidate filename order, searched-location reporting, multiple-config same-directory selection behavior, cwd-origin discovery for outside-cwd targets, fallback gating, and `--config` missing/invalid => exit `2`.
+   - Path-normalization tests: runtime path surfaces use platform-native separators; snapshot assertions normalize separators before comparison.
+   - Symlink canonicalization test: when ESLint supplies a symlink path, `parserServices.gml.filePath` canonicalizes to realpath (or documented fallback), and project-context lookups continue to function via canonical path usage.
    - Root-resolution tests covering realpath normalization, symlink handling, and per-target nearest-ancestor `.yyp` resolution.
    - Project-analysis degradation tests for missing/partial semantic-refactor outputs => `missingProjectContext` behavior (no unsafe permissive fixes).
    - Regression tests proving formatter no longer applies migrated semantic transforms.
@@ -875,6 +928,10 @@
    - Monotonicity tests for indexing: `--index-allow` may enable safe fixes with new evidence and must not cause safe->unsafe without a real discovered conflict.
    - Selector traversal tests for all extension node types.
    - Fallback non-duplication test: when no user config exists and fallback applies, a pinned fixture yields an exact expected finding count and plugin/language registration occurs once (no duplicate rule execution).
+   - Overlay interaction tests:
+     - `recommended + feather` applies feather diagnostics without duplicating language/plugin wiring behavior.
+     - `recommended + performance` reduces findings for pinned expensive-rule fixtures according to the appendix baseline.
+     - `recommended + feather + performance` preserves feather defaults while applying performance overrides to listed `gml/*` rules only.
 
 ## Implementation Phases and Exit Criteria
 1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
