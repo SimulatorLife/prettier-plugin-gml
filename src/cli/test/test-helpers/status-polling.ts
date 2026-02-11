@@ -16,6 +16,18 @@ function delay(ms: number): Promise<void> {
     });
 }
 
+function extractPatchCount(payload: StatusPayload): number {
+    return typeof payload.totalPatchCount === "number"
+        ? payload.totalPatchCount
+        : typeof payload.patchCount === "number"
+          ? payload.patchCount
+          : 0;
+}
+
+function extractErrorCount(payload: StatusPayload): number {
+    return typeof payload.errorCount === "number" ? payload.errorCount : 0;
+}
+
 export async function waitForPatchCount(
     baseUrl: string,
     minCount: number,
@@ -24,24 +36,12 @@ export async function waitForPatchCount(
 ): Promise<number> {
     const payload = await waitForStatus(
         baseUrl,
-        (status) => {
-            const patchCount =
-                typeof status.totalPatchCount === "number"
-                    ? status.totalPatchCount
-                    : typeof status.patchCount === "number"
-                      ? status.patchCount
-                      : 0;
-            return patchCount >= minCount;
-        },
+        (status) => extractPatchCount(status) >= minCount,
         timeoutMs,
         pollIntervalMs
     );
 
-    return typeof payload.totalPatchCount === "number"
-            ? payload.totalPatchCount
-            : typeof payload.patchCount === "number"
-              ? payload.patchCount
-              : 0;
+    return extractPatchCount(payload);
 }
 
 export async function waitForErrorCount(
@@ -52,15 +52,12 @@ export async function waitForErrorCount(
 ): Promise<number> {
     const payload = await waitForStatus(
         baseUrl,
-        (status) => {
-            const errorCount = typeof status.errorCount === "number" ? status.errorCount : 0;
-            return errorCount >= minCount;
-        },
+        (status) => extractErrorCount(status) >= minCount,
         timeoutMs,
         pollIntervalMs
     );
 
-    return typeof payload.errorCount === "number" ? payload.errorCount : 0;
+    return extractErrorCount(payload);
 }
 
 export async function waitForScanComplete(
