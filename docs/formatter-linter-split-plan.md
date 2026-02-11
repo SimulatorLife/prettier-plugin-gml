@@ -5,6 +5,8 @@
 2. Lock exact ESLint language wiring, AST/token/comment/range contracts, parse-error behavior, project-context lifecycle, rule schemas, CLI semantics, and migration scope.
 3. Keep formatter deterministic and non-semantic; move all non-layout rewrites to lint rules with explicit diagnostics and optional `--fix`.
 
+## Public API Contracts
+
 ## Public API and Workspace Changes
 1. Add new workspace at `src/lint` with package name `@gml-modules/lint`.
 2. Keep `src/plugin` as formatter-only (`@gml-modules/plugin`).
@@ -92,6 +94,147 @@
 8. Canonical preset inventory:
    - this plan includes an explicit appendix listing the exact `recommended` rules + severities and the derived project-aware subset.
 
+## CLI Loading, Discovery, Merging, and Output (Pinned)
+1. `lint <paths...>` delegates file enumeration to ESLint `lintFiles()`.
+   - stdin/virtual-text lint mode is not supported in this migration.
+   - CLI uses process `cwd` as ESLint `cwd` for discovery/resolution.
+2. If `--config` is provided, CLI sets `overrideConfigFile` to that path.
+3. If `--config` is absent, CLI uses ESLint flat-config discovery over this candidate filename set:
+   - `eslint.config.js`
+   - `eslint.config.mjs`
+   - `eslint.config.cjs`
+   - `eslint.config.ts`
+   - `eslint.config.mts`
+   - `eslint.config.cts`
+   - discovery traverses ancestor directories from `cwd` to filesystem root using ESLint resolution rules.
+   - `package.json`-embedded config is not part of this flat-config discovery path.
+   - discovery origin is always CLI `cwd` (lint targets outside `cwd` do not change discovery origin unless `--config` is provided).
+4. If no user config is found, CLI falls back to bundled `Lint.configs.recommended`.
+   - this is an explicit policy choice, not implicit ESLint behavior.
+   - fallback can be disabled via `--no-default-config`.
+   - fallback message includes actionable next steps (`--no-default-config` and config file locations searched).
+   - docs must list exact rules active in fallback mode.
+   - searched-location reporting lists each traversed directory with candidate filenames and whether a config was selected.
+   - if multiple candidate config files exist in the same directory, ESLint’s native selection rules determine the chosen file; CLI reports the selected path and does not merge sibling config files itself.
+5. `--config` failure behavior:
+   - if `--config` points to a missing/unreadable/invalid file, CLI exits with code `2` and does not apply fallback defaults.
+   - fallback applies only when discovery finds no user config and `--config` is not provided.
+6. `ignores` are flat-config-driven; `.eslintignore` is not used.
+7. Supported formatter values are `stylish`, `json`, `checkstyle`, all via `ESLint.loadFormatter()`.
+8. `checkstyle` requires `eslint-formatter-checkstyle` at runtime.
+9. Exit codes:
+   - `0`: no errors and warnings within threshold.
+   - `1`: lint errors exist or `--max-warnings` exceeded.
+   - `2`: config/runtime/formatter loading failures.
+
+## Direct ESLint Usage Compatibility (Pinned)
+1. Direct `eslint` usage without the CLI is supported for syntactic and local rules.
+2. Project-aware rules require project context injection from the CLI runtime.
+3. The missing-context contract (messageId, fix suppression, emission frequency, and `reportUnsafe` interaction) is defined in **Rule Access to Language Services (Pinned)** and applies identically in direct-ESLint and CLI flows.
+4. Example-only direct-ESLint config (disable selected project-aware rules):
+   ```ts
+   import { Lint } from "@gml-modules/lint";
+
+   export default [
+     ...Lint.configs.recommended,
+     {
+       rules: {
+         "gml/prefer-loop-length-hoist": "off",
+         "gml/no-globalvar": "off"
+       }
+     }
+   ];
+   ```
+5. Documentation requirement:
+   - docs must include an auto-generated list of project-aware rule IDs (derived from `meta.docs.requiresProjectContext`) for direct-ESLint disable workflows.
+
+## Formatter Boundary (Pinned)
+1. Formatter may only perform layout and canonical rendering transforms.
+2. Formatter must not perform semantic/content rewrites or syntax repair.
+3. `logicalOperatorsStyle` remains formatter-only and is limited to canonical alias rendering of equivalent logical operators.
+4. `normalizeDocComments` moves to lint because it mutates comment text content.
+5. Invalid code handling:
+   - Formatter parses strictly.
+   - On parse failure, formatter fails and does not mutate source.
+   - Syntax repairs are lint-only (`lint --fix`).
+
+## Formatter Transform Allowlist (Pinned)
+1. Allowed formatter transforms are limited to:
+   - indentation/whitespace normalization
+   - line-break wrapping and blank-line normalization
+   - spacing around punctuation/operators
+   - parenthesis/grouping rendering that does not change semantics
+   - trailing delimiter layout where grammar-equivalent
+   - final newline normalization at EOF
+   - `logicalOperatorsStyle` alias canonicalization as documented below
+2. Comment policy:
+   - comment placement may be reflowed for layout.
+   - comment text content must remain verbatim unless a dedicated lint rule owns that content transform.
+3. Formatter must not:
+   - rewrite identifiers/literals for semantics/content purposes
+   - perform syntax repair
+   - apply cross-file or project-aware rewrites.
+
+## Logical Operator Canonicalization Scope (Pinned)
+1. `logicalOperatorsStyle` affects only logical operator aliases:
+   - symbolic forms: `&&`, `||`
+   - keyword forms: `and`, `or`
+2. Canonicalization policy:
+   - `keywords` mode rewrites `&&` -> `and` and `||` -> `or`
+   - `symbols` mode rewrites `and` -> `&&` and `or` -> `||`
+   - mixed usage is normalized to one canonical style per file output
+3. Non-target operators are never rewritten by this option (`&`, `|`, `^`, `xor`, `!`, `not`, comparison operators, arithmetic operators).
+4. Operator equivalence for this formatter option is treated as a language-level assumption and must be covered by regression tests.
+
+## Required Before/After Examples in the Doc
+1. Loop hoist:
+   - Before: `for (var i = 0; i < array_length(items); i++) {}`
+   - After: `var items_len = array_length(items); for (var i = 0; i < items_len; i++) {}`
+2. Globalvar rewrite:
+   - Before: `globalvar score; score = 0;`
+   - After (safe): `global.score = 0;`
+3. Missing separators:
+   - Before: `draw_text(x y "score");`
+   - After: `draw_text(x, y, "score");`
+
+## Syntax Variant Note for Examples (Pinned)
+1. Documentation examples must only use syntax accepted by the shipped parser grammar.
+2. `for` initializer examples may use either:
+   - inline declaration form (`for (var i = 0; ... )`)
+   - predeclared initializer form (`var i = 0; for (i = 0; ... )`)
+3. Migration docs should include at least one valid example for each supported variant when rule behavior differs by syntax form.
+
+## Recommended Rule Baseline Appendix (Pinned)
+1. `Lint.configs.recommended` canonical rule set (initial migration baseline):
+   | Rule ID | Default Severity | Project-Aware |
+   |---|---:|---:|
+   | `gml/prefer-loop-length-hoist` | `warn` | `yes` |
+   | `gml/prefer-hoistable-loop-accessors` | `warn` | `no` |
+   | `gml/prefer-struct-literal-assignments` | `warn` | `yes` |
+   | `gml/optimize-logical-flow` | `warn` | `no` |
+   | `gml/no-globalvar` | `warn` | `yes` |
+   | `gml/normalize-doc-comments` | `warn` | `no` |
+   | `gml/prefer-string-interpolation` | `warn` | `yes` |
+   | `gml/optimize-math-expressions` | `warn` | `no` |
+   | `gml/require-argument-separators` | `error` | `no` |
+2. `recommended` does not enable `feather/*` rules by default; use `Lint.configs.feather` for feather diagnostics.
+3. Derived project-aware rule IDs are generated from `meta.docs.requiresProjectContext === true` and must match this appendix.
+4. Any change to this appendix must be accompanied by matching updates to fallback-mode docs/tests and config snapshots.
+5. `Lint.configs.feather` baseline:
+   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
+   - enables all feather parity rules listed in this plan.
+   - severity source: per-rule `defaultSeverity` from feather parity manifest.
+6. `Lint.configs.performance` baseline:
+   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
+   - disables or downgrades project-aware expensive rules:
+     - `gml/prefer-loop-length-hoist`: `off`
+     - `gml/prefer-struct-literal-assignments`: `off`
+     - `gml/no-globalvar`: `warn`
+     - `gml/prefer-string-interpolation`: `off`
+   - keeps parse behavior unchanged (`recovery` default unchanged).
+
+## Internal Implementation Contracts
+
 ## ESLint v9 Language Object Interface (Pinned)
 1. `Lint.plugin.languages.gml` implements the ESLint v9 `Language` interface exactly as documented by ESLint/@eslint-core for the pinned major version.
 2. Implemented language methods (pinned for `>=9.39.0 <10`):
@@ -162,72 +305,27 @@
    - Type-level conformance against installed ESLint v9 language typings.
    - Runtime contract tests that verify method presence/behavior on the actual language object.
 
-## Rule Access to Language Services (Pinned)
-1. Rules access language-specific metadata through `context.sourceCode.parserServices.gml`.
-2. Rules must not infer parse/recovery metadata from `context.languageOptions`; `languageOptions` is configuration input, not parse output.
-3. Project-aware data access is via `Lint.services` helpers injected into rule execution context.
-4. Injection path is pinned: project services are exposed under `context.settings.gml.project`.
-5. Injection ownership is pinned:
-   - only the CLI runtime injects `context.settings.gml.project`.
-   - in direct ESLint usage, `context.settings.gml.project` is absent by default unless users provide compatible custom injection.
-   - CLI injects via ESLint config `settings` for the lint invocation (single ESLint instance context object per invocation).
-   - current supported execution model is single-process ESLint invocation for `@gml-modules/cli lint`; worker-concurrency behavior is out of scope for this migration.
-6. Rule authors must not invent alternate service discovery paths.
-7. Minimum project settings interface:
-   ```ts
-   type GmlProjectSettings = {
-     getContext(filePath: string): ProjectContext | null;
-   };
-   ```
-   - `filePath` input must be normalized absolute realpath with platform-native separators.
-   `ProjectContext` exposes project-aware helpers such as:
-   - `capabilities: ReadonlySet<ProjectCapability>`
-   - `isIdentifierNameOccupiedInProject`
-   - `listIdentifierOccurrenceFiles`
-   - `planFeatherRenames`
-   - `assessGlobalVarRewrite`
-   - `resolveLoopHoistIdentifier`
-8. Missing-context behavior:
-   - missing context includes all of:
-     - `context.settings.gml.project` is absent
-     - `getContext` is missing or not callable
-     - `getContext(filePath)` returns `null`
-     - required project capability for the rule is unavailable in `ProjectContext.capabilities`
-   - project-aware rules must perform missing-context checks before any use of `ProjectContext` helpers.
-   - project-aware rules must report `messageId: "missingProjectContext"` and emit no fixes.
-9. `missingProjectContext` severity/CI semantics:
-   - `missingProjectContext` uses the configured severity of its owning rule (ESLint standard severity handling).
-   - in `Lint.configs.recommended`, project-aware rule severities are set so `missingProjectContext` is `warn` by default.
-   - it counts as a normal warning for `--max-warnings`.
-   - it can cause exit code `1` when warning thresholds are exceeded.
-10. Emission constraints:
-   - project-aware rules emit `missingProjectContext` at most once per file per rule.
-   - all project-aware rules must define `missingProjectContext` in `meta.messages`.
-11. `reportUnsafe` interaction:
-   - `missingProjectContext` is independent of `reportUnsafe`.
-   - `reportUnsafe: false` suppresses unsafe-fix diagnostics only; it does not suppress missing-context diagnostics.
-12. Project-aware rule marker:
-   - a rule is project-aware if and only if `meta.docs.requiresProjectContext === true`.
-   - project-aware rules may call `context.settings.gml.project.getContext()`.
-   - local-only rules (`meta.docs.requiresProjectContext !== true`) must not access `context.settings.gml.project` at all.
-   - this marker is the source of truth for docs generation, preset composition, and missing-context consistency tests.
-13. Message UX invariant:
-   - `missingProjectContext` diagnostics must include an actionable hint with both elements:
-     - run via CLI with `--project`
-     - disable the rule for direct ESLint usage when CLI project context is unavailable.
-14. Shared helper recommendation:
-   - use a common helper for project-aware rules to report missing context once per file (for example, `reportMissingProjectContextOncePerFile(...)`).
-15. Capability model:
-   - `ProjectCapability` values are:
-     - `IDENTIFIER_OCCUPANCY`
-     - `IDENTIFIER_OCCURRENCES`
-     - `LOOP_HOIST_NAME_RESOLUTION`
-     - `RENAME_CONFLICT_PLANNING`
-   - each project-aware rule declares required capabilities in rule metadata.
-   - rules must not proceed when required capabilities are unavailable; they emit `missingProjectContext` instead of guessing.
-   - metadata field location is pinned:
-     - `meta.docs.gml.requiredCapabilities: ReadonlyArray<ProjectCapability>`
-   - docs/test generators derive capability requirements from `meta.docs.gml.requiredCapabilities`.
+## Language Options Validation UX (Pinned)
+1. Validation uses the effective file-level language options provided by ESLint for that file; the CLI does not re-implement flat-config merge logic.
+2. `validateLanguageOptions()` is the canonical validation hook.
+3. `languageOptionsSchema` (if present for ESLint integration ergonomics) is advisory; runtime enforcement is defined by `validateLanguageOptions()`.
+4. Unsupported keys (`languageOptions.parser`, `languageOptions.parserOptions`) fail fast with a stable error code: `GML_LANGUAGE_OPTIONS_UNSUPPORTED_KEY`.
+5. Validation errors include:
+   - offending key path
+   - allowed keys
+   - actionable hint to use `language: "gml/gml"` and plugin rules instead
+6. Any validation failure is treated as a runtime/config failure and maps to CLI exit code `2`.
+7. Processor handling policy:
+   - processors are unsupported only for files linted as `language: "gml/gml"` (not globally for other file types in the same invocation)
+   - active-processor detection uses ESLint’s resolved per-file config view (for example `ESLint#calculateConfigForFile(...)`) rather than custom merge logic.
+   - enforcement is conditional on observability: ESLint must expose active processor identity for the current `.gml` file at runtime
+   - configured-but-not-applied processors must not trigger failure; only the active processor for the current linted `.gml` file is considered
+   - if active processor is observable and is not default/none, fail with `GML_PROCESSOR_UNSUPPORTED`
+   - if processor is configured elsewhere but not active for the current `.gml` file, do not fail
+   - if processor status is not observable, do not attempt custom enforcement; emit one `--verbose` warning code `GML_PROCESSOR_OBSERVABILITY_UNAVAILABLE`.
+8. Default/none processor equivalence:
+   - values that represent “no active processor” in ESLint v9 (for example `undefined`, `null`, or empty-string-like sentinel values if exposed) are treated equivalently as default/none.
+   - exact observable values are verified by ESLint contract tests for the pinned version range.
 
 ## Parser Services Interface (Pinned)
 1. Stable minimal `parserServices.gml` interface:
@@ -290,28 +388,6 @@
 8. Recovery invariants:
    - all recovery metadata (`offset`, `loc`, `callRange`) is projected to original-source coordinates.
    - `callRange` references the recovered AST call node range after projection back to original source.
-
-## Language Options Validation UX (Pinned)
-1. Validation uses the effective file-level language options provided by ESLint for that file; the CLI does not re-implement flat-config merge logic.
-2. `validateLanguageOptions()` is the canonical validation hook.
-3. `languageOptionsSchema` (if present for ESLint integration ergonomics) is advisory; runtime enforcement is defined by `validateLanguageOptions()`.
-4. Unsupported keys (`languageOptions.parser`, `languageOptions.parserOptions`) fail fast with a stable error code: `GML_LANGUAGE_OPTIONS_UNSUPPORTED_KEY`.
-5. Validation errors include:
-   - offending key path
-   - allowed keys
-   - actionable hint to use `language: "gml/gml"` and plugin rules instead
-6. Any validation failure is treated as a runtime/config failure and maps to CLI exit code `2`.
-7. Processor handling policy:
-   - processors are unsupported only for files linted as `language: "gml/gml"` (not globally for other file types in the same invocation)
-   - active-processor detection uses ESLint’s resolved per-file config view (for example `ESLint#calculateConfigForFile(...)`) rather than custom merge logic.
-   - enforcement is conditional on observability: ESLint must expose active processor identity for the current `.gml` file at runtime
-   - configured-but-not-applied processors must not trigger failure; only the active processor for the current linted `.gml` file is considered
-   - if active processor is observable and is not default/none, fail with `GML_PROCESSOR_UNSUPPORTED`
-   - if processor is configured elsewhere but not active for the current `.gml` file, do not fail
-   - if processor status is not observable, do not attempt custom enforcement; emit one `--verbose` warning code `GML_PROCESSOR_OBSERVABILITY_UNAVAILABLE`.
-8. Default/none processor equivalence:
-   - values that represent “no active processor” in ESLint v9 (for example `undefined`, `null`, or empty-string-like sentinel values if exposed) are treated equivalently as default/none.
-   - exact observable values are verified by ESLint contract tests for the pinned version range.
 
 ## AST/Token/Comment Contract (Pinned)
 1. Output model is ESTree-compatible plus explicit GML extension node types.
@@ -399,6 +475,14 @@
 8. Rule execution implication:
    - when parse fails for a file, rules do not execute for that file.
    - therefore, for invoked rules on successfully parsed files, `parserServices.gml` can be assumed present.
+
+## Parser Services Presence Rules (Pinned)
+1. On parse failure, rules do not run for that file and `parserServices.gml` is absent.
+2. On successful parse without recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` exists as an empty collection.
+3. On successful parse with limited recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` contains projected insertion metadata.
+4. On successful parse, `parserServices.gml.directives` and `parserServices.gml.enums` are arrays (possibly empty).
+5. On successful parse, `Program.tokens` and `Program.comments` are arrays (possibly empty).
+6. On parse failure, there is no AST/`Program`, therefore no token/comment arrays are available to rules.
 
 ## Project Root, Indexing, and Cache Lifecycle (Pinned)
 1. CLI adds `--project <path>` as explicit project-root override.
@@ -488,6 +572,101 @@
 6. User-visible consequence:
    - some fixes may be deferred because pre-fix snapshot analysis remains conservative within a single run
    - running `lint --fix` again may unlock additional fixes after earlier edits.
+
+## Assumptions and Defaults
+1. Node runtime baseline remains `>=22.0.0` across workspaces.
+2. ESLint major is pinned to v9 (`>=9.39.0 <10`) for lint package compatibility.
+3. Project-aware context is intentionally immutable per invocation; no in-run incremental reindexing under `--fix`.
+4. Formatter and linter remain separate commands and separate responsibilities.
+5. ESLint contract test policy:
+   - CI runs language/contract tests against the minimum supported ESLint (`9.39.0`) and the latest available version within `<10`.
+   - compatibility across intermediate minors is best-effort; min+latest are the gated compatibility points.
+
+## Dependency and Versioning Model (Pinned)
+1. `@gml-modules/lint` declares `eslint` as a peer dependency (`>=9.39.0 <10`) and as a dev dependency for workspace tests.
+2. `@gml-modules/cli` declares `eslint` as a runtime dependency to provide first-run CLI UX without requiring separate global ESLint installation.
+3. `eslint-formatter-checkstyle` is a runtime dependency for checkstyle output mode.
+4. Version skew policy:
+   - CLI-bundled ESLint version must satisfy `@gml-modules/lint` peer range.
+   - CI enforces a single ESLint major (`9.x`) across workspaces.
+5. Runtime resolution policy:
+   - CLI is the runtime owner of ESLint construction/invocation for `lint` command execution.
+   - `@gml-modules/lint` rule/language artifacts are loaded into that ESLint runtime, avoiding mixed ESLint major instances in-process.
+6. Instance-identity enforcement:
+   - CLI performs a startup assertion that ESLint module identity is shared between CLI runtime and loaded lint language/rule artifacts.
+   - identity check compares ESLint class reference equality and `SourceCode` reference equality across CLI/runtime and loaded lint artifacts.
+   - mismatch is a hard runtime failure with an actionable diagnostic.
+7. Required integration test:
+   - run CLI lint in a simulated consumer layout (pnpm-style nested `node_modules`) and assert single-ESLint-instance behavior.
+
+## Rule System Contracts
+
+## Rule Access to Language Services (Pinned)
+1. Rules access language-specific metadata through `context.sourceCode.parserServices.gml`.
+2. Rules must not infer parse/recovery metadata from `context.languageOptions`; `languageOptions` is configuration input, not parse output.
+3. Project-aware data access is via `Lint.services` helpers injected into rule execution context.
+4. Injection path is pinned: project services are exposed under `context.settings.gml.project`.
+5. Injection ownership is pinned:
+   - only the CLI runtime injects `context.settings.gml.project`.
+   - in direct ESLint usage, `context.settings.gml.project` is absent by default unless users provide compatible custom injection.
+   - CLI injects via ESLint config `settings` for the lint invocation (single ESLint instance context object per invocation).
+   - current supported execution model is single-process ESLint invocation for `@gml-modules/cli lint`; worker-concurrency behavior is out of scope for this migration.
+6. Rule authors must not invent alternate service discovery paths.
+7. Minimum project settings interface:
+   ```ts
+   type GmlProjectSettings = {
+     getContext(filePath: string): ProjectContext | null;
+   };
+   ```
+   - `filePath` input must be normalized absolute realpath with platform-native separators.
+   `ProjectContext` exposes project-aware helpers such as:
+   - `capabilities: ReadonlySet<ProjectCapability>`
+   - `isIdentifierNameOccupiedInProject`
+   - `listIdentifierOccurrenceFiles`
+   - `planFeatherRenames`
+   - `assessGlobalVarRewrite`
+   - `resolveLoopHoistIdentifier`
+8. Missing-context behavior:
+   - missing context includes all of:
+     - `context.settings.gml.project` is absent
+     - `getContext` is missing or not callable
+     - `getContext(filePath)` returns `null`
+     - required project capability for the rule is unavailable in `ProjectContext.capabilities`
+   - project-aware rules must perform missing-context checks before any use of `ProjectContext` helpers.
+   - project-aware rules must report `messageId: "missingProjectContext"` and emit no fixes.
+9. `missingProjectContext` severity/CI semantics:
+   - `missingProjectContext` uses the configured severity of its owning rule (ESLint standard severity handling).
+   - in `Lint.configs.recommended`, project-aware rule severities are set so `missingProjectContext` is `warn` by default.
+   - it counts as a normal warning for `--max-warnings`.
+   - it can cause exit code `1` when warning thresholds are exceeded.
+10. Emission constraints:
+   - project-aware rules emit `missingProjectContext` at most once per file per rule.
+   - all project-aware rules must define `missingProjectContext` in `meta.messages`.
+11. `reportUnsafe` interaction:
+   - `missingProjectContext` is independent of `reportUnsafe`.
+   - `reportUnsafe: false` suppresses unsafe-fix diagnostics only; it does not suppress missing-context diagnostics.
+12. Project-aware rule marker:
+   - a rule is project-aware if and only if `meta.docs.requiresProjectContext === true`.
+   - project-aware rules may call `context.settings.gml.project.getContext()`.
+   - local-only rules (`meta.docs.requiresProjectContext !== true`) must not access `context.settings.gml.project` at all.
+   - this marker is the source of truth for docs generation, preset composition, and missing-context consistency tests.
+13. Message UX invariant:
+   - `missingProjectContext` diagnostics must include an actionable hint with both elements:
+     - run via CLI with `--project`
+     - disable the rule for direct ESLint usage when CLI project context is unavailable.
+14. Shared helper recommendation:
+   - use a common helper for project-aware rules to report missing context once per file (for example, `reportMissingProjectContextOncePerFile(...)`).
+15. Capability model:
+   - `ProjectCapability` values are:
+     - `IDENTIFIER_OCCUPANCY`
+     - `IDENTIFIER_OCCURRENCES`
+     - `LOOP_HOIST_NAME_RESOLUTION`
+     - `RENAME_CONFLICT_PLANNING`
+   - each project-aware rule declares required capabilities in rule metadata.
+   - rules must not proceed when required capabilities are unavailable; they emit `missingProjectContext` instead of guessing.
+   - metadata field location is pinned:
+     - `meta.docs.gml.requiredCapabilities: ReadonlyArray<ProjectCapability>`
+   - docs/test generators derive capability requirements from `meta.docs.gml.requiredCapabilities`.
 
 ## Standardized “Unsafe to Fix” Reporting
 1. Shared helper required for all project-aware rules:
@@ -672,97 +851,7 @@
 3. Shared suppression marker prevents double-reporting on the same loop node when both rules are enabled.
 4. No deprecation between these two rules in this migration.
 
-## CLI Loading, Discovery, Merging, and Output (Pinned)
-1. `lint <paths...>` delegates file enumeration to ESLint `lintFiles()`.
-   - stdin/virtual-text lint mode is not supported in this migration.
-   - CLI uses process `cwd` as ESLint `cwd` for discovery/resolution.
-2. If `--config` is provided, CLI sets `overrideConfigFile` to that path.
-3. If `--config` is absent, CLI uses ESLint flat-config discovery over this candidate filename set:
-   - `eslint.config.js`
-   - `eslint.config.mjs`
-   - `eslint.config.cjs`
-   - `eslint.config.ts`
-   - `eslint.config.mts`
-   - `eslint.config.cts`
-   - discovery traverses ancestor directories from `cwd` to filesystem root using ESLint resolution rules.
-   - `package.json`-embedded config is not part of this flat-config discovery path.
-   - discovery origin is always CLI `cwd` (lint targets outside `cwd` do not change discovery origin unless `--config` is provided).
-4. If no user config is found, CLI falls back to bundled `Lint.configs.recommended`.
-   - this is an explicit policy choice, not implicit ESLint behavior.
-   - fallback can be disabled via `--no-default-config`.
-   - fallback message includes actionable next steps (`--no-default-config` and config file locations searched).
-   - docs must list exact rules active in fallback mode.
-   - searched-location reporting lists each traversed directory with candidate filenames and whether a config was selected.
-   - if multiple candidate config files exist in the same directory, ESLint’s native selection rules determine the chosen file; CLI reports the selected path and does not merge sibling config files itself.
-5. `--config` failure behavior:
-   - if `--config` points to a missing/unreadable/invalid file, CLI exits with code `2` and does not apply fallback defaults.
-   - fallback applies only when discovery finds no user config and `--config` is not provided.
-6. `ignores` are flat-config-driven; `.eslintignore` is not used.
-7. Supported formatter values are `stylish`, `json`, `checkstyle`, all via `ESLint.loadFormatter()`.
-8. `checkstyle` requires `eslint-formatter-checkstyle` at runtime.
-9. Exit codes:
-   - `0`: no errors and warnings within threshold.
-   - `1`: lint errors exist or `--max-warnings` exceeded.
-   - `2`: config/runtime/formatter loading failures.
-
-## Direct ESLint Usage Compatibility (Pinned)
-1. Direct `eslint` usage without the CLI is supported for syntactic and local rules.
-2. Project-aware rules require project context injection from the CLI runtime.
-3. The missing-context contract (messageId, fix suppression, emission frequency, and `reportUnsafe` interaction) is defined in **Rule Access to Language Services (Pinned)** and applies identically in direct-ESLint and CLI flows.
-4. Example-only direct-ESLint config (disable selected project-aware rules):
-   ```ts
-   import { Lint } from "@gml-modules/lint";
-
-   export default [
-     ...Lint.configs.recommended,
-     {
-       rules: {
-         "gml/prefer-loop-length-hoist": "off",
-         "gml/no-globalvar": "off"
-       }
-     }
-   ];
-   ```
-5. Documentation requirement:
-   - docs must include an auto-generated list of project-aware rule IDs (derived from `meta.docs.requiresProjectContext`) for direct-ESLint disable workflows.
-
-## Formatter Boundary (Pinned)
-1. Formatter may only perform layout and canonical rendering transforms.
-2. Formatter must not perform semantic/content rewrites or syntax repair.
-3. `logicalOperatorsStyle` remains formatter-only and is limited to canonical alias rendering of equivalent logical operators.
-4. `normalizeDocComments` moves to lint because it mutates comment text content.
-5. Invalid code handling:
-   - Formatter parses strictly.
-   - On parse failure, formatter fails and does not mutate source.
-   - Syntax repairs are lint-only (`lint --fix`).
-
-## Formatter Transform Allowlist (Pinned)
-1. Allowed formatter transforms are limited to:
-   - indentation/whitespace normalization
-   - line-break wrapping and blank-line normalization
-   - spacing around punctuation/operators
-   - parenthesis/grouping rendering that does not change semantics
-   - trailing delimiter layout where grammar-equivalent
-   - final newline normalization at EOF
-   - `logicalOperatorsStyle` alias canonicalization as documented below
-2. Comment policy:
-   - comment placement may be reflowed for layout.
-   - comment text content must remain verbatim unless a dedicated lint rule owns that content transform.
-3. Formatter must not:
-   - rewrite identifiers/literals for semantics/content purposes
-   - perform syntax repair
-   - apply cross-file or project-aware rewrites.
-
-## Logical Operator Canonicalization Scope (Pinned)
-1. `logicalOperatorsStyle` affects only logical operator aliases:
-   - symbolic forms: `&&`, `||`
-   - keyword forms: `and`, `or`
-2. Canonicalization policy:
-   - `keywords` mode rewrites `&&` -> `and` and `||` -> `or`
-   - `symbols` mode rewrites `and` -> `&&` and `or` -> `||`
-   - mixed usage is normalized to one canonical style per file output
-3. Non-target operators are never rewritten by this option (`&`, `|`, `^`, `xor`, `!`, `not`, comparison operators, arithmetic operators).
-4. Operator equivalence for this formatter option is treated as a language-level assumption and must be covered by regression tests.
+## Testing and Delivery
 
 ## Fixtures and Testing Strategy
 1. New lint fixtures live only under `src/lint/test/fixtures`.
@@ -804,84 +893,3 @@
    Exit: end-to-end `lint` and `lint --fix` pass integration suite.
 8. Phase 8: Migration docs and release notes update in `docs/formatter-linter-split-plan.md` and package READMEs.  
    Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
-
-## Required Before/After Examples in the Doc
-1. Loop hoist:
-   - Before: `for (var i = 0; i < array_length(items); i++) {}`
-   - After: `var items_len = array_length(items); for (var i = 0; i < items_len; i++) {}`
-2. Globalvar rewrite:
-   - Before: `globalvar score; score = 0;`
-   - After (safe): `global.score = 0;`
-3. Missing separators:
-   - Before: `draw_text(x y "score");`
-   - After: `draw_text(x, y, "score");`
-
-## Syntax Variant Note for Examples (Pinned)
-1. Documentation examples must only use syntax accepted by the shipped parser grammar.
-2. `for` initializer examples may use either:
-   - inline declaration form (`for (var i = 0; ... )`)
-   - predeclared initializer form (`var i = 0; for (i = 0; ... )`)
-3. Migration docs should include at least one valid example for each supported variant when rule behavior differs by syntax form.
-
-## Recommended Rule Baseline Appendix (Pinned)
-1. `Lint.configs.recommended` canonical rule set (initial migration baseline):
-   | Rule ID | Default Severity | Project-Aware |
-   |---|---:|---:|
-   | `gml/prefer-loop-length-hoist` | `warn` | `yes` |
-   | `gml/prefer-hoistable-loop-accessors` | `warn` | `no` |
-   | `gml/prefer-struct-literal-assignments` | `warn` | `yes` |
-   | `gml/optimize-logical-flow` | `warn` | `no` |
-   | `gml/no-globalvar` | `warn` | `yes` |
-   | `gml/normalize-doc-comments` | `warn` | `no` |
-   | `gml/prefer-string-interpolation` | `warn` | `yes` |
-   | `gml/optimize-math-expressions` | `warn` | `no` |
-   | `gml/require-argument-separators` | `error` | `no` |
-2. `recommended` does not enable `feather/*` rules by default; use `Lint.configs.feather` for feather diagnostics.
-3. Derived project-aware rule IDs are generated from `meta.docs.requiresProjectContext === true` and must match this appendix.
-4. Any change to this appendix must be accompanied by matching updates to fallback-mode docs/tests and config snapshots.
-5. `Lint.configs.feather` baseline:
-   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
-   - enables all feather parity rules listed in this plan.
-   - severity source: per-rule `defaultSeverity` from feather parity manifest.
-6. `Lint.configs.performance` baseline:
-   - composition: overlay preset (no language/files wiring) to be spread after `recommended`.
-   - disables or downgrades project-aware expensive rules:
-     - `gml/prefer-loop-length-hoist`: `off`
-     - `gml/prefer-struct-literal-assignments`: `off`
-     - `gml/no-globalvar`: `warn`
-     - `gml/prefer-string-interpolation`: `off`
-   - keeps parse behavior unchanged (`recovery` default unchanged).
-
-## Assumptions and Defaults
-1. Node runtime baseline remains `>=22.0.0` across workspaces.
-2. ESLint major is pinned to v9 (`>=9.39.0 <10`) for lint package compatibility.
-3. Project-aware context is intentionally immutable per invocation; no in-run incremental reindexing under `--fix`.
-4. Formatter and linter remain separate commands and separate responsibilities.
-5. ESLint contract test policy:
-   - CI runs language/contract tests against the minimum supported ESLint (`9.39.0`) and the latest available version within `<10`.
-   - compatibility across intermediate minors is best-effort; min+latest are the gated compatibility points.
-
-## Dependency and Versioning Model (Pinned)
-1. `@gml-modules/lint` declares `eslint` as a peer dependency (`>=9.39.0 <10`) and as a dev dependency for workspace tests.
-2. `@gml-modules/cli` declares `eslint` as a runtime dependency to provide first-run CLI UX without requiring separate global ESLint installation.
-3. `eslint-formatter-checkstyle` is a runtime dependency for checkstyle output mode.
-4. Version skew policy:
-   - CLI-bundled ESLint version must satisfy `@gml-modules/lint` peer range.
-   - CI enforces a single ESLint major (`9.x`) across workspaces.
-5. Runtime resolution policy:
-   - CLI is the runtime owner of ESLint construction/invocation for `lint` command execution.
-   - `@gml-modules/lint` rule/language artifacts are loaded into that ESLint runtime, avoiding mixed ESLint major instances in-process.
-6. Instance-identity enforcement:
-   - CLI performs a startup assertion that ESLint module identity is shared between CLI runtime and loaded lint language/rule artifacts.
-   - identity check compares ESLint class reference equality and `SourceCode` reference equality across CLI/runtime and loaded lint artifacts.
-   - mismatch is a hard runtime failure with an actionable diagnostic.
-7. Required integration test:
-   - run CLI lint in a simulated consumer layout (pnpm-style nested `node_modules`) and assert single-ESLint-instance behavior.
-
-## Parser Services Presence Rules (Pinned)
-1. On parse failure, rules do not run for that file and `parserServices.gml` is absent.
-2. On successful parse without recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` exists as an empty collection.
-3. On successful parse with limited recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` contains projected insertion metadata.
-4. On successful parse, `parserServices.gml.directives` and `parserServices.gml.enums` are arrays (possibly empty).
-5. On successful parse, `Program.tokens` and `Program.comments` are arrays (possibly empty).
-6. On parse failure, there is no AST/`Program`, therefore no token/comment arrays are available to rules.
