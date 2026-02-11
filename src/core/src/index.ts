@@ -56,7 +56,7 @@ export const Core: CoreNamespace = Object.freeze({
 // Publicly export key AST types at the package root for other packages to
 // import without deep imports. This is the preferred path for type imports
 // across the monorepo.
-export type { GameMakerAstLocation, GameMakerAstNode, MutableGameMakerAstNode } from "./ast/types.js";
+export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
