@@ -1,506 +1,215 @@
 # Formatter/Linter Split Plan
 
 ## Summary
-
-This plan splits the current `@gml-modules/plugin` behavior into:
-
-1. A formatter-only Prettier package (layout/style printing only).
-2. A separate feather-fixer/linter package (rule diagnostics + optional `--fix`), including project-aware scope analysis.
-
-Both are intended to be **separate, top-level monorepo workspaces/modules** (siblings under `src/`, not nested inside each other).
-
-The target is to make semantics-changing rewrites explicit lint rules with severity (`"off" | "warn" | "error"`), while keeping formatting deterministic and fast.
-
-## Goals
-
-- Keep formatting and semantic/code-quality concerns separate.
-- Support ESLint-like rule severity and CLI behavior (`warn`/`error`/`off`, `--fix`, `--max-warnings`).
-- Reuse existing `@gml-modules/parser`, `@gml-modules/semantic`, and `@gml-modules/refactor` capabilities for project-aware decisions.
-- Minimize net-new custom infrastructure code by building on mature linting frameworks.
-
-## Non-goals
-
-- No compatibility shims that preserve old option names forever.
-- No changes to parser golden `.gml` fixtures for migration.
-- No expansion of formatter configurability beyond a focused formatting surface.
-
-## Current State (Relevant)
-
-- Plugin currently mixes formatting and semantics-changing transforms in one package (`src/plugin`).
-- Project-aware safety already exists via runtime ports:
-  - `setSemanticSafetyRuntime(...)`
-  - `setRefactorRuntime(...)`
-  - `setIdentifierCaseRuntime(...)`
-- CLI composition root already wires semantic/refactor adapters (`src/cli/src/plugin-runtime/runtime-configuration.ts`).
-
-This is a strong base for a split: the analysis engine exists, but is currently invoked by formatter options.
-
-## Definitive Architecture Decision
-
-The implementation is **Option A only**:
-
-- Use **ESLint v9** as the lint engine.
-- Implement a dedicated GML lint workspace as an ESLint language plugin + rules package.
-- Keep `@gml-modules/plugin` formatter-only.
-
-No custom lint engine and no Oxlint implementation are part of this plan.
-
-## Phase 0 Completion (Done)
-
-Phase 0 (decision + contracts) is complete in this document. The following decisions are now locked:
-
-- [x] Package/workspace names:
-  - Formatter: `src/plugin` / `@gml-modules/plugin`
-  - Linter: `src/lint` / `@gml-modules/lint`
-  - Composition root: `src/cli` / `@gml-modules/cli`
-- [x] Ownership boundaries:
-  - `@gml-modules/plugin` is formatter-only.
-  - `@gml-modules/lint` owns lint diagnostics and fixes.
-  - `@gml-modules/lint` does not depend on `@gml-modules/plugin`.
-  - `@gml-modules/plugin` remains isolated from direct semantic/refactor dependencies.
-- [x] Formatter option surface frozen (formatter-only):
-  - Keep: Prettier core options + `allowSingleLineIfStatements` + `logicalOperatorsStyle`.
-  - Migrate all semantics-changing options to lint rules (see migration matrix).
-- [x] Rule naming conventions:
-  - Namespaces: `gml/*` and `feather/*`.
-  - Prefixes by intent:
-    - correctness/safety: `no-*`, `require-*`
-    - preference/optimization: `prefer-*`, `optimize-*`
-- [x] Default severity policy:
-  - correctness/safety rules default to `error` or `warn` based on fix confidence.
-  - optimization/preference rules default to `warn`.
-  - all rules support `off`/`warn`/`error` overrides.
-
-This satisfies the original Phase 0 exit criteria:
-
-- [x] architecture decision recorded
-- [x] option migration table defined
-- [x] naming + severity conventions defined
-
-## Option A Implementation (Specifics)
-
-## `@gml-modules/lint` workspace contents
-
-Create a new top-level workspace: `src/lint` (`@gml-modules/lint`) with:
-
-- `src/language/`
-  - `parse-gml-for-eslint.ts`: parse `.gml` text via `@gml-modules/parser`.
-  - `visitor-keys.ts`: visitor keys map for ESLint traversal.
-  - `source-code.ts`: source/loc/range helpers and comment mapping.
-- `src/rules/`
-  - `gml/*.ts`: custom GML rules.
-  - `feather/*.ts`: Feather-derived rules.
-  - One file per rule; no mega-rule files.
-- `src/configs/`
-  - `recommended.ts`
-  - `feather.ts`
-  - `performance.ts`
-- `src/services/`
-  - run-scoped project analysis context (semantic/refactor integration).
-  - rule-context helpers for project-aware checks.
-- `src/index.ts`
-  - namespace export surface for language + rules + configs.
-
-## ESLint language integration contract
-
-Implement language support so ESLint can lint `.gml` files directly:
-
-- Parser bridge returns ESTree-compatible AST.
-  - Reuse `Core.convertToESTree(...)` as the base conversion.
-  - Guarantee `type`, `loc`, `range`, and comment arrays are present in ESLint-expected shape.
-- Provide visitor keys for all traversable node types used by rules.
-- Ensure parse errors are surfaced as lint diagnostics (not thrown uncaught).
-
-Rule of implementation:
-
-- `@gml-modules/lint` owns the ESLint-facing AST contract.
-- `@gml-modules/parser` remains parser-only and is not coupled to ESLint internals.
-
-## Rule API + severity model
-
-All rules follow ESLint standard create/fixer APIs:
-
-- Severity set via config (`off`/`warn`/`error`).
-- Rule options are schema-validated per rule.
-- Fixes emitted through ESLint fixers; no ad-hoc file writers from rule code.
-
-Every rule must support:
-
-- detect-only mode (without `--fix`)
-- conservative autofix mode (`--fix`)
-- project-aware skip behavior with explicit diagnostics when cross-file safety is not provable
-
-## Project-aware services (shared per lint run)
-
-Instantiate one run-scoped analysis context and share it across all files/rules:
-
-- Build/load `Semantic.buildProjectIndex(...)` once.
-- Build one `Refactor.RefactorEngine(...)` once.
-- Expose services to rules via a typed context object:
-  - `isIdentifierNameOccupiedInProject`
-  - `listIdentifierOccurrenceFiles`
-  - `planFeatherRenames`
-  - `assessGlobalVarRewrite`
-  - `resolveLoopHoistIdentifier`
-
-This avoids repeated project indexing per file/rule and keeps performance predictable.
-
-## CLI integration details (`src/cli`)
-
-Add a dedicated `lint` command in `src/cli/src/commands/lint.ts`:
-
-- `lint <path>`
-- `--fix`
-- `--max-warnings <n>`
-- `--format <stylish|json|checkstyle>`
-- `--quiet`
-- `--config <path>`
-
-Execution flow:
-
-1. Resolve target path(s) and config.
-2. Initialize run-scoped project services once.
-3. Execute ESLint with GML language plugin + selected rules.
-4. Apply fixes when `--fix` is enabled.
-5. Emit report and exit codes using ESLint semantics.
-
-Exit behavior:
-
-- non-zero on any error-level findings
-- non-zero when warnings exceed `--max-warnings`
-
-## Config format (flat config)
-
-Use ESLint flat config as the canonical config shape for lint:
-
-```ts
-// eslint.config.js (example)
-import { Lint } from "@gml-modules/lint";
-
-export default [
-    {
-        files: ["**/*.gml"],
-        language: "gml/gml",
-        plugins: {
-            gml: Lint.plugin
-        },
-        rules: {
-            "gml/no-globalvar": "error",
-            "gml/prefer-loop-length-hoist": ["warn", { functionSuffixes: { array_length: "len" } }],
-            "feather/no-trailing-macro-semicolon": "error"
-        }
-    }
-];
-```
-
-## Fix safety contract
-
-For project-aware rules:
-
-- Apply fix only when analysis confirms local/project safety.
-- If safety cannot be proven, report finding with reason and skip fix.
-- Never perform hidden cross-file writes from a single-file lint fix.
-
-For syntax-repair rules:
-
-- Fixes remain local to the file.
-- Conflicting fixes are left to ESLint conflict resolution.
-
-## Target Package Topology
-
-## Workspaces
-
-- Keep `src/plugin` as formatter-only top-level workspace/package (`@gml-modules/plugin`).
-  - Continue publishing as the Prettier plugin package.
-  - Remove semantics-changing transforms/options from formatter path.
-- Add `src/lint` as a new top-level workspace/package (suggested name: `@gml-modules/lint`).
-  - Exposes GML language integration + lint rules + recommended configs.
-- Keep `src/cli` as composition root.
-  - Add `lint` command.
-  - Continue wiring project-aware adapters (semantic/refactor) in one place.
-
-Proposed top-level workspace layout:
-
-```text
-src/
-  plugin/   # formatter-only workspace
-  lint/     # linter/fixer-only workspace
-  cli/      # composition root, format + lint commands
-  core/
-  parser/
-  semantic/
-  refactor/
-  transpiler/
-  runtime-wrapper/
-```
-
-## Rule Namespaces
-
-- `feather/*`: rules derived from Feather diagnostics/fixes.
-- `gml/*`: custom project rules and style/perf transforms currently in formatter options.
-
-## Concrete Monorepo Changes (Option A)
-
-Implement these repository changes explicitly:
-
-1. Add `src/lint` to `pnpm-workspace.yaml` and root `package.json` workspaces.
-2. Add new workspace files:
-   - `src/lint/package.json`
-   - `src/lint/tsconfig.json`
-   - `src/lint/index.ts` (single named namespace export)
-   - `src/lint/src/index.ts`
-   - `src/lint/src/language/*`
-   - `src/lint/src/rules/*`
-   - `src/lint/src/configs/*`
-   - `src/lint/src/services/*`
-   - `src/lint/test/*`
-3. Update `src/cli`:
-   - add `src/cli/src/commands/lint.ts`
-   - export/register lint command in `src/cli/src/commands/index.ts` and `src/cli/src/cli.ts`
-   - add CLI tests for lint command flow.
-4. Update `src/plugin`:
-   - remove migrated option metadata from `src/plugin/src/components/default-plugin-components.ts`
-   - remove migrated transform gating from `src/plugin/src/parsers/gml-parser-adapter.ts`
-   - keep formatter-only options and printing behavior.
-5. Update docs:
-   - root `README.md` config tables
-   - `src/plugin/README.md` to describe formatter-only scope
-   - add lint usage/config examples.
-
-Dependency boundaries for this plan:
-
-- `@gml-modules/lint` depends on `@gml-modules/core`, `@gml-modules/parser`, `@gml-modules/semantic`, `@gml-modules/refactor`, and `eslint`.
-- `@gml-modules/plugin` remains the only workspace depending on Prettier-related formatting packages.
-- `@gml-modules/lint` does not depend on `@gml-modules/plugin`.
-
-## Runtime Execution Model (Option A)
-
-Single lint run flow:
-
-1. CLI resolves paths/config and starts lint runtime.
-2. Lint runtime builds one shared `ProjectLintContext`:
-   - semantic project index
-   - refactor engine instance
-   - lookup/fix planning services
-3. ESLint walks each `.gml` file using the GML language adapter.
-4. Rules consume `ProjectLintContext` for project-aware decisions.
-5. ESLint applies in-file fixes when `--fix` is enabled.
-6. CLI reports diagnostics and exits per ESLint semantics.
-
-`ProjectLintContext` is immutable for the run except internal caches.
-
-## Option Migration Matrix
-
-## Stay with formatter (`@gml-modules/plugin`)
-
-These remain formatter concerns:
-
-- Prettier core options: `printWidth`, `tabWidth`, `semi`, `useTabs`, `objectWrap`, etc.
-- `allowSingleLineIfStatements`
-  - Formatting layout preference.
-- `logicalOperatorsStyle`
-  - Printing-time representation preference (`keywords` vs `symbols`).
-
-## Move to lint rules (`@gml-modules/lint`)
-
-| Current plugin option | New rule (proposed) | Default level | `--fix` support | Notes |
-| --- | --- | --- | --- | --- |
-| `optimizeLoopLengthHoisting` | `gml/prefer-loop-length-hoist` | `warn` | yes (safe only) | Uses project-aware collision checks; includes current hoisting logic. |
-| `loopLengthHoistFunctionSuffixes` | Rule option for `gml/prefer-loop-length-hoist` | n/a | n/a | Moves from formatter option to rule options. |
-| `condenseStructAssignments` | `gml/prefer-struct-literal-assignments` | `warn` | yes | Converts property assignment chains to struct literals. |
-| `optimizeLogicalExpressions` | `gml/optimize-logical-flow` | `warn` | yes (conservative) | Includes guard-condense and safe branch simplifications. |
-| `preserveGlobalVarStatements` | `gml/no-globalvar` | `warn` | yes (project-aware gated) | Rewrites only when cross-file safety checks pass. |
-| `applyFeatherFixes` | Split into `feather/*` rules | mixed | yes (per rule) | Replace one global switch with explicit diagnostics + severities. |
-| `normalizeDocComments` | `gml/normalize-doc-comments` | `warn` | yes | Keep out of formatter if it edits semantic text content. |
-| `useStringInterpolation` | `gml/prefer-string-interpolation` | `warn` | yes | Converts eligible concatenations to interpolation. |
-| `optimizeMathExpressions` | `gml/optimize-math-expressions` | `warn` | yes | Move optimization transforms to lint autofixes. |
-| `sanitizeMissingArgumentSeparators` | `gml/require-argument-separators` | `error` | yes | Syntax repair should be explicit lint/fix, not silent formatter mutation. |
-
-## New custom rule requested
-
-- `gml/prefer-hoistable-loop-accessors`
-  - Detects repeated array/list/etc. length access in loops.
-  - Can suggest/fix hoisting with project-aware name safety.
-  - This captures the “array/list hoistability” requirement currently tied to loop hoisting behavior.
-
-## Linter Config Model (ESLint-like)
-
-Use standard severity model:
-
-- `"off"`: rule disabled.
-- `"warn"`: reported; non-blocking unless warning threshold exceeded.
-- `"error"`: reported; contributes to non-zero exit.
-
-Rule config shape:
-
-```json
-{
-  "rules": {
-    "gml/no-globalvar": "error",
-    "gml/prefer-loop-length-hoist": ["warn", { "functionSuffixes": { "array_length": "len" } }],
-    "feather/no-trailing-macro-semicolon": "error"
-  }
-}
-```
-
-## CLI behavior (`src/cli`)
-
-Add `lint` command with ESLint-like behavior:
-
-- `lint <path>`
-- `--fix`
-- `--max-warnings <n>`
-- `--format <name>` (stylish/json/checkstyle)
-- `--quiet`
-- `--config <path>`
-
-Exit code semantics:
-
-- Non-zero when any `error` diagnostics exist.
-- Non-zero when warnings exceed `--max-warnings`.
-
-## `--fix` behavior
-
-- Only apply fixes exposed by active rules.
-- Keep fixers conservative:
-  - If project-aware checks fail, emit diagnostic without fix.
-  - If fix conflicts occur, rely on engine conflict resolution.
-- Keep formatter command and lint `--fix` command distinct:
-  - `format` = layout output.
-  - `lint --fix` = semantics-aware code corrections/refactors.
-
-## Project-aware analysis design
-
-Create one run-scoped analysis context per lint invocation:
-
-- Build or load project index once (semantic).
-- Construct one refactor engine once (refactor + parser bridge + transpiler bridge).
-- Share this context across all rules that need cross-file occupancy or rename planning.
-
-This avoids repeated project scans per rule/file and reuses the current CLI runtime wiring model.
-
-## Implementation Phases
-
-## Phase 1: New lint workspace scaffold
-
-- Add `src/lint` workspace (`package.json`, `tsconfig.json`, top-level `index.ts`, `src/`, `test/`).
-- Add exports for:
-  - language adapter
-  - rules
-  - recommended configs
-- Keep workspace API namespaced (`Lint` namespace export pattern).
-
-Exit criteria:
-- Workspace builds and tests with placeholder rule.
-
-## Phase 2: ESLint language integration
-
-- Implement GML language adapter using existing parser.
-- Provide AST traversal metadata (`visitorKeys`) and source mapping.
-- Add baseline lint smoke tests on `.gml` inputs.
-
-Exit criteria:
-- ESLint engine can lint `.gml` files with one simple rule.
-
-## Phase 3: Port project-aware runtime layer to lint context
-
-- Extract/reuse adapter logic from CLI runtime configuration.
-- Provide rule context services for:
-  - identifier occupancy checks
-  - occurrence files
-  - planned renames
-  - globalvar rewrite assessment
-
-Exit criteria:
-- One project-aware rule can query cross-file data in tests.
-
-## Phase 4: Rule migration from formatter options
-
-- Port each moved option into dedicated lint rules (table above).
-- Split `applyFeatherFixes` into granular `feather/*` rules.
-- Add per-rule tests:
-  - detect only
-  - `--fix`
-  - project-aware skip/report
-
-Exit criteria:
-- All moved options represented as rules with coverage.
-
-## Phase 5: Formatter cleanup
-
-- Remove moved options from formatter option metadata and parser transform gating.
-- Keep formatter-only behavior deterministic and non-semantic.
-- Update plugin docs/examples accordingly.
-
-Exit criteria:
-- Formatter no longer performs project-aware or semantics-changing rewrites.
-
-## Phase 6: CLI integration
-
-- Add `lint` command in `src/cli/src/commands/`.
-- Wire config loading and rule selection.
-- Implement `--fix`, `--max-warnings`, and output formatters.
-- Keep `format` command behavior unchanged except removed migrated options.
-
-Exit criteria:
-- End-to-end `lint` and `lint --fix` workflows pass integration tests.
-
-## Phase 7: Migration and release
-
-- Publish migration guide:
-  - old formatter options -> new lint rules.
-  - example config files.
-  - CI examples (`format --check` + `lint`).
-- Mark migrated formatter options as removed/breaking in release notes.
-
-Exit criteria:
-- Documentation complete and release-ready.
-
-## Testing Strategy
-
-- Unit tests (linter workspace):
-  - rule detection/fix per rule.
-  - severity behavior (`off`, `warn`, `error`).
-- Integration tests (CLI):
-  - `lint`, `lint --fix`, exit codes, warning thresholds.
-  - project-aware cases using temp multi-file projects.
-- Regression tests:
-  - formatter output unchanged for formatting-only scenarios.
-  - ensure formatter no longer applies moved semantic transforms.
-
-## Risks and Mitigations
-
-- Risk: behavior drift after moving transforms out of formatter.
-  - Mitigation: snapshot before/after on representative corpora; explicit migration docs.
-- Risk: custom-language ESLint integration complexity.
-  - Mitigation: start with minimal rule and stabilize adapter before porting many rules.
-- Risk: performance regression from project-aware checks.
-  - Mitigation: run-scoped analysis cache; lazy initialize project index only when a rule needs it.
-- Risk: one large `applyFeatherFixes` split.
-  - Mitigation: split incrementally by diagnostic family; preserve tests during extraction.
-
-## Suggested Initial Rule Presets
-
-- `lint:recommended`
-  - Mostly correctness/safety (`error` or `warn`).
-- `lint:feather`
-  - Feather-derived rules only.
-- `lint:performance`
-  - Hoisting/math/logical optimization style rules (mostly `warn`).
-
-## Rollout Order Recommendation
-
-1. Ship linter package + CLI command with a minimal stable rule set.
-2. Move project-aware rules first (`gml/no-globalvar`, feather rename safety, loop hoist safety).
-3. Move optional optimization transforms next.
-4. Remove migrated formatter options in one documented breaking release.
-
-## External References
-
-- ESLint custom languages and plugin model:
-  - [https://eslint.org/docs/latest/extend/languages](https://eslint.org/docs/latest/extend/languages)
-  - [https://eslint.org/docs/latest/extend/plugins](https://eslint.org/docs/latest/extend/plugins)
-- ESLint Node API and fix flow:
-  - [https://eslint.org/docs/latest/integrate/nodejs-api](https://eslint.org/docs/latest/integrate/nodejs-api)
-- ESLint custom rules and fixer API:
-  - [https://eslint.org/docs/latest/extend/custom-rules](https://eslint.org/docs/latest/extend/custom-rules)
+1. Split responsibilities into a formatter-only workspace and an ESLint v9 language+rules workspace.
+2. Lock exact ESLint language wiring, AST/token/comment/range contracts, parse-error behavior, project-context lifecycle, rule schemas, CLI semantics, and migration scope.
+3. Keep formatter deterministic and non-semantic; move all non-layout rewrites to lint rules with explicit diagnostics and optional `--fix`.
+
+## Public API and Workspace Changes
+1. Add new workspace at `/Users/henrykirk/gamemaker-language-parser/src/lint` with package name `@gml-modules/lint`.
+2. Keep `/Users/henrykirk/gamemaker-language-parser/src/plugin` as formatter-only (`@gml-modules/plugin`).
+3. Add lint command implementation in `/Users/henrykirk/gamemaker-language-parser/src/cli/src/commands/lint.ts`.
+4. Root namespace export for lint package:
+   ```ts
+   // /Users/henrykirk/gamemaker-language-parser/src/lint/index.ts
+   export { Lint } from "./src/index.js";
+   ```
+5. Lint namespace export surface:
+   ```ts
+   // /Users/henrykirk/gamemaker-language-parser/src/lint/src/index.ts
+   export const Lint = Object.freeze({
+     plugin,      // ESLint plugin object (rules + languages + configs)
+     configs,     // recommended / feather / performance
+     ruleIds,     // frozen map of canonical rule IDs
+     services     // project-context factories + helpers
+   });
+   ```
+
+## ESLint v9 Language Wiring Contract (Pinned)
+1. `Lint.plugin` is the object registered under `plugins.gml`.
+2. `Lint.plugin.languages.gml` is the ESLint v9 language object used via `language: "gml/gml"`.
+3. This migration implements a **language plugin**, not `languageOptions.parser`.
+4. Supported keys in `.gml` flat-config blocks are `files`, `ignores`, `plugins`, `language`, `languageOptions`, `rules`, `linterOptions`.
+5. Unsupported for `.gml` blocks are `languageOptions.parser`, `languageOptions.parserOptions`, and `processor`; `validateLanguageOptions()` throws on these.
+6. Minimal real config:
+   ```ts
+   import { Lint } from "@gml-modules/lint";
+
+   export default [
+     ...Lint.configs.recommended,
+     {
+       files: ["**/*.gml"],
+       plugins: { gml: Lint.plugin },
+       language: "gml/gml",
+       languageOptions: { recovery: "limited" },
+       rules: {
+         "gml/prefer-loop-length-hoist": ["warn", { functionSuffixes: { array_length: "len" } }],
+         "gml/no-globalvar": "error",
+         "feather/gm1051": "error"
+       }
+     }
+   ];
+   ```
+
+## AST/Token/Comment Contract (Pinned)
+1. Output model is ESTree-compatible plus explicit GML extension node types.
+2. `range` is always `[start, end)` in UTF-16 code-unit offsets.
+3. `loc` is always `line: 1-based`, `column: 0-based`.
+4. `Program.comments` and `Program.tokens` are always present for `.gml` linting.
+5. GML-to-ESTree mapping rules:
+   | GML construct | Output node |
+   |---|---|
+   | `Program` | `Program` |
+   | `MemberDotExpression` | `MemberExpression { computed: false }` |
+   | `MemberIndexExpression` | `MemberExpression { computed: true }` |
+   | `TemplateStringExpression` | `TemplateLiteral` |
+   | `TemplateStringText` | `TemplateElement` |
+   | `WithStatement` | ESTree `WithStatement` |
+   | `GlobalVarStatement` | `VariableDeclaration` + extension field `gmlKeyword: "globalvar"` |
+   | `MacroDeclaration` | extension node `GmlMacroDeclaration` |
+   | `RegionStatement` / `EndRegionStatement` / `DefineStatement` | extension node `GmlDirectiveStatement` with `directiveKind` |
+   | `MissingOptionalArgument` | extension node `GmlMissingArgument` |
+   | `EnumDeclaration` / `EnumMember` | extension nodes `GmlEnumDeclaration` / `GmlEnumMember` |
+6. Custom visitor keys are shipped for every extension node.
+
+## Parse Errors and Recovery Contract (Pinned)
+1. Language parse never throws uncaught exceptions to ESLint.
+2. `languageOptions.recovery` options:
+   - `"none"`: strict parse only.
+   - `"limited"` (default): run only missing-argument-separator recovery before parse.
+3. If strict/limited parse fails, language returns `ok: false` with `errors[]`; ESLint emits fatal diagnostics (`ruleId: null`, severity error, message prefixed `Parsing error:`).
+4. Fatal parse diagnostics are not rule-configurable (ESLint standard behavior).
+5. Recovered separators are reported by `gml/require-argument-separators` with configurable severity and autofix.
+6. Lint continues across other files even when some files have fatal parse errors.
+
+## Project Root, Indexing, and Cache Lifecycle (Pinned)
+1. CLI adds `--project <path>` as explicit project-root override.
+2. Without `--project`, root resolution is nearest ancestor containing a GameMaker manifest (`.yyp`) from each linted file path; fallback is CLI `cwd`.
+3. Runtime owns one invocation-scoped `ProjectLintContextRegistry` keyed by resolved root.
+4. Each context indexes `.gml` sources under root once, using semantic/refactor-backed analysis data, with hard excludes: `.git`, `node_modules`, `dist`, `generated`, `vendor`.
+5. Context is immutable for the lint invocation.
+6. Under `--fix`, project-aware decisions use pre-fix snapshot state for all passes in that invocation.
+7. No cross-file writes are allowed by any rule fixer.
+
+## Standardized “Unsafe to Fix” Reporting
+1. Shared helper required for all project-aware rules:
+   - `messageId: "unsafeFix"` with stable prefix `[unsafe-fix:<reasonCode>]`.
+2. Required reason fields for every unsafe report:
+   - `reasonCode` (machine-stable short code).
+   - `reason` (human-readable).
+3. Rule option convention for CI control:
+   - `reportUnsafe` (default `true`).
+   - If `false`, rule skips unsafe reports entirely (useful for “fail only fixable findings” workflows).
+4. Severity never changes per message; severity remains rule-level (`off|warn|error`).
+
+## Rule Migration Matrix with Concrete Schemas
+1. `gml/prefer-loop-length-hoist`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"functionSuffixes":{"type":"object","additionalProperties":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}, "reportUnsafe":{"type":"boolean","default":true}}}`  
+   Replaces: `optimizeLoopLengthHoisting`, `loopLengthHoistFunctionSuffixes`.
+2. `gml/prefer-hoistable-loop-accessors`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"minOccurrences":{"type":"integer","minimum":2,"default":2},"reportUnsafe":{"type":"boolean","default":true}}}`  
+   Behavior: detect/suggest only; no autofix.
+3. `gml/prefer-struct-literal-assignments`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"reportUnsafe":{"type":"boolean","default":true}}}`  
+   Replaces: `condenseStructAssignments`.
+4. `gml/optimize-logical-flow`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"maxBooleanVariables":{"type":"integer","minimum":1,"maximum":10,"default":10}}}`  
+   Replaces: `optimizeLogicalExpressions`.
+5. `gml/no-globalvar`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"enableAutofix":{"type":"boolean","default":true},"reportUnsafe":{"type":"boolean","default":true}}}`  
+   Replaces: `preserveGlobalVarStatements`.
+6. `gml/normalize-doc-comments`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: `normalizeDocComments`.
+7. `gml/prefer-string-interpolation`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"reportUnsafe":{"type":"boolean","default":true}}}`  
+   Replaces: `useStringInterpolation`.
+8. `gml/optimize-math-expressions`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: `optimizeMathExpressions`.
+9. `gml/require-argument-separators`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{"repair":{"type":"boolean","default":true}}}`  
+   Replaces: `sanitizeMissingArgumentSeparators`.
+10. Feather extraction model:
+    - Rule naming pattern is `feather/gm####`.
+    - Initial explicit parity set equals IDs currently implemented in `apply-feather-fixes`.
+    - Authoritative parity IDs:
+      ```text
+      GM1000 GM1002 GM1003 GM1004 GM1005 GM1007 GM1008 GM1009 GM1010 GM1012 GM1013 GM1014 GM1015 GM1016 GM1017 GM1021 GM1023 GM1024 GM1026 GM1028 GM1029 GM1030 GM1032 GM1033 GM1034 GM1036 GM1038 GM1041 GM1051 GM1052 GM1054 GM1056 GM1058 GM1059 GM1062 GM1063 GM1064 GM1100 GM2000 GM2003 GM2004 GM2005 GM2007 GM2008 GM2009 GM2011 GM2012 GM2015 GM2020 GM2023 GM2025 GM2026 GM2028 GM2029 GM2030 GM2031 GM2032 GM2033 GM2035 GM2040 GM2042 GM2043 GM2044 GM2046 GM2048 GM2050 GM2051 GM2052 GM2053 GM2054 GM2056 GM2061 GM2064
+      ```
+
+## Clear Division Between Adjacent Loop Rules
+1. `gml/prefer-hoistable-loop-accessors` only detects/suggests repeated accessor patterns.
+2. `gml/prefer-loop-length-hoist` is the only rule that applies hoist fixes.
+3. Shared suppression marker prevents double-reporting on the same loop node when both rules are enabled.
+4. No deprecation between these two rules in this migration.
+
+## CLI Loading, Discovery, Merging, and Output (Pinned)
+1. `lint <paths...>` delegates file enumeration to ESLint `lintFiles()`.
+2. If `--config` is provided, CLI sets `overrideConfigFile` to that path.
+3. If `--config` is absent, CLI uses ESLint default flat-config discovery.
+4. If no user config is found, CLI falls back to bundled `Lint.configs.recommended`.
+5. `ignores` are flat-config-driven; `.eslintignore` is not used.
+6. Supported formatter values are `stylish`, `json`, `checkstyle`, all via `ESLint.loadFormatter()`.
+7. `checkstyle` requires `eslint-formatter-checkstyle` at runtime.
+8. Exit codes:
+   - `0`: no errors and warnings within threshold.
+   - `1`: lint errors exist or `--max-warnings` exceeded.
+   - `2`: config/runtime/formatter loading failures.
+
+## Formatter Boundary (Pinned)
+1. Formatter may only perform layout and canonical rendering transforms.
+2. Formatter must not perform semantic/content rewrites or syntax repair.
+3. `logicalOperatorsStyle` remains formatter-only and is limited to canonical alias rendering of equivalent logical operators.
+4. `normalizeDocComments` moves to lint because it mutates comment text content.
+5. Invalid code handling:
+   - Formatter parses strictly.
+   - On parse failure, formatter fails and does not mutate source.
+   - Syntax repairs are lint-only (`lint --fix`).
+
+## Fixtures and Testing Strategy
+1. New lint fixtures live only under `/Users/henrykirk/gamemaker-language-parser/src/lint/test/fixtures`.
+2. No modifications to parser/plugin golden `.gml` fixtures.
+3. Required test groups:
+   - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
+   - Parse failure/recovery tests (fatal parse, recovered separators).
+   - Rule detection/fix tests for each migrated rule and each feather parity ID.
+   - Unsafe-fix reporting tests with `reportUnsafe: true|false`.
+   - CLI integration tests for config search, `--config`, `--project`, ignore behavior, formatter output, and exit codes.
+   - Regression tests proving formatter no longer applies migrated semantic transforms.
+   - Dependency policy tests updated to include `@gml-modules/lint` and enforce no Prettier dependency in lint workspace.
+
+## Implementation Phases and Exit Criteria
+1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
+   Exit: build/test pass with a no-op rule and language stub.
+2. Phase 2: Implement ESLint v9 language object and ESTree bridge contract.  
+   Exit: `.gml` file lints successfully with real tokens/comments/ranges.
+3. Phase 3: Implement invocation-scoped `ProjectLintContextRegistry`.  
+   Exit: one project-aware rule can resolve name-occupancy synchronously from immutable context.
+4. Phase 4: Migrate formatter options to lint rules with schemas and docs.  
+   Exit: all matrix entries implemented; schemas validated; parity tests pass.
+5. Phase 5: Feather split via `feather/gm####` rules and parity manifest.  
+   Exit: parity ID set above has deterministic mapping, default severity, and fixability status.
+6. Phase 6: Formatter cleanup and runtime-port removal from plugin semantic/refactor paths.  
+   Exit: plugin no longer depends on semantic/refactor runtime hooks for migrated behavior.
+7. Phase 7: CLI lint command integration and reporting semantics.  
+   Exit: end-to-end `lint` and `lint --fix` pass integration suite.
+8. Phase 8: Migration docs and release notes update in `/Users/henrykirk/gamemaker-language-parser/docs/formatter-linter-split-plan.md` and package READMEs.  
+   Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
+
+## Required Before/After Examples in the Doc
+1. Loop hoist:
+   - Before: `for (var i = 0; i < array_length(items); i++) {}`
+   - After: `var items_len = array_length(items); for (var i = 0; i < items_len; i++) {}`
+2. Globalvar rewrite:
+   - Before: `globalvar score; score = 0;`
+   - After (safe): `global.score = 0;`
+3. Missing separators:
+   - Before: `draw_text(x y "score");`
+   - After: `draw_text(x, y, "score");`
+
+## Assumptions and Defaults
+1. Node runtime baseline remains `>=22.0.0` across workspaces.
+2. ESLint major is pinned to v9 (`>=9.39.0 <10`) for lint package compatibility.
+3. Project-aware context is intentionally immutable per invocation; no in-run incremental reindexing under `--fix`.
+4. Formatter and linter remain separate commands and separate responsibilities.
