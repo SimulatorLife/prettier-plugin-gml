@@ -8,6 +8,7 @@ export type {
     DocCommentLines,
     GameMakerAstLocation,
     GameMakerAstNode,
+    LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
     StringCommentScanState

@@ -27,7 +27,7 @@
  * The transforms here mutate the AST, gather fix metadata, and expose diagnostics-driven helpers to the CLI plugin.
  */
 
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type LiteralNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
 import {
@@ -74,6 +74,14 @@ type ApplyFeatherFixesOptions = {
     sourceText?: string;
     preprocessedFixMetadata?: unknown;
     options?: Record<string, unknown>;
+};
+
+/**
+ * Extended literal node with optional skip coercion flag.
+ * Used by numeric string literal coercion fixes to mark literals that should not be converted.
+ */
+type LiteralNodeWithSkipFlag = LiteralNode & {
+    _skipNumericStringCoercion?: boolean;
 };
 
 export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -5587,7 +5595,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    if ((literal as typeof literal & { _skipNumericStringCoercion?: boolean })._skipNumericStringCoercion) {
+    if ((literal as LiteralNodeWithSkipFlag)._skipNumericStringCoercion) {
         return null;
     }
 

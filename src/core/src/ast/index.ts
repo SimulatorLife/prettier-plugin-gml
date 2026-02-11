@@ -12,5 +12,6 @@ export type {
     FeatherFixRange,
     GameMakerAstLocation,
     GameMakerAstNode,
+    LiteralNode,
     MutableGameMakerAstNode
 } from "./types.js";

@@ -8,7 +8,7 @@
  *
  * Benefits:
  * - Type safety: Guards return proper TypeScript predicates (`node is T`)
- * - DRY: Eliminates 150+ duplicate type checks across the codebase
+ * - DRY: Eliminates 100+ duplicate type checks across the codebase
  * - Consistency: All guards follow the same pattern and use shared constants
  * - Refactor-friendly: Changing node types updates one location
  * - Performance: Uses the same optimized `hasType` helper as existing guards
@@ -513,3 +513,17 @@ export function isMacroDeclarationNode(node: unknown): node is MutableGameMakerA
 export function isProgramNode(node: unknown): node is MutableGameMakerAstNode {
     return hasType(node, PROGRAM);
 }
+
+/**
+ * NOTE: Several commonly-used type guards are already defined in node-helpers.ts
+ * and are re-exported from there for historical reasons and enhanced functionality:
+ *
+ * - isIdentifierNode (with additional name validation)
+ * - isLiteralNode
+ * - isAssignmentPatternNode
+ * - isCallExpressionNode
+ * - isMemberIndexExpressionNode
+ *
+ * These guards are available through the same Core namespace and provide the same
+ * type safety benefits. They are not duplicated here to avoid conflicts.
+ */
