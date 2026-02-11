@@ -121,7 +121,8 @@
    - `getContext(filePath)` returning `null` means no project context is available for that file.
    - project-aware rules must report `messageId: "missingProjectContext"` and emit no fixes.
 8. `missingProjectContext` severity/CI semantics:
-   - in `Lint.configs.recommended`, `missingProjectContext` is `warn` for project-aware rules.
+   - `missingProjectContext` uses the configured severity of its owning rule (ESLint standard severity handling).
+   - in `Lint.configs.recommended`, project-aware rule severities are set so `missingProjectContext` is `warn` by default.
    - it counts as a normal warning for `--max-warnings`.
    - it can cause exit code `1` when warning thresholds are exceeded.
 9. Emission constraints:
@@ -131,11 +132,13 @@
    - `missingProjectContext` is independent of `reportUnsafe`.
    - `reportUnsafe: false` suppresses unsafe-fix diagnostics only; it does not suppress missing-context diagnostics.
 11. Project-aware rule marker:
-   - a rule is classified as project-aware if it calls `context.settings.gml.project.getContext()` or otherwise requires `ProjectContext`.
-   - project-aware rules must declare `meta.docs.requiresProjectContext = true`.
+   - a rule is project-aware if and only if `meta.docs.requiresProjectContext === true`.
+   - project-aware rules may call `context.settings.gml.project.getContext()`; local-only rules must not.
    - this marker is the source of truth for docs generation, preset composition, and missing-context consistency tests.
 12. Message UX invariant:
-   - `missingProjectContext` diagnostics must include an actionable hint (run via CLI with `--project` or disable the rule for direct ESLint usage).
+   - `missingProjectContext` diagnostics must include an actionable hint with both elements:
+     - run via CLI with `--project`
+     - disable the rule for direct ESLint usage when CLI project context is unavailable.
 
 ## Language Options Validation UX (Pinned)
 1. Validation uses the effective file-level language options provided by ESLint for that file; the CLI does not re-implement flat-config merge logic.
@@ -149,6 +152,7 @@
 6. Processor handling policy:
    - processors are unsupported only for files linted as `language: "gml/gml"` (not globally for other file types in the same invocation)
    - enforcement is conditional on observability: ESLint must expose active processor identity for the current `.gml` file at runtime
+   - configured-but-not-applied processors must not trigger failure; only the active processor for the current linted `.gml` file is considered
    - if active processor is observable and is not default/none, fail with `GML_PROCESSOR_UNSUPPORTED`
    - if processor is configured elsewhere but not active for the current `.gml` file, do not fail
    - if processor status is not observable, do not attempt custom enforcement; optionally emit one `--verbose` warning.
@@ -265,7 +269,7 @@
 13. Safety invariant for excluded paths:
     - excluded files are treated as unknown code for project-aware safety checks
     - unknowns provide no positive evidence of safety
-    - unknown/excluded code cannot increase fixability.
+    - unknown/excluded code can only force conservative decisions until additional indexed evidence is available.
 14. Escape hatch:
     - CLI supports `--index-allow <dir>` to explicitly include otherwise hard-excluded directories in project indexing.
 15. Monotonicity invariant:
@@ -287,6 +291,7 @@
     - if project context fails to initialize, CLI applies the missing-context behavior defined in **Rule Access to Language Services (Pinned)** and continues linting syntactic/local rules.
     - CLI emits a top-level warning banner (unless `--quiet`) with failure reason summary.
     - `--verbose` includes detailed initialization failure diagnostics.
+    - initialization failure is non-fatal by default (degrade-and-continue); this condition does not escalate to exit code `2` unless an explicit future strict-init mode is introduced.
 20. Out-of-root warning output policy:
     - warnings are aggregated at command level and include a bounded path sample.
     - output shows at most 20 paths, then summarizes remainder as “and N more…”.
@@ -402,7 +407,7 @@
 ## Direct ESLint Usage Compatibility (Pinned)
 1. Direct `eslint` usage without the CLI is supported for syntactic and local rules.
 2. Project-aware rules require project context injection from the CLI runtime.
-3. Canonical missing-context behavior is defined only in **Rule Access to Language Services (Pinned)** and applies identically in direct-ESLint and CLI flows.
+3. The missing-context contract (messageId, fix suppression, emission frequency, and `reportUnsafe` interaction) is defined in **Rule Access to Language Services (Pinned)** and applies identically in direct-ESLint and CLI flows.
 4. Example-only direct-ESLint config (disable selected project-aware rules):
    ```ts
    import { Lint } from "@gml-modules/lint";
@@ -417,6 +422,8 @@
      }
    ];
    ```
+5. Documentation requirement:
+   - docs must include an auto-generated list of project-aware rule IDs (derived from `meta.docs.requiresProjectContext`) for direct-ESLint disable workflows.
 
 ## Formatter Boundary (Pinned)
 1. Formatter may only perform layout and canonical rendering transforms.
@@ -451,9 +458,10 @@
    - Regression tests proving formatter no longer applies migrated semantic transforms.
    - Dependency policy tests updated to include `@gml-modules/lint` and enforce no Prettier dependency in lint workspace.
    - Missing-context consistency tests (per **Rule Access to Language Services (Pinned)**): every project-aware rule emits `missingProjectContext` (once per file per rule), with no fixes.
+   - Project-aware marker enforcement test: rules with `meta.docs.requiresProjectContext !== true` must not call `context.settings.gml.project.getContext()` (validated with a sentinel project settings object that throws on access).
    - Monotonicity tests for indexing: `--index-allow` may enable safe fixes with new evidence and must not cause safe->unsafe without a real discovered conflict.
    - Selector traversal tests for all extension node types.
-   - Fallback non-duplication test: when no user config exists and fallback applies, plugin/language wiring is applied exactly once and diagnostics are not duplicated.
+   - Fallback non-duplication test: when no user config exists and fallback applies, a pinned fixture yields an exact expected finding count and plugin/language registration occurs once (no duplicate rule execution).
 
 ## Implementation Phases and Exit Criteria
 1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
@@ -512,7 +520,7 @@
    - `@gml-modules/lint` rule/language artifacts are loaded into that ESLint runtime, avoiding mixed ESLint major instances in-process.
 6. Instance-identity enforcement:
    - CLI performs a startup assertion that ESLint module identity is shared between CLI runtime and loaded lint language/rule artifacts.
-   - identity check compares imported ESLint module symbols (constructor/class references) from both sides.
+   - identity check compares ESLint class reference equality and `SourceCode` reference equality across CLI/runtime and loaded lint artifacts.
    - mismatch is a hard runtime failure with an actionable diagnostic.
 7. Required integration test:
    - run CLI lint in a simulated consumer layout (pnpm-style nested `node_modules`) and assert single-ESLint-instance behavior.
