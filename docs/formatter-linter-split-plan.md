@@ -102,11 +102,12 @@
      recovery: "none" | "limited";
    }>;
    ```
-6. `parse(...)` return-channel contract:
+6. `parse(...)` return-channel contract (single source of truth):
+   - `parse(...)` returns the ESLint-facing v9 parse result channel directly (no separate public wrapper layer).
    - success returns ESLint-compatible parse success payload containing AST + parser services for `createSourceCode(...)`.
    - parse failure returns through ESLint v9 parse-failure return channel (no uncaught throw).
    - exact object field names are pinned by runtime contract tests against the installed ESLint version.
-   - stable wrapper intent for implementers:
+   - `GmlParseSuccess` / `GmlParseFailure` are documentation aliases for the ESLint-facing channel in the pinned range:
      ```ts
      type GmlParseSuccess = {
        ok: true;
@@ -126,16 +127,19 @@
        }>;
      };
      ```
+   - if ESLint v9 minors require parse-channel adjustments, the implementation adapts to ESLint while preserving documented rule-facing contracts (`parserServices.gml`, AST/token/comment invariants).
 7. Parse failure contract:
    - Parse failures are surfaced through ESLint v9’s documented language parse-failure mechanism (returned, not thrown uncaught).
 8. `createSourceCode(...)` contract:
-   - receives the parse result produced by `parse(...)` and returns ESLint `SourceCode`.
+   - receives the parse output payload for the same file (AST + parser services + text context) from `parse(...)`.
+   - input payload shape follows ESLint v9 language contract for `createSourceCode(...)` and is pinned via runtime contract tests.
    - no custom `SourceCode` subclass is used in this migration.
 9. SourceCode contract:
    - Implementation uses ESLint `SourceCode` (no custom SourceCode class), so `getText()`, token APIs, comment APIs, and location helpers behave per ESLint defaults.
 10. Scope analysis contract:
    - No custom scope manager is provided by the language object in this migration.
    - Rules requiring project-wide analysis use `Lint.services` (project context), not ESLint scope-manager extensions.
+   - lexical-scope-heavy rules (for example unused/shadowing diagnostics) are out of scope for this migration unless they can be expressed with local AST/`SourceCode` analysis.
 11. `validateLanguageOptions(...)` contract:
    - language-option validation is performed in this method using effective file-level options supplied by ESLint.
    - unsupported options fail with stable error codes documented in **Language Options Validation UX (Pinned)**.
@@ -154,6 +158,8 @@
 5. Injection ownership is pinned:
    - only the CLI runtime injects `context.settings.gml.project`.
    - in direct ESLint usage, `context.settings.gml.project` is absent by default unless users provide compatible custom injection.
+   - CLI injects via ESLint config `settings` for the lint invocation (single ESLint instance context object per invocation).
+   - if ESLint executes files in worker isolation, each worker receives its own immutable injected project-settings object derived from the same invocation snapshot.
 6. Rule authors must not invent alternate service discovery paths.
 7. Minimum project settings interface:
    ```ts
@@ -162,6 +168,7 @@
    };
    ```
    `ProjectContext` exposes project-aware helpers such as:
+   - `capabilities: ReadonlySet<ProjectCapability>`
    - `isIdentifierNameOccupiedInProject`
    - `listIdentifierOccurrenceFiles`
    - `planFeatherRenames`
@@ -172,6 +179,7 @@
      - `context.settings.gml.project` is absent
      - `getContext` is missing or not callable
      - `getContext(filePath)` returns `null`
+     - required project capability for the rule is unavailable in `ProjectContext.capabilities`
    - project-aware rules must perform missing-context checks before any use of `ProjectContext` helpers.
    - project-aware rules must report `messageId: "missingProjectContext"` and emit no fixes.
 9. `missingProjectContext` severity/CI semantics:
@@ -196,6 +204,14 @@
      - disable the rule for direct ESLint usage when CLI project context is unavailable.
 14. Shared helper recommendation:
    - use a common helper for project-aware rules to report missing context once per file (for example, `reportMissingProjectContextOncePerFile(...)`).
+15. Capability model:
+   - `ProjectCapability` values are:
+     - `IDENTIFIER_OCCUPANCY`
+     - `IDENTIFIER_OCCURRENCES`
+     - `LOOP_HOIST_NAME_RESOLUTION`
+     - `RENAME_CONFLICT_PLANNING`
+   - each project-aware rule declares required capabilities in rule metadata.
+   - rules must not proceed when required capabilities are unavailable; they emit `missingProjectContext` instead of guessing.
 
 ## Parser Services Interface (Pinned)
 1. Stable minimal `parserServices.gml` interface:
@@ -218,8 +234,43 @@
      argumentIndex: number;
    };
    ```
-3. `parserServices.gml` intentionally does not expose CST internals; rules consume AST + `SourceCode` + this stable metadata only.
-4. Additional parser-service fields may exist internally, but rules must not rely on non-documented fields in this plan.
+3. `GmlDirectiveInfo` stable entry shape:
+   ```ts
+   type GmlDirectiveInfo = {
+     directiveKind: "region" | "endregion" | "define";
+     text: string;
+     range: [number, number];
+     loc: {
+       start: { line: number; column: number };
+       end: { line: number; column: number };
+     };
+     nodeType: "GmlDirectiveStatement";
+     nodeRange: [number, number];
+   };
+   ```
+4. `GmlEnumInfo` stable entry shape:
+   ```ts
+   type GmlEnumInfo = {
+     name: string;
+     range: [number, number];
+     loc: {
+       start: { line: number; column: number };
+       end: { line: number; column: number };
+     };
+     nodeType: "GmlEnumDeclaration";
+     nodeRange: [number, number];
+     members: ReadonlyArray<{
+       name: string;
+       range: [number, number];
+       nodeType: "GmlEnumMember";
+       nodeRange: [number, number];
+     }>;
+   };
+   ```
+5. `parserServices.gml` intentionally does not expose CST internals; rules consume AST + `SourceCode` + this stable metadata only.
+6. Additional parser-service fields may exist internally, but rules must not rely on non-documented fields in this plan.
+7. Stability policy:
+   - changes to documented `GmlParserServices` fields/shapes are semver-major for `@gml-modules/lint`.
 
 ## Language Options Validation UX (Pinned)
 1. Validation uses the effective file-level language options provided by ESLint for that file; the CLI does not re-implement flat-config merge logic.
@@ -395,9 +446,12 @@
    - identifier occurrence locations per file
    - safe loop-hoist name-resolution constraints
    - rename/conflict planning data for feather/global rewrites
-3. `ProjectContext` helper methods are thin query surfaces over this indexed data and must be deterministic for a fixed snapshot.
-4. If required analysis output is missing/unsupported/partial for a file set, project-aware rules degrade to `missingProjectContext` behavior for affected files.
-5. No persistent cache contract:
+3. Capability evaluation model:
+   - capability availability is computed per resolved root at index-build time.
+   - queries may further gate per file path; unavailable capability for a specific file is treated as missing context for that file/rule.
+4. `ProjectContext` helper methods are thin query surfaces over indexed data and must be deterministic for a fixed snapshot.
+5. If required analysis output is missing/unsupported/partial for a file set, project-aware rules degrade to `missingProjectContext` behavior for affected files (no silent pass/no optimistic fallback).
+6. No persistent cache contract:
    - indexing is invocation-local in-memory state only.
    - no cross-invocation cache files are required or consulted in this migration.
 
@@ -424,6 +478,19 @@
    - If `false`, rule skips unsafe reports entirely (useful for “fail only fixable findings” workflows).
 4. Severity never changes per message; severity remains rule-level (`off|warn|error`).
 5. `unsafeFix` and `missingProjectContext` are distinct diagnostics and must not be conflated.
+
+## Unsafe Reason Code Policy (Pinned)
+1. `reasonCode` namespace is global and semver-public for lint consumers.
+2. `reasonCode` format is uppercase snake case (`[A-Z0-9_]+`).
+3. Registry source of truth is a checked-in typed map in lint workspace code (`src/lint/src/rules/reason-codes.ts`).
+4. Changing/removing existing reason codes is semver-major; adding new reason codes is semver-minor.
+5. Minimum starter reason-code set:
+   - `MISSING_PROJECT_CONTEXT`
+   - `MISSING_CAPABILITY`
+   - `NAME_COLLISION`
+   - `CROSS_FILE_CONFLICT`
+   - `SEMANTIC_AMBIGUITY`
+   - `NON_IDEMPOTENT_EXPRESSION`
 
 ## Lint Fixer Edit Boundary (Pinned)
 1. Fixers are single-file only and must not perform cross-file writes.
@@ -475,6 +542,52 @@
       GM1000 GM1002 GM1003 GM1004 GM1005 GM1007 GM1008 GM1009 GM1010 GM1012 GM1013 GM1014 GM1015 GM1016 GM1017 GM1021 GM1023 GM1024 GM1026 GM1028 GM1029 GM1030 GM1032 GM1033 GM1034 GM1036 GM1038 GM1041 GM1051 GM1052 GM1054 GM1056 GM1058 GM1059 GM1062 GM1063 GM1064 GM1100 GM2000 GM2003 GM2004 GM2005 GM2007 GM2008 GM2009 GM2011 GM2012 GM2015 GM2020 GM2023 GM2025 GM2026 GM2028 GM2029 GM2030 GM2031 GM2032 GM2033 GM2035 GM2040 GM2042 GM2043 GM2044 GM2046 GM2048 GM2050 GM2051 GM2052 GM2053 GM2054 GM2056 GM2061 GM2064
       ```
 
+## Rule Behavioral Contracts (Pinned)
+1. `gml/prefer-loop-length-hoist`:
+   - trigger: loop conditions repeatedly computing supported accessor/length calls.
+   - messageIds: `preferLoopLengthHoist`, `unsafeFix`, `missingProjectContext`.
+   - fix shape: insert one hoist declaration immediately before loop in same file/scope; replace loop bound expression with hoisted identifier.
+   - required capabilities: `IDENTIFIER_OCCUPANCY`, `LOOP_HOIST_NAME_RESOLUTION`.
+2. `gml/prefer-hoistable-loop-accessors`:
+   - trigger: repeated loop accessor patterns meeting `minOccurrences`.
+   - messageIds: `preferHoistableLoopAccessor`, `notHoistable`.
+   - fix shape: none (detect/suggest only).
+   - required capabilities: none.
+3. `gml/prefer-struct-literal-assignments`:
+   - trigger: consecutive compatible member assignments to the same struct target.
+   - messageIds: `preferStructLiteralAssignments`, `unsafeFix`, `missingProjectContext`.
+   - fix shape: local rewrite of assignment cluster to literal-style initialization in same file.
+   - required capabilities: `IDENTIFIER_OCCURRENCES`, `RENAME_CONFLICT_PLANNING`.
+4. `gml/optimize-logical-flow`:
+   - trigger: reducible boolean-control expression patterns bounded by `maxBooleanVariables`.
+   - messageIds: `optimizeLogicalFlow`.
+   - fix shape: local expression rewrite only; no project context required.
+5. `gml/no-globalvar`:
+   - trigger: `globalvar` declarations/usages.
+   - messageIds: `noGlobalvar`, `unsafeFix`, `missingProjectContext`.
+   - fix shape: local rewrite to `global.<name>` access pattern in same file.
+   - required capabilities: `IDENTIFIER_OCCUPANCY`, `RENAME_CONFLICT_PLANNING`.
+6. `gml/normalize-doc-comments`:
+   - trigger: non-canonical documentation comment content.
+   - messageIds: `normalizeDocComments`.
+   - fix shape: comment text normalization in-place, same file.
+7. `gml/prefer-string-interpolation`:
+   - trigger: string concatenation patterns convertible to interpolation.
+   - messageIds: `preferStringInterpolation`, `unsafeFix`, `missingProjectContext`.
+   - fix shape: local expression rewrite preserving evaluation order.
+   - required capabilities: `IDENTIFIER_OCCURRENCES`.
+8. `gml/optimize-math-expressions`:
+   - trigger: locally simplifiable arithmetic/identity patterns.
+   - messageIds: `optimizeMathExpressions`.
+   - fix shape: local math-expression rewrite only.
+9. `gml/require-argument-separators`:
+   - trigger: missing-separator recovery entries from `parserServices.gml.recovery`.
+   - messageIds: `requireArgumentSeparators`.
+   - fix shape: comma insertion at recorded original-source offsets.
+10. Rule-level safety requirements:
+    - any rule emitting `unsafeFix` must declare its reason-code set in metadata and docs.
+    - project-aware rules must declare required capabilities in metadata; missing capabilities route to `missingProjectContext`.
+
 ## Feather Parity Manifest Contract (Pinned)
 1. Parity is defined by manifest data, not only by ID presence.
 2. A manifest entry exists for every parity ID with:
@@ -520,11 +633,14 @@
    - `eslint.config.cts`
    - discovery traverses ancestor directories from `cwd` to filesystem root using ESLint resolution rules.
    - `package.json`-embedded config is not part of this flat-config discovery path.
+   - discovery origin is always CLI `cwd` (lint targets outside `cwd` do not change discovery origin unless `--config` is provided).
 4. If no user config is found, CLI falls back to bundled `Lint.configs.recommended`.
    - this is an explicit policy choice, not implicit ESLint behavior.
    - fallback can be disabled via `--no-default-config`.
    - fallback message includes actionable next steps (`--no-default-config` and config file locations searched).
    - docs must list exact rules active in fallback mode.
+   - searched-location reporting lists each traversed directory with candidate filenames and whether a config was selected.
+   - if multiple candidate config files exist in the same directory, ESLint’s native selection rules determine the chosen file; CLI reports the selected path and does not merge sibling config files itself.
 5. `--config` failure behavior:
    - if `--config` points to a missing/unreadable/invalid file, CLI exits with code `2` and does not apply fallback defaults.
    - fallback applies only when discovery finds no user config and `--config` is not provided.
@@ -567,6 +683,23 @@
    - On parse failure, formatter fails and does not mutate source.
    - Syntax repairs are lint-only (`lint --fix`).
 
+## Formatter Transform Allowlist (Pinned)
+1. Allowed formatter transforms are limited to:
+   - indentation/whitespace normalization
+   - line-break wrapping and blank-line normalization
+   - spacing around punctuation/operators
+   - parenthesis/grouping rendering that does not change semantics
+   - trailing delimiter layout where grammar-equivalent
+   - final newline normalization at EOF
+   - `logicalOperatorsStyle` alias canonicalization as documented below
+2. Comment policy:
+   - comment placement may be reflowed for layout.
+   - comment text content must remain verbatim unless a dedicated lint rule owns that content transform.
+3. Formatter must not:
+   - rewrite identifiers/literals for semantics/content purposes
+   - perform syntax repair
+   - apply cross-file or project-aware rewrites.
+
 ## Logical Operator Canonicalization Scope (Pinned)
 1. `logicalOperatorsStyle` affects only logical operator aliases:
    - symbolic forms: `&&`, `||`
@@ -587,13 +720,14 @@
    - Rule detection/fix tests for each migrated rule and each feather parity ID.
    - Unsafe-fix reporting tests with `reportUnsafe: true|false`.
    - CLI integration tests for config search, `--config`, `--project`, ignore behavior, formatter output, and exit codes.
-   - Config discovery tests covering candidate filename order, searched-location reporting, fallback gating, and `--config` missing/invalid => exit `2`.
+   - Config discovery tests covering candidate filename order, searched-location reporting, multiple-config same-directory selection behavior, cwd-origin discovery for outside-cwd targets, fallback gating, and `--config` missing/invalid => exit `2`.
    - Root-resolution tests covering realpath normalization, symlink handling, and per-target nearest-ancestor `.yyp` resolution.
    - Project-analysis degradation tests for missing/partial semantic-refactor outputs => `missingProjectContext` behavior (no unsafe permissive fixes).
    - Regression tests proving formatter no longer applies migrated semantic transforms.
    - Dependency policy tests updated to include `@gml-modules/lint` and enforce no Prettier dependency in lint workspace.
    - Missing-context consistency tests (per **Rule Access to Language Services (Pinned)**): every project-aware rule emits `missingProjectContext` (once per file per rule), with no fixes, when project settings are absent, malformed, or return `null`.
-   - Project-aware marker enforcement test: rules with `meta.docs.requiresProjectContext !== true` must not call `context.settings.gml.project.getContext()` (validated with a sentinel project settings object that throws on access).
+   - Capability-gating tests: project-aware rules with unavailable required capabilities emit `missingProjectContext` and perform no fix.
+   - Project-aware marker enforcement test: rules with `meta.docs.requiresProjectContext !== true` must not access `context.settings.gml.project` at all (validated with a sentinel project settings object that throws on any access).
    - Monotonicity tests for indexing: `--index-allow` may enable safe fixes with new evidence and must not cause safe->unsafe without a real discovered conflict.
    - Selector traversal tests for all extension node types.
    - Fallback non-duplication test: when no user config exists and fallback applies, a pinned fixture yields an exact expected finding count and plugin/language registration occurs once (no duplicate rule execution).
@@ -681,5 +815,6 @@
 1. On parse failure, rules do not run for that file and `parserServices.gml` is absent.
 2. On successful parse without recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` exists as an empty collection.
 3. On successful parse with limited recovery edits, `parserServices.gml` is present and `parserServices.gml.recovery` contains projected insertion metadata.
-4. On successful parse, `Program.tokens` and `Program.comments` are arrays (possibly empty).
-5. On parse failure, there is no AST/`Program`, therefore no token/comment arrays are available to rules.
+4. On successful parse, `parserServices.gml.directives` and `parserServices.gml.enums` are arrays (possibly empty).
+5. On successful parse, `Program.tokens` and `Program.comments` are arrays (possibly empty).
+6. On parse failure, there is no AST/`Program`, therefore no token/comment arrays are available to rules.
