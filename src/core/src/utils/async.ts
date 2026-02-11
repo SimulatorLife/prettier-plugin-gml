@@ -23,7 +23,7 @@ export async function runSequentially<T>(values: Iterable<T>, callback: Sequenti
 
     await entries.reduce(async (previousPromise, value, index) => {
         await previousPromise;
-        await callback(value, index);
+        return callback(value, index);
     }, Promise.resolve());
 }
 
