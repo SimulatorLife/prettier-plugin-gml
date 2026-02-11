@@ -1,4 +1,4 @@
-import type { MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 export type DocCommentNormalizationPayload = {
     docCommentDocs: MutableDocCommentLines;
@@ -10,11 +10,11 @@ export type DocCommentNormalizationPayload = {
 const DOC_COMMENT_NORMALIZATION_KEY = Symbol("gmlDocCommentNormalization");
 
 export function getDocCommentNormalization(node: unknown): DocCommentNormalizationPayload | null {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return null;
     }
 
-    const maybePayload = Reflect.get(node, DOC_COMMENT_NORMALIZATION_KEY);
+    const maybePayload = Reflect.get(node as object, DOC_COMMENT_NORMALIZATION_KEY);
 
     if (!maybePayload || typeof maybePayload !== "object") {
         return null;
@@ -41,14 +41,14 @@ export function getDocCommentNormalization(node: unknown): DocCommentNormalizati
 }
 
 export function setDocCommentNormalization(node: unknown, payload: DocCommentNormalizationPayload | null) {
-    if (!node || typeof node !== "object") {
+    if (Core.shouldSkipTraversal(node)) {
         return;
     }
 
     if (payload === null) {
-        Reflect.deleteProperty(node, DOC_COMMENT_NORMALIZATION_KEY);
+        Reflect.deleteProperty(node as object, DOC_COMMENT_NORMALIZATION_KEY);
         return;
     }
 
-    Reflect.set(node, DOC_COMMENT_NORMALIZATION_KEY, payload);
+    Reflect.set(node as object, DOC_COMMENT_NORMALIZATION_KEY, payload);
 }

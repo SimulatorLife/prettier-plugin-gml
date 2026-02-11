@@ -1088,6 +1088,43 @@ export function isNumericLiteralBoundaryCharacter(character: string): boolean {
 }
 
 /**
+ * Determine whether an AST traversal should skip the given node.
+ *
+ * Consolidates the duplicated null/object/visited guards that appear throughout
+ * transform and printer modules. Returns `true` when the node is null, non-object,
+ * or already present in the optional visited set, indicating the traversal should
+ * return early without processing this node.
+ *
+ * This helper eliminates the repetitive pattern:
+ * ```ts
+ * if (!node || typeof node !== "object" || visited.has(node)) return;
+ * ```
+ *
+ * @param node Candidate AST node or value to inspect.
+ * @param visited Optional WeakSet tracking already-visited nodes to prevent cycles.
+ * @returns `true` when traversal should skip this node, `false` to continue.
+ *
+ * @example
+ * ```ts
+ * const visited = new WeakSet();
+ * function visit(node: unknown) {
+ *     if (shouldSkipTraversal(node, visited)) return;
+ *     visited.add(node);
+ *     // ... process node ...
+ * }
+ * ```
+ */
+export function shouldSkipTraversal(node: unknown, visited?: WeakSet<object>): boolean {
+    if (!node || typeof node !== "object") {
+        return true;
+    }
+    if (visited !== undefined && visited.has(node)) {
+        return true;
+    }
+    return false;
+}
+
+/**
  * Traverse nested child nodes and invoke {@link callback} for each descendant.
  *
  * This helper performs shallow traversal of direct children within {@link node},
