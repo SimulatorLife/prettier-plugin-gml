@@ -24,6 +24,22 @@ function mockVisitor(node: GmlNode): string {
     return node.type;
 }
 
+function statementWithSemicolonVisitor(): string {
+    return "x = 1;";
+}
+
+function emptyStatementVisitor(): string {
+    return "";
+}
+
+function returnStatementVisitor(): string {
+    return "return x";
+}
+
+function whitespaceStatementVisitor(): string {
+    return "   ";
+}
+
 void describe("wrapConditional", () => {
     void it("wraps expression in parentheses by default", () => {
         const node = { type: "BinaryExpression" } as GmlNode;
@@ -91,23 +107,20 @@ void describe("wrapConditionalBody", () => {
     });
 
     void it("does not add semicolon if statement already has one", () => {
-        const visitor = () => "x = 1;";
         const node = { type: "ExpressionStatement" } as GmlNode;
-        const result = wrapConditionalBody(node, visitor);
+        const result = wrapConditionalBody(node, statementWithSemicolonVisitor);
         assert.strictEqual(result, " {\nx = 1;\n}");
     });
 
     void it("handles empty statement gracefully", () => {
-        const visitor = () => "";
         const node = { type: "ExpressionStatement" } as GmlNode;
-        const result = wrapConditionalBody(node, visitor);
+        const result = wrapConditionalBody(node, emptyStatementVisitor);
         assert.strictEqual(result, " {\n\n}");
     });
 
     void it("handles whitespace-only statement", () => {
-        const visitor = () => "   ";
         const node = { type: "ExpressionStatement" } as GmlNode;
-        const result = wrapConditionalBody(node, visitor);
+        const result = wrapConditionalBody(node, whitespaceStatementVisitor);
         assert.strictEqual(result, " {\n   ;\n}");
     });
 });
@@ -136,23 +149,20 @@ void describe("wrapRawBody", () => {
     });
 
     void it("does not add semicolon if statement already has one", () => {
-        const visitor = () => "x = 1;";
         const node = { type: "ExpressionStatement" } as GmlNode;
-        const result = wrapRawBody(node, visitor);
+        const result = wrapRawBody(node, statementWithSemicolonVisitor);
         assert.strictEqual(result, "{\nx = 1;\n}");
     });
 
     void it("handles empty statement gracefully", () => {
-        const visitor = () => "";
         const node = { type: "ExpressionStatement" } as GmlNode;
-        const result = wrapRawBody(node, visitor);
+        const result = wrapRawBody(node, emptyStatementVisitor);
         assert.strictEqual(result, "{\n\n}");
     });
 
     void it("trims leading newline from wrapped block", () => {
-        const visitor = () => "return x";
         const node = { type: "ReturnStatement" } as GmlNode;
-        const result = wrapRawBody(node, visitor);
+        const result = wrapRawBody(node, returnStatementVisitor);
         // The \n at the start should be trimmed
         assert.ok(!result.startsWith("\n{"));
         assert.ok(result.startsWith("{"));
