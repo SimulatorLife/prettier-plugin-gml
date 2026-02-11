@@ -6,17 +6,17 @@
 3. Keep formatter deterministic and non-semantic; move all non-layout rewrites to lint rules with explicit diagnostics and optional `--fix`.
 
 ## Public API and Workspace Changes
-1. Add new workspace at `/Users/henrykirk/gamemaker-language-parser/src/lint` with package name `@gml-modules/lint`.
-2. Keep `/Users/henrykirk/gamemaker-language-parser/src/plugin` as formatter-only (`@gml-modules/plugin`).
-3. Add lint command implementation in `/Users/henrykirk/gamemaker-language-parser/src/cli/src/commands/lint.ts`.
+1. Add new workspace at `src/lint` with package name `@gml-modules/lint`.
+2. Keep `src/plugin` as formatter-only (`@gml-modules/plugin`).
+3. Add lint command implementation in `src/cli/src/commands/lint.ts`.
 4. Root namespace export for lint package:
    ```ts
-   // /Users/henrykirk/gamemaker-language-parser/src/lint/index.ts
+   // src/lint/index.ts
    export { Lint } from "./src/index.js";
    ```
 5. Lint namespace export surface:
    ```ts
-   // /Users/henrykirk/gamemaker-language-parser/src/lint/src/index.ts
+   // src/lint/src/index.ts
    export const Lint = Object.freeze({
      plugin,      // ESLint plugin object (rules + languages + configs)
      configs,     // recommended / feather / performance
@@ -305,7 +305,7 @@
 4. Operator equivalence for this formatter option is treated as a language-level assumption and must be covered by regression tests.
 
 ## Fixtures and Testing Strategy
-1. New lint fixtures live only under `/Users/henrykirk/gamemaker-language-parser/src/lint/test/fixtures`.
+1. New lint fixtures live only under `src/lint/test/fixtures`.
 2. No modifications to parser/plugin golden `.gml` fixtures.
 3. Required test groups:
    - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
@@ -331,7 +331,7 @@
    Exit: plugin no longer depends on semantic/refactor runtime hooks for migrated behavior.
 7. Phase 7: CLI lint command integration and reporting semantics.  
    Exit: end-to-end `lint` and `lint --fix` pass integration suite.
-8. Phase 8: Migration docs and release notes update in `/Users/henrykirk/gamemaker-language-parser/docs/formatter-linter-split-plan.md` and package READMEs.  
+8. Phase 8: Migration docs and release notes update in `docs/formatter-linter-split-plan.md` and package READMEs.  
    Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
 
 ## Required Before/After Examples in the Doc
