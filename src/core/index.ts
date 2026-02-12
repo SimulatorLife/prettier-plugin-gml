@@ -8,8 +8,13 @@ export type {
     DocCommentLines,
     GameMakerAstLocation,
     GameMakerAstNode,
+    GlobalIdentifierTracker,
+    IdentifierRoleManager,
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
+    ScopeLifecycle,
+    ScopeTracker,
+    ScopeTrackerOptions,
     StringCommentScanState
 } from "./src/index.js";
