@@ -79,19 +79,23 @@ export async function runInParallelWithLimit<T, R>(
     limit: number
 ): Promise<Array<R>> {
     const entries = Array.from(values);
-    const results: Array<R> = Array.from({ length: entries.length });
 
     if (limit <= 0) {
         throw new Error("Concurrency limit must be at least 1");
     }
 
     if (entries.length === 0) {
-        return results;
+        return [];
     }
 
+    // Pre-allocate array to preserve result order. When errors occur, Promise.all
+    // will reject immediately, so partial results won't be returned to the caller.
+    const results: Array<R> = Array.from({length: entries.length});
     let currentIndex = 0;
 
-    // Use recursion to avoid await-in-loop linting error
+    // Worker function pulls items from the shared queue and processes them recursively.
+    // Each worker continuously processes items until the queue is exhausted, enabling
+    // controlled concurrency without await-in-loop patterns.
     const processNext = async (): Promise<void> => {
         const indexToProcess = currentIndex;
         currentIndex += 1;
@@ -102,7 +106,7 @@ export async function runInParallelWithLimit<T, R>(
 
         results[indexToProcess] = await callback(entries[indexToProcess], indexToProcess);
 
-        // Recursively process the next item
+        // Process the next item from the shared queue
         await processNext();
     };
 

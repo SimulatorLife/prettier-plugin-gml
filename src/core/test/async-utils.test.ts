@@ -252,6 +252,7 @@ void test("runInParallelWithLimit is faster than sequential but slower than unli
     const count = 6;
     const limit = 2;
     const delays = Array.from({ length: count }, () => delayMs);
+    const TIMING_TOLERANCE_MS = 50;
 
     // Time sequential execution
     const sequentialStart = Date.now();
@@ -284,10 +285,9 @@ void test("runInParallelWithLimit is faster than sequential but slower than unli
         `Limited (${limitedDuration}ms) should be faster than sequential (${sequentialDuration}ms)`
     );
 
-    // Unlimited should be faster than or equal to limited
-    // Allow some tolerance due to timing variations
+    // Unlimited should be faster than or equal to limited (allowing tolerance for timing variance)
     assert.ok(
-        unlimitedDuration <= limitedDuration + 50,
+        unlimitedDuration <= limitedDuration + TIMING_TOLERANCE_MS,
         `Unlimited (${unlimitedDuration}ms) should be faster than or similar to limited (${limitedDuration}ms)`
     );
 });
