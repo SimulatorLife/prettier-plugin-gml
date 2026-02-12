@@ -359,14 +359,16 @@ export function transpileFile(
         let parsedSymbols: Array<string> = [];
         let parsedReferences: Array<string> = [];
         let parseError: unknown = null;
+        let ast: unknown = undefined;
 
         try {
             const parser = new Parser.GMLParser(content, {});
-            const ast = parser.parse();
+            ast = parser.parse();
             parsedSymbols = extractSymbolsFromAst(ast, filePath);
             parsedReferences = extractReferencesFromAst(ast);
         } catch (error) {
             parseError = error;
+            ast = undefined;
         }
 
         const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
@@ -374,7 +376,8 @@ export function transpileFile(
 
         const patch = context.transpiler.transpileScript({
             sourceText: content,
-            symbolId
+            symbolId,
+            ...(ast === undefined ? {} : { ast })
         });
         const runtimeId = resolveRuntimeId(filePath);
         const patchWithMetadata = {

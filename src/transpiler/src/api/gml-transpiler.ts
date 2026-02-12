@@ -18,6 +18,12 @@ export interface TranspileScriptRequest {
     readonly sourcePath?: string;
     readonly sourceText: string;
     readonly symbolId: string;
+    /**
+     * Pre-parsed AST to reuse instead of parsing sourceText again.
+     * When provided, parsing is skipped and this AST is used directly.
+     * This eliminates redundant parsing when the caller has already parsed the source.
+     */
+    readonly ast?: unknown;
 }
 
 export interface PatchMetadata {
@@ -71,8 +77,12 @@ export class GmlTranspiler {
         }
 
         try {
-            const parser = new Parser.GMLParser(sourceText, {});
-            const ast = parser.parse();
+            const ast =
+                request.ast ??
+                (() => {
+                    const parser = new Parser.GMLParser(sourceText, {});
+                    return parser.parse();
+                })();
             const oracle = this.semantic ?? makeDummyOracle();
             const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
             let jsBody = "";
