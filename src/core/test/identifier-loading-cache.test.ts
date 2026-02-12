@@ -137,3 +137,77 @@ void test("memory allocation is reduced by caching", () => {
         `Expected only 1 unique Set instance, but got ${sets.size}. Cache is not working properly.`
     );
 });
+
+void test("LRU eviction prevents unbounded cache growth", () => {
+    // Create more unique configurations than the cache limit (10)
+    const configs = [
+        [],
+        ["literal"],
+        ["keyword"],
+        ["function"],
+        ["variable"],
+        ["literal", "keyword"],
+        ["literal", "function"],
+        ["keyword", "function"],
+        ["literal", "keyword", "function"],
+        ["variable", "keyword"],
+        ["variable", "literal"],
+        ["variable", "function"],
+        ["literal", "keyword", "function", "variable"]
+    ];
+
+    // Request each configuration to populate cache beyond limit
+    const results: Array<Set<string>> = [];
+    for (const config of configs) {
+        const result = loadReservedIdentifierNames({ disallowedTypes: config });
+        results.push(result);
+    }
+
+    // Re-request the first few configurations that should have been evicted
+    const evictedConfig1 = loadReservedIdentifierNames({ disallowedTypes: configs[0] });
+    const evictedConfig2 = loadReservedIdentifierNames({ disallowedTypes: configs[1] });
+    const evictedConfig3 = loadReservedIdentifierNames({ disallowedTypes: configs[2] });
+
+    // These should be NEW instances (not the original cached ones)
+    // because they were evicted due to LRU
+    assert.notStrictEqual(evictedConfig1, results[0], "First config should have been evicted and recreated");
+    assert.notStrictEqual(evictedConfig2, results[1], "Second config should have been evicted and recreated");
+    assert.notStrictEqual(evictedConfig3, results[2], "Third config should have been evicted and recreated");
+
+    // But recently accessed configs should still be cached
+    const lastConfig = configs.at(-1);
+    const lastResult = results.at(-1);
+    assert.ok(lastConfig !== undefined, "Last config should exist");
+    assert.ok(lastResult !== undefined, "Last result should exist");
+    const recentConfig = loadReservedIdentifierNames({ disallowedTypes: lastConfig });
+    assert.strictEqual(recentConfig, lastResult, "Most recent config should still be cached");
+});
+
+void test("LRU cache promotes frequently accessed entries", () => {
+    clearIdentifierMetadataCache();
+
+    // Create configurations to fill the cache
+    const configs = Array.from({ length: 10 }, (_, i) => [`type${i}`]);
+
+    // Fill cache to capacity
+    for (const config of configs) {
+        loadReservedIdentifierNames({ disallowedTypes: config });
+    }
+
+    // Access the first config again to promote it (make it most recent)
+    const promoted = loadReservedIdentifierNames({ disallowedTypes: configs[0] });
+
+    // Add one more config to trigger eviction
+    loadReservedIdentifierNames({ disallowedTypes: ["new_type"] });
+
+    // The promoted config should still be cached (not evicted)
+    const stillCached = loadReservedIdentifierNames({ disallowedTypes: configs[0] });
+    assert.strictEqual(stillCached, promoted, "Promoted config should remain cached after LRU eviction");
+
+    // But the second config (which wasn't accessed) should have been evicted
+    const secondConfig = loadReservedIdentifierNames({ disallowedTypes: configs[1] });
+    // We can't directly test if it's a new instance without storing the old one,
+    // but we can verify the cache still works by accessing it twice
+    const secondConfigAgain = loadReservedIdentifierNames({ disallowedTypes: configs[1] });
+    assert.strictEqual(secondConfig, secondConfigAgain, "Re-cached config should return same instance");
+});

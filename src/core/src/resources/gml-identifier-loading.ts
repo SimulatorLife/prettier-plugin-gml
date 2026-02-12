@@ -33,8 +33,21 @@ let cachedIdentifierMetadata = null;
 let cachedManualFunctionNames: Set<string> | null = null;
 
 /**
- * Cached Map of reserved identifier names keyed by excluded types.
- * Maintains separate caches for different exclusion configurations.
+ * Maximum number of cached reserved identifier name Sets.
+ * Limits memory growth when many different disallowedTypes configurations are used.
+ * Common configurations (e.g., default, no exclusions) will remain cached while
+ * rarely-used combinations are evicted using LRU strategy.
+ */
+const RESERVED_IDENTIFIER_CACHE_MAX_SIZE = 10;
+
+/**
+ * LRU cache of reserved identifier names keyed by excluded types.
+ * Maintains separate caches for different exclusion configurations, with
+ * automatic eviction of least-recently-used entries when the limit is reached.
+ *
+ * Using Map guarantees insertion order, which we leverage for LRU eviction:
+ * - Recently accessed keys are moved to the end via delete + re-insert
+ * - Oldest (least recently used) keys are at the beginning
  */
 const cachedReservedIdentifierNames = new Map<string, Set<string>>();
 
@@ -219,13 +232,32 @@ function createExcludedTypesCacheKey(excludedTypes: Set<string>): string {
     return Array.from(excludedTypes).toSorted().join(",");
 }
 
+/**
+ * Evict the least recently used entry from the reserved identifier cache
+ * if the cache has reached its maximum size.
+ *
+ * Map maintains insertion order, so the first key is the oldest/LRU entry.
+ */
+function evictLruIfNeeded(): void {
+    if (cachedReservedIdentifierNames.size >= RESERVED_IDENTIFIER_CACHE_MAX_SIZE) {
+        // Get the first (oldest) key and delete it
+        const oldestKey = cachedReservedIdentifierNames.keys().next().value;
+        if (oldestKey !== undefined) {
+            cachedReservedIdentifierNames.delete(oldestKey);
+        }
+    }
+}
+
 export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTypes?: string[] } = {}) {
     const excludedTypes = resolveExcludedTypes(disallowedTypes);
     const cacheKey = createExcludedTypesCacheKey(excludedTypes);
 
-    // Return cached Set if available
+    // Check if already cached
     const cached = cachedReservedIdentifierNames.get(cacheKey);
     if (cached) {
+        // Move to end (most recently used) by re-inserting
+        cachedReservedIdentifierNames.delete(cacheKey);
+        cachedReservedIdentifierNames.set(cacheKey, cached);
         return cached;
     }
 
@@ -235,6 +267,8 @@ export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTyp
 
     if (entries.length === 0) {
         const emptySet = new Set<string>();
+        // Evict LRU entry if at capacity before inserting
+        evictLruIfNeeded();
         cachedReservedIdentifierNames.set(cacheKey, emptySet);
         return emptySet;
     }
@@ -253,7 +287,8 @@ export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTyp
         }
     }
 
-    // Store in cache and return
+    // Evict LRU entry if at capacity before inserting
+    evictLruIfNeeded();
     cachedReservedIdentifierNames.set(cacheKey, names);
     return names;
 }
