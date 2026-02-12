@@ -13,7 +13,6 @@
       "@gml-modules/plugin": ["../plugin/index.ts"],
       "@gml-modules/refactor": ["../refactor/index.ts"],
       "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
-      "@gml-modules/semantic": ["../semantic/index.ts"],
       "@gml-modules/transpiler": ["../transpiler/index.ts"]
     }
   },

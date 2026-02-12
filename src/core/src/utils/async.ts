@@ -90,7 +90,7 @@ export async function runInParallelWithLimit<T, R>(
 
     // Pre-allocate array to preserve result order. When errors occur, Promise.all
     // will reject immediately, so partial results won't be returned to the caller.
-    const results: Array<R> = Array.from({length: entries.length});
+    const results: Array<R> = Array.from({ length: entries.length });
     let currentIndex = 0;
 
     // Worker function pulls items from the shared queue and processes them recursively.
