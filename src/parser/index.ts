@@ -8,5 +8,6 @@ export type {
     ParserOptions,
     ScopeLifecycle,
     ScopeTracker,
+    ScopeTrackerOptions,
     ScopeTrackingOptions
 } from "./src/types/parser-types.js";

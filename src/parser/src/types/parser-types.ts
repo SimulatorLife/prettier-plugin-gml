@@ -1,4 +1,4 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { ScopeTrackerOptions } from "@gml-modules/core";
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 
 export type ParserContext =
@@ -21,109 +21,14 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-/**
- * Global identifier tracking.
- *
- * Provides the ability to mark and apply global identifiers without
- * coupling to role management or scope lifecycle operations.
- */
-export interface GlobalIdentifierTracker {
-    markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void;
-    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined): void;
-    globalIdentifiers?: Set<unknown> | null;
-}
-
-/**
- * Identifier role management.
- *
- * Provides role tracking and manipulation operations for identifiers
- * without coupling to global tracking or scope lifecycle.
- */
-export interface IdentifierRoleManager {
-    /**
-     * Execute a callback within an identifier role context.
-     *
-     * Pushes the provided role onto an internal stack, executes the callback,
-     * and then pops the role. The role object typically contains:
-     * - `type`: "declaration" or "reference"
-     * - `kind`: Semantic kind (e.g., "variable", "function", "parameter")
-     * - `tags`: Additional classification tags
-     * - `scopeOverride`: Optional scope override for cross-scope declarations
-     *
-     * @param role Role descriptor object to apply during callback execution
-     * @param callback Function to execute with the role active
-     * @returns The result of the callback function
-     */
-    withRole?<T>(role: object | null, callback: () => T): T;
-
-    /**
-     * Create a deep copy of an identifier role object.
-     *
-     * @param role Role object to clone
-     * @returns Cloned role with independent arrays and nested objects
-     */
-    cloneRole(role: object | null): object | null;
-
-    /**
-     * Apply the current active role to an identifier node.
-     *
-     * Annotates the node with metadata from the role stack, including
-     * classification tags and scope information. This enables downstream
-     * semantic analysis and code generation.
-     *
-     * @param name Identifier name being annotated
-     * @param node AST node to receive role metadata
-     */
-    applyCurrentRoleToIdentifier(
-        name: string | null | undefined,
-        node: MutableGameMakerAstNode | null | undefined
-    ): void;
-}
-
-/**
- * Scope lifecycle management.
- *
- * Provides the ability to manage scope boundaries during parsing
- * without coupling to identifier tracking or role management.
- */
-export interface ScopeLifecycle {
-    /**
-     * Execute a callback within a new scope context.
-     *
-     * Creates a new scope with the specified kind, executes the callback,
-     * and then exits the scope. Scopes form a stack during parsing, with
-     * each scope tracking its own declarations and references.
-     *
-     * Common scope kinds include:
-     * - "program" - Root scope for the entire file
-     * - "function" - Function body scope
-     * - "block" - Statement block scope
-     * - "with" - GameMaker's `with` statement scope
-     *
-     * @param kind Semantic kind of scope being entered
-     * @param callback Function to execute within the new scope
-     * @returns The result of the callback function
-     */
-    withScope?<T>(kind: string, callback: () => T): T;
-}
-
-/**
- * Complete scope tracker interface.
- *
- * Combines all role-focused interfaces for consumers that need full
- * scope tracking capabilities. Consumers should prefer depending on
- * the minimal interface they need (GlobalIdentifierTracker,
- * IdentifierRoleManager, ScopeLifecycle) rather than this composite
- * interface when possible.
- */
-export interface ScopeTracker extends GlobalIdentifierTracker, IdentifierRoleManager, ScopeLifecycle {}
-
-export type ScopeTrackerOptions = {
-    enabled: boolean;
-    createScopeTracker?: () => ScopeTracker | null;
-    getIdentifierMetadata?: boolean;
-    [key: string]: unknown;
-};
+// Re-export scope tracker types from Core for convenience
+export type {
+    GlobalIdentifierTracker,
+    IdentifierRoleManager,
+    ScopeLifecycle,
+    ScopeTracker,
+    ScopeTrackerOptions
+} from "@gml-modules/core";
 
 /**
  * Comment extraction options.
