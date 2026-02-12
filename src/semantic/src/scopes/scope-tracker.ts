@@ -1296,6 +1296,89 @@ export class ScopeTracker {
         return invalidationSet;
     }
 
+    /**
+     * Computes invalidation sets for multiple file paths in a single pass.
+     *
+     * This method is optimized for hot-reload scenarios where multiple files
+     * change simultaneously (e.g., format-on-save, refactoring operations).
+     * It processes all paths in a single traversal, deduplicating scopes
+     * and their dependents to minimize redundant work.
+     *
+     * @param paths - Iterable of file paths to compute invalidation sets for
+     * @param options - Configuration options
+     * @param options.includeDescendants - Whether to include descendant scopes
+     * @returns Map of file paths to their invalidation sets
+     */
+    public getBatchInvalidationSets(
+        paths: Iterable<string>,
+        { includeDescendants = false }: { includeDescendants?: boolean } = {}
+    ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
+        const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+
+         
+        const createAddScopeFunction = (
+            seenScopes: Set<string>,
+            pathInvalidationSet: Array<{ scopeId: string; scopeKind: string; reason: string }>
+        ) => {
+            return (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
+                if (seenScopes.has(scopeIdToAdd)) {
+                    return;
+                }
+                seenScopes.add(scopeIdToAdd);
+                pathInvalidationSet.push({
+                    scopeId: scopeIdToAdd,
+                    scopeKind,
+                    reason
+                });
+            };
+        };
+
+        for (const path of paths) {
+            if (!path || typeof path !== "string" || path.length === 0) {
+                continue;
+            }
+
+            const scopeIds = this.pathToScopesIndex.get(path);
+            if (!scopeIds || scopeIds.size === 0) {
+                results.set(path, []);
+                continue;
+            }
+
+            const pathInvalidationSet: Array<{
+                scopeId: string;
+                scopeKind: string;
+                reason: string;
+            }> = [];
+            const seenScopes = new Set<string>();
+            const addScope = createAddScopeFunction(seenScopes, pathInvalidationSet);
+
+            for (const scopeId of scopeIds) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                addScope(scope.id, scope.kind, "self");
+
+                const dependents = this.getTransitiveDependents(scopeId);
+                for (const dep of dependents) {
+                    addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
+                }
+
+                if (includeDescendants) {
+                    const descendants = this.getDescendantScopes(scopeId);
+                    for (const desc of descendants) {
+                        addScope(desc.scopeId, desc.scopeKind, "descendant");
+                    }
+                }
+            }
+
+            results.set(path, pathInvalidationSet);
+        }
+
+        return results;
+    }
+
     public getDescendantScopes(
         scopeId: string | null | undefined
     ): Array<{ scopeId: string; scopeKind: string; depth: number }> {
