@@ -55,3 +55,63 @@ export function runInParallel<T, R>(values: Iterable<T>, callback: ParallelCallb
     const promises = entries.map((value, index) => callback(value, index));
     return Promise.all(promises);
 }
+
+/**
+ * Executes an async callback in parallel for each value in an iterable with bounded concurrency.
+ * Limits the number of concurrent operations to avoid resource exhaustion while maintaining parallelism.
+ *
+ * @template T The type of values being processed
+ * @template R The type of result returned by the callback
+ * @param values The iterable collection to process
+ * @param callback The async function to invoke for each value
+ * @param limit Maximum number of concurrent operations (must be >= 1)
+ * @returns A promise that resolves with an array of all results when all callbacks complete
+ *
+ * @example
+ * // Process directories with max 4 concurrent operations
+ * const results = await runInParallelWithLimit(directories, async (dir) => {
+ *   return await processDirectory(dir);
+ * }, 4);
+ */
+export async function runInParallelWithLimit<T, R>(
+    values: Iterable<T>,
+    callback: ParallelCallback<T, R>,
+    limit: number
+): Promise<Array<R>> {
+    const entries = Array.from(values);
+
+    if (limit <= 0) {
+        throw new Error("Concurrency limit must be at least 1");
+    }
+
+    if (entries.length === 0) {
+        return [];
+    }
+
+    // Pre-allocate array to preserve result order. When errors occur, Promise.all
+    // will reject immediately, so partial results won't be returned to the caller.
+    const results: Array<R> = Array.from({length: entries.length});
+    let currentIndex = 0;
+
+    // Worker function pulls items from the shared queue and processes them recursively.
+    // Each worker continuously processes items until the queue is exhausted, enabling
+    // controlled concurrency without await-in-loop patterns.
+    const processNext = async (): Promise<void> => {
+        const indexToProcess = currentIndex;
+        currentIndex += 1;
+
+        if (indexToProcess >= entries.length) {
+            return;
+        }
+
+        results[indexToProcess] = await callback(entries[indexToProcess], indexToProcess);
+
+        // Process the next item from the shared queue
+        await processNext();
+    };
+
+    const workers = Array.from({ length: Math.min(limit, entries.length) }, () => processNext());
+    await Promise.all(workers);
+
+    return results;
+}

@@ -515,10 +515,17 @@ async function performInitialScan(
                 await processFile(filePath);
             });
 
-            // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
-            await Core.runSequentially(directories, async (subDirPath) => {
-                await scanDirectory(subDirPath);
-            });
+            // Traverse subdirectories with bounded parallelism to balance throughput
+            // and resource usage. Limit concurrent directory operations to avoid
+            // exhausting file handles while maintaining faster scan than sequential.
+            const MAX_CONCURRENT_DIRS = 4;
+            await Core.runInParallelWithLimit(
+                directories,
+                async (subDirPath) => {
+                    await scanDirectory(subDirPath);
+                },
+                MAX_CONCURRENT_DIRS
+            );
         } catch (error) {
             if (verbose && !quiet) {
                 const message = getCoreErrorMessage(error, {
