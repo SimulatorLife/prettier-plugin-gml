@@ -94,7 +94,7 @@ export function ensureHasInstancePatched(BaseClass: unknown, { markerSymbol, pat
     Object.defineProperty(targetClass, Symbol.hasInstance, {
         configurable: true,
         value(this: typeof targetClass, instance: unknown): boolean {
-            if (markerSymbol && instance && typeof instance === "object" && markerSymbol in instance) {
+            if (markerSymbol && instance !== null && typeof instance === "object" && markerSymbol in instance) {
                 return true;
             }
 

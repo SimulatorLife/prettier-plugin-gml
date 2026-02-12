@@ -8,6 +8,16 @@
  * @module parser/runtime/method-reflection
  */
 
+/**
+ * Collects all visit method names from an ANTLR-generated visitor base class.
+ *
+ * @param BaseVisitor - The visitor constructor to reflect upon
+ * @returns Array of method names that start with "visit" (excluding base visitor methods)
+ *
+ * @remarks
+ * Filters out ANTLR's built-in visitor methods (visit, visitChildren, visitTerminal,
+ * visitErrorNode) to return only grammar-specific visit methods.
+ */
 export function collectVisitMethodNames(BaseVisitor: unknown): ReadonlyArray<string> {
     const visitorClass = BaseVisitor as { prototype?: object } | null | undefined;
     const prototype = visitorClass?.prototype ?? Object.prototype;
