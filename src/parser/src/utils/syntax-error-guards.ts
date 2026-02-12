@@ -1,5 +1,3 @@
-import { Core } from "@gml-modules/core";
-
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by
  * the ANTLR-generated parser. The guard accepts both native `SyntaxError`
@@ -14,7 +12,7 @@ import { Core } from "@gml-modules/core";
  *                    with location metadata.
  */
 export function isSyntaxErrorWithLocation(value: unknown) {
-    if (!Core.isErrorLike(value)) {
+    if (!value || typeof value !== "object") {
         return false;
     }
 
@@ -25,6 +23,10 @@ export function isSyntaxErrorWithLocation(value: unknown) {
         wrongSymbol?: unknown;
         offendingText?: unknown;
     };
+
+    if (typeof candidate.message !== "string") {
+        return false;
+    }
 
     const hasFiniteLine = Number.isFinite(Number(candidate.line));
     const hasFiniteColumn = Number.isFinite(Number(candidate.column));
