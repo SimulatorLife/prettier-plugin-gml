@@ -12,7 +12,7 @@
  *                    with location metadata.
  */
 export function isSyntaxErrorWithLocation(value: unknown) {
-    if (!value || typeof value !== "object") {
+    if (typeof value !== "object" || value === null) {
         return false;
     }
 
