@@ -1,3 +1,16 @@
+/**
+ * Symbol-based type patching for ANTLR-generated parser classes.
+ *
+ * This module provides utilities for managing symbol-based markers and patching
+ * the hasInstance behavior of ANTLR base classes. This is necessary because our
+ * custom wrapper classes (GameMakerLanguageParserListener and GameMakerLanguageParserVisitor)
+ * use composition rather than inheritance to wrap the generated ANTLR classes,
+ * but need to be recognized as instanceof the base classes for compatibility
+ * with ANTLR's internal type checks.
+ *
+ * @module parser/runtime/symbol-patching
+ */
+
 import { Core } from "@gml-modules/core";
 
 const DEFAULT_FUNCTION_NAME = "parser";
@@ -17,6 +30,18 @@ export interface SymbolOptions {
     wrapperSuffix?: string;
 }
 
+/**
+ * Creates a pair of global symbols for marking and identifying wrapper instances.
+ *
+ * @param name - The base name for the wrapper class (used to generate unique symbol keys)
+ * @param options - Configuration for symbol suffix customization
+ * @returns An object containing the instance marker symbol and patch flag symbol
+ *
+ * @remarks
+ * The symbols are registered in the global symbol registry using Symbol.for(),
+ * ensuring they are stable across module boundaries and can be used for reliable
+ * instanceof checks.
+ */
 export function createWrapperSymbols(
     name: unknown,
     { hasInstanceSuffix = "hasInstancePatched", wrapperSuffix = "wrapper" }: SymbolOptions = {}
@@ -32,6 +57,22 @@ export interface PatchOptions {
     patchFlagSymbol?: symbol;
 }
 
+/**
+ * Patches a base class to recognize wrapper instances via symbol-based markers.
+ *
+ * @param BaseClass - The base class constructor to patch
+ * @param options - Symbols to use for marker checks and tracking patch state
+ *
+ * @remarks
+ * This function modifies the Symbol.hasInstance behavior of the base class so that
+ * wrapper instances decorated with the marker symbol are recognized as instances
+ * of the base class. This allows compositional wrappers to pass instanceof checks
+ * without inheritance, which is necessary for ANTLR compatibility while maintaining
+ * clean architecture boundaries.
+ *
+ * The patch is idempotent - if already applied (checked via patchFlagSymbol), the
+ * function returns early without re-patching.
+ */
 export function ensureHasInstancePatched(BaseClass: unknown, { markerSymbol, patchFlagSymbol }: PatchOptions): void {
     if (!BaseClass || typeof BaseClass !== "function") {
         return;

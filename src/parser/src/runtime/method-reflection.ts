@@ -1,3 +1,13 @@
+/**
+ * Method name reflection and derivation utilities.
+ *
+ * This module provides utilities for discovering and deriving method names from
+ * ANTLR-generated visitor and listener base classes. These functions enable dynamic
+ * method definition on wrapper classes without hardcoding method names.
+ *
+ * @module parser/runtime/method-reflection
+ */
+
 export function collectVisitMethodNames(BaseVisitor: unknown): ReadonlyArray<string> {
     const visitorClass = BaseVisitor as { prototype?: object } | null | undefined;
     const prototype = visitorClass?.prototype ?? Object.prototype;
@@ -19,6 +29,12 @@ export function collectVisitMethodNames(BaseVisitor: unknown): ReadonlyArray<str
     });
 }
 
+/**
+ * Collects all method names from a prototype object (excluding constructor).
+ *
+ * @param prototype - The prototype object to reflect upon
+ * @returns Array of function property names from the prototype
+ */
 export function collectPrototypeMethodNames(prototype: unknown): ReadonlyArray<string> {
     if (!prototype || typeof prototype !== "object") {
         return [];
@@ -33,6 +49,17 @@ export function collectPrototypeMethodNames(prototype: unknown): ReadonlyArray<s
     });
 }
 
+/**
+ * Derives listener method names from visitor method names.
+ *
+ * @param visitMethodNames - Array of visit method names to transform
+ * @returns Array of enter/exit listener method names
+ *
+ * @remarks
+ * For each visit method like "visitProgram", generates both "enterProgram" and
+ * "exitProgram" listener methods. This maintains the ANTLR listener pattern where
+ * each parse tree node triggers enter/exit events.
+ */
 export function deriveListenerMethodNames(visitMethodNames: unknown): ReadonlyArray<string> {
     if (!Array.isArray(visitMethodNames)) {
         return [];
