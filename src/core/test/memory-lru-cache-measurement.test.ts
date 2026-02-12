@@ -64,10 +64,12 @@ void test("LRU cache demonstrates bounded memory growth", () => {
     // We verify this by checking that old entries were evicted (tested in other tests).
 
     // Instead of asserting on total heap growth, verify cache is functional
-    const recentConfig = loadReservedIdentifierNames({ disallowedTypes: configs.at(-1) });
+    const lastConfig = configs.at(-1);
+    assert.ok(lastConfig !== undefined, "Last config should exist");
+    const recentConfig = loadReservedIdentifierNames({ disallowedTypes: lastConfig });
 
     // Re-request to verify caching still works
-    const recentConfigAgain = loadReservedIdentifierNames({ disallowedTypes: configs.at(-1) });
+    const recentConfigAgain = loadReservedIdentifierNames({ disallowedTypes: lastConfig });
     assert.strictEqual(recentConfig, recentConfigAgain, "Recently used config should still be cached");
 
     // Memory growth should be reasonable (not proportional to numConfigs)

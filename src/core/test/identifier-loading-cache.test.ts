@@ -175,8 +175,12 @@ void test("LRU eviction prevents unbounded cache growth", () => {
     assert.notStrictEqual(evictedConfig3, results[2], "Third config should have been evicted and recreated");
 
     // But recently accessed configs should still be cached
-    const recentConfig = loadReservedIdentifierNames({ disallowedTypes: configs.at(-1) });
-    assert.strictEqual(recentConfig, results.at(-1), "Most recent config should still be cached");
+    const lastConfig = configs.at(-1);
+    const lastResult = results.at(-1);
+    assert.ok(lastConfig !== undefined, "Last config should exist");
+    assert.ok(lastResult !== undefined, "Last result should exist");
+    const recentConfig = loadReservedIdentifierNames({ disallowedTypes: lastConfig });
+    assert.strictEqual(recentConfig, lastResult, "Most recent config should still be cached");
 });
 
 void test("LRU cache promotes frequently accessed entries", () => {
