@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { toDelegate } from "../src/runtime/delegation.js";
 import {
     collectPrototypeMethodNames,
     collectVisitMethodNames,
-    createWrapperSymbols,
-    definePrototypeMethods,
-    deriveListenerMethodNames,
-    ensureHasInstancePatched,
-    toDelegate
-} from "../src/runtime/parse-tree-helpers.js";
+    deriveListenerMethodNames
+} from "../src/runtime/method-reflection.js";
+import { definePrototypeMethods } from "../src/runtime/prototype-builder.js";
+import { createWrapperSymbols, ensureHasInstancePatched } from "../src/runtime/symbol-patching.js";
 
 function WrapperBase() {}
 WrapperBase.prototype = {};
