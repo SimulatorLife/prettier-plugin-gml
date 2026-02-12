@@ -5,6 +5,7 @@ import {
     getNodeStartIndex,
     getNonEmptyString,
     isNonEmptyTrimmedString,
+    isObjectLike,
     isUndefinedSentinel
 } from "../utils.js";
 import { normalizeDocMetadataName } from "./params.js";
@@ -293,7 +294,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode")
                 continue;
             const child = node[key];
-            if (typeof child === "object" && child !== null) {
+            if (isObjectLike(child)) {
                 visit(child, node);
             }
         }
