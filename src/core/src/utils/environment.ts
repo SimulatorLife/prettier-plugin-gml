@@ -93,7 +93,7 @@ export function resolveEnvironmentMap(candidate) {
         return candidate;
     }
 
-    if (typeof process?.env === "object" && process.env !== null) {
+    if (isObjectLike(process?.env)) {
         return process.env;
     }
 
