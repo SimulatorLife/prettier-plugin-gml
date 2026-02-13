@@ -30,6 +30,7 @@
 import { Core, type GameMakerAstNode, type LiteralNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { NUMERIC_STRING_LITERAL_PATTERN } from "../../constants.js";
+import { parseExample } from "../../parsers/feather-example-parser.js";
 import {
     buildDeprecatedBuiltinVariableReplacements,
     buildFeatherTypeSystemInfo,
@@ -56,7 +57,6 @@ import {
     updateStaticFunctionDocComments
 } from "./doc-comment-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
-import { parseExample } from "./parser-bootstrap.js";
 import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
 import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
 import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
