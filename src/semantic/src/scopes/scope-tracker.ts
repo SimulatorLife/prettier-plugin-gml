@@ -1084,6 +1084,10 @@ export class ScopeTracker {
     }
 
     public getScopeDependents(scopeId: string | null | undefined): ScopeDependent[] {
+        return this.collectScopeDependents(scopeId, true);
+    }
+
+    private collectScopeDependents(scopeId: string | null | undefined, sortResults: boolean): ScopeDependent[] {
         if (!scopeId) {
             return [];
         }
@@ -1157,10 +1161,13 @@ export class ScopeTracker {
             });
         }
 
-        // Sort in place using simple string comparison
-        dependents.sort((a, b) =>
-            a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
-        );
+        if (sortResults) {
+            // Sort in place using simple string comparison
+            dependents.sort((a, b) =>
+                a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
+            );
+        }
+
         return dependents;
     }
 
@@ -1186,7 +1193,7 @@ export class ScopeTracker {
         const depthMap = new Map<string, { kind: string; depth: number }>();
         const queue: Array<{ scopeId: string; depth: number }> = [];
 
-        const directDependents = this.getScopeDependents(scopeId);
+        const directDependents = this.collectScopeDependents(scopeId, false);
         for (const dep of directDependents) {
             queue.push({
                 scopeId: dep.dependentScopeId,
@@ -1215,7 +1222,7 @@ export class ScopeTracker {
                 });
             }
 
-            const nextDependents = this.getScopeDependents(current.scopeId);
+            const nextDependents = this.collectScopeDependents(current.scopeId, false);
             for (const dep of nextDependents) {
                 if (visited.has(dep.dependentScopeId)) {
                     continue;
