@@ -29,6 +29,9 @@ type LintCommandOptions = {
     config?: string;
     noDefaultConfig?: boolean;
     verbose?: boolean;
+    project?: string;
+    projectStrict?: boolean;
+    indexAllow?: Array<string> | string;
 };
 
 type DiscoveryResult = {
@@ -104,6 +107,8 @@ function normalizeMaxWarnings(rawValue: unknown): number {
 
 function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<LintCommandOptions, "config">> & {
     config: string | null;
+    project: string | null;
+    indexAllow: Array<string>;
 } {
     const options = (command.opts() ?? {}) as LintCommandOptions;
 
@@ -114,7 +119,11 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         quiet: options.quiet === true,
         config: typeof options.config === "string" && options.config.length > 0 ? options.config : null,
         noDefaultConfig: options.noDefaultConfig === true,
-        verbose: options.verbose === true
+        verbose: options.verbose === true,
+        project: typeof options.project === "string" && options.project.length > 0 ? options.project : null,
+        projectStrict: options.projectStrict === true,
+        indexAllow:
+            Array.isArray(options.indexAllow) ? options.indexAllow : typeof options.indexAllow === "string" ? [options.indexAllow] : []
     };
 }
 
@@ -291,6 +300,9 @@ export function createLintCommand(): Command {
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
             .option("--config <path>", "Explicit eslint flat config path")
             .option("--no-default-config", "Disable bundled default config fallback")
+            .option("--project <path>", "Force a project root directory or .yyp file path")
+            .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
+            .option("--index-allow <dir...>", "Include directories that are hard-excluded from project indexing")
             .option("--quiet", "Suppress fallback warnings", false)
             .option("--verbose", "Enable verbose command output", false)
     );
@@ -305,6 +317,12 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         cwd,
         fix: options.fix
     };
+    const projectRegistry = Lint.services.createProjectLintContextRegistry({
+        cwd,
+        forcedProjectPath: options.project,
+        indexAllowDirectories: options.indexAllow
+    });
+    const projectSettings = Lint.services.createProjectSettingsFromRegistry(projectRegistry);
 
     let discoveryResult: DiscoveryResult = {
         selectedConfigPath: null,
@@ -328,6 +346,17 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     let eslint: ESLint;
     try {
+        eslintConstructorOptions.overrideConfig = [
+            ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? eslintConstructorOptions.overrideConfig : []),
+            {
+                files: ["**/*.gml"],
+                settings: {
+                    gml: {
+                        project: projectSettings
+                    }
+                }
+            }
+        ];
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
@@ -353,6 +382,25 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results,
         verbose: options.verbose
     });
+
+    const outOfRootPaths = results
+        .map((result) => result.filePath)
+        .filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+
+    if (!options.quiet && outOfRootPaths.length > 0) {
+        const sample = outOfRootPaths.slice(0, 20);
+        const suffix = outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
+        console.warn(`GML_PROJECT_OUT_OF_ROOT:\n${sample.join("\n")}${suffix}`);
+    }
+
+    if (options.projectStrict && outOfRootPaths.length > 0) {
+        console.error(
+            `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
+                `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
+        );
+        process.exitCode = 2;
+        return;
+    }
 
     let formatterOutput = "";
     try {

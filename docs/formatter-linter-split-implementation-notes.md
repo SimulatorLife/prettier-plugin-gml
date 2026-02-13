@@ -16,6 +16,8 @@
 - Added unsafe-reason-code registry scaffold and project-aware rule metadata/capability declarations.
 - Added missing-project-context helper with once-per-file emission behavior.
 - Updated language parse channel to ESLint v9 `ok` discriminator form (`ok: true` success / `ok: false` parse errors).
+- Added project-context registry scaffolding with forced-root boundary classification and CLI `--project`/`--project-strict` options wiring.
+- Added explicit path-boundary comparison tests for POSIX, Windows drive roots, and UNC roots.
 
 ## Contract Compliance Status
 - Implemented as **foundation only**; this is not a full migration completion.
@@ -26,11 +28,13 @@
 - `pnpm -r --filter @gml-modules/lint --filter @gml-modules/cli build:types` passes.
 - `@gml-modules/lint` local tests pass.
 - Guardrail and rule metadata contract tests were added and pass in lint workspace test runs.
+- New path-boundary tests pass in lint workspace test runs.
 
 ## Known Limitations / Remaining Work
 - Full rule migration matrix behavioral implementations (`gml/*` + `feather/*` fixes/detections) is not yet implemented; many rules are metadata-complete scaffolds.
 - Full ESLint v9 language contract suite and parser-services invariants are not yet fully implemented (visitor keys, recovery metadata, directive/enum extraction, token/comment invariants, failure-channel detail parity).
 - Full project-context registry lifecycle (`--project`, `--project-strict`, multi-root, capability-driven context services) is not yet implemented.
+- Project-context scaffolding is present, but full indexing/capability population and multi-root orchestration behavior are not yet complete.
 - CLI integration coverage for the overlay guardrail is not fully complete due current workspace-link/runtime test constraints in this environment.
 - Formatter workspace is not yet fully stripped of all semantic/refactor rewrite paths; additional migration work is required in `src/plugin`.
 - Workspace install/linking was not validated in this environment because network access prevented `pnpm install`.
