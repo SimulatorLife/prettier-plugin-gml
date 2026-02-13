@@ -99,30 +99,45 @@ export const gmlLanguage = Object.freeze({
         const sourceText = readSourceText(context);
         const filename = readFilename(context);
 
-        const parser = new Parser.GMLParser(sourceText, {
-            astFormat: "estree",
-            asJSON: false,
-            getComments: true,
-            getLocations: true,
-            simplifyLocations: false
-        });
+        try {
+            const parser = new Parser.GMLParser(sourceText, {
+                astFormat: "estree",
+                asJSON: false,
+                getComments: true,
+                getLocations: true,
+                simplifyLocations: false
+            });
 
-        const ast = normalizeProgramShape(parser.parse());
-        const parserServices = Object.freeze({
-            gml: Object.freeze({
-                schemaVersion: 1,
-                filePath: normalizeLintFilePath(filename),
-                recovery: Object.freeze([]),
-                directives: Object.freeze([]),
-                enums: Object.freeze([])
-            })
-        });
+            const ast = normalizeProgramShape(parser.parse());
+            const parserServices = Object.freeze({
+                gml: Object.freeze({
+                    schemaVersion: 1,
+                    filePath: normalizeLintFilePath(filename),
+                    recovery: Object.freeze([]),
+                    directives: Object.freeze([]),
+                    enums: Object.freeze([])
+                })
+            });
 
-        return Object.freeze({
-            ast,
-            parserServices,
-            visitorKeys: GML_VISITOR_KEYS
-        });
+            return Object.freeze({
+                ok: true,
+                ast,
+                parserServices,
+                visitorKeys: GML_VISITOR_KEYS
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown parse error";
+            return Object.freeze({
+                ok: false,
+                errors: Object.freeze([
+                    Object.freeze({
+                        message,
+                        line: 1,
+                        column: 1
+                    })
+                ])
+            });
+        }
     },
     createSourceCode(context: unknown, parseResult: any) {
         const sourceText = readSourceText(context);

@@ -1,8 +1,7 @@
 import type { Rule } from "eslint";
 
-import type { ProjectCapability } from "../types/index.js";
-
 import type { GmlProjectSettings } from "../services/index.js";
+import type { ProjectCapability } from "../types/index.js";
 
 type ProjectAwareRuleInfo = Readonly<{
     requiresProjectContext: boolean;
@@ -45,7 +44,7 @@ export function resolveProjectContextForRule(
     }
 
     const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
-    if (typeof sourcePath !== "string" || sourcePath.length < 1) {
+    if (typeof sourcePath !== "string" || sourcePath.length === 0) {
         return Object.freeze({ available: false, settings: null });
     }
 

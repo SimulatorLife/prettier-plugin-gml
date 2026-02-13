@@ -1,21 +1,39 @@
 import type { Rule } from "eslint";
 
+import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { featherManifest } from "./feather/manifest.js";
+import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "./project-context.js";
+import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
     shortName: string;
     fullId: `gml/${string}`;
     messageId: string;
     schema: ReadonlyArray<unknown>;
+    requiresProjectContext: boolean;
+    requiredCapabilities: ReadonlyArray<ProjectCapability>;
+    unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
 }>;
 
 const EMPTY_SCHEMA = Object.freeze([]) as ReadonlyArray<unknown>;
+const NO_CAPABILITIES = Object.freeze([]) as ReadonlyArray<ProjectCapability>;
+const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
         shortName: "prefer-loop-length-hoist",
         fullId: "gml/prefer-loop-length-hoist",
         messageId: "preferLoopLengthHoist",
+        requiresProjectContext: true,
+        requiredCapabilities: Object.freeze([
+            "IDENTIFIER_OCCUPANCY",
+            "LOOP_HOIST_NAME_RESOLUTION"
+        ]) as ReadonlyArray<ProjectCapability>,
+        unsafeReasonCodes: Object.freeze([
+            UNSAFE_REASON_CODES.NAME_COLLISION,
+            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT,
+            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY
+        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -36,6 +54,9 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-hoistable-loop-accessors",
         fullId: "gml/prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -51,6 +72,15 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-struct-literal-assignments",
         fullId: "gml/prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
+        requiresProjectContext: true,
+        requiredCapabilities: Object.freeze([
+            "IDENTIFIER_OCCURRENCES",
+            "RENAME_CONFLICT_PLANNING"
+        ]) as ReadonlyArray<ProjectCapability>,
+        unsafeReasonCodes: Object.freeze([
+            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
+            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
+        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -65,6 +95,9 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -79,6 +112,16 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
+        requiresProjectContext: true,
+        requiredCapabilities: Object.freeze([
+            "IDENTIFIER_OCCUPANCY",
+            "RENAME_CONFLICT_PLANNING"
+        ]) as ReadonlyArray<ProjectCapability>,
+        unsafeReasonCodes: Object.freeze([
+            UNSAFE_REASON_CODES.NAME_COLLISION,
+            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
+            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
+        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -94,12 +137,21 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-doc-comments",
         fullId: "gml/normalize-doc-comments",
         messageId: "normalizeDocComments",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         shortName: "prefer-string-interpolation",
         fullId: "gml/prefer-string-interpolation",
         messageId: "preferStringInterpolation",
+        requiresProjectContext: true,
+        requiredCapabilities: Object.freeze(["IDENTIFIER_OCCURRENCES"]) as ReadonlyArray<ProjectCapability>,
+        unsafeReasonCodes: Object.freeze([
+            UNSAFE_REASON_CODES.NON_IDEMPOTENT_EXPRESSION,
+            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY
+        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -114,12 +166,18 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "optimize-math-expressions",
         fullId: "gml/optimize-math-expressions",
         messageId: "optimizeMathExpressions",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         shortName: "require-argument-separators",
         fullId: "gml/require-argument-separators",
         messageId: "requireArgumentSeparators",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -132,25 +190,41 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     }
 ]);
 
-function createNoopRule(messageId: string, schema: ReadonlyArray<unknown>): Rule.RuleModule {
+function createNoopRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: Object.freeze({
             type: "suggestion",
             docs: Object.freeze({
-                description: `Scaffold rule for ${messageId}.`,
+                description: `Scaffold rule for ${definition.messageId}.`,
                 recommended: false,
-                requiresProjectContext: false
+                requiresProjectContext: definition.requiresProjectContext,
+                gml: Object.freeze({
+                    requiredCapabilities: definition.requiredCapabilities,
+                    unsafeReasonCodes: definition.unsafeReasonCodes
+                })
             }),
-            schema,
+            schema: definition.schema,
             messages: Object.freeze({
-                [messageId]: `${messageId} diagnostic.`,
+                [definition.messageId]: `${definition.messageId} diagnostic.`,
                 unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.",
                 missingProjectContext:
                     "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
             })
         }),
-        create() {
-            return Object.freeze({});
+        create(context) {
+            if (!definition.requiresProjectContext) {
+                return Object.freeze({});
+            }
+
+            const projectContext = resolveProjectContextForRule(context, {
+                requiresProjectContext: definition.requiresProjectContext,
+                requiredCapabilities: definition.requiredCapabilities
+            });
+            if (projectContext.available) {
+                return Object.freeze({});
+            }
+
+            return reportMissingProjectContextOncePerFile(context, Object.freeze({}));
         }
     });
 }
@@ -158,7 +232,7 @@ function createNoopRule(messageId: string, schema: ReadonlyArray<unknown>): Rule
 function createGmlRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
     for (const definition of gmlRuleDefinitions) {
-        map[definition.shortName] = createNoopRule(definition.messageId, definition.schema);
+        map[definition.shortName] = createNoopRule(definition);
     }
     return map;
 }
@@ -167,7 +241,30 @@ function createFeatherRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
     for (const entry of featherManifest.entries) {
         const shortName = entry.ruleId.replace("feather/", "");
-        map[shortName] = createNoopRule("diagnostic", EMPTY_SCHEMA);
+        map[shortName] = Object.freeze({
+            meta: Object.freeze({
+                type: "suggestion",
+                docs: Object.freeze({
+                    description: `Scaffold rule for ${entry.ruleId}.`,
+                    recommended: false,
+                    requiresProjectContext: entry.requiresProjectContext,
+                    gml: Object.freeze({
+                        requiredCapabilities: Object.freeze([]),
+                        unsafeReasonCodes: Object.freeze([] as ReadonlyArray<UnsafeReasonCode>)
+                    })
+                }),
+                schema: EMPTY_SCHEMA,
+                messages: Object.freeze({
+                    diagnostic: `${entry.ruleId} diagnostic.`,
+                    unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.",
+                    missingProjectContext:
+                        "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
+                })
+            }),
+            create() {
+                return Object.freeze({});
+            }
+        });
     }
     return map;
 }
