@@ -381,28 +381,27 @@ export class GmlToJsEmitter {
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
             if (builtinName && isBuiltinFunction(builtinName)) {
-                const args = ast.arguments.map((arg) => this.visit(arg));
+                const args = this.visitArguments(ast.arguments);
                 return emitBuiltinFunction(builtinName, args);
             }
         }
 
         const callee = this.visit(ast.object);
-        const args = ast.arguments.map((arg) => this.visit(arg));
+        const argsList = this.joinArguments(ast.arguments);
 
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
             const scriptId = scriptSymbol ?? this.resolveIdentifierName(ast.object) ?? callee;
-            const argsList = args.join(", ");
             return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
         }
 
-        return `${callee}(${args.join(", ")})`;
+        return `${callee}(${argsList})`;
     }
 
     private visitNewExpression(ast: NewExpressionNode): string {
         const expression = this.visit(ast.expression);
-        const args = (ast.arguments ?? []).map((arg) => this.visit(arg));
-        return `new ${expression}(${args.join(", ")})`;
+        const argsList = this.joinArguments(ast.arguments ?? []);
+        return `new ${expression}(${argsList})`;
     }
 
     private visitProgram(ast: ProgramNode): string {
@@ -824,5 +823,47 @@ export class GmlToJsEmitter {
             return this.identifierAnalyzer.nameOfIdent(node);
         }
         return this.visit(node);
+    }
+
+    /**
+     * Visit an array of argument nodes and return an array of strings.
+     * This is optimized for the builtin function path which needs the array.
+     */
+    private visitArguments(args: readonly GmlNode[]): string[] {
+        // Fast path: no arguments
+        if (args.length === 0) {
+            return [];
+        }
+        // Fast path: single argument
+        if (args.length === 1) {
+            return [this.visit(args[0])];
+        }
+        // General case: map all arguments
+        return args.map((arg) => this.visit(arg));
+    }
+
+    /**
+     * Join argument nodes into a comma-separated string.
+     * This is optimized to avoid creating intermediate arrays.
+     */
+    private joinArguments(args: readonly GmlNode[]): string {
+        // Fast path: no arguments
+        if (args.length === 0) {
+            return "";
+        }
+        // Fast path: single argument
+        if (args.length === 1) {
+            return this.visit(args[0]);
+        }
+        // Fast path: two arguments (very common)
+        if (args.length === 2) {
+            return `${this.visit(args[0])}, ${this.visit(args[1])}`;
+        }
+        // General case: use StringBuilder for 3+ arguments
+        const builder = new StringBuilder(args.length);
+        for (const arg of args) {
+            builder.append(this.visit(arg));
+        }
+        return builder.toString(", ");
     }
 }
