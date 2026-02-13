@@ -9,11 +9,11 @@ test("posix boundary comparison is segment-safe", () => {
 });
 
 test("windows drive boundary comparison is segment-safe", () => {
-    assert.equal(isPathWithinBoundary("C:\\root\\sub\\file.gml", "C:\\root"), true);
-    assert.equal(isPathWithinBoundary("C:\\root2\\file.gml", "C:\\root"), false);
+    assert.equal(isPathWithinBoundary(String.raw`C:\root\sub\file.gml`, String.raw`C:\root`), true);
+    assert.equal(isPathWithinBoundary(String.raw`C:\root2\file.gml`, String.raw`C:\root`), false);
 });
 
 test("UNC boundary comparison is segment-safe", () => {
-    assert.equal(isPathWithinBoundary("\\\\server\\share\\root\\sub\\file.gml", "\\\\server\\share\\root\\"), true);
-    assert.equal(isPathWithinBoundary("\\\\server\\share\\root2\\file.gml", "\\\\server\\share\\root\\"), false);
+    assert.equal(isPathWithinBoundary(String.raw`\\server\share\root\sub\file.gml`, "\\\\server\\share\\root\\"), true);
+    assert.equal(isPathWithinBoundary(String.raw`\\server\share\root2\file.gml`, "\\\\server\\share\\root\\"), false);
 });
