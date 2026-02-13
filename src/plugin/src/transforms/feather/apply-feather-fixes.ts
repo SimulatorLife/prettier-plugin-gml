@@ -9553,15 +9553,14 @@ function hasOpenPrimitiveBefore(statements, index) {
 }
 
 function findMatchingDrawPrimitiveEnd(statements, startIndex) {
-    const statementsArray = Core.asArray(statements);
-    if (statementsArray.length === 0) {
+    if (!Core.isNonEmptyArray(statements)) {
         return -1;
     }
 
     let depth = 0;
 
-    for (let index = startIndex; index < statementsArray.length; index += 1) {
-        const statement = statementsArray[index];
+    for (let index = startIndex; index < statements.length; index += 1) {
+        const statement = statements[index];
 
         if (isDrawPrimitiveBeginCall(statement)) {
             depth += 1;
