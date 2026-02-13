@@ -138,7 +138,9 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
        - treat rule as applied when value is `"warn"`/`"error"` or `1`/`2`, or when value is an array whose first element is `"warn"`/`"error"` or `1`/`2`.
        - recognized forms are `"off"|"warn"|"error"|0|1|2`, or arrays whose first element is one of those values.
        - anything else (including `null`, booleans, objects, and empty arrays) is treated as applied (conservative) for guardrail purposes and must not crash guardrail evaluation.
-     - CLI emits one `--verbose` warning code `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` when, for a linted `.gml` file, resolved config has any applied rule whose ID starts with `feather/` or is a canonical full ID in `PERFORMANCE_OVERRIDE_RULE_IDS`, and the same resolved config does not include both `plugins.gml === Lint.plugin` and `language: "gml/gml"` for that file.
+     - canonical full-ID matching for `PERFORMANCE_OVERRIDE_RULE_IDS` uses case-sensitive string equality against rule ID keys in `config.rules` (no aliasing, no normalization, no short-name expansion).
+     - CLI emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` at most once per invocation (deduped) when one or more linted `.gml` files meet the guardrail condition: resolved config has any applied rule whose ID starts with `feather/` or is a canonical full ID in `PERFORMANCE_OVERRIDE_RULE_IDS`, and the same resolved config does not include both `plugins.gml === Lint.plugin` and `language: "gml/gml"` for that file.
+     - deduped warning output includes a bounded sample of offending file paths (up to 20 paths, then “and N more…”).
 2. If `--config` is provided, CLI sets `overrideConfigFile` to that path.
 3. If `--config` is absent, CLI uses ESLint flat-config discovery over this candidate filename set:
    - `eslint.config.js`

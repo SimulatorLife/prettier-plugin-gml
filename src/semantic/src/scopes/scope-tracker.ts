@@ -1315,7 +1315,6 @@ export class ScopeTracker {
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
 
-         
         const createAddScopeFunction = (
             seenScopes: Set<string>,
             pathInvalidationSet: Array<{ scopeId: string; scopeKind: string; reason: string }>

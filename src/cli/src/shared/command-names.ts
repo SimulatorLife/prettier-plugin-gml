@@ -14,6 +14,7 @@
 export const CLI_COMMAND_NAMES = Object.freeze(
     new Set([
         "format",
+        "lint",
         "performance",
         "memory",
         "generate-gml-identifiers",

@@ -12,6 +12,7 @@ type WorkspacePolicy = {
 
 const TARGET_WORKSPACES: Array<WorkspacePolicy> = [
     { name: "@gml-modules/core", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gml-modules/lint", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/parser", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/semantic", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/transpiler", allowPrettierPeerDep: false, requirePrettierPeerDep: false },

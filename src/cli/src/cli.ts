@@ -30,6 +30,7 @@ import { __formatTest__, createFormatCommand, runFormatCommand } from "./command
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { createLintCommand, runLintCommand } from "./commands/lint.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
@@ -288,6 +289,16 @@ cliCommandRegistry.registerDefaultCommand({
         handleCliError(error, {
             prefix: "Failed to format project.",
             exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createLintCommand(),
+    run: ({ command }) => runLintCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Lint command failed.",
+            exitCode: 2
         })
 });
 
