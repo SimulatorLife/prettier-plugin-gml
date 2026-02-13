@@ -26,7 +26,7 @@ async function loadFixtures() {
         .map((entry) => entry.name)
         .toSorted();
 
-    const fixtureContents = new Map<string, string>();
+    const fixtureContentsByName = new Map<string, string>();
 
     await Promise.all(
         fileNames.map(async (fileName) => {
@@ -37,11 +37,11 @@ async function loadFixtures() {
                 throw new TypeError(`Expected fixture '${fileName}' to be read as a string.`);
             }
 
-            fixtureContents.set(fileName, source);
+            fixtureContentsByName.set(fileName, source);
         })
     );
 
-    return { fileNames, fixtureContents };
+    return { fileNames, fixtureContentsByName };
 }
 
 function hasLocationInformation(node) {
@@ -120,7 +120,7 @@ function collectNodesByType(node, type) {
     return nodes;
 }
 
-const { fileNames: fixtureNames, fixtureContents } = await loadFixtures();
+const { fileNames: fixtureNames, fixtureContentsByName } = await loadFixtures();
 const expectedFailures = new Set<string>();
 const successfulFixture = fixtureNames.find((fixtureName) => !expectedFailures.has(fixtureName));
 const fixtureParserOptions: ParserOptions = {
@@ -133,7 +133,7 @@ const fixtureParserOptions: ParserOptions = {
 void describe("GameMaker parser fixtures", () => {
     for (const fixtureName of fixtureNames) {
         void it(`parses ${fixtureName}`, async () => {
-            const source = fixtureContents.get(fixtureName);
+            const source = fixtureContentsByName.get(fixtureName);
             if (!source) {
                 throw new Error(`Fixture '${fixtureName}' was not preloaded.`);
             }
@@ -194,7 +194,7 @@ void describe("GameMaker parser fixtures", () => {
 
         assert.ok(fixtureName, "Expected at least one parser fixture to be present.");
 
-        const source = fixtureContents.get(fixtureName);
+        const source = fixtureContentsByName.get(fixtureName);
         if (!source) {
             throw new Error(`Fixture '${fixtureName}' was not preloaded.`);
         }
