@@ -591,33 +591,38 @@ export class GmlToJsEmitter {
 
     private visitVariableDeclaration(ast: VariableDeclarationNode): string {
         const decls = ast.declarations;
-        // Fast path: single declaration
+        // Fast path: single declaration without initialization
+        if (decls.length === 1 && !decls[0].init) {
+            return `${ast.kind} ${this.visit(decls[0].id)}`;
+        }
+        // Fast path: single declaration with initialization
         if (decls.length === 1) {
             const decl = decls[0];
-            let result = this.visit(decl.id);
-            if (decl.init) {
-                result += ` = ${this.visit(decl.init)}`;
-            }
-            return `${ast.kind} ${result}`;
+            const id = this.visit(decl.id);
+            const init = this.visit(decl.init);
+            return `${ast.kind} ${id} = ${init}`;
         }
         // Multiple declarations: use StringBuilder for efficiency
         const builder = new StringBuilder(decls.length);
         for (const decl of decls) {
-            let part = this.visit(decl.id);
+            const id = this.visit(decl.id);
             if (decl.init) {
-                part += ` = ${this.visit(decl.init)}`;
+                const init = this.visit(decl.init);
+                builder.append(`${id} = ${init}`);
+            } else {
+                builder.append(id);
             }
-            builder.append(part);
         }
         return `${ast.kind} ${builder.toString(", ")}`;
     }
 
     private visitVariableDeclarator(ast: VariableDeclaratorNode): string {
-        let result = this.visit(ast.id);
-        if (ast.init) {
-            result += ` = ${this.visit(ast.init)}`;
+        const id = this.visit(ast.id);
+        if (!ast.init) {
+            return id;
         }
-        return result;
+        const init = this.visit(ast.init);
+        return `${id} = ${init}`;
     }
 
     private visitTernaryExpression(ast: TernaryExpressionNode): string {
