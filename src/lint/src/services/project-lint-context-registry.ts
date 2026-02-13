@@ -1,10 +1,8 @@
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
-
+import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
-
-import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 
 export const DEFAULT_PROJECT_INDEX_EXCLUDES = Object.freeze([".git", "node_modules", "dist", "generated", "vendor"]);
 
