@@ -2437,12 +2437,9 @@ function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegis
 }
 
 function replaceReadOnlyIdentifierReferences(siblings, startIndex, originalName, replacementName) {
-    if (!Array.isArray(siblings)) {
-        return;
-    }
-
-    for (let index = startIndex; index < siblings.length; index += 1) {
-        renameIdentifiersInNode(siblings[index], originalName, replacementName);
+    const siblingsArray = Core.asArray(siblings);
+    for (let index = startIndex; index < siblingsArray.length; index += 1) {
+        renameIdentifiersInNode(siblingsArray[index], originalName, replacementName);
     }
 }
 
@@ -3875,7 +3872,7 @@ function maybeInsertImplicitFunctionParameters({ functionNode, promotionPlan }) 
     }
 
     const { names, aliasByIndex } = promotionPlan;
-    if (!Array.isArray(names) || names.length === 0) {
+    if (!Core.isNonEmptyArray(names)) {
         return;
     }
 
@@ -3905,7 +3902,7 @@ function buildImplicitArgumentPromotionPlan({
     aliasDeclarations,
     documentedParamNames
 }) {
-    if (!Array.isArray(references) || references.length === 0) {
+    if (!Core.isNonEmptyArray(references)) {
         return null;
     }
 
@@ -4919,11 +4916,7 @@ function collectIdentifiers(example) {
 
     const matches = example.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g);
 
-    if (!Array.isArray(matches)) {
-        return new Set();
-    }
-
-    return new Set(matches);
+    return new Set(Core.asArray(matches));
 }
 
 function isLikelyConstant(identifier) {
@@ -5084,11 +5077,8 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
 }
 
 function hasDisabledColourChannel(args) {
-    if (!Array.isArray(args)) {
-        return false;
-    }
-
-    const channels = args.slice(0, 4);
+    const argsArray = Core.asArray(args);
+    const channels = argsArray.slice(0, 4);
 
     return channels.some((argument) => isLiteralFalse(argument));
 }
@@ -6884,11 +6874,9 @@ const PURE_MATH_FUNCTIONS = new Set([
 ]);
 
 function hasSideEffectFunctions(callExpressionArguments) {
-    if (!Array.isArray(callExpressionArguments)) {
-        return false;
-    }
+    const args = Core.asArray(callExpressionArguments);
 
-    for (const arg of callExpressionArguments) {
+    for (const arg of args) {
         if (!Core.isNode(arg) || arg.type !== "CallExpression") {
             continue;
         }
@@ -6903,7 +6891,7 @@ function hasSideEffectFunctions(callExpressionArguments) {
 }
 
 function areAllPureMathFunctions(callExpressionArguments) {
-    if (!Array.isArray(callExpressionArguments) || callExpressionArguments.length === 0) {
+    if (!Core.isNonEmptyArray(callExpressionArguments)) {
         return true; // No call expressions means no non-pure functions
     }
 
@@ -9216,12 +9204,10 @@ function ensureSurfaceTargetResetAfterCallForGM2005(node, parent, property, diag
 }
 
 function hasSurfaceResetBeforeNextTarget(statements, startIndex) {
-    if (!Array.isArray(statements)) {
-        return false;
-    }
+    const statementsArray = Core.asArray(statements);
 
-    for (let index = startIndex + 1; index < statements.length; index += 1) {
-        const candidate = statements[index];
+    for (let index = startIndex + 1; index < statementsArray.length; index += 1) {
+        const candidate = statementsArray[index];
 
         if (isSurfaceResetTargetCall(candidate)) {
             return true;
@@ -9236,12 +9222,10 @@ function hasSurfaceResetBeforeNextTarget(statements, startIndex) {
 }
 
 function removeRedundantSurfaceResetCalls(statements, startIndex) {
-    if (!Array.isArray(statements)) {
-        return;
-    }
+    const statementsArray = Core.asArray<MutableGameMakerAstNode>(statements);
 
-    for (let index = startIndex; index < statements.length; index += 1) {
-        const candidate = statements[index];
+    for (let index = startIndex; index < statementsArray.length; index += 1) {
+        const candidate = statementsArray[index];
 
         if (isSurfaceSetTargetCall(candidate)) {
             return;
@@ -9251,18 +9235,18 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
             continue;
         }
 
-        const nextSibling = statements[index + 1] ?? null;
+        const nextSibling = statementsArray[index + 1] ?? null;
         const shouldPreserveBlankLine = nextSibling && hasOriginalBlankLineBetween(candidate, nextSibling);
 
-        statements.splice(index, 1);
+        statementsArray.splice(index, 1);
         index -= 1;
 
         if (shouldPreserveBlankLine && nextSibling) {
             const insertionIndex = index + 1;
-            const followingNode = statements[insertionIndex];
+            const followingNode = statementsArray[insertionIndex];
 
             if (followingNode?.type !== "EmptyStatement") {
-                insertSeparatorStatementBeforeIndex(statements, insertionIndex, nextSibling);
+                insertSeparatorStatementBeforeIndex(statementsArray, insertionIndex, nextSibling);
             }
         }
     }
@@ -9569,14 +9553,15 @@ function hasOpenPrimitiveBefore(statements, index) {
 }
 
 function findMatchingDrawPrimitiveEnd(statements, startIndex) {
-    if (!Array.isArray(statements)) {
+    const statementsArray = Core.asArray(statements);
+    if (statementsArray.length === 0) {
         return -1;
     }
 
     let depth = 0;
 
-    for (let index = startIndex; index < statements.length; index += 1) {
-        const statement = statements[index];
+    for (let index = startIndex; index < statementsArray.length; index += 1) {
+        const statement = statementsArray[index];
 
         if (isDrawPrimitiveBeginCall(statement)) {
             depth += 1;
@@ -9999,14 +9984,12 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 }
 
 function findVertexEndInsertionIndex({ siblings, startIndex, bufferName }) {
-    if (!Array.isArray(siblings)) {
-        return 0;
-    }
+    const siblingsArray = Core.asArray(siblings);
 
     let index = typeof startIndex === "number" ? startIndex : 0;
 
-    while (index < siblings.length) {
-        const node = siblings[index];
+    while (index < siblingsArray.length) {
+        const node = siblingsArray[index];
 
         if (!node || typeof node !== "object") {
             break;
@@ -12503,12 +12486,10 @@ function isEmptyStatement(node) {
 }
 
 function hasGpuPopStateAfterIndex(statements, index) {
-    if (!Array.isArray(statements)) {
-        return false;
-    }
+    const statementsArray = Core.asArray(statements);
 
-    for (let offset = index + 1; offset < statements.length; offset += 1) {
-        const statement = statements[offset];
+    for (let offset = index + 1; offset < statementsArray.length; offset += 1) {
+        const statement = statementsArray[offset];
         if (isEmptyStatement(statement)) {
             continue;
         }
@@ -12524,12 +12505,10 @@ function hasGpuPopStateAfterIndex(statements, index) {
 }
 
 function hasGpuPushStateBeforeIndex(statements, index) {
-    if (!Array.isArray(statements)) {
-        return false;
-    }
+    const statementsArray = Core.asArray(statements);
 
     for (let offset = index - 1; offset >= 0; offset -= 1) {
-        const statement = statements[offset];
+        const statement = statementsArray[offset];
         if (isEmptyStatement(statement)) {
             continue;
         }
