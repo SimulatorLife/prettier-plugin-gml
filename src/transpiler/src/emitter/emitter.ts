@@ -640,9 +640,16 @@ export class GmlToJsEmitter {
         if (elements.length === 1) {
             return `[${this.visit(elements[0])}]`;
         }
-        // Multiple elements: use join for efficiency
-        const visited = elements.map((el) => this.visit(el));
-        return `[${visited.join(", ")}]`;
+        // Fast path: two elements (very common case)
+        if (elements.length === 2) {
+            return `[${this.visit(elements[0])}, ${this.visit(elements[1])}]`;
+        }
+        // Multiple elements: use StringBuilder to avoid intermediate array allocation
+        const builder = new StringBuilder(elements.length);
+        for (const el of elements) {
+            builder.append(this.visit(el));
+        }
+        return `[${builder.toString(", ")}]`;
     }
 
     private visitTemplateStringExpression(ast: TemplateStringExpressionNode): string {
