@@ -1,0 +1,86 @@
+import type { Rule } from "eslint";
+
+import type { ProjectCapability } from "../types/index.js";
+
+import type { GmlProjectSettings } from "../services/index.js";
+
+type ProjectAwareRuleInfo = Readonly<{
+    requiresProjectContext: boolean;
+    requiredCapabilities: ReadonlyArray<ProjectCapability>;
+}>;
+
+export type ProjectContextResolution = Readonly<{
+    available: boolean;
+    settings: GmlProjectSettings | null;
+}>;
+
+function readProjectSettings(context: Rule.RuleContext): GmlProjectSettings | null {
+    const settings = context.settings as Record<string, unknown>;
+    const gmlSettings = settings.gml as Record<string, unknown> | undefined;
+    const projectSettings = gmlSettings?.project;
+
+    if (!projectSettings || typeof projectSettings !== "object") {
+        return null;
+    }
+
+    const candidate = projectSettings as GmlProjectSettings;
+    if (typeof candidate.getContext !== "function") {
+        return null;
+    }
+
+    return candidate;
+}
+
+export function resolveProjectContextForRule(
+    context: Rule.RuleContext,
+    info: ProjectAwareRuleInfo
+): ProjectContextResolution {
+    if (!info.requiresProjectContext) {
+        return Object.freeze({ available: true, settings: null });
+    }
+
+    const projectSettings = readProjectSettings(context);
+    if (!projectSettings) {
+        return Object.freeze({ available: false, settings: null });
+    }
+
+    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
+    if (typeof sourcePath !== "string" || sourcePath.length < 1) {
+        return Object.freeze({ available: false, settings: null });
+    }
+
+    const projectContext = projectSettings.getContext(sourcePath);
+    if (!projectContext) {
+        return Object.freeze({ available: false, settings: projectSettings });
+    }
+
+    for (const capability of info.requiredCapabilities) {
+        if (!projectContext.capabilities.has(capability)) {
+            return Object.freeze({ available: false, settings: projectSettings });
+        }
+    }
+
+    return Object.freeze({ available: true, settings: projectSettings });
+}
+
+export function reportMissingProjectContextOncePerFile(
+    context: Rule.RuleContext,
+    listeners: Rule.RuleListener
+): Rule.RuleListener {
+    let hasReported = false;
+
+    return Object.freeze({
+        ...listeners,
+        Program(node) {
+            if (hasReported) {
+                return;
+            }
+
+            hasReported = true;
+            context.report({
+                node,
+                messageId: "missingProjectContext"
+            });
+        }
+    });
+}

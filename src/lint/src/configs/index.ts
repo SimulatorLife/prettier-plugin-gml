@@ -28,7 +28,12 @@ function createFeatherRules() {
 }
 
 function createPerformanceRules() {
-    const rules: Record<string, "off" | "warn" | "error"> = { ["gml/prefer-loop-length-hoist"]: "off", ["gml/prefer-struct-literal-assignments"]: "off", ["gml/no-globalvar"]: "warn", ["gml/prefer-string-interpolation"]: "off",};
+    const rules: Record<string, "off" | "warn" | "error"> = {
+        ["gml/prefer-loop-length-hoist"]: "off",
+        ["gml/prefer-struct-literal-assignments"]: "off",
+        ["gml/no-globalvar"]: "warn",
+        ["gml/prefer-string-interpolation"]: "off"
+    };
 
     for (const ruleId of PERFORMANCE_OVERRIDE_RULE_IDS) {
         if (!(ruleId in rules)) {
