@@ -14,12 +14,6 @@ test("windows drive boundary comparison is segment-safe", () => {
 });
 
 test("UNC boundary comparison is segment-safe", () => {
-    assert.equal(
-        isPathWithinBoundary("\\\\server\\share\\root\\sub\\file.gml", "\\\\server\\share\\root\\"),
-        true
-    );
-    assert.equal(
-        isPathWithinBoundary("\\\\server\\share\\root2\\file.gml", "\\\\server\\share\\root\\"),
-        false
-    );
+    assert.equal(isPathWithinBoundary("\\\\server\\share\\root\\sub\\file.gml", "\\\\server\\share\\root\\"), true);
+    assert.equal(isPathWithinBoundary("\\\\server\\share\\root2\\file.gml", "\\\\server\\share\\root\\"), false);
 });

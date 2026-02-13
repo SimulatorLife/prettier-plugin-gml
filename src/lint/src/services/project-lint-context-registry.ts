@@ -6,13 +6,7 @@ import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-r
 
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 
-export const DEFAULT_PROJECT_INDEX_EXCLUDES = Object.freeze([
-    ".git",
-    "node_modules",
-    "dist",
-    "generated",
-    "vendor"
-]);
+export const DEFAULT_PROJECT_INDEX_EXCLUDES = Object.freeze([".git", "node_modules", "dist", "generated", "vendor"]);
 
 type RegistryOptions = Readonly<{
     cwd: string;
@@ -34,7 +28,9 @@ export type ProjectLintContextRegistry = Readonly<{
 
 export function createProjectLintContextRegistry(options: RegistryOptions): ProjectLintContextRegistry {
     const forcedRoot = resolveForcedProjectRoot(options.forcedProjectPath);
-    const normalizedAllowedDirectories = options.indexAllowDirectories.map((directory) => normalizeLintFilePath(directory));
+    const normalizedAllowedDirectories = options.indexAllowDirectories.map((directory) =>
+        normalizeLintFilePath(directory)
+    );
     const contextCache = new Map<string, GmlProjectContext>();
 
     return Object.freeze({
@@ -45,7 +41,8 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
                 return null;
             }
 
-            const resolvedRoot = forcedRoot ?? resolveNearestProjectRoot(normalizedFilePath, normalizeLintFilePath(options.cwd));
+            const resolvedRoot =
+                forcedRoot ?? resolveNearestProjectRoot(normalizedFilePath, normalizeLintFilePath(options.cwd));
             const key = normalizeLintFilePath(resolvedRoot);
 
             const existing = contextCache.get(key);

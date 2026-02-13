@@ -122,8 +122,11 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         verbose: options.verbose === true,
         project: typeof options.project === "string" && options.project.length > 0 ? options.project : null,
         projectStrict: options.projectStrict === true,
-        indexAllow:
-            Array.isArray(options.indexAllow) ? options.indexAllow : typeof options.indexAllow === "string" ? [options.indexAllow] : []
+        indexAllow: Array.isArray(options.indexAllow)
+            ? options.indexAllow
+            : typeof options.indexAllow === "string"
+              ? [options.indexAllow]
+              : []
     };
 }
 
@@ -389,7 +392,8 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     if (!options.quiet && outOfRootPaths.length > 0) {
         const sample = outOfRootPaths.slice(0, 20);
-        const suffix = outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
+        const suffix =
+            outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
         console.warn(`GML_PROJECT_OUT_OF_ROOT:\n${sample.join("\n")}${suffix}`);
     }
 
