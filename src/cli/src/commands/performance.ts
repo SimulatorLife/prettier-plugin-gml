@@ -107,7 +107,7 @@ interface CollectPerformanceSuiteResultsOptions {
 }
 
 function resolveCachedDataset(cache) {
-    if (!cache || typeof cache.get !== "function") {
+    if (!cache?.get) {
         return null;
     }
 
@@ -116,17 +116,16 @@ function resolveCachedDataset(cache) {
         return null;
     }
 
-    const deref = typeof entry?.deref === "function" ? entry.deref : null;
-    if (!deref) {
+    if (typeof entry?.deref !== "function") {
         return entry;
     }
 
-    const dataset = deref.call(entry);
+    const dataset = entry.deref();
     if (dataset) {
         return dataset;
     }
 
-    cache.delete(DATASET_CACHE_KEY);
+    cache.delete?.(DATASET_CACHE_KEY);
     return null;
 }
 
