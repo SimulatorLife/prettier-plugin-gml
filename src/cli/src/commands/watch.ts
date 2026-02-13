@@ -98,6 +98,25 @@ interface RuntimeContext {
 interface FileChangeOptions {
     verbose?: boolean;
     runtimeContext?: RuntimeContext;
+    rootPath?: string;
+}
+
+/**
+ * Builds a stable symbol identifier for a script based on its relative path.
+ *
+ * Using the relative path avoids collisions when scripts share a basename in
+ * different directories.
+ */
+export function createScriptSymbolId(
+    watchRoot: string,
+    filePath: string
+): string {
+    const relativePath = path
+        .relative(watchRoot, filePath)
+        .replaceAll(new RegExp(`\\${path.sep}`, "g"), "/");
+    const withoutExtension = relativePath.replace(/\.[^.]+$/, "");
+
+    return `gml/script/${withoutExtension}`;
 }
 
 /**
@@ -689,7 +708,8 @@ export async function runWatchCommand(
                 // For now, we just detect and report changes
                 handleFileChange(fullPath, eventType, {
                     verbose,
-                    runtimeContext
+                    runtimeContext,
+                    rootPath: normalizedPath
                 }).catch((error) => {
                     const message = getErrorMessage(error, {
                         fallback: "Unknown file processing error"
@@ -716,7 +736,7 @@ export async function runWatchCommand(
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, runtimeContext }: FileChangeOptions = {}
+    { verbose = false, runtimeContext, rootPath }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -760,11 +780,10 @@ async function handleFileChange(
                 const startTime = performance.now();
                 try {
                     // Generate a script identifier from the file path
-                    const fileName = path.basename(
-                        filePath,
-                        path.extname(filePath)
+                    const symbolId = createScriptSymbolId(
+                        rootPath ?? path.dirname(filePath),
+                        filePath
                     );
-                    const symbolId = `gml/script/${fileName}`;
 
                     // Transpile to JavaScript patch
                     const patch = runtimeContext.transpiler.transpileScript({
