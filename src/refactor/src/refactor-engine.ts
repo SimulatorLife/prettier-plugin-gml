@@ -3,6 +3,7 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
+import { RenameValidationCache } from "./rename-validation-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type ApplyWorkspaceEditOptions,
@@ -46,11 +47,13 @@ export class RefactorEngine {
     public readonly parser: ParserBridge | null;
     public readonly semantic: PartialSemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
+    private readonly renameValidationCache: RenameValidationCache;
 
     constructor({ parser = null, semantic = null, formatter = null }: Partial<RefactorEngineDependencies> = {}) {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
+        this.renameValidationCache = new RenameValidationCache();
     }
 
     /**
@@ -154,6 +157,30 @@ export class RefactorEngine {
      * }
      */
     async validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
+        }
+    > {
+        const includeHotReload = options?.includeHotReload ?? false;
+        if (includeHotReload) {
+            return await this.computeRenameValidation(request, { includeHotReload: true });
+        }
+
+        if (!request || typeof request.symbolId !== "string" || typeof request.newName !== "string") {
+            return await this.computeRenameValidation(request, options);
+        }
+
+        return await this.renameValidationCache.getOrCompute(request.symbolId, request.newName, async () => {
+            return await this.computeRenameValidation(request, options);
+        });
+    }
+
+    private async computeRenameValidation(
         request: RenameRequest,
         options?: ValidateRenameRequestOptions
     ): Promise<
@@ -931,6 +958,7 @@ export class RefactorEngine {
             deleteFile: request.deleteFile,
             dryRun: false
         });
+        this.renameValidationCache.invalidateAll();
 
         // Prepare hot reload updates if requested
         let hotReloadUpdates: Array<HotReloadUpdate> = [];
@@ -979,6 +1007,7 @@ export class RefactorEngine {
             deleteFile: request.deleteFile,
             dryRun: false
         });
+        this.renameValidationCache.invalidateAll();
 
         // Prepare hot reload updates if requested
         let hotReloadUpdates: Array<HotReloadUpdate> = [];
