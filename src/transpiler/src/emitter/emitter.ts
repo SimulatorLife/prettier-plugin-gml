@@ -595,7 +595,7 @@ export class GmlToJsEmitter {
             return `${ast.kind} ${this.visit(decls[0].id)}`;
         }
         // Fast path: single declaration with initialization
-        if (decls.length === 1) {
+        if (decls.length === 1 && decls[0].init) {
             const decl = decls[0];
             const id = this.visit(decl.id);
             const init = this.visit(decl.init);
