@@ -17,6 +17,9 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:src/core
+      '@gml-modules/lint':
+        specifier: workspace:*
+        version: link:src/lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:src/parser
@@ -137,6 +140,9 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:../core
+      '@gml-modules/lint':
+        specifier: workspace:*
+        version: link:../lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser
@@ -155,6 +161,12 @@ importers:
       commander:
         specifier: ^14.0.2
         version: 14.0.2
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.2
+      eslint-formatter-checkstyle:
+        specifier: ^9.0.1
+        version: 9.0.1
       fast-xml-parser:
         specifier: ^5.3.4
         version: 5.3.4
@@ -169,6 +181,19 @@ importers:
         version: 8.19.0
 
   src/core: {}
+
+  src/lint:
+    dependencies:
+      '@gml-modules/core':
+        specifier: workspace:*
+        version: link:../core
+      '@gml-modules/parser':
+        specifier: workspace:*
+        version: link:../parser
+    devDependencies:
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.2
 
   src/parser:
     dependencies:
