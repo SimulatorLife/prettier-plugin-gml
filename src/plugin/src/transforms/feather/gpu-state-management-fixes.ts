@@ -21,20 +21,19 @@ import {
     attachFeatherFixMetadata,
     createCallExpressionTargetFixDetail,
     createFeatherFixDetail,
-    hasFeatherDiagnosticContext,
-    markStatementToSuppressFollowingEmptyLine,
-    markStatementToSuppressLeadingEmptyLine,
-    hasOnlyWhitespaceBetweenNodes,
     extractSurfaceTargetName,
+    hasFeatherDiagnosticContext,
+    hasOnlyWhitespaceBetweenNodes,
     isCallExpression,
     isDrawFunctionCall,
     isLiteralFalse,
-    isLiteralZero,
     isLiteralOne,
     isLiteralTrue,
-    isNegativeOneLiteral
-} from "./apply-feather-fixes.js";
-import { resolveCallExpressionArrayContext, hasArrayParentWithNumericIndex } from "./ast-traversal.js";
+    isLiteralZero,
+    isNegativeOneLiteral,
+    markStatementToSuppressFollowingEmptyLine,
+    markStatementToSuppressLeadingEmptyLine} from "./apply-feather-fixes.js";
+import { hasArrayParentWithNumericIndex,resolveCallExpressionArrayContext } from "./ast-traversal.js";
 
 export function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {

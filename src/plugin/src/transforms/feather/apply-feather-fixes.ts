@@ -42,31 +42,25 @@ import {
 } from "../doc-comment/doc-comment-metadata.js";
 import type { ParserTransform } from "../functional-transform.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
-import {
-    normalizeArgumentBuiltinReferences
-} from "./argument-builtin-normalization.js";
+import { normalizeArgumentBuiltinReferences } from "./argument-builtin-normalization.js";
 import {
     getEndFromNode,
     getStartFromNode,
-    hasArrayParentWithNumericIndex,
-    resolveCallExpressionArrayContext
+    hasArrayParentWithNumericIndex
 } from "./ast-traversal.js";
-import {
-    sanitizeMalformedJsDocTypes,
-    updateStaticFunctionDocComments
-} from "./doc-comment-fixes.js";
+import { sanitizeMalformedJsDocTypes, updateStaticFunctionDocComments } from "./doc-comment-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import {
-    ensureShaderResetIsCalled,
-    ensureFogIsReset,
-    ensureSurfaceTargetsAreReset,
-    ensureBlendEnableIsReset,
-    ensureBlendModeIsReset,
     ensureAlphaTestEnableIsReset,
     ensureAlphaTestRefIsReset,
-    ensureHalignIsReset,
-    ensureCullModeIsReset,
+    ensureBlendEnableIsReset,
+    ensureBlendModeIsReset,
     ensureColourWriteEnableIsReset,
+    ensureCullModeIsReset,
+    ensureFogIsReset,
+    ensureHalignIsReset,
+    ensureShaderResetIsCalled,
+    ensureSurfaceTargetsAreReset,
     ensureTextureRepeatIsReset
 } from "./gpu-state-management-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
