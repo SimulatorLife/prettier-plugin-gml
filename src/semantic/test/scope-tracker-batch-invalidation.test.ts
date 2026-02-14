@@ -137,6 +137,33 @@ void describe("ScopeTracker batch invalidation", () => {
         assert.ok(descendantEntries.length > 0, "Should have descendant scopes when requested");
     });
 
+    void it("ignores duplicate input paths without changing invalidation output", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/root.gml" });
+        tracker.withScope(
+            "function",
+            () => {
+                tracker.declare("shared", { name: "shared" });
+            },
+            { path: "/project/shared.gml" }
+        );
+
+        const uniqueResults = tracker.getBatchInvalidationSets(["/project/shared.gml"]);
+        const duplicateResults = tracker.getBatchInvalidationSets([
+            "/project/shared.gml",
+            "/project/shared.gml",
+            "/project/shared.gml"
+        ]);
+
+        assert.strictEqual(duplicateResults.size, 1, "Duplicate paths should produce a single map entry");
+        assert.deepStrictEqual(
+            duplicateResults.get("/project/shared.gml"),
+            uniqueResults.get("/project/shared.gml"),
+            "Duplicate paths should not alter invalidation results"
+        );
+    });
+
     void it("handles empty input gracefully", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
