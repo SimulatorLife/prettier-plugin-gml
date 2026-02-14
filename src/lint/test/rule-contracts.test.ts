@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { Lint } from "../src/index.js";
 import { reportMissingProjectContextOncePerFile } from "../src/rules/project-context.js";
@@ -35,4 +38,19 @@ test("missing project context helper reports at most once per file", () => {
     listener.Program?.({ type: "Program" } as never);
 
     assert.deepEqual(reported, ["missingProjectContext"]);
+});
+
+test("only gml/require-argument-separators may consume inserted separator recovery metadata", () => {
+    assert.ok(Lint.ruleIds.GmlRequireArgumentSeparators, "Expected require-argument-separators rule id to exist.");
+
+    const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+    const rulesDirectory = path.resolve(testDirectory, "../src/rules");
+    const ruleSourceFiles = readdirSync(rulesDirectory).filter((file) => file.endsWith(".ts"));
+
+    const matchingFiles = ruleSourceFiles.filter((file) => {
+        const source = readFileSync(path.join(rulesDirectory, file), "utf8");
+        return source.includes("inserted-argument-separator");
+    });
+
+    assert.deepEqual(matchingFiles, []);
 });
