@@ -2989,6 +2989,92 @@ void test("validateRenameRequest works without semantic analyzer", async () => {
     assert.ok(result.warnings.some((w) => w.includes("No semantic analyzer")));
 });
 
+void test("validateRenameRequest reuses cached result for repeated requests", async () => {
+    let hasSymbolCalls = 0;
+    let occurrenceCalls = 0;
+    let reservedKeywordCalls = 0;
+    let fileSymbolCalls = 0;
+
+    const mockSemantic: PartialSemanticAnalyzer = {
+        hasSymbol: async () => {
+            hasSymbolCalls += 1;
+            return true;
+        },
+        getSymbolOccurrences: async () => {
+            occurrenceCalls += 1;
+            return [{ path: "scripts/player.gml", start: 0, end: 8, scopeId: "scope-1" }];
+        },
+        getReservedKeywords: async () => {
+            reservedKeywordCalls += 1;
+            return ["if", "else"];
+        },
+        getFileSymbols: async () => {
+            fileSymbolCalls += 1;
+            return [];
+        }
+    };
+
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const first = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    });
+    const second = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    });
+
+    assert.deepEqual(second, first);
+    assert.equal(hasSymbolCalls, 1);
+    assert.equal(occurrenceCalls, 1);
+    assert.equal(reservedKeywordCalls, 1);
+    assert.equal(fileSymbolCalls, 1);
+});
+
+void test("validateRenameRequest bypasses cache when hot reload summary is requested", async () => {
+    let hotReloadChecks = 0;
+
+    class MockEngine extends RefactorEngineClass {
+        override async checkHotReloadSafety() {
+            hotReloadChecks += 1;
+            return {
+                safe: true,
+                reason: "safe",
+                requiresRestart: false,
+                canAutoFix: true,
+                suggestions: []
+            };
+        }
+    }
+
+    const mockSemantic: PartialSemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [{ path: "scripts/player.gml", start: 0, end: 8, scopeId: "scope-1" }],
+        getReservedKeywords: async () => []
+    };
+
+    const engine = new MockEngine({ semantic: mockSemantic });
+
+    await engine.validateRenameRequest(
+        {
+            symbolId: "gml/script/scr_player",
+            newName: "scr_hero"
+        },
+        { includeHotReload: true }
+    );
+
+    await engine.validateRenameRequest(
+        {
+            symbolId: "gml/script/scr_player",
+            newName: "scr_hero"
+        },
+        { includeHotReload: true }
+    );
+
+    assert.equal(hotReloadChecks, 2);
+});
+
 void test("getFileSymbols returns empty array without semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
     const symbols = await engine.getFileSymbols("test.gml");

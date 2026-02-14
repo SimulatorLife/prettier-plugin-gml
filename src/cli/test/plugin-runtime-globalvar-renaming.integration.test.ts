@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Plugin, restoreDefaultRefactorRuntime, restoreDefaultSemanticSafetyRuntime } from "@gml-modules/plugin";
+import { Plugin } from "@gml-modules/plugin";
 
 import { configurePluginRuntimeAdapters } from "../src/plugin-runtime/runtime-configuration.js";
 
@@ -34,29 +34,20 @@ async function createTemporaryProject(scripts: ReadonlyArray<ProjectScript>): Pr
 
         await mkdir(path.dirname(absolutePath), { recursive: true });
         await writeFile(absolutePath, script.source, "utf8");
-        await writeFile(
-            scriptDescriptorPath,
-            JSON.stringify({
-                resourceType: "GMScript",
-                name: scriptName
-            }),
-            "utf8"
-        );
+        await writeFile(scriptDescriptorPath, JSON.stringify({ resourceType: "GMScript", name: scriptName }), "utf8");
     }
 
     return {
         projectRoot,
         scriptPath,
         cleanup: async () => {
-            restoreDefaultSemanticSafetyRuntime();
-            restoreDefaultRefactorRuntime();
             await rm(projectRoot, { recursive: true, force: true });
         }
     };
 }
 
 void describe("plugin runtime globalvar integration", () => {
-    void it("rewrites globalvar declarations when edits remain file-local", async () => {
+    void it("does not apply project-aware globalvar rewrites during formatting", async () => {
         const project = await createTemporaryProject([
             {
                 relativePath: "scripts/main/main.gml",
@@ -72,36 +63,7 @@ void describe("plugin runtime globalvar integration", () => {
                 preserveGlobalVarStatements: false
             });
 
-            assert.strictEqual(formatted, "global.score = undefined;\nglobal.score = 1;\n");
-        } finally {
-            await project.cleanup();
-        }
-    });
-
-    void it("switches from local fallback to project-aware rewrite after adapter configuration", async () => {
-        const project = await createTemporaryProject([
-            {
-                relativePath: "scripts/main/main.gml",
-                source: "globalvar score;\nscore = 1;\n"
-            }
-        ]);
-
-        try {
-            const fallbackFormatted = await Plugin.format("globalvar score;\nscore = 1;\n", {
-                filepath: project.scriptPath,
-                preserveGlobalVarStatements: false
-            });
-
-            assert.strictEqual(fallbackFormatted, "globalvar score;\nglobal.score = 1;\n");
-
-            await configurePluginRuntimeAdapters(project.projectRoot);
-
-            const formatted = await Plugin.format("globalvar score;\nscore = 1;\n", {
-                filepath: project.scriptPath,
-                preserveGlobalVarStatements: false
-            });
-
-            assert.strictEqual(formatted, "global.score = undefined;\nglobal.score = 1;\n");
+            assert.strictEqual(formatted, "globalvar score;\nscore = 1;\n");
         } finally {
             await project.cleanup();
         }

@@ -5,14 +5,10 @@
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { Parser, type ScopeTracker } from "@gml-modules/parser";
-import { util } from "prettier";
 
 import * as Transforms from "../transforms/index.js";
-import { fixMalformedComments, recoverParseSourceFromMissingBrace } from "./source-preprocessing.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
-const { addTrailingComment } = util;
-
 /**
  * Factory function type for creating scope tracker instances.
  * Abstracts the concrete implementation from the parser adapter.
@@ -116,28 +112,6 @@ export function setIdentifierCaseRuntime(runtime: IdentifierCaseRuntime): void {
 
 type ParserPreparationContext = {
     parseSource: string;
-    callIndexAdjustments: Array<number> | null;
-    conditionalAssignmentIndexAdjustments: Array<number> | null;
-    enumIndexAdjustments: Array<number> | null;
-    preprocessedFixMetadata: unknown;
-    commentFixMapper?: (index: number) => number;
-};
-
-type FeatherPreprocessCandidate = {
-    metadata?: unknown;
-    indexAdjustments?: Array<number> | null;
-    sourceText?: unknown;
-};
-
-type FeatherPreprocessResult = {
-    metadata: unknown;
-    enumIndexAdjustments: Array<number> | null;
-    parseSource: string;
-};
-
-type SanitizerResult = {
-    sourceText?: unknown;
-    indexAdjustments?: Array<number> | null;
 };
 
 function isOptionsObject(value: unknown): value is GmlParserAdapterOptions {
@@ -159,8 +133,8 @@ async function parseImpl(
     try {
         environmentPrepared = await prepareIdentifierCaseEnvironment(activeOptions);
 
-        const preparation = preprocessSource(text, activeOptions);
-        const ast = parseSourceWithRecovery(preparation.parseSource, parserOptions, activeOptions);
+        const preparation = preprocessSource(text);
+        const ast = parseSourceWithRecovery(preparation.parseSource, parserOptions);
 
         identifierCaseRuntime.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
@@ -189,84 +163,17 @@ async function prepareIdentifierCaseEnvironment(options?: GmlParserAdapterOption
     return true;
 }
 
-function preprocessSource(text: string, options?: GmlParserAdapterOptions): ParserPreparationContext {
-    const featherResult = preprocessFeatherFixes(text, options?.applyFeatherFixes);
-
-    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = fixMalformedComments(
-        featherResult.parseSource
-    );
-
-    const conditionalResult = Transforms.sanitizeConditionalAssignments(commentFixedSource) as SanitizerResult;
-    const conditionalSource = normalizeToString(conditionalResult.sourceText, commentFixedSource);
-
-    const callSanitizedResult =
-        (options?.sanitizeMissingArgumentSeparators ?? true)
-            ? (Transforms.sanitizeMissingArgumentSeparators(conditionalSource) as SanitizerResult)
-            : null;
-    const callSanitizedSource = callSanitizedResult
-        ? normalizeToString(callSanitizedResult.sourceText, conditionalSource)
-        : conditionalSource;
-
+function preprocessSource(text: string): ParserPreparationContext {
     return {
-        parseSource: callSanitizedSource,
-        callIndexAdjustments: callSanitizedResult?.indexAdjustments ?? null,
-        conditionalAssignmentIndexAdjustments: conditionalResult.indexAdjustments ?? null,
-        enumIndexAdjustments: featherResult.enumIndexAdjustments,
-        preprocessedFixMetadata: featherResult.metadata,
-        commentFixMapper
+        parseSource: text
     };
-}
-
-function preprocessFeatherFixes(sourceText: string, applyFeatherFixes?: boolean): FeatherPreprocessResult {
-    if (!applyFeatherFixes) {
-        return {
-            parseSource: sourceText,
-            enumIndexAdjustments: null,
-            metadata: null
-        };
-    }
-
-    const result = Transforms.preprocessSourceForFeatherFixes(sourceText) as
-        | FeatherPreprocessCandidate
-        | null
-        | undefined;
-
-    return {
-        parseSource: normalizeToString(result?.sourceText, sourceText),
-        enumIndexAdjustments: result?.indexAdjustments ?? null,
-        metadata: result?.metadata ?? null
-    };
-}
-
-function normalizeToString(candidate: unknown, fallback: string): string {
-    return typeof candidate === "string" ? candidate : fallback;
 }
 
 function parseSourceWithRecovery(
     sourceText: string,
-    parserOptions: ReturnType<typeof createParserOptions>,
-    options?: GmlParserAdapterOptions
+    parserOptions: ReturnType<typeof createParserOptions>
 ): MutableGameMakerAstNode {
-    try {
-        return Parser.GMLParser.parse(sourceText, parserOptions) as MutableGameMakerAstNode;
-    } catch (error) {
-        if (!options?.applyFeatherFixes) {
-            throw error;
-        }
-
-        const recoveredSource = recoverParseSourceFromMissingBrace(sourceText, error) as unknown;
-        if (typeof recoveredSource !== "string" || recoveredSource === sourceText) {
-            throw error;
-        }
-
-        const ast = Parser.GMLParser.parse(recoveredSource, parserOptions) as MutableGameMakerAstNode;
-        try {
-            Reflect.set(ast, "_featherRecoveredSource", true);
-        } catch {
-            // Best-effort only; recovery metadata is optional.
-        }
-        return ast;
-    }
+    return Parser.GMLParser.parse(sourceText, parserOptions) as MutableGameMakerAstNode;
 }
 
 function filterParserComments(ast: MutableGameMakerAstNode, options?: GmlParserAdapterOptions): void {
@@ -305,101 +212,27 @@ function applyParserTransforms(
     options: GmlParserAdapterOptions | undefined,
     originalSource: string
 ): void {
-    applyStructuralTransforms(ast, context, options);
+    applyStructuralTransforms(ast, options);
     applyOptionalTransforms(ast, context, options);
     applyFinalTransforms(ast, context, options, originalSource);
 }
 
-function applyStructuralTransforms(
-    ast: MutableGameMakerAstNode,
-    context: ParserPreparationContext,
-    options: GmlParserAdapterOptions | undefined
-): void {
+function applyStructuralTransforms(ast: MutableGameMakerAstNode, _options: GmlParserAdapterOptions | undefined): void {
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
-
-    // Normalize data structure accessor operators based on variable names
     Transforms.normalizeDataStructureAccessorsTransform.transform(ast);
-
-    if (options?.applyFeatherFixes) {
-        const featherOptions = options
-            ? { ...options, removeStandaloneVertexEnd: true }
-            : { removeStandaloneVertexEnd: true };
-
-        Transforms.applyFeatherFixesTransform.transform(ast, {
-            sourceText: context.parseSource,
-            preprocessedFixMetadata: context.preprocessedFixMetadata,
-            options: featherOptions
-        });
-    }
-
-    if (options?.condenseStructAssignments ?? true) {
-        Transforms.consolidateStructAssignmentsTransform.transform(ast, {
-            commentTools: { addTrailingComment }
-        });
-    }
-
-    if (options?.normalizeDocComments ?? true) {
-        Transforms.docCommentNormalizationTransform.transform(ast, {
-            pluginOptions: options ?? {}
-        });
-    }
-
-    applyIndexAdjustments(ast, context);
-}
-
-function applyIndexAdjustments(ast: MutableGameMakerAstNode, context: ParserPreparationContext): void {
-    Transforms.applyIndexAdjustmentsIfPresent(
-        ast,
-        context.callIndexAdjustments,
-        Transforms.applySanitizedIndexAdjustments,
-        context.preprocessedFixMetadata
-    );
-
-    Transforms.applyIndexAdjustmentsIfPresent(
-        ast,
-        context.conditionalAssignmentIndexAdjustments,
-        Transforms.applySanitizedIndexAdjustments,
-        context.preprocessedFixMetadata
-    );
-
-    if (context.commentFixMapper) {
-        Core.remapLocationMetadata(ast, context.commentFixMapper);
-    }
-
-    Transforms.applyIndexAdjustmentsIfPresent(
-        ast,
-        context.enumIndexAdjustments,
-        Transforms.applyRemovedIndexAdjustments,
-        context.preprocessedFixMetadata
-    );
 }
 
 function applyOptionalTransforms(
     ast: MutableGameMakerAstNode,
-    context: ParserPreparationContext,
-    options: GmlParserAdapterOptions | undefined
+    _context: ParserPreparationContext,
+    _options: GmlParserAdapterOptions | undefined
 ): void {
-    if (options?.useStringInterpolation) {
-        Transforms.convertStringConcatenationsTransform.transform(ast);
-    }
-
-    if (options?.optimizeLogicalExpressions) {
-        Transforms.condenseGuardStatementsTransform.transform(ast);
-        Transforms.optimizeLogicalExpressionsTransform.transform(ast);
-    }
-
-    if (options?.optimizeMathExpressions) {
-        Transforms.optimizeMathExpressionsTransform.transform(ast, {
-            sourceText: context.parseSource,
-            originalText: options?.originalText,
-            astRoot: ast
-        });
-    }
+    void ast;
 }
 
 function applyFinalTransforms(
     ast: MutableGameMakerAstNode,
-    context: ParserPreparationContext,
+    _context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined,
     originalSource: string
 ): void {
@@ -407,19 +240,11 @@ function applyFinalTransforms(
         Transforms.stripCommentsTransform.transform(ast);
     }
 
-    Transforms.convertUndefinedGuardAssignmentsTransform.transform(ast);
-    Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
-    Transforms.collapseRedundantMissingCallArgumentsTransform.transform(ast);
-    if (options?.optimizeLoopLengthHoisting ?? true) {
-        Transforms.hoistLoopLengthBounds(ast, options);
-    }
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
 
     Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
         originalText: options?.originalText ?? originalSource
     });
-
-    Transforms.precomputeSyntheticDocComments(ast, options ?? {}, options?.originalText ?? originalSource);
 }
 
 function getParserLocStart(node: MutableGameMakerAstNode): number {

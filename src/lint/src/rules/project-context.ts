@@ -43,7 +43,8 @@ export function resolveProjectContextForRule(
         return Object.freeze({ available: false, settings: null });
     }
 
-    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
+    const parserServices = context.sourceCode.parserServices as { gml?: { filePath?: unknown } };
+    const sourcePath = parserServices.gml?.filePath;
     if (typeof sourcePath !== "string" || sourcePath.length === 0) {
         return Object.freeze({ available: false, settings: null });
     }
@@ -70,14 +71,14 @@ export function reportMissingProjectContextOncePerFile(
 
     return Object.freeze({
         ...listeners,
-        Program(node) {
+        Program(node: unknown) {
             if (hasReported) {
                 return;
             }
 
             hasReported = true;
             context.report({
-                node,
+                node: node as never,
                 messageId: "missingProjectContext"
             });
         }

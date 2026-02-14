@@ -1,18 +1,239 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { execFile } from "node:child_process";
+import { test } from "node:test";
+import { promisify } from "node:util";
 
-import { Lint } from "../src/index.js";
+import { ESLint } from "eslint";
 
-test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
+import { Lint } from "../src/lint-namespace.js";
+
+type ParseSuccess = {
+    ok: true;
+    ast: {
+        comments?: Array<{ range?: [number, number] }>;
+        tokens?: Array<{ range?: [number, number] }>;
+        body?: Array<{ arguments?: Array<{ range?: [number, number] }> }>;
+    };
+    parserServices: {
+        gml: {
+            filePath: string;
+            recovery: Array<{ kind: string; originalOffset: number }>;
+            directives: Array<string>;
+            enums: Array<string>;
+        };
+    };
+};
+
+type ParseFailure = {
+    ok: false;
+    errors: ReadonlyArray<{ message: string; line: number; column: number }>;
+};
+
+const execFileAsync = promisify(execFile);
+
+function parseWithOptions(sourceText: string, recovery: "none" | "limited"): ParseSuccess | ParseFailure {
     const language = Lint.plugin.languages.gml as {
         parse: (
-            file: { text: string; filePath: string },
-            context: unknown
-        ) =>
-            | { ok: true; ast: unknown; parserServices: unknown }
-            | { ok: false; errors: ReadonlyArray<{ message: string; line: number; column: number }> };
+            file: { body: string; path: string },
+            context: { languageOptions: { recovery: "none" | "limited" } }
+        ) => ParseSuccess | ParseFailure;
     };
 
-    const result = language.parse({ text: "var x = 1;", filePath: "test.gml" }, { languageOptions: {} });
+    return language.parse(
+        {
+            body: sourceText,
+            path: "./test.gml"
+        },
+        {
+            languageOptions: { recovery }
+        }
+    );
+}
+
+async function lintTextWithESLintVersion(ESLintImplementation: typeof ESLint, sourceText: string) {
+    const eslint = new ESLintImplementation({
+        overrideConfigFile: true,
+        overrideConfig: [
+            {
+                files: ["**/*.gml"],
+                plugins: {
+                    gml: Lint.plugin
+                },
+                language: "gml/gml",
+                rules: {
+                    "gml/no-globalvar": "off"
+                }
+            }
+        ]
+    });
+
+    const [result] = await eslint.lintText(sourceText, {
+        filePath: "contract-target.gml"
+    });
+
+    return result;
+}
+
+async function runVersionCompatibilityProbe(packageName: string): Promise<void> {
+    const languageProbe = `
+        import { ESLint } from "${packageName}";
+        import { plugin } from "./src/plugin.js";
+
+        const eslint = new ESLint({
+            overrideConfigFile: true,
+            overrideConfig: [{
+                files: ["**/*.gml"],
+                plugins: { gml: plugin },
+                language: "gml/gml",
+                rules: { "gml/no-globalvar": "off" }
+            }]
+        });
+
+        const [result] = await eslint.lintText("var x = 1;", { filePath: "contract-target.gml" });
+        if (result.fatalErrorCount !== 0) {
+            throw new Error("Compatibility probe failed.");
+        }
+    `;
+
+    await execFileAsync("node", ["--input-type=module", "-e", languageProbe], {
+        cwd: new URL("../", import.meta.url)
+    });
+}
+
+void test("language object pins ESLint v9 language behavior fields", () => {
+    const language = Lint.plugin.languages.gml as Record<string, unknown>;
+
+    assert.equal(language.fileType, "text");
+    assert.equal(language.lineStart, 1);
+    assert.equal(language.columnStart, 0);
+    assert.equal(language.nodeTypeKey, "type");
+    assert.deepEqual(language.defaultLanguageOptions, { recovery: "limited" });
+    assert.deepEqual(language.visitorKeys, {});
+});
+
+test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
+    const result = parseWithOptions("var x = 1;", "limited");
     assert.equal(result.ok, true);
+});
+
+void test("language parse failure returns ESLint parse-failure channel", () => {
+    const parseResult = parseWithOptions("if (", "limited");
+
+    assert.equal(parseResult.ok, false);
+    if (parseResult.ok) {
+        return;
+    }
+
+    assert.equal(parseResult.errors.length, 1);
+    assert.equal(typeof parseResult.errors[0]?.message, "string");
+    assert.equal(typeof parseResult.errors[0]?.line, "number");
+    assert.equal(typeof parseResult.errors[0]?.column, "number");
+});
+
+void test("language hooks run successfully on minimum ESLint version", async () => {
+    await runVersionCompatibilityProbe("eslint-min");
+});
+
+void test("language hooks run successfully on latest ESLint version", async () => {
+    const result = await lintTextWithESLintVersion(ESLint, "var x = 1;");
+    assert.equal(result.fatalErrorCount, 0);
+    await runVersionCompatibilityProbe("eslint");
+});
+
+test("strict parse fails while limited recovery succeeds for missing argument separators", () => {
+    const strictResult = parseWithOptions("show_debug_message(1 2);", "none");
+    assert.equal(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions("show_debug_message(1 2);", "limited");
+    assert.equal(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.equal(limitedResult.parserServices.gml.recovery.length, 1);
+    assert.equal(limitedResult.parserServices.gml.recovery[0]?.kind, "inserted-argument-separator");
+
+    const recoveredArgumentRange = limitedResult.ast.body?.[0]?.arguments?.[1]?.range;
+    assert.deepEqual(recoveredArgumentRange, [21, 22]);
+});
+
+test("limited recovery preserves projected substring invariants for argument ranges", () => {
+    const source = "show_debug_message(10 20);";
+    const result = parseWithOptions(source, "limited");
+    assert.equal(result.ok, true);
+
+    if (!result.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    const secondArgumentRange = result.ast.body?.[0]?.arguments?.[1]?.range;
+    assert.ok(Array.isArray(secondArgumentRange));
+
+    const [start, end] = secondArgumentRange;
+    assert.equal(source.slice(start, end), "20");
+    assert.equal(result.parserServices.gml.recovery[0]?.originalOffset, 21);
+});
+
+test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
+    const result = parseWithOptions("var x = 1;", "limited");
+    assert.equal(result.ok, true);
+
+    if (!result.ok) {
+        assert.fail("Expected parse success.");
+    }
+
+    assert.equal(typeof result.parserServices.gml.filePath, "string");
+    assert.ok(result.parserServices.gml.filePath.endsWith("test.gml"));
+    assert.deepEqual(result.parserServices.gml.directives, []);
+    assert.deepEqual(result.parserServices.gml.enums, []);
+    assert.deepEqual(result.parserServices.gml.recovery, []);
+});
+
+test("utf-16 range projection stays aligned after limited recovery", () => {
+    const source = 'show_debug_message("😀" 2);';
+    const result = parseWithOptions(source, "limited");
+    assert.equal(result.ok, true);
+
+    if (!result.ok) {
+        assert.fail("Expected parse success.");
+    }
+
+    const firstArgumentRange = result.ast.body?.[0]?.arguments?.[0]?.range;
+    assert.deepEqual(firstArgumentRange, [19, 23]);
+    assert.equal(source.slice(19, 23), '"😀"');
+
+    const secondArgumentRange = result.ast.body?.[0]?.arguments?.[1]?.range;
+    assert.deepEqual(secondArgumentRange, [24, 25]);
+    assert.equal(source.slice(24, 25), "2");
+});
+
+test("tokenization source remains original source under limited recovery", () => {
+    const source = "show_debug_message(1 2); // tail";
+    const result = parseWithOptions(source, "limited");
+    assert.equal(result.ok, true);
+
+    if (!result.ok) {
+        assert.fail("Expected parse success.");
+    }
+
+    for (const token of result.ast.tokens ?? []) {
+        if (!Array.isArray(token.range)) {
+            continue;
+        }
+
+        const [start, end] = token.range;
+        assert.ok(start >= 0);
+        assert.ok(end <= source.length);
+        assert.ok(start <= end);
+    }
+
+    for (const comment of result.ast.comments ?? []) {
+        if (!Array.isArray(comment.range)) {
+            continue;
+        }
+
+        const [start, end] = comment.range;
+        assert.equal(source.slice(start, end).startsWith("//"), true);
+    }
 });
