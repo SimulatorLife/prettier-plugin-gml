@@ -149,6 +149,7 @@ const tsConfig = defineConfig({
             { type: "transpiler", pattern: "src/transpiler/**" },
             { type: "semantic", pattern: "src/semantic/**" },
             { type: "plugin", pattern: "src/plugin/**" },
+            { type: "lint", pattern: "src/lint/**" },
             { type: "refactor", pattern: "src/refactor/**" },
             { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
             { type: "cli", pattern: "src/cli/**" }
@@ -424,6 +425,7 @@ const tsConfig = defineConfig({
                             "transpiler",
                             "semantic",
                             "plugin",
+                            "lint",
                             "refactor",
                             "runtime-wrapper"
                         ],
@@ -455,6 +457,7 @@ const tsConfig = defineConfig({
                         allow: ["core", "parser", "transpiler", "semantic"]
                     },
                     { from: "plugin", allow: ["core", "parser", "plugin"] },
+                    { from: "lint", allow: ["core", "parser", "lint"] },
                     {
                         from: "refactor",
                         allow: [
@@ -484,6 +487,7 @@ const tsConfig = defineConfig({
                             "semantic",
                             "runtime-wrapper",
                             "plugin",
+                            "lint",
                             "refactor",
                             "cli"
                         ]

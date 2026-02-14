@@ -194,7 +194,7 @@ void describe("capability probes", () => {
 
         const dateLike = {
             toISOString: () => "2026-02-14T08:00:00.000Z",
-            getTime: () => 1739516400000,
+            getTime: () => 1_739_516_400_000,
             getFullYear: () => 2026
         };
         assert.equal(isDateLike(dateLike), true);

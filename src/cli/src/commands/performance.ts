@@ -461,6 +461,7 @@ let prettierModulePromise = null;
 
 function resolvePrettier() {
     if (!prettierModulePromise) {
+        // eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/plugin; CLI performance command needs direct import for benchmarking
         prettierModulePromise = import("prettier").then(resolveModuleDefaultExport);
     }
 

@@ -8,6 +8,7 @@ import type { Stream } from "node:stream";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
+// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/plugin; CLI memory command needs direct import for benchmarking
 import prettierStandaloneModule from "prettier/standalone.mjs";
 
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
