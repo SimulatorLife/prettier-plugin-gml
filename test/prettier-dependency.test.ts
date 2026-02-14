@@ -18,11 +18,12 @@ const TARGET_WORKSPACES: Array<WorkspacePolicy> = [
     { name: "@gml-modules/transpiler", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/runtime-wrapper", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/refactor", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/cli", allowPrettierPeerDep: true, requirePrettierPeerDep: false },
+    { name: "@gml-modules/cli", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/plugin", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
 ];
 
 const NO_PRETTIER_SECTIONS = ["dependencies", "devDependencies", "optionalDependencies"] as const;
+const FORMATTING_DEPENDENCIES = new Set(["prettier", "eslint-config-prettier", "@prettier/plugin-xml"]);
 
 type DependencyMap = Record<string, string>;
 type PackageJsonShape = {
@@ -54,4 +55,29 @@ void describe("prettier workspace dependencies", () => {
             }
         });
     }
+
+    void it("only plugin workspace can depend on formatting packages", () => {
+        for (const { name } of TARGET_WORKSPACES) {
+            const packageJson = require(`${name}/package.json`) as PackageJsonShape;
+            const allSections = [
+                packageJson.dependencies ?? {},
+                packageJson.devDependencies ?? {},
+                packageJson.optionalDependencies ?? {},
+                packageJson.peerDependencies ?? {}
+            ];
+
+            for (const dependencyName of FORMATTING_DEPENDENCIES) {
+                const isDeclared = allSections.some((section) => section[dependencyName] !== undefined);
+                if (name === "@gml-modules/plugin") {
+                    continue;
+                }
+
+                assert.equal(
+                    isDeclared,
+                    false,
+                    `${name} must not depend on formatter packages like ${dependencyName}; keep formatting dependencies plugin-only`
+                );
+            }
+        }
+    });
 });

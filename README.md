@@ -4,6 +4,13 @@
 
 ## Formatter at a glance
 
+## Formatter/Linter split (finalized)
+
+- `@gml-modules/plugin` is formatter-only (layout/canonical rendering).
+- `@gml-modules/lint` owns semantic/content rewrites and syntax repair via diagnostics + optional `--fix`.
+- Migration guidance and required before/after examples: [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md).
+- Auto-generated project-aware rule list: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md).
+
 See how the plugin rewrites real GameMaker Language (GML) inputs. Each example links to the corresponding regression fixture used by the automated test suite so you can diff behaviour without running the formatter locally.
 
 #### Struct consolidation & trailing comments
