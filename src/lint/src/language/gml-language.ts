@@ -53,6 +53,30 @@ function readFilename(context: any): string {
     return "<text>";
 }
 
+function assignRangesRecursively(node: unknown): void {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    const candidate = node as Record<string, unknown>;
+    const start = candidate.start;
+    const end = candidate.end;
+    if (typeof start === "number" && typeof end === "number" && !Array.isArray(candidate.range)) {
+        candidate.range = [start, end];
+    }
+
+    for (const value of Object.values(candidate)) {
+        if (Array.isArray(value)) {
+            for (const element of value) {
+                assignRangesRecursively(element);
+            }
+            continue;
+        }
+
+        assignRangesRecursively(value);
+    }
+}
+
 function createSourceCodeInstance(parameters: {
     text: string;
     ast: any;
@@ -143,6 +167,7 @@ export const gmlLanguage = Object.freeze({
         const sourceText = readSourceText(context);
         const normalizedResult = parseResult && typeof parseResult === "object" ? parseResult : {};
         const ast = normalizeProgramShape(normalizedResult.ast);
+        assignRangesRecursively(ast);
         const parserServices =
             normalizedResult.parserServices && typeof normalizedResult.parserServices === "object"
                 ? normalizedResult.parserServices

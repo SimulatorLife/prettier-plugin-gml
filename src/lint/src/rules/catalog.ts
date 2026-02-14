@@ -2,7 +2,7 @@ import type { Rule } from "eslint";
 
 import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { featherManifest } from "./feather/manifest.js";
-import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "./project-context.js";
+import { createGmlRule } from "./gml/create-gml-rules.js";
 import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
@@ -190,49 +190,10 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     }
 ]);
 
-function createNoopRule(definition: GmlRuleDefinition): Rule.RuleModule {
-    return Object.freeze({
-        meta: Object.freeze({
-            type: "suggestion",
-            docs: Object.freeze({
-                description: `Scaffold rule for ${definition.messageId}.`,
-                recommended: false,
-                requiresProjectContext: definition.requiresProjectContext,
-                gml: Object.freeze({
-                    requiredCapabilities: definition.requiredCapabilities,
-                    unsafeReasonCodes: definition.unsafeReasonCodes
-                })
-            }),
-            schema: definition.schema,
-            messages: Object.freeze({
-                [definition.messageId]: `${definition.messageId} diagnostic.`,
-                unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.",
-                missingProjectContext:
-                    "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
-            })
-        }),
-        create(context) {
-            if (!definition.requiresProjectContext) {
-                return Object.freeze({});
-            }
-
-            const projectContext = resolveProjectContextForRule(context, {
-                requiresProjectContext: definition.requiresProjectContext,
-                requiredCapabilities: definition.requiredCapabilities
-            });
-            if (projectContext.available) {
-                return Object.freeze({});
-            }
-
-            return reportMissingProjectContextOncePerFile(context, Object.freeze({}));
-        }
-    });
-}
-
 function createGmlRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
     for (const definition of gmlRuleDefinitions) {
-        map[definition.shortName] = createNoopRule(definition);
+        map[definition.shortName] = createGmlRule(definition);
     }
     return map;
 }

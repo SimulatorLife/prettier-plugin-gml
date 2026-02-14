@@ -1,0 +1,1 @@
+message = "HP: " + string(hp);
