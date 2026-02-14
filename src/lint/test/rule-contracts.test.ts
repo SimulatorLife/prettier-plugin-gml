@@ -226,7 +226,7 @@ void test("project-aware rules report missingProjectContext at most once per fil
     assert.deepEqual(reported, ["missingProjectContext"]);
 });
 
-test("only gml/require-argument-separators may consume inserted separator recovery metadata", () => {
+void test("only gml/require-argument-separators may consume inserted separator recovery metadata", () => {
     assert.ok(
         LintWorkspace.Lint.ruleIds.GmlRequireArgumentSeparators,
         "Expected require-argument-separators rule id to exist."

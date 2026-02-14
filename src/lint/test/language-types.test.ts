@@ -1,6 +1,8 @@
 import test from "node:test";
 
-import type { Lint } from "../src/lint-namespace.js";
+import * as LintWorkspace from "@gml-modules/lint";
+
+const { Lint } = LintWorkspace;
 
 type ExpectTrue<T extends true> = T;
 type IsAssignable<TValue, TExpected> = TValue extends TExpected ? true : false;

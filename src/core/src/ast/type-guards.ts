@@ -515,6 +515,44 @@ export function isProgramNode(node: unknown): node is MutableGameMakerAstNode {
 }
 
 /**
+ * Type guard for control flow exit statements.
+ *
+ * Returns true if the node is a statement that unconditionally exits the current
+ * control flow scope: `return`, `break`, `continue`, `exit`, or `throw`.
+ *
+ * This helper consolidates duplicated logic scattered across the plugin workspace
+ * where multiple files independently checked for these statement types. Instead of
+ * maintaining separate implementations (e.g., `isTerminatingStatement` in
+ * apply-feather-fixes.ts, `isEarlyExitStatement` in condensation.ts), consumers
+ * can now use this canonical Core type guard as a foundation.
+ *
+ * Note: This guard performs only the basic type check. Callers with additional
+ * requirements (e.g., filtering nodes with comments, checking return argument
+ * presence) should layer those checks on top of this foundational helper.
+ *
+ * @example
+ * ```ts
+ * if (Core.isControlFlowExitStatement(node)) {
+ *   // node is guaranteed to be one of: ReturnStatement, BreakStatement,
+ *   // ContinueStatement, ExitStatement, or ThrowStatement
+ * }
+ * ```
+ */
+export function isControlFlowExitStatement(node: unknown): node is MutableGameMakerAstNode {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        hasType(node, RETURN_STATEMENT) ||
+        hasType(node, BREAK_STATEMENT) ||
+        hasType(node, CONTINUE_STATEMENT) ||
+        hasType(node, EXIT_STATEMENT) ||
+        hasType(node, THROW_STATEMENT)
+    );
+}
+
+/**
  * NOTE: Several commonly-used type guards are already defined in node-helpers.ts
  * and are re-exported from there for historical reasons and enhanced functionality:
  *

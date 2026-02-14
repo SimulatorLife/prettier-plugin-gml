@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
@@ -133,7 +134,7 @@ function decodeFileBody(body: string | Uint8Array): string {
 }
 
 function readSourceText(context: GMLLanguageContext): string {
-    if (context.body instanceof Uint8Array || typeof context.body === "string") {
+    if (Core.isUint8ArrayLike(context.body) || typeof context.body === "string") {
         return decodeFileBody(context.body);
     }
 
@@ -380,7 +381,7 @@ function createSourceCodeInstance(parameters: {
 
 function getErrorLineColumn(error: unknown): { line: number; column: number; message: string } {
     const fallback = { line: 1, column: 1, message: "Unknown parse error" };
-    if (!(error instanceof Error)) {
+    if (!Core.isErrorLike(error)) {
         return fallback;
     }
 
@@ -400,6 +401,17 @@ function getErrorLineColumn(error: unknown): { line: number; column: number; mes
 
 export const GML_VISITOR_KEYS = Object.freeze({}) as Record<string, string[]>;
 
+function parseAst(text: string): GMLAstNode {
+    const parser = new Parser.GMLParser(text, {
+        astFormat: "gml",
+        asJSON: false,
+        getComments: true,
+        getLocations: true,
+        simplifyLocations: false
+    });
+    return normalizeProgramShape(parser.parse());
+}
+
 export const gmlLanguage = Object.freeze({
     fileType: "text",
     lineStart: 1,
@@ -411,17 +423,6 @@ export const gmlLanguage = Object.freeze({
         const sourceText = readSourceText(file);
         const filePath = normalizeLintFilePath(readFilename(file));
         const recoveryMode = readRecoveryMode(parseContext);
-
-        const parseAst = (text: string): GMLAstNode => {
-            const parser = new Parser.GMLParser(text, {
-                astFormat: "gml",
-                asJSON: false,
-                getComments: true,
-                getLocations: true,
-                simplifyLocations: false
-            });
-            return normalizeProgramShape(parser.parse());
-        };
 
         try {
             const ast = parseAst(sourceText);

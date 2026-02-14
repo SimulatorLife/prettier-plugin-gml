@@ -1,3 +1,5 @@
+import { Core } from "@gml-modules/core";
+
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import { isErrorLike, toArray } from "../runtime/runtime-core-helpers.js";
@@ -755,11 +757,11 @@ function parseWebSocketPayload(
 }
 
 function isStructuredPayload(value: unknown): value is object {
-    return Boolean(value) && typeof value === "object" && !isBinaryPayload(value);
+    return Boolean(value) && typeof value === "object" && !Core.isBinaryDataLike(value);
 }
 
 function isBinaryPayload(value: unknown): value is ArrayBuffer | ArrayBufferView {
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+    return Core.isBinaryDataLike(value);
 }
 
 function decodeBinaryPayload(
@@ -781,7 +783,7 @@ function decodeBinaryPayload(
 }
 
 function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
-    if (payload instanceof ArrayBuffer) {
+    if (Core.isArrayBufferLike(payload)) {
         return new Uint8Array(payload);
     }
 

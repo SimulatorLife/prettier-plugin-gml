@@ -392,6 +392,41 @@ export interface DependencyValidationResult {
     missingDependencies: Array<string>;
 }
 
+type DependencyLookup = ReadonlySet<string>;
+
+function createDependencyLookup(registry: RuntimeRegistry): DependencyLookup {
+    return new Set([
+        ...Object.keys(registry.scripts),
+        ...Object.keys(registry.events),
+        ...Object.keys(registry.closures)
+    ]);
+}
+
+function collectMissingDependencies(
+    dependencies: ReadonlyArray<unknown>,
+    dependencyLookup: DependencyLookup
+): Array<string> {
+    const missingDependencies: Array<string> = [];
+    const checkedDependencies = new Set<string>();
+
+    for (const dependencyCandidate of dependencies) {
+        if (typeof dependencyCandidate !== "string" || dependencyCandidate.length === 0) {
+            continue;
+        }
+
+        if (checkedDependencies.has(dependencyCandidate)) {
+            continue;
+        }
+        checkedDependencies.add(dependencyCandidate);
+
+        if (!dependencyLookup.has(dependencyCandidate)) {
+            missingDependencies.push(dependencyCandidate);
+        }
+    }
+
+    return missingDependencies;
+}
+
 export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistry): DependencyValidationResult {
     const dependencies = patch.metadata?.dependencies;
 
@@ -399,21 +434,8 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
         return { satisfied: true, missingDependencies: [] };
     }
 
-    const missingDependencies: Array<string> = [];
-
-    for (const depId of dependencies) {
-        if (typeof depId !== "string" || !depId) {
-            continue;
-        }
-
-        const existsInScripts = depId in registry.scripts;
-        const existsInEvents = depId in registry.events;
-        const existsInClosures = depId in registry.closures;
-
-        if (!existsInScripts && !existsInEvents && !existsInClosures) {
-            missingDependencies.push(depId);
-        }
-    }
+    const dependencyLookup = createDependencyLookup(registry);
+    const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
 
     return {
         satisfied: missingDependencies.length === 0,

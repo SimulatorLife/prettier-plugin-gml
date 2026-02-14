@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-import { Lint } from "@gml-modules/lint";
+import * as LintWorkspace from "@gml-modules/lint";
+
+const { Lint } = LintWorkspace;
 
 const fixtureRoot = path.resolve("test/fixtures");
 const allCapabilities = new Set([
@@ -19,8 +21,8 @@ type FixOperation =
 
 function buildLineStarts(text: string): Array<number> {
     const starts = [0];
-    for (const [index, element] of text.entries()) {
-        if (element === "\n") {
+    for (const [index, character] of Array.from(text).entries()) {
+        if (character === "\n") {
             starts.push(index + 1);
         }
     }
