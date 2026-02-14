@@ -139,7 +139,6 @@ void test("explicit config validation fails on missing file", async () => {
 
     await assert.rejects(() => __lintCommandTest__.validateExplicitConfigPath(missingPath));
 });
-
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {
