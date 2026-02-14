@@ -32,6 +32,7 @@
     "eslint-formatter-checkstyle": "^9.0.1",
     "linkedom": "^0.18.12",
     "fast-xml-parser": "^5.3.4",
+    "prettier": "3.6.2",
     "ws": "^8.18.0"
   },
   "engines": {

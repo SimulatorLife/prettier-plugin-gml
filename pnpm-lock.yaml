@@ -173,6 +173,9 @@ importers:
       linkedom:
         specifier: ^0.18.12
         version: 0.18.12
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
       ws:
         specifier: ^8.18.0
         version: 8.19.0

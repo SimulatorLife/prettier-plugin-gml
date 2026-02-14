@@ -1,5 +1,4 @@
-import { existsSync } from "node:fs";
-import { constants } from "node:fs";
+import { constants, existsSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -419,6 +418,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     });
 
     if (configExitCode !== 0) {
+        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = configExitCode;
         return;
     }
@@ -447,6 +447,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
+        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -456,6 +457,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results = await eslint.lintFiles(targets);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
+        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -482,6 +484,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
                 `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
         );
+        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -494,6 +497,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
+        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -511,6 +515,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     );
 
+    // eslint-disable-next-line require-atomic-updates -- Final assignment at end of command; no race condition possible
     process.exitCode = resolveExitCode({
         errorCount: totals.errorCount,
         warningCount: totals.warningCount,
