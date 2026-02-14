@@ -349,7 +349,7 @@ async function configureLintConfig(parameters: {
             await validateExplicitConfigPath(parameters.configPath);
         } catch (error) {
             console.error(
-                `Failed to read eslint config at ${parameters.configPath}: ${error instanceof Error ? error.message : String(error)}`
+                `Failed to read eslint config at ${parameters.configPath}: ${Core.isErrorLike(error) ? error.message : String(error)}`
             );
             return 2;
         }
@@ -446,7 +446,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     try {
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
         process.exitCode = 2;
         return;
     }
@@ -455,7 +455,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     try {
         results = await eslint.lintFiles(targets);
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
         process.exitCode = 2;
         return;
     }
@@ -493,7 +493,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             process.stdout.write(`${formatterOutput}\n`);
         }
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
         process.exitCode = 2;
         return;
     }

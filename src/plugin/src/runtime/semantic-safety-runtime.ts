@@ -164,7 +164,7 @@ export async function runWithFeatherRenamePlan<T>(
     planMap: Map<string, FeatherRenameResolution | null> | null,
     operation: () => Promise<T>
 ): Promise<T> {
-    if (!(planMap instanceof Map)) {
+    if (!Core.isMapLike(planMap)) {
         return await operation();
     }
 
@@ -567,14 +567,16 @@ function getPlannedFeatherRename(
 
     const optionBag = options as Record<string, unknown>;
     const mapCandidate = Reflect.get(optionBag, "__featherRenamePlanMap");
-    const activePlanMap =
-        mapCandidate instanceof Map ? mapCandidate : (scopedFeatherRenamePlanMap.getStore() ?? undefined);
-    if (!(activePlanMap instanceof Map)) {
+    const activePlanMap = Core.isMapLike(mapCandidate)
+        ? mapCandidate
+        : (scopedFeatherRenamePlanMap.getStore() ?? undefined);
+    if (!Core.isMapLike(activePlanMap)) {
         return undefined;
     }
 
+    const planMap = activePlanMap as Map<string, FeatherRenameResolution | null>;
     const key = buildFeatherRenamePlanKey(identifierName, preferredReplacementName);
-    return activePlanMap.has(key) ? (activePlanMap.get(key) as FeatherRenameResolution | null) : undefined;
+    return planMap.has(key) ? planMap.get(key) : undefined;
 }
 
 function buildFeatherRenamePlanKey(identifierName: string, preferredReplacementName: string): string {
