@@ -26,6 +26,7 @@ void describe("memory AST common node type limit configuration", () => {
     });
 
     afterEach(() => {
+        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
         applyAstCommonNodeTypeLimitEnvOverride();
     });
 
