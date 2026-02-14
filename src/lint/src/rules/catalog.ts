@@ -208,18 +208,11 @@ function createFeatherRuleMap(): Record<string, Rule.RuleModule> {
                 docs: Object.freeze({
                     description: `Scaffold rule for ${entry.ruleId}.`,
                     recommended: false,
-                    requiresProjectContext: entry.requiresProjectContext,
-                    gml: Object.freeze({
-                        requiredCapabilities: Object.freeze([]),
-                        unsafeReasonCodes: Object.freeze([] as ReadonlyArray<UnsafeReasonCode>)
-                    })
+                    requiresProjectContext: entry.requiresProjectContext
                 }),
                 schema: EMPTY_SCHEMA,
                 messages: Object.freeze({
-                    diagnostic: `${entry.ruleId} diagnostic.`,
-                    unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.",
-                    missingProjectContext:
-                        "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
+                    diagnostic: `${entry.ruleId} diagnostic.`
                 })
             }),
             create() {

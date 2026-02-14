@@ -1,12 +1,8 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    coercePositiveInteger,
-    createEnvConfiguredValue,
-    createNumericTypeErrorFormatter,
-    describeValueForError,
-    resolveIntegerOption
-} = Core;
+import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
+
+const { coercePositiveInteger, createNumericTypeErrorFormatter, describeValueForError, resolveIntegerOption } = Core;
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
@@ -155,17 +151,11 @@ const coerce = (value: unknown, context = {}) => {
     return coercePositiveInteger(value, opts);
 };
 
-const state = createEnvConfiguredValue<number | undefined>({
+const state = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce,
-            typeErrorMessage: createWidthTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    coerce,
+    typeErrorMessage: createWidthTypeErrorMessage
 });
 
 function getDefaultProgressBarWidth(): number | undefined {
