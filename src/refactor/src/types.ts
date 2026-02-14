@@ -1,3 +1,9 @@
+/**
+ * Core types and interfaces for the refactor engine.
+ * Defines symbols, occurrences, conflicts, dependencies, and validation contracts
+ * that coordinate semantic analysis, transpiler integration, and safe renaming.
+ */
+
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;

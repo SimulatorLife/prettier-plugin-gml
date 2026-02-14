@@ -1,3 +1,9 @@
+/**
+ * Workspace edit types and utilities for the refactor engine.
+ * Defines text edits, file renames, and metadata patches that collectively
+ * represent a semantic-safe refactoring operation across multiple files.
+ */
+
 export interface TextEdit {
     path: string;
     start: number;
