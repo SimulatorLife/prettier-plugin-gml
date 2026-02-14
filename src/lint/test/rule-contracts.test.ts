@@ -6,7 +6,108 @@ import * as LintWorkspace from "@gml-modules/lint";
 type RuleMeta = Readonly<{
     docs: Readonly<Record<string, unknown>>;
     messages: Readonly<Record<string, string>>;
+    schema: ReadonlyArray<unknown>;
 }>;
+
+const expectedRules = Object.freeze([
+    {
+        shortName: "prefer-loop-length-hoist",
+        messageId: "preferLoopLengthHoist",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                    functionSuffixes: {
+                        type: "object",
+                        additionalProperties: {
+                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
+                        }
+                    },
+                    reportUnsafe: { type: "boolean", default: true }
+                }
+            }
+        ]
+    },
+    {
+        shortName: "prefer-hoistable-loop-accessors",
+        messageId: "preferHoistableLoopAccessor",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                    minOccurrences: { type: "integer", minimum: 2, default: 2 },
+                    reportUnsafe: { type: "boolean", default: true }
+                }
+            }
+        ]
+    },
+    {
+        shortName: "prefer-struct-literal-assignments",
+        messageId: "preferStructLiteralAssignments",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: { reportUnsafe: { type: "boolean", default: true } }
+            }
+        ]
+    },
+    {
+        shortName: "optimize-logical-flow",
+        messageId: "optimizeLogicalFlow",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: { maxBooleanVariables: { type: "integer", minimum: 1, maximum: 10, default: 10 } }
+            }
+        ]
+    },
+    {
+        shortName: "no-globalvar",
+        messageId: "noGlobalvar",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                    enableAutofix: { type: "boolean", default: true },
+                    reportUnsafe: { type: "boolean", default: true }
+                }
+            }
+        ]
+    },
+    {
+        shortName: "normalize-doc-comments",
+        messageId: "normalizeDocComments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "prefer-string-interpolation",
+        messageId: "preferStringInterpolation",
+        schema: [
+            {
+                type: "object",
+                additionalProperties: false,
+                properties: { reportUnsafe: { type: "boolean", default: true } }
+            }
+        ]
+    },
+    {
+        shortName: "optimize-math-expressions",
+        messageId: "optimizeMathExpressions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "require-argument-separators",
+        messageId: "requireArgumentSeparators",
+        schema: [
+            { type: "object", additionalProperties: false, properties: { repair: { type: "boolean", default: true } } }
+        ]
+    }
+]);
 
 function getRuleMeta(ruleId: string): RuleMeta {
     const rule = LintWorkspace.Lint.plugin.rules[ruleId] as unknown as { meta: RuleMeta };
@@ -26,6 +127,17 @@ function extractUnsafeFixReasonCodes(messages: Readonly<Record<string, string>>)
 
     return reasonCodes;
 }
+
+void test("recommended baseline rules expose stable messageIds and exact schemas", () => {
+    for (const ruleDefinition of expectedRules) {
+        const rule = LintWorkspace.Lint.plugin.rules[ruleDefinition.shortName] as {
+            meta?: { messages?: Record<string, string>; schema?: ReadonlyArray<unknown> };
+        };
+
+        assert.equal(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
+        assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
+    }
+});
 
 void test("project-aware rules declare required capabilities and unsafe reason codes", () => {
     const projectAwareRuleIds = [
@@ -106,6 +218,7 @@ void test("project-aware rules report missingProjectContext at most once per fil
 
     listeners.Program?.({ type: "Program" } as never);
     listeners.Program?.({ type: "Program" } as never);
-
+    listeners.Program?.({ type: "Program" } as never);
+    listeners.Program?.({ type: "Program" } as never);
     assert.deepEqual(reported, ["missingProjectContext"]);
 });
