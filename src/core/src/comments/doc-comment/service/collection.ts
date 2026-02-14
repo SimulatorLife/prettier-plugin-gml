@@ -391,6 +391,33 @@ function appendFlattenedEntry(target: string[], entry: unknown): void {
     target.push(entry);
 }
 
+function getCommentIndexValue(comment: unknown, field: "start" | "end"): number | null {
+    if (!comment || typeof comment !== "object") {
+        return null;
+    }
+
+    const fieldValue = (comment as { [key: string]: unknown })[field];
+    if (typeof fieldValue === "number") {
+        return fieldValue;
+    }
+
+    if (!fieldValue || typeof fieldValue !== "object") {
+        return null;
+    }
+
+    const indexValue = (fieldValue as { index?: unknown }).index;
+    return typeof indexValue === "number" ? indexValue : null;
+}
+
+function isUnprintedLineComment(comment: unknown): comment is { [key: string]: unknown; type: "CommentLine" } {
+    if (!comment || typeof comment !== "object") {
+        return false;
+    }
+
+    const candidate = comment as { [key: string]: unknown };
+    return candidate.type === "CommentLine" && candidate.printed !== true;
+}
+
 export function collectLeadingProgramLineComments(
     node: any,
     programNode: any,
@@ -417,37 +444,12 @@ export function collectLeadingProgramLineComments(
 
     for (let i = programComments.length - 1; i >= 0; i -= 1) {
         const comment = programComments[i];
-        if (
-            !comment ||
-            typeof comment !== "object" ||
-            !("type" in comment) ||
-            (comment as { type: unknown }).type !== "CommentLine" ||
-            ("printed" in comment && (comment as { printed: unknown }).printed)
-        ) {
+        if (!isUnprintedLineComment(comment)) {
             continue;
         }
 
-        const commentEndRaw =
-            typeof comment === "object" && comment !== null && "end" in comment
-                ? (comment as { end: unknown }).end
-                : null;
-        const commentEnd =
-            typeof commentEndRaw === NUMBER_TYPE
-                ? commentEndRaw
-                : typeof commentEndRaw === "object" && commentEndRaw !== null && "index" in commentEndRaw
-                  ? (commentEndRaw as { index: unknown }).index
-                  : null;
-
-        const commentStartRaw =
-            typeof comment === "object" && comment !== null && "start" in comment
-                ? (comment as { start: unknown }).start
-                : null;
-        const commentStart =
-            typeof commentStartRaw === NUMBER_TYPE
-                ? commentStartRaw
-                : typeof commentStartRaw === "object" && commentStartRaw !== null && "index" in commentStartRaw
-                  ? (commentStartRaw as { index: unknown }).index
-                  : null;
+        const commentEnd = getCommentIndexValue(comment, "end");
+        const commentStart = getCommentIndexValue(comment, "start");
 
         if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
             continue;
@@ -473,7 +475,7 @@ export function collectLeadingProgramLineComments(
             }
         }
 
-        (comment as unknown as { printed: boolean }).printed = true;
+        comment.printed = true;
         leadingLines.unshift(typeof formatted === STRING_TYPE ? formatted : "");
         anchorIndex =
             typeof commentStart === "number" ? commentStart : typeof commentEnd === "number" ? commentEnd : anchorIndex;
