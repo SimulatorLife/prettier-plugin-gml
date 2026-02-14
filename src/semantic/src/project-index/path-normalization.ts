@@ -53,7 +53,9 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot }: any = {})
         return normalized;
     }
 
-    const absoluteCandidate = path.isAbsolute(normalized) ? normalized : path.join(projectRoot, normalized);
+    const useWin32 = path.win32.isAbsolute(normalized) || path.win32.isAbsolute(projectRoot);
+    const pathApi = useWin32 ? path.win32 : path;
+    const absoluteCandidate = pathApi.isAbsolute(normalized) ? normalized : pathApi.join(projectRoot, normalized);
 
     return withProjectPathInfo(absoluteCandidate, projectRoot, (info) => Core.toPosixPath(info.relativePath));
 }

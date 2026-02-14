@@ -44,4 +44,16 @@ void describe("project-index/path-info", () => {
         assert.strictEqual(info.isInsideProjectRoot, false);
         assert.strictEqual(info.relativePath, path.relative(path.resolve(projectRoot), path.resolve(sibling)));
     });
+
+    void it("supports Windows-style absolute paths on non-Windows hosts", () => {
+        const projectRoot = path.win32.join("C:\\", "GameMaker", "Project");
+        const filePath = path.win32.join(projectRoot, "scripts", "init.gml");
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
+        assert.strictEqual(info.relativePath, path.win32.join("scripts", "init.gml"));
+    });
 });
