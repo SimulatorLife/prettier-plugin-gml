@@ -6,6 +6,18 @@ import { test } from "node:test";
 const pluginTestRoot = path.resolve(process.cwd(), "src", "plugin", "test");
 const pluginFormattingFixtureRoot = path.resolve(pluginTestRoot, "fixtures", "formatting");
 const pluginIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "plugin-integration");
+const REMOVED_FORMATTER_OPTION_KEYS = new Set([
+    "applyFeatherFixes",
+    "preserveGlobalVarStatements",
+    "optimizeLoopLengthHoisting",
+    "loopLengthHoistFunctionSuffixes",
+    "condenseStructAssignments",
+    "useStringInterpolation",
+    "optimizeLogicalExpressions",
+    "optimizeMathExpressions",
+    "sanitizeMissingArgumentSeparators",
+    "normalizeDocComments"
+]);
 
 function isFixtureFile(fileName: string): boolean {
     return fileName.endsWith(".gml") || fileName.endsWith(".options.json");
@@ -87,5 +99,24 @@ void test("integration fixture directory contains the required cross-workspace f
     const existing = new Set(await fs.readdir(pluginIntegrationFixtureRoot));
     for (const fileName of expectedFiles) {
         assert.equal(existing.has(fileName), true, `Missing integration fixture '${fileName}'.`);
+    }
+});
+
+void test("integration fixture options do not include removed formatter migration keys", async () => {
+    const entries = await fs.readdir(pluginIntegrationFixtureRoot);
+    const optionFiles = entries.filter((entry) => entry.endsWith(".options.json"));
+
+    for (const optionFile of optionFiles) {
+        const optionPath = path.join(pluginIntegrationFixtureRoot, optionFile);
+        const raw = await fs.readFile(optionPath, "utf8");
+        const parsed = JSON.parse(raw) as unknown;
+
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            continue;
+        }
+
+        const keys = Object.keys(parsed as Record<string, unknown>);
+        const removedKeys = keys.filter((key) => REMOVED_FORMATTER_OPTION_KEYS.has(key));
+        assert.deepEqual(removedKeys, [], `${optionFile} contains removed formatter option(s): ${removedKeys.join(", ")}`);
     }
 });

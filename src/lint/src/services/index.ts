@@ -2,6 +2,7 @@ import { PERFORMANCE_OVERRIDE_RULE_IDS } from "../configs/performance-rule-ids.j
 import { featherManifest } from "../rules/feather/manifest.js";
 import type { ProjectCapability } from "../types/index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
+import { createTextProjectAnalysisProvider, type ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import {
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
@@ -33,10 +34,13 @@ export interface GmlProjectSettings {
     getContext(filePath: string): GmlProjectContext | null;
 }
 
+export type { ProjectAnalysisProvider };
+
 export const services = Object.freeze({
     featherManifest,
     performanceOverrideRuleIds: PERFORMANCE_OVERRIDE_RULE_IDS,
     defaultProjectIndexExcludes: DEFAULT_PROJECT_INDEX_EXCLUDES,
+    createTextProjectAnalysisProvider,
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
     isPathWithinBoundary,

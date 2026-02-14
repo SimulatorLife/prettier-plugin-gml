@@ -19,7 +19,7 @@ const INTEGRATION_FIXTURE_NAMES = new Set([
     "testGlobalVars"
 ]);
 const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>();
-const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012"]);
+const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)

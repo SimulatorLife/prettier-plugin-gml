@@ -1,1 +1,3 @@
-{"applyFeatherFixes": true, "allowSingleLineIfStatements": false, "useStringInterpolation": false}
+{
+  "allowSingleLineIfStatements": false
+}
