@@ -7,9 +7,5 @@ export {
     parsers,
     Plugin,
     printers,
-    restoreDefaultRefactorRuntime,
-    restoreDefaultSemanticSafetyRuntime,
-    setIdentifierCaseRuntime,
-    setRefactorRuntime,
-    setSemanticSafetyRuntime
+    setIdentifierCaseRuntime
 } from "./plugin-entry.js";

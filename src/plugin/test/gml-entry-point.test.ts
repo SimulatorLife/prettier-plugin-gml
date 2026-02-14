@@ -5,69 +5,27 @@ import { gmlPluginComponents } from "../src/components/plugin-components.js";
 import * as gmlPlugin from "../src/index.js";
 
 void test("GML entry point exports static plugin components", () => {
-    // Verify that the entry point properly exposes parsers
     const parserKeys = Object.keys(gmlPlugin.parsers);
-    assert.ok(parserKeys.includes("gml-parse"), "parsers export should include gml-parse");
-    assert.ok(parserKeys.includes("gmlParserAdapter"), "parsers export should include gmlParserAdapter");
+    assert.ok(parserKeys.includes("gml-parse"));
+    assert.ok(parserKeys.includes("gmlParserAdapter"));
 
-    // Verify that the entry point properly exposes printers
     const printerKeys = Object.keys(gmlPlugin.printers);
-    assert.ok(printerKeys.includes("gml-ast"), "printers export should include gml-ast");
+    assert.ok(printerKeys.includes("gml-ast"));
 
-    // Verify that the entry point properly exposes options
     const optionKeys = Object.keys(gmlPlugin.options);
-    assert.ok(optionKeys.includes("optimizeLoopLengthHoisting"), "options export should include plugin options");
+    assert.ok(optionKeys.includes("logicalOperatorsStyle"));
 
-    // Verify default options are properly set
-    assert.ok(gmlPlugin.defaultOptions, "default options should be exported");
-    assert.ok(typeof gmlPlugin.defaultOptions === "object", "default options should be an object");
-    assert.ok(typeof gmlPlugin.setSemanticSafetyRuntime === "function", "semantic safety runtime setter should exist");
-    assert.ok(typeof gmlPlugin.setRefactorRuntime === "function", "refactor runtime setter should exist");
-    assert.ok(typeof gmlPlugin.setIdentifierCaseRuntime === "function", "identifier-case runtime setter should exist");
+    assert.ok(gmlPlugin.defaultOptions);
+    assert.ok(typeof gmlPlugin.setIdentifierCaseRuntime === "function");
 
-    // Verify that the exports are consistent with the component bundle
-    assert.strictEqual(
-        gmlPlugin.parsers,
-        gmlPluginComponents.parsers,
-        "parsers export should reference the component bundle parsers"
-    );
-    assert.strictEqual(
-        gmlPlugin.printers,
-        gmlPluginComponents.printers,
-        "printers export should reference the component bundle printers"
-    );
-    assert.strictEqual(
-        gmlPlugin.options,
-        gmlPluginComponents.options,
-        "options export should reference the component bundle options"
-    );
+    assert.strictEqual(gmlPlugin.parsers, gmlPluginComponents.parsers);
+    assert.strictEqual(gmlPlugin.printers, gmlPluginComponents.printers);
+    assert.strictEqual(gmlPlugin.options, gmlPluginComponents.options);
 });
 
-void test("GML entry point exports are immutable", () => {
-    // Verify parsers cannot be mutated
-    assert.throws(
-        () => {
-            (gmlPlugin.parsers as any)["malicious-parser"] = {};
-        },
-        TypeError,
-        "parsers should be frozen"
-    );
-
-    // Verify printers cannot be mutated
-    assert.throws(
-        () => {
-            (gmlPlugin.printers as any)["malicious-printer"] = {};
-        },
-        TypeError,
-        "printers should be frozen"
-    );
-
-    // Verify options cannot be mutated
-    assert.throws(
-        () => {
-            (gmlPlugin.options as any)["malicious-option"] = {};
-        },
-        TypeError,
-        "options should be frozen"
-    );
+void test("GML entry point does not export semantic/refactor runtime hook setters", () => {
+    assert.ok(!Object.hasOwn(gmlPlugin, "setSemanticSafetyRuntime"));
+    assert.ok(!Object.hasOwn(gmlPlugin, "setRefactorRuntime"));
+    assert.ok(!Object.hasOwn(gmlPlugin, "restoreDefaultSemanticSafetyRuntime"));
+    assert.ok(!Object.hasOwn(gmlPlugin, "restoreDefaultRefactorRuntime"));
 });

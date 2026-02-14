@@ -13,8 +13,6 @@ import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./constants.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { type IdentifierCaseRuntime, setIdentifierCaseRuntime } from "./parsers/index.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
-import { runWithFeatherRenamePlan, runWithSemanticSafetyReportService } from "./runtime/semantic-safety-runtime.js";
-import { prepareFeatherRenamePlanningForFormat } from "./transforms/feather/feather-rename-planning.js";
 
 const parsers = gmlPluginComponents.parsers;
 const printers = gmlPluginComponents.printers;
@@ -184,31 +182,12 @@ async function format(source: string, options: SupportOptions = {}) {
         ...defaultOptions,
         ...options
     });
-    const semanticSafetyReportServiceCandidate =
-        resolvedOptions["__semanticSafetyReportService" as keyof typeof resolvedOptions];
-    const semanticSafetyReportService =
-        typeof semanticSafetyReportServiceCandidate === "function"
-            ? (semanticSafetyReportServiceCandidate as (
-                  report: unknown,
-                  options: Record<string, unknown> | null | undefined
-              ) => void)
-            : null;
-
     try {
-        const featherRenamePlanMap =
-            resolvedOptions.applyFeatherFixes === true
-                ? await prepareFeatherRenamePlanningForFormat(source, resolvedOptions)
-                : null;
-
-        const formatted = await runWithFeatherRenamePlan(featherRenamePlanMap, () =>
-            runWithSemanticSafetyReportService(semanticSafetyReportService, () =>
-                prettier.format(source, {
-                    ...(resolvedOptions as SupportOptions),
-                    parser: "gml-parse",
-                    plugins: [Plugin]
-                })
-            )
-        );
+        const formatted = await prettier.format(source, {
+            ...(resolvedOptions as SupportOptions),
+            parser: "gml-parse",
+            plugins: [Plugin]
+        });
 
         identifierCasePrinterServices.dryRunReportService(resolvedOptions);
 
@@ -237,9 +216,3 @@ export const Plugin: GmlPlugin = {
 export default Plugin;
 
 export { setIdentifierCaseRuntime } from "./parsers/index.js";
-export {
-    restoreDefaultRefactorRuntime,
-    restoreDefaultSemanticSafetyRuntime,
-    setRefactorRuntime,
-    setSemanticSafetyRuntime
-} from "./runtime/index.js";

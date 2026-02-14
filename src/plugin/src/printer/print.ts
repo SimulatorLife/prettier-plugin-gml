@@ -598,16 +598,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {
-            if (options.preserveGlobalVarStatements === false) {
-                const parts = buildGlobalVarNormalizationParts(node, path, print, options);
-
-                if (parts.length === 0) {
-                    return "";
-                }
-
-                return join(hardline, parts);
-            }
-
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
@@ -759,7 +749,7 @@ function printBinaryExpressionNode(node, path, options, print) {
     let right;
     const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
-    const optimizeMathExpressions = Boolean(options?.optimizeMathExpressions);
+    const optimizeMathExpressions = false;
 
     const leftIsUndefined = Core.isUndefinedSentinel(node.left);
     const rightIsUndefined = Core.isUndefinedSentinel(node.right);
@@ -1022,13 +1012,8 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (
-        options?.preserveGlobalVarStatements !== false &&
-        node?.object?.type === IDENTIFIER &&
-        node.object.name === "global"
-    ) {
-        const preservedNames =
-            options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    if (node?.object?.type === IDENTIFIER && node.object.name === "global") {
+        const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
         const propertyNode = node.property;
         const propertyName = propertyNode?.type === IDENTIFIER ? Core.getIdentifierText(propertyNode) : null;
         if (
@@ -2446,7 +2431,7 @@ function printStatements(path, options, print, childrenAttribute) {
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
-    if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
+    if (statements && statements.length > 0) {
         ensurePreservedGlobalVarNames(options, statements);
     }
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
@@ -3548,7 +3533,7 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
  * @param {any} options - Prettier option bag
  * @returns {Array<any>} Array of formatted assignment doc fragments
  */
-function buildGlobalVarNormalizationParts(node, path, print, options) {
+function _buildGlobalVarNormalizationParts(node, path, print, options) {
     const parts = [];
     const declarationCount = node.declarations.length;
 
@@ -4799,11 +4784,7 @@ function needsParensForNegation(node) {
 }
 
 function ensurePreservedGlobalVarNames(options, statements) {
-    if (
-        !options ||
-        options.preserveGlobalVarStatements === false ||
-        Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)
-    ) {
+    if (!options || false || Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)) {
         return options?.[PRESERVED_GLOBAL_VAR_NAMES] ?? null;
     }
 
@@ -4846,8 +4827,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
     const node = path.getValue();
     if (!node || !node.isGlobalIdentifier) return false;
 
-    const preservedNames =
-        options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
     const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
     if (
         preservedNames &&
