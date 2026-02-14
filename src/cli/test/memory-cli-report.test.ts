@@ -31,7 +31,7 @@ async function primeMemorySuiteSampleCache() {
         path: parserSamplePath
     });
 
-    const formatterSamplePath = path.resolve(process.cwd(), "src/plugin/test/testFoo.input.gml");
+    const formatterSamplePath = path.resolve(process.cwd(), "test/fixtures/plugin-integration/testFoo.input.gml");
     const formatterSampleContents = await readFile(formatterSamplePath, "utf8");
     memoryTestHelpers.setSampleCacheRecordForTests("formatter:sample", {
         contents: formatterSampleContents,

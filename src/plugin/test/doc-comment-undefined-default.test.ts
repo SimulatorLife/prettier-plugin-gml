@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import process from "node:process";
 import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
@@ -93,32 +94,30 @@ void test("retains optional syntax when constructors keep explicit undefined def
 
 void test("synthesized docs mark retained undefined defaults as optional", async () => {
     async function resolveFixture(name: string) {
-        const compiledCandidate = path.resolve(__dirname, name);
-        try {
-            // prefer compiled fixtures if present (dist/test). Otherwise, fall back to the
-            // source test fixtures under src/plugin/test for local/source test runs.
-            const stat = await fs.stat(compiledCandidate);
-            if (stat && stat.isFile()) return compiledCandidate;
-        } catch {
-            // compiled fixture not present; try to resolve the source fixture by swapping
-            // a "dist" path component back to "src" — this handles running the compiled
-            // tests in dist/ and falling back to the original sources at src/ during dev.
-            // Replace the compiled test path (dist/test) back to the source test
-            // path (src/plugin/test). The compiled tests live under
-            // src/plugin/dist/test when running compiled artifacts, so moving up
-            // two levels and into the test directory reliably locates the
-            // source fixtures regardless of whether the test runner executes
-            // the compiled or source files.
-            const fallbackCandidate = path.resolve(__dirname, "..", "..", "test", name);
-            try {
-                const stat2 = await fs.stat(fallbackCandidate);
-                if (stat2 && stat2.isFile()) return fallbackCandidate;
-            } catch {
-                // final fallback: resolve relative to src/plugin/test from whatever __dirname is
-                return path.resolve(__dirname, "..", "test", name);
-            }
+        const candidates = [
+            path.resolve(process.cwd(), "test", "fixtures", "plugin-integration", name),
+            path.resolve(process.cwd(), "..", "..", "test", "fixtures", "plugin-integration", name),
+            path.resolve(__dirname, "..", "..", "..", "test", "fixtures", "plugin-integration", name),
+            path.resolve(__dirname, "..", "..", "..", "..", "test", "fixtures", "plugin-integration", name)
+        ];
+
+        const resolvedCandidates = await Promise.all(
+            candidates.map(async (candidate) => {
+                try {
+                    const stat = await fs.stat(candidate);
+                    return stat.isFile() ? candidate : null;
+                } catch {
+                    return null;
+                }
+            })
+        );
+
+        const fixturePath = resolvedCandidates.find((candidate) => candidate !== null);
+        if (fixturePath) {
+            return fixturePath;
         }
-        return compiledCandidate;
+
+        throw new Error(`Unable to resolve integration fixture '${name}'.`);
     }
 
     const fixturePath = await resolveFixture("testFunctions.input.gml");

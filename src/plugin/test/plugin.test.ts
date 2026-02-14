@@ -12,10 +12,10 @@ const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
     ? path.resolve(rawDirectory, "..", "..", "test")
     : rawDirectory;
+const fixtureDirectory = path.join(currentDirectory, "fixtures", "formatting");
 
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
-const INTEGRATION_OWNED_FIXTURE_NAMES = new Set(["testGlobalVars"]);
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
 function removeDocCommentLines(text: string) {
@@ -31,7 +31,7 @@ function canonicalizeFixtureText(text: string) {
 
 async function tryLoadOptions(baseName) {
     const optionsFile = `${baseName}.options.json`;
-    const optionsPath = path.join(currentDirectory, optionsFile);
+    const optionsPath = path.join(fixtureDirectory, optionsFile);
 
     try {
         const contents = await fs.readFile(optionsPath, fileEncoding);
@@ -55,7 +55,7 @@ async function tryLoadOptions(baseName) {
 }
 
 async function loadTestCases() {
-    const entries = await fs.readdir(currentDirectory);
+    const entries = await fs.readdir(fixtureDirectory);
     const caseMap = new Map();
 
     for (const entry of entries) {
@@ -95,7 +95,7 @@ async function loadTestCases() {
             }
 
             if (singleFile) {
-                const singlePath = path.join(currentDirectory, singleFile);
+                const singlePath = path.join(fixtureDirectory, singleFile);
                 const rawInput = await fs.readFile(singlePath, fileEncoding);
 
                 if (typeof rawInput !== "string") {
@@ -116,8 +116,8 @@ async function loadTestCases() {
                 throw new Error(`Fixture '${baseName}' is missing its ${inputFile ? "output" : "input"} file.`);
             }
 
-            const inputPath = path.join(currentDirectory, inputFile);
-            const outputPath = path.join(currentDirectory, outputFile);
+            const inputPath = path.join(fixtureDirectory, inputFile);
+            const outputPath = path.join(fixtureDirectory, outputFile);
 
             const [rawInput, rawOutput] = await Promise.all([
                 fs.readFile(inputPath, fileEncoding),
@@ -144,10 +144,6 @@ const all_test_cases = await loadTestCases();
 void describe("Prettier GameMaker plugin fixtures", () => {
     for (const { baseName, inputSource, expectedOutput, options } of all_test_cases) {
         void it(`formats ${baseName}`, async () => {
-            if (INTEGRATION_OWNED_FIXTURE_NAMES.has(baseName)) {
-                return;
-            }
-
             const formatted = await Plugin.format(inputSource, options);
             const normalizedActual = canonicalizeFixtureText(formatted);
             const normalizedExpected = canonicalizeFixtureText(expectedOutput);

@@ -2,7 +2,6 @@ import type { Rule } from "eslint";
 
 import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { featherManifest } from "./feather/manifest.js";
-import { createGmlRule } from "./gml/create-gml-rules.js";
 import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{

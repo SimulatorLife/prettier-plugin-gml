@@ -293,11 +293,9 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
         }))
     );
 
-    const offendingPaths = configEntries
+    return configEntries
         .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
         .map(({ filePath }) => filePath);
-
-    return offendingPaths;
 }
 
 async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {

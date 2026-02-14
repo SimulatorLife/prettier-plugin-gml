@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../catalog.js";
 import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
+import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
 
