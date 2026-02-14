@@ -7,7 +7,7 @@ import * as LintWorkspace from "@gml-modules/lint";
 
 const { Lint } = LintWorkspace;
 
-const fixtureRoot = path.resolve("test/fixtures");
+const fixtureRoot = path.resolve("src/lint/test/fixtures");
 const allCapabilities = new Set([
     "IDENTIFIER_OCCUPANCY",
     "IDENTIFIER_OCCURRENCES",
