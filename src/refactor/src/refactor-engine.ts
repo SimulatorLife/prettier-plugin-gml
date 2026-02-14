@@ -1,3 +1,9 @@
+/**
+ * Refactor engine for semantic-safe code transformations.
+ * Coordinates rename operations, batch renames, hot reload validation, and
+ * workspace edits across the project while preventing scope capture and shadowing.
+ */
+
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
