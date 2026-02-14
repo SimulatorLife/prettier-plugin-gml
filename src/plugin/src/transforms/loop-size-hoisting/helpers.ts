@@ -4,15 +4,7 @@
 
 import { Core } from "@gml-modules/core";
 
-const {
-    getIdentifierText,
-    getCallExpressionArguments,
-    getCallExpressionIdentifierName,
-    normalizeStringList,
-    toNormalizedLowerCaseString,
-    coalesceOption,
-    isObjectLike
-} = Core;
+const { getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifierName } = Core;
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -22,90 +14,17 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_map_size", "size"]
 ]);
 
-const SIZE_SUFFIX_CACHE = new WeakMap();
-
-function createSizeSuffixMap(options) {
-    const rawOverrides = coalesceOption(options, "loopLengthHoistFunctionSuffixes");
-    const overrides = parseSizeRetrievalFunctionSuffixOverrides(rawOverrides);
-
-    const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-    for (const [functionName, suffix] of overrides) {
-        if (suffix === null) {
-            merged.delete(functionName);
-        } else {
-            merged.set(functionName, suffix);
-        }
-    }
-
-    return merged;
-}
-
 /**
  * Resolve the table describing loop-length helper names to the suffix they
  * contribute when generating cached variable identifiers.
  *
- * The formatter allows users to override the default suffix map via the
- * `loopLengthHoistFunctionSuffixes` option, where entries are provided as a
- * comma- or newline-delimited list of `functionName:suffix` pairs. A suffix of
- * `-` removes the function from consideration. Results are cached per options
- * bag so repeated printer runs avoid re-parsing configuration values.
+ * The formatter intentionally uses a single opinionated suffix table so
+ * loop-length hoisting is deterministic and predictable across projects.
  *
- * @param {unknown} options Prettier option bag passed to the printer.
  * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
  */
-function getSizeRetrievalFunctionSuffixes(options?: any) {
-    if (isObjectLike(options)) {
-        const cached = SIZE_SUFFIX_CACHE.get(options);
-        if (cached) {
-            return cached;
-        }
-    }
-
-    const suffixes = createSizeSuffixMap(options);
-
-    if (isObjectLike(options)) {
-        SIZE_SUFFIX_CACHE.set(options, suffixes);
-    }
-
-    return suffixes;
-}
-
-/**
- * Normalize `loopLengthHoistFunctionSuffixes` override strings into
- * `[functionName, suffix]` tuples. Entries can be supplied as either
- * comma/newline-delimited strings or arrays. When the suffix is omitted the
- * helper falls back to `"len"`; specifying `-` drops the function entirely.
- *
- * @param {string | string[] | null | undefined} rawValue Raw override value from
- *        user options.
- * @returns {Map<string, string | null>} Canonical override map keyed by
- *          lower-cased function names. `null` indicates the entry should be
- *          removed from the default table.
- */
-function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
-    const entries = normalizeStringList(rawValue, {
-        allowInvalidType: true
-    });
-
-    const overrides = new Map();
-
-    for (const entry of entries) {
-        const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
-        const normalizedName = toNormalizedLowerCaseString(rawName);
-        if (!normalizedName) {
-            continue;
-        }
-
-        const trimmedSuffix = rawSuffix.trim();
-        if (trimmedSuffix === "-") {
-            overrides.set(normalizedName, null);
-            continue;
-        }
-
-        overrides.set(normalizedName, trimmedSuffix || "len");
-    }
-
-    return overrides;
+function getSizeRetrievalFunctionSuffixes(): Map<string, string> {
+    return new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
 }
 
 /**

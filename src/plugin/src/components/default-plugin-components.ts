@@ -43,14 +43,6 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 description:
                     "Condense consecutive struct property assignments into a single struct literal when possible."
             },
-            loopLengthHoistFunctionSuffixes: {
-                since: "0.0.0",
-                type: "string",
-                category: "gml",
-                default: "",
-                description:
-                    "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
-            },
             allowSingleLineIfStatements: {
                 since: "0.0.0",
                 type: "boolean",

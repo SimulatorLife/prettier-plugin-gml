@@ -498,8 +498,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | Option | Default | Summary |
 | --- | --- | --- |
 | `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. Hoisted cache names are resolved through the semantic-safety runtime when available, with local collision-safe fallback naming otherwise. |
-| `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
-| `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
+| `condenseStructAssignments` | `false` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only `return;` and `exit;` guard statements inside functions stay collapsed; other guard statements expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `optimizeLogicalExpressions` | `false` | Runs logical-flow optimizations where safe: condenses complementary branches, rewrites else-early-exit blocks into guard clauses, eliminates temporary `var` + `return` pairs, caches repeated member access in conditions, and hoists invariant loop-condition member reads. |
