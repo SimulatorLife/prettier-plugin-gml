@@ -1423,22 +1423,6 @@ function tryPrintLiteralNode(node, path, options, print) {
         case "TemplateStringExpression": {
             const hasAtomArray = Array.isArray(node.atoms);
             const atoms = hasAtomArray ? node.atoms : [];
-            const literalTextParts = [];
-            let shouldCollapseToLiteral = hasAtomArray;
-
-            for (const atom of atoms) {
-                if (atom?.type !== "TemplateStringText") {
-                    shouldCollapseToLiteral = false;
-                    break;
-                }
-
-                if (typeof atom.value !== STRING_TYPE) {
-                    shouldCollapseToLiteral = false;
-                    break;
-                }
-
-                literalTextParts.push(atom.value);
-            }
 
             return concat(buildTemplateStringParts(atoms, path, print));
         }
