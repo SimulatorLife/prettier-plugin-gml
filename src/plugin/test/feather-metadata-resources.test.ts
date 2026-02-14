@@ -5,7 +5,7 @@ import {
     __normalizeFeatherMetadataForTests as normalizeFeatherMetadata,
     clearFeatherMetadataCache,
     getFeatherMetadata
-} from "../src/resources/feather-metadata.js";
+} from "../src/resources/index.js";
 
 void describe("Feather metadata cache clearing", () => {
     void it("should clear feather metadata cache and allow reload", () => {

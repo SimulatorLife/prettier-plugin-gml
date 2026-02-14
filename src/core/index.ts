@@ -6,6 +6,8 @@ export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    FeatherDiagnostic,
+    FeatherMetadata,
     GameMakerAstLocation,
     GameMakerAstNode,
     GlobalIdentifierTracker,

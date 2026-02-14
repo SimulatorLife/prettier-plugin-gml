@@ -1,3 +1,14 @@
+export type { FeatherDiagnostic, FeatherMetadata } from "./feather-metadata.js";
+export {
+    __normalizeFeatherMetadataForTests,
+    clearFeatherMetadataCache,
+    FEATHER_METADATA_PATH,
+    FEATHER_METADATA_URL,
+    getFeatherDiagnosticById,
+    getFeatherDiagnostics,
+    getFeatherMetadata,
+    loadBundledFeatherMetadata
+} from "./feather-metadata.js";
 export {
     clearIdentifierMetadataCache,
     getIdentifierMetadata,
