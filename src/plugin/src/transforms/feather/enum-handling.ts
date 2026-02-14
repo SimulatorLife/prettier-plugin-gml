@@ -291,7 +291,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                 return assignmentIndex !== -1 && trimmed[assignmentIndex + 1] !== "=";
             })();
 
-        if (isBareAssignment || isNumericAssignment) {
+        if ((isBareAssignment || isNumericAssignment) && !pendingGM1100Context) {
             const trimmedRightLength = line.replace(/\s+$/, "").length;
             const sanitizedLine = line.replaceAll(/[^\s]/g, " ");
 
@@ -369,6 +369,27 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                     }
                 };
             }
+        }
+
+        const identifierStarMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*/);
+
+        if (identifierStarMatch) {
+            const identifier = identifierStarMatch[1];
+            const sanitizedLine = line.replaceAll(/[^\s]/g, " ");
+
+            gm1100Metadata.push({
+                type: "identifier-star",
+                line: lineNumber,
+                identifier
+            });
+
+            return {
+                line: sanitizedLine,
+                context: {
+                    identifier,
+                    indentation
+                }
+            };
         }
 
         if (trimmed.startsWith("=") && pendingGM1100Context?.identifier) {
