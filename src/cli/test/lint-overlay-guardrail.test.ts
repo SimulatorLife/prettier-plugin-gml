@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { Lint } from "@gml-modules/lint";
+import * as LintWorkspace from "@gml-modules/lint";
 
 import { __lintCommandTest__ } from "../src/commands/lint.js";
+
+const { Lint } = LintWorkspace;
 
 void test("wiring requires both plugin identity and language", () => {
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
-            plugins: { gml: Lint.plugin },
+            plugins: { gml: LintWorkspace.Lint.plugin },
             language: "gml/gml"
         }),
         true
@@ -24,7 +29,7 @@ void test("wiring requires both plugin identity and language", () => {
 
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
-            plugins: { gml: Lint.plugin },
+            plugins: { gml: LintWorkspace.Lint.plugin },
             language: "not-gml"
         }),
         false
@@ -59,7 +64,7 @@ void test("missing rules means no overlay rules applied", () => {
 });
 
 void test("overlay matching uses exact canonical full rule IDs", () => {
-    const performanceId = Lint.services.performanceOverrideRuleIds[0];
+    const performanceId = LintWorkspace.Lint.services.performanceOverrideRuleIds[0];
 
     assert.equal(
         __lintCommandTest__.hasOverlayRuleApplied({
@@ -100,6 +105,40 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     assert.match(rendered, /and 5 more\.\.\./);
 });
 
+void test("flat config discovery searches cwd ancestors in candidate order", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-discovery-"));
+    const nestedDirectory = path.join(tempRoot, "a", "b");
+    await fs.mkdir(nestedDirectory, { recursive: true });
+
+    const expectedConfig = path.join(tempRoot, "eslint.config.mjs");
+    await fs.writeFile(expectedConfig, "export default [];\n", "utf8");
+
+    const discovery = __lintCommandTest__.discoverFlatConfig(nestedDirectory);
+
+    assert.equal(discovery.selectedConfigPath, expectedConfig);
+    assert.ok(discovery.searchedPaths.length > 0);
+    assert.deepEqual(
+        discovery.searchedPaths.slice(0, __lintCommandTest__.FLAT_CONFIG_CANDIDATES.length),
+        __lintCommandTest__.FLAT_CONFIG_CANDIDATES.map((candidate) => path.join(nestedDirectory, candidate))
+    );
+});
+
+void test("formatter normalization preserves unknown names for explicit validation", () => {
+    assert.equal(__lintCommandTest__.normalizeFormatterName(undefined), "stylish");
+    assert.equal(__lintCommandTest__.normalizeFormatterName("JSON"), "json");
+    assert.equal(__lintCommandTest__.normalizeFormatterName("custom"), "custom");
+    assert.equal(__lintCommandTest__.isSupportedFormatter("stylish"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("json"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("checkstyle"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("custom"), false);
+});
+
+void test("explicit config validation fails on missing file", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-"));
+    const missingPath = path.join(tempRoot, "missing.config.js");
+
+    await assert.rejects(() => __lintCommandTest__.validateExplicitConfigPath(missingPath));
+});
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {

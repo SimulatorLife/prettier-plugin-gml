@@ -189,6 +189,55 @@ export class SemanticQueryCache {
     }
 
     /**
+     * Batch query for file symbols across multiple files.
+     * Optimized for hot reload scenarios where multiple files need to be queried at once.
+     * Uses cache when possible and only fetches uncached files from the semantic analyzer.
+     */
+    async getFileSymbolsBatch(filePaths: ReadonlyArray<string>): Promise<Map<string, Array<FileSymbol>>> {
+        const results = new Map<string, Array<FileSymbol>>();
+
+        if (filePaths.length === 0) {
+            return results;
+        }
+
+        const uncachedPaths: Array<string> = [];
+
+        for (const filePath of filePaths) {
+            if (!this.config.enabled) {
+                uncachedPaths.push(filePath);
+                continue;
+            }
+
+            const cached = this.getCached(this.fileSymbolsCache, filePath);
+            if (cached === null) {
+                uncachedPaths.push(filePath);
+            } else {
+                this.stats.hits++;
+                results.set(filePath, cached);
+            }
+        }
+
+        if (uncachedPaths.length > 0) {
+            const fetchedResults = await Promise.all(
+                uncachedPaths.map(async (filePath) => {
+                    this.stats.misses++;
+                    const symbols = await this.fetchFileSymbols(filePath);
+                    if (this.config.enabled) {
+                        this.setCached(this.fileSymbolsCache, filePath, symbols);
+                    }
+                    return { filePath, symbols };
+                })
+            );
+
+            for (const { filePath, symbols } of fetchedResults) {
+                results.set(filePath, symbols);
+            }
+        }
+
+        return results;
+    }
+
+    /**
      * Invalidate all cached entries.
      * Should be called when source files change during a refactoring session.
      */
