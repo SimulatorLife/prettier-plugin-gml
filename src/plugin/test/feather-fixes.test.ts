@@ -10,7 +10,7 @@ import * as Transforms from "../src/transforms/index.js";
 
 // Using Plugin.format wrapper instead of pluginPath
 
-const { getNodeEndIndex, getNodeStartIndex, compactArray } = Core;
+const { getNodeEndIndex, getNodeStartIndex, getFeatherMetadata, getFeatherDiagnosticById, compactArray } = Core;
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
