@@ -1,6 +1,6 @@
-import { configs } from "./plugin.js";
-import { plugin } from "./plugin.js";
+import { configs, plugin } from "./plugin.js";
 import { featherManifest } from "./rules/feather/manifest.js";
+import { collectProjectAwareRuleIds, renderProjectAwareRulesMarkdown } from "./rules/project-aware-rules-docs.js";
 import { services } from "./services/index.js";
 
 function createFeatherRuleIdMap(): Record<string, string> {
@@ -30,5 +30,9 @@ export const Lint = Object.freeze({
     plugin,
     configs,
     ruleIds,
-    services
+    services,
+    docs: Object.freeze({
+        collectProjectAwareRuleIds,
+        renderProjectAwareRulesMarkdown
+    })
 });
