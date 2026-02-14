@@ -1,6 +1,6 @@
-import { toArrayFromIterable } from "./utils/array.js";
-import { getOrCreateMapEntry, incrementMapValue } from "./utils/object.js";
-import { getNonEmptyString, normalizeStringList } from "./utils/string.js";
+import { toArrayFromIterable } from "./array.js";
+import { getOrCreateMapEntry, incrementMapValue } from "./object.js";
+import { getNonEmptyString, normalizeStringList } from "./string.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
