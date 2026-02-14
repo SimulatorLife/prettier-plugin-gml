@@ -1,11 +1,16 @@
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 
-import {
-    type FeatherRenamePlanRequest,
-    type FeatherRenameResolution,
-    prepareFeatherRenamePlan
-} from "../../runtime/index.js";
+type FeatherRenamePlanRequest = Readonly<{
+    identifierName: string;
+    preferredReplacementName: string;
+}>;
+
+type FeatherRenameResolution = Readonly<{
+    identifierName: string;
+    mode: "local-fallback";
+    replacementName: string;
+}>;
 
 const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 
@@ -17,13 +22,25 @@ export async function prepareFeatherRenamePlanningForFormat(
     if (requests.length === 0) {
         return null;
     }
+    void options;
 
-    const filePathCandidate = options.filepath;
-    const filePath = Core.isNonEmptyString(filePathCandidate) ? filePathCandidate : null;
-    return await prepareFeatherRenamePlan(options, {
-        filePath,
-        requests
-    });
+    const plan = new Map<string, FeatherRenameResolution | null>();
+    const localNames = new Set<string>(requests.map((request) => request.identifierName.toLowerCase()));
+    for (const request of requests) {
+        const normalizedPreferred = request.preferredReplacementName.toLowerCase();
+        if (localNames.has(normalizedPreferred)) {
+            plan.set(request.identifierName, null);
+            continue;
+        }
+
+        plan.set(request.identifierName, {
+            identifierName: request.identifierName,
+            mode: "local-fallback",
+            replacementName: request.preferredReplacementName
+        });
+    }
+
+    return plan;
 }
 
 function collectReservedIdentifierRenameRequests(sourceText: string): Array<FeatherRenamePlanRequest> {

@@ -1,6 +1,10 @@
 import { Core } from "@gml-modules/core";
 
-import { type FeatherRenameResolution, resolveFeatherRename } from "../../runtime/index.js";
+export type FeatherRenameResolution = Readonly<{
+    identifierName: string;
+    mode: "local-fallback";
+    replacementName: string;
+}>;
 
 export type FeatherTransformFormattingOptions = Record<string, unknown> | null | undefined;
 
@@ -43,7 +47,6 @@ export function collectIdentifierNamesFromNode(root: unknown): Set<string> {
 }
 
 export function resolveSemanticSafeFeatherRename({
-    formattingOptions,
     identifierName,
     localIdentifierNames,
     preferredReplacementName
@@ -53,13 +56,15 @@ export function resolveSemanticSafeFeatherRename({
     localIdentifierNames: ReadonlySet<string>;
     preferredReplacementName: string;
 }): FeatherRenameResolution | null {
-    return resolveFeatherRename(
-        {
-            filePath: resolveFormatterFilePathForFeather(formattingOptions),
-            identifierName,
-            localIdentifierNames,
-            preferredReplacementName
-        },
-        formattingOptions
-    );
+    const normalizedLocalNames = new Set(Array.from(localIdentifierNames, (name) => name.toLowerCase()));
+    const normalizedPreferredName = preferredReplacementName.toLowerCase();
+    if (normalizedLocalNames.has(normalizedPreferredName)) {
+        return null;
+    }
+
+    return {
+        identifierName,
+        mode: "local-fallback",
+        replacementName: preferredReplacementName
+    };
 }

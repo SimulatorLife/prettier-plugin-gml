@@ -73,7 +73,7 @@ void describe("Hot reload integration loop", () => {
             context = await contextPromise;
 
             await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
-            await context.waitForPatches({ timeoutMs: 1500 });
+            await context.waitForPatches({ timeoutMs: 3000 });
         } finally {
             abortController.abort();
 

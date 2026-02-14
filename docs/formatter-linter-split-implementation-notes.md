@@ -31,6 +31,8 @@
 - Plugin printer no longer consults semantic-safety runtime for `globalvar` rewriting; formatter preserves keyword statements as formatter-owned syntax output.
 - CLI plugin runtime configuration now wires identifier-case integration only; semantic/refactor runtime adapter wiring was removed.
 - Plugin transform public index no longer exports migrated feather/math/separator/loop-hoist migration helpers from formatter-facing surface.
+- Plugin runtime adapter module was removed entirely (`src/plugin/src/runtime`), and remaining dormant transform helpers were decoupled from formatter runtime adapter APIs.
+- Core synthetic doc helper fallback no longer keys behavior off legacy formatter migration options.
 
 ## Test Migration Status
 
@@ -51,5 +53,4 @@
 
 ## Remaining Follow-ups (Non-blocking)
 
-1. Continue reducing dormant legacy implementation code under internal plugin transform modules that are no longer formatter-surface exports.
-2. Keep direct ESLint docs and generated project-aware rule inventory in sync as lint rule internals evolve.
+1. Keep direct ESLint docs and generated project-aware rule inventory in sync as lint rule internals evolve.

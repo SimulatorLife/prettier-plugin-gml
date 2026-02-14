@@ -5,6 +5,53 @@
 2. Lock exact ESLint language wiring, AST/token/comment/range contracts, parse-error behavior, project-context lifecycle, rule schemas, CLI semantics, and migration scope.
 3. Keep formatter deterministic and non-semantic; move all non-layout rewrites to lint rules with explicit diagnostics and optional `--fix`.
 
+## Lint/Refactor Overlap Resolution Plan (2026-02-14)
+
+### Current-state findings
+1. `lint` already owns migrated formatter-era rewrites via ESLint rules (`gml/no-globalvar`, `gml/prefer-loop-length-hoist`, `gml/prefer-struct-literal-assignments`, `gml/prefer-string-interpolation`) and injects project context in `src/cli/src/commands/lint.ts`.
+2. `refactor` still owns symbol-driven, cross-file, transactional rename workflows and hot-reload-aware planning via `RefactorEngine`, and is still the backing implementation for `cli refactor` in `src/cli/src/commands/refactor.ts`.
+3. There is real overlap in project-aware helper surfaces:
+   - `lint` context: `isIdentifierNameOccupiedInProject`, `listIdentifierOccurrenceFiles`, `planFeatherRenames`, `assessGlobalVarRewrite`, `resolveLoopHoistIdentifier`.
+   - `refactor` engine: `isIdentifierOccupied`, `listIdentifierOccurrences`, `planFeatherRenames`, `assessGlobalVarRewrite`, `resolveLoopHoistIdentifier`.
+4. The two stacks currently use different analysis strategies (lint local index vs refactor semantic-backed bridge), which risks behavior drift over time.
+
+### Target-state architecture (direct end state)
+1. `@gml-modules/lint` is the only owner of project-aware lint diagnostics and autofix rewrites.
+2. `@gml-modules/refactor` is the only owner of explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation).
+3. Shared project-analysis answers are produced by one semantic-backed provider contract consumed by both workspaces.
+4. No duplicate capability logic is allowed across lint and refactor surfaces.
+5. No legacy support is added: no wrappers, aliases, compatibility toggles, or parallel code paths.
+
+### Required end-state changes
+1. Define a single `ProjectAnalysisProvider` contract (semantic-backed) that returns:
+   - identifier occupancy
+   - identifier occurrence file sets
+   - rename-collision planning results
+   - loop-hoist identifier resolution
+   - globalvar rewrite safety assessment
+2. Replace lint-local analysis implementations with provider-backed implementations.
+3. Replace refactor-overlap helper implementations with provider-backed implementations.
+4. Remove duplicated helper semantics from public APIs where they are not part of each workspace’s core responsibility:
+   - lint exports rule-consumption context only
+   - refactor exports rename/refactor transaction APIs only
+5. Remove stale dependency and documentation coupling that implies lint/refactor cross-ownership.
+6. Enforce capability parity through shared-provider contract tests (same snapshot => same answers).
+
+### Capability ownership matrix (target state)
+1. Identifier occupancy checks: implementation owner = shared provider; lint/refactor = consumers.
+2. Identifier occurrence-file lookup: implementation owner = shared provider; lint/refactor = consumers.
+3. Rename conflict planning for lint-safe rewrites: implementation owner = shared provider; lint/refactor = consumers as needed.
+4. Loop hoist replacement-name resolution: implementation owner = shared provider; lint = primary consumer.
+5. Globalvar rewrite safety checks: implementation owner = shared provider; lint = primary consumer.
+6. Cross-file transactional rename planning/application: implementation owner = refactor only; lint does not own this capability.
+7. Metadata rewrite/edit orchestration for `.yy/.yyp`: implementation owner = refactor only; lint does not own this capability.
+
+### Completion criteria (target state)
+1. Exactly one implementation path exists for each shared project-aware capability.
+2. `lint` and `refactor` no longer carry duplicated project-analysis logic.
+3. `cli lint` and `cli refactor` each execute against their single-owner domains without compatibility fallbacks.
+4. Docs and dependency-policy tests describe and enforce the same final ownership model.
+
 ## Public API Contracts
 Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-facing preset behavior.
 

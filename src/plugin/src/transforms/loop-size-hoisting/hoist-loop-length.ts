@@ -1,6 +1,5 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { resolveLoopHoistIdentifier } from "../../runtime/index.js";
 import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes } from "./helpers.js";
 
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {
@@ -109,14 +108,10 @@ function maybeHoistLoopLength(
         hoistInfo.sizeIdentifierName,
         hoistInfo.cachedLengthSuffix
     );
-    const cachedLengthName = resolveLoopHoistIdentifier(
-        {
-            filePath: resolveFormatterFilePath(options),
-            localIdentifierNames: collectIdentifierNamesFromStatementList(statements),
-            preferredName: preferredCachedLengthName
-        },
-        options
-    )?.identifierName;
+    const cachedLengthName = resolveLoopHoistIdentifierName(
+        preferredCachedLengthName,
+        collectIdentifierNamesFromStatementList(statements)
+    );
 
     if (!Core.isNonEmptyString(cachedLengthName)) {
         return;
@@ -139,13 +134,22 @@ function maybeHoistLoopLength(
     statements.splice(index, 0, declaration);
 }
 
-function resolveFormatterFilePath(options?: LoopLengthHoistTransformOptions): string | null {
-    if (!options) {
-        return null;
+function resolveLoopHoistIdentifierName(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
+    const normalizedLocalNames = new Set(Array.from(localIdentifierNames, (name) => name.toLowerCase()));
+    const normalizedPreferredName = preferredName.toLowerCase();
+
+    if (!normalizedLocalNames.has(normalizedPreferredName)) {
+        return preferredName;
     }
 
-    const filePathCandidate = options.filepath;
-    return Core.isNonEmptyString(filePathCandidate) ? filePathCandidate : null;
+    for (let index = 1; index <= 1000; index += 1) {
+        const candidate = `${preferredName}_${index}`;
+        if (!normalizedLocalNames.has(candidate.toLowerCase())) {
+            return candidate;
+        }
+    }
+
+    return null;
 }
 
 function collectIdentifierNamesFromStatementList(
