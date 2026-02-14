@@ -2,12 +2,8 @@ import type { Rule } from "eslint";
 
 import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { featherManifest } from "./feather/manifest.js";
-import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "./project-context.js";
-import {
-    RESERVED_MISSING_PROJECT_CONTEXT_REASON_CODE,
-    UNSAFE_REASON_CODE_REGISTRY,
-    UNSAFE_REASON_CODES
-} from "./reason-codes.js";
+import { createGmlRule } from "./gml/create-gml-rules.js";
+import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
     mapKey: `Gml${string}`;
@@ -20,26 +16,9 @@ export type GmlRuleDefinition = Readonly<{
     unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
 }>;
 
-type RuleDocs = Readonly<{
-    description: string;
-    recommended: false;
-    requiresProjectContext: boolean;
-    gml?: Readonly<{
-        requiredCapabilities: ReadonlyArray<ProjectCapability>;
-        unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
-    }>;
-}>;
-
-type RuleMessages = Readonly<Record<string, string>>;
-
 const EMPTY_SCHEMA = Object.freeze([]) as ReadonlyArray<unknown>;
 const NO_CAPABILITIES = Object.freeze([]) as ReadonlyArray<ProjectCapability>;
 const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
-
-const MISSING_PROJECT_CONTEXT_MESSAGE =
-    "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage.";
-const UNSAFE_FIX_MESSAGE_ID = "unsafeFix";
-const MISSING_PROJECT_CONTEXT_MESSAGE_ID = "missingProjectContext";
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
