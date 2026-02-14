@@ -1223,13 +1223,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
     function visit(node: any, parent: any, property: string | number) {
         if (!node || typeof node !== "object") return;
 
-        if (
-            node !== functionNode &&
-            (node.type === "FunctionDeclaration" ||
-                node.type === "StructFunctionDeclaration" ||
-                node.type === "FunctionExpression" ||
-                node.type === "ConstructorDeclaration")
-        ) {
+        if (node !== functionNode && Core.isFunctionLikeNode(node)) {
             return;
         }
 

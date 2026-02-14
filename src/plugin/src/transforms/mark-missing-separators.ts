@@ -67,18 +67,14 @@ function shouldPreserveCallWithMissingSeparators(node: MutableGameMakerAstNode, 
 
 function markCallsMissingArgumentSeparators(ast: MutableGameMakerAstNode, originalText: string) {
     // Walk the AST and tag call expressions whose separator information can only be derived from the original source.
-    if (!ast || typeof ast !== "object") {
+    if (Core.shouldSkipTraversal(ast)) {
         return;
     }
 
     const visitedNodes = new WeakSet();
 
     const visit = (node: MutableGameMakerAstNode) => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        if (visitedNodes.has(node)) {
+        if (Core.shouldSkipTraversal(node, visitedNodes)) {
             return;
         }
         visitedNodes.add(node);

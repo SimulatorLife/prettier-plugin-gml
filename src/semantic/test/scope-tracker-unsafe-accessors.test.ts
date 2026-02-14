@@ -370,4 +370,112 @@ void describe("ScopeTracker unsafe accessors", () => {
             assert.equal(bOccurrences[0].kind, "declaration");
         });
     });
+
+    void describe("getSymbolWritesUnsafe", () => {
+        void it("returns only write occurrences without cloning", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+            tracker.reference("myVar", { name: "myVar", isAssignmentTarget: true });
+            tracker.reference("myVar", { name: "myVar" }); // read
+
+            const writes = tracker.getSymbolWritesUnsafe("myVar");
+
+            assert.equal(writes.length, 1);
+            assert.equal(writes[0].kind, "reference");
+            assert.ok(writes[0].occurrence.usageContext?.isWrite);
+        });
+
+        void it("returns internal references not clones", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+            tracker.reference("myVar", { name: "myVar", isAssignmentTarget: true });
+
+            const unsafe1 = tracker.getSymbolWritesUnsafe("myVar");
+            const unsafe2 = tracker.getSymbolWritesUnsafe("myVar");
+
+            assert.strictEqual(
+                unsafe1[0].occurrence,
+                unsafe2[0].occurrence,
+                "Unsafe variant should return same object reference"
+            );
+        });
+
+        void it("returns empty array for symbols with no writes", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+            tracker.reference("myVar", { name: "myVar" }); // read only
+
+            const writes = tracker.getSymbolWritesUnsafe("myVar");
+
+            assert.deepStrictEqual(writes, []);
+        });
+    });
+
+    void describe("getSymbolReadsUnsafe", () => {
+        void it("returns only read occurrences without cloning", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+            tracker.reference("myVar", { name: "myVar" }); // read
+            tracker.reference("myVar", { name: "myVar", isAssignmentTarget: true }); // write
+
+            const reads = tracker.getSymbolReadsUnsafe("myVar");
+
+            assert.equal(reads.length, 1);
+            assert.equal(reads[0].kind, "reference");
+            assert.ok(reads[0].occurrence.usageContext?.isRead);
+        });
+
+        void it("returns internal references not clones", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+            tracker.reference("myVar", { name: "myVar" });
+
+            const unsafe1 = tracker.getSymbolReadsUnsafe("myVar");
+            const unsafe2 = tracker.getSymbolReadsUnsafe("myVar");
+
+            assert.strictEqual(
+                unsafe1[0].occurrence,
+                unsafe2[0].occurrence,
+                "Unsafe variant should return same object reference"
+            );
+        });
+
+        void it("returns empty array for symbols with no reads", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("myVar", { name: "myVar" });
+
+            const reads = tracker.getSymbolReadsUnsafe("myVar");
+
+            assert.deepStrictEqual(reads, []);
+        });
+
+        void it("handles symbols across multiple scopes", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("shared", { name: "shared" });
+            tracker.reference("shared", { name: "shared" });
+
+            tracker.enterScope("function");
+            tracker.reference("shared", { name: "shared" });
+            tracker.exitScope();
+
+            const reads = tracker.getSymbolReadsUnsafe("shared");
+
+            assert.equal(reads.length, 2);
+            assert.ok(reads.every((r) => r.occurrence.usageContext?.isRead));
+        });
+    });
 });

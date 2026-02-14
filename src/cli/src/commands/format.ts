@@ -5,7 +5,7 @@
  * GameMaker Language files.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -69,8 +69,9 @@ const {
 
 const formattingCache = new Map<string, string>();
 // Bound cache growth so large formatting runs do not retain every unique file payload.
-// Reduced from 100 to 20 to prevent memory exhaustion on large projects.
-const MAX_FORMATTING_CACHE_ENTRIES = 20;
+// Reduced from 100 to 10 since cache keys now use hashes instead of full file content,
+// and we perform more frequent periodic cleanups.
+const MAX_FORMATTING_CACHE_ENTRIES = 10;
 
 function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
     if (!Number.isFinite(limit)) {
@@ -131,6 +132,10 @@ function stringifyCacheComponent(value: unknown) {
 function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
     const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
     const pluginKey = Array.isArray(plugins) ? plugins.map(String).toSorted().join(",") : "";
+    // Use a hash of the file content instead of the full content to prevent memory bloat.
+    // The cache key previously included the entire file content, which caused unbounded
+    // memory growth when formatting large projects with many large files.
+    const contentHash = createHash("sha256").update(data, "utf8").digest("hex");
     return [
         stringifyCacheComponent(parser),
         stringifyCacheComponent(tabWidth),
@@ -138,7 +143,7 @@ function createFormattingCacheKey(data: string, formattingOptions: PrettierOptio
         stringifyCacheComponent(semi),
         stringifyCacheComponent(useTabs),
         pluginKey,
-        data
+        contentHash
     ].join("|");
 }
 
@@ -423,8 +428,8 @@ configureConsoleMethods(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL ?? DEFAULT_PRE
 
 export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
-        "--extensions <list>",
-        `File extensions to format (e.g., ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
+        "--extensions <extensions...>",
+        `File extensions to format. Supports space-separated, repeated, or comma-separated values (e.g., ${GML_EXTENSION} .yy or ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
     )
         .argParser((value, previous) => {
             const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
@@ -472,7 +477,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
         new Command()
             .name(name)
-            .usage("[options] [path]")
+            .usage("[options] [targetPath]")
             .description("Format GameMaker Language files using the prettier plugin.")
     )
         .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")
@@ -673,7 +678,8 @@ let inMemorySnapshotCount = 0;
 
 // Track processed files for periodic cache cleanup
 let processedFileCount = 0;
-const PERIODIC_CLEANUP_INTERVAL = 50;
+// Reduced from 50 to 10 to perform more frequent cleanups and prevent memory buildup
+const PERIODIC_CLEANUP_INTERVAL = 10;
 
 function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
@@ -806,11 +812,12 @@ async function enforceSnapshotMemoryLimit() {
 
 /**
  * Perform periodic memory cleanup to prevent accumulation during large formatting runs.
- * This includes clearing the formatting cache and triggering garbage collection if available.
+ * This includes trimming the formatting cache and triggering garbage collection if available.
  */
 function performPeriodicMemoryCleanup() {
-    // Clear the formatting cache to free memory
-    formattingCache.clear();
+    // Trim the formatting cache more aggressively to limit memory usage.
+    // Instead of clearing completely, we keep only a small number of recent entries.
+    trimFormattingCache(5);
 
     // Trigger garbage collection if exposed (e.g., when running with --expose-gc)
     if (typeof globalThis.gc === "function") {
@@ -970,7 +977,7 @@ function logCliErrorWithHeader(error, header) {
     console.error(`${header}\n${indented}`);
 }
 
-async function handleFormattingError(error, filePath) {
+async function reportAndTrackFormattingError(error, filePath) {
     // Decide whether the error should count as a formatting failure.
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
@@ -1375,7 +1382,7 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
     };
 }
 
-async function processDirectoryEntry(filePath, currentIgnorePaths) {
+async function formatDirectoryEntry(filePath, currentIgnorePaths) {
     const stats = await lstat(filePath);
 
     if (stats.isSymbolicLink()) {
@@ -1388,30 +1395,30 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
             return;
         }
-        await processDirectory(filePath, currentIgnorePaths);
+        await formatDirectoryRecursively(filePath, currentIgnorePaths);
         return;
     }
 
     if (shouldFormatFile(filePath)) {
-        await processFile(filePath, currentIgnorePaths);
+        await formatSingleFile(filePath, currentIgnorePaths);
         return;
     }
 
     recordUnsupportedExtension(filePath);
 }
 
-async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
+async function formatAllDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
     await Core.runSequentially(files, async (file) => {
         if (abortRequested) {
             return;
         }
 
         const filePath = path.join(directory, file);
-        await processDirectoryEntry(filePath, currentIgnorePaths);
+        await formatDirectoryEntry(filePath, currentIgnorePaths);
     });
 }
 
-async function processDirectory(directory, inheritedIgnorePaths = []) {
+async function formatDirectoryRecursively(directory, inheritedIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
@@ -1426,7 +1433,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
     }
 
     const files = await readdir(directory);
-    await processDirectoryEntries(directory, files, effectiveIgnorePaths);
+    await formatAllDirectoryEntries(directory, files, effectiveIgnorePaths);
 }
 
 async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
@@ -1461,7 +1468,7 @@ async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
     return mergedOptions;
 }
 
-async function processFile(filePath, activeIgnorePaths = []) {
+async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
@@ -1519,7 +1526,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
             performPeriodicMemoryCleanup();
         }
     } catch (error) {
-        await handleFormattingError(error, filePath);
+        await reportAndTrackFormattingError(error, filePath);
     }
 }
 
@@ -1696,13 +1703,13 @@ async function resolveTargetContext(targetPath, usage, originalInput) {
 }
 
 /**
- * Process a single-file target when the CLI input does not resolve to a directory.
+ * Format a single-file target when the CLI input does not resolve to a directory.
  *
  * @param {string} targetPath
  */
-async function processNonDirectoryTarget(targetPath) {
+async function formatNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        await processFile(targetPath, baseProjectIgnorePaths);
+        await formatSingleFile(targetPath, baseProjectIgnorePaths);
         return;
     }
 
@@ -1714,15 +1721,15 @@ async function processNonDirectoryTarget(targetPath) {
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean, projectRoot: string }} params
  */
-async function processResolvedTarget({ targetPath, targetIsDirectory, projectRoot }) {
+async function formatResolvedTarget({ targetPath, targetIsDirectory, projectRoot }) {
     await initializeProjectIgnorePaths(projectRoot);
 
     if (targetIsDirectory) {
-        await processDirectory(targetPath);
+        await formatDirectoryRecursively(targetPath);
         return;
     }
 
-    await processNonDirectoryTarget(targetPath);
+    await formatNonDirectoryTarget(targetPath);
 }
 
 /**
@@ -1769,7 +1776,7 @@ async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, or
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
     await configurePluginRuntimeAdapters(projectRoot);
 
-    await processResolvedTarget({
+    await formatResolvedTarget({
         targetPath,
         targetIsDirectory,
         projectRoot
@@ -2197,6 +2204,7 @@ export const __formatTest__ = Object.freeze({
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
         storeFormattingCacheEntry(cacheKey, formatted),
     getFormattingCacheKeysForTests: () => [...formattingCache.keys()],
+    createFormattingCacheKeyForTests: createFormattingCacheKey,
     // Memory management test helpers
     getMemoryManagementStatsForTests: () => ({
         inMemorySnapshotCount,

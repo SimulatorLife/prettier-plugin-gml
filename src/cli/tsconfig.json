@@ -9,6 +9,7 @@
     "paths": {
       "@gml-modules/cli": ["./index.ts"],
       "@gml-modules/core": ["../core/index.ts"],
+      "@gml-modules/lint": ["../lint/index.ts"],
       "@gml-modules/parser": ["../parser/index.ts"],
       "@gml-modules/plugin": ["../plugin/index.ts"],
       "@gml-modules/refactor": ["../refactor/index.ts"],
@@ -17,7 +18,7 @@
       "@gml-modules/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../parser" }, { "path": "../plugin" }, { "path": "../refactor" }, { "path": "../semantic" }, { "path": "../transpiler" }],
+  "references": [{ "path": "../core" }, { "path": "../lint" }, { "path": "../parser" }, { "path": "../plugin" }, { "path": "../refactor" }, { "path": "../semantic" }, { "path": "../transpiler" }],
   "include": ["*.ts", "src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

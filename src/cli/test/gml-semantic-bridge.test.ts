@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { OccurrenceKind } from "@gml-modules/refactor";
+import { Refactor } from "@gml-modules/refactor";
 
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
@@ -35,7 +35,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.strictEqual(occurrences.length, 1, "Should have found 1 occurrence of gravityFunction");
         assert.strictEqual(occurrences[0].path, "scripts/scr_physics/scr_physics.gml");
-        assert.strictEqual(occurrences[0].kind, OccurrenceKind.DEFINITION);
+        assert.strictEqual(occurrences[0].kind, Refactor.OccurrenceKind.DEFINITION);
     });
 
     void it("should find references with matching targetName even if they are in unresolved entry", () => {
@@ -64,7 +64,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.strictEqual(occurrences.length, 1, "Should have found 1 reference to gravityFunction");
         assert.strictEqual(occurrences[0].path, "objects/obj_player/Step_0.gml");
-        assert.strictEqual(occurrences[0].kind, OccurrenceKind.REFERENCE);
+        assert.strictEqual(occurrences[0].kind, Refactor.OccurrenceKind.REFERENCE);
     });
 
     void it("hasSymbol should find a nested function symbol", () => {

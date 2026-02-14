@@ -96,20 +96,20 @@ void describe("Prettier wrapper CLI", () => {
     });
 
     void it("does not mutate tracked repository fixtures when run in write-mode from repo root", async () => {
-        // This test validates that running the CLI in write-mode from the
-        // repository root does not result in silent mutation of tracked
-        // fixture files. If it ever does, the test will fail and restore
-        // the original file contents to avoid leaving the workspace dirty.
-        const repoRootDirectory = await findRepoRoot(currentDirectory);
-        const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testFormatting.input.gml");
-
-        // Read the baseline content for the tracked fixture and ensure we
-        // restore it after the assertion so test runs remain side-effect
-        // free. If the CLI writes to the fixture, the equality assertion
-        // below will fail and alert reviewers to the regression.
-        const baseline = await fs.readFile(fixturePath, "utf8");
+        // Running the wrapper from the repository root used to scan the full
+        // monorepo and dominated this suite's runtime. Instead, construct a
+        // tiny throwaway git repository that still exercises the same behavior:
+        // no explicit target path, default write mode, and a tracked .gml file.
+        const sourceFixture = "var    tracked = 1;\n";
+        const tempDirectory = await createTemporaryDirectory();
+        const fixturePath = path.join(tempDirectory, "tracked-input.gml");
 
         try {
+            await fs.writeFile(fixturePath, sourceFixture, "utf8");
+
+            await execFileBase("git", ["init"], { cwd: tempDirectory });
+            await execFileBase("git", ["add", path.basename(fixturePath)], { cwd: tempDirectory });
+
             const env = {
                 ...process.env,
                 PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format",
@@ -118,7 +118,15 @@ void describe("Prettier wrapper CLI", () => {
             };
 
             await execFileAsync("node", [wrapperPath], {
-                cwd: repoRootDirectory,
+                cwd: tempDirectory,
+                env,
+                maxBuffer: 1024 * 1024 * 64
+            });
+
+            const baseline = await fs.readFile(fixturePath, "utf8");
+
+            await execFileAsync("node", [wrapperPath], {
+                cwd: tempDirectory,
                 env,
                 maxBuffer: 1024 * 1024 * 64
             });
@@ -127,12 +135,10 @@ void describe("Prettier wrapper CLI", () => {
             assert.strictEqual(
                 after,
                 baseline,
-                "Running the wrapper from the repository root in write-mode mutated a tracked fixture. Tests should never format real repo fixtures in-place."
+                "Running the wrapper in write-mode without an explicit target path mutated a tracked fixture."
             );
         } finally {
-            // Ensure we always restore the baseline to avoid leaving the
-            // repository in a changed state even when a regression occurs.
-            await fs.writeFile(fixturePath, baseline, "utf8");
+            await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
 

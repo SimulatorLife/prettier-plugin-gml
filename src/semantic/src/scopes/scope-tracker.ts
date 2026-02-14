@@ -1084,6 +1084,10 @@ export class ScopeTracker {
     }
 
     public getScopeDependents(scopeId: string | null | undefined): ScopeDependent[] {
+        return this.collectScopeDependents(scopeId, true);
+    }
+
+    private collectScopeDependents(scopeId: string | null | undefined, sortResults: boolean): ScopeDependent[] {
         if (!scopeId) {
             return [];
         }
@@ -1157,10 +1161,13 @@ export class ScopeTracker {
             });
         }
 
-        // Sort in place using simple string comparison
-        dependents.sort((a, b) =>
-            a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
-        );
+        if (sortResults) {
+            // Sort in place using simple string comparison
+            dependents.sort((a, b) =>
+                a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
+            );
+        }
+
         return dependents;
     }
 
@@ -1186,7 +1193,7 @@ export class ScopeTracker {
         const depthMap = new Map<string, { kind: string; depth: number }>();
         const queue: Array<{ scopeId: string; depth: number }> = [];
 
-        const directDependents = this.getScopeDependents(scopeId);
+        const directDependents = this.collectScopeDependents(scopeId, false);
         for (const dep of directDependents) {
             queue.push({
                 scopeId: dep.dependentScopeId,
@@ -1215,7 +1222,7 @@ export class ScopeTracker {
                 });
             }
 
-            const nextDependents = this.getScopeDependents(current.scopeId);
+            const nextDependents = this.collectScopeDependents(current.scopeId, false);
             for (const dep of nextDependents) {
                 if (visited.has(dep.dependentScopeId)) {
                     continue;
@@ -1294,6 +1301,107 @@ export class ScopeTracker {
         }
 
         return invalidationSet;
+    }
+
+    /**
+     * Computes invalidation sets for multiple file paths in a single pass.
+     *
+     * This method is optimized for hot-reload scenarios where multiple files
+     * change simultaneously (e.g., format-on-save, refactoring operations).
+     * It processes all paths in a single traversal, deduplicating scopes
+     * and their dependents to minimize redundant work.
+     *
+     * @param paths - Iterable of file paths to compute invalidation sets for
+     * @param options - Configuration options
+     * @param options.includeDescendants - Whether to include descendant scopes
+     * @returns Map of file paths to their invalidation sets
+     */
+    public getBatchInvalidationSets(
+        paths: Iterable<string>,
+        { includeDescendants = false }: { includeDescendants?: boolean } = {}
+    ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
+        const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const transitiveDependentsCache = new Map<
+            string,
+            Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
+        >();
+        const descendantScopesCache = new Map<string, Array<{ scopeId: string; scopeKind: string; depth: number }>>();
+
+        const createAddScopeFunction = (
+            seenScopes: Set<string>,
+            pathInvalidationSet: Array<{ scopeId: string; scopeKind: string; reason: string }>
+        ) => {
+            return (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
+                if (seenScopes.has(scopeIdToAdd)) {
+                    return;
+                }
+                seenScopes.add(scopeIdToAdd);
+                pathInvalidationSet.push({
+                    scopeId: scopeIdToAdd,
+                    scopeKind,
+                    reason
+                });
+            };
+        };
+
+        for (const path of paths) {
+            if (!path || typeof path !== "string" || path.length === 0) {
+                continue;
+            }
+
+            if (results.has(path)) {
+                continue;
+            }
+
+            const scopeIds = this.pathToScopesIndex.get(path);
+            if (!scopeIds || scopeIds.size === 0) {
+                results.set(path, []);
+                continue;
+            }
+
+            const pathInvalidationSet: Array<{
+                scopeId: string;
+                scopeKind: string;
+                reason: string;
+            }> = [];
+            const seenScopes = new Set<string>();
+            const addScope = createAddScopeFunction(seenScopes, pathInvalidationSet);
+
+            for (const scopeId of scopeIds) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                addScope(scope.id, scope.kind, "self");
+
+                let dependents = transitiveDependentsCache.get(scopeId);
+                if (!dependents) {
+                    dependents = this.getTransitiveDependents(scopeId);
+                    transitiveDependentsCache.set(scopeId, dependents);
+                }
+
+                for (const dep of dependents) {
+                    addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
+                }
+
+                if (includeDescendants) {
+                    let descendants = descendantScopesCache.get(scopeId);
+                    if (!descendants) {
+                        descendants = this.getDescendantScopes(scopeId);
+                        descendantScopesCache.set(scopeId, descendants);
+                    }
+
+                    for (const desc of descendants) {
+                        addScope(desc.scopeId, desc.scopeKind, "descendant");
+                    }
+                }
+            }
+
+            results.set(path, pathInvalidationSet);
+        }
+
+        return results;
     }
 
     public getDescendantScopes(
@@ -1629,6 +1737,106 @@ export class ScopeTracker {
         return reads;
     }
 
+    /**
+     * Returns symbol writes without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload write tracking, dependency analysis).
+     *
+     * For safe access with defensive copying, use `getSymbolWrites()`.
+     *
+     * @param name - Symbol name to query
+     * @returns Array of write occurrences with internal references (DO NOT MODIFY)
+     */
+    public getSymbolWritesUnsafe(name: string | null | undefined): SymbolOccurrence[] {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const writes: SymbolOccurrence[] = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isWrite) {
+                    writes.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: reference
+                    });
+                }
+            }
+        }
+
+        return writes;
+    }
+
+    /**
+     * Returns symbol reads without cloning occurrence objects.
+     *
+     * **UNSAFE**: The returned occurrence objects are direct references to internal state.
+     * Callers MUST NOT modify them. Use this method only for read-only analysis where
+     * performance is critical (e.g., hot-reload read tracking, dependency analysis).
+     *
+     * For safe access with defensive copying, use `getSymbolReads()`.
+     *
+     * @param name - Symbol name to query
+     * @returns Array of read occurrences with internal references (DO NOT MODIFY)
+     */
+    public getSymbolReadsUnsafe(name: string | null | undefined): SymbolOccurrence[] {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const reads: SymbolOccurrence[] = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isRead) {
+                    reads.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: reference
+                    });
+                }
+            }
+        }
+
+        return reads;
+    }
+
     public withRole<T>(role: ScopeRole | null, callback: () => T): T {
         return this.identifierRoleTracker.withRole(role, callback);
     }
@@ -1907,6 +2115,43 @@ export class ScopeTracker {
         }
 
         return scopes;
+    }
+
+    /**
+     * Batch-retrieves metadata for multiple scopes in a single operation.
+     *
+     * This method is optimized for hot-reload invalidation scenarios where
+     * you need metadata for a set of scopes (e.g., from getInvalidationSet).
+     * It reduces overhead by performing a single pass through the scope IDs
+     * rather than calling getScopeMetadata repeatedly.
+     *
+     * @param scopeIds - Iterable of scope IDs to retrieve metadata for
+     * @returns Map of scope IDs to their metadata (omits scopes that don't exist)
+     */
+    public getBatchScopeMetadata(scopeIds: Iterable<string>): Map<string, ScopeDetails> {
+        const results = new Map<string, ScopeDetails>();
+
+        for (const scopeId of scopeIds) {
+            if (!scopeId) {
+                continue;
+            }
+
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            results.set(scopeId, {
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                name: scope.metadata.name,
+                path: scope.metadata.path,
+                start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
+                end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
+            });
+        }
+
+        return results;
     }
 }
 

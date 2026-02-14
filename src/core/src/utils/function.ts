@@ -54,8 +54,6 @@ export function callWithFallback<TResult>(
     { fallback, onError }: CallWithFallbackOptions<TResult> = {}
 ) {
     const invoke = assertFunction<() => TResult>(action, "action");
-    const fallbackProvider: (error: unknown) => TResult | undefined =
-        typeof fallback === "function" ? (error) => (fallback as (error: unknown) => TResult)(error) : () => fallback;
     const errorHandler =
         onError === undefined ? undefined : assertFunction<(error: unknown) => void>(onError, "onError");
 
@@ -63,7 +61,11 @@ export function callWithFallback<TResult>(
         return invoke();
     } catch (error) {
         errorHandler?.(error);
-        return fallbackProvider(error);
+        if (typeof fallback === "function") {
+            return (fallback as (caughtError: unknown) => TResult)(error);
+        }
+
+        return fallback;
     }
 }
 

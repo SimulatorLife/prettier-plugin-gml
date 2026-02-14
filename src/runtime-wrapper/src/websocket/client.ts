@@ -20,6 +20,8 @@ const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
 const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
 
+const textDecoder = new TextDecoder();
+
 type RuntimeReadyGlobals = Record<string, unknown> & {
     g_pBuiltIn?: Record<string, unknown>;
     JSON_game?: {
@@ -46,6 +48,14 @@ function isRuntimeReady(): boolean {
     }
 
     return Scripts.some((entry) => typeof entry === "function");
+}
+
+function resolveRuntimeReadiness(runtimeReady: boolean): boolean {
+    if (runtimeReady) {
+        return true;
+    }
+
+    return isRuntimeReady();
 }
 
 function ensureApplicationSurfaceAccessor(): void {
@@ -355,7 +365,8 @@ export function createWebSocketClient({
         connectionMetrics: createInitialMetrics(),
         patchQueue: queueEnabled ? createPatchQueueState() : null,
         pendingPatches: [],
-        readinessTimer: null
+        readinessTimer: null,
+        runtimeReady: false
     };
 
     const clearReadinessTimer = (): void => {
@@ -366,7 +377,9 @@ export function createWebSocketClient({
     };
 
     const flushPendingPatches = (): void => {
-        if (!isRuntimeReady()) {
+        const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+        state.runtimeReady = runtimeReady;
+        if (!runtimeReady) {
             return;
         }
 
@@ -388,7 +401,9 @@ export function createWebSocketClient({
         }
 
         state.readinessTimer = setInterval(() => {
-            if (isRuntimeReady()) {
+            const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+            state.runtimeReady = runtimeReady;
+            if (runtimeReady) {
                 flushPendingPatches();
             }
         }, READINESS_POLL_INTERVAL_MS);
@@ -445,7 +460,9 @@ export function createWebSocketClient({
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
-        if (!isRuntimeReady()) {
+        const runtimeReady = resolveRuntimeReadiness(state.runtimeReady);
+        state.runtimeReady = runtimeReady;
+        if (!runtimeReady) {
             queuePendingPatch(incoming);
             return true;
         }
@@ -528,6 +545,7 @@ export function createWebSocketClient({
 
         state.isConnected = false;
         state.pendingPatches.length = 0;
+        state.runtimeReady = false;
         clearReadinessTimer();
     }
 
@@ -750,7 +768,7 @@ function decodeBinaryPayload(
 ): unknown {
     try {
         const view = toUint8Array(payload);
-        const decoded = new TextDecoder().decode(view);
+        const decoded = textDecoder.decode(view);
         return JSON.parse(decoded);
     } catch (error) {
         if (onError) {

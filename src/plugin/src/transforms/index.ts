@@ -10,9 +10,9 @@ import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-norm
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
 import type { ParserTransform } from "./functional-transform.js";
+import { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-import { optimizeLogicalExpressionsTransform } from "./optimize-logical-expressions.js";
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
@@ -124,11 +124,11 @@ export {
 } from "./feather/apply-feather-fixes.js";
 export { applyRemovedIndexAdjustments, preprocessSourceForFeatherFixes } from "./feather/enum-handling.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
+export { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
 export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-export { optimizeLogicalExpressionsTransform } from "./optimize-logical-expressions.js";
 export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";

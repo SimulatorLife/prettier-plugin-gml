@@ -381,28 +381,27 @@ export class GmlToJsEmitter {
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
             if (builtinName && isBuiltinFunction(builtinName)) {
-                const args = ast.arguments.map((arg) => this.visit(arg));
+                const args = this.visitArguments(ast.arguments);
                 return emitBuiltinFunction(builtinName, args);
             }
         }
 
         const callee = this.visit(ast.object);
-        const args = ast.arguments.map((arg) => this.visit(arg));
+        const argsList = this.joinArguments(ast.arguments);
 
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
             const scriptId = scriptSymbol ?? this.resolveIdentifierName(ast.object) ?? callee;
-            const argsList = args.join(", ");
             return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
         }
 
-        return `${callee}(${args.join(", ")})`;
+        return `${callee}(${argsList})`;
     }
 
     private visitNewExpression(ast: NewExpressionNode): string {
         const expression = this.visit(ast.expression);
-        const args = (ast.arguments ?? []).map((arg) => this.visit(arg));
-        return `new ${expression}(${args.join(", ")})`;
+        const argsList = this.joinArguments(ast.arguments ?? []);
+        return `new ${expression}(${argsList})`;
     }
 
     private visitProgram(ast: ProgramNode): string {
@@ -591,33 +590,38 @@ export class GmlToJsEmitter {
 
     private visitVariableDeclaration(ast: VariableDeclarationNode): string {
         const decls = ast.declarations;
-        // Fast path: single declaration
-        if (decls.length === 1) {
+        // Fast path: single declaration without initialization
+        if (decls.length === 1 && !decls[0].init) {
+            return `${ast.kind} ${this.visit(decls[0].id)}`;
+        }
+        // Fast path: single declaration with initialization
+        if (decls.length === 1 && decls[0].init) {
             const decl = decls[0];
-            let result = this.visit(decl.id);
-            if (decl.init) {
-                result += ` = ${this.visit(decl.init)}`;
-            }
-            return `${ast.kind} ${result}`;
+            const id = this.visit(decl.id);
+            const init = this.visit(decl.init);
+            return `${ast.kind} ${id} = ${init}`;
         }
         // Multiple declarations: use StringBuilder for efficiency
         const builder = new StringBuilder(decls.length);
         for (const decl of decls) {
-            let part = this.visit(decl.id);
+            const id = this.visit(decl.id);
             if (decl.init) {
-                part += ` = ${this.visit(decl.init)}`;
+                const init = this.visit(decl.init);
+                builder.append(`${id} = ${init}`);
+            } else {
+                builder.append(id);
             }
-            builder.append(part);
         }
         return `${ast.kind} ${builder.toString(", ")}`;
     }
 
     private visitVariableDeclarator(ast: VariableDeclaratorNode): string {
-        let result = this.visit(ast.id);
-        if (ast.init) {
-            result += ` = ${this.visit(ast.init)}`;
+        const id = this.visit(ast.id);
+        if (!ast.init) {
+            return id;
         }
-        return result;
+        const init = this.visit(ast.init);
+        return `${id} = ${init}`;
     }
 
     private visitTernaryExpression(ast: TernaryExpressionNode): string {
@@ -636,9 +640,16 @@ export class GmlToJsEmitter {
         if (elements.length === 1) {
             return `[${this.visit(elements[0])}]`;
         }
-        // Multiple elements: use join for efficiency
-        const visited = elements.map((el) => this.visit(el));
-        return `[${visited.join(", ")}]`;
+        // Fast path: two elements (very common case)
+        if (elements.length === 2) {
+            return `[${this.visit(elements[0])}, ${this.visit(elements[1])}]`;
+        }
+        // Multiple elements: use StringBuilder to avoid intermediate array allocation
+        const builder = new StringBuilder(elements.length);
+        for (const el of elements) {
+            builder.append(this.visit(el));
+        }
+        return `[${builder.toString(", ")}]`;
     }
 
     private visitTemplateStringExpression(ast: TemplateStringExpressionNode): string {
@@ -650,17 +661,19 @@ export class GmlToJsEmitter {
         if (atoms.length === 1 && atoms[0]?.type === "TemplateStringText") {
             return `\`${Core.escapeTemplateText(atoms[0].value)}\``;
         }
-        // Build template string efficiently
-        let result = "`";
+        // Build template string with StringBuilder to avoid O(n²) string concatenation
+        const builder = new StringBuilder(atoms.length + 2);
+        builder.append("`");
         for (const atom of atoms) {
             if (!atom) {
                 continue;
             }
-            result +=
-                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`;
+            builder.append(
+                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
+            );
         }
-        result += "`";
-        return result;
+        builder.append("`");
+        return builder.toString();
     }
 
     private visitTemplateStringText(ast: TemplateStringTextNode): string {
@@ -679,14 +692,14 @@ export class GmlToJsEmitter {
             const value = this.visit(prop.value);
             return `{${key}: ${value}}`;
         }
-        // Multiple properties: build efficiently
-        const parts: string[] = Array.from({ length: props.length });
-        for (const [i, prop] of props.entries()) {
+        // Multiple properties: use StringBuilder to avoid sparse array allocation
+        const builder = new StringBuilder(props.length);
+        for (const prop of props) {
             const key = this.resolveStructKey(prop);
             const value = this.visit(prop.value);
-            parts[i] = `${key}: ${value}`;
+            builder.append(`${key}: ${value}`);
         }
-        return `{${parts.join(", ")}}`;
+        return `{${builder.toString(", ")}}`;
     }
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
@@ -769,12 +782,12 @@ export class GmlToJsEmitter {
         if (!params || params.length === 0) {
             return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
         }
-        // Build parameter list efficiently
-        const paramParts: string[] = Array.from({ length: params.length });
-        for (const [i, param] of params.entries()) {
-            paramParts[i] = typeof param === "string" ? param : this.visit(param);
+        // Build parameter list with StringBuilder to avoid sparse array allocation
+        const builder = new StringBuilder(params.length);
+        for (const param of params) {
+            builder.append(typeof param === "string" ? param : this.visit(param));
         }
-        return `${keyword} ${id}(${paramParts.join(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+        return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
     }
 
     private ensureStatementTermination(code: string): string {
@@ -817,5 +830,47 @@ export class GmlToJsEmitter {
             return this.identifierAnalyzer.nameOfIdent(node);
         }
         return this.visit(node);
+    }
+
+    /**
+     * Visit an array of argument nodes and return an array of strings.
+     * This is optimized for the builtin function path which needs the array.
+     */
+    private visitArguments(args: readonly GmlNode[]): string[] {
+        // Fast path: no arguments
+        if (args.length === 0) {
+            return [];
+        }
+        // Fast path: single argument
+        if (args.length === 1) {
+            return [this.visit(args[0])];
+        }
+        // General case: map all arguments
+        return args.map((arg) => this.visit(arg));
+    }
+
+    /**
+     * Join argument nodes into a comma-separated string.
+     * This is optimized to avoid creating intermediate arrays.
+     */
+    private joinArguments(args: readonly GmlNode[]): string {
+        // Fast path: no arguments
+        if (args.length === 0) {
+            return "";
+        }
+        // Fast path: single argument
+        if (args.length === 1) {
+            return this.visit(args[0]);
+        }
+        // Fast path: two arguments (very common)
+        if (args.length === 2) {
+            return `${this.visit(args[0])}, ${this.visit(args[1])}`;
+        }
+        // General case: use StringBuilder for 3+ arguments
+        const builder = new StringBuilder(args.length);
+        for (const arg of args) {
+            builder.append(this.visit(arg));
+        }
+        return builder.toString(", ");
     }
 }

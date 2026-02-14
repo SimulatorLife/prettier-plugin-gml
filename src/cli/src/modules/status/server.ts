@@ -34,10 +34,108 @@ export interface StatusSnapshot {
     websocketClients: number;
 }
 
+/**
+ * Handler function for an HTTP endpoint.
+ *
+ * @param req - Incoming HTTP request
+ * @param res - HTTP response to write to
+ * @param getSnapshot - Function to retrieve current status snapshot
+ */
+export type EndpointHandler = (req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot) => void;
+
+/**
+ * Registry for HTTP endpoint handlers.
+ *
+ * Decouples endpoint registration from request routing, enabling consumers
+ * to inject custom diagnostic or monitoring endpoints without modifying the
+ * server implementation.
+ *
+ * @example
+ * ```typescript
+ * // Create a custom endpoint registry
+ * const customEndpoints = new EndpointRegistry();
+ *
+ * // Register a metrics endpoint
+ * customEndpoints.register("/metrics", (req, res, getSnapshot) => {
+ *     const snapshot = getSnapshot();
+ *     res.writeHead(200, { "Content-Type": "application/json" });
+ *     res.end(JSON.stringify({
+ *         patches: snapshot.patchCount,
+ *         errors: snapshot.errorCount,
+ *         uptime: snapshot.uptime
+ *     }));
+ * });
+ *
+ * // Start server with custom endpoints
+ * const server = await startStatusServer({
+ *     getSnapshot: () => myStatusSnapshot,
+ *     customEndpoints
+ * });
+ * ```
+ *
+ * @remarks
+ * - Custom endpoints are additive by default, preserving all default endpoints
+ * - Custom endpoints can override defaults by registering the same path
+ * - Intended for monitoring tools, custom health checks, and diagnostic endpoints
+ * - Keep endpoints focused and lightweight to avoid blocking the event loop
+ */
+export class EndpointRegistry {
+    private readonly handlers = new Map<string, EndpointHandler>();
+
+    /**
+     * Registers an endpoint handler.
+     *
+     * @param path - URL path (e.g., "/status", "/metrics")
+     * @param handler - Handler function to invoke for this path
+     */
+    register(path: string, handler: EndpointHandler): void {
+        this.handlers.set(path, handler);
+    }
+
+    /**
+     * Retrieves the handler for a given path.
+     *
+     * @param path - URL path to look up
+     * @returns Handler function if registered, undefined otherwise
+     */
+    getHandler(path: string): EndpointHandler | undefined {
+        return this.handlers.get(path);
+    }
+
+    /**
+     * Returns all registered endpoint paths.
+     *
+     * @returns Iterator of registered paths
+     */
+    paths(): IterableIterator<string> {
+        return this.handlers.keys();
+    }
+
+    /**
+     * Returns all registered handlers with their paths.
+     *
+     * @returns Iterator of [path, handler] entries
+     */
+    entries(): IterableIterator<[string, EndpointHandler]> {
+        return this.handlers.entries();
+    }
+}
+
 export interface StatusServerOptions {
     host?: string;
     port?: number;
     getSnapshot: () => StatusSnapshot;
+    /**
+     * Optional custom endpoint registry.
+     *
+     * When provided, these endpoints are registered in addition to the default
+     * endpoints (/status, /health, /ping, /ready). Custom endpoints can override
+     * default endpoints by registering the same path.
+     *
+     * Use this to inject monitoring, diagnostics, or domain-specific endpoints
+     * without modifying the server implementation.
+     */
+    customEndpoints?: EndpointRegistry;
 }
 
 /**
@@ -125,7 +223,12 @@ function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnap
     }
 }
 
-function handlePingRequest(_req: IncomingMessage, res: ServerResponse): void {
+function handlePingRequest(
+    _req: IncomingMessage,
+    res: ServerResponse,
+    // Parameter required for EndpointHandler type conformance, but not used by ping
+    _getSnapshot: () => StatusSnapshot
+): void {
     sendJsonResponse(res, 200, { status: "ok", timestamp: Date.now() });
 }
 
@@ -162,6 +265,20 @@ function handleNotFound(res: ServerResponse): void {
 }
 
 /**
+ * Creates a default endpoint registry with standard status endpoints.
+ *
+ * @returns Registry with /status, /health, /ping, and /ready endpoints
+ */
+function createDefaultEndpointRegistry(): EndpointRegistry {
+    const registry = new EndpointRegistry();
+    registry.register("/status", handleStatusRequest);
+    registry.register("/health", handleHealthRequest);
+    registry.register("/ping", handlePingRequest);
+    registry.register("/ready", handleReadyRequest);
+    return registry;
+}
+
+/**
  * Creates and starts an HTTP status server.
  *
  * @param options - Server configuration
@@ -170,35 +287,27 @@ function handleNotFound(res: ServerResponse): void {
 export async function startStatusServer({
     host = DEFAULT_STATUS_HOST,
     port = DEFAULT_STATUS_PORT,
-    getSnapshot
+    getSnapshot,
+    customEndpoints
 }: StatusServerOptions): Promise<StatusServerHandle> {
     const activeSockets = new Set<Socket>();
+
+    // Start with default endpoints, then overlay custom endpoints if provided
+    const registry = createDefaultEndpointRegistry();
+    if (customEndpoints) {
+        // Copy custom endpoints into the registry, potentially overriding defaults
+        for (const [path, handler] of customEndpoints.entries()) {
+            registry.register(path, handler);
+        }
+    }
+
     const server: Server = createServer((req, res) => {
-        if (req.method === "GET") {
-            switch (req.url) {
-                case "/status": {
-                    handleStatusRequest(req, res, getSnapshot);
-
-                    break;
-                }
-                case "/health": {
-                    handleHealthRequest(req, res, getSnapshot);
-
-                    break;
-                }
-                case "/ping": {
-                    handlePingRequest(req, res);
-
-                    break;
-                }
-                case "/ready": {
-                    handleReadyRequest(req, res, getSnapshot);
-
-                    break;
-                }
-                default: {
-                    handleNotFound(res);
-                }
+        if (req.method === "GET" && req.url) {
+            const handler = registry.getHandler(req.url);
+            if (handler) {
+                handler(req, res, getSnapshot);
+            } else {
+                handleNotFound(res);
             }
         } else {
             handleNotFound(res);

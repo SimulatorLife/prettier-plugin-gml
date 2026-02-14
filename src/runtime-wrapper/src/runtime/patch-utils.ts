@@ -771,7 +771,7 @@ export function calculateTimingMetrics(durations: Array<number>): {
         }
     }
 
-    const sorted = [...durations].toSorted((a, b) => a - b);
+    const sorted = durations.toSorted((a, b) => a - b);
     const p50DurationMs = calculatePercentile(sorted, 50);
     const p90DurationMs = calculatePercentile(sorted, 90);
     const p99DurationMs = calculatePercentile(sorted, 99);

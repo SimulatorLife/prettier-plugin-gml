@@ -30,6 +30,7 @@ import { __formatTest__, createFormatCommand, runFormatCommand } from "./command
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { createLintCommand, runLintCommand } from "./commands/lint.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
@@ -180,30 +181,44 @@ function restoreConsoleMethods(snapshot: ConsoleMethodSnapshot): void {
     console.info = snapshot.info;
 }
 
-export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTestCommandOptions = {}) {
+type EnvironmentOverrideSnapshot = ReadonlyMap<string, string | undefined>;
+
+function applyProcessEnvironmentOverrides(overrides: NodeJS.ProcessEnv): EnvironmentOverrideSnapshot {
     const originalEnvValues = new Map<string, string | undefined>();
-    const envOverrides = {
-        ...env,
-        [SKIP_CLI_RUN_ENV_VAR]: "1"
-    };
-    const originalConsoleMethods = captureConsoleMethods();
 
-    for (const key of Object.keys(envOverrides)) {
+    for (const key of Object.keys(overrides)) {
         originalEnvValues.set(key, process.env[key]);
-        if (envOverrides[key] === undefined) {
+        const override = overrides[key];
+
+        if (override === undefined) {
             delete process.env[key];
-        } else {
-            process.env[key] = envOverrides[key];
+            continue;
         }
+
+        process.env[key] = override;
     }
 
-    const originalCwd = process.cwd();
-    const normalizedCwd =
-        typeof cwd === "string" ? cwd : typeof cwd?.toString === "function" ? cwd.toString() : undefined;
-    if (normalizedCwd) {
-        process.chdir(normalizedCwd);
-    }
+    return originalEnvValues;
+}
 
+function restoreProcessEnvironmentOverrides(snapshot: EnvironmentOverrideSnapshot): void {
+    for (const [key, value] of snapshot.entries()) {
+        if (value === undefined) {
+            delete process.env[key];
+            continue;
+        }
+
+        process.env[key] = value;
+    }
+}
+
+type ProcessOutputCapture = {
+    capturedStdout: Array<string>;
+    capturedStderr: Array<string>;
+    restore(): void;
+};
+
+function startProcessOutputCapture(): ProcessOutputCapture {
     const capturedStdout: Array<string> = [];
     const capturedStderr: Array<string> = [];
     const originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -229,6 +244,33 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     process.stdout.write = createCaptureWrite(capturedStdout);
     process.stderr.write = createCaptureWrite(capturedStderr);
 
+    return {
+        capturedStdout,
+        capturedStderr,
+        restore(): void {
+            process.stdout.write = originalStdoutWrite;
+            process.stderr.write = originalStderrWrite;
+        }
+    };
+}
+
+export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTestCommandOptions = {}) {
+    const envOverrides = {
+        ...env,
+        [SKIP_CLI_RUN_ENV_VAR]: "1"
+    };
+    const envSnapshot = applyProcessEnvironmentOverrides(envOverrides);
+    const originalConsoleMethods = captureConsoleMethods();
+
+    const originalCwd = process.cwd();
+    const normalizedCwd =
+        typeof cwd === "string" ? cwd : typeof cwd?.toString === "function" ? cwd.toString() : undefined;
+    if (normalizedCwd) {
+        process.chdir(normalizedCwd);
+    }
+
+    const outputCapture = startProcessOutputCapture();
+
     const originalExit = process.exit.bind(process);
     let exitCode = 0;
     process.exit = ((code = 0) => {
@@ -250,27 +292,20 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     } finally {
         process.exit = originalExit;
         process.exitCode = 0;
-        process.stdout.write = originalStdoutWrite;
-        process.stderr.write = originalStderrWrite;
+        outputCapture.restore();
         restoreConsoleMethods(originalConsoleMethods);
 
         if (normalizedCwd) {
             process.chdir(originalCwd);
         }
 
-        for (const [key, value] of originalEnvValues.entries()) {
-            if (value === undefined) {
-                delete process.env[key];
-            } else {
-                process.env[key] = value;
-            }
-        }
+        restoreProcessEnvironmentOverrides(envSnapshot);
     }
 
     return {
         exitCode,
-        stdout: capturedStdout.join(""),
-        stderr: capturedStderr.join("")
+        stdout: outputCapture.capturedStdout.join(""),
+        stderr: outputCapture.capturedStderr.join("")
     };
 }
 
@@ -288,6 +323,16 @@ cliCommandRegistry.registerDefaultCommand({
         handleCliError(error, {
             prefix: "Failed to format project.",
             exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createLintCommand(),
+    run: ({ command }) => runLintCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Lint command failed.",
+            exitCode: 2
         })
 });
 

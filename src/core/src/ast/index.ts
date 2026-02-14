@@ -6,10 +6,13 @@ export * from "./node-classification.js";
 export * from "./node-helpers.js";
 export * from "./node-types.js";
 export * from "./object-graph.js";
+export * from "./scope-tracker.js";
+export * from "./type-guards.js";
 export type {
     FeatherFixDetail,
     FeatherFixRange,
     GameMakerAstLocation,
     GameMakerAstNode,
+    LiteralNode,
     MutableGameMakerAstNode
 } from "./types.js";
