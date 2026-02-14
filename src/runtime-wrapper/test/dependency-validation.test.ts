@@ -391,11 +391,10 @@ void describe("Dependency Validation", () => {
             }
         ];
 
-        // This should fail because batch validation checks all dependencies against
-        // the current registry state BEFORE applying any patches in the batch
         const result = wrapper.applyPatchBatch(patches);
-        assert.strictEqual(result.success, false);
-        assert.strictEqual(result.appliedCount, 0);
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.appliedCount, 2);
+        assert.strictEqual(result.version, 2);
     });
 
     void test("cross-kind dependencies are validated", () => {

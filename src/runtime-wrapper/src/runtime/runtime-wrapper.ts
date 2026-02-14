@@ -36,6 +36,7 @@ import { evaluateUndoStackTrimPolicy } from "./undo-stack-policy.js";
 
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
+const PLACEHOLDER_RUNTIME_FUNCTION: RuntimeFunction = () => {};
 
 export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): RuntimeWrapper {
     const baseRegistry = createRegistry(options.registry);
@@ -53,6 +54,21 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
     const onPatchApplied = options.onPatchApplied;
     const onChange = options.onChange;
+
+    function createDependencyRegistrySnapshot(
+        registry: RuntimeWrapperState["registry"]
+    ): RuntimeWrapperState["registry"] {
+        const scripts = Object.create(registry.scripts) as RuntimeWrapperState["registry"]["scripts"];
+        const events = Object.create(registry.events) as RuntimeWrapperState["registry"]["events"];
+        const closures = Object.create(registry.closures) as RuntimeWrapperState["registry"]["closures"];
+
+        return {
+            version: registry.version,
+            scripts,
+            events,
+            closures
+        };
+    }
 
     function recordError(patch: Patch, category: PatchErrorCategory, error: unknown): void {
         let errorMessage: string;
@@ -171,14 +187,14 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
     function validateBatchPatches(patchCandidates: Array<unknown>): Array<Patch> | BatchApplyResult {
         const validatedPatches: Array<Patch> = [];
-        for (const candidate of patchCandidates) {
-            validatePatch(candidate);
-            validatedPatches.push(candidate);
-        }
+        const dependencyRegistry = createDependencyRegistrySnapshot(state.registry);
 
-        // Validate dependencies for each patch in the batch
-        for (const [index, patch] of validatedPatches.entries()) {
-            const depValidation = validatePatchDependencies(patch, state.registry);
+        for (const [index, candidate] of patchCandidates.entries()) {
+            validatePatch(candidate);
+            const patch = candidate;
+
+            // Validate dependencies as we go so earlier patches in the batch can satisfy later ones.
+            const depValidation = validatePatchDependencies(patch, dependencyRegistry);
             if (!depValidation.satisfied) {
                 const missingDeps = depValidation.missingDependencies.join(", ");
                 const errorMessage = `Patch ${patch.id} has unsatisfied dependencies: ${missingDeps}`;
@@ -192,10 +208,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     rolledBack: false
                 };
             }
-        }
 
-        if (state.options.validateBeforeApply) {
-            for (const [index, patch] of validatedPatches.entries()) {
+            if (state.options.validateBeforeApply) {
                 const testResult = testPatchInShadow(patch);
                 if (!testResult.valid) {
                     recordError(patch, "shadow", testResult.error ?? "Unknown shadow validation error");
@@ -209,6 +223,23 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     };
                 }
             }
+
+            switch (patch.kind) {
+                case "script": {
+                    dependencyRegistry.scripts[patch.id] = PLACEHOLDER_RUNTIME_FUNCTION;
+                    break;
+                }
+                case "event": {
+                    dependencyRegistry.events[patch.id] = PLACEHOLDER_RUNTIME_FUNCTION;
+                    break;
+                }
+                case "closure": {
+                    dependencyRegistry.closures[patch.id] = PLACEHOLDER_RUNTIME_FUNCTION;
+                    break;
+                }
+                // No default
+            }
+            validatedPatches.push(patch);
         }
 
         return validatedPatches;
