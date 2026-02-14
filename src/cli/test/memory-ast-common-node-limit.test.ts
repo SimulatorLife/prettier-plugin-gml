@@ -9,37 +9,24 @@ import {
     MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
     setAstCommonNodeTypeLimit
 } from "../src/commands/memory.js";
+import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
 
 const { collectCommonNodeTypes } = __test__;
 
 void describe("memory AST common node type limit configuration", () => {
+    buildEnvConfiguredValueTests({
+        description: "limit",
+        defaultValue: DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
+        envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+        getValue: getAstCommonNodeTypeLimit,
+        setValue: setAstCommonNodeTypeLimit,
+        applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride,
+        testOverrideValue: 12,
+        testOverrideEnvString: "12"
+    });
+
     afterEach(() => {
-        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
         applyAstCommonNodeTypeLimitEnvOverride();
-    });
-
-    void it("returns the baseline default when no overrides are applied", () => {
-        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
-
-        assert.equal(getAstCommonNodeTypeLimit(), DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
-    });
-
-    void it("allows overriding the default limit", () => {
-        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
-
-        setAstCommonNodeTypeLimit(8);
-
-        assert.equal(getAstCommonNodeTypeLimit(), 8);
-    });
-
-    void it("applies environment overrides to the default limit", () => {
-        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
-
-        applyAstCommonNodeTypeLimitEnvOverride({
-            [MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR]: "12"
-        });
-
-        assert.equal(getAstCommonNodeTypeLimit(), 12);
     });
 
     void it("limits collected node types using the configured value", () => {
