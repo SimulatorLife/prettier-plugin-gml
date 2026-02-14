@@ -33,7 +33,7 @@ export function normalizeLintFilePath(filename: string): string {
     try {
         canonical = realpathSync.native(resolved);
     } catch {
-        // Keep resolved path when canonical lookup fails.
+        // Preserve the original absolute path when realpath fails (e.g. missing file).
     }
 
     return trimTrailingSeparators(canonical);
