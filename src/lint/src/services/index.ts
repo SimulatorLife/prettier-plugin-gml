@@ -1,5 +1,6 @@
 import { PERFORMANCE_OVERRIDE_RULE_IDS } from "../configs/performance-rule-ids.js";
 import { featherManifest } from "../rules/feather/manifest.js";
+import { isPathWithinBoundary } from "./path-boundary.js";
 import {
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
@@ -20,6 +21,7 @@ export const services = Object.freeze({
     defaultProjectIndexExcludes: DEFAULT_PROJECT_INDEX_EXCLUDES,
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
+    isPathWithinBoundary,
     createMissingContextSettings(): GmlProjectSettings {
         return Object.freeze({
             getContext() {

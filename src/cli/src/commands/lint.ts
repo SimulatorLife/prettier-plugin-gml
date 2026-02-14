@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
+import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
-import { Lint } from "@gml-modules/lint";
+import * as LintWorkspace from "@gml-modules/lint";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -20,6 +22,8 @@ const FLAT_CONFIG_CANDIDATES = Object.freeze([
 ]);
 
 const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
+
+const LINT_NAMESPACE = LintWorkspace.Lint;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -39,8 +43,6 @@ type DiscoveryResult = {
     searchedPaths: Array<string>;
 };
 
-type RuleLevelValue = "off" | "warn" | "error" | 0 | 1 | 2;
-
 type ResolvedConfigLike = {
     plugins?: Record<string, unknown> | null | undefined;
     language?: unknown;
@@ -50,16 +52,7 @@ type ResolvedConfigLike = {
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
 
-async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await access(filePath);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
+function discoverFlatConfig(cwd: string): DiscoveryResult {
     const searchedPaths: Array<string> = [];
 
     for (const directory of Core.walkAncestorDirectories(cwd, { includeSelf: true })) {
@@ -67,7 +60,7 @@ async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
             const absolutePath = path.join(directory, candidate);
             searchedPaths.push(absolutePath);
 
-            if (await fileExists(absolutePath)) {
+            if (existsSync(absolutePath)) {
                 return {
                     selectedConfigPath: absolutePath,
                     searchedPaths
@@ -83,8 +76,11 @@ async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
 }
 
 function normalizeFormatterName(formatter: string | undefined): string {
-    const value = typeof formatter === "string" ? formatter.toLowerCase() : "stylish";
-    return SUPPORTED_FORMATTERS.has(value) ? value : "stylish";
+    if (typeof formatter !== "string") {
+        return "stylish";
+    }
+
+    return formatter.toLowerCase();
 }
 
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
@@ -143,6 +139,27 @@ function printFallbackMessageIfNeeded(parameters: { quiet: boolean; searchedPath
     console.warn(lines.join("\n"));
 }
 
+function printNoConfigMessageIfNeeded(parameters: { quiet: boolean; searchedPaths: Array<string> }): void {
+    if (parameters.quiet) {
+        return;
+    }
+
+    const lines = [
+        "No user flat config found.",
+        "Searched locations:",
+        ...parameters.searchedPaths.map((entry) => `- ${entry}`)
+    ];
+    console.warn(lines.join("\n"));
+}
+
+async function validateExplicitConfigPath(configPath: string): Promise<void> {
+    await access(configPath, constants.R_OK);
+}
+
+function isSupportedFormatter(formatterName: string): boolean {
+    return SUPPORTED_FORMATTERS.has(formatterName);
+}
+
 function resolveExitCode(parameters: { errorCount: number; warningCount: number; maxWarnings: number }): number {
     if (parameters.errorCount > 0) {
         return 1;
@@ -156,7 +173,7 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
 }
 
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
-    const entries = Lint.configs.recommended.map((entry) => ({
+    const entries = LINT_NAMESPACE.configs.recommended.map((entry) => ({
         ...entry,
         files: Array.isArray(entry.files) ? [...entry.files] : undefined
     }));
@@ -165,7 +182,7 @@ function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLi
 }
 
 function isCanonicalGmlWiring(config: ResolvedConfigLike): boolean {
-    return config.plugins?.gml === Lint.plugin && config.language === "gml/gml";
+    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === "gml/gml";
 }
 
 function readArrayFirstEntry(value: unknown): unknown {
@@ -185,10 +202,21 @@ function getRuleLevel(value: unknown): unknown {
 }
 
 function isOffLevel(level: unknown): boolean {
-    return level === "off" || level === 0;
+    if (typeof level === "string") {
+        return level.trim().toLowerCase() === "off";
+    }
+
+    return level === 0;
 }
 
 function isAppliedLevel(level: unknown): boolean {
+    if (typeof level === "string") {
+        const normalizedLevel = level.trim().toLowerCase();
+        if (normalizedLevel === "warn" || normalizedLevel === "error") {
+            return true;
+        }
+    }
+
     if (level === "warn" || level === "error") {
         return true;
     }
@@ -210,7 +238,6 @@ function isAppliedRuleValue(value: unknown): boolean {
         return true;
     }
 
-    // Conservative + non-crashing handling for unexpected rule-value shapes.
     return true;
 }
 
@@ -228,7 +255,7 @@ function hasOverlayRuleApplied(config: ResolvedConfigLike): boolean {
             return true;
         }
 
-        if (Lint.services.performanceOverrideRuleIds.includes(ruleId)) {
+        if (LINT_NAMESPACE.services.performanceOverrideRuleIds.includes(ruleId)) {
             return true;
         }
     }
@@ -243,6 +270,36 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+type ConfigLookupEslintLike = {
+    calculateConfigForFile(filePath: string): Promise<unknown>;
+};
+
+type LintResultFilePathLike = {
+    filePath: string;
+};
+
+async function collectOverlayWithoutLanguageWiringPaths(parameters: {
+    eslint: ConfigLookupEslintLike;
+    results: Array<LintResultFilePathLike>;
+}): Promise<Array<string>> {
+    const gmlFilePaths = parameters.results
+        .map((result) => result.filePath)
+        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+
+    const configEntries = await Promise.all(
+        gmlFilePaths.map(async (filePath) => ({
+            filePath,
+            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+        }))
+    );
+
+    const offendingPaths = configEntries
+        .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
+        .map(({ filePath }) => filePath);
+
+    return offendingPaths;
+}
+
 async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     eslint: ESLint;
     results: Array<ESLint.LintResult>;
@@ -252,25 +309,7 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
         return;
     }
 
-    const offendingPaths: Array<string> = [];
-
-    for (const result of parameters.results) {
-        const filePath = result.filePath;
-        if (!filePath.toLowerCase().endsWith(".gml")) {
-            continue;
-        }
-
-        const config = (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike;
-        if (!hasOverlayRuleApplied(config)) {
-            continue;
-        }
-
-        if (isCanonicalGmlWiring(config)) {
-            continue;
-        }
-
-        offendingPaths.push(filePath);
-    }
+    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
 
     if (offendingPaths.length === 0) {
         return;
@@ -291,6 +330,54 @@ async function loadRequestedFormatter(
             return typeof output === "string" ? output : "";
         }
     };
+}
+
+function createEslintConstructorOptions(cwd: string, fix: boolean): ConstructorParameters<typeof ESLint>[0] {
+    return {
+        cwd,
+        fix
+    };
+}
+
+async function configureLintConfig(parameters: {
+    eslintConstructorOptions: ConstructorParameters<typeof ESLint>[0];
+    cwd: string;
+    configPath: string | null;
+    noDefaultConfig: boolean;
+    quiet: boolean;
+}): Promise<number> {
+    if (parameters.configPath) {
+        try {
+            await validateExplicitConfigPath(parameters.configPath);
+        } catch (error) {
+            console.error(
+                `Failed to read eslint config at ${parameters.configPath}: ${error instanceof Error ? error.message : String(error)}`
+            );
+            return 2;
+        }
+
+        parameters.eslintConstructorOptions.overrideConfigFile = parameters.configPath;
+        return 0;
+    }
+
+    const discoveryResult = discoverFlatConfig(parameters.cwd);
+    if (discoveryResult.selectedConfigPath) {
+        parameters.eslintConstructorOptions.overrideConfigFile = discoveryResult.selectedConfigPath;
+        return 0;
+    }
+
+    if (parameters.noDefaultConfig) {
+        printNoConfigMessageIfNeeded({ quiet: parameters.quiet, searchedPaths: discoveryResult.searchedPaths });
+        return 0;
+    }
+
+    parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
+    printFallbackMessageIfNeeded({
+        quiet: parameters.quiet,
+        searchedPaths: discoveryResult.searchedPaths
+    });
+
+    return 0;
 }
 
 export function createLintCommand(): Command {
@@ -315,51 +402,50 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     const options = resolveCommandOptions(command);
     const targets = normalizeLintTargets(command);
     const cwd = process.cwd();
+    const eslintConstructorOptions = createEslintConstructorOptions(cwd, options.fix);
 
-    const eslintConstructorOptions: ConstructorParameters<typeof ESLint>[0] = {
+    if (!isSupportedFormatter(options.formatter)) {
+        console.error(
+            `Unsupported formatter "${options.formatter}". Supported formatters: ${Array.from(SUPPORTED_FORMATTERS).join(", ")}`
+        );
+        process.exitCode = 2;
+        return;
+    }
+
+    const configExitCode = await configureLintConfig({
+        eslintConstructorOptions,
         cwd,
-        fix: options.fix
-    };
-    const projectRegistry = Lint.services.createProjectLintContextRegistry({
+        configPath: options.config,
+        noDefaultConfig: options.noDefaultConfig,
+        quiet: options.quiet
+    });
+
+    if (configExitCode !== 0) {
+        process.exitCode = configExitCode;
+        return;
+    }
+
+    const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
         cwd,
         forcedProjectPath: options.project,
         indexAllowDirectories: options.indexAllow
     });
-    const projectSettings = Lint.services.createProjectSettingsFromRegistry(projectRegistry);
+    const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
 
-    let discoveryResult: DiscoveryResult = {
-        selectedConfigPath: null,
-        searchedPaths: []
-    };
-
-    if (options.config) {
-        eslintConstructorOptions.overrideConfigFile = options.config;
-    } else {
-        discoveryResult = await discoverFlatConfig(cwd);
-        if (discoveryResult.selectedConfigPath) {
-            eslintConstructorOptions.overrideConfigFile = discoveryResult.selectedConfigPath;
-        } else if (!options.noDefaultConfig) {
-            eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
-            printFallbackMessageIfNeeded({
-                quiet: options.quiet,
-                searchedPaths: discoveryResult.searchedPaths
-            });
+    eslintConstructorOptions.overrideConfig = [
+        ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? [...eslintConstructorOptions.overrideConfig] : []),
+        {
+            files: ["**/*.gml"],
+            settings: {
+                gml: {
+                    project: projectSettings
+                }
+            }
         }
-    }
+    ];
 
     let eslint: ESLint;
     try {
-        eslintConstructorOptions.overrideConfig = [
-            ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? eslintConstructorOptions.overrideConfig : []),
-            {
-                files: ["**/*.gml"],
-                settings: {
-                    gml: {
-                        project: projectSettings
-                    }
-                }
-            }
-        ];
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
@@ -380,11 +466,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         await ESLint.outputFixes(results);
     }
 
-    await warnOverlayWithoutLanguageWiringIfNeeded({
-        eslint,
-        results,
-        verbose: options.verbose
-    });
+    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, verbose: options.verbose });
 
     const outOfRootPaths = results
         .map((result) => result.filePath)
@@ -406,18 +488,16 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    let formatterOutput = "";
     try {
         const formatter = await loadRequestedFormatter(eslint, options.formatter);
-        formatterOutput = formatter.format(results);
+        const formatterOutput = formatter.format(results);
+        if (formatterOutput.length > 0) {
+            process.stdout.write(`${formatterOutput}\n`);
+        }
     } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
         process.exitCode = 2;
         return;
-    }
-
-    if (formatterOutput.length > 0) {
-        process.stdout.write(`${formatterOutput}\n`);
     }
 
     const totals = results.reduce(
@@ -442,8 +522,14 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
 export const __lintCommandTest__ = Object.freeze({
     OVERLAY_WARNING_CODE,
+    FLAT_CONFIG_CANDIDATES,
     isCanonicalGmlWiring,
     isAppliedRuleValue,
     hasOverlayRuleApplied,
-    formatOverlayWarning
+    formatOverlayWarning,
+    discoverFlatConfig,
+    normalizeFormatterName,
+    isSupportedFormatter,
+    validateExplicitConfigPath,
+    collectOverlayWithoutLanguageWiringPaths
 });

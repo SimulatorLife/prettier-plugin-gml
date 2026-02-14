@@ -1,9 +1,10 @@
 import { Core } from "@gml-modules/core";
 
+import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
+
 const {
     callWithFallback,
     coerceNonNegativeInteger,
-    createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
     describeValueForError,
     resolveIntegerOption
@@ -24,17 +25,11 @@ const coerce = (value: unknown, context = {}) => {
     return coerceNonNegativeInteger(value, opts);
 };
 
-const state = createEnvConfiguredValue<number | undefined>({
+const state = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
     envVar: VM_EVAL_TIMEOUT_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce,
-            typeErrorMessage: createTimeoutTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    coerce,
+    typeErrorMessage: createTimeoutTypeErrorMessage
 });
 
 function getDefaultVmEvalTimeoutMs(): number | undefined {

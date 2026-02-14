@@ -4,6 +4,8 @@ import test from "node:test";
 import { gmlPluginComponents } from "../src/components/plugin-components.js";
 import * as gmlPlugin from "../src/index.js";
 
+const { options } = gmlPlugin;
+
 void test("GML entry point exports static plugin components", () => {
     const parserKeys = Object.keys(gmlPlugin.parsers);
     assert.ok(parserKeys.includes("gml-parse"));
@@ -14,6 +16,9 @@ void test("GML entry point exports static plugin components", () => {
 
     const optionKeys = Object.keys(gmlPlugin.options);
     assert.ok(optionKeys.includes("logicalOperatorsStyle"));
+    assert.ok(optionKeys.includes("optimizeLoopLengthHoisting"));
+    assert.equal(options.condenseStructAssignments.default, true);
+    assert.equal(gmlPlugin.defaultOptions.condenseStructAssignments, true);
 
     assert.ok(gmlPlugin.defaultOptions);
     assert.ok(typeof gmlPlugin.setIdentifierCaseRuntime === "function");
