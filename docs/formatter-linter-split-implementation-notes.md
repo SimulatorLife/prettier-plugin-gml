@@ -34,7 +34,12 @@
 - Plugin runtime adapter module was removed entirely (`src/plugin/src/runtime`), and remaining dormant transform helpers were decoupled from formatter runtime adapter APIs.
 - Core synthetic doc helper fallback no longer keys behavior off legacy formatter migration options.
 - Plugin formatter test fixtures no longer pass removed migrated options (`applyFeatherFixes`, `optimize*`, `condenseStructAssignments`, `loopLengthHoist*`, etc.); option JSON inputs now contain only current formatter-surface fields.
+- Root integration plugin fixture option files under `test/fixtures/plugin-integration/*.options.json` were also scrubbed of removed migrated formatter keys.
 - Migrated-transform regression tests now validate current formatter behavior without supplying removed/deprecated formatter options.
+- Lint project context registry now consumes a dedicated project-analysis provider contract (`src/lint/src/services/project-analysis-provider.ts`) instead of embedding analysis logic directly in registry orchestration.
+- Lint registry/provider delegation now has explicit coverage ensuring provider-backed snapshot construction is used and cached per resolved root.
+- Plugin README ownership docs were aligned with current runtime surface (identifier-case integration only; no semantic/refactor runtime hook exports).
+- Root generated-doc contract now enforces checked-in sync for `docs/generated/project-aware-rules.md` against `Lint.docs.renderProjectAwareRulesMarkdown()`.
 
 ## Test Migration Status
 
@@ -46,7 +51,11 @@
   - Result: `pass 35`, `fail 0`, `skipped 0`.
 - `src/cli`:
   - `pnpm --filter @gml-modules/cli test` passes.
-  - Result: `pass 539`, `fail 0`, `skipped 0`.
+  - Result: `pass 538`, `fail 0`, `skipped 0`.
+- `test` root contracts:
+  - `pnpm run test:root` passes.
+  - Includes generated project-aware docs sync assertion and plugin integration fixture assertions.
+  - Includes a new guard that fails if integration option fixtures reintroduce removed formatter migration keys.
 - Skipped-test audit:
   - Search: `rg -n "\\b(?:test|it|describe|t)\\.skip\\s*\\(" src --glob '!**/dist/**'`
   - Result: no matches.

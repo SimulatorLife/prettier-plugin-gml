@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as LintWorkspace from "../index.js";
+import * as LintWorkspace from "../src/index.js";
 
 void test("posix boundary comparison is segment-safe", () => {
     assert.equal(LintWorkspace.Lint.services.isPathWithinBoundary("/root/sub/file.gml", "/root"), true);
