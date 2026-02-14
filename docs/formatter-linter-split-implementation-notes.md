@@ -13,7 +13,7 @@
 - Lint rules are wired through real `gml/*` implementations (instead of no-op scaffolding), with schema/capability alignment updates in rule catalog and helpers.
 - Project context registry now builds an index-backed context (identifier occupancy and occurrence helpers, rename planning hooks, and globalvar rewrite assessment hooks).
 - Project context indexing now normalizes identifier matching by canonical lowercase keys for occupancy/occurrence/planning parity across files.
-- CLI lint guardrail behavior/messageing was tightened (overlay warning policy and fallback messaging improvements).
+- CLI lint guardrail behavior/messaging was tightened (overlay warning policy and fallback messaging improvements).
 - Formatter public option metadata removed migrated semantic/lint options:
   - `applyFeatherFixes`
   - `preserveGlobalVarStatements`
@@ -33,6 +33,8 @@
 - Plugin transform public index no longer exports migrated feather/math/separator/loop-hoist migration helpers from formatter-facing surface.
 - Plugin runtime adapter module was removed entirely (`src/plugin/src/runtime`), and remaining dormant transform helpers were decoupled from formatter runtime adapter APIs.
 - Core synthetic doc helper fallback no longer keys behavior off legacy formatter migration options.
+- Plugin formatter test fixtures no longer pass removed migrated options (`applyFeatherFixes`, `optimize*`, `condenseStructAssignments`, `loopLengthHoist*`, etc.); option JSON inputs now contain only current formatter-surface fields.
+- Migrated-transform regression tests now validate current formatter behavior without supplying removed/deprecated formatter options.
 
 ## Test Migration Status
 
@@ -46,7 +48,7 @@
   - `pnpm --filter @gml-modules/cli test` passes.
   - Result: `pass 539`, `fail 0`, `skipped 0`.
 - Skipped-test audit:
-  - Search: `rg -n "skip\\(|test\\.skip|it\\.skip|describe\\.skip" src`
+  - Search: `rg -n "\\b(?:test|it|describe|t)\\.skip\\s*\\(" src --glob '!**/dist/**'`
   - Result: no matches.
 - CLI skip-path cleanup remains in place:
   - Symlink traversal test no longer uses `t.skip()` when symlink creation is unavailable; it asserts deterministic behavior for both capability paths.

@@ -1,6 +1,5 @@
 {
   "logicalOperatorsStyle": "symbols",
-  "optimizeLogicalExpressions": true,
   "allowSingleLineIfStatements": true,
   "printWidth": 120
 }

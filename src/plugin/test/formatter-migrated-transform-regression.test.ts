@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void describe("formatter migrated-transform regression coverage", () => {
-    void it("does not apply semantic/refactor transforms from migrated pipeline options", async () => {
+    void it("does not apply semantic/content rewrites during formatting", async () => {
         const source = [
             "#macro VALUE 1;",
             "var cfg = {};",
@@ -19,13 +19,7 @@ void describe("formatter migrated-transform regression coverage", () => {
             "}"
         ].join("\n");
 
-        const formatted = await Plugin.format(source, {
-            applyFeatherFixes: true,
-            condenseStructAssignments: true,
-            optimizeMathExpressions: true,
-            optimizeLogicalExpressions: true,
-            useStringInterpolation: true
-        });
+        const formatted = await Plugin.format(source);
 
         assert.match(formatted, /#macro VALUE 1;/);
         assert.match(formatted, /cfg\.foo = 1;/);
@@ -43,10 +37,7 @@ void describe("formatter migrated-transform regression coverage", () => {
         const malformedSource = 'if (ready) {\n    show_debug_message("x");\n';
 
         await assert.rejects(async () => {
-            await Plugin.format(malformedSource, {
-                applyFeatherFixes: true,
-                sanitizeMissingArgumentSeparators: true
-            });
+            await Plugin.format(malformedSource);
         });
     });
 
