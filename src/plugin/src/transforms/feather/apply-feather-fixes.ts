@@ -14019,19 +14019,11 @@ function isDrawSurfaceCall(node) {
     return typeof name === "string" && name.startsWith("draw_surface");
 }
 
-function isTerminatingStatement(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    return (
-        node.type === "ReturnStatement" ||
-        node.type === "BreakStatement" ||
-        node.type === "ContinueStatement" ||
-        node.type === "ThrowStatement" ||
-        node.type === "ExitStatement"
-    );
-}
+// Removed: duplicated type check now consolidated in Core.isControlFlowExitStatement()
+// This helper was one of multiple implementations scattered across the plugin workspace.
+// The canonical version is now in @gml-modules/core/src/ast/type-guards.ts and checks
+// for the same set of control flow exit statements: Return, Break, Continue, Exit, Throw.
+const isTerminatingStatement = Core.isControlFlowExitStatement;
 
 function isLiteralOne(node) {
     if (!node || node.type !== "Literal") {
