@@ -1,5 +1,9 @@
 /**
- * Helpers for detecting and reporting duplicate semicolons so Feather diagnostics can suggest cleanup.
+ * Helpers for detecting and reporting duplicate or trailing semicolons in GML code.
+ *
+ * This module handles semicolon-related Feather diagnostics, including:
+ * - Duplicate consecutive semicolons (GM1033)
+ * - Trailing semicolons in macro declarations (GM1051)
  */
 import { Core } from "@gml-modules/core";
 
@@ -9,6 +13,17 @@ import {
     hasFeatherSourceTextContext,
     visitFeatherAST
 } from "./utils.js";
+
+/**
+ * Pattern matching trailing semicolons in macro declarations.
+ *
+ * Matches a semicolon followed by optional whitespace, block comments, line comments,
+ * and a line terminator or end of input. This ensures we only remove semicolons that
+ * appear at the end of a macro definition, not semicolons within the macro body.
+ */
+export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
+    String.raw`;(?=[^\S\r\n]*(?:/\*[\s\S]*?\*/[^\S\r\n]*)*(?://[^\r\n]*)?(?:\r?\n|$))`
+);
 
 /**
  * Scan the AST/source text for consecutive semicolons and produce metadata consumable by the plugin.
@@ -279,4 +294,146 @@ function findCharacterInRange(text, character, start, end) {
     }
 
     return index;
+}
+
+/**
+ * Remove trailing semicolons from macro declarations.
+ *
+ * GameMaker's macro preprocessor automatically appends a semicolon during macro
+ * expansion. If the macro definition itself ends with a semicolon, this creates
+ * double-termination, causing syntax errors or unexpected expression boundaries.
+ *
+ * This function identifies macros ending with semicolons and removes them, updating
+ * the AST and attaching fix metadata for Feather diagnostic GM1051.
+ *
+ * @param ast - The program AST node
+ * @param sourceText - Original source code text
+ * @param diagnostic - Feather diagnostic information
+ * @returns Array of fix details describing the semicolon removals
+ */
+export function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (Core.isMacroDeclarationNode(node)) {
+            const fixInfo = sanitizeMacroDeclaration(node, sourceText, diagnostic);
+            if (fixInfo) {
+                registerSanitizedMacroName(ast, Core.getIdentifierText(node.name));
+                fixes.push(fixInfo);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+/**
+ * Sanitize a single macro declaration by removing its trailing semicolon.
+ *
+ * @param node - Macro declaration AST node
+ * @param sourceText - Original source text
+ * @param diagnostic - Feather diagnostic information
+ * @returns Fix detail if semicolon was removed, null otherwise
+ */
+function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const tokens = Array.isArray(node.tokens) ? node.tokens : null;
+    if (!tokens || tokens.length === 0) {
+        return null;
+    }
+
+    const lastToken = tokens.at(-1);
+    if (lastToken !== ";") {
+        return null;
+    }
+
+    const startIndex = node.start?.index;
+    const endIndex = node.end?.index;
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    const originalText = sourceText.slice(startIndex, endIndex + 1);
+
+    // Remove trailing semicolons from Feather macro definitions because the macro
+    // preprocessor already appends a semicolon during expansion. Leaving the source
+    // semicolon in place would double-terminate statements, causing syntax errors
+    // or unexpected expression boundaries. We only strip semicolons at the macro's
+    // end to preserve semicolons that appear within the macro body itself.
+    const sanitizedText = originalText.replace(TRAILING_MACRO_SEMICOLON_PATTERN, "");
+
+    if (sanitizedText === originalText) {
+        return null;
+    }
+
+    node.tokens = tokens.slice(0, -1);
+    node._featherMacroText = sanitizedText;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.name?.name ?? null,
+        range: {
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+/**
+ * Register a macro name as having been sanitized.
+ *
+ * Maintains a set on the Program AST node tracking which macros have had
+ * their trailing semicolons removed, allowing downstream tooling to know
+ * which macros have been processed.
+ *
+ * @param ast - Program AST node
+ * @param macroName - Name of the sanitized macro
+ */
+function registerSanitizedMacroName(ast, macroName) {
+    if (!ast || typeof ast !== "object" || ast.type !== "Program") {
+        return;
+    }
+
+    if (typeof macroName !== "string" || macroName.length === 0) {
+        return;
+    }
+
+    const registry = Core.ensureSet(ast._featherSanitizedMacroNames);
+
+    registry.add(macroName);
+    ast._featherSanitizedMacroNames = registry;
 }
