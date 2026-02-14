@@ -17,10 +17,20 @@ void test("GML entry point exports static plugin components", () => {
     // Verify that the entry point properly exposes options
     const optionKeys = Object.keys(gmlPlugin.options);
     assert.ok(optionKeys.includes("optimizeLoopLengthHoisting"), "options export should include plugin options");
+    assert.equal(
+        gmlPlugin.options.condenseStructAssignments.default,
+        true,
+        "condenseStructAssignments should default to true in option metadata"
+    );
 
     // Verify default options are properly set
     assert.ok(gmlPlugin.defaultOptions, "default options should be exported");
     assert.ok(typeof gmlPlugin.defaultOptions === "object", "default options should be an object");
+    assert.equal(
+        gmlPlugin.defaultOptions.condenseStructAssignments,
+        true,
+        "defaultOptions should preserve the condenseStructAssignments default"
+    );
     assert.ok(typeof gmlPlugin.setSemanticSafetyRuntime === "function", "semantic safety runtime setter should exist");
     assert.ok(typeof gmlPlugin.setRefactorRuntime === "function", "refactor runtime setter should exist");
     assert.ok(typeof gmlPlugin.setIdentifierCaseRuntime === "function", "identifier-case runtime setter should exist");

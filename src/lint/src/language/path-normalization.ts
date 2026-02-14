@@ -25,7 +25,7 @@ export function normalizeLintFilePath(filename: string): string {
     try {
         canonical = realpathSync.native(resolved);
     } catch {
-        canonical = resolved;
+        // Preserve the original absolute path when realpath fails (e.g. missing file).
     }
 
     return trimTrailingSeparators(canonical);

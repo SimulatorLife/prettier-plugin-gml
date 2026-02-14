@@ -27,6 +27,7 @@ import {
     wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
 import { importPluginModule } from "../plugin-runtime/entry-point.js";
+import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
 import {
     REPO_ROOT,
     Reporting,
@@ -232,33 +233,6 @@ interface MemoryIterationEnvOverrideOptions {
     envVar: string;
     error: unknown;
     fallback: number | undefined;
-}
-
-interface IntegerEnvConfiguredValueOptions {
-    defaultValue: number;
-    envVar: string;
-    coerce: (value: unknown, context?: Record<string, unknown>) => number | null | undefined;
-    typeErrorMessage: (type: string) => string;
-}
-
-function createIntegerEnvConfiguredValue({
-    defaultValue,
-    envVar,
-    coerce,
-    typeErrorMessage
-}: IntegerEnvConfiguredValueOptions) {
-    return createEnvConfiguredValue<number | undefined>({
-        defaultValue,
-        envVar,
-        normalize: (value, { defaultValue: baseline, previousValue }) => {
-            return resolveIntegerOption(value, {
-                defaultValue: baseline ?? previousValue,
-                coerce,
-                typeErrorMessage,
-                blankStringReturnsDefault: true
-            });
-        }
-    });
 }
 
 // Shared coercion function for iteration counts

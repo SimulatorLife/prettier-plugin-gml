@@ -23,7 +23,6 @@ import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../option
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
-import { getNumericValueFromRealCall } from "./call-expressions/real-call-value.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -55,6 +54,7 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
+import { getNumericValueFromRealCall } from "./real-call-value.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
