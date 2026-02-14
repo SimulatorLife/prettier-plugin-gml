@@ -2,6 +2,12 @@ import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
 import { normalizeLintFilePath } from "./path-normalization.js";
+import {
+    createLimitedRecoveryProjection,
+    type InsertedArgumentSeparatorRecovery,
+    mapRecoveredIndexToOriginal,
+    type RecoveryMode
+} from "./recovery.js";
 
 class GMLLanguageSourceCode extends SourceCode {
     finalize(): void {
@@ -51,69 +57,17 @@ type ParseSuccessResult = {
 
 type GMLParseResult = ParseFailureResult | ParseSuccessResult;
 
-type SourceLocationPoint = { line: number; column: number };
-
-type SourceLocationRange = {
-    start: SourceLocationPoint;
-    end: SourceLocationPoint;
+type GmlParserServices = {
+    readonly gml: {
+        readonly schemaVersion: 1;
+        readonly filePath: string;
+        readonly recovery: ReadonlyArray<InsertedArgumentSeparatorRecovery>;
+        readonly directives: ReadonlyArray<string>;
+        readonly enums: ReadonlyArray<string>;
+    };
 };
 
-function ensureRangeMetadata(node: Record<string, unknown>): void {
-    const nodeRange = node.range;
-    if (
-        !Array.isArray(nodeRange) ||
-        nodeRange.length !== 2 ||
-        typeof nodeRange[0] !== "number" ||
-        typeof nodeRange[1] !== "number"
-    ) {
-        node.range = [0, 0];
-    }
-
-    const nodeLoc = node.loc;
-    const hasValidLoc =
-        nodeLoc &&
-        typeof nodeLoc === "object" &&
-        typeof (nodeLoc as { start?: { line?: unknown; column?: unknown } }).start?.line === "number" &&
-        typeof (nodeLoc as { start?: { line?: unknown; column?: unknown } }).start?.column === "number" &&
-        typeof (nodeLoc as { end?: { line?: unknown; column?: unknown } }).end?.line === "number" &&
-        typeof (nodeLoc as { end?: { line?: unknown; column?: unknown } }).end?.column === "number";
-
-    if (!hasValidLoc) {
-        const defaultPoint: SourceLocationPoint = { line: 1, column: 0 };
-        const defaultLocation: SourceLocationRange = { start: defaultPoint, end: defaultPoint };
-        node.loc = defaultLocation;
-    }
-}
-
-function attachRequiredLocationMetadata(programNode: Record<string, unknown>): void {
-    const pendingNodes: Record<string, unknown>[] = [programNode];
-
-    while (pendingNodes.length > 0) {
-        const currentNode = pendingNodes.pop();
-        if (!currentNode) {
-            continue;
-        }
-
-        if (typeof currentNode.type === "string") {
-            ensureRangeMetadata(currentNode);
-        }
-
-        for (const childValue of Object.values(currentNode)) {
-            if (Array.isArray(childValue)) {
-                for (const entry of childValue) {
-                    if (entry && typeof entry === "object") {
-                        pendingNodes.push(entry as Record<string, unknown>);
-                    }
-                }
-                continue;
-            }
-
-            if (childValue && typeof childValue === "object") {
-                pendingNodes.push(childValue as Record<string, unknown>);
-            }
-        }
-    }
-}
+type IndexedLocation = { line?: unknown; index?: unknown; column?: unknown };
 
 type GMLLanguage = {
     fileType: "text";
@@ -131,6 +85,15 @@ type GMLLanguage = {
     validateLanguageOptions(languageOptions: unknown): void;
     normalizeLanguageOptions(languageOptions: unknown): GMLLanguageOptions;
 };
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
 
 function normalizeProgramShape(ast: unknown): GMLAstNode {
     const program =
@@ -157,8 +120,6 @@ function normalizeProgramShape(ast: unknown): GMLAstNode {
     if (typeof program.type !== "string") {
         program.type = "Program";
     }
-
-    attachRequiredLocationMetadata(program);
 
     return program as GMLAstNode;
 }
@@ -203,6 +164,75 @@ function readFilename(context: GMLLanguageContext): string {
     return "<text>";
 }
 
+function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
+    if (!languageOptions || typeof languageOptions !== "object") {
+        return { recovery: "limited" };
+    }
+
+    const options = languageOptions as Record<string, unknown>;
+    const recovery = options.recovery;
+
+    if (recovery === "none" || recovery === "limited") {
+        return { recovery };
+    }
+
+    return { recovery: "limited" };
+}
+
+function readRecoveryMode(parseContext: { languageOptions?: unknown }): RecoveryMode {
+    return normalizeRecoveryOption(parseContext.languageOptions).recovery;
+}
+
+function toIndexedLocation(value: unknown): IndexedLocation | null {
+    return value && typeof value === "object" ? (value as IndexedLocation) : null;
+}
+
+function mapIndexToLoc(sourceText: string, index: number): { line: number; column: number } {
+    const boundedIndex = Math.max(0, Math.min(index, sourceText.length));
+    let line = 1;
+    let lineStart = 0;
+    for (let cursor = 0; cursor < boundedIndex; cursor += 1) {
+        const character = sourceText[cursor] ?? "";
+        if (character === "\n") {
+            line += 1;
+            lineStart = cursor + 1;
+            continue;
+        }
+
+        if (character === "\r") {
+            if (sourceText[cursor + 1] === "\n") {
+                cursor += 1;
+            }
+            line += 1;
+            lineStart = cursor + 1;
+        }
+    }
+
+    return { line, column: boundedIndex - lineStart };
+}
+
+function ensureRangeAndLocFromStartEnd(record: Record<string, unknown>, sourceText: string): void {
+    const startLocation = toIndexedLocation(record.start);
+    const endLocation = toIndexedLocation(record.end);
+    const startIndex = typeof startLocation?.index === "number" ? startLocation.index : null;
+    const endIndexInclusive = typeof endLocation?.index === "number" ? endLocation.index : null;
+    if (startIndex === null || endIndexInclusive === null) {
+        return;
+    }
+
+    const endExclusive = Math.max(startIndex, endIndexInclusive + 1);
+    const startLoc = mapIndexToLoc(sourceText, startIndex);
+    const endLoc = mapIndexToLoc(sourceText, endExclusive);
+
+    record.range = [startIndex, endExclusive];
+    record.loc = {
+        start: Object.assign({}, startLoc, { index: startIndex }),
+        end: Object.assign({}, endLoc, { index: endExclusive })
+    };
+    record.start = Object.assign({}, startLoc, { index: startIndex });
+    record.end = Object.assign({}, mapIndexToLoc(sourceText, endIndexInclusive), { index: endIndexInclusive });
+}
+
 function assignRangesRecursively(node: unknown): void {
     if (!node || typeof node !== "object") {
         return;
@@ -227,24 +257,99 @@ function assignRangesRecursively(node: unknown): void {
     }
 }
 
-function getErrorLineColumn(error: unknown): { line: number; column: number; message: string } {
-    const fallback = { line: 1, column: 1, message: "Unknown parse error" };
-    if (!(error instanceof Error)) {
-        return fallback;
-    }
+function projectLocationsToOriginalSource(
+    ast: unknown,
+    sourceText: string,
+    insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>
+): void {
+    const childKeys = [
+        "body",
+        "arguments",
+        "object",
+        "left",
+        "right",
+        "expression",
+        "expressions",
+        "declarations",
+        "declaration",
+        "init",
+        "test",
+        "update",
+        "consequent",
+        "alternate",
+        "cases",
+        "statements",
+        "property",
+        "properties",
+        "elements",
+        "comments",
+        "tokens",
+        "params",
+        "id",
+        "key",
+        "value"
+    ] as const;
 
-    const lineCandidate = Reflect.get(error, "lineNumber") ?? Reflect.get(error, "line");
-    const columnCandidate =
-        Reflect.get(error, "column") ?? Reflect.get(error, "columnNumber") ?? Reflect.get(error, "col");
+    const seen = new Set<object>();
 
-    const line = typeof lineCandidate === "number" && Number.isFinite(lineCandidate) ? lineCandidate : 1;
-    const column = typeof columnCandidate === "number" && Number.isFinite(columnCandidate) ? columnCandidate : 1;
+    const visit = (candidate: unknown): void => {
+        if (!candidate || typeof candidate !== "object") {
+            return;
+        }
 
-    return {
-        line,
-        column,
-        message: error.message
+        if (seen.has(candidate)) {
+            return;
+        }
+
+        seen.add(candidate);
+
+        if (Array.isArray(candidate)) {
+            for (const entry of candidate) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (!isPlainRecord(candidate)) {
+            return;
+        }
+
+        const record = candidate;
+        const startLocation = toIndexedLocation(record.start);
+        if (typeof startLocation?.index === "number") {
+            startLocation.index = mapRecoveredIndexToOriginal(startLocation.index, insertions);
+        }
+
+        const endLocation = toIndexedLocation(record.end);
+        if (typeof endLocation?.index === "number") {
+            endLocation.index = mapRecoveredIndexToOriginal(endLocation.index, insertions);
+        }
+
+        ensureRangeAndLocFromStartEnd(record, sourceText);
+
+        for (const key of childKeys) {
+            if (Object.hasOwn(record, key)) {
+                visit(record[key]);
+            }
+        }
     };
+
+    visit(ast);
+}
+
+function createParserServices(
+    filePath: string,
+    recovery: ReadonlyArray<InsertedArgumentSeparatorRecovery>
+): GmlParserServices {
+    return Object.freeze({
+        gml: Object.freeze({
+            schemaVersion: 1,
+            filePath,
+            recovery,
+            directives: Object.freeze([]),
+            enums: Object.freeze([])
+        })
+    });
 }
 
 function createSourceCodeInstance(parameters: {
@@ -273,19 +378,24 @@ function createSourceCodeInstance(parameters: {
     });
 }
 
-function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
-    if (!languageOptions || typeof languageOptions !== "object") {
-        return { recovery: "limited" };
+function getErrorLineColumn(error: unknown): { line: number; column: number; message: string } {
+    const fallback = { line: 1, column: 1, message: "Unknown parse error" };
+    if (!(error instanceof Error)) {
+        return fallback;
     }
 
-    const options = languageOptions as Record<string, unknown>;
-    const recovery = options.recovery;
+    const lineCandidate = Reflect.get(error, "lineNumber") ?? Reflect.get(error, "line");
+    const columnCandidate =
+        Reflect.get(error, "column") ?? Reflect.get(error, "columnNumber") ?? Reflect.get(error, "col");
 
-    if (recovery === "none" || recovery === "limited") {
-        return { recovery };
-    }
+    const line = typeof lineCandidate === "number" && Number.isFinite(lineCandidate) ? lineCandidate : 1;
+    const column = typeof columnCandidate === "number" && Number.isFinite(columnCandidate) ? columnCandidate : 1;
 
-    return { recovery: "limited" };
+    return {
+        line,
+        column,
+        message: error.message
+    };
 }
 
 export const GML_VISITOR_KEYS = Object.freeze({}) as Record<string, string[]>;
@@ -297,48 +407,85 @@ export const gmlLanguage = Object.freeze({
     nodeTypeKey: "type",
     defaultLanguageOptions: Object.freeze({ recovery: "limited" }),
     visitorKeys: GML_VISITOR_KEYS,
-    parse(file: GMLLanguageContext, _context: { languageOptions?: unknown }) {
+    parse(file: GMLLanguageContext, parseContext: { languageOptions?: unknown }) {
         const sourceText = readSourceText(file);
-        const filename = readFilename(file);
+        const filePath = normalizeLintFilePath(readFilename(file));
+        const recoveryMode = readRecoveryMode(parseContext);
 
-        try {
-            const parser = new Parser.GMLParser(sourceText, {
-                astFormat: "estree",
+        const parseAst = (text: string): GMLAstNode => {
+            const parser = new Parser.GMLParser(text, {
+                astFormat: "gml",
                 asJSON: false,
                 getComments: true,
                 getLocations: true,
                 simplifyLocations: false
             });
+            return normalizeProgramShape(parser.parse());
+        };
 
-            const ast = normalizeProgramShape(parser.parse());
-            const parserServices = {
-                gml: {
-                    schemaVersion: 1,
-                    filePath: normalizeLintFilePath(filename),
-                    recovery: [],
-                    directives: [],
-                    enums: []
-                }
-            };
-
+        try {
+            const ast = parseAst(sourceText);
+            projectLocationsToOriginalSource(ast, sourceText, Object.freeze([]));
+            assignRangesRecursively(ast);
             return {
                 ok: true,
                 ast,
-                parserServices,
+                parserServices: createParserServices(filePath, Object.freeze([])),
                 visitorKeys: GML_VISITOR_KEYS
             };
-        } catch (error) {
-            const details = getErrorLineColumn(error);
-            return {
-                ok: false,
-                errors: [
-                    {
-                        message: details.message,
-                        line: details.line,
-                        column: details.column
-                    }
-                ]
-            };
+        } catch (strictParseError) {
+            if (recoveryMode === "none") {
+                const details = getErrorLineColumn(strictParseError);
+                return {
+                    ok: false,
+                    errors: [
+                        {
+                            message: details.message,
+                            line: details.line,
+                            column: details.column
+                        }
+                    ]
+                };
+            }
+
+            const recoveryProjection = createLimitedRecoveryProjection(sourceText);
+            if (recoveryProjection.insertions.length === 0) {
+                const details = getErrorLineColumn(strictParseError);
+                return {
+                    ok: false,
+                    errors: [
+                        {
+                            message: details.message,
+                            line: details.line,
+                            column: details.column
+                        }
+                    ]
+                };
+            }
+
+            try {
+                const ast = parseAst(recoveryProjection.parseSource);
+                projectLocationsToOriginalSource(ast, sourceText, recoveryProjection.insertions);
+                assignRangesRecursively(ast);
+                return {
+                    ok: true,
+                    ast,
+                    parserServices: createParserServices(filePath, Object.freeze(recoveryProjection.insertions)),
+                    visitorKeys: GML_VISITOR_KEYS
+                };
+            } catch {
+                const details = getErrorLineColumn(strictParseError);
+                return {
+                    ok: false,
+                    errors: [
+                        {
+                            message: details.message,
+                            line: details.line,
+                            column: details.column
+                        }
+                    ]
+                };
+            }
         }
     },
     createSourceCode(
@@ -349,6 +496,7 @@ export const gmlLanguage = Object.freeze({
         const sourceText = readSourceText(file);
         const ast = normalizeProgramShape(parseResult.ast);
         assignRangesRecursively(ast);
+
         const parserServices =
             parseResult.parserServices && typeof parseResult.parserServices === "object"
                 ? parseResult.parserServices
