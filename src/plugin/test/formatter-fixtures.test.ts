@@ -16,20 +16,22 @@ const fileEncoding = "utf8";
 const FORMATTER_FIXTURE_BASENAMES = Object.freeze([
     "testAligned",
     "testEmptyParamsComment",
-    "testGM1017",
     "testIfBraces",
-    "testIgnore",
     "testParams",
-    "testPreserve",
     "testPrintWidth"
 ]);
 
-async function readFixtureText(basename: string): Promise<{ input: string; output: string; options: Record<string, unknown> | null }> {
+async function readFixtureText(
+    basename: string
+): Promise<{ input: string; output: string; options: Record<string, unknown> | null }> {
     const inputPath = path.join(fixtureDirectory, `${basename}.input.gml`);
     const outputPath = path.join(fixtureDirectory, `${basename}.output.gml`);
     const optionsPath = path.join(fixtureDirectory, `${basename}.options.json`);
 
-    const [input, output] = await Promise.all([fs.readFile(inputPath, fileEncoding), fs.readFile(outputPath, fileEncoding)]);
+    const [input, output] = await Promise.all([
+        fs.readFile(inputPath, fileEncoding),
+        fs.readFile(outputPath, fileEncoding)
+    ]);
     let options: Record<string, unknown> | null = null;
     try {
         const serialized = await fs.readFile(optionsPath, fileEncoding);
