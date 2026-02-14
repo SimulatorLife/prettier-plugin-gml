@@ -134,7 +134,10 @@ function maybeHoistLoopLength(
     statements.splice(index, 0, declaration);
 }
 
-function resolveLoopHoistIdentifierName(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
+function resolveLoopHoistIdentifierName(
+    preferredName: string,
+    localIdentifierNames: ReadonlySet<string>
+): string | null {
     const normalizedLocalNames = new Set(Array.from(localIdentifierNames, (name) => name.toLowerCase()));
     const normalizedPreferredName = preferredName.toLowerCase();
 
