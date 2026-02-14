@@ -77,7 +77,7 @@ export class ProjectMetadataParseError extends Error {
         const details = Core.getErrorMessageOrFallback(cause);
         super(`Failed to parse GameMaker metadata from '${sourcePath}': ${details}`);
         this.name = PROJECT_METADATA_PARSE_ERROR;
-        this.cause = cause instanceof Error ? cause : undefined;
+        this.cause = Core.isErrorLike(cause) ? cause : undefined;
     }
 }
 
@@ -91,7 +91,7 @@ export class ProjectMetadataSchemaValidationError extends Error {
             `Metadata at '${sourcePath}' does not match inferred '${schemaName}' schema required for safe mutation: ${details}`
         );
         this.name = PROJECT_METADATA_SCHEMA_VALIDATION_ERROR;
-        this.cause = cause instanceof Error ? cause : undefined;
+        this.cause = Core.isErrorLike(cause) ? cause : undefined;
     }
 }
 

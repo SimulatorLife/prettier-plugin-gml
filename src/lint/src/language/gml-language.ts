@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
@@ -133,7 +134,7 @@ function decodeFileBody(body: string | Uint8Array): string {
 }
 
 function readSourceText(context: GMLLanguageContext): string {
-    if (context.body instanceof Uint8Array || typeof context.body === "string") {
+    if (Core.isUint8ArrayLike(context.body) || typeof context.body === "string") {
         return decodeFileBody(context.body);
     }
 
@@ -380,7 +381,7 @@ function createSourceCodeInstance(parameters: {
 
 function getErrorLineColumn(error: unknown): { line: number; column: number; message: string } {
     const fallback = { line: 1, column: 1, message: "Unknown parse error" };
-    if (!(error instanceof Error)) {
+    if (!Core.isErrorLike(error)) {
         return fallback;
     }
 
