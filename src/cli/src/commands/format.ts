@@ -977,7 +977,7 @@ function logCliErrorWithHeader(error, header) {
     console.error(`${header}\n${indented}`);
 }
 
-async function handleFormattingError(error, filePath) {
+async function reportAndTrackFormattingError(error, filePath) {
     // Decide whether the error should count as a formatting failure.
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
@@ -1382,7 +1382,7 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
     };
 }
 
-async function processDirectoryEntry(filePath, currentIgnorePaths) {
+async function formatDirectoryEntry(filePath, currentIgnorePaths) {
     const stats = await lstat(filePath);
 
     if (stats.isSymbolicLink()) {
@@ -1395,30 +1395,30 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
             return;
         }
-        await processDirectory(filePath, currentIgnorePaths);
+        await formatDirectoryRecursively(filePath, currentIgnorePaths);
         return;
     }
 
     if (shouldFormatFile(filePath)) {
-        await processFile(filePath, currentIgnorePaths);
+        await formatSingleFile(filePath, currentIgnorePaths);
         return;
     }
 
     recordUnsupportedExtension(filePath);
 }
 
-async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
+async function formatAllDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
     await Core.runSequentially(files, async (file) => {
         if (abortRequested) {
             return;
         }
 
         const filePath = path.join(directory, file);
-        await processDirectoryEntry(filePath, currentIgnorePaths);
+        await formatDirectoryEntry(filePath, currentIgnorePaths);
     });
 }
 
-async function processDirectory(directory, inheritedIgnorePaths = []) {
+async function formatDirectoryRecursively(directory, inheritedIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
@@ -1433,7 +1433,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
     }
 
     const files = await readdir(directory);
-    await processDirectoryEntries(directory, files, effectiveIgnorePaths);
+    await formatAllDirectoryEntries(directory, files, effectiveIgnorePaths);
 }
 
 async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
@@ -1468,7 +1468,7 @@ async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
     return mergedOptions;
 }
 
-async function processFile(filePath, activeIgnorePaths = []) {
+async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
@@ -1526,7 +1526,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
             performPeriodicMemoryCleanup();
         }
     } catch (error) {
-        await handleFormattingError(error, filePath);
+        await reportAndTrackFormattingError(error, filePath);
     }
 }
 
@@ -1703,13 +1703,13 @@ async function resolveTargetContext(targetPath, usage, originalInput) {
 }
 
 /**
- * Process a single-file target when the CLI input does not resolve to a directory.
+ * Format a single-file target when the CLI input does not resolve to a directory.
  *
  * @param {string} targetPath
  */
-async function processNonDirectoryTarget(targetPath) {
+async function formatNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        await processFile(targetPath, baseProjectIgnorePaths);
+        await formatSingleFile(targetPath, baseProjectIgnorePaths);
         return;
     }
 
@@ -1721,15 +1721,15 @@ async function processNonDirectoryTarget(targetPath) {
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean, projectRoot: string }} params
  */
-async function processResolvedTarget({ targetPath, targetIsDirectory, projectRoot }) {
+async function formatResolvedTarget({ targetPath, targetIsDirectory, projectRoot }) {
     await initializeProjectIgnorePaths(projectRoot);
 
     if (targetIsDirectory) {
-        await processDirectory(targetPath);
+        await formatDirectoryRecursively(targetPath);
         return;
     }
 
-    await processNonDirectoryTarget(targetPath);
+    await formatNonDirectoryTarget(targetPath);
 }
 
 /**
@@ -1776,7 +1776,7 @@ async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, or
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
     await configurePluginRuntimeAdapters(projectRoot);
 
-    await processResolvedTarget({
+    await formatResolvedTarget({
         targetPath,
         targetIsDirectory,
         projectRoot

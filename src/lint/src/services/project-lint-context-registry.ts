@@ -18,6 +18,27 @@ function createEmptyContext(): GmlProjectContext {
     });
 }
 
+function splitPathSegments(pathValue: string): Array<string> {
+    return pathValue
+        .split(/[\\/]+/u)
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+}
+
+function isHardExcludedPath(
+    filePath: string,
+    excludedDirectories: ReadonlySet<string>,
+    allowedDirectories: ReadonlyArray<string>
+): boolean {
+    const isAllowedOverride = allowedDirectories.some((directory) => isPathWithinBoundary(filePath, directory));
+    if (isAllowedOverride) {
+        return false;
+    }
+
+    const segments = splitPathSegments(filePath);
+    return segments.some((segment) => excludedDirectories.has(segment.toLowerCase()));
+}
+
 export type ProjectLintContextRegistry = Readonly<{
     getContext(filePath: string): GmlProjectContext | null;
     getForcedRoot(): string | null;
@@ -25,10 +46,12 @@ export type ProjectLintContextRegistry = Readonly<{
 }>;
 
 export function createProjectLintContextRegistry(options: RegistryOptions): ProjectLintContextRegistry {
+    const normalizedCwd = normalizeLintFilePath(options.cwd);
     const forcedRoot = resolveForcedProjectRoot(options.forcedProjectPath);
     const normalizedAllowedDirectories = options.indexAllowDirectories.map((directory) =>
         normalizeLintFilePath(directory)
     );
+    const excludedDirectories = new Set(DEFAULT_PROJECT_INDEX_EXCLUDES.map((directory) => directory.toLowerCase()));
     const contextCache = new Map<string, GmlProjectContext>();
 
     return Object.freeze({
@@ -39,25 +62,20 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
                 return null;
             }
 
-            const resolvedRoot =
-                forcedRoot ?? resolveNearestProjectRoot(normalizedFilePath, normalizeLintFilePath(options.cwd));
-            const key = normalizeLintFilePath(resolvedRoot);
-
-            const existing = contextCache.get(key);
-            if (existing) {
-                return existing;
+            if (isHardExcludedPath(normalizedFilePath, excludedDirectories, normalizedAllowedDirectories)) {
+                return null;
             }
 
-            const hasAllowedOverrides = normalizedAllowedDirectories.some((directory) =>
-                isPathWithinBoundary(normalizedFilePath, directory)
-            );
+            const resolvedRoot = forcedRoot ?? resolveNearestProjectRoot(normalizedFilePath, normalizedCwd);
+            const cacheKey = normalizeLintFilePath(resolvedRoot);
+
+            const cachedContext = contextCache.get(cacheKey);
+            if (cachedContext) {
+                return cachedContext;
+            }
 
             const context = createEmptyContext();
-            if (hasAllowedOverrides) {
-                // Reserved for future capability upgrades when index-allow provides extra data.
-            }
-
-            contextCache.set(key, context);
+            contextCache.set(cacheKey, context);
             return context;
         },
         getForcedRoot(): string | null {
