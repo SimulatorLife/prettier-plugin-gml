@@ -26,7 +26,7 @@ export function getDocCommentMetadata(node: unknown): DocCommentMetadata | null 
 
     const metadata: DocCommentMetadata = {};
 
-    if (documentedParamNames instanceof Set && documentedParamNames.size > 0) {
+    if (Core.isSetLike(documentedParamNames) && documentedParamNames.size > 0) {
         metadata.documentedParamNames = documentedParamNames;
     }
 
@@ -70,7 +70,7 @@ export function getDeprecatedDocCommentFunctionSet(ast: unknown): Set<string> | 
 
     const functions = Reflect.get(ast, DOC_COMMENT_DEPRECATED_SET_KEY);
 
-    if (functions instanceof Set) {
+    if (Core.isSetLike(functions)) {
         return functions;
     }
 
