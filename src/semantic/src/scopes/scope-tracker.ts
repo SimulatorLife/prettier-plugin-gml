@@ -1084,6 +1084,10 @@ export class ScopeTracker {
     }
 
     public getScopeDependents(scopeId: string | null | undefined): ScopeDependent[] {
+        return this.collectScopeDependents(scopeId, true);
+    }
+
+    private collectScopeDependents(scopeId: string | null | undefined, sortResults: boolean): ScopeDependent[] {
         if (!scopeId) {
             return [];
         }
@@ -1157,10 +1161,13 @@ export class ScopeTracker {
             });
         }
 
-        // Sort in place using simple string comparison
-        dependents.sort((a, b) =>
-            a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
-        );
+        if (sortResults) {
+            // Sort in place using simple string comparison
+            dependents.sort((a, b) =>
+                a.dependentScopeId < b.dependentScopeId ? -1 : a.dependentScopeId > b.dependentScopeId ? 1 : 0
+            );
+        }
+
         return dependents;
     }
 
@@ -1186,7 +1193,7 @@ export class ScopeTracker {
         const depthMap = new Map<string, { kind: string; depth: number }>();
         const queue: Array<{ scopeId: string; depth: number }> = [];
 
-        const directDependents = this.getScopeDependents(scopeId);
+        const directDependents = this.collectScopeDependents(scopeId, false);
         for (const dep of directDependents) {
             queue.push({
                 scopeId: dep.dependentScopeId,
@@ -1215,7 +1222,7 @@ export class ScopeTracker {
                 });
             }
 
-            const nextDependents = this.getScopeDependents(current.scopeId);
+            const nextDependents = this.collectScopeDependents(current.scopeId, false);
             for (const dep of nextDependents) {
                 if (visited.has(dep.dependentScopeId)) {
                     continue;
@@ -1314,6 +1321,11 @@ export class ScopeTracker {
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const transitiveDependentsCache = new Map<
+            string,
+            Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
+        >();
+        const descendantScopesCache = new Map<string, Array<{ scopeId: string; scopeKind: string; depth: number }>>();
 
         const createAddScopeFunction = (
             seenScopes: Set<string>,
@@ -1334,6 +1346,10 @@ export class ScopeTracker {
 
         for (const path of paths) {
             if (!path || typeof path !== "string" || path.length === 0) {
+                continue;
+            }
+
+            if (results.has(path)) {
                 continue;
             }
 
@@ -1359,13 +1375,23 @@ export class ScopeTracker {
 
                 addScope(scope.id, scope.kind, "self");
 
-                const dependents = this.getTransitiveDependents(scopeId);
+                let dependents = transitiveDependentsCache.get(scopeId);
+                if (!dependents) {
+                    dependents = this.getTransitiveDependents(scopeId);
+                    transitiveDependentsCache.set(scopeId, dependents);
+                }
+
                 for (const dep of dependents) {
                     addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
                 }
 
                 if (includeDescendants) {
-                    const descendants = this.getDescendantScopes(scopeId);
+                    let descendants = descendantScopesCache.get(scopeId);
+                    if (!descendants) {
+                        descendants = this.getDescendantScopes(scopeId);
+                        descendantScopesCache.set(scopeId, descendants);
+                    }
+
                     for (const desc of descendants) {
                         addScope(desc.scopeId, desc.scopeKind, "descendant");
                     }

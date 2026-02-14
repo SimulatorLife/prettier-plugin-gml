@@ -33,11 +33,13 @@ void test("wiring requires both plugin identity and language", () => {
 
 void test("severity normalization handles canonical and conservative cases", () => {
     assert.equal(__lintCommandTest__.isAppliedRuleValue("off"), false);
+    assert.equal(__lintCommandTest__.isAppliedRuleValue(" OFF "), false);
     assert.equal(__lintCommandTest__.isAppliedRuleValue(0), false);
     assert.equal(__lintCommandTest__.isAppliedRuleValue(["off", {}]), false);
     assert.equal(__lintCommandTest__.isAppliedRuleValue([0, {}]), false);
 
     assert.equal(__lintCommandTest__.isAppliedRuleValue("warn"), true);
+    assert.equal(__lintCommandTest__.isAppliedRuleValue(" Warn "), true);
     assert.equal(__lintCommandTest__.isAppliedRuleValue("error"), true);
     assert.equal(__lintCommandTest__.isAppliedRuleValue(1), true);
     assert.equal(__lintCommandTest__.isAppliedRuleValue(2), true);
@@ -96,4 +98,79 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     assert.match(rendered, /\/tmp\/19\.gml/);
     assert.doesNotMatch(rendered, /\/tmp\/20\.gml/);
     assert.match(rendered, /and 5 more\.\.\./);
+});
+
+void test("fully wired overlay does not trigger guardrail", async () => {
+    const eslint = {
+        async calculateConfigForFile(): Promise<unknown> {
+            return {
+                plugins: { gml: Lint.plugin },
+                language: "gml/gml",
+                rules: {
+                    [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                }
+            };
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: [{ filePath: "/tmp/fully-wired.gml" }]
+    });
+
+    assert.deepEqual(offendingPaths, []);
+});
+
+void test("partially wired overlay triggers guardrail", async () => {
+    const eslint = {
+        async calculateConfigForFile(filePath: string): Promise<unknown> {
+            if (filePath.endsWith("plugin-only.gml")) {
+                return {
+                    plugins: { gml: Lint.plugin },
+                    language: "js/js",
+                    rules: {
+                        [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                    }
+                };
+            }
+
+            return {
+                plugins: { gml: {} },
+                language: "gml/gml",
+                rules: {
+                    [Lint.services.performanceOverrideRuleIds[0]]: [2, {}]
+                }
+            };
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: [{ filePath: "/tmp/plugin-only.gml" }, { filePath: "/tmp/language-only.gml" }]
+    });
+
+    assert.deepEqual(offendingPaths, ["/tmp/plugin-only.gml", "/tmp/language-only.gml"]);
+});
+
+void test("configured but non-applied overlay does not trigger guardrail", async () => {
+    const performanceRuleId = Lint.services.performanceOverrideRuleIds[0];
+    const eslint = {
+        async calculateConfigForFile(): Promise<unknown> {
+            return {
+                plugins: { gml: {} },
+                language: "js/js",
+                rules: {
+                    [performanceRuleId]: ["off", { reason: "disabled" }],
+                    "feather/noisy": 0
+                }
+            };
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: [{ filePath: "/tmp/not-applied.gml" }]
+    });
+
+    assert.deepEqual(offendingPaths, []);
 });

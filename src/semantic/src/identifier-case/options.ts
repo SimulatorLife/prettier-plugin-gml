@@ -106,6 +106,12 @@ type IdentifierCaseOptionConfig = {
     choices?: IdentifierCaseOptionChoice[];
 };
 
+type IdentifierCaseIntegerOptionConfigInput = {
+    defaultValue: number;
+    minValue: number;
+    description: string;
+};
+
 function createChoice(value: string, description: string): IdentifierCaseOptionChoice {
     return { value, description };
 }
@@ -133,6 +139,21 @@ function createScopeOptionConfig(scope): IdentifierCaseOptionConfig {
         default: IDENTIFIER_CASE_INHERIT_VALUE,
         description: `Overrides the base identifier case for ${scope} declarations.`,
         choices: createScopeChoiceEntries()
+    };
+}
+
+function createIdentifierCaseIntegerOptionConfig({
+    defaultValue,
+    minValue,
+    description
+}: IdentifierCaseIntegerOptionConfigInput): IdentifierCaseOptionConfig {
+    return {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: defaultValue,
+        range: { start: minValue, end: Infinity },
+        description
     };
 }
 
@@ -183,13 +204,12 @@ const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
             "Overrides automatic discovery with an explicit GameMaker project root directory when building identifier indexes."
     },
     [IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME]: {
-        since: BASE_IDENTIFIER_CASE_SINCE,
-        type: "int",
-        category: "gml",
-        default: getDefaultProjectIndexCacheMaxSize(),
-        range: { start: 0, end: Infinity },
-        description:
-            "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
+        ...createIdentifierCaseIntegerOptionConfig({
+            defaultValue: getDefaultProjectIndexCacheMaxSize(),
+            minValue: 0,
+            description:
+                "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
+        })
     }
 };
 
@@ -209,27 +229,21 @@ function createIdentifierCaseOptions(): Record<string, IdentifierCaseOptionConfi
 }
 
 function createStoreCapacityOptionConfig(): IdentifierCaseOptionConfig {
-    return {
-        since: BASE_IDENTIFIER_CASE_SINCE,
-        type: "int",
-        category: "gml",
-        default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
-        range: { start: 0, end: Infinity },
+    return createIdentifierCaseIntegerOptionConfig({
+        defaultValue: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+        minValue: 0,
         description:
             "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
-    };
+    });
 }
 
 function createConcurrencyOptionConfig(): IdentifierCaseOptionConfig {
-    return {
-        since: BASE_IDENTIFIER_CASE_SINCE,
-        type: "int",
-        category: "gml",
-        default: getDefaultProjectIndexGmlConcurrency(),
-        range: { start: 1, end: Infinity },
+    return createIdentifierCaseIntegerOptionConfig({
+        defaultValue: getDefaultProjectIndexGmlConcurrency(),
+        minValue: 1,
         description:
             "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
-    };
+    });
 }
 
 export const identifierCaseOptions = createIdentifierCaseOptions();

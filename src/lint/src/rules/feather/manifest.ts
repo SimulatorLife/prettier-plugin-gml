@@ -2,14 +2,18 @@ export type FeatherDefaultSeverity = "warn" | "error";
 
 export type FeatherFixability = "none" | "safe-only" | "always";
 
+type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+type FeatherParityId = `GM${Digit}${Digit}${Digit}${Digit}`;
+type FeatherRuleId = `feather/${Lowercase<FeatherParityId>}`;
+
 export type FeatherManifestEntry = Readonly<{
-    id: string;
-    ruleId: `feather/${string}`;
+    id: FeatherParityId;
+    ruleId: FeatherRuleId;
     defaultSeverity: FeatherDefaultSeverity;
     fixability: FeatherFixability;
     requiresProjectContext: boolean;
     fixScope: "local-only";
-    messageIds: ReadonlyArray<string>;
+    messageIds: ReadonlyArray<"diagnostic" | "unsafeFix" | "missingProjectContext">;
 }>;
 
 export type FeatherManifest = Readonly<{
@@ -17,7 +21,7 @@ export type FeatherManifest = Readonly<{
     entries: ReadonlyArray<FeatherManifestEntry>;
 }>;
 
-const FEATHER_IDS = Object.freeze([
+const FEATHER_PARITY_IDS: ReadonlyArray<FeatherParityId> = Object.freeze([
     "GM1000",
     "GM1002",
     "GM1003",
@@ -93,20 +97,43 @@ const FEATHER_IDS = Object.freeze([
     "GM2064"
 ]);
 
-function toRuleId(id: string): `feather/${string}` {
-    return `feather/${id.toLowerCase()}`;
+const FEATHER_DIAGNOSTIC_ID_PATTERN = /^GM\d{4}$/u;
+const FEATHER_RULE_ID_PATTERN = /^feather\/gm\d{4}$/u;
+
+function toFeatherRuleId(id: FeatherParityId): FeatherRuleId {
+    if (!FEATHER_DIAGNOSTIC_ID_PATTERN.test(id)) {
+        throw new Error(`Invalid feather parity id: ${id}`);
+    }
+
+    return `feather/${id.toLowerCase()}` as FeatherRuleId;
 }
 
+function toFeatherParityId(ruleId: FeatherRuleId): FeatherParityId {
+    if (!FEATHER_RULE_ID_PATTERN.test(ruleId)) {
+        throw new Error(`Invalid feather rule id: ${ruleId}`);
+    }
+
+    return ruleId.slice("feather/".length).toUpperCase() as FeatherParityId;
+}
+
+const FEATHER_MESSAGE_IDS = Object.freeze(["diagnostic", "unsafeFix", "missingProjectContext"] as const);
+
 const entries: ReadonlyArray<FeatherManifestEntry> = Object.freeze(
-    FEATHER_IDS.map((id) =>
+    FEATHER_PARITY_IDS.map((id) =>
         Object.freeze({
             id,
-            ruleId: toRuleId(id),
+            ruleId: (() => {
+                const ruleId = toFeatherRuleId(id);
+                if (toFeatherParityId(ruleId) !== id) {
+                    throw new Error(`Inconsistent feather mapping for ${id}`);
+                }
+                return ruleId;
+            })(),
             defaultSeverity: "warn",
             fixability: "none",
             requiresProjectContext: false,
             fixScope: "local-only",
-            messageIds: Object.freeze(["diagnostic", "unsafeFix", "missingProjectContext"])
+            messageIds: FEATHER_MESSAGE_IDS
         })
     )
 );
