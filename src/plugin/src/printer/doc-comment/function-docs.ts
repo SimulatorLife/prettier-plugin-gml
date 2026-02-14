@@ -99,7 +99,7 @@ function collectProgramLeadingDocLines({
 
         if (typeof originalText === "string") {
             const gapText = originalText.slice(commentEnd, anchorIndex);
-            const blankLines = (gapText.match(/\n/g) || []).length;
+            const blankLines = Core.getLineBreakCount(gapText);
             if (blankLines >= 2) {
                 break;
             }
@@ -188,7 +188,7 @@ function collectBlockCommentDocEntries(comment: any, node: any, commentStart: nu
         return [];
     }
 
-    const lines = comment.value.split(/\r\n|\r|\n/);
+    const lines = Core.splitLines(comment.value);
     const hasDocLine = lines.some((line) => {
         let cleanLine = line.trim();
         if (cleanLine.startsWith("*")) {
