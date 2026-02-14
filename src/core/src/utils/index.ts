@@ -10,6 +10,7 @@ export * from "./function.js";
 export * from "./js-string.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
+export * from "./metrics.js";
 export * from "./number.js";
 export * from "./numeric-options.js";
 export * from "./object.js";
