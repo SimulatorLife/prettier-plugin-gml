@@ -1009,3 +1009,55 @@ Verification coverage, regression protections, and phased delivery criteria for 
    Exit: end-to-end `lint` and `lint --fix` pass integration suite.
 8. Phase 8: Migration docs and release notes update in `docs/formatter-linter-split-plan.md` and package READMEs.  
    Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
+
+## Finalized Migration Mapping (Durable Contract)
+
+| Legacy formatter behavior | Final owner | Migration path |
+| --- | --- | --- |
+| `preserveGlobalVarStatements: false` rewrite path | `@gml-modules/lint` (`gml/no-globalvar`) | Run `lint --fix` before formatter. |
+| Loop accessor hoisting rewrites | `@gml-modules/lint` (`gml/prefer-loop-length-hoist`) | Enable recommended config and `--fix`. |
+| Missing argument separator repairs | `@gml-modules/lint` (`gml/require-argument-separators`) | Run lint autofix; formatter will not repair syntax. |
+| Comment content normalization | `@gml-modules/lint` (`gml/normalize-doc-comments`) | Keep formatter text-preserving for comments. |
+| Whitespace, wrapping, indentation, canonical operator style rendering | `@gml-modules/plugin` | Continue using formatter-only flow. |
+
+### Required before/after examples
+
+#### Missing separators (lint owns syntax repair)
+
+Before:
+
+```gml
+show_debug_message(player_name player_score);
+```
+
+After (`gml/require-argument-separators --fix`):
+
+```gml
+show_debug_message(player_name, player_score);
+```
+
+#### Formatter-only canonicalization (no semantic rewrite)
+
+Before:
+
+```gml
+if (can_jump && is_grounded) {
+show_debug_message("jump");
+}
+```
+
+After (formatter):
+
+```gml
+if (can_jump and is_grounded) {
+    show_debug_message("jump");
+}
+```
+
+### Auto-generated project-aware rule list
+
+The published list now lives at [`docs/generated/project-aware-rules.md`](./generated/project-aware-rules.md) and is generated from `meta.docs.requiresProjectContext` via:
+
+```bash
+pnpm run generate:lint-rule-docs
+```

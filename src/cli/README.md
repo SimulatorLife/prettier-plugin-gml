@@ -2,6 +2,25 @@
 
 Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
+## Formatter/Linter contract
+
+- Run `format` for layout-only formatting.
+- Run `lint` for semantic/content rewrites and syntax repairs.
+- Recommended migration flow for existing formatter-heavy usage: `lint --fix` first, then `format`.
+
+Contract migration mapping:
+
+- `globalvar` rewrite => `gml/no-globalvar`
+- loop-length hoist => `gml/prefer-loop-length-hoist`
+- missing separators => `gml/require-argument-separators`
+- doc comment text normalization => `gml/normalize-doc-comments`
+
+To publish the current project-aware rule list derived from rule metadata (`meta.docs.requiresProjectContext`):
+
+```bash
+pnpm run generate:lint-rule-docs
+```
+
 ## Architecture Role: Composition Root
 
 The CLI owns cross-workspace wiring for formatter runtime adapters.

@@ -45,6 +45,18 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 - Why it was removed: argument layout now follows Prettier-style default wrapping with `printWidth` and document shape, without numeric argument-count thresholds.
 - Migration: remove `maxParamsPerLine` from configuration files; no replacement option is provided.
 
-## TODO
-1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.
-2. Split Prettier plugin into a formatter-only package and a separate feather-fixer/linter package that includes fixes that require project-aware scope analysis (e.g., `preserveGlobalVarStatements: false` when cross-file symbols exist). See [docs/formatter-linter-split-plan.md](../../docs/formatter-linter-split-plan.md) for details and the plan.
+## Formatter/Linter split (finalized)
+
+The split is now contractually fixed:
+
+- `@gml-modules/plugin` is formatter-only.
+- Any semantic/content rewrite belongs to `@gml-modules/lint` rules and should be applied via `lint --fix`.
+
+Migration quick map:
+
+- `globalvar` rewrites => `gml/no-globalvar` (lint)
+- loop-hoist rewrites => `gml/prefer-loop-length-hoist` (lint)
+- separator repair => `gml/require-argument-separators` (lint)
+- indentation/wrapping/layout => plugin formatter
+
+See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).
