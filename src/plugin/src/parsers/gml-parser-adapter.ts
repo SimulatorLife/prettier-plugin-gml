@@ -39,12 +39,6 @@ function createParserOptions(config: GmlParserAdapterConfig) {
 }
 
 export type GmlParserAdapterOptions = {
-    applyFeatherFixes?: boolean;
-    sanitizeMissingArgumentSeparators?: boolean;
-    condenseStructAssignments?: boolean;
-    useStringInterpolation?: boolean;
-    optimizeLogicalExpressions?: boolean;
-    optimizeMathExpressions?: boolean;
     stripComments?: boolean;
 
     // DESIGN SMELL: These fields are not true parser options; they're runtime state
@@ -74,7 +68,6 @@ export type GmlParserAdapterOptions = {
     // appropriate channels instead of being conflated in a single options object.
     originalText?: string;
     __identifierCaseProjectIndexBootstrap?: unknown;
-    normalizeDocComments?: boolean;
     [key: string]: unknown;
 };
 

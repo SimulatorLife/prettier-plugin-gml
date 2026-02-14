@@ -113,3 +113,36 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
+
+void test("indexed project context exposes capability-backed identifier helpers", () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), "lint-capabilities-"));
+    const projectRoot = createProject(tempRoot, "project", "project");
+    const scriptFile = path.join(projectRoot, "scripts", "test.gml");
+
+    mkdirSync(path.dirname(scriptFile), { recursive: true });
+    writeFileSync(scriptFile, "var player_score = 0;\nplayer_score += 1;\n", "utf8");
+
+    const registry = LintWorkspace.Lint.services.createProjectLintContextRegistry({
+        cwd: tempRoot,
+        forcedProjectPath: null,
+        indexAllowDirectories: []
+    });
+
+    const context = registry.getContext(scriptFile);
+    assert.ok(context);
+    if (!context) {
+        return;
+    }
+
+    assert.equal(context.capabilities.has("IDENTIFIER_OCCUPANCY"), true);
+    assert.equal(context.capabilities.has("IDENTIFIER_OCCURRENCES"), true);
+    assert.equal(context.isIdentifierNameOccupiedInProject("player_score"), true);
+    assert.equal(context.isIdentifierNameOccupiedInProject("unknown_identifier"), false);
+
+    const files = context.listIdentifierOccurrenceFiles("player_score");
+    assert.equal(files.size > 0, true);
+    assert.equal(context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"])), "player_score_1");
+    assert.equal(context.assessGlobalVarRewrite(path.resolve(scriptFile), true).allowRewrite, true);
+
+    rmSync(tempRoot, { recursive: true, force: true });
+});

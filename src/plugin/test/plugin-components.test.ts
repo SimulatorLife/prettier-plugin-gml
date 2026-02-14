@@ -13,9 +13,11 @@ void test("GML plugin component registry", async (t) => {
         assert.ok(gmlPluginComponents.parsers["gml-parse"], "default parser should be registered");
         assert.ok(gmlPluginComponents.printers["gml-ast"], "default printer should be registered");
         assert.ok(
-            Object.hasOwn(gmlPluginComponents.options, "optimizeLoopLengthHoisting"),
-            "default options should be registered"
+            Object.hasOwn(gmlPluginComponents.options, "logicalOperatorsStyle"),
+            "formatter options should be registered"
         );
+        assert.equal(Object.hasOwn(gmlPluginComponents.options, "optimizeLoopLengthHoisting"), false);
+        assert.equal(Object.hasOwn(gmlPluginComponents.options, "applyFeatherFixes"), false);
 
         for (const removedOption of [
             "preserveLineBreaks",

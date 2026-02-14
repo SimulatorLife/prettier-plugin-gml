@@ -27,30 +27,6 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
         },
         options: {
             ...identifierCaseOptions,
-            optimizeLoopLengthHoisting: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable, using semantic-safe runtime naming when available and local collision-safe fallback naming otherwise."
-            },
-            condenseStructAssignments: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Condense consecutive struct property assignments into a single struct literal when possible."
-            },
-            loopLengthHoistFunctionSuffixes: {
-                since: "0.0.0",
-                type: "string",
-                category: "gml",
-                default: "",
-                description:
-                    "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
-            },
             allowSingleLineIfStatements: {
                 since: "0.0.0",
                 type: "boolean",
@@ -76,62 +52,6 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                         description: "Preserve the symbolic logical operators exactly as written in the source."
                     }
                 ]
-            },
-            optimizeLogicalExpressions: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Optimize logical flow by condensing complementary boolean branches, normalizing early-exit guards, removing redundant temporary-return pairs, caching repeated member access in conditions, and hoisting invariant loop condition members when safe."
-            },
-            preserveGlobalVarStatements: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Preserve 'globalvar' declarations instead of eliding them during formatting. When disabled, rewrites only run when semantic-safety checks mark them safe."
-            },
-            applyFeatherFixes: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
-            },
-            normalizeDocComments: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Normalize doc comments with a dedicated transform so synthetic summaries, @description text, and spacing are consistent before printing."
-            },
-            useStringInterpolation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
-            },
-            optimizeMathExpressions: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal."
-            },
-            sanitizeMissingArgumentSeparators: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Automatically insert missing commas between adjacent call arguments when safe so parsing and formatting can continue."
             }
 
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,

@@ -1441,16 +1441,6 @@ function tryPrintLiteralNode(node, path, options, print) {
                 literalTextParts.push(atom.value);
             }
 
-            if (
-                (options?.applyFeatherFixes ?? false) &&
-                shouldCollapseToLiteral &&
-                literalTextParts.length === atoms.length
-            ) {
-                const literalText = literalTextParts.join("");
-                const stringLiteral = JSON.stringify(literalText);
-                return concat(stringLiteral);
-            }
-
             return concat(buildTemplateStringParts(atoms, path, print));
         }
         case "MalformedDocComment": {
