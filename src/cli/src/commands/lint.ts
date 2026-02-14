@@ -447,7 +447,6 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -457,7 +456,6 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results = await eslint.lintFiles(targets);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }
@@ -497,7 +495,6 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        // eslint-disable-next-line require-atomic-updates -- Terminal assignment before return; no race condition possible
         process.exitCode = 2;
         return;
     }

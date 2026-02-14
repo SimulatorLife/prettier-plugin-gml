@@ -1,7 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-import { getFeatherMetadata } from "./feather-metadata.js";
-
 type FeatherTypeSystemEntry = {
     name?: string | null;
     specifierExamples?: Array<string | null> | null;
@@ -15,7 +13,7 @@ type FeatherTypeSystem = {
 };
 
 export function buildFeatherTypeSystemInfo() {
-    const metadata = getFeatherMetadata();
+    const metadata = Core.getFeatherMetadata();
     const typeSystem = metadata?.typeSystem as FeatherTypeSystem | undefined;
 
     const baseTypes = new Set<string>();
