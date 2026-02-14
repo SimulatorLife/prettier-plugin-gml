@@ -29,14 +29,6 @@ function canonicalizeFixtureText(text: string) {
     return removeDocCommentLines(text).trim();
 }
 
-async function readFixture(filePath) {
-    const contents = await fs.readFile(filePath, fileEncoding);
-    if (typeof contents !== "string") {
-        throw new TypeError(`Expected fixture '${filePath}' to be read as a string.`);
-    }
-    return contents.trim();
-}
-
 async function tryLoadOptions(baseName) {
     const optionsFile = `${baseName}.options.json`;
     const optionsPath = path.join(currentDirectory, optionsFile);
@@ -104,10 +96,7 @@ async function loadTestCases() {
 
             if (singleFile) {
                 const singlePath = path.join(currentDirectory, singleFile);
-                const [rawInput, expectedOutput] = await Promise.all([
-                    fs.readFile(singlePath, fileEncoding),
-                    readFixture(singlePath)
-                ]);
+                const rawInput = await fs.readFile(singlePath, fileEncoding);
 
                 if (typeof rawInput !== "string") {
                     throw new TypeError(`Expected fixture '${singlePath}' to be read as a string.`);
@@ -118,7 +107,7 @@ async function loadTestCases() {
                 return {
                     baseName,
                     inputSource: rawInput,
-                    expectedOutput,
+                    expectedOutput: rawInput.trim(),
                     options
                 };
             }
@@ -130,18 +119,22 @@ async function loadTestCases() {
             const inputPath = path.join(currentDirectory, inputFile);
             const outputPath = path.join(currentDirectory, outputFile);
 
-            const [rawInput, expectedOutput] = await Promise.all([
+            const [rawInput, rawOutput] = await Promise.all([
                 fs.readFile(inputPath, fileEncoding),
-                readFixture(outputPath)
+                fs.readFile(outputPath, fileEncoding)
             ]);
 
             if (typeof rawInput !== "string") {
                 throw new TypeError(`Expected fixture '${inputPath}' to be read as a string.`);
             }
 
+            if (typeof rawOutput !== "string") {
+                throw new TypeError(`Expected fixture '${outputPath}' to be read as a string.`);
+            }
+
             const options = await tryLoadOptions(baseName);
 
-            return { baseName, inputSource: rawInput, expectedOutput, options };
+            return { baseName, inputSource: rawInput, expectedOutput: rawOutput.trim(), options };
         })
     );
 }
