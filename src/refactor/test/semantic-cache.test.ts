@@ -408,4 +408,152 @@ void describe("SemanticQueryCache", () => {
             assert.equal(exists, true);
         });
     });
+
+    void describe("getFileSymbolsBatch", () => {
+        void it("returns empty map for empty input", async () => {
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async () => {
+                    throw new Error("Should not be called");
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+            const results = await cache.getFileSymbolsBatch([]);
+
+            assert.equal(results.size, 0);
+        });
+
+        void it("queries multiple files efficiently", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async (filePath: string) => {
+                    callCount++;
+                    return [{ id: `symbol_in_${filePath}` }] as Array<FileSymbol>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+            const results = await cache.getFileSymbolsBatch(["file1.gml", "file2.gml", "file3.gml"]);
+
+            assert.equal(callCount, 3, "Should query each file once");
+            assert.equal(results.size, 3, "Should return results for all three files");
+            assert.deepEqual(results.get("file1.gml"), [{ id: "symbol_in_file1.gml" }]);
+            assert.deepEqual(results.get("file2.gml"), [{ id: "symbol_in_file2.gml" }]);
+            assert.deepEqual(results.get("file3.gml"), [{ id: "symbol_in_file3.gml" }]);
+        });
+
+        void it("uses cache for previously queried files", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async (filePath: string) => {
+                    callCount++;
+                    return [{ id: `symbol_in_${filePath}` }] as Array<FileSymbol>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+
+            await cache.getFileSymbols("file1.gml");
+            assert.equal(callCount, 1, "First call should query semantic");
+
+            const results = await cache.getFileSymbolsBatch(["file1.gml", "file2.gml"]);
+
+            assert.equal(callCount, 2, "Batch should only query file2.gml (file1 cached)");
+            assert.equal(results.size, 2);
+            assert.deepEqual(results.get("file1.gml"), [{ id: "symbol_in_file1.gml" }]);
+            assert.deepEqual(results.get("file2.gml"), [{ id: "symbol_in_file2.gml" }]);
+        });
+
+        void it("bypasses cache when disabled", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async () => {
+                    callCount++;
+                    return [];
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, { enabled: false });
+            const results1 = await cache.getFileSymbolsBatch(["file1.gml"]);
+            const results2 = await cache.getFileSymbolsBatch(["file1.gml"]);
+
+            assert.equal(callCount, 2, "Should query semantic both times when cache disabled");
+            assert.equal(results1.size, 1);
+            assert.equal(results2.size, 1);
+        });
+
+        void it("tracks cache hits and misses correctly", async () => {
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async () => []
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+
+            await cache.getFileSymbolsBatch(["file1.gml", "file2.gml"]);
+            const stats1 = cache.getStats();
+            assert.equal(stats1.hits, 0, "First batch should have no hits");
+            assert.equal(stats1.misses, 2, "First batch should have two misses");
+
+            await cache.getFileSymbolsBatch(["file1.gml", "file2.gml", "file3.gml"]);
+            const stats2 = cache.getStats();
+            assert.equal(stats2.hits, 2, "Second batch should have two hits (file1, file2)");
+            assert.equal(stats2.misses, 3, "Second batch should have three total misses (file3 added)");
+        });
+
+        void it("handles mixed cached and uncached files", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async (filePath: string) => {
+                    callCount++;
+                    return [{ id: filePath }] as Array<FileSymbol>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+
+            await cache.getFileSymbols("a.gml");
+            await cache.getFileSymbols("c.gml");
+            assert.equal(callCount, 2);
+
+            const results = await cache.getFileSymbolsBatch(["a.gml", "b.gml", "c.gml", "d.gml"]);
+
+            assert.equal(callCount, 4, "Should only query b.gml and d.gml");
+            assert.equal(results.size, 4);
+            assert.deepEqual(results.get("a.gml"), [{ id: "a.gml" }]);
+            assert.deepEqual(results.get("b.gml"), [{ id: "b.gml" }]);
+            assert.deepEqual(results.get("c.gml"), [{ id: "c.gml" }]);
+            assert.deepEqual(results.get("d.gml"), [{ id: "d.gml" }]);
+        });
+
+        void it("respects TTL for cached entries", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getFileSymbols: async () => {
+                    callCount++;
+                    return [];
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, { ttlMs: 50 });
+
+            await cache.getFileSymbols("file1.gml");
+            assert.equal(callCount, 1);
+
+            await new Promise((resolve) => setTimeout(resolve, 60));
+
+            const results = await cache.getFileSymbolsBatch(["file1.gml"]);
+
+            assert.equal(callCount, 2, "Expired entry should be re-fetched");
+            assert.equal(results.size, 1);
+        });
+
+        void it("works with null semantic analyzer", async () => {
+            const cache = new SemanticQueryCache(null);
+            const results = await cache.getFileSymbolsBatch(["file1.gml", "file2.gml"]);
+
+            assert.equal(results.size, 2);
+            assert.deepEqual(results.get("file1.gml"), []);
+            assert.deepEqual(results.get("file2.gml"), []);
+        });
+    });
 });
