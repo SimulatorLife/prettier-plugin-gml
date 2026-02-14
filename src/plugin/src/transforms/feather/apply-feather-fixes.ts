@@ -59,7 +59,11 @@ import {
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { renameReservedIdentifiers } from "./reserved-identifier-renaming.js";
 import { resolveSemanticSafeFeatherRename } from "./semantic-safe-renaming.js";
-import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
+import {
+    findDuplicateSemicolonRanges,
+    removeDuplicateSemicolons,
+    removeTrailingMacroSemicolons
+} from "./semicolon-fixes.js";
 import { annotateMissingUserEvents } from "./user-event-fixes.js";
 import {
     attachFeatherFixMetadata,
@@ -84,9 +88,6 @@ type LiteralNodeWithSkipFlag = LiteralNode & {
     _skipNumericStringCoercion?: boolean;
 };
 
-export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
-    String.raw`;(?=[^\S\r\n]*(?:/\*[\s\S]*?\*/[^\S\r\n]*)*(?://[^\r\n]*)?(?:\r?\n|$))`
-);
 const DATA_STRUCTURE_ACCESSOR_TOKENS = ["?", "|", "#", "@", "$", "%"];
 const ALLOWED_DELETE_MEMBER_TYPES = new Set(["MemberDotExpression", "MemberIndexExpression"]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
@@ -4643,45 +4644,6 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
     return fixes;
 }
 
-function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
-    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
-        return [];
-    }
-
-    const fixes = [];
-
-    const visit = (node) => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
-            return;
-        }
-
-        if (Core.isMacroDeclarationNode(node)) {
-            const fixInfo = sanitizeMacroDeclaration(node, sourceText, diagnostic);
-            if (fixInfo) {
-                registerSanitizedMacroName(ast, Core.getIdentifierText(node.name));
-                fixes.push(fixInfo);
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
-
-    return fixes;
-}
-
 function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -5081,76 +5043,6 @@ function hasDisabledColourChannel(args) {
     const channels = argsArray.slice(0, 4);
 
     return channels.some((argument) => isLiteralFalse(argument));
-}
-
-function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
-
-    const tokens = Array.isArray(node.tokens) ? node.tokens : null;
-    if (!tokens || tokens.length === 0) {
-        return null;
-    }
-
-    const lastToken = tokens.at(-1);
-    if (lastToken !== ";") {
-        return null;
-    }
-
-    const startIndex = node.start?.index;
-    const endIndex = node.end?.index;
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
-        return null;
-    }
-
-    const originalText = sourceText.slice(startIndex, endIndex + 1);
-
-    // Remove trailing semicolons from Feather macro definitions because the macro
-    // preprocessor already appends a semicolon during expansion. Leaving the source
-    // semicolon in place would double-terminate statements, causing syntax errors
-    // or unexpected expression boundaries. We only strip semicolons at the macro's
-    // end to preserve semicolons that appear within the macro body itself.
-    const sanitizedText = originalText.replace(TRAILING_MACRO_SEMICOLON_PATTERN, "");
-
-    if (sanitizedText === originalText) {
-        return null;
-    }
-
-    node.tokens = tokens.slice(0, -1);
-    node._featherMacroText = sanitizedText;
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.name?.name ?? null,
-        range: {
-            start: Core.getNodeStartIndex(node),
-            end: Core.getNodeEndIndex(node)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    attachFeatherFixMetadata(node, [fixDetail]);
-
-    return fixDetail;
-}
-
-function registerSanitizedMacroName(ast, macroName) {
-    if (!ast || typeof ast !== "object" || ast.type !== "Program") {
-        return;
-    }
-
-    if (typeof macroName !== "string" || macroName.length === 0) {
-        return;
-    }
-
-    const registry = Core.ensureSet(ast._featherSanitizedMacroNames);
-
-    registry.add(macroName);
-    ast._featherSanitizedMacroNames = registry;
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
