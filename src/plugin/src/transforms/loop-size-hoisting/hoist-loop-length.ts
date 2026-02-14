@@ -94,7 +94,7 @@ function maybeHoistLoopLength(
     statements: Array<MutableGameMakerAstNode | null | undefined>,
     index: number,
     sizeFunctionSuffixes: Map<string, string>,
-    options?: LoopLengthHoistTransformOptions
+    _options?: LoopLengthHoistTransformOptions
 ) {
     const test = node.test as MutableGameMakerAstNode & {
         right?: MutableGameMakerAstNode;
