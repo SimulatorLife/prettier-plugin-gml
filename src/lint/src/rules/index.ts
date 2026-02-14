@@ -1,6 +1,5 @@
-import { featherRuleMap, gmlRuleMap } from "./catalog.js";
+import { lintRuleMap } from "./catalog.js";
 
 export const lintRules = Object.freeze({
-    ...gmlRuleMap,
-    ...featherRuleMap
+    ...lintRuleMap
 });

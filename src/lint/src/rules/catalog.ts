@@ -6,6 +6,7 @@ import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } 
 import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
+    mapKey: `Gml${string}`;
     shortName: string;
     fullId: `gml/${string}`;
     messageId: string;
@@ -21,6 +22,7 @@ const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
+        mapKey: "GmlPreferLoopLengthHoist",
         shortName: "prefer-loop-length-hoist",
         fullId: "gml/prefer-loop-length-hoist",
         messageId: "preferLoopLengthHoist",
@@ -51,6 +53,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferHoistableLoopAccessors",
         shortName: "prefer-hoistable-loop-accessors",
         fullId: "gml/prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
@@ -69,6 +72,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferStructLiteralAssignments",
         shortName: "prefer-struct-literal-assignments",
         fullId: "gml/prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
@@ -92,6 +96,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
@@ -109,6 +114,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlNoGlobalvar",
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
@@ -117,8 +123,30 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
             "IDENTIFIER_OCCUPANCY",
             "RENAME_CONFLICT_PLANNING"
         ]) as ReadonlyArray<ProjectCapability>,
+        unsafeReasonCodes: Object.freeze([UNSAFE_REASON_CODES.NAME_COLLISION, UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT]),
+        schema: EMPTY_SCHEMA
+    },
+    {
+        mapKey: "GmlNormalizeDocComments",
+        shortName: "normalize-doc-comments",
+        fullId: "gml/normalize-doc-comments",
+        messageId: "normalizeDocComments",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: EMPTY_SCHEMA
+    },
+    {
+        mapKey: "GmlPreferStringInterpolation",
+        shortName: "prefer-string-interpolation",
+        fullId: "gml/prefer-string-interpolation",
+        messageId: "preferStringInterpolation",
+        requiresProjectContext: true,
+        requiredCapabilities: Object.freeze([
+            "IDENTIFIER_OCCUPANCY",
+            "STRING_LITERAL_REWRITE"
+        ]) as ReadonlyArray<ProjectCapability>,
         unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NAME_COLLISION,
             UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
             UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
         ]),
@@ -127,66 +155,30 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                    enableAutofix: { type: "boolean", default: true },
-                    reportUnsafe: { type: "boolean", default: true }
+                    preferTemplateTag: { type: "boolean", default: false }
                 }
             }
         ])
     },
     {
-        shortName: "normalize-doc-comments",
-        fullId: "gml/normalize-doc-comments",
-        messageId: "normalizeDocComments",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
-        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
-    },
-    {
-        shortName: "prefer-string-interpolation",
-        fullId: "gml/prefer-string-interpolation",
-        messageId: "preferStringInterpolation",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze(["IDENTIFIER_OCCURRENCES"]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NON_IDEMPOTENT_EXPRESSION,
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY
-        ]),
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ])
-    },
-    {
+        mapKey: "GmlOptimizeMathExpressions",
         shortName: "optimize-math-expressions",
         fullId: "gml/optimize-math-expressions",
         messageId: "optimizeMathExpressions",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
         unsafeReasonCodes: NO_REASON_CODES,
-        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+        schema: EMPTY_SCHEMA
     },
     {
+        mapKey: "GmlRequireArgumentSeparators",
         shortName: "require-argument-separators",
         fullId: "gml/require-argument-separators",
         messageId: "requireArgumentSeparators",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
         unsafeReasonCodes: NO_REASON_CODES,
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    repair: { type: "boolean", default: true }
-                }
-            }
-        ])
+        schema: EMPTY_SCHEMA
     }
 ]);
 
@@ -195,7 +187,7 @@ function createNoopRule(definition: GmlRuleDefinition): Rule.RuleModule {
         meta: Object.freeze({
             type: "suggestion",
             docs: Object.freeze({
-                description: `Scaffold rule for ${definition.messageId}.`,
+                description: `Scaffold rule for ${definition.fullId}.`,
                 recommended: false,
                 requiresProjectContext: definition.requiresProjectContext,
                 gml: Object.freeze({
@@ -205,17 +197,13 @@ function createNoopRule(definition: GmlRuleDefinition): Rule.RuleModule {
             }),
             schema: definition.schema,
             messages: Object.freeze({
-                [definition.messageId]: `${definition.messageId} diagnostic.`,
+                [definition.messageId]: `${definition.fullId} diagnostic.`,
                 unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.",
                 missingProjectContext:
                     "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
             })
         }),
-        create(context) {
-            if (!definition.requiresProjectContext) {
-                return Object.freeze({});
-            }
-
+        create(context: Rule.RuleContext) {
             const projectContext = resolveProjectContextForRule(context, {
                 requiresProjectContext: definition.requiresProjectContext,
                 requiredCapabilities: definition.requiredCapabilities
@@ -229,16 +217,27 @@ function createNoopRule(definition: GmlRuleDefinition): Rule.RuleModule {
     });
 }
 
-function createGmlRuleMap(): Record<string, Rule.RuleModule> {
-    const map: Record<string, Rule.RuleModule> = {};
+function toFeatherMapKey(ruleId: `feather/${string}`): `FeatherGM${string}` {
+    const normalized = ruleId.replace("feather/gm", "");
+    return `FeatherGM${normalized}`;
+}
+
+function createRuleIdMap(): Record<`Gml${string}` | `FeatherGM${string}`, `gml/${string}` | `feather/${string}`> {
+    const map: Record<`Gml${string}` | `FeatherGM${string}`, `gml/${string}` | `feather/${string}`> = {};
     for (const definition of gmlRuleDefinitions) {
-        map[definition.shortName] = createNoopRule(definition);
+        map[definition.mapKey] = definition.fullId;
+    }
+    for (const entry of featherManifest.entries) {
+        map[toFeatherMapKey(entry.ruleId)] = entry.ruleId;
     }
     return map;
 }
 
-function createFeatherRuleMap(): Record<string, Rule.RuleModule> {
+function createPluginRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
+    for (const definition of gmlRuleDefinitions) {
+        map[definition.shortName] = createNoopRule(definition);
+    }
     for (const entry of featherManifest.entries) {
         const shortName = entry.ruleId.replace("feather/", "");
         map[shortName] = Object.freeze({
@@ -261,7 +260,8 @@ function createFeatherRuleMap(): Record<string, Rule.RuleModule> {
                         "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage."
                 })
             }),
-            create() {
+            create(context: Rule.RuleContext) {
+                void context;
                 return Object.freeze({});
             }
         });
@@ -269,5 +269,5 @@ function createFeatherRuleMap(): Record<string, Rule.RuleModule> {
     return map;
 }
 
-export const gmlRuleMap = Object.freeze(createGmlRuleMap());
-export const featherRuleMap = Object.freeze(createFeatherRuleMap());
+export const ruleIds = Object.freeze(createRuleIdMap());
+export const lintRuleMap = Object.freeze(createPluginRuleMap());
