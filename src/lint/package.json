@@ -24,7 +24,8 @@
     "eslint": ">=9.39.0 <10"
   },
   "devDependencies": {
-    "eslint": "^9.39.1"
+    "eslint": "^9.39.1",
+    "eslint-min": "npm:eslint@9.39.0"
   },
   "engines": {
     "node": ">=22.0.0"

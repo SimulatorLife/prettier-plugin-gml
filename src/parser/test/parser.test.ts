@@ -21,21 +21,27 @@ async function loadFixtures() {
         withFileTypes: true
     });
 
-    return entries
+    const fileNames = entries
         .filter((entry) => entry.isFile() && entry.name.endsWith(fixtureExtension))
         .map((entry) => entry.name)
         .toSorted();
-}
 
-async function readFixture(fileName) {
-    const filePath = path.join(fixturesDirectory, fileName);
-    const source = await fs.readFile(filePath, fileEncoding);
+    const fixtureContentsByName = new Map<string, string>();
 
-    if (typeof source !== "string") {
-        throw new TypeError(`Expected fixture '${fileName}' to be read as a string.`);
-    }
+    await Promise.all(
+        fileNames.map(async (fileName) => {
+            const filePath = path.join(fixturesDirectory, fileName);
+            const source = await fs.readFile(filePath, fileEncoding);
 
-    return source;
+            if (typeof source !== "string") {
+                throw new TypeError(`Expected fixture '${fileName}' to be read as a string.`);
+            }
+
+            fixtureContentsByName.set(fileName, source);
+        })
+    );
+
+    return { fileNames, fixtureContentsByName };
 }
 
 function hasLocationInformation(node) {
@@ -66,13 +72,13 @@ function parseFixture(source: string, { suppressErrors = false, options }: Parse
         return GMLParser.parse(source, options);
     }
 
-    const originalError = console.error;
+    const originalError = globalThis.console.error;
 
     try {
-        console.error = () => {};
+        globalThis.console.error = () => {};
         return GMLParser.parse(source, options);
     } finally {
-        console.error = originalError;
+        globalThis.console.error = originalError;
     }
 }
 
@@ -114,7 +120,7 @@ function collectNodesByType(node, type) {
     return nodes;
 }
 
-const fixtureNames = await loadFixtures();
+const { fileNames: fixtureNames, fixtureContentsByName } = await loadFixtures();
 const expectedFailures = new Set<string>();
 const successfulFixture = fixtureNames.find((fixtureName) => !expectedFailures.has(fixtureName));
 const fixtureParserOptions: ParserOptions = {
@@ -127,7 +133,10 @@ const fixtureParserOptions: ParserOptions = {
 void describe("GameMaker parser fixtures", () => {
     for (const fixtureName of fixtureNames) {
         void it(`parses ${fixtureName}`, async () => {
-            const source = await readFixture(fixtureName);
+            const source = fixtureContentsByName.get(fixtureName);
+            if (!source) {
+                throw new Error(`Fixture '${fixtureName}' was not preloaded.`);
+            }
             const shouldFail = expectedFailures.has(fixtureName);
 
             if (shouldFail) {
@@ -185,7 +194,10 @@ void describe("GameMaker parser fixtures", () => {
 
         assert.ok(fixtureName, "Expected at least one parser fixture to be present.");
 
-        const source = await readFixture(fixtureName);
+        const source = fixtureContentsByName.get(fixtureName);
+        if (!source) {
+            throw new Error(`Fixture '${fixtureName}' was not preloaded.`);
+        }
         const astWithoutLocations = parseFixture(source, {
             options: { getLocations: false }
         });

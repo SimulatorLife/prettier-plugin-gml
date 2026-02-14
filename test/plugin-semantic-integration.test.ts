@@ -9,14 +9,9 @@ import { Plugin } from "@gml-modules/plugin";
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
-const SEMANTIC_INTEGRATION_FIXTURE_NAMES = new Set([
-    "testComments",
-    "testFunctions",
-    "testGM1012",
-    "testGM1100"
-]);
+const SEMANTIC_INTEGRATION_FIXTURE_NAMES = new Set(["testComments", "testFunctions", "testGM1012", "testGM1100"]);
 const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>();
-const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
+const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012"]);
 
 const fixtureDirectory = path.resolve(process.cwd(), "src", "plugin", "test");
 
@@ -151,7 +146,9 @@ void describe("Plugin integration fixtures", () => {
                 await assert.rejects(
                     Plugin.format(inputSource, options ?? undefined),
                     (error: unknown) =>
-                        typeof error === "object" && error !== null && Reflect.get(error, "name") === "GameMakerSyntaxError"
+                        typeof error === "object" &&
+                        error !== null &&
+                        Reflect.get(error, "name") === "GameMakerSyntaxError"
                 );
                 return;
             }
