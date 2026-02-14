@@ -203,6 +203,30 @@ function readFilename(context: GMLLanguageContext): string {
     return "<text>";
 }
 
+function assignRangesRecursively(node: unknown): void {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    const candidate = node as Record<string, unknown>;
+    const start = candidate.start;
+    const end = candidate.end;
+    if (typeof start === "number" && typeof end === "number" && !Array.isArray(candidate.range)) {
+        candidate.range = [start, end];
+    }
+
+    for (const value of Object.values(candidate)) {
+        if (Array.isArray(value)) {
+            for (const element of value) {
+                assignRangesRecursively(element);
+            }
+            continue;
+        }
+
+        assignRangesRecursively(value);
+    }
+}
+
 function getErrorLineColumn(error: unknown): { line: number; column: number; message: string } {
     const fallback = { line: 1, column: 1, message: "Unknown parse error" };
     if (!(error instanceof Error)) {
@@ -324,6 +348,7 @@ export const gmlLanguage = Object.freeze({
     ) {
         const sourceText = readSourceText(file);
         const ast = normalizeProgramShape(parseResult.ast);
+        assignRangesRecursively(ast);
         const parserServices =
             parseResult.parserServices && typeof parseResult.parserServices === "object"
                 ? parseResult.parserServices
