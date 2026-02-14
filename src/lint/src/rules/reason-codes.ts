@@ -7,3 +7,7 @@ export const UNSAFE_REASON_CODES = Object.freeze({
     SEMANTIC_AMBIGUITY: "SEMANTIC_AMBIGUITY",
     NON_IDEMPOTENT_EXPRESSION: "NON_IDEMPOTENT_EXPRESSION"
 } as const satisfies Record<UnsafeReasonCode, UnsafeReasonCode>);
+
+export const UNSAFE_REASON_CODE_REGISTRY = Object.freeze(new Set<UnsafeReasonCode>(Object.values(UNSAFE_REASON_CODES)));
+
+export const RESERVED_MISSING_PROJECT_CONTEXT_REASON_CODE = UNSAFE_REASON_CODES.MISSING_PROJECT_CONTEXT;
