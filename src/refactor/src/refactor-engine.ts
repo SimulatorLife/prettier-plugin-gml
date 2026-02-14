@@ -63,21 +63,21 @@ export class RefactorEngine {
      * Find the symbol at a specific location in a file.
      * Useful for triggering refactorings from editor positions.
      */
-    async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
+    findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
         return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
      */
-    async validateSymbolExists(symbolId: string): Promise<boolean> {
+    validateSymbolExists(symbolId: string): Promise<boolean> {
         return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
-    async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
         return this.semanticCache.getSymbolOccurrences(symbolName);
     }
 
@@ -86,7 +86,7 @@ export class RefactorEngine {
      * This is useful for hot reload coordination to determine which symbols
      * need recompilation when a file changes.
      */
-    async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
+    getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
@@ -98,7 +98,7 @@ export class RefactorEngine {
      * This is essential for hot reload to determine which symbols need recompilation
      * when dependencies change.
      */
-    async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
+    getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });

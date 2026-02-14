@@ -3,9 +3,10 @@ import { execFile } from "node:child_process";
 import { test } from "node:test";
 import { promisify } from "node:util";
 
+import * as LintWorkspace from "@gml-modules/lint";
 import { ESLint } from "eslint";
 
-import { Lint } from "../src/lint-namespace.js";
+const { Lint } = LintWorkspace;
 
 type ParseSuccess = {
     ok: true;
@@ -111,7 +112,7 @@ void test("language object pins ESLint v9 language behavior fields", () => {
     assert.deepEqual(language.visitorKeys, {});
 });
 
-test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
+void test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
     const result = parseWithOptions("var x = 1;", "limited");
     assert.equal(result.ok, true);
 });
@@ -140,7 +141,7 @@ void test("language hooks run successfully on latest ESLint version", async () =
     await runVersionCompatibilityProbe("eslint");
 });
 
-test("strict parse fails while limited recovery succeeds for missing argument separators", () => {
+void test("strict parse fails while limited recovery succeeds for missing argument separators", () => {
     const strictResult = parseWithOptions("show_debug_message(1 2);", "none");
     assert.equal(strictResult.ok, false);
 
@@ -158,7 +159,7 @@ test("strict parse fails while limited recovery succeeds for missing argument se
     assert.deepEqual(recoveredArgumentRange, [21, 22]);
 });
 
-test("limited recovery preserves projected substring invariants for argument ranges", () => {
+void test("limited recovery preserves projected substring invariants for argument ranges", () => {
     const source = "show_debug_message(10 20);";
     const result = parseWithOptions(source, "limited");
     assert.equal(result.ok, true);
@@ -175,7 +176,7 @@ test("limited recovery preserves projected substring invariants for argument ran
     assert.equal(result.parserServices.gml.recovery[0]?.originalOffset, 21);
 });
 
-test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
+void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
     const result = parseWithOptions("var x = 1;", "limited");
     assert.equal(result.ok, true);
 
@@ -190,7 +191,7 @@ test("parser services contract always shapes canonical path, directives, enums, 
     assert.deepEqual(result.parserServices.gml.recovery, []);
 });
 
-test("utf-16 range projection stays aligned after limited recovery", () => {
+void test("utf-16 range projection stays aligned after limited recovery", () => {
     const source = 'show_debug_message("😀" 2);';
     const result = parseWithOptions(source, "limited");
     assert.equal(result.ok, true);
@@ -208,7 +209,7 @@ test("utf-16 range projection stays aligned after limited recovery", () => {
     assert.equal(source.slice(24, 25), "2");
 });
 
-test("tokenization source remains original source under limited recovery", () => {
+void test("tokenization source remains original source under limited recovery", () => {
     const source = "show_debug_message(1 2); // tail";
     const result = parseWithOptions(source, "limited");
     assert.equal(result.ok, true);

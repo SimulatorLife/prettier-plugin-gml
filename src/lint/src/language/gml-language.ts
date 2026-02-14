@@ -400,6 +400,17 @@ function getErrorLineColumn(error: unknown): { line: number; column: number; mes
 
 export const GML_VISITOR_KEYS = Object.freeze({}) as Record<string, string[]>;
 
+function parseAst(text: string): GMLAstNode {
+    const parser = new Parser.GMLParser(text, {
+        astFormat: "gml",
+        asJSON: false,
+        getComments: true,
+        getLocations: true,
+        simplifyLocations: false
+    });
+    return normalizeProgramShape(parser.parse());
+}
+
 export const gmlLanguage = Object.freeze({
     fileType: "text",
     lineStart: 1,
@@ -411,17 +422,6 @@ export const gmlLanguage = Object.freeze({
         const sourceText = readSourceText(file);
         const filePath = normalizeLintFilePath(readFilename(file));
         const recoveryMode = readRecoveryMode(parseContext);
-
-        const parseAst = (text: string): GMLAstNode => {
-            const parser = new Parser.GMLParser(text, {
-                astFormat: "gml",
-                asJSON: false,
-                getComments: true,
-                getLocations: true,
-                simplifyLocations: false
-            });
-            return normalizeProgramShape(parser.parse());
-        };
 
         try {
             const ast = parseAst(sourceText);
