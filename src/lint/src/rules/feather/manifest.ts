@@ -138,7 +138,12 @@ const entries: ReadonlyArray<FeatherManifestEntry> = Object.freeze(
     )
 );
 
+/**
+ * Pins the feather manifest schema version for semver-sensitive consumers.
+ */
+export const FEATHER_MANIFEST_SCHEMA_VERSION = 1 as const;
+
 export const featherManifest: FeatherManifest = Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: FEATHER_MANIFEST_SCHEMA_VERSION,
     entries
 });
