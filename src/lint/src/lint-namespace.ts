@@ -1,7 +1,6 @@
 import { configs, plugin } from "./plugin.js";
-import { featherManifest } from "./rules/feather/manifest.js";
-import { collectProjectAwareRuleIds, renderProjectAwareRulesMarkdown } from "./rules/project-aware-rules-docs.js";
 import { ruleIds } from "./rules/catalog.js";
+import { collectProjectAwareRuleIds, renderProjectAwareRulesMarkdown } from "./rules/project-aware-rules-docs.js";
 import { services } from "./services/index.js";
 
 export const Lint = Object.freeze({

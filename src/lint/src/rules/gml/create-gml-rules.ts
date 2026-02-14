@@ -56,7 +56,7 @@ function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.Ru
                 Program(node) {
                     const text = context.sourceCode.text;
                     const loopPattern = /for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
-                    for (const match of text.matchAll(loopPattern)) {
+                    if (loopPattern.test(text)) {
                         context.report({
                             node,
                             messageId: definition.messageId
@@ -114,10 +114,10 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                     const lines = text.split(/\r?\n/);
                     for (let index = 0; index < lines.length - 1; index += 1) {
                         const firstMatch = lines[index].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/
+                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
                         );
                         const secondMatch = lines[index + 1].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/
+                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
                         );
                         if (!firstMatch || !secondMatch) {
                             continue;
@@ -243,16 +243,11 @@ function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rul
                     const text = context.sourceCode.text;
                     const pattern = /"[^"]*"\s*\+\s*string\(/g;
                     const isUnsafeReportingEnabled = shouldReportUnsafe(context);
-                    for (const match of text.matchAll(pattern)) {
-                        if (!isUnsafeReportingEnabled) {
-                            continue;
-                        }
-
+                    if (isUnsafeReportingEnabled && pattern.test(text)) {
                         context.report({
                             node,
                             messageId: "unsafeFix"
                         });
-                        break;
                     }
                 }
             };

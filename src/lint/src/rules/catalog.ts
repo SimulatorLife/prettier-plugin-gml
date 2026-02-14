@@ -2,7 +2,29 @@ import type { Rule } from "eslint";
 
 import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { featherManifest } from "./feather/manifest.js";
-import { UNSAFE_REASON_CODES } from "./reason-codes.js";
+import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "./project-context.js";
+import {
+    RESERVED_MISSING_PROJECT_CONTEXT_REASON_CODE,
+    UNSAFE_REASON_CODE_REGISTRY,
+    UNSAFE_REASON_CODES
+} from "./reason-codes.js";
+
+type RuleDocs = {
+    description: string;
+    recommended: false;
+    requiresProjectContext: boolean;
+    gml?: {
+        requiredCapabilities: ReadonlyArray<ProjectCapability>;
+        unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
+    };
+};
+
+type RuleMessages = Record<string, string>;
+
+const UNSAFE_FIX_MESSAGE_ID = "unsafeFix";
+const MISSING_PROJECT_CONTEXT_MESSAGE_ID = "missingProjectContext";
+const MISSING_PROJECT_CONTEXT_MESSAGE =
+    "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage.";
 
 export type GmlRuleDefinition = Readonly<{
     mapKey: `Gml${string}`;
@@ -225,8 +247,12 @@ function getUnsafeFixReasonCodes(messages: RuleMessages): ReadonlySet<UnsafeReas
             continue;
         }
 
-        const reasonCode = match.groups?.reasonCode as UnsafeReasonCode;
-        emittedReasonCodes.add(reasonCode);
+        const reasonCode = match.groups?.reasonCode;
+        if (!reasonCode) {
+            continue;
+        }
+
+        emittedReasonCodes.add(reasonCode as UnsafeReasonCode);
     }
 
     return emittedReasonCodes;
