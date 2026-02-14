@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { optimizeLogicalExpressionsTransform } from "../../../src/transforms/optimize-logical-expressions.js";
+import { optimizeLogicalExpressionsTransform } from "../../../src/transforms/logical-expressions/optimize-logical-expressions.js";
 
 type CommentNode = {
     readonly type: "CommentLine";

@@ -1,4 +1,5 @@
 // Public facade for parser adapters used by the Prettier plugin
+export { parseExample } from "./feather-example-parser.js";
 export type {
     GmlParserAdapterConfig,
     GmlParserAdapterOptions,

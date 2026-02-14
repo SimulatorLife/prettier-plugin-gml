@@ -72,4 +72,28 @@ void describe("StringBuilder Performance", () => {
 
         assert.ok(avgTime < 0.5, `Average time ${avgTime.toFixed(3)}ms exceeded 0.5ms threshold`);
     });
+
+    void it("should handle template strings with many interpolations efficiently", () => {
+        const parts = Array.from({ length: 20 }, (_, i) => `part${i}: {x${i}}`).join(" ");
+        const code = `var msg = $"${parts}";`;
+        const avgTime = measureEmit(code, "template-string");
+
+        assert.ok(avgTime < 1, `Average time ${avgTime.toFixed(3)}ms exceeded 1ms threshold`);
+    });
+
+    void it("should handle struct expressions with many properties efficiently", () => {
+        const props = Array.from({ length: 30 }, (_, i) => `prop${i}: ${i}`).join(", ");
+        const code = `var obj = {${props}};`;
+        const avgTime = measureEmit(code, "struct-expr");
+
+        assert.ok(avgTime < 1, `Average time ${avgTime.toFixed(3)}ms exceeded 1ms threshold`);
+    });
+
+    void it("should handle functions with many parameters efficiently", () => {
+        const params = Array.from({ length: 20 }, (_, i) => `p${i}`).join(", ");
+        const code = `function test(${params}) { return p0; }`;
+        const avgTime = measureEmit(code, "many-params");
+
+        assert.ok(avgTime < 1, `Average time ${avgTime.toFixed(3)}ms exceeded 1ms threshold`);
+    });
 });

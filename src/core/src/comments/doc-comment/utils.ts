@@ -41,7 +41,7 @@ export {
 export { clamp, coercePositiveIntegerOption } from "../../utils/index.js";
 
 // Object utilities
-export { assertFunction } from "../../utils/index.js";
+export { assertFunction, isObjectLike } from "../../utils/index.js";
 
 // Capability probes
 export { isRegExpLike } from "../../utils/index.js";

@@ -25,7 +25,7 @@ const MIN_DECLARATIONS = DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS;
  * Entry point that walks the AST once to add the `_gmlForceFollowingEmptyLine` hint.
  */
 function execute(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
-    if (!ast || typeof ast !== "object") {
+    if (Core.shouldSkipTraversal(ast)) {
         return ast;
     }
 
@@ -39,11 +39,7 @@ function execute(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
  * Depth-first walker that tracks declaration runs inside block statements.
  */
 function visitNode(node, visitedNodes, minDeclarationRunLength) {
-    if (!node || typeof node !== "object") {
-        return;
-    }
-
-    if (visitedNodes.has(node)) {
+    if (Core.shouldSkipTraversal(node, visitedNodes)) {
         return;
     }
 

@@ -1,9 +1,11 @@
+import { isFunctionLikeNode } from "../../../ast/node-helpers.js";
 import {
     getIdentifierText,
     getNodeEndIndex,
     getNodeStartIndex,
     getNonEmptyString,
     isNonEmptyTrimmedString,
+    isObjectLike,
     isUndefinedSentinel
 } from "../utils.js";
 import { normalizeDocMetadataName } from "./params.js";
@@ -257,13 +259,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             return;
         }
 
-        if (
-            node !== functionNode &&
-            (node.type === "FunctionDeclaration" ||
-                node.type === "StructFunctionDeclaration" ||
-                node.type === "FunctionExpression" ||
-                node.type === "ConstructorDeclaration")
-        ) {
+        if (node !== functionNode && isFunctionLikeNode(node)) {
             return;
         }
 
@@ -298,7 +294,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode")
                 continue;
             const child = node[key];
-            if (typeof child === "object" && child !== null) {
+            if (isObjectLike(child)) {
                 visit(child, node);
             }
         }

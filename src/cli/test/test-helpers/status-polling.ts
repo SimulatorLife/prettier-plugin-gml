@@ -16,37 +16,32 @@ function delay(ms: number): Promise<void> {
     });
 }
 
+function extractPatchCount(payload: StatusPayload): number {
+    return typeof payload.totalPatchCount === "number"
+        ? payload.totalPatchCount
+        : typeof payload.patchCount === "number"
+          ? payload.patchCount
+          : 0;
+}
+
+function extractErrorCount(payload: StatusPayload): number {
+    return typeof payload.errorCount === "number" ? payload.errorCount : 0;
+}
+
 export async function waitForPatchCount(
     baseUrl: string,
     minCount: number,
     timeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
 ): Promise<number> {
-    const deadline = Date.now() + timeoutMs;
+    const payload = await waitForStatus(
+        baseUrl,
+        (status) => extractPatchCount(status) >= minCount,
+        timeoutMs,
+        pollIntervalMs
+    );
 
-    while (Date.now() < deadline) {
-        try {
-            const response = await fetch(`${baseUrl}/status`);
-            if (response.ok) {
-                const payload = (await response.json()) as StatusPayload;
-                const patchCount =
-                    typeof payload.totalPatchCount === "number"
-                        ? payload.totalPatchCount
-                        : typeof payload.patchCount === "number"
-                          ? payload.patchCount
-                          : 0;
-                if (patchCount >= minCount) {
-                    return patchCount;
-                }
-            }
-        } catch {
-            // Ignore transient startup failures while the server boots.
-        }
-
-        await delay(pollIntervalMs);
-    }
-
-    throw new Error(`Timed out waiting for ${minCount} patches from ${baseUrl}/status`);
+    return extractPatchCount(payload);
 }
 
 export async function waitForErrorCount(
@@ -55,26 +50,14 @@ export async function waitForErrorCount(
     timeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
 ): Promise<number> {
-    const deadline = Date.now() + timeoutMs;
+    const payload = await waitForStatus(
+        baseUrl,
+        (status) => extractErrorCount(status) >= minCount,
+        timeoutMs,
+        pollIntervalMs
+    );
 
-    while (Date.now() < deadline) {
-        try {
-            const response = await fetch(`${baseUrl}/status`);
-            if (response.ok) {
-                const payload = (await response.json()) as StatusPayload;
-                const errorCount = typeof payload.errorCount === "number" ? payload.errorCount : 0;
-                if (errorCount >= minCount) {
-                    return errorCount;
-                }
-            }
-        } catch {
-            // Ignore transient startup failures while the server boots.
-        }
-
-        await delay(pollIntervalMs);
-    }
-
-    throw new Error(`Timed out waiting for ${minCount} errors from ${baseUrl}/status`);
+    return extractErrorCount(payload);
 }
 
 export async function waitForScanComplete(
@@ -82,25 +65,7 @@ export async function waitForScanComplete(
     timeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
 ): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-
-    while (Date.now() < deadline) {
-        try {
-            const response = await fetch(`${baseUrl}/status`);
-            if (response.ok) {
-                const payload = (await response.json()) as StatusPayload;
-                if (payload.scanComplete === true) {
-                    return;
-                }
-            }
-        } catch {
-            // Ignore transient startup failures while the server boots.
-        }
-
-        await delay(pollIntervalMs);
-    }
-
-    throw new Error(`Timed out waiting for scan completion from ${baseUrl}/status`);
+    await waitForStatus(baseUrl, (status) => status.scanComplete === true, timeoutMs, pollIntervalMs);
 }
 
 export async function fetchStatusPayload(baseUrl: string): Promise<StatusPayload> {
@@ -116,22 +81,7 @@ export async function waitForStatusReady(
     timeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
 ): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-
-    while (Date.now() < deadline) {
-        try {
-            const response = await fetch(`${baseUrl}/status`);
-            if (response.ok) {
-                return;
-            }
-        } catch {
-            // Ignore transient startup failures while the server boots.
-        }
-
-        await delay(pollIntervalMs);
-    }
-
-    throw new Error(`Timed out waiting for status server at ${baseUrl}/status`);
+    await waitForStatus(baseUrl, () => true, timeoutMs, pollIntervalMs);
 }
 
 export async function waitForStatus(

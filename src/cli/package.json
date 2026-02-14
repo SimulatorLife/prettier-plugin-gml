@@ -21,12 +21,15 @@
   },
   "dependencies": {
     "@gml-modules/core": "workspace:*",
+    "@gml-modules/lint": "workspace:*",
     "@gml-modules/parser": "workspace:*",
     "@gml-modules/plugin": "workspace:*",
     "@gml-modules/refactor": "workspace:*",
     "@gml-modules/semantic": "workspace:*",
     "@gml-modules/transpiler": "workspace:*",
     "commander": "^14.0.2",
+    "eslint": "^9.39.1",
+    "eslint-formatter-checkstyle": "^9.0.1",
     "linkedom": "^0.18.12",
     "fast-xml-parser": "^5.3.4",
     "ws": "^8.18.0"

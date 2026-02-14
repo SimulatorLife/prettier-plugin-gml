@@ -23,7 +23,6 @@ import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../option
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
-import { getNumericValueFromRealCall } from "./call-expressions/real-call-value.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -32,6 +31,13 @@ import {
     type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
+import {
+    applyIdentifierCaseSnapshotForProgram,
+    cacheProgramNodeOnPrinterOptions,
+    emitIdentifierCaseDryRunReport,
+    resolveIdentifierCaseRenameForNode,
+    teardownIdentifierCaseServices
+} from "./identifier-case-services.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -48,6 +54,7 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
+import { getNumericValueFromRealCall } from "./real-call-value.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
@@ -128,70 +135,6 @@ const MAX_SAFE_RECIPROCAL = 1e10;
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
 // `getCommentArray(...)`.
-
-/**
- * Wrapper helpers around optional Semantic identifier-case services.
- *
- * CONTEXT: Some test and runtime environments may not expose the full Semantic facade
- * due to lazy module loading, circular dependencies during initialization, or test provider
- * swaps. These helpers provide safe fallbacks so the printer remains robust and deterministic
- * even when Semantic is partially unavailable.
- *
- * FUTURE: Consider moving these adapters into Core or Semantic for reuse across other
- * modules that need graceful degradation when Semantic features are unavailable.
- */
-function getSemanticIdentifierCaseRenameForNode(node, options) {
-    // When `__identifierCaseDryRun` is set, the caller wants to preview what would be
-    // renamed without actually mutating the output. This dry-run mode is used by the
-    // CLI's `--identifier-case-dry-run` flag to generate a report of planned changes
-    // before applying them. If we allowed rename lookups during dry-run, the printer
-    // would emit the new identifiers in the formatted output, which defeats the purpose
-    // of a preview-only pass. Instead, we return `null` here to signal that no rename
-    // should be applied, ensuring that dry-run formatting produces a diff-free result
-    // while still allowing the rename engine to log or track what *would* have changed.
-    if (options?.__identifierCaseDryRun === true) {
-        return null;
-    }
-
-    // Prefer an options-scoped rename lookup service when available, but be defensive
-    // about lazy-initialized or dynamically-proxied environments. If no service is
-    // registered, fall back to the rename map snapshot on options.
-    let finalResult = null;
-    try {
-        const renameLookupService = options?.__identifierCaseRenameLookupService;
-        if (typeof renameLookupService === "function") {
-            finalResult = renameLookupService(node, options);
-        }
-    } catch {
-        /* ignore */
-    }
-
-    // Attempt a direct lookup in the captured renameMap when the facade lookup fails.
-    // The Semantic facade may not produce a rename due to lazy initialization,
-    // module loading order, or hot-reload timing. As a fallback, we consult the
-    // renameMap directly, using the same location-based key encoding that the
-    // planner uses. This ensures identifier-case corrections still apply even
-    // when the Semantic module isn't fully initialized. We emit diagnostics to
-    // help triage mismatches between the facade and direct lookup paths, which
-    // can occur when the renameMap is stale or the planner used a different key
-    // encoding strategy than expected.
-    try {
-        if (!finalResult) {
-            const renameMap = options?.__identifierCaseRenameMap ?? null;
-            if (renameMap && typeof renameMap.get === "function" && node && node.start) {
-                const loc = typeof node.start === "number" ? { index: node.start } : node.start;
-                const key = Core.buildLocationKey(loc);
-                if (key) {
-                    finalResult = renameMap.get(key) ?? finalResult;
-                }
-            }
-        }
-    } catch {
-        /* ignore */
-    }
-
-    return finalResult;
-}
 
 const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for("prettier.gml.feather.commentOut");
 const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.commentText");
@@ -545,7 +488,7 @@ function printFunctionId(node, path, options, print) {
     if (Core.isNonEmptyString(node.id)) {
         let renamed = null;
         if (node.idLocation && node.idLocation.start) {
-            renamed = getSemanticIdentifierCaseRenameForNode(
+            renamed = resolveIdentifierCaseRenameForNode(
                 {
                     start: node.idLocation.start,
                     scopeId: node.scopeId ?? null
@@ -641,7 +584,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
-            const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+            const parentNode = safeGetParentNode(path);
             const parentType = parentNode?.type;
             const isStandaloneAssignment =
                 parentType === "Program" ||
@@ -1160,7 +1103,7 @@ function printStructExpressionNode(node, path, options, print) {
 }
 
 function printPropertyNode(node, path, options, print) {
-    const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const parentNode = safeGetParentNode(path);
     const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
     const nameDoc = print("name");
     const valueDoc = print("value");
@@ -1328,7 +1271,7 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 nameStartIndex >= macroStartIndex &&
                 nameEndIndex >= nameStartIndex
             ) {
-                const renamed = getSemanticIdentifierCaseRenameForNode(node.name, options);
+                const renamed = resolveIdentifierCaseRenameForNode(node.name, options);
                 if (Core.isNonEmptyString(renamed)) {
                     const relativeStart = nameStartIndex - macroStartIndex;
                     const relativeEnd = nameEndIndex - macroStartIndex;
@@ -1445,7 +1388,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                 identifierName = preferredParamName;
             }
 
-            const renamed = getSemanticIdentifierCaseRenameForNode(node, options);
+            const renamed = resolveIdentifierCaseRenameForNode(node, options);
             if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
@@ -1532,34 +1475,12 @@ function tryPrintLiteralNode(node, path, options, print) {
 }
 
 function printProgramNode(node, path, options, print) {
-    if (node && options && typeof options === "object") {
-        try {
-            Reflect.set(options, "_gmlProgramNode", node);
-        } catch {
-            // Best-effort only; printing can proceed without cached program node.
-        }
-    }
+    cacheProgramNodeOnPrinterOptions(node, options);
 
-    if (node && node.__identifierCasePlanSnapshot) {
-        try {
-            const applySnapshotService = options?.__identifierCaseApplySnapshotService;
-            if (typeof applySnapshotService === "function") {
-                applySnapshotService(node.__identifierCasePlanSnapshot, options);
-            }
-        } catch {
-            // Non-fatal: identifier case snapshot application is optional for printing.
-        }
-    }
+    applyIdentifierCaseSnapshotForProgram(node, options);
 
     try {
-        try {
-            const dryRunReportService = options?.__identifierCaseDryRunReportService;
-            if (typeof dryRunReportService === "function") {
-                dryRunReportService(options);
-            }
-        } catch {
-            /* ignore */
-        }
+        emitIdentifierCaseDryRunReport(options);
 
         if (node.body.length === 0) {
             return concat(printDanglingCommentsAsGroup(path, options, () => true));
@@ -1569,14 +1490,7 @@ function printProgramNode(node, path, options, print) {
 
         return concat([programComments, concat(bodyParts)]);
     } finally {
-        try {
-            const teardownService = options?.__identifierCaseTeardownService;
-            if (typeof teardownService === "function") {
-                teardownService(options);
-            }
-        } catch {
-            /* ignore */
-        }
+        teardownIdentifierCaseServices(options);
     }
 }
 
@@ -1644,7 +1558,7 @@ function printBlockStatementNode(node, path, options, print) {
             sourceMetadata
         );
 
-        const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+        const parentNode = safeGetParentNode(path);
         const isConstructor = parentNode?.type === "ConstructorDeclaration";
 
         const preserveForConstructorText =
@@ -1678,7 +1592,7 @@ function printBlockStatementNode(node, path, options, print) {
             try {
                 let depth = 0;
                 while (depth < 20) {
-                    const ancestor = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
+                    const ancestor = safeGetParentNode(path, depth);
                     if (!ancestor) break;
                     if (ancestor.type === "Program") {
                         programNode = ancestor;
@@ -1688,7 +1602,7 @@ function printBlockStatementNode(node, path, options, print) {
                 }
             } catch {
                 // Fallback: try without depth parameter
-                const ancestor = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+                const ancestor = safeGetParentNode(path);
                 if (ancestor?.type === "Program") {
                     programNode = ancestor;
                 }
@@ -2505,7 +2419,7 @@ function printStatements(path, options, print, childrenAttribute) {
     let programNode = null;
     try {
         for (let depth = 0; ; depth += 1) {
-            const p = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
+            const p = safeGetParentNode(path, depth);
             if (!p) break;
             programNode = p.type === PROGRAM ? p : programNode;
         }
@@ -2529,7 +2443,7 @@ function printStatements(path, options, print, childrenAttribute) {
             programNode = cachedProgram;
         }
     }
-    const containerNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
     if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
@@ -2663,12 +2577,8 @@ function buildStatementPartsForPrinter({
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             isPreviousLineEmpty(originalTextCache, nodeStartIndex);
-        const blockAncestor =
-            typeof childPath.getParentNode === "function" ? childPath.getParentNode() : (childPath.parent ?? null);
-        const constructorAncestor =
-            typeof childPath.getParentNode === "function"
-                ? childPath.getParentNode(1)
-                : (blockAncestor?.parent ?? null);
+        const blockAncestor = safeGetParentNode(childPath) ?? childPath.parent ?? null;
+        const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockAncestor?.parent ?? null;
         const shouldForceConstructorPadding =
             blockAncestor?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
 
@@ -3073,9 +2983,8 @@ function handleTerminalTrailingSpacing({
     const trailingProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
-    const blockParent = typeof childPath.getParentNode === "function" ? childPath.getParentNode() : childPath.parent;
-    const constructorAncestor =
-        typeof childPath.getParentNode === "function" ? childPath.getParentNode(1) : (blockParent?.parent ?? null);
+    const blockParent = safeGetParentNode(childPath) ?? childPath.parent;
+    const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;

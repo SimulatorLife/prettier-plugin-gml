@@ -4,7 +4,6 @@
  */
 import { Core } from "@gml-modules/core";
 
-import { advanceStringCommentScan, createStringCommentScanState } from "../source-text/string-comment-scan.js";
 import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {
@@ -45,10 +44,10 @@ function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number
 
 function findNextOpenBrace(sourceText: string, startIndex: number) {
     const length = sourceText.length;
-    const state = createStringCommentScanState();
+    const state = Core.createStringCommentScanState();
 
     for (let index = startIndex; index < length; ) {
-        const nextIndex = advanceStringCommentScan(sourceText, length, index, state, true);
+        const nextIndex = Core.advanceStringCommentScan(sourceText, length, index, state, true);
         if (nextIndex !== index) {
             index = nextIndex;
             continue;
@@ -67,10 +66,10 @@ function findNextOpenBrace(sourceText: string, startIndex: number) {
 function findMatchingClosingBrace(sourceText: string, openBraceIndex: number) {
     const length = sourceText.length;
     let depth = 0;
-    const state = createStringCommentScanState();
+    const state = Core.createStringCommentScanState();
 
     for (let index = openBraceIndex; index < length; ) {
-        const nextIndex = advanceStringCommentScan(sourceText, length, index, state, true);
+        const nextIndex = Core.advanceStringCommentScan(sourceText, length, index, state, true);
         if (nextIndex !== index) {
             index = nextIndex;
             continue;
@@ -292,7 +291,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                 return assignmentIndex !== -1 && trimmed[assignmentIndex + 1] !== "=";
             })();
 
-        if (isBareAssignment || isNumericAssignment) {
+        if ((isBareAssignment || isNumericAssignment) && !pendingGM1100Context) {
             const trimmedRightLength = line.replace(/\s+$/, "").length;
             const sanitizedLine = line.replaceAll(/[^\s]/g, " ");
 
@@ -370,6 +369,27 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                     }
                 };
             }
+        }
+
+        const identifierStarMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*/);
+
+        if (identifierStarMatch) {
+            const identifier = identifierStarMatch[1];
+            const sanitizedLine = line.replaceAll(/[^\s]/g, " ");
+
+            gm1100Metadata.push({
+                type: "identifier-star",
+                line: lineNumber,
+                identifier
+            });
+
+            return {
+                line: sanitizedLine,
+                context: {
+                    identifier,
+                    indentation
+                }
+            };
         }
 
         if (trimmed.startsWith("=") && pendingGM1100Context?.identifier) {

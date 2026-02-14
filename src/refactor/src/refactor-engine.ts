@@ -3,6 +3,8 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
+import { RenameValidationCache } from "./rename-validation-cache.js";
+import { SemanticQueryCache } from "./semantic-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type ApplyWorkspaceEditOptions,
@@ -46,11 +48,15 @@ export class RefactorEngine {
     public readonly parser: ParserBridge | null;
     public readonly semantic: PartialSemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
+    private readonly renameValidationCache: RenameValidationCache;
+    private readonly semanticCache: SemanticQueryCache;
 
     constructor({ parser = null, semantic = null, formatter = null }: Partial<RefactorEngineDependencies> = {}) {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
+        this.renameValidationCache = new RenameValidationCache();
+        this.semanticCache = new SemanticQueryCache(semantic);
     }
 
     /**
@@ -58,21 +64,21 @@ export class RefactorEngine {
      * Useful for triggering refactorings from editor positions.
      */
     async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
-        return await SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
+        return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
      */
     async validateSymbolExists(symbolId: string): Promise<boolean> {
-        return await SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return await SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
+        return this.semanticCache.getSymbolOccurrences(symbolName);
     }
 
     /**
@@ -81,7 +87,10 @@ export class RefactorEngine {
      * need recompilation when a file changes.
      */
     async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
-        return await SymbolQueries.getFileSymbols(filePath, this.semantic);
+        Core.assertNonEmptyString(filePath, {
+            errorMessage: "getFileSymbols requires a valid file path string"
+        });
+        return this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -90,7 +99,10 @@ export class RefactorEngine {
      * when dependencies change.
      */
     async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
-        return await SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
+        Core.assertArray(symbolIds, {
+            errorMessage: "getSymbolDependents requires an array of symbol IDs"
+        });
+        return this.semanticCache.getDependents(symbolIds);
     }
 
     /**
@@ -154,6 +166,30 @@ export class RefactorEngine {
      * }
      */
     async validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
+        }
+    > {
+        const includeHotReload = options?.includeHotReload ?? false;
+        if (includeHotReload) {
+            return await this.computeRenameValidation(request, { includeHotReload: true });
+        }
+
+        if (!request || typeof request.symbolId !== "string" || typeof request.newName !== "string") {
+            return await this.computeRenameValidation(request, options);
+        }
+
+        return await this.renameValidationCache.getOrCompute(request.symbolId, request.newName, async () => {
+            return await this.computeRenameValidation(request, options);
+        });
+    }
+
+    private async computeRenameValidation(
         request: RenameRequest,
         options?: ValidateRenameRequestOptions
     ): Promise<
@@ -931,6 +967,7 @@ export class RefactorEngine {
             deleteFile: request.deleteFile,
             dryRun: false
         });
+        this.renameValidationCache.invalidateAll();
 
         // Prepare hot reload updates if requested
         let hotReloadUpdates: Array<HotReloadUpdate> = [];
@@ -979,6 +1016,7 @@ export class RefactorEngine {
             deleteFile: request.deleteFile,
             dryRun: false
         });
+        this.renameValidationCache.invalidateAll();
 
         // Prepare hot reload updates if requested
         let hotReloadUpdates: Array<HotReloadUpdate> = [];
@@ -2068,6 +2106,29 @@ export class RefactorEngine {
         };
 
         return await tryCandidateAtIndex(0);
+    }
+
+    /**
+     * Invalidate semantic cache for a specific file.
+     * Call this when a file changes during hot reload to ensure fresh semantic data.
+     */
+    invalidateSemanticCacheForFile(filePath: string): void {
+        this.semanticCache.invalidateFile(filePath);
+    }
+
+    /**
+     * Invalidate all semantic cache entries.
+     * Call this when starting a new refactoring session or after major changes.
+     */
+    invalidateAllSemanticCache(): void {
+        this.semanticCache.invalidateAll();
+    }
+
+    /**
+     * Get semantic cache statistics for monitoring performance.
+     */
+    getSemanticCacheStats() {
+        return this.semanticCache.getStats();
     }
 }
 
