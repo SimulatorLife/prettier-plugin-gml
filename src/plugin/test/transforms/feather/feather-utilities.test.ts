@@ -3,12 +3,12 @@ import { test } from "node:test";
 
 import { Core } from "@gml-modules/core";
 
+import { parseExample } from "../../../src/parsers/feather-example-parser.js";
 import { resolveCallExpressionArrayContext } from "../../../src/transforms/feather/ast-traversal.js";
 import {
     applyRemovedIndexAdjustments,
     preprocessSourceForFeatherFixes
 } from "../../../src/transforms/feather/enum-handling.js";
-import { parseExample } from "../../../src/transforms/feather/parser-bootstrap.js";
 
 void test("parseExample builds an AST for simple input", () => {
     const ast = parseExample("var a = 1;", {

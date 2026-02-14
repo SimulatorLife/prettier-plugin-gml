@@ -1,13 +1,16 @@
-import { configs } from "./plugin.js";
-import { plugin } from "./plugin.js";
+import { configs, plugin } from "./plugin.js";
 import { featherManifest } from "./rules/feather/manifest.js";
 import { services } from "./services/index.js";
 
 function createFeatherRuleIdMap(): Record<string, string> {
     const map: Record<string, string> = {};
     for (const entry of featherManifest.entries) {
-        const suffix = entry.id.replace("GM", "");
-        map[`FeatherGM${suffix}`] = entry.ruleId;
+        const expectedRuleId = `feather/${entry.id.toLowerCase()}`;
+        if (entry.ruleId !== expectedRuleId) {
+            throw new Error(`Invalid feather rule mapping for ${entry.id}: ${entry.ruleId}`);
+        }
+
+        map[`Feather${entry.id}`] = entry.ruleId;
     }
 
     return map;

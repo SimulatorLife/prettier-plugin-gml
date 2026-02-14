@@ -2,11 +2,12 @@ import { Buffer } from "node:buffer";
 
 import { Core } from "@gml-modules/core";
 
+import { createIntegerEnvConfiguredValue } from "../env-configured-integer.js";
+
 const {
     callWithFallback,
     clamp,
     coercePositiveInteger,
-    createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
     describeValueForError,
     isFiniteNumber,
@@ -27,17 +28,11 @@ const coerce = (value: unknown, context = {}) => {
     return coercePositiveInteger(value, opts);
 };
 
-const state = createEnvConfiguredValue<number | undefined>({
+const state = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_BYTE_FORMAT_RADIX,
     envVar: BYTE_FORMAT_RADIX_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce,
-            typeErrorMessage: createRadixTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    coerce,
+    typeErrorMessage: createRadixTypeErrorMessage
 });
 
 function getDefaultByteFormatRadix(): number | undefined {
