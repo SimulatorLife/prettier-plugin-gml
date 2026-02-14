@@ -185,10 +185,21 @@ function getRuleLevel(value: unknown): unknown {
 }
 
 function isOffLevel(level: unknown): boolean {
-    return level === "off" || level === 0;
+    if (typeof level === "string") {
+        return level.trim().toLowerCase() === "off";
+    }
+
+    return level === 0;
 }
 
 function isAppliedLevel(level: unknown): boolean {
+    if (typeof level === "string") {
+        const normalizedLevel = level.trim().toLowerCase();
+        if (normalizedLevel === "warn" || normalizedLevel === "error") {
+            return true;
+        }
+    }
+
     if (level === "warn" || level === "error") {
         return true;
     }
@@ -243,15 +254,18 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
-async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
-    eslint: ESLint;
-    results: Array<ESLint.LintResult>;
-    verbose: boolean;
-}): Promise<void> {
-    if (!parameters.verbose) {
-        return;
-    }
+type ConfigLookupEslintLike = {
+    calculateConfigForFile(filePath: string): Promise<unknown>;
+};
 
+type LintResultFilePathLike = {
+    filePath: string;
+};
+
+async function collectOverlayWithoutLanguageWiringPaths(parameters: {
+    eslint: ConfigLookupEslintLike;
+    results: Array<LintResultFilePathLike>;
+}): Promise<Array<string>> {
     const offendingPaths: Array<string> = [];
 
     for (const result of parameters.results) {
@@ -271,6 +285,20 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
 
         offendingPaths.push(filePath);
     }
+
+    return offendingPaths;
+}
+
+async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
+    eslint: ESLint;
+    results: Array<ESLint.LintResult>;
+    verbose: boolean;
+}): Promise<void> {
+    if (!parameters.verbose) {
+        return;
+    }
+
+    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
 
     if (offendingPaths.length === 0) {
         return;
@@ -445,5 +473,6 @@ export const __lintCommandTest__ = Object.freeze({
     isCanonicalGmlWiring,
     isAppliedRuleValue,
     hasOverlayRuleApplied,
-    formatOverlayWarning
+    formatOverlayWarning,
+    collectOverlayWithoutLanguageWiringPaths
 });
