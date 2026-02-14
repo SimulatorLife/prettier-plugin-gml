@@ -10,12 +10,6 @@ import {
     type RecoveryMode
 } from "./recovery.js";
 
-class GMLLanguageSourceCode extends SourceCode {
-    finalize(): void {
-        // Custom language source code has no JS scope manager integration.
-    }
-}
-
 type GMLAstNode = {
     type: string;
     body: ReadonlyArray<unknown>;
@@ -535,3 +529,8 @@ export const gmlLanguage = Object.freeze({
         return normalizeRecoveryOption(languageOptions);
     }
 } satisfies GMLLanguage);
+class GMLLanguageSourceCode extends SourceCode {
+    finalize(): void {
+        // GML language intentionally has no JS scope manager integration.
+    }
+}
