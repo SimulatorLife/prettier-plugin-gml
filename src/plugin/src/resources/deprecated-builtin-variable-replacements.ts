@@ -1,4 +1,4 @@
-import { getFeatherDiagnosticById } from "./feather-metadata.js";
+import { Core } from "@gml-modules/core";
 
 // GML keywords that should be excluded when extracting identifiers from examples.
 const GML_KEYWORDS = new Set([
@@ -32,7 +32,7 @@ const GML_KEYWORDS = new Set([
 ]);
 
 export function buildDeprecatedBuiltinVariableReplacements(): Map<string, DeprecatedReplacementEntry> {
-    const diagnostic = getFeatherDiagnosticById("GM1024");
+    const diagnostic = Core.getFeatherDiagnosticById("GM1024");
     if (!diagnostic?.badExample || !diagnostic?.goodExample) {
         return new Map();
     }

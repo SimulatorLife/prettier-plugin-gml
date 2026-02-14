@@ -1,5 +1,4 @@
 export * from "./dependency-tracker.js";
-export * as Feather from "./feather/index.js";
 export * as HotReload from "./hot-reload/index.js";
 export * as Manual from "./manual/index.js";
 export * as Performance from "./performance/index.js";
