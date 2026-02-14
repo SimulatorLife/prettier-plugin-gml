@@ -54,6 +54,10 @@ type ProjectIndex = Readonly<{
     identifierToFiles: ReadonlyMap<string, ReadonlySet<string>>;
 }>;
 
+function normalizeIdentifierName(identifierName: string): string {
+    return identifierName.trim().toLowerCase();
+}
+
 function collectEligibleGmlFiles(rootPath: string, excludedDirectories: ReadonlySet<string>): Array<string> {
     const filePaths: Array<string> = [];
     const directories = [rootPath];
@@ -109,9 +113,14 @@ function buildProjectIndex(rootPath: string, excludedDirectories: ReadonlySet<st
                 continue;
             }
 
-            const bucket = identifierMap.get(identifier) ?? new Set<string>();
+            const normalizedIdentifier = normalizeIdentifierName(identifier);
+            if (normalizedIdentifier.length === 0) {
+                continue;
+            }
+
+            const bucket = identifierMap.get(normalizedIdentifier) ?? new Set<string>();
             bucket.add(filePath);
-            identifierMap.set(identifier, bucket);
+            identifierMap.set(normalizedIdentifier, bucket);
         }
     }
 
@@ -129,11 +138,17 @@ function resolveLoopHoistIdentifierName(
     preferredName: string,
     localIdentifierNames: ReadonlySet<string>
 ): string | null {
-    if (!preferredName || localIdentifierNames.has(preferredName)) {
+    const normalizedLocalNames = new Set<string>();
+    for (const name of localIdentifierNames) {
+        normalizedLocalNames.add(normalizeIdentifierName(name));
+    }
+
+    const normalizedPreferredName = normalizeIdentifierName(preferredName);
+    if (!normalizedPreferredName || normalizedLocalNames.has(normalizedPreferredName)) {
         const baseName = preferredName.length > 0 ? preferredName : "len";
         for (let index = 1; index <= 1000; index += 1) {
             const candidate = `${baseName}_${index}`;
-            if (!localIdentifierNames.has(candidate)) {
+            if (!normalizedLocalNames.has(normalizeIdentifierName(candidate))) {
                 return candidate;
             }
         }
@@ -147,10 +162,10 @@ function createIndexedContext(index: ProjectIndex): GmlProjectContext {
     return Object.freeze({
         capabilities: ALL_PROJECT_CAPABILITIES,
         isIdentifierNameOccupiedInProject(identifierName: string): boolean {
-            return index.identifierToFiles.has(identifierName);
+            return index.identifierToFiles.has(normalizeIdentifierName(identifierName));
         },
         listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
-            const files = index.identifierToFiles.get(identifierName);
+            const files = index.identifierToFiles.get(normalizeIdentifierName(identifierName));
             return files ?? new Set<string>();
         },
         planFeatherRenames(
@@ -171,7 +186,8 @@ function createIndexedContext(index: ProjectIndex): GmlProjectContext {
                     };
                 }
 
-                if (index.identifierToFiles.has(request.preferredReplacementName)) {
+                const normalizedPreferredReplacementName = normalizeIdentifierName(request.preferredReplacementName);
+                if (index.identifierToFiles.has(normalizedPreferredReplacementName)) {
                     return {
                         identifierName: request.identifierName,
                         preferredReplacementName: request.preferredReplacementName,

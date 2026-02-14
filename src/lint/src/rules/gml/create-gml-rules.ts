@@ -177,13 +177,40 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
         create(context) {
             const options = readObjectOption(context);
             const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const projectContext = resolveProjectContextForRule(context, definition);
             const listener: Rule.RuleListener = {
                 Program() {
                     const text = context.sourceCode.text;
+                    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
+                    const filePath = typeof sourcePath === "string" ? sourcePath : null;
                     const pattern = /(^|\r?\n)(\s*)globalvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g;
+                    const assessGlobalVarRewrite =
+                        projectContext.context && typeof projectContext.context.assessGlobalVarRewrite === "function"
+                            ? projectContext.context.assessGlobalVarRewrite.bind(projectContext.context)
+                            : null;
                     for (const match of text.matchAll(pattern)) {
                         const start = (match.index ?? 0) + match[1].length;
                         const end = start + match[2].length + "globalvar".length + 1 + match[3].length + 1;
+                        const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
+                            allowRewrite: true,
+                            reason: null
+                        };
+                        if (!rewriteAssessment.allowRewrite) {
+                            if (shouldReportUnsafeFixes) {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: "unsafeFix"
+                                });
+                            } else {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: definition.messageId
+                                });
+                            }
+                            continue;
+                        }
+
                         if (!enableAutofix) {
                             context.report({
                                 loc: context.sourceCode.getLocFromIndex(start),
@@ -202,7 +229,6 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
                 }
             };
 
-            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }

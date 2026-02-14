@@ -12,6 +12,8 @@ void describe("formatter migrated-transform regression coverage", () => {
             "cfg.bar = 2;",
             'var label = "HP: " + string(hp);',
             "var ratio = total / 2;",
+            "globalvar score;",
+            "score = 1;",
             "if ((ready && armed) || override) {",
             "    show_debug_message(label);",
             "}"
@@ -30,8 +32,11 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.match(formatted, /cfg\.bar = 2;/);
         assert.match(formatted, /"HP: " \+ string\(hp\)/);
         assert.match(formatted, /total \/ 2/);
+        assert.match(formatted, /globalvar score;/);
+        assert.match(formatted, /score = 1;/);
         assert.doesNotMatch(formatted, /\$"HP:\s*\{hp\}"/);
         assert.doesNotMatch(formatted, /cfg\s*=\s*\{\s*foo:\s*1,\s*bar:\s*2\s*\}/);
+        assert.doesNotMatch(formatted, /global\.score =/);
     });
 
     void it("fails fast on invalid syntax instead of repairing parse input", async () => {

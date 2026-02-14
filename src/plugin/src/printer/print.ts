@@ -22,7 +22,6 @@ import { printComment, printDanglingComments, printDanglingCommentsAsGroup } fro
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -3508,61 +3507,6 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
     }
 
     return false;
-}
-
-/**
- * Builds formatted output parts for globalvar normalization.
- *
- * Each declaration is either rewritten to `global.name = value;` when the semantic
- * safety runtime deems the rewrite safe, or preserved as a `globalvar` declaration
- * when the rewrite is unsafe for the current runtime context.
- *
- * @param {any} node - The GlobalVarStatement node
- * @param {any} path - Prettier path object for traversal
- * @param {Function} print - Prettier print function
- * @param {any} options - Prettier option bag
- * @returns {Array<any>} Array of formatted assignment doc fragments
- */
-function _buildGlobalVarNormalizationParts(node, path, print, options) {
-    const parts = [];
-    const declarationCount = node.declarations.length;
-
-    for (let index = 0; index < declarationCount; index += 1) {
-        const decl = node.declarations[index];
-        const identifierName = Core.getIdentifierText(decl?.id ?? null);
-        const rewriteAssessment = assessGlobalVarRewrite(
-            {
-                filePath: typeof options?.filepath === STRING_TYPE ? options.filepath : null,
-                hasInitializer: Boolean(decl?.init),
-                identifierName: identifierName ?? `declaration_${index}`
-            },
-            options
-        );
-
-        if (!rewriteAssessment.allowRewrite) {
-            if (!decl.init && !hasActiveSemanticSafetyReportService(options)) {
-                continue;
-            }
-
-            const declarationDoc = path.call(print, "declarations", index);
-            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
-            parts.push(group(concat([keyword, " ", declarationDoc])));
-            continue;
-        }
-
-        if (!decl.init) {
-            const idDoc = path.call(print, "declarations", index, "id");
-            parts.push(group(concat(["global.", idDoc, " = undefined"])));
-            continue;
-        }
-
-        const idDoc = path.call(print, "declarations", index, "id");
-        const initDoc = path.call(print, "declarations", index, "init");
-
-        parts.push(group(concat(["global.", idDoc, " = ", initDoc])));
-    }
-
-    return parts;
 }
 
 function printGlobalVarStatementAsKeyword(node, path, print, options) {

@@ -3,26 +3,12 @@ export type {
     FeatherRenamePlanEntry,
     FeatherRenamePlanRequest,
     FeatherRenameResolution,
-    GlobalVarRewriteAssessment,
-    GlobalVarRewriteContext,
     LoopHoistIdentifierContext,
-    LoopHoistIdentifierResolution,
-    RefactorRuntime,
-    SemanticSafetyMode,
-    SemanticSafetyReport,
-    SemanticSafetyRuntime
+    LoopHoistIdentifierResolution
 } from "./semantic-safety-runtime.js";
 export {
-    assessGlobalVarRewrite,
-    emitSemanticSafetyReport,
-    hasActiveSemanticSafetyReportService,
     prepareFeatherRenamePlan,
     resolveFeatherRename,
     resolveLoopHoistIdentifier,
-    restoreDefaultRefactorRuntime,
-    restoreDefaultSemanticSafetyRuntime,
-    runWithFeatherRenamePlan,
-    runWithSemanticSafetyReportService,
-    setRefactorRuntime,
-    setSemanticSafetyRuntime
+    runWithFeatherRenamePlan
 } from "./semantic-safety-runtime.js";

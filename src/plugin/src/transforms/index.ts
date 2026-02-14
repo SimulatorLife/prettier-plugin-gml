@@ -8,12 +8,10 @@ import { convertStringConcatenationsTransform } from "./convert-string-concatena
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
 import type { ParserTransform } from "./functional-transform.js";
 import { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
@@ -25,13 +23,11 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
     consolidateStructAssignmentsTransform,
     normalizeDataStructureAccessorsTransform,
-    applyFeatherFixesTransform,
     preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
     convertStringConcatenationsTransform,
     optimizeLogicalExpressionsTransform,
     condenseGuardStatementsTransform,
-    optimizeMathExpressionsTransform,
     docCommentNormalizationTransform,
     convertUndefinedGuardAssignmentsTransform,
     annotateStaticFunctionOverridesTransform,
@@ -116,20 +112,10 @@ export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-g
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-export {
-    applyFeatherFixesTransform,
-    getFeatherDiagnosticFixers,
-    getRoomNavigationHelpers,
-    ROOM_NAVIGATION_DIRECTION
-} from "./feather/apply-feather-fixes.js";
-export { applyRemovedIndexAdjustments, preprocessSourceForFeatherFixes } from "./feather/enum-handling.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
-export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";

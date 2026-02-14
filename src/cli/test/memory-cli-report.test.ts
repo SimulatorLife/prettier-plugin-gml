@@ -3,6 +3,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 // Keep these assertions on the `node:assert/strict` helpers to avoid Node.js'
 // deprecated legacy equality APIs. Manual validation: run
@@ -23,15 +24,28 @@ import {
     setDefaultMemoryReportFileName
 } from "../src/commands/memory.js";
 
+const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
+const cliWorkspaceDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
+    ? path.resolve(rawDirectory, "..", "..")
+    : path.resolve(rawDirectory, "..");
+
 async function primeMemorySuiteSampleCache() {
-    const parserSamplePath = path.resolve(process.cwd(), "src/parser/test/input/expressions.gml");
+    const parserSamplePath = path.resolve(cliWorkspaceDirectory, "..", "parser", "test", "input", "expressions.gml");
     const parserSampleContents = await readFile(parserSamplePath, "utf8");
     memoryTestHelpers.setSampleCacheRecordForTests("parser:sample", {
         contents: parserSampleContents,
         path: parserSamplePath
     });
 
-    const formatterSamplePath = path.resolve(process.cwd(), "test/fixtures/plugin-integration/testFoo.input.gml");
+    const formatterSamplePath = path.resolve(
+        cliWorkspaceDirectory,
+        "..",
+        "..",
+        "test",
+        "fixtures",
+        "plugin-integration",
+        "testFoo.input.gml"
+    );
     const formatterSampleContents = await readFile(formatterSamplePath, "utf8");
     memoryTestHelpers.setSampleCacheRecordForTests("formatter:sample", {
         contents: formatterSampleContents,

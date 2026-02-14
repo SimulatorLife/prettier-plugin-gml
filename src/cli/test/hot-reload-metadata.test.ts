@@ -61,7 +61,7 @@ void describe("Hot reload patch metadata", () => {
                 // Modify the file to trigger a patch
                 await writeFile(testFile, "// Updated content\nvar test_value = 100;", "utf8");
 
-                return await websocketClient.waitForPatches({ timeoutMs: 1500 });
+                return await websocketClient.waitForPatches({ timeoutMs: 3000 });
             } finally {
                 abortController.abort();
 

@@ -76,12 +76,12 @@ export type FeatherRenamePlanEntry = Readonly<{
 /**
  * Runtime contract used by plugin transforms/printer to request semantic-safe naming decisions.
  */
-export type SemanticSafetyRuntime = Readonly<{
+type SemanticSafetyRuntime = Readonly<{
     assessGlobalVarRewrite: (context: GlobalVarRewriteContext) => GlobalVarRewriteAssessment | null;
     resolveLoopHoistIdentifier: (context: LoopHoistIdentifierContext) => LoopHoistIdentifierResolution | null;
 }>;
 
-export type RefactorRuntime = Readonly<{
+type RefactorRuntime = Readonly<{
     isIdentifierNameOccupiedInProject: (
         context: Readonly<{ filePath: string | null; identifierName: string }>
     ) => boolean;
@@ -133,8 +133,8 @@ const DEFAULT_REFACTOR_RUNTIME: RefactorRuntime = Object.freeze({
     }
 });
 
-let semanticSafetyRuntime: SemanticSafetyRuntime = DEFAULT_SEMANTIC_SAFETY_RUNTIME;
-let refactorRuntime: RefactorRuntime = DEFAULT_REFACTOR_RUNTIME;
+const semanticSafetyRuntime: SemanticSafetyRuntime = DEFAULT_SEMANTIC_SAFETY_RUNTIME;
+const refactorRuntime: RefactorRuntime = DEFAULT_REFACTOR_RUNTIME;
 const scopedSemanticSafetyReportService = new AsyncLocalStorage<SemanticSafetyReportService | null>();
 const scopedFeatherRenamePlanMap = new AsyncLocalStorage<Map<string, FeatherRenameResolution | null> | null>();
 
@@ -193,58 +193,6 @@ export function hasActiveSemanticSafetyReportService(options?: unknown): boolean
     }
 
     return typeof scopedSemanticSafetyReportService.getStore() === "function";
-}
-
-/**
- * Register a semantic-safety runtime adapter.
- */
-export function setSemanticSafetyRuntime(runtime: SemanticSafetyRuntime): void {
-    if (!Core.isObjectLike(runtime)) {
-        throw new TypeError("Semantic safety runtime must be an object.");
-    }
-
-    if (typeof runtime.resolveLoopHoistIdentifier !== "function") {
-        throw new TypeError("Semantic safety runtime must implement resolveLoopHoistIdentifier.");
-    }
-
-    if (typeof runtime.assessGlobalVarRewrite !== "function") {
-        throw new TypeError("Semantic safety runtime must implement assessGlobalVarRewrite.");
-    }
-
-    semanticSafetyRuntime = runtime;
-}
-
-/**
- * Restore the default semantic-safety runtime implementation.
- */
-export function restoreDefaultSemanticSafetyRuntime(): void {
-    semanticSafetyRuntime = DEFAULT_SEMANTIC_SAFETY_RUNTIME;
-}
-
-/**
- * Register a refactor runtime adapter used for project-occupancy checks.
- */
-export function setRefactorRuntime(runtime: RefactorRuntime): void {
-    if (!Core.isObjectLike(runtime)) {
-        throw new TypeError("Refactor runtime must be an object.");
-    }
-
-    if (typeof runtime.isIdentifierNameOccupiedInProject !== "function") {
-        throw new TypeError("Refactor runtime must implement isIdentifierNameOccupiedInProject.");
-    }
-
-    if (typeof runtime.listIdentifierOccurrenceFiles !== "function") {
-        throw new TypeError("Refactor runtime must implement listIdentifierOccurrenceFiles.");
-    }
-
-    refactorRuntime = runtime;
-}
-
-/**
- * Restore the default no-op refactor runtime implementation.
- */
-export function restoreDefaultRefactorRuntime(): void {
-    refactorRuntime = DEFAULT_REFACTOR_RUNTIME;
 }
 
 /**
