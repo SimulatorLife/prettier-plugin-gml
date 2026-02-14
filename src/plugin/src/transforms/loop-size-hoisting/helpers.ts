@@ -4,16 +4,6 @@
 
 import { Core } from "@gml-modules/core";
 
-const {
-    getIdentifierText,
-    getCallExpressionArguments,
-    getCallExpressionIdentifierName,
-    normalizeStringList,
-    toNormalizedLowerCaseString,
-    coalesceOption,
-    isObjectLike
-} = Core;
-
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
     ["ds_grid_height", "height"],
@@ -25,7 +15,7 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
 const SIZE_SUFFIX_CACHE = new WeakMap();
 
 function createSizeSuffixMap(options) {
-    const rawOverrides = coalesceOption(options, "loopLengthHoistFunctionSuffixes");
+    const rawOverrides = Core.coalesceOption(options, "loopLengthHoistFunctionSuffixes");
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(rawOverrides);
 
     const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
@@ -54,7 +44,7 @@ function createSizeSuffixMap(options) {
  * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
  */
 function getSizeRetrievalFunctionSuffixes(options?: any) {
-    if (isObjectLike(options)) {
+    if (Core.isObjectLike(options)) {
         const cached = SIZE_SUFFIX_CACHE.get(options);
         if (cached) {
             return cached;
@@ -63,7 +53,7 @@ function getSizeRetrievalFunctionSuffixes(options?: any) {
 
     const suffixes = createSizeSuffixMap(options);
 
-    if (isObjectLike(options)) {
+    if (Core.isObjectLike(options)) {
         SIZE_SUFFIX_CACHE.set(options, suffixes);
     }
 
@@ -83,7 +73,7 @@ function getSizeRetrievalFunctionSuffixes(options?: any) {
  *          removed from the default table.
  */
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
-    const entries = normalizeStringList(rawValue, {
+    const entries = Core.normalizeStringList(rawValue, {
         allowInvalidType: true
     });
 
@@ -91,7 +81,7 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
 
     for (const entry of entries) {
         const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
-        const normalizedName = toNormalizedLowerCaseString(rawName);
+        const normalizedName = Core.toNormalizedLowerCaseString(rawName);
         if (!normalizedName) {
             continue;
         }
@@ -142,7 +132,7 @@ function getLoopLengthHoistInfo(node, sizeFunctionSuffixes = DEFAULT_SIZE_RETRIE
         return null;
     }
 
-    const functionName = getCallExpressionIdentifierName(callExpression);
+    const functionName = Core.getCallExpressionIdentifierName(callExpression);
     if (!functionName) {
         return null;
     }
@@ -152,13 +142,13 @@ function getLoopLengthHoistInfo(node, sizeFunctionSuffixes = DEFAULT_SIZE_RETRIE
         return null;
     }
 
-    const args = getCallExpressionArguments(callExpression);
+    const args = Core.getCallExpressionArguments(callExpression);
     if (args.length !== 1) {
         return null;
     }
 
     const arrayIdentifier = args[0];
-    const arrayIdentifierName = getIdentifierText(arrayIdentifier);
+    const arrayIdentifierName = Core.getIdentifierText(arrayIdentifier);
     if (!arrayIdentifier || !arrayIdentifierName) {
         return null;
     }
