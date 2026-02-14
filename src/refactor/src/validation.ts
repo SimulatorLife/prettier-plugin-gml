@@ -29,24 +29,54 @@ import {
 const GLOBAL_SCOPE_KEY = "__global__";
 
 /**
+ * Groups symbol occurrences by a derived key.
+ * @param occurrences - Source occurrences to group
+ * @param keySelector - Produces a stable grouping key for each occurrence
+ * @returns Map of keys to grouped occurrences
+ */
+function groupOccurrencesByKey(
+    occurrences: Array<SymbolOccurrence>,
+    keySelector: (occurrence: SymbolOccurrence) => string | null
+): Map<string, Array<SymbolOccurrence>> {
+    const groups = new Map<string, Array<SymbolOccurrence>>();
+
+    for (const occurrence of occurrences) {
+        const key = keySelector(occurrence);
+        if (!key) {
+            continue;
+        }
+
+        const existingGroup = groups.get(key);
+        if (existingGroup) {
+            existingGroup.push(occurrence);
+            continue;
+        }
+
+        groups.set(key, [occurrence]);
+    }
+
+    return groups;
+}
+
+/**
  * Groups occurrences by scope and collects file paths for each scope.
  * @param occurrences - Symbol occurrences to group
  * @returns Map of scope keys to sets of file paths
  */
 function groupOccurrencesByScope(occurrences: Array<SymbolOccurrence>): Map<string, Set<string>> {
+    const groupedByScope = groupOccurrencesByKey(occurrences, (occurrence) => occurrence.scopeId ?? GLOBAL_SCOPE_KEY);
+
     const scopeToPaths = new Map<string, Set<string>>();
 
-    for (const occurrence of occurrences) {
-        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
-        let paths = scopeToPaths.get(scopeKey);
-        if (!paths) {
-            paths = new Set();
-            scopeToPaths.set(scopeKey, paths);
+    for (const [scopeKey, groupedOccurrences] of groupedByScope) {
+        const paths = new Set<string>();
+        for (const occurrence of groupedOccurrences) {
+            if (occurrence.path) {
+                paths.add(occurrence.path);
+            }
         }
 
-        if (occurrence.path) {
-            paths.add(occurrence.path);
-        }
+        scopeToPaths.set(scopeKey, paths);
     }
 
     return scopeToPaths;
@@ -100,11 +130,18 @@ async function checkShadowingConflicts(
 ): Promise<Array<ConflictEntry>> {
     const conflicts: Array<ConflictEntry> = [];
     const scopeToPaths = groupOccurrencesByScope(occurrences);
+    const scopeEntries = [...scopeToPaths.entries()];
+    const lookupResults = await Promise.all(
+        scopeEntries.map(async ([scopeKey, paths]) => {
+            const existing = await resolver.lookup(
+                normalizedNewName,
+                scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey
+            );
+            return { existing, paths };
+        })
+    );
 
-    for (const [scopeKey, paths] of scopeToPaths) {
-        // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential per scope
-        const existing = await resolver.lookup(normalizedNewName, scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey);
-
+    for (const { existing, paths } of lookupResults) {
         // Guard clause: skip if no conflict exists
         if (!existing || existing.name === oldName) {
             continue;
@@ -353,20 +390,16 @@ export async function batchValidateScopeConflicts(
         return conflicts;
     }
 
-    const scopeGroups = new Map<string, Array<SymbolOccurrence>>();
-    for (const occurrence of occurrences) {
-        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
-        let group = scopeGroups.get(scopeKey);
-        if (!group) {
-            group = [];
-            scopeGroups.set(scopeKey, group);
-        }
-        group.push(occurrence);
-    }
+    const scopeGroups = groupOccurrencesByKey(occurrences, (occurrence) => occurrence.scopeId ?? GLOBAL_SCOPE_KEY);
+    const scopeIds = [...scopeGroups.keys()];
+    const lookupResults = await Promise.all(
+        scopeIds.map(async (scopeId) => ({
+            scopeId,
+            existing: await resolver.lookup(normalizedNewName, scopeId === GLOBAL_SCOPE_KEY ? undefined : scopeId)
+        }))
+    );
 
-    for (const [scopeId] of scopeGroups) {
-        // eslint-disable-next-line no-await-in-loop -- Each scope must be validated sequentially for correctness
-        const existing = await resolver.lookup(normalizedNewName, scopeId === GLOBAL_SCOPE_KEY ? undefined : scopeId);
+    for (const { scopeId, existing } of lookupResults) {
         if (existing) {
             const scopeDisplayName = scopeId === GLOBAL_SCOPE_KEY ? "global scope" : `scope '${scopeId}'`;
             conflicts.set(scopeId, {
@@ -434,25 +467,19 @@ export async function validateCrossFileConsistency(
     }
 
     // Group occurrences by file to analyze file-level impact
-    const fileOccurrences = new Map<string, Array<SymbolOccurrence>>();
-    for (const occurrence of occurrences) {
-        if (!occurrence.path) {
-            continue;
-        }
-        let group = fileOccurrences.get(occurrence.path);
-        if (!group) {
-            group = [];
-            fileOccurrences.set(occurrence.path, group);
-        }
-        group.push(occurrence);
-    }
+    const fileOccurrences = groupOccurrencesByKey(occurrences, (occurrence) => occurrence.path ?? null);
+    const fileEntries = [...fileOccurrences.entries()];
+    const fileSymbolResults = await Promise.all(
+        fileEntries.map(async ([filePath, fileOccs]) => ({
+            filePath,
+            fileOccs,
+            fileSymbols: await fileProvider.getFileSymbols(filePath)
+        }))
+    );
 
     // For each file with occurrences, check if there are other symbols that
     // might conflict with the new name after the rename
-    for (const [filePath, fileOccs] of fileOccurrences) {
-        // eslint-disable-next-line no-await-in-loop -- Each file must be checked sequentially
-        const fileSymbols = await fileProvider.getFileSymbols(filePath);
-
+    for (const { filePath, fileOccs, fileSymbols } of fileSymbolResults) {
         // Check if the file already defines a symbol with the new name
         const conflictingSymbol = fileSymbols.find((sym) => {
             const symName = extractSymbolName(sym.id);
