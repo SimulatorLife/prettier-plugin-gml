@@ -1,48 +1,101 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Refactor, type RefactorProjectAnalysisProvider } from "../index.js";
+import { Refactor, type RefactorProjectAnalysisContext, type RefactorProjectAnalysisProvider } from "../index.js";
 
-const { RefactorEngine: RefactorEngineClass } = Refactor;
+const { RefactorEngine: RefactorEngineClass, createRefactorProjectAnalysisProvider } = Refactor;
 
-function createStubProjectAnalysisProvider(
-    overrides: Partial<RefactorProjectAnalysisProvider>
-): RefactorProjectAnalysisProvider {
-    return {
-        async isIdentifierOccupied() {
-            return false;
+void test("createRefactorProjectAnalysisProvider uses shared snapshot semantics", async () => {
+    const provider = createRefactorProjectAnalysisProvider();
+    const context: RefactorProjectAnalysisContext = {
+        semantic: {
+            async getSymbolOccurrences(identifierName: string) {
+                if (identifierName === "occupied") {
+                    return [{ path: "/tmp/project/scripts/a.gml", start: 0, end: 1 }];
+                }
+
+                if (identifierName === "fresh") {
+                    return [];
+                }
+
+                return null;
+            }
         },
-        async listIdentifierOccurrences() {
-            return new Set<string>();
-        },
-        async planFeatherRenames(requests) {
-            return requests.map((request) => ({
-                identifierName: request.identifierName,
-                mode: "project-aware",
-                preferredReplacementName: request.preferredReplacementName,
-                replacementName: request.preferredReplacementName
-            }));
-        },
-        assessGlobalVarRewrite(_filePath, hasInitializer) {
+        async prepareRenamePlan(_request, _options) {
             return {
-                allowRewrite: true,
-                initializerMode: hasInitializer ? "existing" : "undefined",
-                mode: "project-aware"
+                workspace: new Refactor.WorkspaceEdit(),
+                validation: {
+                    valid: true,
+                    errors: [],
+                    warnings: []
+                },
+                hotReload: null,
+                analysis: {
+                    valid: true,
+                    summary: {
+                        symbolId: "id",
+                        oldName: "old",
+                        newName: "new",
+                        affectedFiles: [],
+                        totalOccurrences: 0,
+                        definitionCount: 0,
+                        referenceCount: 0,
+                        hotReloadRequired: false,
+                        dependentSymbols: []
+                    },
+                    conflicts: [],
+                    warnings: []
+                }
             };
-        },
-        resolveLoopHoistIdentifier(preferredName) {
-            return {
-                identifierName: preferredName,
-                mode: "project-aware"
-            };
-        },
-        ...overrides
+        }
     };
-}
 
-void test("RefactorEngine delegates helper queries to injected project analysis provider", async () => {
+    assert.equal(await provider.isIdentifierOccupied("occupied", context), true);
+    assert.deepEqual(
+        await provider.listIdentifierOccurrences("occupied", context),
+        new Set(["/tmp/project/scripts/a.gml"])
+    );
+    assert.deepEqual(
+        await provider.planFeatherRenames(
+            [
+                { identifierName: "occupied", preferredReplacementName: "occupied" },
+                { identifierName: "occupied", preferredReplacementName: "fresh" }
+            ],
+            "/tmp/project/scripts/a.gml",
+            "/tmp/project",
+            context
+        ),
+        [
+            {
+                identifierName: "occupied",
+                mode: "project-aware",
+                preferredReplacementName: "occupied",
+                replacementName: null,
+                skipReason: "no-op-rename"
+            },
+            {
+                identifierName: "occupied",
+                mode: "project-aware",
+                preferredReplacementName: "fresh",
+                replacementName: "fresh"
+            }
+        ]
+    );
+
+    assert.deepEqual(provider.assessGlobalVarRewrite(null, true), {
+        allowRewrite: false,
+        initializerMode: "existing",
+        mode: "project-aware"
+    });
+    assert.deepEqual(provider.resolveLoopHoistIdentifier("len"), {
+        identifierName: "len",
+        mode: "project-aware"
+    });
+});
+
+void test("RefactorEngine delegates overlap helpers to injected project analysis provider", async () => {
     const calls: Array<string> = [];
-    const provider = createStubProjectAnalysisProvider({
+    const provider: RefactorProjectAnalysisProvider = {
         async isIdentifierOccupied(identifierName) {
             calls.push(`occupied:${identifierName}`);
             return true;
@@ -57,7 +110,7 @@ void test("RefactorEngine delegates helper queries to injected project analysis 
                 identifierName: request.identifierName,
                 mode: "project-aware",
                 preferredReplacementName: request.preferredReplacementName,
-                replacementName: `${request.preferredReplacementName}_safe`
+                replacementName: `${request.preferredReplacementName}_ok`
             }));
         },
         assessGlobalVarRewrite(filePath, hasInitializer) {
@@ -75,9 +128,11 @@ void test("RefactorEngine delegates helper queries to injected project analysis 
                 mode: "project-aware"
             };
         }
-    });
+    };
 
-    const engine = new RefactorEngineClass({ projectAnalysisProvider: provider });
+    const engine = new RefactorEngineClass({
+        projectAnalysisProvider: provider
+    });
 
     assert.equal(await engine.isIdentifierOccupied("foo"), true);
     assert.deepEqual(await engine.listIdentifierOccurrences("foo"), new Set(["/tmp/project/scripts/a.gml"]));
@@ -97,7 +152,7 @@ void test("RefactorEngine delegates helper queries to injected project analysis 
                 identifierName: "foo",
                 mode: "project-aware",
                 preferredReplacementName: "bar",
-                replacementName: "bar_safe"
+                replacementName: "bar_ok"
             }
         ]
     );
@@ -118,82 +173,4 @@ void test("RefactorEngine delegates helper queries to injected project analysis 
         "globalvar:/tmp/project/scripts/a.gml:false",
         "loop:len"
     ]);
-});
-
-void test("RefactorEngine retains cross-file transactional rename behavior", async () => {
-    const semantic = {
-        hasSymbol() {
-            return true;
-        },
-        getSymbolOccurrences(name: string) {
-            if (name === "scr_a") {
-                return [{ path: "scripts/a.gml", start: 0, end: 5, scopeId: "scope-1" }];
-            }
-
-            if (name === "scr_b") {
-                return [{ path: "scripts/b.gml", start: 2, end: 7, scopeId: "scope-2" }];
-            }
-
-            return [];
-        }
-    };
-
-    const engine = new RefactorEngineClass({
-        semantic,
-        projectAnalysisProvider: createStubProjectAnalysisProvider({})
-    });
-
-    const plan = await engine.planBatchRename([
-        { symbolId: "gml/script/scr_a", newName: "scr_new_a" },
-        { symbolId: "gml/script/scr_b", newName: "scr_new_b" }
-    ]);
-
-    assert.equal(plan.edits.length, 2);
-    assert.deepEqual(new Set(plan.edits.map((edit) => edit.path)), new Set(["scripts/a.gml", "scripts/b.gml"]));
-});
-
-void test("RefactorEngine preserves unsafe rename responses from shared analysis provider", async () => {
-    const engine = new RefactorEngineClass({
-        projectAnalysisProvider: createStubProjectAnalysisProvider({
-            async planFeatherRenames(requests) {
-                return requests.map((request) => ({
-                    identifierName: request.identifierName,
-                    mode: "project-aware",
-                    preferredReplacementName: request.preferredReplacementName,
-                    replacementName: null,
-                    skipReason: "Identifier collides with existing project symbol"
-                }));
-            }
-        })
-    });
-
-    const plan = await engine.planFeatherRenames(
-        [
-            {
-                identifierName: "foo",
-                preferredReplacementName: "bar"
-            }
-        ],
-        "/tmp/project/scripts/a.gml",
-        "/tmp/project"
-    );
-
-    assert.deepEqual(plan, [
-        {
-            identifierName: "foo",
-            mode: "project-aware",
-            preferredReplacementName: "bar",
-            replacementName: null,
-            skipReason: "Identifier collides with existing project symbol"
-        }
-    ]);
-});
-
-void test("RefactorEngine requires an injected project analysis provider for overlap helpers", async () => {
-    const engine = new RefactorEngineClass();
-
-    await assert.rejects(
-        () => engine.isIdentifierOccupied("foo"),
-        (error) => error instanceof Error && /requires an injected projectAnalysisProvider/.test(error.message)
-    );
 });

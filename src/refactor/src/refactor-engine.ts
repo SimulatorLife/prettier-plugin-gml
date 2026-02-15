@@ -9,6 +9,7 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
+import { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
@@ -30,10 +31,10 @@ import {
     type PartialSemanticAnalyzer,
     type PrepareRenamePlanOptions,
     type RefactorEngineDependencies,
-    type RefactorProjectAnalysisProvider,
     type RenameImpactAnalysis,
     type RenamePlanSummary,
     type RenameRequest,
+    type RefactorProjectAnalysisProvider,
     type SymbolLocation,
     type SymbolOccurrence,
     type TranspilerBridge,
@@ -55,7 +56,7 @@ export class RefactorEngine {
     public readonly parser: ParserBridge | null;
     public readonly semantic: PartialSemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
-    private readonly projectAnalysisProvider: RefactorProjectAnalysisProvider | null;
+    private readonly projectAnalysisProvider: RefactorProjectAnalysisProvider;
     private readonly renameValidationCache: RenameValidationCache;
     private readonly semanticCache: SemanticQueryCache;
 
@@ -68,7 +69,7 @@ export class RefactorEngine {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
-        this.projectAnalysisProvider = projectAnalysisProvider;
+        this.projectAnalysisProvider = projectAnalysisProvider ?? createRefactorProjectAnalysisProvider();
         this.renameValidationCache = new RenameValidationCache();
         this.semanticCache = new SemanticQueryCache(semantic);
     }
@@ -124,7 +125,7 @@ export class RefactorEngine {
      * This is used by the plugin to determing if a proposed variable name is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
-        return await this.requireProjectAnalysisProvider("isIdentifierOccupied").isIdentifierOccupied(identifierName, {
+        return await this.projectAnalysisProvider.isIdentifierOccupied(identifierName, {
             semantic: this.semantic,
             prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
         });
@@ -135,13 +136,10 @@ export class RefactorEngine {
      * This is used by the plugin to determine if a rename would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
-        return await this.requireProjectAnalysisProvider("listIdentifierOccurrences").listIdentifierOccurrences(
-            identifierName,
-            {
-                semantic: this.semantic,
-                prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
-            }
-        );
+        return await this.projectAnalysisProvider.listIdentifierOccurrences(identifierName, {
+            semantic: this.semantic,
+            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+        });
     }
 
     /**
@@ -1932,15 +1930,10 @@ export class RefactorEngine {
             skipReason?: string;
         }>
     > {
-        return await this.requireProjectAnalysisProvider("planFeatherRenames").planFeatherRenames(
-            requests,
-            filePath,
-            projectRoot,
-            {
-                semantic: this.semantic,
-                prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
-            }
-        );
+        return await this.projectAnalysisProvider.planFeatherRenames(requests, filePath, projectRoot, {
+            semantic: this.semantic,
+            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+        });
     }
 
     /**
@@ -1954,10 +1947,7 @@ export class RefactorEngine {
         initializerMode: "existing" | "undefined";
         mode: "project-aware";
     } {
-        return this.requireProjectAnalysisProvider("assessGlobalVarRewrite").assessGlobalVarRewrite(
-            filePath,
-            hasInitializer
-        );
+        return this.projectAnalysisProvider.assessGlobalVarRewrite(filePath, hasInitializer);
     }
 
     /**
@@ -1967,17 +1957,7 @@ export class RefactorEngine {
         identifierName: string;
         mode: "project-aware";
     } {
-        return this.requireProjectAnalysisProvider("resolveLoopHoistIdentifier").resolveLoopHoistIdentifier(
-            preferredName
-        );
-    }
-
-    private requireProjectAnalysisProvider(callerName: string): RefactorProjectAnalysisProvider {
-        if (this.projectAnalysisProvider) {
-            return this.projectAnalysisProvider;
-        }
-
-        throw new Error(`${callerName} requires an injected projectAnalysisProvider.`);
+        return this.projectAnalysisProvider.resolveLoopHoistIdentifier(preferredName);
     }
 
     /**
