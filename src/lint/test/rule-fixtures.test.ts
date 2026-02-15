@@ -7,6 +7,14 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import {
+    applyFixOperations,
+    createLocResolver,
+    type InsertTextAfterRangeFixOperation,
+    type ReplaceTextRangeFixOperation,
+    type RuleTestFixOperation
+} from "./rule-test-harness.js";
+
 const { Lint } = LintWorkspace;
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -25,52 +33,10 @@ const allCapabilities = new Set([
     "RENAME_CONFLICT_PLANNING"
 ]);
 
-type FixOperation =
-    | { kind: "replace"; range: [number, number]; text: string }
-    | { kind: "insert-after"; range: [number, number]; text: string };
-
-function buildLineStarts(text: string): Array<number> {
-    const starts = [0];
-    for (const [index, character] of Array.from(text).entries()) {
-        if (character === "\n") {
-            starts.push(index + 1);
-        }
-    }
-    return starts;
-}
-
-function getLocFromIndex(lineStarts: Array<number>, index: number): { line: number; column: number } {
-    let line = 0;
-    for (const [candidate, lineStart] of lineStarts.entries()) {
-        if (lineStart > index) {
-            break;
-        }
-
-        line = candidate;
-    }
-
-    return { line: line + 1, column: index - lineStarts[line] };
-}
-
-function applyFixes(text: string, operations: Array<FixOperation>): string {
-    const ordered = [...operations].sort((left, right) => left.range[0] - right.range[0]);
-    let output = "";
-    let cursor = 0;
-    for (const operation of ordered) {
-        const [start, end] = operation.range;
-        output += text.slice(cursor, start);
-        output += operation.text;
-        cursor = operation.kind === "replace" ? end : start;
-    }
-
-    output += text.slice(cursor);
-    return output;
-}
-
 function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
     const rule = Lint.plugin.rules[ruleName];
-    const messages: Array<{ messageId: string; fix?: Array<FixOperation> }> = [];
-    const lineStarts = buildLineStarts(code);
+    const messages: Array<{ messageId: string; fix?: Array<RuleTestFixOperation> }> = [];
+    const getLocFromIndex = createLocResolver(code);
 
     const context = {
         options: [options ?? {}],
@@ -88,25 +54,25 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
                     filePath: "test.gml"
                 }
             },
-            getLocFromIndex: (index: number) => getLocFromIndex(lineStarts, index)
+            getLocFromIndex
         },
         report(payload: {
             messageId: string;
             fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): FixOperation;
-                insertTextAfterRange(range: [number, number], text: string): FixOperation;
-            }) => FixOperation | Array<FixOperation> | null;
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
+                insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation;
+            }) => RuleTestFixOperation | Array<RuleTestFixOperation> | null;
         }) {
             const fixer = {
-                replaceTextRange(range: [number, number], text: string): FixOperation {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
                     return { kind: "replace", range, text };
                 },
-                insertTextAfterRange(range: [number, number], text: string): FixOperation {
+                insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation {
                     return { kind: "insert-after", range, text };
                 }
             };
 
-            let fixes: Array<FixOperation> | undefined;
+            let fixes: Array<RuleTestFixOperation> | undefined;
             if (payload.fix) {
                 const output = payload.fix(fixer);
                 fixes = output ? (Array.isArray(output) ? output : [output]) : undefined;
@@ -121,7 +87,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
 
     return {
         messages,
-        output: applyFixes(
+        output: applyFixOperations(
             code,
             messages
                 .flatMap((message) => message.fix ?? [])
