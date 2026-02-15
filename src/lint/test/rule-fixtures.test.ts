@@ -188,3 +188,25 @@ void test("no-globalvar rewrite scope only touches declarations", async () => {
     assert.equal(result.output.includes("globalvarToken"), true);
     assert.equal(result.output.includes("global.score = undefined;"), true);
 });
+
+void test("migrated mixed fixture: testFlow rewrite ownership moved to lint", async () => {
+    const input = await readFixture("optimize-logical-flow", "testFlow.input.gml");
+    const expected = await readFixture("optimize-logical-flow", "testFlow.fixed.gml");
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 1);
+});
+
+void test("migrated mixed fixture: testStructs rewrite ownership moved to lint", async () => {
+    const input = await readFixture("prefer-struct-literal-assignments", "testStructs.input.gml");
+    const result = lintWithRule("prefer-struct-literal-assignments", input);
+    assert.equal(result.messages.length, 1);
+});
+
+void test("migrated mixed fixture: testIfBraces rewrite ownership moved to lint", async () => {
+    const input = await readFixture("no-globalvar", "testIfBraces.input.gml");
+    const expected = await readFixture("no-globalvar", "testIfBraces.fixed.gml");
+    const result = lintWithRule("no-globalvar", input, {});
+    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 1);
+});
