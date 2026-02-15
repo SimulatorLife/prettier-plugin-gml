@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
+import type { Socket } from "node:net";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
@@ -250,6 +251,8 @@ export async function startRuntimeStaticServer({
         throw new Error(`Runtime root '${resolvedRoot}' is not a directory.`);
     }
 
+    const activeSockets = new Set<Socket>();
+
     const server = http.createServer((req, res) => {
         const method = req.method ?? "GET";
         if (method !== "GET" && method !== "HEAD") {
@@ -287,6 +290,14 @@ export async function startRuntimeStaticServer({
                 console.error("Runtime static server failed to read asset:", error);
             }
             writeError(res, statusCode, message);
+        });
+    });
+
+    server.on("connection", (socket) => {
+        activeSockets.add(socket);
+
+        socket.once("close", () => {
+            activeSockets.delete(socket);
         });
     });
 
@@ -328,6 +339,12 @@ export async function startRuntimeStaticServer({
             return;
         }
         closed = true;
+
+        for (const socket of activeSockets) {
+            socket.destroy();
+        }
+        activeSockets.clear();
+
         await new Promise<void>((resolve, reject) => {
             server.close((error) => {
                 if (error) {
