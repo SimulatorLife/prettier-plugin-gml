@@ -56,4 +56,51 @@ void describe("project-index/path-info", () => {
         assert.strictEqual(info.isInsideProjectRoot, true);
         assert.strictEqual(info.relativePath, path.win32.join("scripts", "init.gml"));
     });
+
+    void it("treats POSIX absolute paths as POSIX, not Win32", () => {
+        const projectRoot = "/tmp/project";
+        const filePath = "/tmp/project/scripts/player.gml";
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
+        // Should use POSIX separators, not backslashes
+        assert.strictEqual(info.relativePath, "scripts/player.gml");
+        // Verify the absolute path is the expected POSIX path
+        assert.strictEqual(info.absolutePath, "/tmp/project/scripts/player.gml");
+        // Verify no backslashes in the output (which would indicate Win32 processing)
+        assert.ok(!info.absolutePath.includes("\\"));
+        assert.ok(!info.relativePath.includes("\\"));
+    });
+
+    void it("supports UNC paths", () => {
+        const projectRoot = String.raw`\\server\share\project`;
+        const filePath = String.raw`\\server\share\project\scripts\init.gml`;
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
+        assert.strictEqual(info.relativePath, path.win32.join("scripts", "init.gml"));
+    });
+
+    void it("does not treat POSIX paths with backslashes in filenames as Win32", () => {
+        // Edge case: a POSIX filesystem allows backslashes in filenames
+        // This should still be treated as a POSIX path, not Win32
+        const projectRoot = "/tmp/project";
+        const filePath = String.raw`/tmp/project/file\with\backslash.gml`;
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.hasProjectRoot, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
+        // Should be treated as POSIX since it starts with / and has no drive letter or UNC pattern
+        assert.strictEqual(info.absolutePath, String.raw`/tmp/project/file\with\backslash.gml`);
+        assert.strictEqual(info.relativePath, String.raw`file\with\backslash.gml`);
+    });
 });
