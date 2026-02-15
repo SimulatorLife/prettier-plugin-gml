@@ -15,7 +15,7 @@ const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
  * This avoids incorrectly treating POSIX absolute paths (e.g., /tmp/foo)
  * as Windows paths, which would happen if we only used path.win32.isAbsolute().
  */
-function isWin32Path(candidate) {
+function isWin32Path(candidate: string | null | undefined): boolean {
     if (!Core.isNonEmptyString(candidate)) {
         return false;
     }
@@ -38,7 +38,11 @@ function isWin32Path(candidate) {
     return false;
 }
 
-function resolveContainedRelativePathWithPath(pathApi, childPath, parentPath) {
+function resolveContainedRelativePathWithPath(
+    pathApi: typeof path,
+    childPath: string,
+    parentPath: string
+): string | null {
     const relative = pathApi.relative(parentPath, childPath);
 
     if (relative === "") {
