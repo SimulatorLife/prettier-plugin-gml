@@ -141,9 +141,14 @@ void describe("validateRenameStructure", () => {
     void test("accepts valid GML identifiers", async () => {
         const testCases = ["validName", "Valid_Name_123", "_privateVar", "CamelCase", "snake_case"];
 
-        for (const name of testCases) {
-            // eslint-disable-next-line no-await-in-loop -- Testing multiple cases sequentially
-            const errors = await validateRenameStructure("gml/script/scr_test", name, null);
+        const results = await Promise.all(
+            testCases.map(async (name) => ({
+                name,
+                errors: await validateRenameStructure("gml/script/scr_test", name, null)
+            }))
+        );
+
+        for (const { name, errors } of results) {
             assert.deepEqual(errors, [], `Expected no errors for valid identifier: ${name}`);
         }
     });
@@ -156,9 +161,14 @@ void describe("validateRenameStructure", () => {
     void test("rejects identifiers with special characters", async () => {
         const testCases = ["test-name", "test.name", "test@name", "test#name"];
 
-        for (const name of testCases) {
-            // eslint-disable-next-line no-await-in-loop -- Testing multiple cases sequentially
-            const errors = await validateRenameStructure("gml/script/scr_test", name, null);
+        const results = await Promise.all(
+            testCases.map(async (name) => ({
+                name,
+                errors: await validateRenameStructure("gml/script/scr_test", name, null)
+            }))
+        );
+
+        for (const { name, errors } of results) {
             assert.ok(errors.length > 0, `Expected errors for invalid identifier: ${name}`);
         }
     });

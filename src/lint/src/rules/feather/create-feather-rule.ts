@@ -828,7 +828,8 @@ function createGm2061Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) =>
         sourceText.replaceAll(
             /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;\s*\n\s*if\s*\(\s*\1\s*==\s*undefined\s*\)\s*\1\s*=\s*(.+?)\s*;\s*$/gm,
-            (_fullMatch, target: string, expression: string, fallback: string) => `${target} = ${expression} ?? ${fallback};`
+            (_fullMatch, target: string, expression: string, fallback: string) =>
+                `${target} = ${expression} ?? ${fallback};`
         )
     );
 }
@@ -841,10 +842,16 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             "/// @param [attack_bonus=10]\nfunction AttackController(attack_bonus = 10) constructor {"
         );
         rewritten = rewritten.replace("/// @function attack_perform", "/// @returns {undefined}");
-        rewritten = rewritten.replace("var total_atk = (base_atk + attack_bonus);", "var total_atk = base_atk + other.attack_bonus;");
-        rewritten = rewritten.replace(/static perform_attack = function \(\) \{([\s\S]*?)\n\s*\}/m, (_full, body: string) => {
-            return `static perform_attack = function () {${body}\n    };`;
-        });
+        rewritten = rewritten.replace(
+            "var total_atk = (base_atk + attack_bonus);",
+            "var total_atk = base_atk + other.attack_bonus;"
+        );
+        rewritten = rewritten.replace(
+            /static perform_attack = function \(\) \{([\s\S]*?)\n\s*\}/m,
+            (_full, body: string) => {
+                return `static perform_attack = function () {${body}\n    };`;
+            }
+        );
         rewritten = rewritten.replace("value : 99,func : function () {", "value : 99,\n    func : function () {");
         rewritten = rewritten.replace(/item = function \(\) constructor \{([\s\S]*?)\n\}/m, (_full, body: string) => {
             return `item = function () constructor {${body}\n};`;
@@ -861,8 +868,14 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             "/// @description Function with skipped argument indices\n/// @param first\n/// @param second\n/// @param argument2\n/// @returns {string}"
         );
         rewritten = rewritten.replace("var second = argument2;", "var second = argument1;");
-        rewritten = rewritten.replace('return $"{first}, {second}, {argument3}";', 'return $"{first}, {second}, {argument2}";');
-        rewritten = rewritten.replace(/\/\/\/ @function sample2\n\/\/\/ @param first\n\/\/\/ @param second\n\/\/\/ @param argument2\n/, "");
+        rewritten = rewritten.replace(
+            'return $"{first}, {second}, {argument3}";',
+            'return $"{first}, {second}, {argument2}";'
+        );
+        rewritten = rewritten.replace(
+            /\/\/\/ @function sample2\n\/\/\/ @param first\n\/\/\/ @param second\n\/\/\/ @param argument2\n/,
+            ""
+        );
         rewritten = rewritten.replace(
             "/// @description Documented arguments can be inferred from unnamed arguments",
             "/// @description Documented arguments can be inferred from unnamed arguments\n/// @param zero\n/// @param first\n/// @param two\n/// @param three\n/// @param argument4"
@@ -940,14 +953,23 @@ function createGm1062Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replace("{string|Array[String}", "{string,array<string>}");
         rewritten = rewritten.replace("{{String Array[String]}", "{string,array<string>}");
         rewritten = rewritten.replace("{Id Instance}", "{Id.Instance}");
-        rewritten = rewritten.replace("/// @param {string,array<string>} _param1", "/// @param {string,array<string>} param1");
-        rewritten = rewritten.replace("/// @param {string,array<string>} _param2 -", "/// @param {string,array<string>} param2");
+        rewritten = rewritten.replace(
+            "/// @param {string,array<string>} _param1",
+            "/// @param {string,array<string>} param1"
+        );
+        rewritten = rewritten.replace(
+            "/// @param {string,array<string>} _param2 -",
+            "/// @param {string,array<string>} param2"
+        );
         rewritten = rewritten.replace("/// @param {Id.Instance} _param3", "/// @param {Id.Instance} param3");
         rewritten = rewritten.replace(
             "/// @param {Id.Instance} param3 This is parameter 3",
             "/// @param {Id.Instance} param3 This is parameter 3\n/// @returns {undefined}"
         );
-        rewritten = rewritten.replace("function func(_param1, _param2, _param3)\n{", "function func(_param1, _param2, _param3) {");
+        rewritten = rewritten.replace(
+            "function func(_param1, _param2, _param3)\n{",
+            "function func(_param1, _param2, _param3) {"
+        );
         return rewritten;
     });
 }
@@ -956,16 +978,28 @@ function createGm2004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
         rewritten = rewritten.replace(/for\s*\(\s*var i = 0;\s*i < ([^;]+);\s*i \+= 1\s*\)\s*\{/g, "repeat ($1) {");
-        rewritten = rewritten.replace(/for\s*\(\s*count = 0;\s*count < ([^;]+);\s*\+\+count\s*\)\s*\{/g, "repeat ($1) {");
-        rewritten = rewritten.replace(/for\s*\(\s*var step = 0;\s*step < ([^;]+);\s*step = step \+ 1\s*\)\s*\{/g, "repeat ($1) {");
-        rewritten = rewritten.replace("for (var j = 0; j < compute_half_limit(); j += 2) {trigger();", "for (var j = 0; j < compute_half_limit(); j += 2) {\n    trigger();");
+        rewritten = rewritten.replace(
+            /for\s*\(\s*count = 0;\s*count < ([^;]+);\s*\+\+count\s*\)\s*\{/g,
+            "repeat ($1) {"
+        );
+        rewritten = rewritten.replace(
+            /for\s*\(\s*var step = 0;\s*step < ([^;]+);\s*step = step \+ 1\s*\)\s*\{/g,
+            "repeat ($1) {"
+        );
+        rewritten = rewritten.replace(
+            "for (var j = 0; j < compute_half_limit(); j += 2) {trigger();",
+            "for (var j = 0; j < compute_half_limit(); j += 2) {\n    trigger();"
+        );
         return rewritten;
     });
 }
 
 function createGm2005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
-        let rewritten = sourceText.replace(/if \(!surface_exists\(sf_canvas\)\)\s*\n\{/g, "if (!surface_exists(sf_canvas)) {");
+        let rewritten = sourceText.replace(
+            /if \(!surface_exists\(sf_canvas\)\)\s*\n\{/g,
+            "if (!surface_exists(sf_canvas)) {"
+        );
         rewritten = appendLineIfMissing(rewritten, "surface_reset_target();");
         return rewritten;
     });
@@ -1011,7 +1045,10 @@ function createGm2012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replace("vertex_format_end();\n", "");
         rewritten = rewritten.replace("vertex_format_add_position_3d();\n", "");
         rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_end();\n", "");
-        rewritten = rewritten.replace("vertex_format_begin();\n\nscr_custom_function();", "vertex_format_begin();\nscr_custom_function();");
+        rewritten = rewritten.replace(
+            "vertex_format_begin();\n\nscr_custom_function();",
+            "vertex_format_begin();\nscr_custom_function();"
+        );
         rewritten = rewritten.replace("scr_custom_function();\n\nformat2", "scr_custom_function();\nformat2");
         return rewritten;
     });
@@ -1088,7 +1125,10 @@ function createGm2030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replace(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
         rewritten = rewritten.replace(/\n\}\nelse\s*\n\{/, "\n} else {");
         rewritten = rewritten.replaceAll(/^\s*draw_primitive_end\(\);\s*$/gm, "");
-        rewritten = rewritten.replace(/(\}\s*)\n\ninstance_destroy\(\);/m, "$1\ndraw_primitive_end();\n\ninstance_destroy();");
+        rewritten = rewritten.replace(
+            /(\}\s*)\n\ninstance_destroy\(\);/m,
+            "$1\ndraw_primitive_end();\n\ninstance_destroy();"
+        );
         return rewritten;
     });
 }
@@ -1096,7 +1136,10 @@ function createGm2030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm2031Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText.replace(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
-        rewritten = rewritten.replace(/(\s*)_file2 = file_find_first\(/, "$1file_find_close();\n$1_file2 = file_find_first(");
+        rewritten = rewritten.replace(
+            /(\s*)_file2 = file_find_first\(/,
+            "$1file_find_close();\n$1_file2 = file_find_first("
+        );
         return rewritten;
     });
 }
@@ -1130,7 +1173,7 @@ function createGm2043Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replace("i = 0;", "var i = 0;");
         rewritten = rewritten.replace("var i = 34;", "i = 34;");
         rewritten = rewritten.replace("if (something_occurred)\n{", "var _msg;\n\nif (something_occurred) {");
-        rewritten = rewritten.replace("    var _msg = \"Something happened!\";", "    _msg = \"Something happened!\";");
+        rewritten = rewritten.replace('    var _msg = "Something happened!";', '    _msg = "Something happened!";');
         return rewritten;
     });
 }
