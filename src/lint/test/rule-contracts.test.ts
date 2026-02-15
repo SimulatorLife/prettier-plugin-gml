@@ -109,6 +109,16 @@ const expectedRules = Object.freeze([
         schema: [
             { type: "object", additionalProperties: false, properties: { repair: { type: "boolean", default: true } } }
         ]
+    },
+    {
+        shortName: "normalize-data-structure-accessors",
+        messageId: "normalizeDataStructureAccessors",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "require-trailing-optional-defaults",
+        messageId: "requireTrailingOptionalDefaults",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
     }
 ]);
 
@@ -203,7 +213,9 @@ void test("non-project-aware rules do not expose gml project metadata", () => {
         "optimize-logical-flow",
         "normalize-doc-comments",
         "optimize-math-expressions",
-        "require-argument-separators"
+        "require-argument-separators",
+        "normalize-data-structure-accessors",
+        "require-trailing-optional-defaults"
     ];
 
     for (const ruleId of nonProjectAwareRuleIds) {

@@ -14,6 +14,7 @@ void describe("formatter migrated-transform regression coverage", () => {
             "var ratio = total / 2;",
             "globalvar score;",
             "score = 1;",
+            "var item = lst_items[? 0];",
             "if ((ready && armed) || override) {",
             "    show_debug_message(label);",
             "}"
@@ -28,9 +29,18 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.match(formatted, /total \/ 2/);
         assert.match(formatted, /globalvar score;/);
         assert.match(formatted, /score = 1;/);
+        assert.match(formatted, /lst_items\[\?\s*0]/);
         assert.doesNotMatch(formatted, /\$"HP:\s*\{hp\}"/);
         assert.doesNotMatch(formatted, /cfg\s*=\s*\{\s*foo:\s*1,\s*bar:\s*2\s*\}/);
         assert.doesNotMatch(formatted, /global\.score =/);
+        assert.doesNotMatch(formatted, /lst_items\[\|\s*0]/);
+    });
+
+    void it("does not synthesize trailing optional defaults during formatting", async () => {
+        const source = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}"].join("\n");
+        const formatted = await Plugin.format(source);
+        assert.match(formatted, /function demo\(first,\s*second = 1,\s*third\)/);
+        assert.doesNotMatch(formatted, /third = undefined/);
     });
 
     void it("fails fast on invalid syntax instead of repairing parse input", async () => {
