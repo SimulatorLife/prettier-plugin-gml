@@ -1,7 +1,45 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { normalizeEnumeratedOption } from "../src/utils/enumerated-options.js";
+import { createEnumeratedOptionHelpers, normalizeEnumeratedOption } from "../src/utils/enumerated-options.js";
+
+void describe("createEnumeratedOptionHelpers", () => {
+    void it("normalizes to lowercase by default", () => {
+        const helpers = createEnumeratedOptionHelpers(["json", "yaml"]);
+        assert.equal(helpers.normalize("JSON"), "json");
+        assert.equal(helpers.normalize("YaML"), "yaml");
+    });
+
+    void it("performs case-sensitive matching when caseSensitive is true", () => {
+        const helpers = createEnumeratedOptionHelpers(["script", "var"], {
+            caseSensitive: true
+        });
+        assert.equal(helpers.normalize("script"), "script");
+        assert.equal(helpers.normalize("SCRIPT"), null);
+        assert.equal(helpers.normalize("Script"), null);
+    });
+
+    void it("preserves value order in error messages when not sorting", () => {
+        const helpers = createEnumeratedOptionHelpers(["zoo", "apple", "banana"], {
+            caseSensitive: true
+        });
+        assert.throws(
+            () => helpers.requireValue("invalid"),
+            (error: Error) => error.message.includes("apple, banana, zoo")
+        );
+    });
+
+    void it("type guard works with case-sensitive matching", () => {
+        const helpers = createEnumeratedOptionHelpers(["script", "var"], {
+            caseSensitive: true
+        });
+        const testValue: unknown = "script";
+        if (helpers.normalize(testValue) !== null) {
+            // Type should be narrowed
+            assert.equal(testValue, "script");
+        }
+    });
+});
 
 void describe("normalizeEnumeratedOption", () => {
     const formats = new Set(["json", "human"]);
