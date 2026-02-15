@@ -40,9 +40,7 @@ export type ProjectLintContextRegistry = Readonly<{
     isOutOfForcedRoot(filePath: string): boolean;
 }>;
 
-function createContextFromSnapshot(
-    snapshot: ReturnType<ProjectAnalysisProvider["buildSnapshot"]>
-): GmlProjectContext {
+function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider["buildSnapshot"]>): GmlProjectContext {
     return Object.freeze({
         capabilities: snapshot.capabilities,
         isIdentifierNameOccupiedInProject(identifierName: string): boolean {

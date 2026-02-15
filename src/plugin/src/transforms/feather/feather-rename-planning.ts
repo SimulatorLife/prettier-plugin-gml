@@ -14,15 +14,14 @@ type FeatherRenameResolution = Readonly<{
 
 const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 
-export async function prepareFeatherRenamePlanningForFormat(
+export function prepareFeatherRenamePlanningForFormat(
     sourceText: string,
-    options: Record<string, unknown>
-): Promise<Map<string, FeatherRenameResolution | null> | null> {
+    _options: Record<string, unknown>
+): Map<string, FeatherRenameResolution | null> | null {
     const requests = collectReservedIdentifierRenameRequests(sourceText);
     if (requests.length === 0) {
         return null;
     }
-    void options;
 
     const plan = new Map<string, FeatherRenameResolution | null>();
     const localNames = new Set<string>(requests.map((request) => request.identifierName.toLowerCase()));

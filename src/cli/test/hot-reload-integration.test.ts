@@ -77,7 +77,7 @@ void describe("Hot reload integration loop", () => {
 
             await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 5000, 25);
             await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
-            await context.waitForPatches({ timeoutMs: 10000 });
+            await context.waitForPatches({ timeoutMs: 10_000 });
         } finally {
             abortController.abort();
 

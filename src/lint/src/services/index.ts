@@ -2,7 +2,7 @@ import { PERFORMANCE_OVERRIDE_RULE_IDS } from "../configs/performance-rule-ids.j
 import { featherManifest } from "../rules/feather/manifest.js";
 import type { ProjectCapability } from "../types/index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
-import { createTextProjectAnalysisProvider, type ProjectAnalysisProvider } from "./project-analysis-provider.js";
+import { createTextProjectAnalysisProvider,  } from "./project-analysis-provider.js";
 import {
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
@@ -34,7 +34,7 @@ export interface GmlProjectSettings {
     getContext(filePath: string): GmlProjectContext | null;
 }
 
-export type { ProjectAnalysisProvider };
+
 
 export const services = Object.freeze({
     featherManifest,
@@ -52,3 +52,5 @@ export const services = Object.freeze({
         });
     }
 });
+
+export {type ProjectAnalysisProvider} from "./project-analysis-provider.js";

@@ -315,7 +315,7 @@ export type ImplicitArgumentDocEntry = {
 
 export function collectImplicitArgumentDocNames(
     functionNode: any,
-    options: SyntheticDocGenerationOptions
+    _options: SyntheticDocGenerationOptions
 ): ImplicitArgumentDocEntry[] {
     if (
         !functionNode ||
