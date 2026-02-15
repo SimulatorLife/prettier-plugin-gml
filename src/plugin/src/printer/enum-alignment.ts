@@ -121,11 +121,72 @@ function collectTrailingEnumComments(member) {
     return trailingComments.length > 0 ? trailingComments : null;
 }
 
+/**
+ * Extract statistics for a single enum member, including name length,
+ * initializer presence, and trailing comments.
+ *
+ * @param {unknown} member Enum member node to analyze.
+ * @param {((node: unknown) => string | null | undefined) | undefined} resolveName
+ *        Optional resolver to extract member name.
+ * @returns {{
+ *     member: unknown;
+ *     nameLength: number;
+ *     initializerWidth: number;
+ *     hasInitializer: boolean;
+ *     trailingComments: unknown[] | null;
+ * }} Member statistics object.
+ */
+function collectSingleMemberStats(member, resolveName) {
+    const rawName = resolveName ? resolveName(member?.name) : undefined;
+    const nameLength = typeof rawName === "string" ? rawName.length : 0;
+    const initializer = member?.initializer;
+    const hasInitializer = Boolean(initializer);
+    const initializerWidth = getEnumInitializerWidth(initializer);
+
+    return {
+        member,
+        nameLength,
+        initializerWidth,
+        hasInitializer,
+        trailingComments: collectTrailingEnumComments(member)
+    };
+}
+
+/**
+ * Compute the maximum name length among members that have initializers.
+ *
+ * @param {Array<{nameLength: number; hasInitializer: boolean}>} memberStats
+ *        Array of member statistics.
+ * @returns {number} Maximum name length for members with initializers, or 0.
+ */
+function computeMaxInitializerNameLength(memberStats) {
+    let maxLength = 0;
+    for (const entry of memberStats) {
+        if (entry.hasInitializer && entry.nameLength > maxLength) {
+            maxLength = entry.nameLength;
+        }
+    }
+    return maxLength;
+}
+
+/**
+ * Check whether all enum members have initializers.
+ *
+ * @param {Array<{hasInitializer: boolean}>} memberStats Array of member statistics.
+ * @returns {boolean} True if all members have initializers.
+ */
+function checkAllMembersHaveInitializers(memberStats) {
+    for (const entry of memberStats) {
+        if (!entry.hasInitializer) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = Array.from({ length: memberCount });
-    let maxInitializerNameLength = 0;
-    let allMembersHaveInitializer = true;
 
     // Avoid `Array#map` here to prevent allocating a fresh callback closure on every
     // enum formatting pass. The enum alignment logic runs frequently in real-world GML
@@ -138,27 +199,11 @@ function collectEnumMemberStats(members, resolveName) {
     // in exchange for faster enum printing, which matters because enum alignment is one
     // of the formatter's performance bottlenecks when handling large GameMaker projects.
     for (let index = 0; index < memberCount; index += 1) {
-        const member = members[index];
-        const rawName = resolveName ? resolveName(member?.name) : undefined;
-        const nameLength = typeof rawName === "string" ? rawName.length : 0;
-        const initializer = member?.initializer;
-        const hasInitializer = Boolean(initializer);
-        const initializerWidth = getEnumInitializerWidth(initializer);
-
-        if (hasInitializer && nameLength > maxInitializerNameLength) {
-            maxInitializerNameLength = nameLength;
-        } else if (!hasInitializer) {
-            allMembersHaveInitializer = false;
-        }
-
-        memberStats[index] = {
-            member,
-            nameLength,
-            initializerWidth,
-            hasInitializer,
-            trailingComments: collectTrailingEnumComments(member)
-        };
+        memberStats[index] = collectSingleMemberStats(members[index], resolveName);
     }
+
+    const maxInitializerNameLength = computeMaxInitializerNameLength(memberStats);
+    const allMembersHaveInitializer = checkAllMembersHaveInitializers(memberStats);
 
     return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };
 }
