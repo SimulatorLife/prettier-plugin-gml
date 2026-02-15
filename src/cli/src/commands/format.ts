@@ -5,7 +5,7 @@
  * GameMaker Language files.
  */
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -24,6 +24,15 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
+import {
+    clearFormattingCache,
+    createFormattingCacheKey,
+    getFormattingCacheEntry,
+    getFormattingCacheKeys,
+    getFormattingCacheStats,
+    storeFormattingCacheEntry,
+    trimFormattingCache
+} from "../modules/formatting/index.js";
 import {
     configurePluginRuntimeAdapters,
     importPluginModule,
@@ -66,86 +75,6 @@ const {
     walkAncestorDirectories,
     withObjectLike
 } = Core;
-
-const formattingCache = new Map<string, string>();
-// Bound cache growth so large formatting runs do not retain every unique file payload.
-// Reduced from 100 to 10 since cache keys now use hashes instead of full file content,
-// and we perform more frequent periodic cleanups.
-const MAX_FORMATTING_CACHE_ENTRIES = 10;
-
-function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
-    if (!Number.isFinite(limit)) {
-        return;
-    }
-
-    if (limit <= 0) {
-        formattingCache.clear();
-        return;
-    }
-
-    while (formattingCache.size > limit) {
-        const { value: oldestKey, done } = formattingCache.keys().next();
-        if (done) {
-            break;
-        }
-
-        formattingCache.delete(oldestKey);
-    }
-}
-
-function getFormattingCacheEntry(cacheKey: string): string | undefined {
-    const cached = formattingCache.get(cacheKey);
-    if (cached !== undefined) {
-        formattingCache.delete(cacheKey);
-        formattingCache.set(cacheKey, cached);
-    }
-    return cached;
-}
-
-function storeFormattingCacheEntry(cacheKey: string, formatted: string) {
-    formattingCache.set(cacheKey, formatted);
-    trimFormattingCache();
-}
-
-function estimateFormattingCacheBytes() {
-    let total = 0;
-    for (const [key, value] of formattingCache.entries()) {
-        total += Buffer.byteLength(key, "utf8");
-        total += Buffer.byteLength(value, "utf8");
-    }
-
-    return total;
-}
-
-function stringifyCacheComponent(value: unknown) {
-    if (value === undefined || value === null) {
-        return "";
-    }
-
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        return String(value);
-    }
-
-    return JSON.stringify(value);
-}
-
-function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
-    const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
-    const pluginKey = Array.isArray(plugins) ? plugins.map(String).toSorted().join(",") : "";
-    // Use a hash of the file content instead of the full content to prevent memory bloat.
-    // The cache key previously included the entire file content, which caused unbounded
-    // memory growth when formatting large projects with many large files.
-    const contentHash = createHash("sha256").update(data, "utf8").digest("hex");
-    return [
-        stringifyCacheComponent(parser),
-        stringifyCacheComponent(tabWidth),
-        stringifyCacheComponent(printWidth),
-        stringifyCacheComponent(semi),
-        stringifyCacheComponent(useTabs),
-        pluginKey,
-        contentHash
-    ].join("|");
-}
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
@@ -218,6 +147,17 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
         reset() {
             currentValue = getDefaultLimit();
             return currentValue;
+        }
+    };
+}
+
+function createSampleLimitAccessors(state: { configure: (limit: unknown) => number; getValue: () => number }) {
+    return {
+        configureLimit(limit: unknown) {
+            state.configure(limit);
+        },
+        getLimit() {
+            return state.getValue();
         }
     };
 }
@@ -604,40 +544,19 @@ const skippedDirectorySampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
     resolveLimit: resolveSkippedDirectorySampleLimit
 });
-
-function configureSkippedDirectorySampleLimit(limit) {
-    skippedDirectorySampleLimitState.configure(limit);
-}
-
-function getSkippedDirectorySampleLimit() {
-    return skippedDirectorySampleLimitState.getValue();
-}
+const skippedDirectorySampleLimitAccessors = createSampleLimitAccessors(skippedDirectorySampleLimitState);
 
 const ignoredFileSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultIgnoredFileSampleLimit,
     resolveLimit: resolveIgnoredFileSampleLimit
 });
-
-function configureIgnoredFileSampleLimit(limit) {
-    ignoredFileSampleLimitState.configure(limit);
-}
-
-function getIgnoredFileSampleLimit() {
-    return ignoredFileSampleLimitState.getValue();
-}
+const ignoredFileSampleLimitAccessors = createSampleLimitAccessors(ignoredFileSampleLimitState);
 
 const unsupportedExtensionSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
     resolveLimit: resolveUnsupportedExtensionSampleLimit
 });
-
-function configureUnsupportedExtensionSampleLimit(limit) {
-    unsupportedExtensionSampleLimitState.configure(limit);
-}
-
-function getUnsupportedExtensionSampleLimit() {
-    return unsupportedExtensionSampleLimitState.getValue();
-}
+const unsupportedExtensionSampleLimitAccessors = createSampleLimitAccessors(unsupportedExtensionSampleLimitState);
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -654,7 +573,7 @@ function resetSkippedDirectorySummary() {
 
 function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
-    const limit = getSkippedDirectorySampleLimit();
+    const limit = skippedDirectorySampleLimitAccessors.getLimit();
     tryAddSample(skippedDirectorySummary.ignoredSamples, directory, limit);
 }
 let baseProjectIgnorePaths = [];
@@ -866,7 +785,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
-    formattingCache.clear();
+    clearFormattingCache();
     inMemorySnapshotCount = 0;
     processedFileCount = 0;
 }
@@ -1673,9 +1592,9 @@ async function prepareFormattingRun({
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
-    configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
-    configureIgnoredFileSampleLimit(ignoredFileSampleLimit);
-    configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
+    skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
+    ignoredFileSampleLimitAccessors.configureLimit(ignoredFileSampleLimit);
+    unsupportedExtensionSampleLimitAccessors.configureLimit(unsupportedExtensionSampleLimit);
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
@@ -2175,7 +2094,7 @@ function areIgnoredFileSamplesEqual(existing, candidate) {
 function recordIgnoredFile({ filePath, sourceDescription }) {
     skippedFileSummary.ignored += 1;
 
-    const limit = getIgnoredFileSampleLimit();
+    const limit = ignoredFileSampleLimitAccessors.getLimit();
     const sample = { filePath, sourceDescription };
 
     if (tryAddSample(skippedFileSummary.ignoredSamples, sample, limit, areIgnoredFileSamplesEqual)) {
@@ -2184,7 +2103,7 @@ function recordIgnoredFile({ filePath, sourceDescription }) {
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
-    const limit = getUnsupportedExtensionSampleLimit();
+    const limit = unsupportedExtensionSampleLimitAccessors.getLimit();
     tryAddSample(skippedFileSummary.unsupportedExtensionSamples, filePath, limit);
 }
 
@@ -2195,15 +2114,11 @@ export const __formatTest__ = Object.freeze({
     getPrettierOptionsForTests: () => options,
     validateTargetPathInputForTests: validateTargetPathInput,
     resolveTargetPathFromInputForTests: resolveTargetPathFromInput,
-    clearFormattingCacheForTests: () => formattingCache.clear(),
-    getFormattingCacheStatsForTests: () => ({
-        size: formattingCache.size,
-        estimatedBytes: estimateFormattingCacheBytes(),
-        maxEntries: MAX_FORMATTING_CACHE_ENTRIES
-    }),
+    clearFormattingCacheForTests: clearFormattingCache,
+    getFormattingCacheStatsForTests: getFormattingCacheStats,
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
         storeFormattingCacheEntry(cacheKey, formatted),
-    getFormattingCacheKeysForTests: () => [...formattingCache.keys()],
+    getFormattingCacheKeysForTests: getFormattingCacheKeys,
     createFormattingCacheKeyForTests: createFormattingCacheKey,
     // Memory management test helpers
     getMemoryManagementStatsForTests: () => ({

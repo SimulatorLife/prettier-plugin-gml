@@ -37,14 +37,8 @@ export {
     toTrimmedString
 } from "../../utils/index.js";
 
-// Numeric utilities
-export { clamp, coercePositiveIntegerOption } from "../../utils/index.js";
-
 // Object utilities
 export { assertFunction, isObjectLike } from "../../utils/index.js";
-
-// Capability probes
-export { isRegExpLike } from "../../utils/index.js";
 
 // AST node helpers
 export {

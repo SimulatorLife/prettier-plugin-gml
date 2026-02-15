@@ -65,6 +65,12 @@ implementation details:
 
 ## Architecture & planning
 
+- [Formatter/linter split plan](formatter-linter-split-plan.md) &mdash; Canonical
+  ownership contract for formatter vs lint vs refactor responsibilities,
+  including target-state lint/refactor boundary rules.
+- [Formatter/linter implementation notes](formatter-linter-split-implementation-notes.md)
+  &mdash; Current migration status, remaining overlap items, and verification
+  notes for the split contract.
 - [Architecture audit log](architecture-audit-log.md) &mdash; Daily architecture
   snapshots collected in a single document. The GitHub Action appends a fresh
   section to this file for each run. Start with the most recent entry for the

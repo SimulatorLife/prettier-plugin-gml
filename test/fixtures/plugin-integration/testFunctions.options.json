@@ -1,7 +1,4 @@
 {
-    "allowSingleLineIfStatements": false,
-    "applyFeatherFixes": false,
-    "optimizeMathExpressions": false,
-    "optimizeLogicalExpressions": false,
-    "printWidth": 95
+  "allowSingleLineIfStatements": false,
+  "printWidth": 95
 }

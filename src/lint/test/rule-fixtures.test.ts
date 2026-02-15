@@ -1,13 +1,23 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
 const { Lint } = LintWorkspace;
 
-const fixtureRoot = path.resolve("test/fixtures");
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+const fixtureRootCandidates = [
+    path.resolve(testDirectory, "fixtures"),
+    path.resolve(testDirectory, "../../test/fixtures")
+];
+const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candidate));
+if (!fixtureRoot) {
+    throw new Error(`Unable to resolve lint fixture root from candidates: ${fixtureRootCandidates.join(", ")}`);
+}
 const allCapabilities = new Set([
     "IDENTIFIER_OCCUPANCY",
     "IDENTIFIER_OCCURRENCES",
@@ -143,7 +153,9 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
         "no-globalvar",
         "normalize-doc-comments",
         "optimize-math-expressions",
-        "require-argument-separators"
+        "require-argument-separators",
+        "normalize-data-structure-accessors",
+        "require-trailing-optional-defaults"
     ] as const;
 
     for (const ruleName of fixRules) {
@@ -177,4 +189,37 @@ void test("no-globalvar rewrite scope only touches declarations", async () => {
     const result = lintWithRule("no-globalvar", input, {});
     assert.equal(result.output.includes("globalvarToken"), true);
     assert.equal(result.output.includes("global.score = undefined;"), true);
+});
+
+void test("migrated mixed fixture: testFlow rewrite ownership moved to lint", async () => {
+    const input = await readFixture("optimize-logical-flow", "testFlow.input.gml");
+    const expected = await readFixture("optimize-logical-flow", "testFlow.fixed.gml");
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 1);
+});
+
+void test("migrated mixed fixture: testStructs rewrite ownership moved to lint", async () => {
+    const input = await readFixture("prefer-struct-literal-assignments", "testStructs.input.gml");
+    const result = lintWithRule("prefer-struct-literal-assignments", input);
+    assert.equal(result.messages.length, 1);
+});
+
+void test("migrated mixed fixture: testIfBraces rewrite ownership moved to lint", async () => {
+    const input = await readFixture("no-globalvar", "testIfBraces.input.gml");
+    const expected = await readFixture("no-globalvar", "testIfBraces.fixed.gml");
+    const result = lintWithRule("no-globalvar", input, {});
+    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 1);
+});
+
+void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {
+    const input = await readFixture("prefer-loop-length-hoist", "input.gml");
+    const result = lintWithRule("prefer-loop-length-hoist", input, {
+        functionSuffixes: {
+            array_length: null
+        }
+    });
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });

@@ -6,7 +6,8 @@ import test from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import { __lintCommandTest__ } from "../src/commands/lint.js";
+import { __lintCommandTest__, runLintCommand } from "../src/commands/lint.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 const { Lint } = LintWorkspace;
 
@@ -139,6 +140,41 @@ void test("explicit config validation fails on missing file", async () => {
 
     await assert.rejects(() => __lintCommandTest__.validateExplicitConfigPath(missingPath));
 });
+
+void test("configureLintConfig defers discovered config selection to ESLint", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-discovery-"));
+    await fs.writeFile(path.join(tempRoot, "eslint.config.js"), "export default [];\n", "utf8");
+
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(eslintConstructorOptions.overrideConfig, undefined);
+});
+
+void test("configureLintConfig applies bundled fallback when discovery finds no config", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-fallback-"));
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(Array.isArray(eslintConstructorOptions.overrideConfig), true);
+});
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {
@@ -212,4 +248,82 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     });
 
     assert.deepEqual(offendingPaths, []);
+});
+
+void test("processor normalization treats default/none sentinels as equivalent", () => {
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(""), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("   "), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("gml/processor"), "gml/processor");
+});
+
+void test("processor enforcement fails when active processor is observable and non-default", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { processor: "markdown/markdown" };
+            }
+        },
+        results: [{ filePath: "/tmp/processor.gml" }],
+        verbose: false
+    });
+
+    assert.equal(evaluation.exitCode, 2);
+    assert.match(evaluation.message ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_UNSUPPORTED_ERROR_CODE}:`));
+    assert.equal(evaluation.warning, null);
+});
+
+void test("processor enforcement emits verbose observability warning when processor cannot be observed", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { language: "gml/gml" };
+            }
+        },
+        results: [{ filePath: "/tmp/observability.gml" }],
+        verbose: true
+    });
+
+    assert.equal(evaluation.exitCode, 0);
+    assert.equal(evaluation.message, null);
+    assert.match(evaluation.warning ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_OBSERVABILITY_WARNING_CODE}:`));
+});
+
+void test("runLintCommand maps semantic provider prebuild failures to exit code 2", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-provider-failure-"));
+    const previousCwd = process.cwd();
+
+    await withTemporaryProperty(process, "exitCode", undefined, async () => {
+        await withTemporaryProperty(
+            console,
+            "error",
+            () => {},
+            async () => {
+                process.chdir(tempRoot);
+                try {
+                    await runLintCommand({
+                        args: ["."],
+                        opts() {
+                            return {
+                                fix: false,
+                                formatter: "stylish",
+                                maxWarnings: "-1",
+                                quiet: true,
+                                noDefaultConfig: true,
+                                verbose: false,
+                                project: path.join(tempRoot, "missing", "missing.yyp"),
+                                projectStrict: false,
+                                indexAllow: []
+                            };
+                        }
+                    });
+
+                    assert.equal(process.exitCode, 2);
+                } finally {
+                    process.chdir(previousCwd);
+                }
+            }
+        );
+    });
 });

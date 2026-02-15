@@ -1,4 +1,3 @@
-export * as LoopSizeHoisting from "../transforms/loop-size-hoisting/index.js";
 export { safeGetParentNode } from "./path-utils.js";
 export * as DocBuilders from "./prettier-doc-builders.js";
 export { print } from "./print.js";

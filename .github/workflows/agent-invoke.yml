@@ -43,6 +43,31 @@ jobs:
       - name: Verify gh CLI available
         run: gh --version
 
+      - name: Validate GH_USER_TOKEN has repository push permission
+        shell: bash
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          test -n "${GH_USER_TOKEN}" || { echo "GH_USER_TOKEN is empty"; exit 1; }
+
+          token_user=$(curl -sS -H "Authorization: token ${GH_USER_TOKEN}" https://api.github.com/user | jq -r '.login // empty')
+          if [ -z "${token_user}" ]; then
+            echo "Unable to resolve GH_USER_TOKEN user identity via /user." >&2
+            exit 1
+          fi
+
+          can_push=$(curl -sS -H "Authorization: token ${GH_USER_TOKEN}" "https://api.github.com/repos/${REPOSITORY}" | jq -r '.permissions.push // false')
+          if [ "${can_push}" != "true" ]; then
+            echo "GH_USER_TOKEN user '${token_user}' does not have push permission to ${REPOSITORY}." >&2
+            echo "Grant that account write access or replace GH_USER_TOKEN with a PAT/app token that has contents:write." >&2
+            exit 1
+          fi
+
+          echo "GH_USER_TOKEN validated for push access as '${token_user}'."
+
       - name: Validate comment & fetch PR info
         id: validate_pr
         shell: bash
@@ -254,26 +279,47 @@ jobs:
             exit 0
           fi
 
-          # Check for any uncommitted changes (staged or unstaged)
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "[agent] No changes detected; nothing to commit."
-            exit 0
+          git fetch origin "${WORKING_BRANCH}" || true
+
+          has_worktree_changes=false
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            has_worktree_changes=true
           fi
 
-          echo "[agent] Changes detected; committing and pushing."
+          if [ "${has_worktree_changes}" = true ]; then
+            echo "[agent] Changes detected; committing before push."
+            git status
+            git add -A
 
-          git status
+            commit_message="chore: apply @${AGENT_NAME} changes for PR #${PR_NUMBER}"
+            if git commit -m "$commit_message"; then
+              echo "[agent] Created commit: ${commit_message}"
+            else
+              echo "[agent] git commit failed; aborting auto-push."
+              exit 1
+            fi
+          fi
 
-          # Stage everything the agent changed
-          git add -A
+          remote_ref="origin/${WORKING_BRANCH}"
+          has_remote_ref=false
+          if git show-ref --verify --quiet "refs/remotes/${remote_ref}"; then
+            has_remote_ref=true
+          fi
 
-          commit_message="chore: apply @${AGENT_NAME} changes for PR #${PR_NUMBER}"
+          should_push=false
+          if [ "${has_remote_ref}" = false ]; then
+            should_push=true
+            echo "[agent] Remote ref ${remote_ref} not found; will push branch."
+          elif ! git merge-base --is-ancestor "${remote_ref}" HEAD; then
+            should_push=true
+            echo "[agent] Local branch diverged from ${remote_ref}; will push current HEAD."
+          elif [ "${has_worktree_changes}" = true ]; then
+            should_push=true
+            echo "[agent] New commit created; will push."
+          fi
 
-          # Commit may fail if there is nothing staged; treat that as "nothing to do".
-          if git commit -m "$commit_message"; then
-            echo "[agent] Created commit: ${commit_message}"
-          else
-            echo "[agent] git commit failed (likely nothing to commit); aborting auto-push."
+          if [ "${should_push}" = false ]; then
+            echo "[agent] No local commits ahead of ${remote_ref}; nothing to push."
             exit 0
           fi
 

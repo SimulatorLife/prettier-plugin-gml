@@ -1,6 +1,6 @@
 import type { Rule } from "eslint";
 
-import type { GmlProjectSettings } from "../services/index.js";
+import type { GmlProjectContext, GmlProjectSettings } from "../services/index.js";
 import type { ProjectCapability } from "../types/index.js";
 
 type ProjectAwareRuleInfo = Readonly<{
@@ -10,6 +10,7 @@ type ProjectAwareRuleInfo = Readonly<{
 
 export type ProjectContextResolution = Readonly<{
     available: boolean;
+    context: GmlProjectContext | null;
     settings: GmlProjectSettings | null;
 }>;
 
@@ -35,32 +36,32 @@ export function resolveProjectContextForRule(
     info: ProjectAwareRuleInfo
 ): ProjectContextResolution {
     if (!info.requiresProjectContext) {
-        return Object.freeze({ available: true, settings: null });
+        return Object.freeze({ available: true, context: null, settings: null });
     }
 
     const projectSettings = readProjectSettings(context);
     if (!projectSettings) {
-        return Object.freeze({ available: false, settings: null });
+        return Object.freeze({ available: false, context: null, settings: null });
     }
 
     const parserServices = context.sourceCode.parserServices as { gml?: { filePath?: unknown } };
     const sourcePath = parserServices.gml?.filePath;
     if (typeof sourcePath !== "string" || sourcePath.length === 0) {
-        return Object.freeze({ available: false, settings: null });
+        return Object.freeze({ available: false, context: null, settings: null });
     }
 
     const projectContext = projectSettings.getContext(sourcePath);
     if (!projectContext) {
-        return Object.freeze({ available: false, settings: projectSettings });
+        return Object.freeze({ available: false, context: null, settings: projectSettings });
     }
 
     for (const capability of info.requiredCapabilities) {
         if (!projectContext.capabilities.has(capability)) {
-            return Object.freeze({ available: false, settings: projectSettings });
+            return Object.freeze({ available: false, context: null, settings: projectSettings });
         }
     }
 
-    return Object.freeze({ available: true, settings: projectSettings });
+    return Object.freeze({ available: true, context: projectContext, settings: projectSettings });
 }
 
 export function reportMissingProjectContextOncePerFile(

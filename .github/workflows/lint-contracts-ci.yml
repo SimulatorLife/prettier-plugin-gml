@@ -35,7 +35,7 @@ jobs:
         run: pnpm run build:ts
 
       - name: Lint workspace contract and integration tests
-        run: pnpm run test:lint-contracts
+        run: pnpm run test:lint
 
       - name: Dependency boundary policy checks
         run: pnpm run check:dependency-policy

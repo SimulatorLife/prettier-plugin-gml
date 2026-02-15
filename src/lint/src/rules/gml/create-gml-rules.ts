@@ -48,14 +48,48 @@ function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     });
 }
 
+const DEFAULT_HOIST_ACCESSORS = Object.freeze({
+    array_length: "len"
+});
+
 function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const options = readObjectOption(context);
+            const functionSuffixes = options.functionSuffixes as Record<string, string | null> | undefined;
+
+            const enabledFunctions: Array<string> = [];
+            for (const [functionName] of Object.entries(DEFAULT_HOIST_ACCESSORS)) {
+                const userSuffix = functionSuffixes?.[functionName];
+                if (userSuffix === null) {
+                    continue;
+                }
+                enabledFunctions.push(functionName);
+            }
+
+            if (functionSuffixes) {
+                for (const [functionName, suffix] of Object.entries(functionSuffixes)) {
+                    if (suffix !== null && !(functionName in DEFAULT_HOIST_ACCESSORS)) {
+                        enabledFunctions.push(functionName);
+                    }
+                }
+            }
+
             const listener: Rule.RuleListener = {
                 Program(node) {
+                    if (enabledFunctions.length === 0) {
+                        return;
+                    }
+
                     const text = context.sourceCode.text;
-                    const loopPattern = /for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
+                    const functionsPattern = enabledFunctions
+                        .map((fn) => fn.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+                        .join("|");
+                    const loopPattern = new RegExp(
+                        String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
+                        "g"
+                    );
                     if (loopPattern.test(text)) {
                         context.report({
                             node,
@@ -177,13 +211,40 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
         create(context) {
             const options = readObjectOption(context);
             const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const projectContext = resolveProjectContextForRule(context, definition);
             const listener: Rule.RuleListener = {
                 Program() {
                     const text = context.sourceCode.text;
+                    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
+                    const filePath = typeof sourcePath === "string" ? sourcePath : null;
                     const pattern = /(^|\r?\n)(\s*)globalvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g;
+                    const assessGlobalVarRewrite =
+                        projectContext.context && typeof projectContext.context.assessGlobalVarRewrite === "function"
+                            ? projectContext.context.assessGlobalVarRewrite.bind(projectContext.context)
+                            : null;
                     for (const match of text.matchAll(pattern)) {
                         const start = (match.index ?? 0) + match[1].length;
                         const end = start + match[2].length + "globalvar".length + 1 + match[3].length + 1;
+                        const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
+                            allowRewrite: true,
+                            reason: null
+                        };
+                        if (!rewriteAssessment.allowRewrite) {
+                            if (shouldReportUnsafeFixes) {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: "unsafeFix"
+                                });
+                            } else {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: definition.messageId
+                                });
+                            }
+                            continue;
+                        }
+
                         if (!enableAutofix) {
                             context.report({
                                 loc: context.sourceCode.getLocFromIndex(start),
@@ -202,7 +263,6 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
                 }
             };
 
-            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }
@@ -212,6 +272,26 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
     });
 }
 
+function normalizeDocCommentPrefixLine(line: string): string {
+    const legacyTagMatch = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+    if (legacyTagMatch) {
+        return `${legacyTagMatch[1]}/// @${legacyTagMatch[2]}${legacyTagMatch[3]}`;
+    }
+
+    const legacyDocLikeMatch = /^(\s*)\/\/\s*\/\s*(.*)$/u.exec(line);
+    if (legacyDocLikeMatch) {
+        const suffix = legacyDocLikeMatch[2].length > 0 ? ` ${legacyDocLikeMatch[2]}` : "";
+        return `${legacyDocLikeMatch[1]}///${suffix}`;
+    }
+
+    const missingSpaceMatch = /^(\s*)\/\/\/(\S.*)$/u.exec(line);
+    if (missingSpaceMatch) {
+        return `${missingSpaceMatch[1]}/// ${missingSpaceMatch[2]}`;
+    }
+
+    return line;
+}
+
 function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -219,15 +299,86 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const pattern = /^\s*\/\/\/(\S)/gm;
-                    for (const match of text.matchAll(pattern)) {
-                        const start = (match.index ?? 0) + match[0].indexOf("///") + 3;
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.insertTextAfterRange([start, start], " ")
-                        });
+                    const lineEnding = dominantLineEnding(text);
+                    const lines = text.split(/\r?\n/u);
+                    const rewrittenLines: Array<string> = [];
+
+                    const flushDocBlock = (blockLines: Array<string>): void => {
+                        if (blockLines.length === 0) {
+                            return;
+                        }
+
+                        const nonEmptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s+(.+)$/u;
+                        const emptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s*$/u;
+                        const plainDocLinePattern = /^(\s*)\/\/\/\s+(?!@)(.+)$/u;
+                        const tagDocLinePattern = /^(\s*)\/\/\/\s+@/u;
+
+                        const normalizedBlock = blockLines
+                            .filter((line) => !emptyDescriptionPattern.test(line))
+                            .map((line) => normalizeDocCommentPrefixLine(line));
+
+                        const hasDescription = normalizedBlock.some((line) => nonEmptyDescriptionPattern.test(line));
+                        if (hasDescription) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainIndex = normalizedBlock.findIndex((line) => plainDocLinePattern.test(line));
+                        if (firstPlainIndex === -1) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainMatch = plainDocLinePattern.exec(normalizedBlock[firstPlainIndex]);
+                        if (!firstPlainMatch) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const indentation = firstPlainMatch[1];
+                        const descriptionText = firstPlainMatch[2].trimEnd();
+                        normalizedBlock[firstPlainIndex] = `${indentation}/// @description ${descriptionText}`;
+
+                        for (let index = firstPlainIndex + 1; index < normalizedBlock.length; index += 1) {
+                            const line = normalizedBlock[index];
+                            if (tagDocLinePattern.test(line)) {
+                                break;
+                            }
+
+                            const plainMatch = plainDocLinePattern.exec(line);
+                            if (!plainMatch) {
+                                continue;
+                            }
+
+                            normalizedBlock[index] = `${plainMatch[1]}///              ${plainMatch[2].trimEnd()}`;
+                        }
+
+                        rewrittenLines.push(...normalizedBlock);
+                    };
+
+                    let pendingDocBlock: Array<string> = [];
+                    for (const line of lines) {
+                        if (/^\s*\/\/\//u.test(line) || /^\s*\/\/\s*[@/]/u.test(line)) {
+                            pendingDocBlock.push(line);
+                            continue;
+                        }
+
+                        flushDocBlock(pendingDocBlock);
+                        pendingDocBlock = [];
+                        rewrittenLines.push(normalizeDocCommentPrefixLine(line));
                     }
+                    flushDocBlock(pendingDocBlock);
+
+                    const rewritten = rewrittenLines.join(lineEnding);
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
                 }
             });
         }
@@ -325,6 +476,108 @@ function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rul
     });
 }
 
+function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const rewrites: Array<{ start: number; end: number; replacement: string }> = [];
+                    const memberPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[\?|\[\||\[#)\s*/g;
+                    for (const match of text.matchAll(memberPattern)) {
+                        const variableName = match[1];
+                        const accessor = match[2];
+                        const lowerName = variableName.toLowerCase();
+
+                        let expectedAccessor: string | null = null;
+                        if (lowerName.includes("list") || lowerName.includes("lst")) {
+                            expectedAccessor = "[|";
+                        } else if (lowerName.includes("map")) {
+                            expectedAccessor = "[?";
+                        } else if (lowerName.includes("grid")) {
+                            expectedAccessor = "[#";
+                        }
+
+                        if (!expectedAccessor || expectedAccessor === accessor) {
+                            continue;
+                        }
+
+                        const start = (match.index ?? 0) + match[0].indexOf(accessor);
+                        rewrites.push({
+                            start,
+                            end: start + accessor.length,
+                            replacement: expectedAccessor
+                        });
+                    }
+
+                    for (const rewrite of rewrites) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
+function createRequireTrailingOptionalDefaultsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const functionPattern = /function\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([\s\S]*?)\)/g;
+                    for (const match of text.matchAll(functionPattern)) {
+                        const paramsStart = (match.index ?? 0) + match[0].indexOf("(") + 1;
+                        const paramsEnd = paramsStart + match[1].length;
+                        const paramsText = match[1];
+                        const pieces = paramsText.split(",");
+                        let sawDefault = false;
+                        let changed = false;
+                        const rewrittenPieces = pieces.map((piece) => {
+                            const raw = piece;
+                            const trimmed = piece.trim();
+                            if (trimmed.length === 0) {
+                                return raw;
+                            }
+
+                            if (trimmed.includes("=")) {
+                                sawDefault = true;
+                                return raw;
+                            }
+
+                            if (!sawDefault || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(trimmed)) {
+                                return raw;
+                            }
+
+                            changed = true;
+                            const leading = raw.slice(0, raw.indexOf(trimmed));
+                            const trailing = raw.slice(raw.indexOf(trimmed) + trimmed.length);
+                            return `${leading}${trimmed} = undefined${trailing}`;
+                        });
+
+                        if (!changed) {
+                            continue;
+                        }
+
+                        const rewritten = rewrittenPieces.join(",");
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(paramsStart),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([paramsStart, paramsEnd], rewritten)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
         case "prefer-loop-length-hoist": {
@@ -353,6 +606,12 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-argument-separators": {
             return createRequireArgumentSeparatorsRule(definition);
+        }
+        case "normalize-data-structure-accessors": {
+            return createNormalizeDataStructureAccessorsRule(definition);
+        }
+        case "require-trailing-optional-defaults": {
+            return createRequireTrailingOptionalDefaultsRule(definition);
         }
         default: {
             return Object.freeze({

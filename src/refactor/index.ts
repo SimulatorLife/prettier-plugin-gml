@@ -33,6 +33,7 @@ export type {
     Range,
     RefactorEngine,
     RefactorEngineDependencies,
+    RefactorProjectAnalysisProvider,
     RenameImpactAnalysis,
     RenameImpactGraph,
     RenameImpactNode,

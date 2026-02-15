@@ -1,11 +1,11 @@
-import { existsSync } from "node:fs";
-import { constants } from "node:fs";
+import { constants, existsSync, readdirSync, statSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
 import * as LintWorkspace from "@gml-modules/lint";
+import * as SemanticWorkspace from "@gml-modules/semantic";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -24,6 +24,7 @@ const FLAT_CONFIG_CANDIDATES = Object.freeze([
 const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
+type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -47,10 +48,13 @@ type ResolvedConfigLike = {
     plugins?: Record<string, unknown> | null | undefined;
     language?: unknown;
     rules?: Record<string, unknown> | null | undefined;
+    processor?: unknown;
 };
 
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
+const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
+const PROCESSOR_OBSERVABILITY_WARNING_CODE = "GML_PROCESSOR_OBSERVABILITY_UNAVAILABLE";
 
 function discoverFlatConfig(cwd: string): DiscoveryResult {
     const searchedPaths: Array<string> = [];
@@ -86,6 +90,141 @@ function normalizeFormatterName(formatter: string | undefined): string {
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     const args = Array.isArray(command.args) ? command.args : [];
     return args.length > 0 ? args : ["."];
+}
+
+function hasProjectManifest(directoryPath: string): boolean {
+    try {
+        const entries = readdirSync(directoryPath, { withFileTypes: true });
+        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
+    } catch {
+        return false;
+    }
+}
+
+function resolveNearestProjectRootFromPath(filePath: string, fallbackCwd: string): string {
+    for (const directory of Core.walkAncestorDirectories(path.dirname(filePath), { includeSelf: true })) {
+        if (hasProjectManifest(directory)) {
+            return directory;
+        }
+    }
+
+    return fallbackCwd;
+}
+
+function collectProjectRootsFromDirectory(directoryPath: string): Array<string> {
+    const discoveredRoots = new Set<string>();
+    const pendingDirectories = [directoryPath];
+
+    while (pendingDirectories.length > 0) {
+        const currentDirectory = pendingDirectories.pop();
+        if (!currentDirectory) {
+            continue;
+        }
+
+        if (hasProjectManifest(currentDirectory)) {
+            discoveredRoots.add(path.resolve(currentDirectory));
+            continue;
+        }
+
+        let entries: Array<{ name: string; isDirectory(): boolean }>;
+        try {
+            entries = readdirSync(currentDirectory, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+            pendingDirectories.push(path.join(currentDirectory, entry.name));
+        }
+    }
+
+    return [...discoveredRoots.values()];
+}
+
+function inferProjectRootsForLintInvocation(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+}): Array<string> {
+    if (parameters.forcedProjectPath) {
+        const forcedPath = path.resolve(parameters.forcedProjectPath);
+        if (forcedPath.toLowerCase().endsWith(".yyp")) {
+            return [path.dirname(forcedPath)];
+        }
+
+        return [forcedPath];
+    }
+
+    const roots = new Set<string>();
+    for (const target of parameters.targets) {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (!existsSync(absoluteTarget)) {
+            continue;
+        }
+
+        let stats: ReturnType<typeof statSync>;
+        try {
+            stats = statSync(absoluteTarget);
+        } catch {
+            continue;
+        }
+
+        if (stats.isDirectory()) {
+            for (const root of collectProjectRootsFromDirectory(absoluteTarget)) {
+                roots.add(root);
+            }
+            continue;
+        }
+
+        if (stats.isFile()) {
+            const root = resolveNearestProjectRootFromPath(absoluteTarget, parameters.cwd);
+            roots.add(root);
+        }
+    }
+
+    if (roots.size === 0) {
+        roots.add(path.resolve(parameters.cwd));
+    }
+
+    return [...roots.values()];
+}
+
+async function createInvocationProjectAnalysisProvider(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+    indexAllowDirectories: ReadonlyArray<string>;
+}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>> {
+    const projectRoots = inferProjectRootsForLintInvocation({
+        cwd: parameters.cwd,
+        targets: parameters.targets,
+        forcedProjectPath: parameters.forcedProjectPath
+    });
+    const normalizedAllowedDirectories = parameters.indexAllowDirectories.map((directory) => path.resolve(directory));
+    const excludedDirectories = new Set(
+        LINT_NAMESPACE.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
+    );
+
+    const snapshotEntries = await Promise.all(
+        projectRoots.map(async (root): Promise<[string, SemanticSnapshot]> => {
+            const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
+            const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(projectIndex, root, {
+                excludedDirectories,
+                allowedDirectories: normalizedAllowedDirectories
+            });
+            return [root, snapshot];
+        })
+    );
+
+    if (snapshotEntries.length === 0) {
+        throw new Error("Unable to construct semantic project snapshots because no project roots were resolved.");
+    }
+
+    const snapshotsByRoot = new Map<string, SemanticSnapshot>(snapshotEntries);
+    return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
 }
 
 function normalizeMaxWarnings(rawValue: unknown): number {
@@ -133,6 +272,7 @@ function printFallbackMessageIfNeeded(parameters: { quiet: boolean; searchedPath
 
     const lines = [
         "No user flat config found; using bundled defaults.",
+        "To disable this fallback, pass --no-default-config.",
         "Searched locations:",
         ...parameters.searchedPaths.map((entry) => `- ${entry}`)
     ];
@@ -170,6 +310,10 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
     }
 
     return 0;
+}
+
+function setProcessExitCode(code: number): void {
+    process.exitCode = code;
 }
 
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
@@ -270,6 +414,31 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+function normalizeProcessorIdentityForEnforcement(processor: unknown): string | null {
+    if (processor === null || processor === undefined) {
+        return null;
+    }
+
+    if (typeof processor === "string") {
+        const normalized = processor.trim();
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    return "<non-string-processor>";
+}
+
+function toProcessorUnsupportedMessage(filePath: string, processorIdentity: string): string {
+    return `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: unsupported active processor for ${filePath}: ${processorIdentity}`;
+}
+
+function toProcessorObservabilityUnavailableMessage(): string {
+    return `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: active processor identity is not observable in resolved ESLint config; skipping processor enforcement.`;
+}
+
 type ConfigLookupEslintLike = {
     calculateConfigForFile(filePath: string): Promise<unknown>;
 };
@@ -301,9 +470,9 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
 async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     eslint: ESLint;
     results: Array<ESLint.LintResult>;
-    verbose: boolean;
+    quiet: boolean;
 }): Promise<void> {
-    if (!parameters.verbose) {
+    if (parameters.quiet) {
         return;
     }
 
@@ -314,6 +483,55 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     }
 
     console.warn(formatOverlayWarning(offendingPaths));
+}
+
+async function enforceProcessorPolicyForGmlFiles(parameters: {
+    eslint: ConfigLookupEslintLike;
+    results: Array<LintResultFilePathLike>;
+    verbose: boolean;
+}): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
+    const gmlFilePaths = parameters.results
+        .map((result) => result.filePath)
+        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+
+    if (gmlFilePaths.length === 0) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    const resolvedEntries = await Promise.all(
+        gmlFilePaths.map(async (filePath) => ({
+            filePath,
+            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+        }))
+    );
+
+    const observedEntries = resolvedEntries.filter(({ config }) => Object.hasOwn(config, "processor"));
+    if (observedEntries.length > 0) {
+        for (const entry of observedEntries) {
+            const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
+            if (normalizedProcessor === null) {
+                continue;
+            }
+
+            return {
+                exitCode: 2,
+                message: toProcessorUnsupportedMessage(entry.filePath, normalizedProcessor),
+                warning: null
+            };
+        }
+
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    if (!parameters.verbose) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    return {
+        exitCode: 0,
+        message: null,
+        warning: toProcessorObservabilityUnavailableMessage()
+    };
 }
 
 async function loadRequestedFormatter(
@@ -360,7 +578,9 @@ async function configureLintConfig(parameters: {
 
     const discoveryResult = discoverFlatConfig(parameters.cwd);
     if (discoveryResult.selectedConfigPath) {
-        parameters.eslintConstructorOptions.overrideConfigFile = discoveryResult.selectedConfigPath;
+        // Intentionally let ESLint resolve and select the active config file natively.
+        // This preserves ESLint's sibling-config precedence rules and avoids CLI-side
+        // config selection divergence from direct ESLint execution.
         return 0;
     }
 
@@ -406,7 +626,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         console.error(
             `Unsupported formatter "${options.formatter}". Supported formatters: ${Array.from(SUPPORTED_FORMATTERS).join(", ")}`
         );
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
@@ -419,14 +639,33 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     });
 
     if (configExitCode !== 0) {
-        process.exitCode = configExitCode;
+        setProcessExitCode(configExitCode);
+        return;
+    }
+
+    let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
+    try {
+        invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
+            cwd,
+            targets,
+            forcedProjectPath: options.project,
+            indexAllowDirectories: options.indexAllow
+        });
+    } catch (error) {
+        console.error(
+            `Unable to prepare semantic project analysis provider: ${
+                Core.isErrorLike(error) ? error.message : String(error)
+            }`
+        );
+        setProcessExitCode(2);
         return;
     }
 
     const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
         cwd,
         forcedProjectPath: options.project,
-        indexAllowDirectories: options.indexAllow
+        indexAllowDirectories: options.indexAllow,
+        analysisProvider: invocationAnalysisProvider
     });
     const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
 
@@ -447,7 +686,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
@@ -456,7 +695,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results = await eslint.lintFiles(targets);
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
@@ -464,7 +703,26 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         await ESLint.outputFixes(results);
     }
 
-    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, verbose: options.verbose });
+    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
+
+    const processorPolicy = await enforceProcessorPolicyForGmlFiles({
+        eslint,
+        results,
+        verbose: options.verbose
+    });
+
+    if (processorPolicy.warning) {
+        console.warn(processorPolicy.warning);
+    }
+
+    if (processorPolicy.exitCode !== 0) {
+        if (processorPolicy.message) {
+            console.error(processorPolicy.message);
+        }
+
+        setProcessExitCode(processorPolicy.exitCode);
+        return;
+    }
 
     const outOfRootPaths = results
         .map((result) => result.filePath)
@@ -482,7 +740,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
                 `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
         );
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
@@ -494,7 +752,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
@@ -511,11 +769,13 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     );
 
-    process.exitCode = resolveExitCode({
-        errorCount: totals.errorCount,
-        warningCount: totals.warningCount,
-        maxWarnings: options.maxWarnings
-    });
+    setProcessExitCode(
+        resolveExitCode({
+            errorCount: totals.errorCount,
+            warningCount: totals.warningCount,
+            maxWarnings: options.maxWarnings
+        })
+    );
 }
 
 export const __lintCommandTest__ = Object.freeze({
@@ -529,5 +789,10 @@ export const __lintCommandTest__ = Object.freeze({
     normalizeFormatterName,
     isSupportedFormatter,
     validateExplicitConfigPath,
-    collectOverlayWithoutLanguageWiringPaths
+    configureLintConfig,
+    collectOverlayWithoutLanguageWiringPaths,
+    normalizeProcessorIdentityForEnforcement,
+    enforceProcessorPolicyForGmlFiles,
+    PROCESSOR_UNSUPPORTED_ERROR_CODE,
+    PROCESSOR_OBSERVABILITY_WARNING_CODE
 });

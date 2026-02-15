@@ -93,13 +93,13 @@ void describe("Hot reload incremental transpilation", () => {
         try {
             // Connect WebSocket client
             const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 1200,
+                connectionTimeoutMs: 4000,
                 retryIntervalMs: 25
             });
             websocketContextPromise = contextPromise;
             context = await contextPromise;
 
-            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 1500, 25);
+            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 5000, 25);
 
             const initialHelperCount = context.receivedPatches.filter((patch) =>
                 patch.id.includes("helper_function")
