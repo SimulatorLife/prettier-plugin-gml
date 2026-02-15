@@ -14,11 +14,14 @@ const fixtureDirectory = path.join(currentDirectory, "fixtures", "formatting");
 const fileEncoding = "utf8";
 
 const FORMATTER_FIXTURE_BASENAMES = Object.freeze([
-    "testAligned",
-    "testEmptyParamsComment",
-    "testIfBraces",
+    "testDrawEvent",
+    "testHoistDisabled",
+    "testIgnore",
     "testParams",
-    "testPrintWidth"
+    "testPrintWidth",
+    "control-flow-layout",
+    "if-layout-preserved",
+    "struct-layout"
 ]);
 
 async function readFixtureText(
@@ -51,5 +54,8 @@ void test("formatter-owned fixtures remain stable", async () => {
         const fixture = await readFixtureText(basename);
         const formatted = await Plugin.format(fixture.input, fixture.options ?? {});
         assert.equal(formatted.trim(), fixture.output.trim(), `${basename} should match expected formatter output`);
+
+        const reformatted = await Plugin.format(formatted, fixture.options ?? {});
+        assert.equal(reformatted.trim(), formatted.trim(), `${basename} should remain idempotent`);
     }
 });
