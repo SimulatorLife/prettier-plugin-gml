@@ -1000,10 +1000,12 @@ Verification coverage and regression protections for the direct end-state migrat
 4. Mixed legacy formatter fixtures must be split into:
    - formatter-only layout fixtures in `src/plugin/test/fixtures/formatting`
    - lint rule fixtures in `src/lint/test/fixtures/<rule>`
+   - migrated Feather `testGM*` fixtures in `src/lint/test/fixtures/feather/plugin-migrated`
 5. The exhaustive per-file and per-basename ownership ledger lives in `docs/formatter-linter-split-implementation-notes.md` under **Formatter-Only Ownership Ledger (2026-02-15, Exhaustive)** and is normative for migration execution.
 
 ## Fixtures and Testing Strategy
 1. New lint fixtures live only under `src/lint/test/fixtures`.
+   - migrated legacy Feather fixture inventory lives under `src/lint/test/fixtures/feather/plugin-migrated`.
 2. Parser and parser-input golden `.gml` fixtures remain immutable.
 3. Legacy plugin formatter semantic fixtures are migration inventory, not end-state formatter goldens; they are moved or split per the ownership ledger.
 4. Required test groups:

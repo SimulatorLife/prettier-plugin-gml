@@ -23,7 +23,6 @@ type PrinterComment = {
     [key: string]: any;
 };
 
-const FEATHER_INLINE_SPACING_FIX_IDS = new Set(["GM2007"]);
 const FUNCTION_INITIALIZER_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ConstructorDeclaration"]);
 
 function hasTypeProperty(value: unknown): value is { type?: string } {
@@ -248,7 +247,6 @@ function printComment(commentPath, options) {
         return "";
     }
 
-    tryPreserveTrailingSpacingForFeatherFix(comment, options);
     applyTrailingCommentPadding(comment);
     applyBottomCommentInlinePadding(comment, options);
     applySingleLeadingSpacePadding(comment, options);
@@ -370,101 +368,6 @@ function printComment(commentPath, options) {
             throw new Error(`Unknown comment type`);
         }
     }
-}
-
-function tryPreserveTrailingSpacingForFeatherFix(comment, options) {
-    if (!Core.isObjectLike(comment)) {
-        return;
-    }
-
-    if (comment._featherPreserveTrailingPadding === true) {
-        return;
-    }
-
-    const isTrailingComment = Boolean(
-        comment.trailing || comment.placement === "endOfLine" || comment._structPropertyTrailing
-    );
-
-    if (!isTrailingComment) {
-        return;
-    }
-
-    if (!hasFeatherDiagnosticWithId(comment.precedingNode, FEATHER_INLINE_SPACING_FIX_IDS)) {
-        return;
-    }
-
-    const inlinePadding = computeOriginalTrailingSpacing(comment, options);
-    if (typeof inlinePadding !== "number") {
-        return;
-    }
-
-    comment.inlinePadding = inlinePadding;
-    comment._featherPreserveTrailingPadding = true;
-}
-
-function hasFeatherDiagnosticWithId(node, ids) {
-    if (!Core.isObjectLike(node)) {
-        return false;
-    }
-
-    const metadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
-
-    if (metadata.length === 0) {
-        return false;
-    }
-
-    for (const entry of metadata) {
-        if (entry && typeof entry.id === "string" && ids.has(entry.id)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function computeOriginalTrailingSpacing(comment, options) {
-    const startIndex = getCommentStartIndex(comment);
-    if (!Number.isInteger(startIndex) || startIndex < 0) {
-        return null;
-    }
-
-    const precedingNode = comment.precedingNode;
-    if (!precedingNode) {
-        return null;
-    }
-
-    const precedingEnd = Core.getNodeEndIndex(precedingNode);
-    if (typeof precedingEnd !== "number") {
-        return null;
-    }
-
-    if (startIndex <= precedingEnd) {
-        return 0;
-    }
-
-    const originalText = options?.originalText;
-    if (typeof originalText !== "string") {
-        return null;
-    }
-
-    if (startIndex > originalText.length) {
-        return null;
-    }
-
-    const segment = originalText.slice(precedingEnd, startIndex);
-    if (segment.length === 0) {
-        return 0;
-    }
-
-    if (segment.trim().length > 0) {
-        return null;
-    }
-
-    if (/[\r\n]/.test(segment)) {
-        return null;
-    }
-
-    return segment.length;
 }
 
 /**
@@ -659,10 +562,6 @@ function findDecorativeLineStart(text, endIndex) {
 
 function applyTrailingCommentPadding(comment) {
     if (!Core.isObjectLike(comment)) {
-        return;
-    }
-
-    if (comment._featherPreserveTrailingPadding) {
         return;
     }
 
