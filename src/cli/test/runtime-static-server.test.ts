@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
+import { createHttpSocketAndWaitForResponse } from "./test-helpers/http-socket-utils.js";
 
 /**
  * Maximum variance in file descriptor count allowed after operations.
@@ -136,31 +137,9 @@ void describe("runtime static server", () => {
                 verbose: false
             });
 
-            const socket = net.createConnection({
-                host: server.host,
-                port: server.port
-            });
-            socket.setEncoding("utf8");
-
-            const closePromise = new Promise<void>((resolve) => {
-                socket.once("close", () => resolve());
-            });
-
-            const responsePromise = new Promise<void>((resolve, reject) => {
-                let buffer = "";
-                const handleData = (chunk: string) => {
-                    buffer += chunk;
-                    if (buffer.includes("\r\n\r\n")) {
-                        socket.off("data", handleData);
-                        resolve();
-                    }
-                };
-
-                socket.on("data", handleData);
-                socket.once("error", reject);
-            });
-
-            socket.write(
+            const { socket, closePromise, responsePromise } = await createHttpSocketAndWaitForResponse(
+                server.host,
+                server.port,
                 `GET /index.html HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\nConnection: keep-alive\r\n\r\n`
             );
 
