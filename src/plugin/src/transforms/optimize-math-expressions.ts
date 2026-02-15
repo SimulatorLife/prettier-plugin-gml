@@ -55,24 +55,15 @@ function extractLiteralNumber(literal: GameMakerAstNode): number | null {
     return null;
 }
 
-function unwrapExpression(node: GameMakerAstNode | null | undefined): GameMakerAstNode | null {
-    let current = node;
-    while (current && current.type === PARENTHESIZED_EXPRESSION) {
-        current = (current as ParenthesizedExpressionNode).expression ?? null;
-    }
-
-    return current ?? null;
-}
-
 function extractReciprocalScalar(node: GameMakerAstNode | null | undefined): number | null {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node) ?? null;
     if (!expression || expression.type !== BINARY_EXPRESSION || expression.operator !== "/") {
         return null;
     }
 
     const binary = expression as BinaryExpressionNode;
-    const numerator = unwrapExpression(binary.left);
-    const denominator = unwrapExpression(binary.right);
+    const numerator = Core.unwrapParenthesizedExpression(binary.left) ?? null;
+    const denominator = Core.unwrapParenthesizedExpression(binary.right) ?? null;
 
     if (!numerator || !denominator) {
         return null;
