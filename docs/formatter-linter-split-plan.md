@@ -991,12 +991,22 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
 4. No deprecation between these two rules in this migration.
 
 ## Testing and Delivery
-Verification coverage, regression protections, and phased delivery criteria for this migration.
+Verification coverage and regression protections for the direct end-state migration.
+
+## Direct End-State Fixture/Test Ownership (Pinned)
+1. This migration targets the final ownership model directly, with no phased legacy bridge for formatter semantic rewrites.
+2. Formatter/plugin ownership is layout-only tests and fixtures.
+3. Lint ownership is all semantic/content rewrite tests and fixtures (including feather parity fixtures).
+4. Mixed legacy formatter fixtures must be split into:
+   - formatter-only layout fixtures in `src/plugin/test/fixtures/formatting`
+   - lint rule fixtures in `src/lint/test/fixtures/<rule>`
+5. The exhaustive per-file and per-basename ownership ledger lives in `docs/formatter-linter-split-implementation-notes.md` under **Formatter-Only Ownership Ledger (2026-02-15, Exhaustive)** and is normative for migration execution.
 
 ## Fixtures and Testing Strategy
 1. New lint fixtures live only under `src/lint/test/fixtures`.
-2. No modifications to parser/plugin golden `.gml` fixtures.
-3. Required test groups:
+2. Parser and parser-input golden `.gml` fixtures remain immutable.
+3. Legacy plugin formatter semantic fixtures are migration inventory, not end-state formatter goldens; they are moved or split per the ownership ledger.
+4. Required test groups:
    - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
    - Parse failure/recovery tests (fatal parse, recovered separators).
    - Rule detection/fix tests for each migrated rule and each feather parity ID.
@@ -1039,23 +1049,12 @@ Verification coverage, regression protections, and phased delivery criteria for 
      - `plugins.gml === Lint.plugin` present but `language !== "gml/gml"` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
      - `language === "gml/gml"` present but `plugins.gml !== Lint.plugin` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
 
-## Implementation Phases and Exit Criteria
-1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
-   Exit: build/test pass with a no-op rule and language stub.
-2. Phase 2: Implement ESLint v9 language object and ESTree bridge contract.  
-   Exit: `.gml` file lints successfully with real tokens/comments/ranges.
-3. Phase 3: Implement invocation-scoped `ProjectLintContextRegistry`.  
-   Exit: one project-aware rule can resolve name-occupancy synchronously from immutable context.
-4. Phase 4: Migrate formatter options to lint rules with schemas and docs.  
-   Exit: all matrix entries implemented; schemas validated; parity tests pass.
-5. Phase 5: Feather split via `feather/gm####` rules and parity manifest.  
-   Exit: parity ID set above has deterministic mapping, default severity, and fixability status.
-6. Phase 6: Formatter cleanup and runtime-port removal from plugin semantic/refactor paths.  
-   Exit: plugin no longer depends on semantic/refactor runtime hooks for migrated behavior.
-7. Phase 7: CLI lint command integration and reporting semantics.  
-   Exit: end-to-end `lint` and `lint --fix` pass integration suite.
-8. Phase 8: Migration docs and release notes update in `docs/formatter-linter-split-plan.md` and package READMEs.  
-   Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
+## End-State Exit Criteria
+1. Plugin formatter runtime does not execute semantic/content rewrites.
+2. Plugin formatter tests/fixtures contain only layout/rendering expectations.
+3. Lint workspace owns semantic/content rewrite diagnostics and autofixes (including feather parity corpus).
+4. All mixed legacy fixtures are either moved to lint or split into explicit plugin+lint ownership artifacts.
+5. CLI `lint --fix` + formatter pipeline preserves the same final formatted style while making ownership boundaries explicit.
 
 ## Finalized Migration Mapping (Durable Contract)
 

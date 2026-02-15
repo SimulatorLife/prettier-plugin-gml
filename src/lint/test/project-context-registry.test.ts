@@ -96,7 +96,7 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
     const excludedFile = path.join(excludedDirectory, "generated.gml");
 
     mkdirSync(excludedDirectory, { recursive: true });
-    writeFileSync(excludedFile, "", "utf8");
+    writeFileSync(excludedFile, "var generated_score = 1;\n", "utf8");
 
     const withoutAllow = LintWorkspace.Lint.services.createProjectLintContextRegistry({
         cwd: tempRoot,
@@ -110,7 +110,9 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
     });
 
     assert.equal(withoutAllow.getContext(excludedFile), null);
-    assert.ok(withAllow.getContext(excludedFile));
+    const allowedContext = withAllow.getContext(excludedFile);
+    assert.ok(allowedContext);
+    assert.equal(allowedContext?.isIdentifierNameOccupiedInProject("generated_score"), true);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -158,7 +160,7 @@ void test("registry delegates snapshot construction to the configured analysis p
 
     const observedRoots: Array<string> = [];
     const analysisProvider: ProjectAnalysisProvider = {
-        buildSnapshot(projectRootPath) {
+        buildSnapshot(projectRootPath, _options) {
             observedRoots.push(projectRootPath);
             return {
                 capabilities: new Set([

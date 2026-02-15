@@ -1,10 +1,11 @@
-import { constants, existsSync } from "node:fs";
+import { constants, existsSync, readdirSync, statSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
 import * as LintWorkspace from "@gml-modules/lint";
+import * as SemanticWorkspace from "@gml-modules/semantic";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -23,6 +24,7 @@ const FLAT_CONFIG_CANDIDATES = Object.freeze([
 const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
+type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -85,6 +87,156 @@ function normalizeFormatterName(formatter: string | undefined): string {
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     const args = Array.isArray(command.args) ? command.args : [];
     return args.length > 0 ? args : ["."];
+}
+
+function hasProjectManifest(directoryPath: string): boolean {
+    try {
+        const entries = readdirSync(directoryPath, { withFileTypes: true });
+        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
+    } catch {
+        return false;
+    }
+}
+
+function resolveNearestProjectRootFromPath(filePath: string, fallbackCwd: string): string {
+    for (const directory of Core.walkAncestorDirectories(path.dirname(filePath), { includeSelf: true })) {
+        if (hasProjectManifest(directory)) {
+            return directory;
+        }
+    }
+
+    return fallbackCwd;
+}
+
+function collectProjectRootsFromDirectory(directoryPath: string): Array<string> {
+    const discoveredRoots = new Set<string>();
+    const pendingDirectories = [directoryPath];
+
+    while (pendingDirectories.length > 0) {
+        const currentDirectory = pendingDirectories.pop();
+        if (!currentDirectory) {
+            continue;
+        }
+
+        if (hasProjectManifest(currentDirectory)) {
+            discoveredRoots.add(path.resolve(currentDirectory));
+            continue;
+        }
+
+        let entries: Array<{ name: string; isDirectory(): boolean }>;
+        try {
+            entries = readdirSync(currentDirectory, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+            pendingDirectories.push(path.join(currentDirectory, entry.name));
+        }
+    }
+
+    return [...discoveredRoots.values()];
+}
+
+function inferProjectRootsForLintInvocation(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+}): Array<string> {
+    if (parameters.forcedProjectPath) {
+        const forcedPath = path.resolve(parameters.forcedProjectPath);
+        if (forcedPath.toLowerCase().endsWith(".yyp")) {
+            return [path.dirname(forcedPath)];
+        }
+
+        return [forcedPath];
+    }
+
+    const roots = new Set<string>();
+    for (const target of parameters.targets) {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (!existsSync(absoluteTarget)) {
+            continue;
+        }
+
+        let stats: ReturnType<typeof statSync>;
+        try {
+            stats = statSync(absoluteTarget);
+        } catch {
+            continue;
+        }
+
+        if (stats.isDirectory()) {
+            for (const root of collectProjectRootsFromDirectory(absoluteTarget)) {
+                roots.add(root);
+            }
+            continue;
+        }
+
+        if (stats.isFile()) {
+            const root = resolveNearestProjectRootFromPath(absoluteTarget, parameters.cwd);
+            roots.add(root);
+        }
+    }
+
+    if (roots.size === 0) {
+        roots.add(path.resolve(parameters.cwd));
+    }
+
+    return [...roots.values()];
+}
+
+async function createInvocationProjectAnalysisProvider(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+    indexAllowDirectories: ReadonlyArray<string>;
+    quiet: boolean;
+}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createTextProjectAnalysisProvider>> {
+    const projectRoots = inferProjectRootsForLintInvocation({
+        cwd: parameters.cwd,
+        targets: parameters.targets,
+        forcedProjectPath: parameters.forcedProjectPath
+    });
+    const normalizedAllowedDirectories = parameters.indexAllowDirectories.map((directory) => path.resolve(directory));
+    const excludedDirectories = new Set(
+        LINT_NAMESPACE.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
+    );
+
+    const snapshotEntries = await Promise.all(
+        projectRoots.map(async (root): Promise<[string, SemanticSnapshot] | null> => {
+            try {
+                const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
+                const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(
+                    projectIndex,
+                    root,
+                    {
+                        excludedDirectories,
+                        allowedDirectories: normalizedAllowedDirectories
+                    }
+                );
+                return [root, snapshot];
+            } catch (error) {
+                if (!parameters.quiet) {
+                    console.warn(
+                        `Failed to build semantic project snapshot for ${root}: ${
+                            Core.isErrorLike(error) ? error.message : String(error)
+                        }`
+                    );
+                }
+                return null;
+            }
+        })
+    );
+
+    const snapshotsByRoot = new Map<string, SemanticSnapshot>(
+        snapshotEntries.filter((entry): entry is [string, SemanticSnapshot] => entry !== null)
+    );
+
+    return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
 }
 
 function normalizeMaxWarnings(rawValue: unknown): number {
@@ -432,7 +584,14 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
         cwd,
         forcedProjectPath: options.project,
-        indexAllowDirectories: options.indexAllow
+        indexAllowDirectories: options.indexAllow,
+        analysisProvider: await createInvocationProjectAnalysisProvider({
+            cwd,
+            targets,
+            forcedProjectPath: options.project,
+            indexAllowDirectories: options.indexAllow,
+            quiet: options.quiet
+        })
     });
     const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
 

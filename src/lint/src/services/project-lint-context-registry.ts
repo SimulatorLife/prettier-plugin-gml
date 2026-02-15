@@ -103,7 +103,12 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
             }
 
             const cachedSnapshot = snapshotCache.get(cacheKey);
-            const snapshot = cachedSnapshot ?? analysisProvider.buildSnapshot(cacheKey, excludedDirectories);
+            const snapshot =
+                cachedSnapshot ??
+                analysisProvider.buildSnapshot(cacheKey, {
+                    excludedDirectories,
+                    allowedDirectories: normalizedAllowedDirectories
+                });
             if (!cachedSnapshot) {
                 snapshotCache.set(cacheKey, snapshot);
             }
