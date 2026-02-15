@@ -136,7 +136,6 @@ async function readFixture(...segments: Array<string>): Promise<string> {
 
 void test("rule fixtures: diagnostics and safe fixers", async () => {
     const nonFixRules = [
-        "prefer-loop-length-hoist",
         "prefer-hoistable-loop-accessors",
         "prefer-struct-literal-assignments",
         "prefer-string-interpolation"
@@ -146,9 +145,11 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
         const input = await readFixture(ruleName, "input.gml");
         const result = lintWithRule(ruleName, input);
         assert.equal(result.messages.length, 1, `${ruleName} should report exactly one diagnostic`);
+        assert.equal(result.output, input, `${ruleName} should not apply a fixer`);
     }
 
     const fixRules = [
+        "prefer-loop-length-hoist",
         "optimize-logical-flow",
         "no-globalvar",
         "normalize-doc-comments",
@@ -182,9 +183,42 @@ void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
     assert.equal(result.messages.length, 0);
 });
 
+void test("lint rules retain migrated semantic rewrite coverage", () => {
+    const structLiteralResult = lintWithRule(
+        "prefer-struct-literal-assignments",
+        "var cfg = {};\ncfg.foo = 1;\ncfg.bar = 2;\n"
+    );
+    assert.equal(structLiteralResult.messages.length, 1);
+
+    const interpolationResult = lintWithRule("prefer-string-interpolation", 'var label = "HP: " + string(hp);\n', {
+        reportUnsafe: true
+    });
+    assert.equal(interpolationResult.messages.length, 1);
+
+    const logicalFlowResult = lintWithRule(
+        "optimize-logical-flow",
+        'if (!!ready) {\n    show_debug_message("ok");\n}\n',
+        {
+            repair: true
+        }
+    );
+    assert.equal(logicalFlowResult.messages.length, 1);
+    assert.notEqual(logicalFlowResult.output.length, 0);
+});
 void test("no-globalvar rewrite scope only touches declarations", async () => {
     const input = await readFixture("no-globalvar", "rewrite-scope.gml");
     const result = lintWithRule("no-globalvar", input, {});
     assert.equal(result.output.includes("globalvarToken"), true);
     assert.equal(result.output.includes("global.score = undefined;"), true);
+});
+
+void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {
+    const input = await readFixture("prefer-loop-length-hoist", "input.gml");
+    const result = lintWithRule("prefer-loop-length-hoist", input, {
+        functionSuffixes: {
+            array_length: null
+        }
+    });
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
