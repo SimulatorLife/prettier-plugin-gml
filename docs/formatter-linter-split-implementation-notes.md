@@ -84,6 +84,10 @@
 - Lint provider layer now exposes semantic snapshot builders and prebuilt provider injection (`buildSemanticProjectAnalysisSnapshot`, `createPrebuiltProjectAnalysisProvider`) for invocation-scoped deterministic indexing.
 - CLI lint command now prebuilds semantic snapshots for resolved invocation roots and injects a prebuilt provider into project-context registry wiring.
 - `--index-allow` indexing behavior now includes allowed descendants under otherwise hard-excluded directories during snapshot construction (covered by updated registry test assertions).
+- Loop-hoist rule ownership is now aligned with the pinned split contract:
+  - `gml/prefer-loop-length-hoist` now owns local hoist autofixes (fixture-backed with `fixed.gml` expectations).
+  - `gml/prefer-hoistable-loop-accessors` remains detect/suggest-only with no fixer application.
+  - `functionSuffixes: { array_length: null }` is now covered as a contract test that disables hoist generation for that accessor.
 
 ## Test Migration Status
 
@@ -92,7 +96,7 @@
   - Result: `pass 219`, `fail 0`, `skipped 0`.
 - `src/lint`:
   - `pnpm --filter @gml-modules/lint test` passes.
-  - Result: `pass 36`, `fail 0`, `skipped 0`.
+  - Result: `pass 37`, `fail 0`, `skipped 0`.
 - `src/cli`:
   - `pnpm --filter @gml-modules/cli test` passes.
   - Result: `pass 540`, `fail 0`, `skipped 0`.
@@ -102,7 +106,7 @@
   - Includes a new guard that fails if integration option fixtures reintroduce removed formatter migration keys.
 - Full monorepo suite:
   - `pnpm test` passes.
-  - Result: `pass 2997`, `fail 0`, `skipped 0`.
+  - Result: `pass 2998`, `fail 0`, `skipped 0`.
 - Skipped-test audit:
   - Search: `rg -n "\\{\\s*skip\\s*:|\\.skip\\(" src test --glob '!**/dist/**'`
   - Result: no matches.

@@ -5,6 +5,56 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
 
+const DEFAULT_HOIST_ACCESSORS = Object.freeze({
+    array_length: "len"
+});
+
+function getFunctionSuffixOverride(options: Record<string, unknown>, functionName: string): string | null {
+    const rawFunctionSuffixes = options.functionSuffixes;
+    if (!rawFunctionSuffixes || typeof rawFunctionSuffixes !== "object") {
+        return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
+    }
+
+    const functionSuffixes = rawFunctionSuffixes as Record<string, unknown>;
+    const configuredSuffix = functionSuffixes[functionName];
+    if (configuredSuffix === null) {
+        return null;
+    }
+
+    if (typeof configuredSuffix === "string" && configuredSuffix.trim().length > 0) {
+        return configuredSuffix.trim();
+    }
+
+    return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
+}
+
+function findLoopLengthHoistCandidate(text: string): {
+    loopStart: number;
+    loopEnd: number;
+    indent: string;
+    accessorIdentifier: string;
+    loopHeaderText: string;
+} | null {
+    const loopPattern = /(^|\r?\n)([ \t]*)for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)[^)]*\)/g;
+    const match = loopPattern.exec(text);
+    if (!match) {
+        return null;
+    }
+
+    const prefix = match[1] ?? "";
+    const fullMatch = match[0];
+    const loopHeaderText = fullMatch.slice(prefix.length);
+    const loopStart = (match.index ?? 0) + prefix.length;
+    const loopEnd = loopStart + loopHeaderText.length;
+    return {
+        loopStart,
+        loopEnd,
+        indent: match[2] ?? "",
+        accessorIdentifier: match[3] ?? "",
+        loopHeaderText
+    };
+}
+
 function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs: {
         description: string;
@@ -52,20 +102,64 @@ function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.Ru
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const options = readObjectOption(context);
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const projectContext = resolveProjectContextForRule(context, definition);
             const listener: Rule.RuleListener = {
                 Program(node) {
                     const text = context.sourceCode.text;
-                    const loopPattern = /for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
-                    if (loopPattern.test(text)) {
+                    const candidate = findLoopLengthHoistCandidate(text);
+                    if (!candidate) {
+                        return;
+                    }
+
+                    const functionSuffix = getFunctionSuffixOverride(options, "array_length");
+                    if (functionSuffix === null) {
+                        return;
+                    }
+
+                    const resolveLoopHoistIdentifier =
+                        projectContext.context && typeof projectContext.context.resolveLoopHoistIdentifier === "function"
+                            ? projectContext.context.resolveLoopHoistIdentifier.bind(projectContext.context)
+                            : null;
+                    const preferredName = `${candidate.accessorIdentifier}_${functionSuffix}`;
+                    const resolvedIdentifierName =
+                        resolveLoopHoistIdentifier?.(preferredName, new Set<string>()) ?? preferredName;
+                    if (!resolvedIdentifierName) {
                         context.report({
                             node,
-                            messageId: definition.messageId
+                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
                         });
+                        return;
                     }
+
+                    const accessorCall = `array_length(${candidate.accessorIdentifier})`;
+                    const loopHeaderWithHoistIdentifier = candidate.loopHeaderText.replace(accessorCall, resolvedIdentifierName);
+                    const lineEnding = dominantLineEnding(text);
+                    const declaration = `${candidate.indent}var ${resolvedIdentifierName} = ${accessorCall};${lineEnding}`;
+                    const isInsertableContext = candidate.loopStart === 0 || text[candidate.loopStart - 1] === "\n";
+                    if (!isInsertableContext) {
+                        context.report({
+                            node,
+                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
+                        });
+                        return;
+                    }
+
+                    context.report({
+                        node,
+                        messageId: definition.messageId,
+                        fix: (fixer) => [
+                            fixer.insertTextAfterRange([candidate.loopStart, candidate.loopStart], declaration),
+                            fixer.replaceTextRange(
+                                [candidate.loopStart, candidate.loopEnd],
+                                loopHeaderWithHoistIdentifier
+                            )
+                        ]
+                    });
                 }
             };
 
-            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }
