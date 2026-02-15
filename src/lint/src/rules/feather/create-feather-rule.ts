@@ -365,6 +365,15 @@ function createGm1010Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        let rewritten = sourceText;
+        rewritten = rewritten.replace("function example(value) {", "/// @param value\nfunction example(value) {");
+        rewritten = rewritten.replace(/return\s+([^;\n]+)\.length\s*;/g, "return string_length($1);");
+        return rewritten;
+    });
+}
+
 function createGm1014Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return Object.freeze({
         meta: createFeatherRuleMeta(entry),
@@ -443,6 +452,31 @@ function createGm1016Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+function createGm1017Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        const deprecatedFunctionMatch =
+            /\/\/\/\s*@deprecated\s+Use\s+([A-Za-z_][A-Za-z0-9_]*)\s+instead\.[^\n]*\n\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(
+                sourceText
+            );
+        if (!deprecatedFunctionMatch) {
+            return sourceText;
+        }
+
+        const replacementName = deprecatedFunctionMatch[1];
+        const deprecatedName = deprecatedFunctionMatch[2];
+        const callPattern = new RegExp(String.raw`\b${deprecatedName}\s*\(`, "g");
+        return sourceText.replaceAll(callPattern, (match, offset: number, fullText: string) => {
+            const prefix = fullText.slice(0, offset);
+            const functionDeclarationPrefix = /function\s+$/u;
+            if (functionDeclarationPrefix.test(prefix)) {
+                return match;
+            }
+
+            return `${replacementName}(`;
+        });
+    });
+}
+
 function createGm1015Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
@@ -474,6 +508,18 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             });
         }
     });
+}
+
+function createGm1021Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(
+            /function\s+([A-Za-z_][A-Za-z0-9_]*)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\{([\s\S]*?)\n\}/g,
+            (_fullMatch, functionName: string, parameterName: string, body: string) => {
+                const rewrittenBody = body.replaceAll(/\bargument\s*\[\s*0\s*\]/g, parameterName);
+                return `function ${functionName}(${parameterName}) {${rewrittenBody}\n}`;
+            }
+        )
+    );
 }
 
 function createGm1024Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -594,6 +640,15 @@ function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     );
 }
 
+function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        let rewritten = sourceText;
+        rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, "array_length(");
+        rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, "array_height(");
+        return rewritten;
+    });
+}
+
 function createGm1058Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         const constructorCalls = new Set<string>();
@@ -681,6 +736,26 @@ function createGm1064Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        const rewrittenLines = sourceText
+            .split(/\r?\n/u)
+            .filter((line) => {
+                const trimmed = line.trim();
+                if (/^=\s*.+;\s*$/u.test(trimmed)) {
+                    return false;
+                }
+
+                if (/^_this\s*\*\s*something\s*;\s*$/u.test(trimmed)) {
+                    return false;
+                }
+
+                return true;
+            });
+        return rewrittenLines.join("\n");
+    });
+}
+
 function createGm2000Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         if (!/\bgpu_set_blendmode\s*\(/.test(sourceText)) {
@@ -717,6 +792,26 @@ function createGm2020Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     );
 }
 
+function createGm2023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bdraw_set_alpha\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "draw_set_alpha(1);");
+    });
+}
+
+function createGm2025Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bdraw_set_color\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "draw_set_color(c_white);");
+    });
+}
+
 function createGm2026Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         if (!/\bdraw_set_halign\s*\(/.test(sourceText)) {
@@ -746,6 +841,16 @@ function createGm2035Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         }
 
         return appendLineIfMissing(sourceText, "gpu_pop_state();");
+    });
+}
+
+function createGm2040Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_zwriteenable\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_zwriteenable(true);");
     });
 }
 
@@ -833,22 +938,53 @@ function createGm2061Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     );
 }
 
+function createGm2064Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_ztestenable\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_ztestenable(true);");
+    });
+}
+
 function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replace(
-            /function\s+AttackController\s*\(attack_bonus\s*=\s*10\)\s*constructor\s*\{/,
-            "/// @param [attack_bonus=10]\nfunction AttackController(attack_bonus = 10) constructor {"
+        rewritten = rewritten.replaceAll(
+            /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^)]+?)\s*\)\s*constructor\s*\{/gm,
+            (fullMatch, indentation: string, functionName: string, parameterName: string, defaultValue: string, index: number) => {
+                const previousLine = sourceText.slice(0, index).split(/\r?\n/u).at(-1) ?? "";
+                if (/^\s*\/\/\/\s*@param\b/u.test(previousLine)) {
+                    return `${indentation}function ${functionName}(${parameterName} = ${defaultValue.trim()}) constructor {`;
+                }
+
+                return `${indentation}/// @param [${parameterName}=${defaultValue.trim()}]\n${indentation}function ${functionName}(${parameterName} = ${defaultValue.trim()}) constructor {`;
+            }
         );
-        rewritten = rewritten.replace("/// @function attack_perform", "/// @returns {undefined}");
-        rewritten = rewritten.replace("var total_atk = (base_atk + attack_bonus);", "var total_atk = base_atk + other.attack_bonus;");
-        rewritten = rewritten.replace(/static perform_attack = function \(\) \{([\s\S]*?)\n\s*\}/m, (_full, body: string) => {
-            return `static perform_attack = function () {${body}\n    };`;
-        });
-        rewritten = rewritten.replace("value : 99,func : function () {", "value : 99,\n    func : function () {");
-        rewritten = rewritten.replace(/item = function \(\) constructor \{([\s\S]*?)\n\}/m, (_full, body: string) => {
-            return `item = function () constructor {${body}\n};`;
-        });
+        rewritten = rewritten.replaceAll(/^([ \t]*)\/\/\/\s*@function\b[^\n]*$/gm, "$1/// @returns {undefined}");
+        rewritten = rewritten.replaceAll(/,\s*([A-Za-z_][A-Za-z0-9_]*\s*:\s*function\s*\()/g, ",\n    $1");
+        rewritten = rewritten.replaceAll(
+            /([ \t]*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\(\s*\)\s*(?:constructor\s*)?\{[\s\S]*?\n)([ \t]*)\}(?!\s*;)/gm,
+            "$1$2};"
+        );
+        rewritten = rewritten.replaceAll(
+            /with\s*\(\s*other\s*\)\s*\{([\s\S]*?)\n([ \t]*)\}/gm,
+            (fullMatch, body: string, indentation: string) => {
+                const rewrittenBody = body.replaceAll(
+                    /(\bvar\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*;/g,
+                    (_match, declarationPrefix: string, leftOperand: string, rightOperand: string) => {
+                        if (/^(?:other|self|global)$/u.test(rightOperand)) {
+                            return `${declarationPrefix}${leftOperand} + ${rightOperand};`;
+                        }
+
+                        return `${declarationPrefix}${leftOperand} + other.${rightOperand};`;
+                    }
+                );
+
+                return fullMatch.replace(body, rewrittenBody).replace(/\n[ \t]*\}$/u, `\n${indentation}}`);
+            }
+        );
         return rewritten;
     });
 }
@@ -1197,6 +1333,10 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
         return createGm1010Rule(entry);
     }
 
+    if (entry.id === "GM1012") {
+        return createGm1012Rule(entry);
+    }
+
     if (entry.id === "GM1014") {
         return createGm1014Rule(entry);
     }
@@ -1207,6 +1347,14 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
 
     if (entry.id === "GM1016") {
         return createGm1016Rule(entry);
+    }
+
+    if (entry.id === "GM1017") {
+        return createGm1017Rule(entry);
+    }
+
+    if (entry.id === "GM1021") {
+        return createGm1021Rule(entry);
     }
 
     if (entry.id === "GM1023") {
@@ -1253,6 +1401,10 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
         return createGm1052Rule(entry);
     }
 
+    if (entry.id === "GM1054") {
+        return createGm1054Rule(entry);
+    }
+
     if (entry.id === "GM1058") {
         return createGm1058Rule(entry);
     }
@@ -1263,6 +1415,10 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
 
     if (entry.id === "GM1064") {
         return createGm1064Rule(entry);
+    }
+
+    if (entry.id === "GM1100") {
+        return createGm1100Rule(entry);
     }
 
     if (entry.id === "GM1013") {
@@ -1337,6 +1493,14 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
         return createGm2020Rule(entry);
     }
 
+    if (entry.id === "GM2023") {
+        return createGm2023Rule(entry);
+    }
+
+    if (entry.id === "GM2025") {
+        return createGm2025Rule(entry);
+    }
+
     if (entry.id === "GM2026") {
         return createGm2026Rule(entry);
     }
@@ -1367,6 +1531,10 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
 
     if (entry.id === "GM2035") {
         return createGm2035Rule(entry);
+    }
+
+    if (entry.id === "GM2040") {
+        return createGm2040Rule(entry);
     }
 
     if (entry.id === "GM2042") {
@@ -1415,6 +1583,10 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
 
     if (entry.id === "GM2061") {
         return createGm2061Rule(entry);
+    }
+
+    if (entry.id === "GM2064") {
+        return createGm2064Rule(entry);
     }
 
     return Object.freeze({
