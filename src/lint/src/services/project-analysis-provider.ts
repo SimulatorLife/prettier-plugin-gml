@@ -1,19 +1,14 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { Core } from "@gml-modules/core";
+
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
 import type { GmlFeatherRenamePlanEntry } from "./index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
 
 const IDENTIFIER_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/gu;
-
-const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
-    "IDENTIFIER_OCCUPANCY",
-    "IDENTIFIER_OCCURRENCES",
-    "LOOP_HOIST_NAME_RESOLUTION",
-    "RENAME_CONFLICT_PLANNING"
-]);
 
 export interface ProjectAnalysisSnapshot {
     readonly capabilities: ReadonlySet<ProjectCapability>;
@@ -132,10 +127,6 @@ function buildTextProjectIndex(
 
         const identifiers = sourceText.match(IDENTIFIER_PATTERN) ?? [];
         for (const identifier of identifiers) {
-            if (identifier.length === 0) {
-                continue;
-            }
-
             const normalizedIdentifier = normalizeIdentifierName(identifier);
             if (normalizedIdentifier.length === 0) {
                 continue;
@@ -147,105 +138,36 @@ function buildTextProjectIndex(
         }
     }
 
-    const frozenEntries = new Map<string, ReadonlySet<string>>();
-    for (const [identifier, fileSet] of identifierMap.entries()) {
-        frozenEntries.set(identifier, new Set(fileSet));
-    }
-
     return Object.freeze({
-        identifierToFiles: frozenEntries
+        identifierToFiles: new Map<string, ReadonlySet<string>>(
+            [...identifierMap.entries()].map(([name, fileSet]) => [name, new Set(fileSet)])
+        )
     });
 }
 
-function resolveLoopHoistIdentifierName(
-    preferredName: string,
-    localIdentifierNames: ReadonlySet<string>,
-    isProjectIdentifierOccupied: (identifierName: string) => boolean
-): string | null {
-    const normalizedLocalNames = new Set<string>();
-    for (const name of localIdentifierNames) {
-        normalizedLocalNames.add(normalizeIdentifierName(name));
-    }
-
-    const normalizedPreferredName = normalizeIdentifierName(preferredName);
-    if (
-        !normalizedPreferredName ||
-        normalizedLocalNames.has(normalizedPreferredName) ||
-        isProjectIdentifierOccupied(normalizedPreferredName)
-    ) {
-        const baseName = preferredName.length > 0 ? preferredName : "len";
-        for (let index = 1; index <= 1000; index += 1) {
-            const candidate = `${baseName}_${index}`;
-            const normalizedCandidate = normalizeIdentifierName(candidate);
-            if (!normalizedLocalNames.has(normalizedCandidate) && !isProjectIdentifierOccupied(normalizedCandidate)) {
-                return candidate;
-            }
-        }
-        return null;
-    }
-
-    return preferredName;
-}
-
-function createTextProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
-    const isIdentifierOccupied = (identifierName: string): boolean => {
-        return index.identifierToFiles.has(normalizeIdentifierName(identifierName));
-    };
-
+function createSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
+    const snapshot = Core.createProjectAnalysisSnapshotFromIndex(index.identifierToFiles);
     return Object.freeze({
-        capabilities: ALL_PROJECT_CAPABILITIES,
-        isIdentifierNameOccupiedInProject: isIdentifierOccupied,
+        capabilities: snapshot.capabilities as ReadonlySet<ProjectCapability>,
+        isIdentifierNameOccupiedInProject(identifierName: string): boolean {
+            return snapshot.isIdentifierNameOccupiedInProject(identifierName);
+        },
         listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
-            const files = index.identifierToFiles.get(normalizeIdentifierName(identifierName));
-            return files ?? new Set<string>();
+            return snapshot.listIdentifierOccurrenceFiles(identifierName);
         },
         planFeatherRenames(
             requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
         ): ReadonlyArray<GmlFeatherRenamePlanEntry> {
-            return requests.map((request) => {
-                if (request.identifierName === request.preferredReplacementName) {
-                    return {
-                        identifierName: request.identifierName,
-                        preferredReplacementName: request.preferredReplacementName,
-                        safe: false,
-                        reason: "no-op-rename"
-                    };
-                }
-
-                const normalizedPreferredReplacementName = normalizeIdentifierName(request.preferredReplacementName);
-                if (index.identifierToFiles.has(normalizedPreferredReplacementName)) {
-                    return {
-                        identifierName: request.identifierName,
-                        preferredReplacementName: request.preferredReplacementName,
-                        safe: false,
-                        reason: "name-collision"
-                    };
-                }
-
-                return {
-                    identifierName: request.identifierName,
-                    preferredReplacementName: request.preferredReplacementName,
-                    safe: true,
-                    reason: null
-                };
-            });
+            return snapshot.planIdentifierRenames(requests);
         },
         assessGlobalVarRewrite(
             filePath: string | null,
             hasInitializer: boolean
         ): { allowRewrite: boolean; reason: string | null } {
-            if (!hasInitializer) {
-                return { allowRewrite: true, reason: null };
-            }
-
-            if (!filePath) {
-                return { allowRewrite: false, reason: "missing-file-path" };
-            }
-
-            return { allowRewrite: true, reason: null };
+            return snapshot.assessGlobalVarRewrite(filePath, hasInitializer);
         },
         resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
-            return resolveLoopHoistIdentifierName(preferredName, localIdentifierNames, isIdentifierOccupied);
+            return snapshot.resolveLoopHoistIdentifier(preferredName, localIdentifierNames);
         }
     });
 }
@@ -254,36 +176,39 @@ export function createTextProjectAnalysisProvider(): ProjectAnalysisProvider {
     return Object.freeze({
         buildSnapshot(projectRoot: string, options: ProjectAnalysisBuildOptions): ProjectAnalysisSnapshot {
             const normalizedRoot = normalizeLintFilePath(projectRoot);
-            const index = buildTextProjectIndex(normalizedRoot, options.excludedDirectories, options.allowedDirectories);
-            return createTextProjectAnalysisSnapshot(index);
+            const index = buildTextProjectIndex(
+                normalizedRoot,
+                options.excludedDirectories,
+                options.allowedDirectories
+            );
+            return createSnapshot(index);
         }
     });
 }
 
 function createMissingProjectAnalysisSnapshot(): ProjectAnalysisSnapshot {
+    const snapshot = Core.createMissingProjectAnalysisSnapshot("missing-project-context");
     return Object.freeze({
-        capabilities: new Set<ProjectCapability>(),
-        isIdentifierNameOccupiedInProject(): boolean {
-            return false;
+        capabilities: snapshot.capabilities as ReadonlySet<ProjectCapability>,
+        isIdentifierNameOccupiedInProject(identifierName: string): boolean {
+            return snapshot.isIdentifierNameOccupiedInProject(identifierName);
         },
-        listIdentifierOccurrenceFiles(): ReadonlySet<string> {
-            return new Set<string>();
+        listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
+            return snapshot.listIdentifierOccurrenceFiles(identifierName);
         },
         planFeatherRenames(
             requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
         ): ReadonlyArray<GmlFeatherRenamePlanEntry> {
-            return requests.map((request) => ({
-                identifierName: request.identifierName,
-                preferredReplacementName: request.preferredReplacementName,
-                safe: false,
-                reason: "missing-project-context"
-            }));
+            return snapshot.planIdentifierRenames(requests);
         },
-        assessGlobalVarRewrite(): { allowRewrite: boolean; reason: string | null } {
-            return { allowRewrite: false, reason: "missing-project-context" };
+        assessGlobalVarRewrite(
+            filePath: string | null,
+            hasInitializer: boolean
+        ): { allowRewrite: boolean; reason: string | null } {
+            return snapshot.assessGlobalVarRewrite(filePath, hasInitializer);
         },
-        resolveLoopHoistIdentifier(): string | null {
-            return null;
+        resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
+            return snapshot.resolveLoopHoistIdentifier(preferredName, localIdentifierNames);
         }
     });
 }
@@ -315,7 +240,10 @@ function addIdentifierFile(
     options: ProjectAnalysisBuildOptions
 ): void {
     const normalizedIdentifierName = normalizeIdentifierName(identifierName);
-    if (!normalizedIdentifierName || isExcludedPath(filePath, options.excludedDirectories, options.allowedDirectories)) {
+    if (
+        !normalizedIdentifierName ||
+        isExcludedPath(filePath, options.excludedDirectories, options.allowedDirectories)
+    ) {
         return;
     }
 
@@ -414,7 +342,7 @@ function buildSemanticIdentifierIndex(
 
     return Object.freeze({
         identifierToFiles: new Map<string, ReadonlySet<string>>(
-            [...identifierToFiles.entries()].map(([name, files]) => [name, new Set(files)])
+            [...identifierToFiles.entries()].map(([name, fileSet]) => [name, new Set(fileSet)])
         )
     });
 }
@@ -426,7 +354,7 @@ export function createProjectAnalysisSnapshotFromProjectIndex(
 ): ProjectAnalysisSnapshot {
     const normalizedRoot = normalizeLintFilePath(projectRoot);
     const index = buildSemanticIdentifierIndex(projectIndex as SemanticProjectIndexLike, normalizedRoot, options);
-    return createTextProjectAnalysisSnapshot(index);
+    return createSnapshot(index);
 }
 
 export function createPrebuiltProjectAnalysisProvider(
