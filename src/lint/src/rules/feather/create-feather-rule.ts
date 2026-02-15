@@ -30,6 +30,15 @@ function createFeatherRuleMeta(entry: FeatherManifestEntry): Rule.RuleMetaData {
     });
 }
 
+function appendLineIfMissing(sourceText: string, lineToAppend: string): string {
+    if (sourceText.includes(lineToAppend)) {
+        return sourceText;
+    }
+
+    const hasTerminalNewline = sourceText.endsWith("\n");
+    return `${sourceText}${hasTerminalNewline ? "" : "\n"}${lineToAppend}\n`;
+}
+
 function createFullTextRewriteRule(
     entry: FeatherManifestEntry,
     rewriteSourceText: (sourceText: string) => string
@@ -672,6 +681,158 @@ function createGm1064Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+function createGm2000Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_blendmode\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_blendmode(bm_normal);");
+    });
+}
+
+function createGm2003Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bshader_set\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "shader_reset();");
+    });
+}
+
+function createGm2009Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/^\s*vertex_end\s*\([^)]*\)\s*;\s*\n?/gm, "")
+    );
+}
+
+function createGm2020Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(
+            /^(\s*)all\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);\s*$/gm,
+            (_fullMatch, indentation: string, identifier: string, valueExpression: string) =>
+                `${indentation}with (all) {\n${indentation}    ${identifier} = ${valueExpression};\n${indentation}}`
+        )
+    );
+}
+
+function createGm2026Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bdraw_set_halign\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "draw_set_halign(fa_left);");
+    });
+}
+
+function createGm2028Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/^\s*draw_primitive_end\s*\(\s*\)\s*;\s*\n?/gm, "")
+    );
+}
+
+function createGm2032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/^\s*file_find_close\s*\(\s*\)\s*;\s*\n?/gm, "")
+    );
+}
+
+function createGm2035Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_push_state\s*\(\s*\)\s*;/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_pop_state();");
+    });
+}
+
+function createGm2048Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_blendenable\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_blendenable(true);");
+    });
+}
+
+function createGm2050Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_fog\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_fog(false, c_black, 0, 1);");
+    });
+}
+
+function createGm2051Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_cullmode\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_cullmode(cull_noculling);");
+    });
+}
+
+function createGm2052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_colourwriteenable\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_colourwriteenable(true, true, true, true);");
+    });
+}
+
+function createGm2053Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_alphatestenable\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_alphatestenable(false);");
+    });
+}
+
+function createGm2054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_alphatestref\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        let rewritten = sourceText;
+        rewritten = rewritten.replaceAll(/\bgpu_set_alphatestref\s*\(\s*\d+\s*\)\s*;/g, "gpu_set_alphatestref(0);");
+        if (!rewritten.includes("gpu_set_alphatestref(0);")) {
+            rewritten = appendLineIfMissing(rewritten, "gpu_set_alphatestref(0);");
+        }
+        return rewritten;
+    });
+}
+
+function createGm2056Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        if (!/\bgpu_set_texrepeat\s*\(/.test(sourceText)) {
+            return sourceText;
+        }
+
+        return appendLineIfMissing(sourceText, "gpu_set_texrepeat(false);");
+    });
+}
+
+function createGm2061Rule(entry: FeatherManifestEntry): Rule.RuleModule {
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(
+            /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;\s*\n\s*if\s*\(\s*\1\s*==\s*undefined\s*\)\s*\1\s*=\s*(.+?)\s*;\s*$/gm,
+            (_fullMatch, target: string, expression: string, fallback: string) => `${target} = ${expression} ?? ${fallback};`
+        )
+    );
+}
+
 export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule {
     if (entry.id === "GM1000") {
         return createGm1000Rule(entry);
@@ -775,6 +936,70 @@ export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule 
 
     if (entry.id === "GM1064") {
         return createGm1064Rule(entry);
+    }
+
+    if (entry.id === "GM2000") {
+        return createGm2000Rule(entry);
+    }
+
+    if (entry.id === "GM2003") {
+        return createGm2003Rule(entry);
+    }
+
+    if (entry.id === "GM2009") {
+        return createGm2009Rule(entry);
+    }
+
+    if (entry.id === "GM2020") {
+        return createGm2020Rule(entry);
+    }
+
+    if (entry.id === "GM2026") {
+        return createGm2026Rule(entry);
+    }
+
+    if (entry.id === "GM2028") {
+        return createGm2028Rule(entry);
+    }
+
+    if (entry.id === "GM2032") {
+        return createGm2032Rule(entry);
+    }
+
+    if (entry.id === "GM2035") {
+        return createGm2035Rule(entry);
+    }
+
+    if (entry.id === "GM2048") {
+        return createGm2048Rule(entry);
+    }
+
+    if (entry.id === "GM2050") {
+        return createGm2050Rule(entry);
+    }
+
+    if (entry.id === "GM2051") {
+        return createGm2051Rule(entry);
+    }
+
+    if (entry.id === "GM2052") {
+        return createGm2052Rule(entry);
+    }
+
+    if (entry.id === "GM2053") {
+        return createGm2053Rule(entry);
+    }
+
+    if (entry.id === "GM2054") {
+        return createGm2054Rule(entry);
+    }
+
+    if (entry.id === "GM2056") {
+        return createGm2056Rule(entry);
+    }
+
+    if (entry.id === "GM2061") {
+        return createGm2061Rule(entry);
     }
 
     return Object.freeze({

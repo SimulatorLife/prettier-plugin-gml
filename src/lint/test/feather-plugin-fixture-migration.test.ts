@@ -241,6 +241,113 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         assertOutput: (output) => {
             assert.equal(countOccurrences(output, "function make_game"), 1);
         }
+    },
+    {
+        fixtureDirectory: "gm2000",
+        ruleName: "gm2000",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_blendmode(bm_normal);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2003",
+        ruleName: "gm2003",
+        assertOutput: (output) => {
+            assert.equal(output.includes("shader_reset();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2020",
+        ruleName: "gm2020",
+        assertOutput: (output) => {
+            assert.equal(output.includes("with (all) {"), true);
+            assert.equal(output.includes("all.hp ="), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2026",
+        ruleName: "gm2026",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_set_halign(fa_left);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2028",
+        ruleName: "gm2028",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_primitive_end();"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2032",
+        ruleName: "gm2032",
+        assertOutput: (output) => {
+            assert.equal(output.includes("file_find_close();"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2035",
+        ruleName: "gm2035",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_pop_state();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2048",
+        ruleName: "gm2048",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_blendenable(true);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2050",
+        ruleName: "gm2050",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_fog(false, c_black, 0, 1);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2051",
+        ruleName: "gm2051",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_cullmode(cull_noculling);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2052",
+        ruleName: "gm2052",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_colourwriteenable(true, true, true, true);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2053",
+        ruleName: "gm2053",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_alphatestenable(false);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2054",
+        ruleName: "gm2054",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_alphatestref(0);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2056",
+        ruleName: "gm2056",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_texrepeat(false);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2061",
+        ruleName: "gm2061",
+        assertOutput: (output) => {
+            assert.equal(output.includes("?? []"), true);
+            assert.equal(output.includes("== undefined"), false);
+        }
     }
 ]);
 
