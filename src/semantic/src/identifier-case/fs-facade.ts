@@ -20,12 +20,9 @@ const defaultIdentifierCaseFsFacade = Object.freeze({
         }
         return readTextFileSync(targetPath);
     },
-    writeFileSync(targetPath: PathOrFileDescriptor, contents: string | Buffer, encoding: BufferEncoding = "utf8") {
+    writeFileSync(targetPath: PathOrFileDescriptor, contents: string) {
         if (typeof targetPath !== "string") {
             throw new TypeError("writeFileSync only accepts string paths");
-        }
-        if (typeof contents !== "string") {
-            throw new TypeError("writeFileSync with centralized helpers only accepts string content");
         }
         writeTextFileSync(targetPath, contents);
     },
