@@ -213,6 +213,29 @@ type EnqueuePatchOptions = {
     logger?: Logger;
 };
 
+type PendingPatchQueueOptions = {
+    patch: unknown;
+    state: WebSocketClientState;
+    maxPendingPatches: number;
+};
+
+function enqueuePendingPatchInternal(options: PendingPatchQueueOptions): void {
+    const { patch, state, maxPendingPatches } = options;
+
+    const effectivePendingCount = state.pendingPatches.length - state.pendingPatchHead;
+    if (effectivePendingCount >= maxPendingPatches) {
+        state.pendingPatchHead += 1;
+
+        const compactionThreshold = maxPendingPatches * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
+        if (state.pendingPatchHead >= compactionThreshold) {
+            state.pendingPatches = state.pendingPatches.slice(state.pendingPatchHead);
+            state.pendingPatchHead = 0;
+        }
+    }
+
+    state.pendingPatches.push(patch);
+}
+
 function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     const { patch, state, maxQueueSize, flushQueuedPatches, scheduleFlush, logger } = options;
 
@@ -361,6 +384,7 @@ export function createWebSocketClient({
     const queueEnabled = patchQueue?.enabled ?? false;
     const maxQueueSize = patchQueue?.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
     const flushIntervalMs = patchQueue?.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
+    const maxPendingPatches = maxQueueSize;
 
     const state: WebSocketClientState = {
         ws: null,
@@ -370,6 +394,7 @@ export function createWebSocketClient({
         connectionMetrics: createInitialMetrics(),
         patchQueue: queueEnabled ? createPatchQueueState() : null,
         pendingPatches: [],
+        pendingPatchHead: 0,
         readinessTimer: null,
         runtimeReady: false
     };
@@ -390,8 +415,16 @@ export function createWebSocketClient({
 
         ensureApplicationSurfaceAccessor();
 
-        if (state.pendingPatches.length > 0) {
-            const pending = state.pendingPatches.splice(0);
+        const pendingCount = state.pendingPatches.length - state.pendingPatchHead;
+        if (pendingCount > 0) {
+            const pending =
+                state.pendingPatchHead === 0
+                    ? state.pendingPatches
+                    : state.pendingPatches.slice(state.pendingPatchHead);
+
+            state.pendingPatches = [];
+            state.pendingPatchHead = 0;
+
             for (const patch of pending) {
                 applyIncomingPatch(patch);
             }
@@ -415,7 +448,7 @@ export function createWebSocketClient({
     };
 
     const queuePendingPatch = (patch: unknown): void => {
-        state.pendingPatches.push(patch);
+        enqueuePendingPatchInternal({ patch, state, maxPendingPatches });
         ensureReadinessTimer();
     };
 
@@ -550,6 +583,7 @@ export function createWebSocketClient({
 
         state.isConnected = false;
         state.pendingPatches.length = 0;
+        state.pendingPatchHead = 0;
         state.runtimeReady = false;
         clearReadinessTimer();
     }
