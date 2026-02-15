@@ -406,10 +406,9 @@ points while sharing utilities via the `src/shared/src/` module.
 
 - `@gml-modules/semantic` owns analysis: project indexing, symbol/scope metadata, and occurrence discovery.
 - `@gml-modules/refactor` owns change planning: semantic-safe rename validation and workspace edit plans.
-- `@gml-modules/plugin` stays decoupled from both and only exposes runtime contracts (`setSemanticSafetyRuntime`, `setRefactorRuntime`) used by transforms.
-- `@gml-modules/cli` is the composition root that imports semantic/refactor implementations and injects concrete adapters into the plugin runtime.
-
-This means formatter-only runs stay lightweight with local-safe fallbacks, while project-aware semantic/refactor behavior is enabled only when the integration layer wires the adapters.
+- `@gml-modules/plugin` is formatter-only (layout/canonical rendering) and does not own semantic/content rewrites.
+- `@gml-modules/lint` owns lint diagnostics plus semantic/content rewrites via rules and optional `--fix`.
+- `@gml-modules/cli` wires formatter identifier-case runtime and lint project-context settings.
 
 The `pnpm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same
@@ -504,16 +503,10 @@ Template strings that never interpolate expressions automatically collapse back 
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `optimizeLoopLengthHoisting` | `false` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. Hoisted cache names are resolved through the semantic-safety runtime when available, with local collision-safe fallback naming otherwise. |
-| `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
-| `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
 | `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only `return;` and `exit;` guard statements inside functions stay collapsed; other guard statements expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
-| `optimizeLogicalExpressions` | `false` | Runs logical-flow optimizations where safe: condenses complementary branches, rewrites else-early-exit blocks into guard clauses, eliminates temporary `var` + `return` pairs, caches repeated member access in conditions, and hoists invariant loop-condition member reads. |
-| `preserveGlobalVarStatements` | `true` | Keeps legacy `globalvar` declarations instead of using the `global.` prefix. When disabled, rewrites are gated by semantic-safety checks: project-aware runtimes can allow broader normalization, while fallback mode preserves declarations that cannot be proven safe. |
-| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`) and standardizes legacy `begin`/`end` block delimiters to `{`/`}`. Feather rename-style fixes use semantic-safety runtime guardrails and can consume refactor-engine planned rename decisions from the integration layer; fallback mode remains local-safe and reports project-wide skips. |
-| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
+
+Semantic/content rewrites previously exposed as formatter options were migrated to lint rules and are now performed through `lint --fix` (for example `gml/no-globalvar`, `gml/prefer-loop-length-hoist`, `gml/prefer-string-interpolation`, `gml/normalize-doc-comments`, `gml/require-argument-separators`).
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 

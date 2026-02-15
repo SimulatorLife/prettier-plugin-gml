@@ -139,6 +139,41 @@ void test("explicit config validation fails on missing file", async () => {
 
     await assert.rejects(() => __lintCommandTest__.validateExplicitConfigPath(missingPath));
 });
+
+void test("configureLintConfig defers discovered config selection to ESLint", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-discovery-"));
+    await fs.writeFile(path.join(tempRoot, "eslint.config.js"), "export default [];\n", "utf8");
+
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(eslintConstructorOptions.overrideConfig, undefined);
+});
+
+void test("configureLintConfig applies bundled fallback when discovery finds no config", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-fallback-"));
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(Array.isArray(eslintConstructorOptions.overrideConfig), true);
+});
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {

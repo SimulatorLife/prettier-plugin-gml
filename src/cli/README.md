@@ -23,17 +23,17 @@ pnpm run generate:lint-rule-docs
 
 ## Architecture Role: Composition Root
 
-The CLI owns cross-workspace wiring for formatter runtime adapters.
+The CLI wires formatter-only runtime integration and lint project-context settings.
 
-- It imports `@gml-modules/semantic` and `@gml-modules/refactor`.
-- It constructs concrete adapter implementations from those modules.
-- It injects adapters into plugin runtime contracts (for example via `configurePluginRuntimeAdapters(...)`).
+- `format` wires identifier-case integration for formatter parsing/printing.
+- `lint` injects project-context settings consumed by `@gml-modules/lint` project-aware rules.
+- Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
-This keeps ownership clean:
+Ownership summary:
 
-- `@gml-modules/plugin`: formatting + runtime ports
-- `@gml-modules/semantic`: analysis only
-- `@gml-modules/refactor`: rename/refactor planning
+- `@gml-modules/plugin`: formatter-only AST normalization + printing
+- `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
+- `@gml-modules/refactor`: explicit cross-file rename/refactor transactions
 
 ## Commands
 

@@ -364,7 +364,9 @@ async function configureLintConfig(parameters: {
 
     const discoveryResult = discoverFlatConfig(parameters.cwd);
     if (discoveryResult.selectedConfigPath) {
-        parameters.eslintConstructorOptions.overrideConfigFile = discoveryResult.selectedConfigPath;
+        // Intentionally let ESLint resolve and select the active config file natively.
+        // This preserves ESLint's sibling-config precedence rules and avoids CLI-side
+        // config selection divergence from direct ESLint execution.
         return 0;
     }
 
@@ -535,5 +537,6 @@ export const __lintCommandTest__ = Object.freeze({
     normalizeFormatterName,
     isSupportedFormatter,
     validateExplicitConfigPath,
+    configureLintConfig,
     collectOverlayWithoutLanguageWiringPaths
 });

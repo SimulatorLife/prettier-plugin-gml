@@ -1,12 +1,43 @@
 # Formatter/Linter Split Implementation Notes
 
-## Snapshot (2026-02-14)
+## Snapshot (2026-02-15)
 
-- Formatter/linter split migration is now functionally complete for the pinned plan direction:
+- Formatter/linter split migration is largely complete on runtime behavior:
   - formatter is strict/layout-first and does not expose legacy semantic/refactor adapter hooks;
   - lint owns migrated semantic/content rewrite responsibilities.
+- Full pinned-plan completion still has remaining architecture/doc alignment work (see current audit findings below).
 - `plugin`, `lint`, and `cli` workspace test suites are passing with zero skipped tests.
 - Legacy formatter-lint adapter integration paths were removed from active runtime wiring and tests.
+
+## Current Audit Findings (2026-02-15)
+
+### Aligned with pinned linter contracts
+
+1. Lint workspace public-surface contracts are implemented and passing:
+   - `Lint.plugin` language-plugin surface, `Lint.configs` overlays, and `Lint.ruleIds` map contracts are covered by lint contract tests.
+2. ESLint v9 language-object behavior is enforced by min/latest ESLint contract tests.
+3. Overlay guardrail behavior (`GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`) is implemented and covered with normalization/dedupe/path-sample tests.
+4. Project-context registry behavior (root resolution, hard excludes, `--index-allow`, forced-root boundaries, deterministic caching) is covered by dedicated lint tests.
+5. Missing-context emission policy (once per file per rule) and unsafe-fix reason-code declaration/validation are covered by rule contract tests.
+6. Current lint suite baseline is green (`pass 36`, `fail 0`, `skipped 0`).
+
+### Misaligned / remaining gaps against full split plan
+
+1. Shared provider end-state is not complete yet:
+   - `src/lint/src/services/project-analysis-provider.ts` currently provides a text-index provider (`createTextProjectAnalysisProvider`) rather than the target semantic-backed shared provider contract.
+   - This keeps lint and refactor analysis behavior on separate implementation paths.
+2. Lint/refactor overlap-resolution plan is incomplete:
+   - `src/refactor/src/refactor-engine.ts` still contains overlap helper implementations (`isIdentifierOccupied`, `listIdentifierOccurrences`, `planFeatherRenames`, `assessGlobalVarRewrite`, `resolveLoopHoistIdentifier`) instead of consuming one shared provider implementation.
+   - Shared-provider parity tests (same snapshot => same answers across lint/refactor consumers) are not present.
+3. Workspace-separation cleanup is functionally enforced at runtime but still disorganized in source layout:
+   - formatter transform registry still contains/exports legacy migrated transform modules that are no longer active in the default parser-prep pipeline, which increases migration ambiguity and maintenance overhead.
+
+### Remaining work to reach strict full-plan completion
+
+1. Implement a semantic-backed `ProjectAnalysisProvider` shared by lint and refactor; remove duplicate overlap capability logic from `RefactorEngine`.
+2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
+3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
+4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
 
 ## Completed Since Prior Snapshot
 
@@ -46,6 +77,9 @@
 - Runtime-wrapper patch-queue contract test was made deterministic by forcing explicit queue flush before assertions (avoids timer-flush race).
 - Hot-reload integration tests were hardened with startup-readiness/status waits and less aggressive WebSocket/status timeout defaults to avoid startup-race flakes under full-suite load.
 - Refactor validation tests now use synchronous throw assertions where validation throws before promise construction.
+- CLI lint config discovery now defers selected-user-config resolution to ESLint native behavior when a discovered config exists (no CLI first-match override), while preserving bundled fallback behavior when discovery finds none.
+- CLI lint guardrail tests now include explicit coverage that discovered config mode does not force `overrideConfigFile` and that no-config mode still injects bundled fallback config.
+- Root and CLI README migration docs were updated to remove formatter-era semantic option documentation and legacy semantic/refactor adapter ownership language.
 
 ## Test Migration Status
 
