@@ -549,7 +549,6 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
 function tryPrintVariableNode(node, path, options, print) {
     switch (node.type) {
         case EXPRESSION_STATEMENT: {
-            const expression = node.expression;
             const printed = print("expression");
             return printed === "" ? null : printed;
         }
@@ -3373,7 +3372,7 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    let aliasName = declarator.id.name;
+    const aliasName = declarator.id.name;
 
     const normalizedAliasName = normalizePreferredParameterName(aliasName);
     const normalizedInitName = normalizePreferredParameterName(declarator.init.name);

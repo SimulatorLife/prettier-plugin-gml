@@ -176,7 +176,7 @@ function createGm1003Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1000Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) => sourceText.replaceAll(/^\s*break;\s*\n?/gm, ""));
+    return createFullTextRewriteRule(entry, (sourceText) => sourceText.replaceAll(/^\s*break;\s*/gm, ""));
 }
 
 function createGm1002Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -294,7 +294,7 @@ function createGm1005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1007Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
-        const filtered = sourceText
+        return sourceText
             .split(/\r?\n/u)
             .filter((line) => {
                 const trimmed = line.trim();
@@ -314,7 +314,6 @@ function createGm1007Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return true;
             })
             .join("\n");
-        return filtered;
     });
 }
 
@@ -439,7 +438,7 @@ function createGm1015Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
         rewritten = rewritten.replaceAll(/(\b[A-Za-z_]\w*\s*=\s*[^;\n/]+)\s*\/\s*0\b/g, "$1");
-        rewritten = rewritten.replaceAll(/^\s*\w+\s*\/=\s*0\s*;\s*\n?/gm, "");
+        rewritten = rewritten.replaceAll(/^\s*\w+\s*\/=\s*0\s*;\s*/gm, "");
         rewritten = rewritten.replaceAll(/%=\s*\(\s*-?0\s*\)/g, "%= -1");
         return rewritten;
     });
@@ -488,12 +487,17 @@ function createGm1026Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         }
 
         const indentation = match[1];
-        return sourceText.replace(linePattern, `${indentation}var __featherFix_pi = pi;\n${indentation}__featherFix_pi++;`);
+        return sourceText.replace(
+            linePattern,
+            `${indentation}var __featherFix_pi = pi;\n${indentation}__featherFix_pi++;`
+        );
     });
 }
 
 function createGm1028Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) => sourceText.replaceAll(/\blst_\w*\[\?\s*/g, (prefix) => prefix.replace("[?", "[|")));
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/\blst_\w*\[\?\s*/g, (prefix) => prefix.replace("[?", "[|"))
+    );
 }
 
 function createGm1029Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -545,7 +549,7 @@ function createGm1038Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1041Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) =>
         sourceText.replaceAll(
-            /\b(instance_create_(?:depth|layer)\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*)"([A-Za-z_][A-Za-z0-9_]*)"\s*\)/g,
+            /\b(instance_create_(?:depth|layer)\([^,]+,[^,]+,[^,]+,\s*)"([A-Za-z_][A-Za-z0-9_]*)"\s*\)/g,
             (_fullMatch, prefix: string, objectName: string) => `${prefix}${objectName})`
         )
     );
@@ -594,7 +598,10 @@ function createGm1058Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
         let rewritten = sourceText;
         for (const functionName of constructorCalls) {
-            const declarationPattern = new RegExp(`\\bfunction\\s+${functionName}\\s*\\([^)]*\\)\\s*(?!constructor\\b)`, "g");
+            const declarationPattern = new RegExp(
+                String.raw`\bfunction\s+${functionName}\s*\([^)]*\)\s*(?!constructor\b)`,
+                "g"
+            );
             rewritten = rewritten.replaceAll(declarationPattern, (declaration) => `${declaration} constructor`);
         }
 
@@ -605,8 +612,9 @@ function createGm1058Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1063Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) =>
         sourceText.replaceAll(
-            /\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\(\s*texture_defined\s*\)\s*\?\s*([^:;]+)\s*:\s*-1\s*;/g,
-            (_fullMatch, identifier: string, truthyExpr: string) => `${identifier} = texture_defined ? ${truthyExpr.trim()} : pointer_null;`
+            /\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\(\s*texture_defined\s*\)\s*\?\s*([^:;]+):\s*-1\s*;/g,
+            (_fullMatch, identifier: string, truthyExpr: string) =>
+                `${identifier} = texture_defined ? ${truthyExpr.trim()} : pointer_null;`
         )
     );
 }
