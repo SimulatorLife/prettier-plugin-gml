@@ -2,18 +2,17 @@
 
 > ⚠️ The formatter is experimental. Back up your GameMaker project or commit your work before running it across large codebases.
 
-## Formatter at a glance
-
 ## Formatter/Linter split (finalized)
 
 - `@gml-modules/plugin` is formatter-only (layout/canonical rendering).
 - `@gml-modules/lint` owns semantic/content rewrites and syntax repair via diagnostics + optional `--fix`.
+- `@gml-modules/refactor` owns explicit rename/refactor transactions (cross-file edit planning/application).
 - Migration guidance and required before/after examples: [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md).
 - Auto-generated project-aware rule list: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md).
 
-See how the plugin rewrites real GameMaker Language (GML) inputs. Each example links to the corresponding regression fixture used by the automated test suite so you can diff behaviour without running the formatter locally.
+Examples below are split by ownership domain so formatter behavior is not conflated with lint/refactor behavior.
 
-#### Struct consolidation & trailing comments
+#### Formatter example (plugin): struct layout & trailing comments
 
 <table>
 <thead>
@@ -50,9 +49,9 @@ function trailing_comment() {
 </tbody>
 </table>
 
-<p align="right"><sub><a href="src/plugin/test/testStructs.input.gml#L31-L37">Input fixture</a> · <a href="src/plugin/test/testStructs.output.gml#L39-L48">Output fixture</a></sub></p>
+<p align="right"><sub><a href="src/plugin/test/fixtures/formatting/testStructs.input.gml">Input fixture</a> · <a href="src/plugin/test/fixtures/formatting/testStructs.output.gml">Output fixture</a></sub></p>
 
-#### Loop length hoisting
+#### Lint rewrite example (`lint --fix`): `gml/no-globalvar`
 
 <table>
 <thead>
@@ -63,24 +62,14 @@ function trailing_comment() {
 <td>
 
 ```gml
-for(var i=0;i<ds_queue_size(queue);i+=1){
-for(var j=0;j<array_length(arr);j+=1){
-show_debug_message($"{i}x{j}");
-}
-}
+globalvar score;
 ```
 
 </td>
 <td>
 
 ```gml
-var queue_count = ds_queue_size(queue);
-for (var i = 0; i < queue_count; i += 1) {
-    var arr_len = array_length(arr);
-    for (var j = 0; j < arr_len; j += 1) {
-        show_debug_message($"{i}x{j}");
-    }
-}
+global.score = undefined;
 ```
 
 </td>
@@ -88,7 +77,7 @@ for (var i = 0; i < queue_count; i += 1) {
 </tbody>
 </table>
 
-<p align="right"><sub><a href="src/plugin/test/testHoist.input.gml">Input fixture</a> · <a href="src/plugin/test/testHoist.output.gml">Output fixture</a></sub></p>
+<p align="right"><sub><a href="src/lint/test/fixtures/no-globalvar/input.gml">Input fixture</a> · <a href="src/lint/test/fixtures/no-globalvar/fixed.gml">Fixed fixture</a></sub></p>
 
 ---
 
@@ -104,7 +93,8 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
   step environment setup, validation commands, and a tour of the workspace
   scripts for new contributors.
-  when you need context on why the CLI and plugin expose separate entry points.
+- [Formatter/linter split plan](docs/formatter-linter-split-plan.md) &mdash; Canonical
+  ownership boundaries for formatter, lint, and refactor domains.
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator live in the dedicated
   `gamemaker-language-semantic` workspace package.
@@ -114,8 +104,8 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
   hooks that accept transpiler patches and swap them into the running HTML5
   export.
-- [Refactor engine scaffold](src/refactor/README.md) &mdash; Interim guidance for the
-  semantic-safe rename engine that will orchestrate WorkspaceEdits.
+- [Refactor engine reference](src/refactor/README.md) &mdash; Domain reference for
+  semantic-safe cross-file rename/refactor transactions.
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
   rebuilding the generated parser sources with the vendored toolchain and
   understanding where custom extensions live.
@@ -391,24 +381,25 @@ points while sharing utilities via the `src/shared/src/` module.
 
 | Package / folder | Location | Purpose |
 | --- | --- | --- |
-| `@gml-module/plugin` | `src/plugin/` | Prettier plugin entry point, printers, option handlers, CLI surface helpers, and regression fixtures. |
-| `@gml-module/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `@gml-module/cli` | `src/cli/` | Command-line interface (`dist/index.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
-| `@gml-module/semantic` | `src/semantic/` | Semantic layer for tracking variable scope, project-index orchestration. |
-| `@gml-module/core` | `src/core/` | Helper modules shared by the other packages/workspaces (AST utilities, string utilities, etc.). |
-| `@gml-module/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |
-| `@gml-module/runtime-wrapper` | `src/runtime-wrapper/` | Browser runtime hooks for live reloading during HTML5 gameplay. |
-| `@gml-module/refactor` | `src/refactor/` | Semantic-safe rename engine. |
+| `@gml-modules/plugin` | `src/plugin/` | Prettier formatter surface (layout/canonical rendering only). |
+| `@gml-modules/lint` | `src/lint/` | ESLint language plugin + lint rules for diagnostics and semantic/content rewrites. |
+| `@gml-modules/refactor` | `src/refactor/` | Explicit cross-file rename/refactor transaction planning and application. |
+| `@gml-modules/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and parser tests. |
+| `@gml-modules/cli` | `src/cli/` | CLI entry points for format/lint/refactor/watch and metadata tooling. |
+| `@gml-modules/semantic` | `src/semantic/` | Analysis layer: project indexing, symbol/scope metadata, and occurrence discovery. |
+| `@gml-modules/core` | `src/core/` | Shared AST and utility primitives. |
+| `@gml-modules/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |
+| `@gml-modules/runtime-wrapper` | `src/runtime-wrapper/` | Browser runtime hooks for live reloading during HTML5 gameplay. |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
-### Semantic vs Refactor ownership
+### Lint vs Refactor ownership
 
 - `@gml-modules/semantic` owns analysis: project indexing, symbol/scope metadata, and occurrence discovery.
 - `@gml-modules/refactor` owns change planning: semantic-safe rename validation and workspace edit plans.
 - `@gml-modules/plugin` is formatter-only (layout/canonical rendering) and does not own semantic/content rewrites.
 - `@gml-modules/lint` owns lint diagnostics plus semantic/content rewrites via rules and optional `--fix`.
-- `@gml-modules/cli` wires formatter identifier-case runtime and lint project-context settings.
+- `@gml-modules/cli` composes formatter, lint, and refactor command domains without merging ownership boundaries.
 
 The `pnpm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same

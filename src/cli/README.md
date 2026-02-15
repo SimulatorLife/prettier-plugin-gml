@@ -34,6 +34,7 @@ Ownership summary:
 - `@gml-modules/plugin`: formatter-only AST normalization + printing
 - `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
 - `@gml-modules/refactor`: explicit cross-file rename/refactor transactions
+- Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
 
 ## Commands
 
@@ -533,12 +534,10 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
 
-**Note:** Currently a placeholder for planned integration with the refactor engine (`@gml-modules/refactor`). The full implementation will:
-- Use semantic analysis to build the project's scope graph
-- Detect scope conflicts and shadowing issues
-- Plan safe edits across all affected files
-- Optionally validate hot reload compatibility
-- Apply transformations or show dry-run previews
+**Ownership note:** `refactor` is a separate domain from lint.
+- Use `lint --fix` for lint-owned diagnostics/content rewrites.
+- Use `refactor` for explicit symbol rename/refactor transactions with cross-file edit planning.
+- Refactor operations are not lint rule fixes and are not executed through formatter runtime adapters.
 
 **Use Cases:**
 - **Safe Renaming**: Rename variables, scripts, or other symbols project-wide without breaking scope
@@ -546,12 +545,11 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - **Hot Reload Validation**: Ensure refactored code remains compatible with live updates using `--check-hot-reload`
 - **Development Workflow Integration**: Coordinate with watch mode for real-time refactoring feedback
 
-**Future Enhancements:**
-- Full refactor engine integration with semantic analysis
-- Support for batch renames across multiple symbols
-- Automatic formatting of modified files
-- Integration with watch command for live refactor triggers
-- Refactor history and undo capabilities
+**Current scope:**
+- Safe rename planning/execution
+- Dry-run preview support
+- Hot-reload validation integration
+- Verbose diagnostics for conflict/impact review
 
 ### `generate-gml-identifiers` - Generate Identifier Metadata
 
@@ -746,13 +744,13 @@ Provides ANTLR-based GML parsing used by the transpiler.
 ✅ **Integrated** - Converts GML AST to JavaScript for hot-reload patches.
 
 ### Semantic (`src/semantic`)
-🚧 Future - Will provide scope analysis and dependency tracking.
+✅ **Integrated** - Supplies analysis data consumed by lint project-context services and refactor planning.
 
 ### Runtime Wrapper (`src/runtime-wrapper`)
 ✅ **Ready** - Has WebSocket client and patch application, ready to receive patches.
 
 ### Refactor (`src/refactor`)
-🚧 Future - Will coordinate with watch command for safe renames.
+✅ **Integrated** - Powers explicit cross-file rename/refactor transactions (`cli refactor`).
 
 ## References
 

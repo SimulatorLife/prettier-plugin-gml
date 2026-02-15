@@ -1,5 +1,6 @@
 import * as HotReloadAPI from "./hot-reload.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
+import * as ProjectAnalysisProviderAPI from "./project-analysis-provider.js";
 import * as RefactorAPI from "./refactor-engine.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -23,6 +24,7 @@ import { WorkspaceEdit } from "./workspace-edit.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
+    ...ProjectAnalysisProviderAPI,
     WorkspaceEdit,
     SemanticQueryCache,
     RenameValidationCache,
@@ -60,6 +62,7 @@ export {
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
 export { RefactorEngine } from "./refactor-engine.js";
+export { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
     formatBatchRenamePlanReport,
@@ -105,6 +108,7 @@ export type {
     PrepareRenamePlanOptions,
     Range,
     RefactorEngineDependencies,
+    RefactorProjectAnalysisProvider,
     RenameImpactAnalysis,
     RenameImpactGraph,
     RenameImpactNode,

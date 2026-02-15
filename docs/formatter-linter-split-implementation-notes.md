@@ -25,16 +25,14 @@
 
 1. Shared provider end-state is not complete yet:
    - `src/lint/src/services/project-analysis-provider.ts` currently provides a text-index provider (`createTextProjectAnalysisProvider`) rather than the target semantic-backed shared provider contract.
-   - This keeps lint and refactor analysis behavior on separate implementation paths.
-2. Lint/refactor overlap-resolution plan is incomplete:
-   - `src/refactor/src/refactor-engine.ts` still contains overlap helper implementations (`isIdentifierOccupied`, `listIdentifierOccurrences`, `planFeatherRenames`, `assessGlobalVarRewrite`, `resolveLoopHoistIdentifier`) instead of consuming one shared provider implementation.
-   - Shared-provider parity tests (same snapshot => same answers across lint/refactor consumers) are not present.
+   - Refactor now consumes a dedicated provider (`src/refactor/src/project-analysis-provider.ts`), but lint and refactor are still not wired to the same semantic-backed provider implementation.
+2. Shared-provider parity tests (same snapshot => same answers across lint/refactor consumers) are not present yet.
 3. Workspace-separation cleanup is functionally enforced at runtime but still disorganized in source layout:
    - formatter transform registry still contains/exports legacy migrated transform modules that are no longer active in the default parser-prep pipeline, which increases migration ambiguity and maintenance overhead.
 
 ### Remaining work to reach strict full-plan completion
 
-1. Implement a semantic-backed `ProjectAnalysisProvider` shared by lint and refactor; remove duplicate overlap capability logic from `RefactorEngine`.
+1. Implement a semantic-backed `ProjectAnalysisProvider` shared by lint and refactor, including resolution of the lint sync context API versus semantic async index build boundary.
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
@@ -80,6 +78,8 @@
 - CLI lint config discovery now defers selected-user-config resolution to ESLint native behavior when a discovered config exists (no CLI first-match override), while preserving bundled fallback behavior when discovery finds none.
 - CLI lint guardrail tests now include explicit coverage that discovered config mode does not force `overrideConfigFile` and that no-config mode still injects bundled fallback config.
 - Root and CLI README migration docs were updated to remove formatter-era semantic option documentation and legacy semantic/refactor adapter ownership language.
+- Refactor overlap helper logic was extracted from `RefactorEngine` to a dedicated provider contract/module (`src/refactor/src/project-analysis-provider.ts`), and the engine now consumes that provider via dependency injection/default provider wiring.
+- Refactor provider delegation coverage was added (`src/refactor/test/project-analysis-provider.test.ts`) to enforce that engine overlap methods delegate through provider surface rather than embedding logic in the engine class.
 
 ## Test Migration Status
 
