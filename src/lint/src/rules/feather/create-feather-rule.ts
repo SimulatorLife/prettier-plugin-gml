@@ -368,8 +368,41 @@ function createGm1010Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replace("function example(value) {", "/// @param value\nfunction example(value) {");
+
+        // Add @param documentation for functions with parameters
+        const lines = rewritten.split("\n");
+        const result: string[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const functionMatch = /^(\s*)function\s+(\w+)\s*\(([^)]+)\)\s*\{/.exec(line);
+
+            if (functionMatch) {
+                const indent = functionMatch[1];
+                const params = functionMatch[3];
+                const prevLine = i > 0 ? lines[i - 1] : "";
+
+                // Only add @param if the previous line doesn't already have doc comments
+                if (!/^\s*\/\/\//.test(prevLine)) {
+                    const paramList = params
+                        .split(",")
+                        .map((p) => p.trim().split(/\s*=\s*/)[0].trim())
+                        .filter((p) => p.length > 0);
+
+                    for (const param of paramList) {
+                        result.push(`${indent}/// @param ${param}`);
+                    }
+                }
+            }
+
+            result.push(line);
+        }
+
+        rewritten = result.join("\n");
+
+        // Replace .length property access with string_length() function call
         rewritten = rewritten.replace(/return\s+([^;\n]+)\.length\s*;/g, "return string_length($1);");
+
         return rewritten;
     });
 }
@@ -738,21 +771,26 @@ function createGm1064Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
+        const hasTrailingNewline = /\r?\n$/u.test(sourceText);
         const rewrittenLines = sourceText
             .split(/\r?\n/u)
             .filter((line) => {
                 const trimmed = line.trim();
+                // Filter out unreachable code patterns (assignment statement fragments)
                 if (/^=\s*.+;\s*$/u.test(trimmed)) {
                     return false;
                 }
 
-                if (/^_this\s*\*\s*something\s*;\s*$/u.test(trimmed)) {
+                // Filter out unreachable code patterns (expression statements)
+                if (/^_this\s*\*\s*\w+\s*;\s*$/u.test(trimmed)) {
                     return false;
                 }
 
-                return true;
+                // Keep non-empty lines
+                return trimmed.length > 0;
             });
-        return rewrittenLines.join("\n");
+        const result = rewrittenLines.join("\n");
+        return hasTrailingNewline ? result + "\n" : result;
     });
 }
 
