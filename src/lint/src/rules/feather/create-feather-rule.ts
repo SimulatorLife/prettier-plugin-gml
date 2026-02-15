@@ -172,7 +172,7 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                             }
 
                             const memberMatch =
-                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
+                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*[^,\n]+)?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
                                     trimmed
                                 );
                             if (!memberMatch?.groups?.name) {
