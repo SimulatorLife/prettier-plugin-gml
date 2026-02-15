@@ -250,6 +250,46 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     assert.deepEqual(offendingPaths, []);
 });
 
+void test("processor normalization treats default/none sentinels as equivalent", () => {
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(""), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("   "), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("gml/processor"), "gml/processor");
+});
+
+void test("processor enforcement fails when active processor is observable and non-default", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { processor: "markdown/markdown" };
+            }
+        },
+        results: [{ filePath: "/tmp/processor.gml" }],
+        verbose: false
+    });
+
+    assert.equal(evaluation.exitCode, 2);
+    assert.match(evaluation.message ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_UNSUPPORTED_ERROR_CODE}:`));
+    assert.equal(evaluation.warning, null);
+});
+
+void test("processor enforcement emits verbose observability warning when processor cannot be observed", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { language: "gml/gml" };
+            }
+        },
+        results: [{ filePath: "/tmp/observability.gml" }],
+        verbose: true
+    });
+
+    assert.equal(evaluation.exitCode, 0);
+    assert.equal(evaluation.message, null);
+    assert.match(evaluation.warning ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_OBSERVABILITY_WARNING_CODE}:`));
+});
+
 void test("runLintCommand maps semantic provider prebuild failures to exit code 2", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-provider-failure-"));
     const previousCwd = process.cwd();

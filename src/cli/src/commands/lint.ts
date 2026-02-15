@@ -48,10 +48,13 @@ type ResolvedConfigLike = {
     plugins?: Record<string, unknown> | null | undefined;
     language?: unknown;
     rules?: Record<string, unknown> | null | undefined;
+    processor?: unknown;
 };
 
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
+const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
+const PROCESSOR_OBSERVABILITY_WARNING_CODE = "GML_PROCESSOR_OBSERVABILITY_UNAVAILABLE";
 
 function discoverFlatConfig(cwd: string): DiscoveryResult {
     const searchedPaths: Array<string> = [];
@@ -411,6 +414,31 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+function normalizeProcessorIdentityForEnforcement(processor: unknown): string | null {
+    if (processor === null || processor === undefined) {
+        return null;
+    }
+
+    if (typeof processor === "string") {
+        const normalized = processor.trim();
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    return "<non-string-processor>";
+}
+
+function toProcessorUnsupportedMessage(filePath: string, processorIdentity: string): string {
+    return `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: unsupported active processor for ${filePath}: ${processorIdentity}`;
+}
+
+function toProcessorObservabilityUnavailableMessage(): string {
+    return `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: active processor identity is not observable in resolved ESLint config; skipping processor enforcement.`;
+}
+
 type ConfigLookupEslintLike = {
     calculateConfigForFile(filePath: string): Promise<unknown>;
 };
@@ -455,6 +483,55 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     }
 
     console.warn(formatOverlayWarning(offendingPaths));
+}
+
+async function enforceProcessorPolicyForGmlFiles(parameters: {
+    eslint: ConfigLookupEslintLike;
+    results: Array<LintResultFilePathLike>;
+    verbose: boolean;
+}): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
+    const gmlFilePaths = parameters.results
+        .map((result) => result.filePath)
+        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+
+    if (gmlFilePaths.length === 0) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    const resolvedEntries = await Promise.all(
+        gmlFilePaths.map(async (filePath) => ({
+            filePath,
+            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+        }))
+    );
+
+    const observedEntries = resolvedEntries.filter(({ config }) => Object.hasOwn(config, "processor"));
+    if (observedEntries.length > 0) {
+        for (const entry of observedEntries) {
+            const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
+            if (normalizedProcessor === null) {
+                continue;
+            }
+
+            return {
+                exitCode: 2,
+                message: toProcessorUnsupportedMessage(entry.filePath, normalizedProcessor),
+                warning: null
+            };
+        }
+
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    if (!parameters.verbose) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    return {
+        exitCode: 0,
+        message: null,
+        warning: toProcessorObservabilityUnavailableMessage()
+    };
 }
 
 async function loadRequestedFormatter(
@@ -628,6 +705,25 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
 
+    const processorPolicy = await enforceProcessorPolicyForGmlFiles({
+        eslint,
+        results,
+        verbose: options.verbose
+    });
+
+    if (processorPolicy.warning) {
+        console.warn(processorPolicy.warning);
+    }
+
+    if (processorPolicy.exitCode !== 0) {
+        if (processorPolicy.message) {
+            console.error(processorPolicy.message);
+        }
+
+        setProcessExitCode(processorPolicy.exitCode);
+        return;
+    }
+
     const outOfRootPaths = results
         .map((result) => result.filePath)
         .filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
@@ -694,5 +790,9 @@ export const __lintCommandTest__ = Object.freeze({
     isSupportedFormatter,
     validateExplicitConfigPath,
     configureLintConfig,
-    collectOverlayWithoutLanguageWiringPaths
+    collectOverlayWithoutLanguageWiringPaths,
+    normalizeProcessorIdentityForEnforcement,
+    enforceProcessorPolicyForGmlFiles,
+    PROCESSOR_UNSUPPORTED_ERROR_CODE,
+    PROCESSOR_OBSERVABILITY_WARNING_CODE
 });
