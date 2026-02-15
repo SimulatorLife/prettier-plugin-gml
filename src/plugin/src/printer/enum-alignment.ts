@@ -152,38 +152,6 @@ function collectSingleMemberStats(member, resolveName) {
     };
 }
 
-/**
- * Compute the maximum name length among members that have initializers.
- *
- * @param {Array<{nameLength: number; hasInitializer: boolean}>} memberStats
- *        Array of member statistics.
- * @returns {number} Maximum name length for members with initializers, or 0.
- */
-function computeMaxInitializerNameLength(memberStats) {
-    let maxLength = 0;
-    for (const entry of memberStats) {
-        if (entry.hasInitializer && entry.nameLength > maxLength) {
-            maxLength = entry.nameLength;
-        }
-    }
-    return maxLength;
-}
-
-/**
- * Check whether all enum members have initializers.
- *
- * @param {Array<{hasInitializer: boolean}>} memberStats Array of member statistics.
- * @returns {boolean} True if all members have initializers.
- */
-function checkAllMembersHaveInitializers(memberStats) {
-    for (const entry of memberStats) {
-        if (!entry.hasInitializer) {
-            return false;
-        }
-    }
-    return true;
-}
-
 function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = Array.from({ length: memberCount });
@@ -198,12 +166,22 @@ function collectEnumMemberStats(members, resolveName) {
     // more aggressive inline code. The tradeoff is slightly more verbose iteration logic
     // in exchange for faster enum printing, which matters because enum alignment is one
     // of the formatter's performance bottlenecks when handling large GameMaker projects.
-    for (let index = 0; index < memberCount; index += 1) {
-        memberStats[index] = collectSingleMemberStats(members[index], resolveName);
-    }
+    //
+    // We also compute maxInitializerNameLength and allMembersHaveInitializer in a single
+    // pass to avoid multiple O(n) iterations over the memberStats array.
+    let maxInitializerNameLength = 0;
+    let allMembersHaveInitializer = true;
 
-    const maxInitializerNameLength = computeMaxInitializerNameLength(memberStats);
-    const allMembersHaveInitializer = checkAllMembersHaveInitializers(memberStats);
+    for (let index = 0; index < memberCount; index += 1) {
+        const stats = collectSingleMemberStats(members[index], resolveName);
+        memberStats[index] = stats;
+
+        if (stats.hasInitializer && stats.nameLength > maxInitializerNameLength) {
+            maxInitializerNameLength = stats.nameLength;
+        } else if (!stats.hasInitializer) {
+            allMembersHaveInitializer = false;
+        }
+    }
 
     return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };
 }
