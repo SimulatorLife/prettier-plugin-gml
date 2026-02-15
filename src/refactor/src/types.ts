@@ -4,37 +4,58 @@
  * that coordinate semantic analysis, transpiler integration, and safe renaming.
  */
 
+import { Core } from "@gml-modules/core";
+
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
 
 export type Range = { start: number; end: number };
 
+const { createEnumeratedOptionHelpers } = Core;
+
 /**
- * Generic helper for creating type-safe enum validators.
- * Eliminates boilerplate for type guard, parser, and require functions.
+ * Create type-safe enum validators with case-sensitive matching.
+ * Adapts Core's createEnumeratedOptionHelpers for strict enum validation.
+ *
+ * @param enumObj - Enum object with string values
+ * @param typeName - Human-readable name for error messages
+ * @returns Helper object with is, parse, and require methods
  */
 function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeName: string) {
     type EnumValue = T[keyof T];
-    const values = Object.freeze(Object.values(enumObj)) as ReadonlyArray<EnumValue>;
-    const valueSet: ReadonlySet<string> = new Set(values);
+    const values = Object.values(enumObj);
+    const validValues = values.join(", ");
 
-    const is = (value: unknown): value is EnumValue => typeof value === "string" && valueSet.has(value);
+    const coreHelpers = createEnumeratedOptionHelpers(values, {
+        caseSensitive: true,
+        enforceStringType: false // We'll handle type enforcement manually for better error messages
+    });
 
-    const parse = (value: unknown): EnumValue | null => (is(value) ? value : null);
-
-    const require = (value: unknown, context?: string): EnumValue => {
-        if (!is(value)) {
-            const validValues = values.join(", ");
+    return {
+        is: (value: unknown): value is EnumValue => {
+            return typeof value === "string" && coreHelpers.normalize(value) !== null;
+        },
+        parse: (value: unknown): EnumValue | null => {
+            return coreHelpers.normalize(value) as EnumValue | null;
+        },
+        require: (value: unknown, context?: string): EnumValue => {
+            if (typeof value !== "string") {
+                const contextInfo = context ? ` (in ${context})` : "";
+                throw new TypeError(
+                    `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
+                );
+            }
+            const normalized = coreHelpers.normalize(value);
+            if (normalized !== null) {
+                return normalized as EnumValue;
+            }
             const contextInfo = context ? ` (in ${context})` : "";
             throw new TypeError(
                 `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
             );
         }
-        return value;
     };
-
-    return { is, parse, require };
 }
 
 /**
