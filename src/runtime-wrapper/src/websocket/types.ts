@@ -49,6 +49,7 @@ export interface WebSocketClientState {
     connectionMetrics: WebSocketConnectionMetrics;
     patchQueue: PatchQueueState | null;
     pendingPatches: Array<unknown>;
+    pendingPatchHead: number;
     readinessTimer: ReturnType<typeof setInterval> | null;
     runtimeReady: boolean;
 }

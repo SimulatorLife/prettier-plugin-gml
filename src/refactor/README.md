@@ -1,27 +1,28 @@
 # Refactor Engine Module
 
-This package will power semantic refactoring workflows such as safe renames, as outlined in
+This package powers semantic refactoring workflows such as safe renames, as outlined in
 `docs/semantic-scope-plan.md` and the hot-reload lifecycle in `docs/live-reloading-concept.md`.
 It consumes parser spans and semantic bindings to plan WorkspaceEdits that the CLI can apply
 atomically across the project.
 
 ## Ownership Boundaries
 
-`@gml-modules/refactor` owns project-aware code-change planning.
+`@gml-modules/refactor` owns explicit cross-file rename/refactor transactions.
 
 - Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
 - Owns rename validation, conflict detection, and workspace edit planning/application.
 - Is the only layer that should decide whether a rename requires cross-file edits.
 
-It does not replace the formatter:
+It does not replace lint or formatter domains:
 
-- `@gml-modules/plugin` keeps local formatting transforms and runtime ports only.
-- `@gml-modules/cli` is the composition root that wires refactor adapters into plugin runtime contracts.
+- `@gml-modules/lint` owns lint diagnostics and lint-rule autofix rewrites.
+- `@gml-modules/plugin` is formatter-only (layout/canonical rendering) and does not own refactor transactions.
+- `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities
 - Query parser span data and semantic bindings to map identifiers to source ranges.
 - Plan edits that avoid scope capture or shadowing, and surface validation diagnostics.
-- Offer composable helpers so CLI commands can trigger refactors and post-formatting steps.
+- Offer composable helpers so CLI commands can trigger explicit refactor transactions.
 - Re-run targeted analysis after edits to ensure symbol bindings remain stable.
 - Support batch rename operations for refactoring related symbols atomically.
 - Provide detailed impact analysis for dry-run scenarios.

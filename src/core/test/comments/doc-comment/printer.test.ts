@@ -52,6 +52,28 @@ void test("collectLeadingProgramLineComments returns plain // comments", () => {
     assert.deepStrictEqual(lines, ["// banner", "// following"]);
 });
 
+void test("collectLeadingProgramLineComments ignores non-line and printed comments", () => {
+    const programNode = {
+        comments: [
+            null,
+            { type: "CommentBlock", value: "* @description ignored", start: { index: 0 }, end: { index: 9 } },
+            {
+                type: "CommentLine",
+                value: "// already printed",
+                start: { index: 10 },
+                end: { index: 29 },
+                printed: true
+            },
+            createLineComment("// retained", 30, 40)
+        ]
+    };
+    const node = { start: { index: 50 } };
+
+    const lines = Core.collectLeadingProgramLineComments(node, programNode, {}, "// retained\nfunction foo() {}");
+
+    assert.deepStrictEqual(lines, ["// retained"]);
+});
+
 void test("extractLeadingNonDocCommentLines keeps plain comments only", () => {
     const comments = [createLineComment("// plain", 0, 4), createLineComment("/// @description", 5, 10)];
 

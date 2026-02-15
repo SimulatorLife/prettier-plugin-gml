@@ -18,7 +18,7 @@
   "scripts": {
     "build:types": "tsc -p tsconfig.json",
     "clean:types": "rm -rf dist",
-    "test": "pnpm run build:types && node --test dist/test/*.test.js",
+    "test": "pnpm run clean:types && pnpm run build:types && node --test dist/test/*.test.js",
     "prettier:plugin:raw": "pnpm run build:types && pnpm exec -- prettier $npm_config_path --plugin=$npm_package_config_root_path/dist/src/plugin-entry.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
     "example": "pnpm run prettier:plugin:raw --path=test/test14.input.gml",
     "prettier:plugin": "pnpm run build:types && pnpm --filter @gml-modules/cli run build:types && node ../cli/dist/index.js $npm_config_path"

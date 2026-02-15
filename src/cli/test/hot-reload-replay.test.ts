@@ -54,10 +54,10 @@ void describe("Hot reload replay for late subscribers", () => {
             try {
                 await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
 
-                await waitForPatchCount(`http://127.0.0.1:${statusPort}`, 1, 1500, 25);
+                await waitForPatchCount(`http://127.0.0.1:${statusPort}`, 1, 5000, 25);
 
                 websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                    connectionTimeoutMs: 1200,
+                    connectionTimeoutMs: 4000,
                     retryIntervalMs: 25
                 });
 

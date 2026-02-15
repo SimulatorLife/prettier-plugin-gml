@@ -484,6 +484,11 @@ function canDropStatementAfterEarlyExit(node, helpers) {
     return canDropUnreachableStatement(node, helpers);
 }
 
+// Early-exit statement detection with plugin-specific constraints.
+// This function extends Core.isControlFlowExitStatement() with additional checks for
+// comment presence and return argument nullity, which are specific to the logical
+// expression condensation logic. By building on the Core type guard, we eliminate
+// the duplicated type checks while preserving the transform-specific constraints.
 function isEarlyExitStatement(node, helpers) {
     if (!isNode(node)) {
         return false;
@@ -493,24 +498,23 @@ function isEarlyExitStatement(node, helpers) {
         return false;
     }
 
-    switch (node.type) {
-        case "ExitStatement":
-        case "BreakStatement":
-        case "ContinueStatement": {
-            return true;
-        }
-        case "ReturnStatement": {
-            const argument = node.argument ?? null;
-            if (argument && helpers.hasComment(argument)) {
-                return false;
-            }
+    // Use Core type guard as foundation, then apply specific constraints
+    if (!Core.isControlFlowExitStatement(node)) {
+        return false;
+    }
 
-            return argument === null;
-        }
-        default: {
+    // Special handling for return statements: only consider empty returns as early exits
+    if (node.type === "ReturnStatement") {
+        const argument = node.argument ?? null;
+        if (argument && helpers.hasComment(argument)) {
             return false;
         }
+
+        return argument === null;
     }
+
+    // For Break, Continue, Exit, Throw: always consider them early exits
+    return true;
 }
 
 function isIgnorableEmptyStatement(node, helpers) {

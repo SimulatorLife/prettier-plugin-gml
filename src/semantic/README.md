@@ -13,8 +13,9 @@ This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) t
 Downstream tools consume semantic data:
 
 - `@gml-modules/refactor` uses semantic data to validate and plan workspace edits.
-- `@gml-modules/cli` composes semantic + refactor adapters and injects them into plugin runtime ports.
-- `@gml-modules/plugin` consumes only runtime contracts, not semantic internals.
+- `@gml-modules/lint` uses semantic-backed/project-aware analysis services for lint rules.
+- `@gml-modules/cli` composes semantic consumers for lint/refactor command execution and formatter identifier-case runtime integration.
+- `@gml-modules/plugin` consumes only formatter runtime contracts, not semantic internals.
 
 ## Semantic Oracle
 

@@ -1,3 +1,5 @@
+import { Core } from "@gml-modules/core";
+
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import { isErrorLike, toArray } from "../runtime/runtime-core-helpers.js";
@@ -151,8 +153,11 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         queueState.flushTimer = null;
     }
 
-    // Extract patches from queueHead to end without copying the array
-    const patchesToFlush = queueState.queue.slice(queueState.queueHead);
+    // Fast path: when no drops have occurred (queueHead === 0), reuse the
+    // existing queue array directly instead of slicing into a new array.
+    // This avoids an allocation for the common case where patches are flushed
+    // by timer/size before any overflow compaction is needed.
+    const patchesToFlush = queueState.queueHead === 0 ? queueState.queue : queueState.queue.slice(queueState.queueHead);
     const flushSize = patchesToFlush.length;
 
     // Reset queue to release old references for garbage collection
@@ -207,6 +212,29 @@ type EnqueuePatchOptions = {
     scheduleFlush: () => void;
     logger?: Logger;
 };
+
+type PendingPatchQueueOptions = {
+    patch: unknown;
+    state: WebSocketClientState;
+    maxPendingPatches: number;
+};
+
+function enqueuePendingPatchInternal(options: PendingPatchQueueOptions): void {
+    const { patch, state, maxPendingPatches } = options;
+
+    const effectivePendingCount = state.pendingPatches.length - state.pendingPatchHead;
+    if (effectivePendingCount >= maxPendingPatches) {
+        state.pendingPatchHead += 1;
+
+        const compactionThreshold = maxPendingPatches * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
+        if (state.pendingPatchHead >= compactionThreshold) {
+            state.pendingPatches = state.pendingPatches.slice(state.pendingPatchHead);
+            state.pendingPatchHead = 0;
+        }
+    }
+
+    state.pendingPatches.push(patch);
+}
 
 function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     const { patch, state, maxQueueSize, flushQueuedPatches, scheduleFlush, logger } = options;
@@ -356,6 +384,7 @@ export function createWebSocketClient({
     const queueEnabled = patchQueue?.enabled ?? false;
     const maxQueueSize = patchQueue?.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
     const flushIntervalMs = patchQueue?.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
+    const maxPendingPatches = maxQueueSize;
 
     const state: WebSocketClientState = {
         ws: null,
@@ -365,6 +394,7 @@ export function createWebSocketClient({
         connectionMetrics: createInitialMetrics(),
         patchQueue: queueEnabled ? createPatchQueueState() : null,
         pendingPatches: [],
+        pendingPatchHead: 0,
         readinessTimer: null,
         runtimeReady: false
     };
@@ -385,8 +415,16 @@ export function createWebSocketClient({
 
         ensureApplicationSurfaceAccessor();
 
-        if (state.pendingPatches.length > 0) {
-            const pending = state.pendingPatches.splice(0);
+        const pendingCount = state.pendingPatches.length - state.pendingPatchHead;
+        if (pendingCount > 0) {
+            const pending =
+                state.pendingPatchHead === 0
+                    ? state.pendingPatches
+                    : state.pendingPatches.slice(state.pendingPatchHead);
+
+            state.pendingPatches = [];
+            state.pendingPatchHead = 0;
+
             for (const patch of pending) {
                 applyIncomingPatch(patch);
             }
@@ -410,7 +448,7 @@ export function createWebSocketClient({
     };
 
     const queuePendingPatch = (patch: unknown): void => {
-        state.pendingPatches.push(patch);
+        enqueuePendingPatchInternal({ patch, state, maxPendingPatches });
         ensureReadinessTimer();
     };
 
@@ -545,6 +583,7 @@ export function createWebSocketClient({
 
         state.isConnected = false;
         state.pendingPatches.length = 0;
+        state.pendingPatchHead = 0;
         state.runtimeReady = false;
         clearReadinessTimer();
     }
@@ -755,11 +794,11 @@ function parseWebSocketPayload(
 }
 
 function isStructuredPayload(value: unknown): value is object {
-    return Boolean(value) && typeof value === "object" && !isBinaryPayload(value);
+    return Boolean(value) && typeof value === "object" && !Core.isBinaryDataLike(value);
 }
 
 function isBinaryPayload(value: unknown): value is ArrayBuffer | ArrayBufferView {
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+    return Core.isBinaryDataLike(value);
 }
 
 function decodeBinaryPayload(
@@ -781,7 +820,7 @@ function decodeBinaryPayload(
 }
 
 function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
-    if (payload instanceof ArrayBuffer) {
+    if (Core.isArrayBufferLike(payload)) {
         return new Uint8Array(payload);
     }
 

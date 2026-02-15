@@ -8,10 +8,15 @@ import {
     hasFunction,
     hasIterableItems,
     isAggregateErrorLike,
+    isArrayBufferLike,
+    isArrayBufferViewLike,
+    isBinaryDataLike,
+    isDateLike,
     isErrorLike,
     isMapLike,
     isRegExpLike,
     isSetLike,
+    isUint8ArrayLike,
     isWorkspaceEditLike
 } from "../src/utils/capability-probes.js";
 
@@ -181,5 +186,116 @@ void describe("capability probes", () => {
             }),
             false
         );
+    });
+
+    void it("detects date-like values", () => {
+        const realDate = new Date();
+        assert.equal(isDateLike(realDate), true);
+
+        const dateLike = {
+            toISOString: () => "2026-02-14T08:00:00.000Z",
+            getTime: () => 1_739_516_400_000,
+            getFullYear: () => 2026
+        };
+        assert.equal(isDateLike(dateLike), true);
+
+        assert.equal(isDateLike({ toISOString: () => "2026-02-14" }), false);
+        assert.equal(isDateLike({ getTime: () => 123 }), false);
+        assert.equal(isDateLike(null), false);
+        assert.equal(isDateLike("2026-02-14"), false);
+    });
+
+    void it("detects ArrayBuffer-like values", () => {
+        const realBuffer = new ArrayBuffer(16);
+        assert.equal(isArrayBufferLike(realBuffer), true);
+
+        const bufferLike = {
+            byteLength: 16,
+            slice: () => new ArrayBuffer(8)
+        };
+        assert.equal(isArrayBufferLike(bufferLike), true);
+
+        assert.equal(isArrayBufferLike({ byteLength: 16 }), false);
+        assert.equal(isArrayBufferLike({ slice: () => {} }), false);
+        assert.equal(isArrayBufferLike(null), false);
+    });
+
+    void it("detects ArrayBufferView-like values", () => {
+        const uint8Array = new Uint8Array(16);
+        assert.equal(isArrayBufferViewLike(uint8Array), true);
+
+        const int32Array = new Int32Array(8);
+        assert.equal(isArrayBufferViewLike(int32Array), true);
+
+        const dataView = new DataView(new ArrayBuffer(16));
+        assert.equal(isArrayBufferViewLike(dataView), true);
+
+        const viewLike = {
+            buffer: new ArrayBuffer(16),
+            byteOffset: 0,
+            byteLength: 16
+        };
+        assert.equal(isArrayBufferViewLike(viewLike), true);
+
+        assert.equal(isArrayBufferViewLike({ buffer: new ArrayBuffer(8) }), false);
+        assert.equal(isArrayBufferViewLike(new ArrayBuffer(16)), false);
+        assert.equal(isArrayBufferViewLike(null), false);
+    });
+
+    void it("detects binary data (ArrayBuffer or ArrayBufferView)", () => {
+        const buffer = new ArrayBuffer(16);
+        const uint8 = new Uint8Array(16);
+        const dataView = new DataView(new ArrayBuffer(16));
+
+        assert.equal(isBinaryDataLike(buffer), true);
+        assert.equal(isBinaryDataLike(uint8), true);
+        assert.equal(isBinaryDataLike(dataView), true);
+
+        const bufferLike = {
+            byteLength: 16,
+            slice: () => new ArrayBuffer(8)
+        };
+        assert.equal(isBinaryDataLike(bufferLike), true);
+
+        const viewLike = {
+            buffer: new ArrayBuffer(16),
+            byteOffset: 0,
+            byteLength: 16
+        };
+        assert.equal(isBinaryDataLike(viewLike), true);
+
+        assert.equal(isBinaryDataLike(null), false);
+        assert.equal(isBinaryDataLike("binary"), false);
+        assert.equal(isBinaryDataLike([1, 2, 3]), false);
+    });
+
+    void it("detects Uint8Array-like values specifically", () => {
+        const uint8 = new Uint8Array(16);
+        assert.equal(isUint8ArrayLike(uint8), true);
+
+        const uint8Clamped = new Uint8ClampedArray(16);
+        assert.equal(isUint8ArrayLike(uint8Clamped), true);
+
+        const int32 = new Int32Array(8);
+        assert.equal(isUint8ArrayLike(int32), false);
+
+        const uint8Like = {
+            buffer: new ArrayBuffer(16),
+            byteOffset: 0,
+            byteLength: 16,
+            BYTES_PER_ELEMENT: 1
+        };
+        assert.equal(isUint8ArrayLike(uint8Like), true);
+
+        const int32Like = {
+            buffer: new ArrayBuffer(16),
+            byteOffset: 0,
+            byteLength: 16,
+            BYTES_PER_ELEMENT: 4
+        };
+        assert.equal(isUint8ArrayLike(int32Like), false);
+
+        assert.equal(isUint8ArrayLike(new ArrayBuffer(16)), false);
+        assert.equal(isUint8ArrayLike(null), false);
     });
 });

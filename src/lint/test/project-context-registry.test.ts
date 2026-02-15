@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as LintWorkspace from "../index.js";
+import * as LintWorkspace from "../src/index.js";
+import type { ProjectAnalysisProvider } from "../src/services/index.js";
 
 function createProject(tempRoot: string, relativePath: string, projectName: string): string {
     const projectRoot = path.join(tempRoot, relativePath);
@@ -95,7 +96,7 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
     const excludedFile = path.join(excludedDirectory, "generated.gml");
 
     mkdirSync(excludedDirectory, { recursive: true });
-    writeFileSync(excludedFile, "", "utf8");
+    writeFileSync(excludedFile, "var generated_score = 1;\n", "utf8");
 
     const withoutAllow = LintWorkspace.Lint.services.createProjectLintContextRegistry({
         cwd: tempRoot,
@@ -109,7 +110,104 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
     });
 
     assert.equal(withoutAllow.getContext(excludedFile), null);
-    assert.ok(withAllow.getContext(excludedFile));
+    const allowedContext = withAllow.getContext(excludedFile);
+    assert.ok(allowedContext);
+    assert.equal(allowedContext?.isIdentifierNameOccupiedInProject("generated_score"), true);
+
+    rmSync(tempRoot, { recursive: true, force: true });
+});
+
+void test("indexed project context exposes capability-backed identifier helpers", () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), "lint-capabilities-"));
+    const projectRoot = createProject(tempRoot, "project", "project");
+    const scriptFile = path.join(projectRoot, "scripts", "test.gml");
+
+    mkdirSync(path.dirname(scriptFile), { recursive: true });
+    writeFileSync(scriptFile, "var player_score = 0;\nplayer_score += 1;\n", "utf8");
+
+    const registry = LintWorkspace.Lint.services.createProjectLintContextRegistry({
+        cwd: tempRoot,
+        forcedProjectPath: null,
+        indexAllowDirectories: []
+    });
+
+    const context = registry.getContext(scriptFile);
+    assert.ok(context);
+    if (!context) {
+        return;
+    }
+
+    assert.equal(context.capabilities.has("IDENTIFIER_OCCUPANCY"), true);
+    assert.equal(context.capabilities.has("IDENTIFIER_OCCURRENCES"), true);
+    assert.equal(context.isIdentifierNameOccupiedInProject("player_score"), true);
+    assert.equal(context.isIdentifierNameOccupiedInProject("unknown_identifier"), false);
+
+    const files = context.listIdentifierOccurrenceFiles("player_score");
+    assert.equal(files.size > 0, true);
+    assert.equal(context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"])), "player_score_1");
+    assert.equal(context.assessGlobalVarRewrite(path.resolve(scriptFile), true).allowRewrite, true);
+
+    rmSync(tempRoot, { recursive: true, force: true });
+});
+
+void test("registry delegates snapshot construction to the configured analysis provider", () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), "lint-provider-"));
+    const projectRoot = createProject(tempRoot, "project", "project");
+    const scriptFile = path.join(projectRoot, "scripts", "test.gml");
+
+    mkdirSync(path.dirname(scriptFile), { recursive: true });
+    writeFileSync(scriptFile, "var score = 0;\n", "utf8");
+
+    const observedRoots: Array<string> = [];
+    const analysisProvider: ProjectAnalysisProvider = {
+        buildSnapshot(projectRootPath, _options) {
+            observedRoots.push(projectRootPath);
+            return {
+                capabilities: new Set([
+                    "IDENTIFIER_OCCUPANCY",
+                    "IDENTIFIER_OCCURRENCES",
+                    "LOOP_HOIST_NAME_RESOLUTION",
+                    "RENAME_CONFLICT_PLANNING"
+                ]),
+                isIdentifierNameOccupiedInProject(identifierName: string): boolean {
+                    return identifierName === "score";
+                },
+                listIdentifierOccurrenceFiles(): ReadonlySet<string> {
+                    return new Set([scriptFile]);
+                },
+                planFeatherRenames(requests) {
+                    return requests.map((request) => ({
+                        identifierName: request.identifierName,
+                        preferredReplacementName: request.preferredReplacementName,
+                        safe: true,
+                        reason: null
+                    }));
+                },
+                assessGlobalVarRewrite(_filePath, _hasInitializer) {
+                    return { allowRewrite: true, reason: null };
+                },
+                resolveLoopHoistIdentifier(preferredName, _localIdentifierNames) {
+                    return preferredName;
+                }
+            };
+        }
+    };
+
+    const registry = LintWorkspace.Lint.services.createProjectLintContextRegistry({
+        cwd: tempRoot,
+        forcedProjectPath: null,
+        indexAllowDirectories: [],
+        analysisProvider
+    });
+
+    const firstContext = registry.getContext(scriptFile);
+    const secondContext = registry.getContext(scriptFile);
+    assert.ok(firstContext);
+    assert.equal(firstContext, secondContext);
+    assert.equal(observedRoots.length, 1);
+    assert.equal(LintWorkspace.Lint.services.isPathWithinBoundary(scriptFile, observedRoots[0] ?? ""), true);
+    assert.equal(firstContext?.isIdentifierNameOccupiedInProject("score"), true);
+    assert.equal(firstContext?.isIdentifierNameOccupiedInProject("other"), false);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });

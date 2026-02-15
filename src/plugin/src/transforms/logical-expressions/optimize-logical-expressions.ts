@@ -57,21 +57,25 @@ function processStatementListForTempReturnElimination(statements: StatementList)
     }
 }
 
-function visitStatementChildrenForTempReturnElimination(statement: MutableGameMakerAstNode): void {
+function visitStatementChildrenWithStatementListProcessor(
+    statement: MutableGameMakerAstNode,
+    processStatementList: (statements: StatementList) => void,
+    visitStatementChildren: (statement: MutableGameMakerAstNode) => void
+): void {
     const nodeRecord = statement as MutableAstRecord;
 
     if (Array.isArray(nodeRecord.body)) {
-        processStatementListForTempReturnElimination(nodeRecord.body as StatementList);
+        processStatementList(nodeRecord.body as StatementList);
     } else if (Core.isObjectLike(nodeRecord.body)) {
-        visitStatementChildrenForTempReturnElimination(nodeRecord.body as MutableGameMakerAstNode);
+        visitStatementChildren(nodeRecord.body as MutableGameMakerAstNode);
     }
 
     if (statement.type === "IfStatement") {
         if (Core.isObjectLike(statement.consequent)) {
-            visitStatementChildrenForTempReturnElimination(statement.consequent as MutableGameMakerAstNode);
+            visitStatementChildren(statement.consequent as MutableGameMakerAstNode);
         }
         if (Core.isObjectLike(statement.alternate)) {
-            visitStatementChildrenForTempReturnElimination(statement.alternate as MutableGameMakerAstNode);
+            visitStatementChildren(statement.alternate as MutableGameMakerAstNode);
         }
     }
 
@@ -81,12 +85,20 @@ function visitStatementChildrenForTempReturnElimination(statement: MutableGameMa
                 continue;
             }
 
-            visitStatementChildrenForTempReturnElimination(caseNode as MutableGameMakerAstNode);
+            visitStatementChildren(caseNode as MutableGameMakerAstNode);
             if (Array.isArray((caseNode as MutableAstRecord).body)) {
-                processStatementListForTempReturnElimination((caseNode as MutableAstRecord).body as StatementList);
+                processStatementList((caseNode as MutableAstRecord).body as StatementList);
             }
         }
     }
+}
+
+function visitStatementChildrenForTempReturnElimination(statement: MutableGameMakerAstNode): void {
+    visitStatementChildrenWithStatementListProcessor(
+        statement,
+        processStatementListForTempReturnElimination,
+        visitStatementChildrenForTempReturnElimination
+    );
 }
 
 function maybeBuildRedundantTempReturnReplacement(
@@ -187,35 +199,11 @@ function processStatementListForMemberCaching(statements: StatementList): void {
 }
 
 function visitStatementChildrenForMemberCaching(statement: MutableGameMakerAstNode): void {
-    const nodeRecord = statement as MutableAstRecord;
-
-    if (Array.isArray(nodeRecord.body)) {
-        processStatementListForMemberCaching(nodeRecord.body as StatementList);
-    } else if (Core.isObjectLike(nodeRecord.body)) {
-        visitStatementChildrenForMemberCaching(nodeRecord.body as MutableGameMakerAstNode);
-    }
-
-    if (statement.type === "IfStatement") {
-        if (Core.isObjectLike(statement.consequent)) {
-            visitStatementChildrenForMemberCaching(statement.consequent as MutableGameMakerAstNode);
-        }
-        if (Core.isObjectLike(statement.alternate)) {
-            visitStatementChildrenForMemberCaching(statement.alternate as MutableGameMakerAstNode);
-        }
-    }
-
-    if (Array.isArray(statement.cases)) {
-        for (const caseNode of statement.cases) {
-            if (!Core.isObjectLike(caseNode)) {
-                continue;
-            }
-
-            visitStatementChildrenForMemberCaching(caseNode as MutableGameMakerAstNode);
-            if (Array.isArray((caseNode as MutableAstRecord).body)) {
-                processStatementListForMemberCaching((caseNode as MutableAstRecord).body as StatementList);
-            }
-        }
-    }
+    visitStatementChildrenWithStatementListProcessor(
+        statement,
+        processStatementListForMemberCaching,
+        visitStatementChildrenForMemberCaching
+    );
 }
 
 function maybeCacheRepeatedMemberAccessForIfStatement(

@@ -8,43 +8,31 @@ import {
     MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
     setMaxFormatIterations
 } from "../src/commands/memory.js";
+import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
 
 void describe("memory format iteration limit configuration", () => {
+    buildEnvConfiguredValueTests({
+        description: "format iteration limit",
+        defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
+        envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+        getValue: getMaxFormatIterations,
+        setValue: setMaxFormatIterations,
+        applyEnvOverride: applyFormatMaxIterationsEnvOverride,
+        testOverrideValue: 18,
+        testOverrideEnvString: "18"
+    });
+
     afterEach(() => {
         setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
-    });
-
-    void it("returns the baseline limit when no overrides are applied", () => {
-        setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
-
-        assert.equal(getMaxFormatIterations(), DEFAULT_MAX_FORMAT_ITERATIONS);
-    });
-
-    void it("allows overriding the format iteration limit", () => {
-        setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
-
-        setMaxFormatIterations(12);
-
-        assert.equal(getMaxFormatIterations(), 12);
-    });
-
-    void it("applies environment overrides to the format iteration limit", () => {
-        setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
-
-        applyFormatMaxIterationsEnvOverride({
-            [MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR]: "18"
-        });
-
-        assert.equal(getMaxFormatIterations(), 18);
     });
 
     void it("ignores invalid environment overrides", () => {
         setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
 
         const originalWarn = console.warn;
-        const warnings = [];
-        console.warn = (...args) => {
-            warnings.push(args.join(" "));
+        const warnings: Array<string> = [];
+        console.warn = (...args: Array<unknown>) => {
+            warnings.push(args.map(String).join(" "));
         };
 
         try {

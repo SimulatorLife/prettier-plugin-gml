@@ -19,7 +19,6 @@ export interface SyntheticDocGenerationOptions {
     originalText?: string | null;
     locStart?: ((node: any) => number) | null;
     locEnd?: ((node: any) => number) | null;
-    optimizeLoopLengthHoisting?: boolean;
     [key: string]: any;
 }
 
@@ -316,7 +315,7 @@ export type ImplicitArgumentDocEntry = {
 
 export function collectImplicitArgumentDocNames(
     functionNode: any,
-    options: SyntheticDocGenerationOptions
+    _options: SyntheticDocGenerationOptions
 ): ImplicitArgumentDocEntry[] {
     if (
         !functionNode ||
@@ -327,7 +326,7 @@ export function collectImplicitArgumentDocNames(
         return [];
     }
 
-    if (options.applyFeatherFixes !== false && Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
+    if (Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
         const entries = functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
         const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(functionNode);
 

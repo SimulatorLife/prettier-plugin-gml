@@ -1,7 +1,7 @@
 // This module defines the public API surface for the Core package. Do NOT add
 // re-export wrappers, compatibility shims, or transitional helpers here. The Core
 // namespace is intentionally minimal and exposes only the canonical functionality
-// defined in the submodules (AST, Comments, FS, Metrics, Utils, Resources). Adding
+// defined in the submodules (AST, Comments, FS, Utils, Resources). Adding
 // legacy-support layers or pass-through exports would:
 //   1. Dilute the single-responsibility principle by mixing compatibility concerns
 //      with the core domain logic.
@@ -21,7 +21,7 @@
 import * as AST from "./ast/index.js";
 import * as Comments from "./comments/index.js";
 import * as FS from "./fs/index.js";
-import * as Metrics from "./metrics/index.js";
+import * as ProjectAnalysis from "./project-analysis/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
 import * as Resources from "./resources/index.js";
 import * as Utils from "./utils/index.js";
@@ -29,11 +29,11 @@ import * as Utils from "./utils/index.js";
 // Define the Core namespace type from existing module types
 type CoreNamespace = typeof AST &
     typeof Utils &
-    typeof Metrics &
     typeof FS &
     typeof Resources &
     typeof IdentifierMetadata &
-    typeof Comments & {
+    typeof Comments &
+    typeof ProjectAnalysis & {
         // Explicitly include capability probe for WorkspaceEdit-like objects
         // to support polymorphic refactor operations across module boundaries.
         isWorkspaceEditLike(value: unknown): boolean;
@@ -45,12 +45,12 @@ type CoreNamespace = typeof AST &
 export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
-    ...Metrics,
     ...Utils,
     isWorkspaceEditLike: Utils.isWorkspaceEditLike,
     ...Resources,
     ...IdentifierMetadata,
-    ...Comments
+    ...Comments,
+    ...ProjectAnalysis
 });
 
 // Publicly export key AST types at the package root for other packages to
@@ -65,6 +65,13 @@ export type {
 } from "./ast/scope-tracker.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
+export type {
+    ProjectAnalysisCapability,
+    ProjectAnalysisSnapshot,
+    ProjectRenamePlanEntry,
+    ProjectRenameRequest
+} from "./project-analysis/snapshot.js";
+export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
 export type { StringCommentScanState } from "./utils/text-scan.js";

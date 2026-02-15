@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import {
     applyProgressBarWidthEnvOverride,
@@ -9,16 +9,18 @@ import {
     resolveProgressBarWidth,
     setDefaultProgressBarWidth
 } from "../src/runtime-options/progress-bar.js";
+import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
 
 void describe("progress bar utilities", () => {
-    afterEach(() => {
-        setDefaultProgressBarWidth(undefined);
-    });
-
-    // Use strict equality helpers; Node deprecated the legacy assert.equal API.
-
-    void it("exposes the canonical default width", () => {
-        assert.strictEqual(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+    buildEnvConfiguredValueTests({
+        description: "width",
+        defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+        getValue: getDefaultProgressBarWidth,
+        setValue: setDefaultProgressBarWidth,
+        applyEnvOverride: applyProgressBarWidthEnvOverride,
+        testOverrideValue: 28,
+        testOverrideEnvString: "28"
     });
 
     void it("returns the default width when no value is provided", () => {
@@ -52,13 +54,5 @@ void describe("progress bar utilities", () => {
         setDefaultProgressBarWidth(undefined);
 
         assert.strictEqual(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
-    });
-
-    void it("applies the environment override for the default width", () => {
-        applyProgressBarWidthEnvOverride({
-            [PROGRESS_BAR_WIDTH_ENV_VAR]: "28"
-        });
-
-        assert.strictEqual(getDefaultProgressBarWidth(), 28);
     });
 });

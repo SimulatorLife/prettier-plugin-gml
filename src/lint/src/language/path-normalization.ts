@@ -1,24 +1,17 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 
-function isRootPath(candidate: string): boolean {
-    return path.parse(candidate).root === candidate;
-}
+import { Core } from "@gml-modules/core";
 
-function trimTrailingSeparators(candidate: string): string {
-    if (isRootPath(candidate)) {
-        return candidate;
-    }
-
-    let current = candidate;
-    while (current.endsWith(path.sep)) {
-        current = current.slice(0, -path.sep.length);
-    }
-
-    return current;
+function isVirtualLintPath(filename: string): boolean {
+    return filename.startsWith("<") && filename.endsWith(">") && filename.length > 1;
 }
 
 export function normalizeLintFilePath(filename: string): string {
+    if (isVirtualLintPath(filename)) {
+        return filename;
+    }
+
     const resolved = path.resolve(filename);
 
     let canonical = resolved;
@@ -28,5 +21,5 @@ export function normalizeLintFilePath(filename: string): string {
         // Preserve the original absolute path when realpath fails (e.g. missing file).
     }
 
-    return trimTrailingSeparators(canonical);
+    return Core.trimTrailingSeparators(canonical);
 }

@@ -1,19 +1,30 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { Plugin } from "@gml-modules/plugin";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
-const SEMANTIC_INTEGRATION_FIXTURE_NAMES = new Set(["testComments", "testFunctions", "testGM1012", "testGM1100"]);
+const INTEGRATION_FIXTURE_NAMES = new Set([
+    "testComments",
+    "testFoo",
+    "testFormatting",
+    "testFunctions",
+    "testGM1012",
+    "testGM1100",
+    "testGlobalVars"
+]);
 const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>();
-const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012"]);
+const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
 
-const fixtureDirectory = path.resolve(process.cwd(), "src", "plugin", "test");
+const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
+const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
+    ? path.resolve(rawDirectory, "..", "fixtures", "plugin-integration")
+    : path.resolve(rawDirectory, "fixtures", "plugin-integration");
 
 type IntegrationCase = {
     baseName: string;
@@ -87,7 +98,7 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
         if (entry.endsWith(`.input${fixtureExtension}`)) {
             const baseName = entry.replace(`.input${fixtureExtension}`, "");
-            if (!SEMANTIC_INTEGRATION_FIXTURE_NAMES.has(baseName)) {
+            if (!INTEGRATION_FIXTURE_NAMES.has(baseName)) {
                 continue;
             }
 
@@ -98,7 +109,7 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
         if (entry.endsWith(`.output${fixtureExtension}`)) {
             const baseName = entry.replace(`.output${fixtureExtension}`, "");
-            if (!SEMANTIC_INTEGRATION_FIXTURE_NAMES.has(baseName)) {
+            if (!INTEGRATION_FIXTURE_NAMES.has(baseName)) {
                 continue;
             }
 

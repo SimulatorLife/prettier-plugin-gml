@@ -1,7 +1,7 @@
 import { normalizeLintFilePath } from "../language/path-normalization.js";
-import type { ProjectCapability } from "../types/index.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
+import { createTextProjectAnalysisProvider, type ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
 
 export const DEFAULT_PROJECT_INDEX_EXCLUDES = Object.freeze([".git", "node_modules", "dist", "generated", "vendor"]);
@@ -10,13 +10,8 @@ type RegistryOptions = Readonly<{
     cwd: string;
     forcedProjectPath: string | null;
     indexAllowDirectories: ReadonlyArray<string>;
+    analysisProvider?: ProjectAnalysisProvider;
 }>;
-
-function createEmptyContext(): GmlProjectContext {
-    return Object.freeze({
-        capabilities: new Set<ProjectCapability>()
-    });
-}
 
 function splitPathSegments(pathValue: string): Array<string> {
     return pathValue
@@ -45,6 +40,37 @@ export type ProjectLintContextRegistry = Readonly<{
     isOutOfForcedRoot(filePath: string): boolean;
 }>;
 
+function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider["buildSnapshot"]>): GmlProjectContext {
+    return Object.freeze({
+        capabilities: snapshot.capabilities,
+        isIdentifierNameOccupiedInProject(identifierName: string): boolean {
+            return snapshot.isIdentifierNameOccupiedInProject(identifierName);
+        },
+        listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
+            return snapshot.listIdentifierOccurrenceFiles(identifierName);
+        },
+        planFeatherRenames(
+            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
+        ): ReadonlyArray<{
+            identifierName: string;
+            preferredReplacementName: string;
+            safe: boolean;
+            reason: string | null;
+        }> {
+            return snapshot.planFeatherRenames(requests);
+        },
+        assessGlobalVarRewrite(
+            filePath: string | null,
+            hasInitializer: boolean
+        ): { allowRewrite: boolean; reason: string | null } {
+            return snapshot.assessGlobalVarRewrite(filePath, hasInitializer);
+        },
+        resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
+            return snapshot.resolveLoopHoistIdentifier(preferredName, localIdentifierNames);
+        }
+    });
+}
+
 export function createProjectLintContextRegistry(options: RegistryOptions): ProjectLintContextRegistry {
     const normalizedCwd = normalizeLintFilePath(options.cwd);
     const forcedRoot = resolveForcedProjectRoot(options.forcedProjectPath);
@@ -52,7 +78,9 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
         normalizeLintFilePath(directory)
     );
     const excludedDirectories = new Set(DEFAULT_PROJECT_INDEX_EXCLUDES.map((directory) => directory.toLowerCase()));
+    const analysisProvider = options.analysisProvider ?? createTextProjectAnalysisProvider();
     const contextCache = new Map<string, GmlProjectContext>();
+    const snapshotCache = new Map<string, ReturnType<ProjectAnalysisProvider["buildSnapshot"]>>();
 
     return Object.freeze({
         getContext(filePath: string): GmlProjectContext | null {
@@ -74,7 +102,18 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
                 return cachedContext;
             }
 
-            const context = createEmptyContext();
+            const cachedSnapshot = snapshotCache.get(cacheKey);
+            const snapshot =
+                cachedSnapshot ??
+                analysisProvider.buildSnapshot(cacheKey, {
+                    excludedDirectories,
+                    allowedDirectories: normalizedAllowedDirectories
+                });
+            if (!cachedSnapshot) {
+                snapshotCache.set(cacheKey, snapshot);
+            }
+
+            const context = createContextFromSnapshot(snapshot);
             contextCache.set(cacheKey, context);
             return context;
         },

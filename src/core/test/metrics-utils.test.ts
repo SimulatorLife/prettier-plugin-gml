@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../src/metrics/metrics.js";
+import { createMetricsTracker } from "../src/utils/metrics.js";
 
 function getCacheKeys(contracts, cacheName = "example") {
     const { recording, reporting } = contracts;

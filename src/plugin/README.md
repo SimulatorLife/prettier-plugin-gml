@@ -7,18 +7,13 @@ This directory contains the source code for the [gml-modules/plugin](https://git
 The plugin workspace owns formatting and parser-to-printer orchestration only.
 
 - The plugin **must not** depend directly on `@gml-modules/semantic` or `@gml-modules/refactor`.
-- Semantic-safe and refactor-aware behavior is exposed through runtime ports:
-  - `setSemanticSafetyRuntime(...)`
-  - `setRefactorRuntime(...)`
-  - `setIdentifierCaseRuntime(...)`
-- Concrete adapters are created in the integration/composition root (CLI) and injected into the plugin at runtime.
-
-This keeps formatter-only usage lightweight while still allowing project-aware rename planning when an integration host provides adapters.
+- The plugin exposes identifier-case integration only via `setIdentifierCaseRuntime(...)`.
+- Semantic/content rewrites and project-aware transformations are lint-only responsibilities in `@gml-modules/lint`.
 
 ## Test Tiering
 
-- Plugin fixture/unit tests validate local formatter behavior and local-safe fallback behavior.
-- Project-aware rename behavior (for example `preserveGlobalVarStatements: false` when cross-file symbols exist) is validated in integration tests that build a temporary project and inject runtime adapters through CLI wiring.
+- Plugin fixture/unit tests validate formatter-owned layout behavior and strict parse-failure behavior.
+- Project-aware behavior is validated in lint/CLI test suites; plugin tests do not validate semantic rewrite behavior.
 
 ## Plugin Architecture
 
@@ -45,6 +40,18 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 - Why it was removed: argument layout now follows Prettier-style default wrapping with `printWidth` and document shape, without numeric argument-count thresholds.
 - Migration: remove `maxParamsPerLine` from configuration files; no replacement option is provided.
 
-## TODO
-1. Add support for the following Prettier options: 1) `bracketSameLine`, 2) `bracketSpacing`, 3) `semi`, 4) `useTabs`, 5) `tabWidth`.
-2. Split Prettier plugin into a formatter-only package and a separate feather-fixer/linter package that includes fixes that require project-aware scope analysis (e.g., `preserveGlobalVarStatements: false` when cross-file symbols exist). See [docs/formatter-linter-split-plan.md](../../docs/formatter-linter-split-plan.md) for details and the plan.
+## Formatter/Linter split (finalized)
+
+The split is now contractually fixed:
+
+- `@gml-modules/plugin` is formatter-only.
+- Any semantic/content rewrite belongs to `@gml-modules/lint` rules and is applied via `lint --fix`.
+
+Migration quick map:
+
+- `globalvar` rewrites => `gml/no-globalvar` (lint)
+- loop-hoist rewrites => `gml/prefer-loop-length-hoist` (lint)
+- separator repair => `gml/require-argument-separators` (lint)
+- indentation/wrapping/layout => plugin formatter
+
+See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).

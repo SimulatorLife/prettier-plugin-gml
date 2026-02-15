@@ -22,7 +22,6 @@ import { printComment, printDanglingComments, printDanglingCommentsAsGroup } fro
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { assessGlobalVarRewrite, hasActiveSemanticSafetyReportService } from "../runtime/index.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
@@ -598,16 +597,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {
-            if (options.preserveGlobalVarStatements === false) {
-                const parts = buildGlobalVarNormalizationParts(node, path, print, options);
-
-                if (parts.length === 0) {
-                    return "";
-                }
-
-                return join(hardline, parts);
-            }
-
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
@@ -759,7 +748,7 @@ function printBinaryExpressionNode(node, path, options, print) {
     let right;
     const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
-    const optimizeMathExpressions = Boolean(options?.optimizeMathExpressions);
+    const optimizeMathExpressions = false;
 
     const leftIsUndefined = Core.isUndefinedSentinel(node.left);
     const rightIsUndefined = Core.isUndefinedSentinel(node.right);
@@ -1022,13 +1011,8 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (
-        options?.preserveGlobalVarStatements !== false &&
-        node?.object?.type === IDENTIFIER &&
-        node.object.name === "global"
-    ) {
-        const preservedNames =
-            options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    if (node?.object?.type === IDENTIFIER && node.object.name === "global") {
+        const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
         const propertyNode = node.property;
         const propertyName = propertyNode?.type === IDENTIFIER ? Core.getIdentifierText(propertyNode) : null;
         if (
@@ -1439,32 +1423,6 @@ function tryPrintLiteralNode(node, path, options, print) {
         case "TemplateStringExpression": {
             const hasAtomArray = Array.isArray(node.atoms);
             const atoms = hasAtomArray ? node.atoms : [];
-            const literalTextParts = [];
-            let shouldCollapseToLiteral = hasAtomArray;
-
-            for (const atom of atoms) {
-                if (atom?.type !== "TemplateStringText") {
-                    shouldCollapseToLiteral = false;
-                    break;
-                }
-
-                if (typeof atom.value !== STRING_TYPE) {
-                    shouldCollapseToLiteral = false;
-                    break;
-                }
-
-                literalTextParts.push(atom.value);
-            }
-
-            if (
-                (options?.applyFeatherFixes ?? false) &&
-                shouldCollapseToLiteral &&
-                literalTextParts.length === atoms.length
-            ) {
-                const literalText = literalTextParts.join("");
-                const stringLiteral = JSON.stringify(literalText);
-                return concat(stringLiteral);
-            }
 
             return concat(buildTemplateStringParts(atoms, path, print));
         }
@@ -2446,7 +2404,7 @@ function printStatements(path, options, print, childrenAttribute) {
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
-    if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
+    if (statements && statements.length > 0) {
         ensurePreservedGlobalVarNames(options, statements);
     }
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
@@ -3533,61 +3491,6 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
     }
 
     return false;
-}
-
-/**
- * Builds formatted output parts for globalvar normalization.
- *
- * Each declaration is either rewritten to `global.name = value;` when the semantic
- * safety runtime deems the rewrite safe, or preserved as a `globalvar` declaration
- * when the rewrite is unsafe for the current runtime context.
- *
- * @param {any} node - The GlobalVarStatement node
- * @param {any} path - Prettier path object for traversal
- * @param {Function} print - Prettier print function
- * @param {any} options - Prettier option bag
- * @returns {Array<any>} Array of formatted assignment doc fragments
- */
-function buildGlobalVarNormalizationParts(node, path, print, options) {
-    const parts = [];
-    const declarationCount = node.declarations.length;
-
-    for (let index = 0; index < declarationCount; index += 1) {
-        const decl = node.declarations[index];
-        const identifierName = Core.getIdentifierText(decl?.id ?? null);
-        const rewriteAssessment = assessGlobalVarRewrite(
-            {
-                filePath: typeof options?.filepath === STRING_TYPE ? options.filepath : null,
-                hasInitializer: Boolean(decl?.init),
-                identifierName: identifierName ?? `declaration_${index}`
-            },
-            options
-        );
-
-        if (!rewriteAssessment.allowRewrite) {
-            if (!decl.init && !hasActiveSemanticSafetyReportService(options)) {
-                continue;
-            }
-
-            const declarationDoc = path.call(print, "declarations", index);
-            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
-            parts.push(group(concat([keyword, " ", declarationDoc])));
-            continue;
-        }
-
-        if (!decl.init) {
-            const idDoc = path.call(print, "declarations", index, "id");
-            parts.push(group(concat(["global.", idDoc, " = undefined"])));
-            continue;
-        }
-
-        const idDoc = path.call(print, "declarations", index, "id");
-        const initDoc = path.call(print, "declarations", index, "init");
-
-        parts.push(group(concat(["global.", idDoc, " = ", initDoc])));
-    }
-
-    return parts;
 }
 
 function printGlobalVarStatementAsKeyword(node, path, print, options) {
@@ -4799,11 +4702,7 @@ function needsParensForNegation(node) {
 }
 
 function ensurePreservedGlobalVarNames(options, statements) {
-    if (
-        !options ||
-        options.preserveGlobalVarStatements === false ||
-        Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)
-    ) {
+    if (!options || false || Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)) {
         return options?.[PRESERVED_GLOBAL_VAR_NAMES] ?? null;
     }
 
@@ -4846,8 +4745,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
     const node = path.getValue();
     if (!node || !node.isGlobalIdentifier) return false;
 
-    const preservedNames =
-        options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
     const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
     if (
         preservedNames &&

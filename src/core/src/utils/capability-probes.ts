@@ -317,3 +317,92 @@ export function isWorkspaceEditLike(value?: unknown): boolean {
 
     return Array.isArray(candidate.edits) && hasFunction(candidate, "addEdit") && hasFunction(candidate, "groupByFile");
 }
+
+/**
+ * Determine whether a value behaves like a `Date` object by checking for the
+ * presence of standard Date methods. Accepts cross-realm Date instances and
+ * Date-like polyfills so modules can handle timestamps uniformly without
+ * relying on `instanceof Date` checks that fail across execution contexts.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {value is Date} `true` when the value exposes Date methods.
+ */
+export function isDateLike(value: unknown): value is Date {
+    return (
+        isObjectLike(value) &&
+        hasFunction(value, "toISOString") &&
+        hasFunction(value, "getTime") &&
+        hasFunction(value, "getFullYear")
+    );
+}
+
+/**
+ * Determine whether a value behaves like an `ArrayBuffer` by checking for the
+ * standard byteLength property and the fact that it is an object. Accepts
+ * cross-realm ArrayBuffer instances and polyfills so modules can handle binary
+ * data uniformly without relying on `instanceof ArrayBuffer` checks.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {value is ArrayBuffer} `true` when the value matches ArrayBuffer shape.
+ */
+export function isArrayBufferLike(value: unknown): value is ArrayBuffer {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+    return typeof candidate.byteLength === "number" && typeof candidate.slice === "function";
+}
+
+/**
+ * Determine whether a value behaves like an ArrayBufferView (TypedArray or DataView)
+ * by checking for the standard buffer, byteOffset, and byteLength properties.
+ * Accepts cross-realm views and polyfills so modules can handle binary views
+ * uniformly without relying on platform-specific instanceof checks.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {boolean} `true` when the value matches ArrayBufferView shape.
+ */
+export function isArrayBufferViewLike(value: unknown): boolean {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+    return (
+        isObjectLike(candidate.buffer) &&
+        typeof candidate.byteOffset === "number" &&
+        typeof candidate.byteLength === "number"
+    );
+}
+
+/**
+ * Determine whether a value is binary payload data (ArrayBuffer or ArrayBufferView).
+ * This helper combines the ArrayBuffer and ArrayBufferView checks to provide a
+ * unified predicate for modules that handle websocket messages or other binary
+ * data streams without depending on constructor checks.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {boolean} `true` when the value is binary data.
+ */
+export function isBinaryDataLike(value: unknown): value is ArrayBuffer | ArrayBufferView {
+    return isArrayBufferLike(value) || isArrayBufferViewLike(value);
+}
+
+/**
+ * Determine whether a value behaves like a Uint8Array by checking for the
+ * ArrayBufferView shape plus BYTES_PER_ELEMENT === 1. Accepts cross-realm
+ * Uint8Array instances and polyfills so modules can handle byte arrays
+ * uniformly without relying on instanceof checks.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {value is Uint8Array} `true` when the value matches Uint8Array shape.
+ */
+export function isUint8ArrayLike(value: unknown): value is Uint8Array {
+    if (!isArrayBufferViewLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+    return candidate.BYTES_PER_ELEMENT === 1;
+}

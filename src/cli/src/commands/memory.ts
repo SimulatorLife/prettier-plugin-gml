@@ -8,6 +8,7 @@ import type { Stream } from "node:stream";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
+// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/plugin; CLI memory command needs direct import for benchmarking
 import prettierStandaloneModule from "prettier/standalone.mjs";
 
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
@@ -69,8 +70,8 @@ export const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
-const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/test/testFormatting.input.gml";
-const FORMAT_OPTIONS_RELATIVE_PATH = "src/plugin/test/testFormatting.options.json";
+const FORMAT_SAMPLE_RELATIVE_PATH = "test/fixtures/plugin-integration/testFormatting.input.gml";
+const FORMAT_OPTIONS_RELATIVE_PATH = "test/fixtures/plugin-integration/testFormatting.options.json";
 export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
 export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_FORMAT_MAX_ITERATIONS";

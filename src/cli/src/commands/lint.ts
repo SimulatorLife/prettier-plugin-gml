@@ -1,9 +1,11 @@
+import { constants, existsSync, readdirSync, statSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
-import { Lint } from "@gml-modules/lint";
+import * as LintWorkspace from "@gml-modules/lint";
+import * as SemanticWorkspace from "@gml-modules/semantic";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -20,6 +22,9 @@ const FLAT_CONFIG_CANDIDATES = Object.freeze([
 ]);
 
 const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
+
+const LINT_NAMESPACE = LintWorkspace.Lint;
+type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -39,27 +44,19 @@ type DiscoveryResult = {
     searchedPaths: Array<string>;
 };
 
-type RuleLevelValue = "off" | "warn" | "error" | 0 | 1 | 2;
-
 type ResolvedConfigLike = {
     plugins?: Record<string, unknown> | null | undefined;
     language?: unknown;
     rules?: Record<string, unknown> | null | undefined;
+    processor?: unknown;
 };
 
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
+const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
+const PROCESSOR_OBSERVABILITY_WARNING_CODE = "GML_PROCESSOR_OBSERVABILITY_UNAVAILABLE";
 
-async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await access(filePath);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
+function discoverFlatConfig(cwd: string): DiscoveryResult {
     const searchedPaths: Array<string> = [];
 
     for (const directory of Core.walkAncestorDirectories(cwd, { includeSelf: true })) {
@@ -67,7 +64,7 @@ async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
             const absolutePath = path.join(directory, candidate);
             searchedPaths.push(absolutePath);
 
-            if (await fileExists(absolutePath)) {
+            if (existsSync(absolutePath)) {
                 return {
                     selectedConfigPath: absolutePath,
                     searchedPaths
@@ -83,13 +80,166 @@ async function discoverFlatConfig(cwd: string): Promise<DiscoveryResult> {
 }
 
 function normalizeFormatterName(formatter: string | undefined): string {
-    const value = typeof formatter === "string" ? formatter.toLowerCase() : "stylish";
-    return SUPPORTED_FORMATTERS.has(value) ? value : "stylish";
+    if (typeof formatter !== "string") {
+        return "stylish";
+    }
+
+    return formatter.toLowerCase();
 }
 
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     const args = Array.isArray(command.args) ? command.args : [];
     return args.length > 0 ? args : ["."];
+}
+
+function hasProjectManifest(directoryPath: string): boolean {
+    try {
+        const entries = readdirSync(directoryPath, { withFileTypes: true });
+        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
+    } catch {
+        return false;
+    }
+}
+
+function resolveNearestProjectRootFromPath(filePath: string, fallbackCwd: string): string {
+    for (const directory of Core.walkAncestorDirectories(path.dirname(filePath), { includeSelf: true })) {
+        if (hasProjectManifest(directory)) {
+            return directory;
+        }
+    }
+
+    return fallbackCwd;
+}
+
+function collectProjectRootsFromDirectory(directoryPath: string): Array<string> {
+    const discoveredRoots = new Set<string>();
+    const pendingDirectories = [directoryPath];
+
+    while (pendingDirectories.length > 0) {
+        const currentDirectory = pendingDirectories.pop();
+        if (!currentDirectory) {
+            continue;
+        }
+
+        if (hasProjectManifest(currentDirectory)) {
+            discoveredRoots.add(path.resolve(currentDirectory));
+            continue;
+        }
+
+        let entries: Array<{ name: string; isDirectory(): boolean }>;
+        try {
+            entries = readdirSync(currentDirectory, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+            pendingDirectories.push(path.join(currentDirectory, entry.name));
+        }
+    }
+
+    return [...discoveredRoots.values()];
+}
+
+function inferProjectRootsForLintInvocation(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+}): Array<string> {
+    if (parameters.forcedProjectPath) {
+        const forcedPath = path.resolve(parameters.forcedProjectPath);
+        if (forcedPath.toLowerCase().endsWith(".yyp")) {
+            return [path.dirname(forcedPath)];
+        }
+
+        return [forcedPath];
+    }
+
+    const roots = new Set<string>();
+    for (const target of parameters.targets) {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (!existsSync(absoluteTarget)) {
+            continue;
+        }
+
+        let stats: ReturnType<typeof statSync>;
+        try {
+            stats = statSync(absoluteTarget);
+        } catch {
+            continue;
+        }
+
+        if (stats.isDirectory()) {
+            for (const root of collectProjectRootsFromDirectory(absoluteTarget)) {
+                roots.add(root);
+            }
+            continue;
+        }
+
+        if (stats.isFile()) {
+            const root = resolveNearestProjectRootFromPath(absoluteTarget, parameters.cwd);
+            roots.add(root);
+        }
+    }
+
+    if (roots.size === 0) {
+        roots.add(path.resolve(parameters.cwd));
+    }
+
+    return [...roots.values()];
+}
+
+async function createInvocationProjectAnalysisProvider(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+    forcedProjectPath: string | null;
+    indexAllowDirectories: ReadonlyArray<string>;
+    quiet: boolean;
+}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createTextProjectAnalysisProvider>> {
+    const projectRoots = inferProjectRootsForLintInvocation({
+        cwd: parameters.cwd,
+        targets: parameters.targets,
+        forcedProjectPath: parameters.forcedProjectPath
+    });
+    const normalizedAllowedDirectories = parameters.indexAllowDirectories.map((directory) => path.resolve(directory));
+    const excludedDirectories = new Set(
+        LINT_NAMESPACE.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
+    );
+
+    const snapshotEntries = await Promise.all(
+        projectRoots.map(async (root): Promise<[string, SemanticSnapshot] | null> => {
+            try {
+                const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
+                const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(
+                    projectIndex,
+                    root,
+                    {
+                        excludedDirectories,
+                        allowedDirectories: normalizedAllowedDirectories
+                    }
+                );
+                return [root, snapshot];
+            } catch (error) {
+                if (!parameters.quiet) {
+                    console.warn(
+                        `Failed to build semantic project snapshot for ${root}: ${
+                            Core.isErrorLike(error) ? error.message : String(error)
+                        }`
+                    );
+                }
+                return null;
+            }
+        })
+    );
+
+    const snapshotsByRoot = new Map<string, SemanticSnapshot>(
+        snapshotEntries.filter((entry): entry is [string, SemanticSnapshot] => entry !== null)
+    );
+
+    return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
 }
 
 function normalizeMaxWarnings(rawValue: unknown): number {
@@ -137,10 +287,32 @@ function printFallbackMessageIfNeeded(parameters: { quiet: boolean; searchedPath
 
     const lines = [
         "No user flat config found; using bundled defaults.",
+        "To disable this fallback, pass --no-default-config.",
         "Searched locations:",
         ...parameters.searchedPaths.map((entry) => `- ${entry}`)
     ];
     console.warn(lines.join("\n"));
+}
+
+function printNoConfigMessageIfNeeded(parameters: { quiet: boolean; searchedPaths: Array<string> }): void {
+    if (parameters.quiet) {
+        return;
+    }
+
+    const lines = [
+        "No user flat config found.",
+        "Searched locations:",
+        ...parameters.searchedPaths.map((entry) => `- ${entry}`)
+    ];
+    console.warn(lines.join("\n"));
+}
+
+async function validateExplicitConfigPath(configPath: string): Promise<void> {
+    await access(configPath, constants.R_OK);
+}
+
+function isSupportedFormatter(formatterName: string): boolean {
+    return SUPPORTED_FORMATTERS.has(formatterName);
 }
 
 function resolveExitCode(parameters: { errorCount: number; warningCount: number; maxWarnings: number }): number {
@@ -155,8 +327,12 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
     return 0;
 }
 
+function setProcessExitCode(code: number): void {
+    process.exitCode = code;
+}
+
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
-    const entries = Lint.configs.recommended.map((entry) => ({
+    const entries = LINT_NAMESPACE.configs.recommended.map((entry) => ({
         ...entry,
         files: Array.isArray(entry.files) ? [...entry.files] : undefined
     }));
@@ -165,7 +341,7 @@ function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLi
 }
 
 function isCanonicalGmlWiring(config: ResolvedConfigLike): boolean {
-    return config.plugins?.gml === Lint.plugin && config.language === "gml/gml";
+    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === "gml/gml";
 }
 
 function readArrayFirstEntry(value: unknown): unknown {
@@ -221,7 +397,6 @@ function isAppliedRuleValue(value: unknown): boolean {
         return true;
     }
 
-    // Conservative + non-crashing handling for unexpected rule-value shapes.
     return true;
 }
 
@@ -239,7 +414,7 @@ function hasOverlayRuleApplied(config: ResolvedConfigLike): boolean {
             return true;
         }
 
-        if (Lint.services.performanceOverrideRuleIds.includes(ruleId)) {
+        if (LINT_NAMESPACE.services.performanceOverrideRuleIds.includes(ruleId)) {
             return true;
         }
     }
@@ -254,6 +429,31 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+function normalizeProcessorIdentityForEnforcement(processor: unknown): string | null {
+    if (processor === null || processor === undefined) {
+        return null;
+    }
+
+    if (typeof processor === "string") {
+        const normalized = processor.trim();
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    return "<non-string-processor>";
+}
+
+function toProcessorUnsupportedMessage(filePath: string, processorIdentity: string): string {
+    return `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: unsupported active processor for ${filePath}: ${processorIdentity}`;
+}
+
+function toProcessorObservabilityUnavailableMessage(): string {
+    return `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: active processor identity is not observable in resolved ESLint config; skipping processor enforcement.`;
+}
+
 type ConfigLookupEslintLike = {
     calculateConfigForFile(filePath: string): Promise<unknown>;
 };
@@ -266,35 +466,28 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     eslint: ConfigLookupEslintLike;
     results: Array<LintResultFilePathLike>;
 }): Promise<Array<string>> {
-    const offendingPaths: Array<string> = [];
+    const gmlFilePaths = parameters.results
+        .map((result) => result.filePath)
+        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
 
-    for (const result of parameters.results) {
-        const filePath = result.filePath;
-        if (!filePath.toLowerCase().endsWith(".gml")) {
-            continue;
-        }
+    const configEntries = await Promise.all(
+        gmlFilePaths.map(async (filePath) => ({
+            filePath,
+            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+        }))
+    );
 
-        const config = (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike;
-        if (!hasOverlayRuleApplied(config)) {
-            continue;
-        }
-
-        if (isCanonicalGmlWiring(config)) {
-            continue;
-        }
-
-        offendingPaths.push(filePath);
-    }
-
-    return offendingPaths;
+    return configEntries
+        .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
+        .map(({ filePath }) => filePath);
 }
 
 async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     eslint: ESLint;
     results: Array<ESLint.LintResult>;
-    verbose: boolean;
+    quiet: boolean;
 }): Promise<void> {
-    if (!parameters.verbose) {
+    if (parameters.quiet) {
         return;
     }
 
@@ -305,6 +498,55 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
     }
 
     console.warn(formatOverlayWarning(offendingPaths));
+}
+
+async function enforceProcessorPolicyForGmlFiles(parameters: {
+    eslint: ConfigLookupEslintLike;
+    results: Array<LintResultFilePathLike>;
+    verbose: boolean;
+}): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
+    const gmlFilePaths = parameters.results
+        .map((result) => result.filePath)
+        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+
+    if (gmlFilePaths.length === 0) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    const resolvedEntries = await Promise.all(
+        gmlFilePaths.map(async (filePath) => ({
+            filePath,
+            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+        }))
+    );
+
+    const observedEntries = resolvedEntries.filter(({ config }) => Object.hasOwn(config, "processor"));
+    if (observedEntries.length > 0) {
+        for (const entry of observedEntries) {
+            const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
+            if (normalizedProcessor === null) {
+                continue;
+            }
+
+            return {
+                exitCode: 2,
+                message: toProcessorUnsupportedMessage(entry.filePath, normalizedProcessor),
+                warning: null
+            };
+        }
+
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    if (!parameters.verbose) {
+        return { exitCode: 0, message: null, warning: null };
+    }
+
+    return {
+        exitCode: 0,
+        message: null,
+        warning: toProcessorObservabilityUnavailableMessage()
+    };
 }
 
 async function loadRequestedFormatter(
@@ -319,6 +561,56 @@ async function loadRequestedFormatter(
             return typeof output === "string" ? output : "";
         }
     };
+}
+
+function createEslintConstructorOptions(cwd: string, fix: boolean): ConstructorParameters<typeof ESLint>[0] {
+    return {
+        cwd,
+        fix
+    };
+}
+
+async function configureLintConfig(parameters: {
+    eslintConstructorOptions: ConstructorParameters<typeof ESLint>[0];
+    cwd: string;
+    configPath: string | null;
+    noDefaultConfig: boolean;
+    quiet: boolean;
+}): Promise<number> {
+    if (parameters.configPath) {
+        try {
+            await validateExplicitConfigPath(parameters.configPath);
+        } catch (error) {
+            console.error(
+                `Failed to read eslint config at ${parameters.configPath}: ${Core.isErrorLike(error) ? error.message : String(error)}`
+            );
+            return 2;
+        }
+
+        parameters.eslintConstructorOptions.overrideConfigFile = parameters.configPath;
+        return 0;
+    }
+
+    const discoveryResult = discoverFlatConfig(parameters.cwd);
+    if (discoveryResult.selectedConfigPath) {
+        // Intentionally let ESLint resolve and select the active config file natively.
+        // This preserves ESLint's sibling-config precedence rules and avoids CLI-side
+        // config selection divergence from direct ESLint execution.
+        return 0;
+    }
+
+    if (parameters.noDefaultConfig) {
+        printNoConfigMessageIfNeeded({ quiet: parameters.quiet, searchedPaths: discoveryResult.searchedPaths });
+        return 0;
+    }
+
+    parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
+    printFallbackMessageIfNeeded({
+        quiet: parameters.quiet,
+        searchedPaths: discoveryResult.searchedPaths
+    });
+
+    return 0;
 }
 
 export function createLintCommand(): Command {
@@ -343,55 +635,61 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     const options = resolveCommandOptions(command);
     const targets = normalizeLintTargets(command);
     const cwd = process.cwd();
+    const eslintConstructorOptions = createEslintConstructorOptions(cwd, options.fix);
 
-    const eslintConstructorOptions: ConstructorParameters<typeof ESLint>[0] = {
+    if (!isSupportedFormatter(options.formatter)) {
+        console.error(
+            `Unsupported formatter "${options.formatter}". Supported formatters: ${Array.from(SUPPORTED_FORMATTERS).join(", ")}`
+        );
+        setProcessExitCode(2);
+        return;
+    }
+
+    const configExitCode = await configureLintConfig({
+        eslintConstructorOptions,
         cwd,
-        fix: options.fix
-    };
-    const projectRegistry = Lint.services.createProjectLintContextRegistry({
+        configPath: options.config,
+        noDefaultConfig: options.noDefaultConfig,
+        quiet: options.quiet
+    });
+
+    if (configExitCode !== 0) {
+        setProcessExitCode(configExitCode);
+        return;
+    }
+
+    const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
         cwd,
         forcedProjectPath: options.project,
-        indexAllowDirectories: options.indexAllow
+        indexAllowDirectories: options.indexAllow,
+        analysisProvider: await createInvocationProjectAnalysisProvider({
+            cwd,
+            targets,
+            forcedProjectPath: options.project,
+            indexAllowDirectories: options.indexAllow,
+            quiet: options.quiet
+        })
     });
-    const projectSettings = Lint.services.createProjectSettingsFromRegistry(projectRegistry);
+    const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
 
-    let discoveryResult: DiscoveryResult = {
-        selectedConfigPath: null,
-        searchedPaths: []
-    };
-
-    if (options.config) {
-        eslintConstructorOptions.overrideConfigFile = options.config;
-    } else {
-        discoveryResult = await discoverFlatConfig(cwd);
-        if (discoveryResult.selectedConfigPath) {
-            eslintConstructorOptions.overrideConfigFile = discoveryResult.selectedConfigPath;
-        } else if (!options.noDefaultConfig) {
-            eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
-            printFallbackMessageIfNeeded({
-                quiet: options.quiet,
-                searchedPaths: discoveryResult.searchedPaths
-            });
+    eslintConstructorOptions.overrideConfig = [
+        ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? [...eslintConstructorOptions.overrideConfig] : []),
+        {
+            files: ["**/*.gml"],
+            settings: {
+                gml: {
+                    project: projectSettings
+                }
+            }
         }
-    }
+    ];
 
     let eslint: ESLint;
     try {
-        eslintConstructorOptions.overrideConfig = [
-            ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? eslintConstructorOptions.overrideConfig : []),
-            {
-                files: ["**/*.gml"],
-                settings: {
-                    gml: {
-                        project: projectSettings
-                    }
-                }
-            }
-        ];
         eslint = new ESLint(eslintConstructorOptions);
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 2;
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
+        setProcessExitCode(2);
         return;
     }
 
@@ -399,8 +697,8 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     try {
         results = await eslint.lintFiles(targets);
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 2;
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
+        setProcessExitCode(2);
         return;
     }
 
@@ -408,11 +706,26 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         await ESLint.outputFixes(results);
     }
 
-    await warnOverlayWithoutLanguageWiringIfNeeded({
+    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
+
+    const processorPolicy = await enforceProcessorPolicyForGmlFiles({
         eslint,
         results,
         verbose: options.verbose
     });
+
+    if (processorPolicy.warning) {
+        console.warn(processorPolicy.warning);
+    }
+
+    if (processorPolicy.exitCode !== 0) {
+        if (processorPolicy.message) {
+            console.error(processorPolicy.message);
+        }
+
+        setProcessExitCode(processorPolicy.exitCode);
+        return;
+    }
 
     const outOfRootPaths = results
         .map((result) => result.filePath)
@@ -430,22 +743,20 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
                 `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
         );
-        process.exitCode = 2;
+        setProcessExitCode(2);
         return;
     }
 
-    let formatterOutput = "";
     try {
         const formatter = await loadRequestedFormatter(eslint, options.formatter);
-        formatterOutput = formatter.format(results);
+        const formatterOutput = formatter.format(results);
+        if (formatterOutput.length > 0) {
+            process.stdout.write(`${formatterOutput}\n`);
+        }
     } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exitCode = 2;
+        console.error(Core.isErrorLike(error) ? error.message : String(error));
+        setProcessExitCode(2);
         return;
-    }
-
-    if (formatterOutput.length > 0) {
-        process.stdout.write(`${formatterOutput}\n`);
     }
 
     const totals = results.reduce(
@@ -461,18 +772,30 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     );
 
-    process.exitCode = resolveExitCode({
-        errorCount: totals.errorCount,
-        warningCount: totals.warningCount,
-        maxWarnings: options.maxWarnings
-    });
+    setProcessExitCode(
+        resolveExitCode({
+            errorCount: totals.errorCount,
+            warningCount: totals.warningCount,
+            maxWarnings: options.maxWarnings
+        })
+    );
 }
 
 export const __lintCommandTest__ = Object.freeze({
     OVERLAY_WARNING_CODE,
+    FLAT_CONFIG_CANDIDATES,
     isCanonicalGmlWiring,
     isAppliedRuleValue,
     hasOverlayRuleApplied,
     formatOverlayWarning,
-    collectOverlayWithoutLanguageWiringPaths
+    discoverFlatConfig,
+    normalizeFormatterName,
+    isSupportedFormatter,
+    validateExplicitConfigPath,
+    configureLintConfig,
+    collectOverlayWithoutLanguageWiringPaths,
+    normalizeProcessorIdentityForEnforcement,
+    enforceProcessorPolicyForGmlFiles,
+    PROCESSOR_UNSUPPORTED_ERROR_CODE,
+    PROCESSOR_OBSERVABILITY_WARNING_CODE
 });

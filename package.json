@@ -86,6 +86,7 @@
     "test:cli": "pnpm --filter @gml-modules/cli run build:types && node --test src/cli/dist/test/*.test.js",
     "test:cli:report": "pnpm --filter @gml-modules/cli run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/dist/test/*.test.js",
     "test:root": "pnpm run build:ts && node --test test/dist/*.test.js",
+    "test:lint": "pnpm --filter @gml-modules/lint run build:types && node --test src/lint/dist/test/*.test.js",
     "test:root:report": "pnpm run build:ts && node --test --test-reporter=junit --test-reporter-destination=./reports/root.xml test/dist/*.test.js",
     "format:gml": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js format",
     "format": "pnpm exec -- prettier --cache --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
@@ -112,7 +113,9 @@
     "lint:duplicates": "jscpd --noSymlinks --format \"typescript\" --reporters \"console\" --min-lines 5 --min-tokens 105 src/",
     "tree": "tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" .",
     "tree:report": "mkdir -p reports && tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" . > reports/tree.txt",
-    "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src"
+    "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src",
+    "generate:lint-rule-docs": "pnpm --filter @gml-modules/lint run build:types && node --input-type=module -e \"import fs from 'node:fs'; import { Lint } from './src/lint/dist/index.js'; fs.mkdirSync('docs/generated', { recursive: true }); fs.writeFileSync('docs/generated/project-aware-rules.md', Lint.docs.renderProjectAwareRulesMarkdown(), 'utf8'); console.log('Generated docs/generated/project-aware-rules.md');\"",
+    "check:dependency-policy": "pnpm run build:ts && node --test test/dist/prettier-dependency.test.js test/dist/module-ownership-dependencies.test.js test/dist/project-aware-rules-docs.test.js"
   },
   "jscpd": {
     "threshold": 0.3,

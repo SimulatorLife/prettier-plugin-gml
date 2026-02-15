@@ -1,9 +1,59 @@
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../catalog.js";
 import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
+import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
+
+const DEFAULT_HOIST_ACCESSORS = Object.freeze({
+    array_length: "len"
+});
+
+function getFunctionSuffixOverride(options: Record<string, unknown>, functionName: string): string | null {
+    const rawFunctionSuffixes = options.functionSuffixes;
+    if (!rawFunctionSuffixes || typeof rawFunctionSuffixes !== "object") {
+        return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
+    }
+
+    const functionSuffixes = rawFunctionSuffixes as Record<string, unknown>;
+    const configuredSuffix = functionSuffixes[functionName];
+    if (configuredSuffix === null) {
+        return null;
+    }
+
+    if (typeof configuredSuffix === "string" && configuredSuffix.trim().length > 0) {
+        return configuredSuffix.trim();
+    }
+
+    return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
+}
+
+function findLoopLengthHoistCandidate(text: string): {
+    loopStart: number;
+    loopEnd: number;
+    indent: string;
+    accessorIdentifier: string;
+    loopHeaderText: string;
+} | null {
+    const loopPattern = /(^|\r?\n)([ \t]*)for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)[^)]*\)/g;
+    const match = loopPattern.exec(text);
+    if (!match) {
+        return null;
+    }
+
+    const prefix = match[1] ?? "";
+    const fullMatch = match[0];
+    const loopHeaderText = fullMatch.slice(prefix.length);
+    const loopStart = (match.index ?? 0) + prefix.length;
+    const loopEnd = loopStart + loopHeaderText.length;
+    return {
+        loopStart,
+        loopEnd,
+        indent: match[2] ?? "",
+        accessorIdentifier: match[3] ?? "",
+        loopHeaderText
+    };
+}
 
 function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs: {
@@ -52,20 +102,64 @@ function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.Ru
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const options = readObjectOption(context);
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const projectContext = resolveProjectContextForRule(context, definition);
             const listener: Rule.RuleListener = {
                 Program(node) {
                     const text = context.sourceCode.text;
-                    const loopPattern = /for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
-                    for (const match of text.matchAll(loopPattern)) {
+                    const candidate = findLoopLengthHoistCandidate(text);
+                    if (!candidate) {
+                        return;
+                    }
+
+                    const functionSuffix = getFunctionSuffixOverride(options, "array_length");
+                    if (functionSuffix === null) {
+                        return;
+                    }
+
+                    const resolveLoopHoistIdentifier =
+                        projectContext.context && typeof projectContext.context.resolveLoopHoistIdentifier === "function"
+                            ? projectContext.context.resolveLoopHoistIdentifier.bind(projectContext.context)
+                            : null;
+                    const preferredName = `${candidate.accessorIdentifier}_${functionSuffix}`;
+                    const resolvedIdentifierName =
+                        resolveLoopHoistIdentifier?.(preferredName, new Set<string>()) ?? preferredName;
+                    if (!resolvedIdentifierName) {
                         context.report({
                             node,
-                            messageId: definition.messageId
+                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
                         });
+                        return;
                     }
+
+                    const accessorCall = `array_length(${candidate.accessorIdentifier})`;
+                    const loopHeaderWithHoistIdentifier = candidate.loopHeaderText.replace(accessorCall, resolvedIdentifierName);
+                    const lineEnding = dominantLineEnding(text);
+                    const declaration = `${candidate.indent}var ${resolvedIdentifierName} = ${accessorCall};${lineEnding}`;
+                    const isInsertableContext = candidate.loopStart === 0 || text[candidate.loopStart - 1] === "\n";
+                    if (!isInsertableContext) {
+                        context.report({
+                            node,
+                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
+                        });
+                        return;
+                    }
+
+                    context.report({
+                        node,
+                        messageId: definition.messageId,
+                        fix: (fixer) => [
+                            fixer.insertTextAfterRange([candidate.loopStart, candidate.loopStart], declaration),
+                            fixer.replaceTextRange(
+                                [candidate.loopStart, candidate.loopEnd],
+                                loopHeaderWithHoistIdentifier
+                            )
+                        ]
+                    });
                 }
             };
 
-            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }
@@ -114,10 +208,10 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                     const lines = text.split(/\r?\n/);
                     for (let index = 0; index < lines.length - 1; index += 1) {
                         const firstMatch = lines[index].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/
+                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
                         );
                         const secondMatch = lines[index + 1].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/
+                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
                         );
                         if (!firstMatch || !secondMatch) {
                             continue;
@@ -177,13 +271,40 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
         create(context) {
             const options = readObjectOption(context);
             const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const projectContext = resolveProjectContextForRule(context, definition);
             const listener: Rule.RuleListener = {
                 Program() {
                     const text = context.sourceCode.text;
+                    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
+                    const filePath = typeof sourcePath === "string" ? sourcePath : null;
                     const pattern = /(^|\r?\n)(\s*)globalvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g;
+                    const assessGlobalVarRewrite =
+                        projectContext.context && typeof projectContext.context.assessGlobalVarRewrite === "function"
+                            ? projectContext.context.assessGlobalVarRewrite.bind(projectContext.context)
+                            : null;
                     for (const match of text.matchAll(pattern)) {
                         const start = (match.index ?? 0) + match[1].length;
                         const end = start + match[2].length + "globalvar".length + 1 + match[3].length + 1;
+                        const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
+                            allowRewrite: true,
+                            reason: null
+                        };
+                        if (!rewriteAssessment.allowRewrite) {
+                            if (shouldReportUnsafeFixes) {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: "unsafeFix"
+                                });
+                            } else {
+                                context.report({
+                                    loc: context.sourceCode.getLocFromIndex(start),
+                                    messageId: definition.messageId
+                                });
+                            }
+                            continue;
+                        }
+
                         if (!enableAutofix) {
                             context.report({
                                 loc: context.sourceCode.getLocFromIndex(start),
@@ -202,7 +323,6 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
                 }
             };
 
-            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }
@@ -219,15 +339,106 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const pattern = /^\s*\/\/\/(\S)/gm;
-                    for (const match of text.matchAll(pattern)) {
-                        const start = (match.index ?? 0) + match[0].indexOf("///") + 3;
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.insertTextAfterRange([start, start], " ")
-                        });
+                    const lineEnding = dominantLineEnding(text);
+                    const lines = text.split(/\r?\n/u);
+                    const rewrittenLines: Array<string> = [];
+
+                    const normalizeDocPrefix = (line: string): string => {
+                        const legacyTagMatch = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+                        if (legacyTagMatch) {
+                            return `${legacyTagMatch[1]}/// @${legacyTagMatch[2]}${legacyTagMatch[3]}`;
+                        }
+
+                        const legacyDocLikeMatch = /^(\s*)\/\/\s*\/\s*(.*)$/u.exec(line);
+                        if (legacyDocLikeMatch) {
+                            const suffix = legacyDocLikeMatch[2].length > 0 ? ` ${legacyDocLikeMatch[2]}` : "";
+                            return `${legacyDocLikeMatch[1]}///${suffix}`;
+                        }
+
+                        const missingSpaceMatch = /^(\s*)\/\/\/(\S.*)$/u.exec(line);
+                        if (missingSpaceMatch) {
+                            return `${missingSpaceMatch[1]}/// ${missingSpaceMatch[2]}`;
+                        }
+
+                        return line;
+                    };
+
+                    const flushDocBlock = (blockLines: Array<string>): void => {
+                        if (blockLines.length === 0) {
+                            return;
+                        }
+
+                        const nonEmptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s+(.+)$/u;
+                        const emptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s*$/u;
+                        const plainDocLinePattern = /^(\s*)\/\/\/\s+(?!@)(.+)$/u;
+                        const tagDocLinePattern = /^(\s*)\/\/\/\s+@/u;
+
+                        const normalizedBlock = blockLines
+                            .filter((line) => !emptyDescriptionPattern.test(line))
+                            .map((line) => normalizeDocPrefix(line));
+
+                        const hasDescription = normalizedBlock.some((line) => nonEmptyDescriptionPattern.test(line));
+                        if (hasDescription) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainIndex = normalizedBlock.findIndex((line) => plainDocLinePattern.test(line));
+                        if (firstPlainIndex === -1) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainMatch = plainDocLinePattern.exec(normalizedBlock[firstPlainIndex]);
+                        if (!firstPlainMatch) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const indentation = firstPlainMatch[1];
+                        const descriptionText = firstPlainMatch[2].trimEnd();
+                        normalizedBlock[firstPlainIndex] = `${indentation}/// @description ${descriptionText}`;
+
+                        for (let index = firstPlainIndex + 1; index < normalizedBlock.length; index += 1) {
+                            const line = normalizedBlock[index];
+                            if (tagDocLinePattern.test(line)) {
+                                break;
+                            }
+
+                            const plainMatch = plainDocLinePattern.exec(line);
+                            if (!plainMatch) {
+                                continue;
+                            }
+
+                            normalizedBlock[index] = `${plainMatch[1]}///              ${plainMatch[2].trimEnd()}`;
+                        }
+
+                        rewrittenLines.push(...normalizedBlock);
+                    };
+
+                    let pendingDocBlock: Array<string> = [];
+                    for (const line of lines) {
+                        if (/^\s*\/\/\//u.test(line) || /^\s*\/\/\s*[@/]/u.test(line)) {
+                            pendingDocBlock.push(line);
+                            continue;
+                        }
+
+                        flushDocBlock(pendingDocBlock);
+                        pendingDocBlock = [];
+                        rewrittenLines.push(normalizeDocPrefix(line));
                     }
+                    flushDocBlock(pendingDocBlock);
+
+                    const rewritten = rewrittenLines.join(lineEnding);
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
                 }
             });
         }
@@ -243,16 +454,11 @@ function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rul
                     const text = context.sourceCode.text;
                     const pattern = /"[^"]*"\s*\+\s*string\(/g;
                     const isUnsafeReportingEnabled = shouldReportUnsafe(context);
-                    for (const match of text.matchAll(pattern)) {
-                        if (!isUnsafeReportingEnabled) {
-                            continue;
-                        }
-
+                    if (isUnsafeReportingEnabled && pattern.test(text)) {
                         context.report({
                             node,
                             messageId: "unsafeFix"
                         });
-                        break;
                     }
                 }
             };
@@ -330,6 +536,108 @@ function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rul
     });
 }
 
+function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const rewrites: Array<{ start: number; end: number; replacement: string }> = [];
+                    const memberPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[\?|\[\||\[#)\s*/g;
+                    for (const match of text.matchAll(memberPattern)) {
+                        const variableName = match[1];
+                        const accessor = match[2];
+                        const lowerName = variableName.toLowerCase();
+
+                        let expectedAccessor: string | null = null;
+                        if (lowerName.includes("list") || lowerName.includes("lst")) {
+                            expectedAccessor = "[|";
+                        } else if (lowerName.includes("map")) {
+                            expectedAccessor = "[?";
+                        } else if (lowerName.includes("grid")) {
+                            expectedAccessor = "[#";
+                        }
+
+                        if (!expectedAccessor || expectedAccessor === accessor) {
+                            continue;
+                        }
+
+                        const start = (match.index ?? 0) + match[0].indexOf(accessor);
+                        rewrites.push({
+                            start,
+                            end: start + accessor.length,
+                            replacement: expectedAccessor
+                        });
+                    }
+
+                    for (const rewrite of rewrites) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
+function createRequireTrailingOptionalDefaultsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const functionPattern = /function\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([\s\S]*?)\)/g;
+                    for (const match of text.matchAll(functionPattern)) {
+                        const paramsStart = (match.index ?? 0) + match[0].indexOf("(") + 1;
+                        const paramsEnd = paramsStart + match[1].length;
+                        const paramsText = match[1];
+                        const pieces = paramsText.split(",");
+                        let sawDefault = false;
+                        let changed = false;
+                        const rewrittenPieces = pieces.map((piece) => {
+                            const raw = piece;
+                            const trimmed = piece.trim();
+                            if (trimmed.length === 0) {
+                                return raw;
+                            }
+
+                            if (trimmed.includes("=")) {
+                                sawDefault = true;
+                                return raw;
+                            }
+
+                            if (!sawDefault || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(trimmed)) {
+                                return raw;
+                            }
+
+                            changed = true;
+                            const leading = raw.slice(0, raw.indexOf(trimmed));
+                            const trailing = raw.slice(raw.indexOf(trimmed) + trimmed.length);
+                            return `${leading}${trimmed} = undefined${trailing}`;
+                        });
+
+                        if (!changed) {
+                            continue;
+                        }
+
+                        const rewritten = rewrittenPieces.join(",");
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(paramsStart),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([paramsStart, paramsEnd], rewritten)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
         case "prefer-loop-length-hoist": {
@@ -358,6 +666,12 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-argument-separators": {
             return createRequireArgumentSeparatorsRule(definition);
+        }
+        case "normalize-data-structure-accessors": {
+            return createNormalizeDataStructureAccessorsRule(definition);
+        }
+        case "require-trailing-optional-defaults": {
+            return createRequireTrailingOptionalDefaultsRule(definition);
         }
         default: {
             return Object.freeze({

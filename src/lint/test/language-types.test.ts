@@ -1,6 +1,6 @@
 import test from "node:test";
 
-import type { Lint } from "../src/lint-namespace.js";
+import type * as LintWorkspace from "@gml-modules/lint";
 
 type ExpectTrue<T extends true> = T;
 type IsAssignable<TValue, TExpected> = TValue extends TExpected ? true : false;
@@ -27,7 +27,9 @@ type LanguageShapeContract = {
     normalizeLanguageOptions: (languageOptions: unknown) => { recovery: "none" | "limited" };
 };
 
-type GMLLanguageMatchesContract = ExpectTrue<IsAssignable<typeof Lint.plugin.languages.gml, LanguageShapeContract>>;
+type GMLLanguageMatchesContract = ExpectTrue<
+    IsAssignable<typeof LintWorkspace.Lint.plugin.languages.gml, LanguageShapeContract>
+>;
 void (0 as unknown as GMLLanguageMatchesContract);
 
 void test("compile-time language contract assertions are represented at runtime", () => {

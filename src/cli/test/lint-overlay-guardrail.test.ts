@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { Lint } from "@gml-modules/lint";
+import * as LintWorkspace from "@gml-modules/lint";
 
 import { __lintCommandTest__ } from "../src/commands/lint.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
+
+const { Lint } = LintWorkspace;
 
 void test("wiring requires both plugin identity and language", () => {
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
-            plugins: { gml: Lint.plugin },
+            plugins: { gml: LintWorkspace.Lint.plugin },
             language: "gml/gml"
         }),
         true
@@ -24,7 +30,7 @@ void test("wiring requires both plugin identity and language", () => {
 
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
-            plugins: { gml: Lint.plugin },
+            plugins: { gml: LintWorkspace.Lint.plugin },
             language: "not-gml"
         }),
         false
@@ -59,7 +65,7 @@ void test("missing rules means no overlay rules applied", () => {
 });
 
 void test("overlay matching uses exact canonical full rule IDs", () => {
-    const performanceId = Lint.services.performanceOverrideRuleIds[0];
+    const performanceId = LintWorkspace.Lint.services.performanceOverrideRuleIds[0];
 
     assert.equal(
         __lintCommandTest__.hasOverlayRuleApplied({
@@ -100,6 +106,75 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     assert.match(rendered, /and 5 more\.\.\./);
 });
 
+void test("flat config discovery searches cwd ancestors in candidate order", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-discovery-"));
+    const nestedDirectory = path.join(tempRoot, "a", "b");
+    await fs.mkdir(nestedDirectory, { recursive: true });
+
+    const expectedConfig = path.join(tempRoot, "eslint.config.mjs");
+    await fs.writeFile(expectedConfig, "export default [];\n", "utf8");
+
+    const discovery = __lintCommandTest__.discoverFlatConfig(nestedDirectory);
+
+    assert.equal(discovery.selectedConfigPath, expectedConfig);
+    assert.ok(discovery.searchedPaths.length > 0);
+    assert.deepEqual(
+        discovery.searchedPaths.slice(0, __lintCommandTest__.FLAT_CONFIG_CANDIDATES.length),
+        __lintCommandTest__.FLAT_CONFIG_CANDIDATES.map((candidate) => path.join(nestedDirectory, candidate))
+    );
+});
+
+void test("formatter normalization preserves unknown names for explicit validation", () => {
+    assert.equal(__lintCommandTest__.normalizeFormatterName(undefined), "stylish");
+    assert.equal(__lintCommandTest__.normalizeFormatterName("JSON"), "json");
+    assert.equal(__lintCommandTest__.normalizeFormatterName("custom"), "custom");
+    assert.equal(__lintCommandTest__.isSupportedFormatter("stylish"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("json"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("checkstyle"), true);
+    assert.equal(__lintCommandTest__.isSupportedFormatter("custom"), false);
+});
+
+void test("explicit config validation fails on missing file", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-"));
+    const missingPath = path.join(tempRoot, "missing.config.js");
+
+    await assert.rejects(() => __lintCommandTest__.validateExplicitConfigPath(missingPath));
+});
+
+void test("configureLintConfig defers discovered config selection to ESLint", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-discovery-"));
+    await fs.writeFile(path.join(tempRoot, "eslint.config.js"), "export default [];\n", "utf8");
+
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(eslintConstructorOptions.overrideConfig, undefined);
+});
+
+void test("configureLintConfig applies bundled fallback when discovery finds no config", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-fallback-"));
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        configPath: null,
+        noDefaultConfig: false,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(Array.isArray(eslintConstructorOptions.overrideConfig), true);
+});
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {
@@ -173,4 +248,96 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     });
 
     assert.deepEqual(offendingPaths, []);
+});
+
+void test("processor normalization treats default/none sentinels as equivalent", () => {
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(""), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("   "), null);
+    assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement("gml/processor"), "gml/processor");
+});
+
+void test("processor enforcement fails when active processor is observable and non-default", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { processor: "markdown/markdown" };
+            }
+        },
+        results: [{ filePath: "/tmp/processor.gml" }],
+        verbose: false
+    });
+
+    assert.equal(evaluation.exitCode, 2);
+    assert.match(evaluation.message ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_UNSUPPORTED_ERROR_CODE}:`));
+    assert.equal(evaluation.warning, null);
+});
+
+void test("processor enforcement emits verbose observability warning when processor cannot be observed", async () => {
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile() {
+                return { language: "gml/gml" };
+            }
+        },
+        results: [{ filePath: "/tmp/observability.gml" }],
+        verbose: true
+    });
+
+    assert.equal(evaluation.exitCode, 0);
+    assert.equal(evaluation.message, null);
+    assert.match(evaluation.warning ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_OBSERVABILITY_WARNING_CODE}:`));
+});
+
+void test("configureLintConfig reports discovery search paths when fallback is disabled", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-reporting-"));
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+    const warnings: Array<string> = [];
+    const exitCode = await withTemporaryProperty(
+        console,
+        "warn",
+        (value?: unknown) => {
+            warnings.push(typeof value === "string" ? value : JSON.stringify(value));
+        },
+        async () => {
+            return __lintCommandTest__.configureLintConfig({
+                eslintConstructorOptions,
+                cwd: tempRoot,
+                configPath: null,
+                noDefaultConfig: true,
+                quiet: false
+            });
+        }
+    );
+
+    assert.equal(exitCode, 0);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? "", /No user flat config found\./);
+    assert.match(warnings[0] ?? "", /Searched locations:/);
+});
+
+void test("configureLintConfig returns exit code 2 for unreadable explicit --config targets", async () => {
+    const eslintConstructorOptions: { overrideConfigFile?: string; overrideConfig?: unknown } = {};
+    const errors: Array<string> = [];
+    const exitCode = await withTemporaryProperty(
+        console,
+        "error",
+        (value?: unknown) => {
+            errors.push(typeof value === "string" ? value : JSON.stringify(value));
+        },
+        async () => {
+            return __lintCommandTest__.configureLintConfig({
+                eslintConstructorOptions,
+                cwd: process.cwd(),
+                configPath: path.join(process.cwd(), "__missing-flat-config__.js"),
+                noDefaultConfig: false,
+                quiet: false
+            });
+        }
+    );
+
+    assert.equal(exitCode, 2);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(errors.length > 0, true);
 });

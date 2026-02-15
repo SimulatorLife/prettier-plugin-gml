@@ -1,8 +1,15 @@
+/**
+ * Refactor engine for semantic-safe code transformations.
+ * Coordinates rename operations, batch renames, hot reload validation, and
+ * workspace edits across the project while preventing scope capture and shadowing.
+ */
+
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
+import { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
@@ -27,6 +34,7 @@ import {
     type RenameImpactAnalysis,
     type RenamePlanSummary,
     type RenameRequest,
+    type RefactorProjectAnalysisProvider,
     type SymbolLocation,
     type SymbolOccurrence,
     type TranspilerBridge,
@@ -37,7 +45,7 @@ import {
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import { assertRenameRequest, assertValidIdentifierName, extractSymbolName, hasMethod } from "./validation-utils.js";
-import { type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
+import { getWorkspaceArrays, type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -48,13 +56,20 @@ export class RefactorEngine {
     public readonly parser: ParserBridge | null;
     public readonly semantic: PartialSemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
+    private readonly projectAnalysisProvider: RefactorProjectAnalysisProvider;
     private readonly renameValidationCache: RenameValidationCache;
     private readonly semanticCache: SemanticQueryCache;
 
-    constructor({ parser = null, semantic = null, formatter = null }: Partial<RefactorEngineDependencies> = {}) {
+    constructor({
+        parser = null,
+        semantic = null,
+        formatter = null,
+        projectAnalysisProvider = null
+    }: Partial<RefactorEngineDependencies> = {}) {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
+        this.projectAnalysisProvider = projectAnalysisProvider ?? createRefactorProjectAnalysisProvider();
         this.renameValidationCache = new RenameValidationCache();
         this.semanticCache = new SemanticQueryCache(semantic);
     }
@@ -63,21 +78,21 @@ export class RefactorEngine {
      * Find the symbol at a specific location in a file.
      * Useful for triggering refactorings from editor positions.
      */
-    async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
+    findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
         return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
      */
-    async validateSymbolExists(symbolId: string): Promise<boolean> {
+    validateSymbolExists(symbolId: string): Promise<boolean> {
         return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
-    async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
         return this.semanticCache.getSymbolOccurrences(symbolName);
     }
 
@@ -90,7 +105,7 @@ export class RefactorEngine {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
-        return this.semanticCache.getFileSymbols(filePath);
+        return await this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -102,7 +117,7 @@ export class RefactorEngine {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });
-        return this.semanticCache.getDependents(symbolIds);
+        return await this.semanticCache.getDependents(symbolIds);
     }
 
     /**
@@ -110,17 +125,10 @@ export class RefactorEngine {
      * This is used by the plugin to determing if a proposed variable name is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
-        if (!this.semantic) {
-            return false;
-        }
-
-        const occurrences = await this.gatherSymbolOccurrences(identifierName);
-        if (occurrences.length > 0) {
-            return true;
-        }
-
-        const symbolId = await SymbolQueries.resolveSymbolId(identifierName, this.semantic);
-        return Core.isNonEmptyString(symbolId);
+        return await this.projectAnalysisProvider.isIdentifierOccupied(identifierName, {
+            semantic: this.semantic,
+            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+        });
     }
 
     /**
@@ -128,19 +136,10 @@ export class RefactorEngine {
      * This is used by the plugin to determine if a rename would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
-        const files = new Set<string>();
-        if (!this.semantic) {
-            return files;
-        }
-
-        const occurrences = await this.gatherSymbolOccurrences(identifierName);
-        for (const occurrence of occurrences) {
-            if (Core.isNonEmptyString(occurrence.path)) {
-                files.add(occurrence.path);
-            }
-        }
-
-        return files;
+        return await this.projectAnalysisProvider.listIdentifierOccurrences(identifierName, {
+            semantic: this.semantic,
+            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+        });
     }
 
     /**
@@ -651,8 +650,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         const hasTextEdits = workspace.edits.length > 0;
         const hasMetadataEdits = metadataEdits.length > 0;
         const hasFileRenames = fileRenames.length > 0;
@@ -803,7 +801,7 @@ export class RefactorEngine {
             }
         });
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         await Core.runSequentially(metadataEdits, async (metadataEdit) => {
             results.set(metadataEdit.path, metadataEdit.content);
 
@@ -814,7 +812,6 @@ export class RefactorEngine {
 
         // Process file renames last to ensure we don't move files before we're done
         // with their text edits. This stabilizes path references during the build phase.
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
         if (!dryRun && fileRenames.length > 0) {
             const { renameFile } = opts;
             if (typeof renameFile !== "function") {
@@ -901,11 +898,10 @@ export class RefactorEngine {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
             }
-            const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+            const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
             for (const metadataEdit of metadataEdits) {
                 merged.addMetadataEdit(metadataEdit.path, metadataEdit.content);
             }
-            const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
             for (const fileRename of fileRenames) {
                 merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
@@ -1305,8 +1301,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         const hasTextEdits = workspace.edits.length > 0;
         const hasMetadataEdits = metadataEdits.length > 0;
         const hasFileRenames = fileRenames.length > 0;
@@ -1931,24 +1926,10 @@ export class RefactorEngine {
             skipReason?: string;
         }>
     > {
-        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-        const plannedEntries: Array<{
-            identifierName: string;
-            mode: "local-fallback" | "project-aware";
-            preferredReplacementName: string;
-            replacementName: string | null;
-            skipReason?: string;
-        }> = [];
-
-        await Core.runSequentially(requests, async (request) => {
-            const plannedEntry = await this.planSingleFeatherRenameRequest(request, normalizedFilePath, projectRoot);
-
-            if (plannedEntry) {
-                plannedEntries.push(plannedEntry);
-            }
+        return await this.projectAnalysisProvider.planFeatherRenames(requests, filePath, projectRoot, {
+            semantic: this.semantic,
+            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
         });
-
-        return plannedEntries;
     }
 
     /**
@@ -1962,12 +1943,7 @@ export class RefactorEngine {
         initializerMode: "existing" | "undefined";
         mode: "project-aware";
     } {
-        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-        return {
-            allowRewrite: hasInitializer || normalizedFilePath !== null,
-            initializerMode: hasInitializer ? "existing" : "undefined",
-            mode: "project-aware"
-        };
+        return this.projectAnalysisProvider.assessGlobalVarRewrite(filePath, hasInitializer);
     }
 
     /**
@@ -1977,135 +1953,7 @@ export class RefactorEngine {
         identifierName: string;
         mode: "project-aware";
     } {
-        return {
-            identifierName: preferredName,
-            mode: "project-aware"
-        };
-    }
-
-    /**
-     * Plan a single feather rename request.
-     * @private
-     */
-    private async planSingleFeatherRenameRequest(
-        request: { identifierName: string; preferredReplacementName: string },
-        normalizedFilePath: string | null,
-        projectRoot: string
-    ): Promise<{
-        identifierName: string;
-        mode: "local-fallback" | "project-aware";
-        preferredReplacementName: string;
-        replacementName: string | null;
-        skipReason?: string;
-    } | null> {
-        if (!request || !Core.isNonEmptyString(request.identifierName)) {
-            return null;
-        }
-
-        const symbolId = await SymbolQueries.resolveSymbolId(request.identifierName, this.semantic);
-
-        if (!Core.isNonEmptyString(symbolId)) {
-            return {
-                identifierName: request.identifierName,
-                mode: "local-fallback",
-                preferredReplacementName: request.preferredReplacementName,
-                replacementName: request.preferredReplacementName
-            };
-        }
-
-        const candidateNames = this.enumerateRenameCandidates(request.preferredReplacementName);
-        const resolution = await this.resolveRefactorPlannedReplacement(
-            candidateNames,
-            normalizedFilePath,
-            projectRoot,
-            symbolId // We checked for null above
-        );
-
-        return {
-            identifierName: request.identifierName,
-            mode: "project-aware",
-            preferredReplacementName: request.preferredReplacementName,
-            replacementName: resolution.replacementName,
-            skipReason: resolution.skipReason
-        };
-    }
-
-    /**
-     * Enumerate potential rename candidates.
-     * @private
-     */
-    private enumerateRenameCandidates(preferredName: string): ReadonlyArray<string> {
-        if (!Core.isNonEmptyString(preferredName)) {
-            return ["__featherFix_reserved"];
-        }
-
-        const candidates = [preferredName];
-        for (let index = 1; index <= 32; index += 1) {
-            candidates.push(`${preferredName}_${index}`);
-        }
-
-        return candidates;
-    }
-
-    /**
-     * Resolve planned replacement name by checking candidates.
-     * @private
-     */
-    private async resolveRefactorPlannedReplacement(
-        candidateNames: ReadonlyArray<string>,
-        normalizedFilePath: string | null,
-        projectRoot: string,
-        symbolId: string
-    ): Promise<{ replacementName: string | null; skipReason?: string }> {
-        const tryCandidateAtIndex = async (
-            index: number,
-            lastSkipReason?: string
-        ): Promise<{ replacementName: string | null; skipReason?: string }> => {
-            if (index >= candidateNames.length) {
-                return {
-                    replacementName: null,
-                    skipReason: lastSkipReason
-                };
-            }
-
-            const candidateName = candidateNames[index];
-            try {
-                const plan = await this.prepareRenamePlan(
-                    {
-                        symbolId,
-                        newName: candidateName
-                    },
-                    {
-                        validateHotReload: false
-                    }
-                );
-
-                if (!plan.validation.valid) {
-                    return await tryCandidateAtIndex(index + 1, plan.validation.errors.join("; "));
-                }
-
-                const affectedAbsolutePaths = new Set<string>();
-                for (const edit of plan.workspace.edits) {
-                    affectedAbsolutePaths.add(path.resolve(projectRoot, edit.path));
-                }
-
-                const touchesOnlyCurrentFile =
-                    normalizedFilePath === null ||
-                    [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === normalizedFilePath);
-                if (!touchesOnlyCurrentFile) {
-                    return await tryCandidateAtIndex(
-                        index + 1,
-                        "Rename requires project-wide edits and cannot be applied safely inside formatter-only mode."
-                    );
-                }
-
-                return { replacementName: candidateName };
-            } catch (error) {
-                return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
-            }
-        };
-
-        return await tryCandidateAtIndex(0);
+        return this.projectAnalysisProvider.resolveLoopHoistIdentifier(preferredName);
     }
 
     /**

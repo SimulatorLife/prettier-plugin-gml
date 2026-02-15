@@ -160,8 +160,11 @@ void describe("Prettier wrapper CLI", () => {
 
     void it("applies plugin newline normalization when run through the wrapper CLI", async () => {
         const repoRootDirectory = await findRepoRoot(currentDirectory);
-        const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.gml");
-        const optionsPath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.options.json");
+        const fixturePath = path.join(repoRootDirectory, "test/fixtures/plugin-integration/testPreserveNewlines.gml");
+        const optionsPath = path.join(
+            repoRootDirectory,
+            "test/fixtures/plugin-integration/testPreserveNewlines.options.json"
+        );
 
         const [source, optionsContent] = await Promise.all([
             fs.readFile(fixturePath, "utf8"),
@@ -915,7 +918,7 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
-    void it("skips symbolic links to avoid infinite directory traversal loops", async (t) => {
+    void it("skips symbolic links to avoid infinite directory traversal loops", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -936,16 +939,18 @@ void describe("Prettier wrapper CLI", () => {
                 }
             }
 
-            if (shouldSkip) {
-                t.skip();
-            }
-
             const { stdout } = await execFileAsync("node", [wrapperPath, tempDirectory]);
-
-            assert.ok(
-                stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
-                "Expected wrapper output to report skipped symbolic links"
-            );
+            if (shouldSkip) {
+                assert.ok(
+                    !stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
+                    "Expected no symbolic-link skip message when symlink creation is unavailable"
+                );
+            } else {
+                assert.ok(
+                    stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
+                    "Expected wrapper output to report skipped symbolic links"
+                );
+            }
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");

@@ -171,6 +171,30 @@ void describe("Dependency Validation", () => {
         assert.ok(result.missingDependencies.includes("script:helper3"));
     });
 
+    void test("validatePatchDependencies reports missing dependencies once when metadata contains duplicates", () => {
+        const registry: RuntimeRegistry = {
+            version: 1,
+            scripts: {
+                "script:helper1": () => 1
+            },
+            events: {},
+            closures: {}
+        };
+
+        const patch: Patch = {
+            kind: "script",
+            id: "script:complex",
+            js_body: "return helper1() + helper2();",
+            metadata: {
+                dependencies: ["script:helper1", "script:helper2", "script:helper2", "script:helper2"]
+            }
+        };
+
+        const result = validatePatchDependencies(patch, registry);
+        assert.strictEqual(result.satisfied, false);
+        assert.deepStrictEqual(result.missingDependencies, ["script:helper2"]);
+    });
+
     void test("validatePatchDependencies ignores non-string dependencies", () => {
         const registry: RuntimeRegistry = {
             version: 0,

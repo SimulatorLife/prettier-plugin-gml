@@ -34,17 +34,27 @@ function splitExtensionInput(value: unknown): Array<string> {
     }) as Array<string>;
 }
 
+function collectRawExtensionEntries(rawExtensions: ExtensionInput): Array<unknown> {
+    if (typeof rawExtensions === "string") {
+        return [rawExtensions];
+    }
+
+    if (rawExtensions === null || rawExtensions === undefined) {
+        return [rawExtensions];
+    }
+
+    if (typeof rawExtensions[Symbol.iterator] === "function") {
+        return Array.from(rawExtensions);
+    }
+
+    return [rawExtensions];
+}
+
 export function normalizeExtensions(
     rawExtensions: ExtensionInput,
     fallbackExtensions: ReadonlyArray<string> = []
 ): Array<string> {
-    const fragments = (
-        typeof rawExtensions === "string"
-            ? [rawExtensions]
-            : rawExtensions && typeof rawExtensions[Symbol.iterator] === "function"
-              ? Array.from(rawExtensions)
-              : [rawExtensions]
-    ).flatMap((value) => splitExtensionInput(value));
+    const fragments = collectRawExtensionEntries(rawExtensions).flatMap((value) => splitExtensionInput(value));
 
     const coerced = fragments.map((fragment) => coerceExtensionValue(fragment));
     const normalized = uniqueArray(compactArray(coerced), {
