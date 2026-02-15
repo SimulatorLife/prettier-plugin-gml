@@ -150,6 +150,6 @@ export async function readTextFile(filePath: string): Promise<string> {
  * @returns {Promise<void>} Resolves when the write completes.
  * @throws {NodeJS.ErrnoException} When the file cannot be written.
  */
-export function writeTextFile(filePath: string, content: string): Promise<void> {
+export async function writeTextFile(filePath: string, content: string): Promise<void> {
     return fsWriteFileAsync(filePath, content, "utf8");
 }
