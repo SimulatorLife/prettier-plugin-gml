@@ -339,29 +339,106 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const pattern = /^\s*\/\/\/(\S)/gm;
-                    for (const match of text.matchAll(pattern)) {
-                        const start = (match.index ?? 0) + match[0].indexOf("///") + 3;
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.insertTextAfterRange([start, start], " ")
-                        });
+                    const lineEnding = dominantLineEnding(text);
+                    const lines = text.split(/\r?\n/u);
+                    const rewrittenLines: Array<string> = [];
+
+                    const normalizeDocPrefix = (line: string): string => {
+                        const legacyTagMatch = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+                        if (legacyTagMatch) {
+                            return `${legacyTagMatch[1]}/// @${legacyTagMatch[2]}${legacyTagMatch[3]}`;
+                        }
+
+                        const legacyDocLikeMatch = /^(\s*)\/\/\s*\/\s*(.*)$/u.exec(line);
+                        if (legacyDocLikeMatch) {
+                            const suffix = legacyDocLikeMatch[2].length > 0 ? ` ${legacyDocLikeMatch[2]}` : "";
+                            return `${legacyDocLikeMatch[1]}///${suffix}`;
+                        }
+
+                        const missingSpaceMatch = /^(\s*)\/\/\/(\S.*)$/u.exec(line);
+                        if (missingSpaceMatch) {
+                            return `${missingSpaceMatch[1]}/// ${missingSpaceMatch[2]}`;
+                        }
+
+                        return line;
+                    };
+
+                    const flushDocBlock = (blockLines: Array<string>): void => {
+                        if (blockLines.length === 0) {
+                            return;
+                        }
+
+                        const nonEmptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s+(.+)$/u;
+                        const emptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s*$/u;
+                        const plainDocLinePattern = /^(\s*)\/\/\/\s+(?!@)(.+)$/u;
+                        const tagDocLinePattern = /^(\s*)\/\/\/\s+@/u;
+
+                        const normalizedBlock = blockLines
+                            .filter((line) => !emptyDescriptionPattern.test(line))
+                            .map((line) => normalizeDocPrefix(line));
+
+                        const hasDescription = normalizedBlock.some((line) => nonEmptyDescriptionPattern.test(line));
+                        if (hasDescription) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainIndex = normalizedBlock.findIndex((line) => plainDocLinePattern.test(line));
+                        if (firstPlainIndex === -1) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const firstPlainMatch = plainDocLinePattern.exec(normalizedBlock[firstPlainIndex]);
+                        if (!firstPlainMatch) {
+                            rewrittenLines.push(...normalizedBlock);
+                            return;
+                        }
+
+                        const indentation = firstPlainMatch[1];
+                        const descriptionText = firstPlainMatch[2].trimEnd();
+                        normalizedBlock[firstPlainIndex] = `${indentation}/// @description ${descriptionText}`;
+
+                        for (let index = firstPlainIndex + 1; index < normalizedBlock.length; index += 1) {
+                            const line = normalizedBlock[index];
+                            if (tagDocLinePattern.test(line)) {
+                                break;
+                            }
+
+                            const plainMatch = plainDocLinePattern.exec(line);
+                            if (!plainMatch) {
+                                continue;
+                            }
+
+                            normalizedBlock[index] = `${plainMatch[1]}///              ${plainMatch[2].trimEnd()}`;
+                        }
+
+                        rewrittenLines.push(...normalizedBlock);
+                    };
+
+                    let pendingDocBlock: Array<string> = [];
+                    for (const line of lines) {
+                        if (/^\s*\/\/\//u.test(line) || /^\s*\/\/\s*[@/]/u.test(line)) {
+                            pendingDocBlock.push(line);
+                            continue;
+                        }
+
+                        flushDocBlock(pendingDocBlock);
+                        pendingDocBlock = [];
+                        rewrittenLines.push(normalizeDocPrefix(line));
+                    }
+                    flushDocBlock(pendingDocBlock);
+
+                    const rewritten = rewrittenLines.join(lineEnding);
+                    if (rewritten === text) {
+                        return;
                     }
 
-                    const legacyDocPattern = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)/gm;
-                    for (const match of text.matchAll(legacyDocPattern)) {
-                        const start = match.index ?? 0;
-                        const end = start + match[0].length;
-                        const indentation = match[1] ?? "";
-                        const tag = match[2] ?? "";
-                        const normalized = `${indentation}/// @${tag}`;
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([start, end], normalized)
-                        });
-                    }
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
                 }
             });
         }

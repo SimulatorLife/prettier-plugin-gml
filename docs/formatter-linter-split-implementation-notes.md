@@ -101,6 +101,10 @@
   - `gml/normalize-data-structure-accessors`;
   - `gml/require-trailing-optional-defaults`.
 - Plugin semantic rewrite tests for these behaviors were removed from formatter workspace and replaced by formatter regression assertions that formatting does **not** perform these rewrites.
+- Doc-comment semantic rewrite ownership moved further into lint:
+  - `gml/normalize-doc-comments` now covers legacy doc-prefix normalization (`// @tag`, `// / text`), empty `@description` removal, and doc-block description promotion.
+  - New lint tests in `src/lint/test/normalize-doc-comments-rule.test.ts` now validate migrated doc-comment behaviors that were previously plugin-owned.
+  - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior.
 - Additional feather parity fixture migration landed in lint:
   - Added rule implementations + fixture coverage for `feather/gm1014`, `feather/gm1016`, and `feather/gm1023`.
   - `src/lint/test/feather-rule-fixtures.test.ts` now validates migrated feather fixers for `gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, and `gm1023`.
