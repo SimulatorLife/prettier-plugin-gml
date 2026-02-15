@@ -4,15 +4,14 @@ import {
     mkdirSync as nodeMkdirSync,
     type PathOrFileDescriptor,
     renameSync as nodeRenameSync,
-    statSync as nodeStatSync,
-    writeFileSync as nodeWriteFileSync
+    statSync as nodeStatSync
 } from "node:fs";
 
 import { Core } from "@gml-modules/core";
 
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
-const { readTextFileSync } = Core;
+const { readTextFileSync, writeTextFileSync } = Core;
 
 const defaultIdentifierCaseFsFacade = Object.freeze({
     readFileSync(targetPath: PathOrFileDescriptor) {
@@ -22,7 +21,13 @@ const defaultIdentifierCaseFsFacade = Object.freeze({
         return readTextFileSync(targetPath);
     },
     writeFileSync(targetPath: PathOrFileDescriptor, contents: string | Buffer, encoding: BufferEncoding = "utf8") {
-        nodeWriteFileSync(targetPath, contents, encoding);
+        if (typeof targetPath !== "string") {
+            throw new TypeError("writeFileSync only accepts string paths");
+        }
+        if (typeof contents !== "string") {
+            throw new TypeError("writeFileSync with centralized helpers only accepts string content");
+        }
+        writeTextFileSync(targetPath, contents);
     },
     renameSync(fromPath, toPath) {
         nodeRenameSync(fromPath, toPath);
