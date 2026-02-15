@@ -1,37 +1,23 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
-import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
-import { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
-import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
-import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
-import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import type { ParserTransform } from "./functional-transform.js";
-import { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
 /**
- * Central registry for parser transforms exposed by the plugin pipeline.
- * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
+ * Central registry for parser transforms exposed by the formatter pipeline.
+ * This list intentionally excludes semantic/content rewrites owned by lint.
  */
 const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
-    consolidateStructAssignmentsTransform,
     normalizeDataStructureAccessorsTransform,
     preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
-    convertStringConcatenationsTransform,
-    optimizeLogicalExpressionsTransform,
-    condenseGuardStatementsTransform,
     docCommentNormalizationTransform,
-    convertUndefinedGuardAssignmentsTransform,
-    annotateStaticFunctionOverridesTransform,
-    collapseRedundantMissingCallArgumentsTransform,
     markCallsMissingArgumentSeparatorsTransform
 ] as const;
 
@@ -72,7 +58,7 @@ export function isParserTransformName(value: unknown): value is ParserTransformN
 }
 
 /**
- * Apply the requested transforms in the curated order so the plugin can share a single normalization pipeline.
+ * Apply the requested transforms in curated order.
  */
 export function applyTransforms(
     ast: MutableGameMakerAstNode,
@@ -98,22 +84,15 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
-export { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
-export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
-export { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
-export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
-export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
-export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
-export { optimizeLogicalExpressionsTransform } from "./logical-expressions/optimize-logical-expressions.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";

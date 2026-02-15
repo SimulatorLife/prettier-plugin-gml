@@ -182,6 +182,28 @@ void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
     assert.equal(result.messages.length, 0);
 });
 
+void test("lint rules retain migrated semantic rewrite coverage", () => {
+    const structLiteralResult = lintWithRule(
+        "prefer-struct-literal-assignments",
+        "var cfg = {};\ncfg.foo = 1;\ncfg.bar = 2;\n"
+    );
+    assert.equal(structLiteralResult.messages.length, 1);
+
+    const interpolationResult = lintWithRule("prefer-string-interpolation", 'var label = "HP: " + string(hp);\n', {
+        reportUnsafe: true
+    });
+    assert.equal(interpolationResult.messages.length, 1);
+
+    const logicalFlowResult = lintWithRule(
+        "optimize-logical-flow",
+        'if (!!ready) {\n    show_debug_message("ok");\n}\n',
+        {
+            repair: true
+        }
+    );
+    assert.equal(logicalFlowResult.messages.length, 1);
+    assert.notEqual(logicalFlowResult.output.length, 0);
+});
 void test("no-globalvar rewrite scope only touches declarations", async () => {
     const input = await readFixture("no-globalvar", "rewrite-scope.gml");
     const result = lintWithRule("no-globalvar", input, {});
