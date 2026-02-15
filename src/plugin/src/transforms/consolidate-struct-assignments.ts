@@ -37,47 +37,33 @@ function normalizeCommentTools(commentTools) {
     return commentTools;
 }
 
+const COMMENT_SNAPSHOT_KEYS = [
+    "enclosingNode",
+    "precedingNode",
+    "followingNode",
+    "leading",
+    "trailing",
+    "placement",
+    "leadingChar",
+    "_structPropertyTrailing",
+    "_structPropertyHandled",
+    "_removedByConsolidation"
+];
+
+const COMMENT_OPTIONAL_KEYS = ["_structPropertyTrailing", "_structPropertyHandled", "_removedByConsolidation"];
+
 function snapshotComment(comment) {
-    return {
-        enclosingNode: comment.enclosingNode,
-        precedingNode: comment.precedingNode,
-        followingNode: comment.followingNode,
-        leading: comment.leading,
-        trailing: comment.trailing,
-        placement: comment.placement,
-        leadingChar: comment.leadingChar,
-        _structPropertyTrailing: comment._structPropertyTrailing,
-        _structPropertyHandled: comment._structPropertyHandled,
-        _removedByConsolidation: comment._removedByConsolidation
-    };
+    return Core.snapshotProperties(comment, COMMENT_SNAPSHOT_KEYS);
 }
 
 function restoreComment(comment, snapshot) {
-    comment.enclosingNode = snapshot.enclosingNode;
-    comment.precedingNode = snapshot.precedingNode;
-    comment.followingNode = snapshot.followingNode;
-    comment.leading = snapshot.leading;
-    comment.trailing = snapshot.trailing;
-    comment.placement = snapshot.placement;
-    comment.leadingChar = snapshot.leadingChar;
-
-    if (snapshot._structPropertyTrailing === undefined) {
-        delete comment._structPropertyTrailing;
-    } else {
-        comment._structPropertyTrailing = snapshot._structPropertyTrailing;
+    // Restore regular properties
+    const regularKeys = COMMENT_SNAPSHOT_KEYS.filter((key) => !COMMENT_OPTIONAL_KEYS.includes(key));
+    for (const key of regularKeys) {
+        comment[key] = snapshot[key];
     }
-
-    if (snapshot._structPropertyHandled === undefined) {
-        delete comment._structPropertyHandled;
-    } else {
-        comment._structPropertyHandled = snapshot._structPropertyHandled;
-    }
-
-    if (snapshot._removedByConsolidation === undefined) {
-        delete comment._removedByConsolidation;
-    } else {
-        comment._removedByConsolidation = snapshot._removedByConsolidation;
-    }
+    // Restore optional properties using the delete-if-undefined pattern
+    Core.restoreProperties(comment, snapshot, COMMENT_OPTIONAL_KEYS);
 }
 
 type PropertyKeyInfo = {
