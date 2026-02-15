@@ -105,7 +105,7 @@ export class RefactorEngine {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
-        return await this.semanticCache.getFileSymbols(filePath);
+        return this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -117,7 +117,7 @@ export class RefactorEngine {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });
-        return await this.semanticCache.getDependents(symbolIds);
+        return this.semanticCache.getDependents(symbolIds);
     }
 
     /**
