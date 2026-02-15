@@ -1,13 +1,23 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
 const { Lint } = LintWorkspace;
 
-const fixtureRoot = path.resolve("test/fixtures");
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+const fixtureRootCandidates = [
+    path.resolve(testDirectory, "fixtures"),
+    path.resolve(testDirectory, "../../test/fixtures")
+];
+const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candidate));
+if (!fixtureRoot) {
+    throw new Error(`Unable to resolve lint fixture root from candidates: ${fixtureRootCandidates.join(", ")}`);
+}
 const allCapabilities = new Set([
     "IDENTIFIER_OCCUPANCY",
     "IDENTIFIER_OCCURRENCES",

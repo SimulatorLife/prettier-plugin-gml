@@ -217,11 +217,14 @@ void test("patch queue tracks patches received without double-counting on flush"
         assert.strictEqual(metricsWhileQueued.patchesReceived, 1);
         assert.strictEqual(metricsWhileQueued.patchesApplied, 0);
 
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 1);
+
         await waitForQueueMetrics(
             client,
             "queue to flush pending patch",
             (snapshot) => snapshot.totalFlushed === 1 && snapshot.flushCount === 1,
-            300
+            100
         );
 
         const metricsAfterFlush = client.getConnectionMetrics();

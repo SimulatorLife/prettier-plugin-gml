@@ -40,6 +40,12 @@
 - Lint registry/provider delegation now has explicit coverage ensuring provider-backed snapshot construction is used and cached per resolved root.
 - Plugin README ownership docs were aligned with current runtime surface (identifier-case integration only; no semantic/refactor runtime hook exports).
 - Root generated-doc contract now enforces checked-in sync for `docs/generated/project-aware-rules.md` against `Lint.docs.renderProjectAwareRulesMarkdown()`.
+- Lint fixture and contract tests now resolve source/fixture paths correctly under both workspace-local runs and monorepo-root compiled runs (no brittle `cwd` assumptions).
+- Recovery metadata ownership contract checks now recurse the full lint rule source tree and validate against source `.ts` roots (avoids vacuous/`dist`-path false passes).
+- Repository-wide explicit test skips were removed (`{ skip: ... }` and `.skip(...)` declarations now absent under `src/` and `test/` sources).
+- Runtime-wrapper patch-queue contract test was made deterministic by forcing explicit queue flush before assertions (avoids timer-flush race).
+- Hot-reload integration tests were hardened with startup-readiness/status waits and less aggressive WebSocket/status timeout defaults to avoid startup-race flakes under full-suite load.
+- Refactor validation tests now use synchronous throw assertions where validation throws before promise construction.
 
 ## Test Migration Status
 
@@ -48,7 +54,7 @@
   - Result: `pass 219`, `fail 0`, `skipped 0`.
 - `src/lint`:
   - `pnpm --filter @gml-modules/lint test` passes.
-  - Result: `pass 35`, `fail 0`, `skipped 0`.
+  - Result: `pass 36`, `fail 0`, `skipped 0`.
 - `src/cli`:
   - `pnpm --filter @gml-modules/cli test` passes.
   - Result: `pass 538`, `fail 0`, `skipped 0`.
@@ -56,8 +62,11 @@
   - `pnpm run test:root` passes.
   - Includes generated project-aware docs sync assertion and plugin integration fixture assertions.
   - Includes a new guard that fails if integration option fixtures reintroduce removed formatter migration keys.
+- Full monorepo suite:
+  - `pnpm test` passes.
+  - Result: `pass 2993`, `fail 0`, `skipped 0`.
 - Skipped-test audit:
-  - Search: `rg -n "\\b(?:test|it|describe|t)\\.skip\\s*\\(" src --glob '!**/dist/**'`
+  - Search: `rg -n "\\{\\s*skip\\s*:|\\.skip\\(" src test --glob '!**/dist/**'`
   - Result: no matches.
 - CLI skip-path cleanup remains in place:
   - Symlink traversal test no longer uses `t.skip()` when symlink creation is unavailable; it asserts deterministic behavior for both capability paths.

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -131,6 +131,16 @@ function extractUnsafeFixReasonCodes(messages: Readonly<Record<string, string>>)
     return reasonCodes;
 }
 
+function resolveSourceRoot(testDirectory: string): string {
+    const candidates = [path.resolve(testDirectory, "../src"), path.resolve(testDirectory, "../../src")];
+    const resolved = candidates.find((candidate) => existsSync(path.join(candidate, "language/recovery.ts")));
+    if (!resolved) {
+        throw new Error(`Unable to resolve lint source root from ${testDirectory}`);
+    }
+
+    return resolved;
+}
+
 void test("recommended baseline rules expose stable messageIds and exact schemas", () => {
     for (const ruleDefinition of expectedRules) {
         const rule = LintWorkspace.Lint.plugin.rules[ruleDefinition.shortName] as {
@@ -233,13 +243,51 @@ void test("only gml/require-argument-separators may consume inserted separator r
     );
 
     const testDirectory = path.dirname(fileURLToPath(import.meta.url));
-    const rulesDirectory = path.resolve(testDirectory, "../src/rules");
-    const ruleSourceFiles = readdirSync(rulesDirectory).filter((file) => file.endsWith(".ts"));
+    const sourceRoot = resolveSourceRoot(testDirectory);
+    const rulesDirectory = path.join(sourceRoot, "rules");
+    const recoveryDirectory = path.join(sourceRoot, "language");
 
-    const matchingFiles = ruleSourceFiles.filter((file) => {
-        const source = readFileSync(path.join(rulesDirectory, file), "utf8");
-        return source.includes("inserted-argument-separator");
+    const recoveryModulePath = path.join(recoveryDirectory, "recovery.ts");
+    const recoveryModuleSource = readFileSync(recoveryModulePath, "utf8");
+    assert.equal(
+        recoveryModuleSource.includes("INSERTED_ARGUMENT_SEPARATOR_KIND"),
+        true,
+        "Expected recovery contract constant to exist."
+    );
+
+    const queue = [rulesDirectory];
+    const ruleSourceFilePaths: Array<string> = [];
+    while (queue.length > 0) {
+        const currentDirectory = queue.pop();
+        if (!currentDirectory) {
+            continue;
+        }
+
+        for (const entry of readdirSync(currentDirectory, { withFileTypes: true })) {
+            const entryPath = path.join(currentDirectory, entry.name);
+            if (entry.isDirectory()) {
+                queue.push(entryPath);
+                continue;
+            }
+
+            if (entry.isFile() && entry.name.endsWith(".ts")) {
+                ruleSourceFilePaths.push(entryPath);
+            }
+        }
+    }
+
+    const forbiddenReferences = ruleSourceFilePaths.filter((filePath) => {
+        const source = readFileSync(filePath, "utf8");
+        return (
+            source.includes("INSERTED_ARGUMENT_SEPARATOR_KIND") ||
+            source.includes("inserted-argument-separator") ||
+            source.includes("InsertedArgumentSeparatorRecovery")
+        );
     });
 
-    assert.deepEqual(matchingFiles, []);
+    assert.deepEqual(
+        forbiddenReferences,
+        [],
+        "Recovery separator metadata must remain language-owned and not be consumed directly by unrelated rules."
+    );
 });

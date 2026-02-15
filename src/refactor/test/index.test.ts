@@ -3100,7 +3100,7 @@ void test("getFileSymbols queries semantic analyzer", async () => {
 
 void test("getFileSymbols validates file path", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(() => engine.getFileSymbols(null as unknown as string), {
+    assert.throws(() => engine.getFileSymbols(null as unknown as string), {
         name: "TypeError",
         message: /requires a valid file path/
     });
@@ -3140,7 +3140,7 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
 
 void test("getSymbolDependents validates input type", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(() => engine.getSymbolDependents("not-an-array" as unknown as Array<string>), {
+    assert.throws(() => engine.getSymbolDependents("not-an-array" as unknown as Array<string>), {
         name: "TypeError",
         message: /requires an array/
     });
