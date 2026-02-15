@@ -1,12 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
 import type { GmlFeatherRenamePlanEntry } from "./index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
-
-const IDENTIFIER_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/gu;
 
 const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
     "IDENTIFIER_OCCUPANCY",
@@ -68,95 +65,6 @@ function isExcludedPath(
     return segments.some((segment) => excludedDirectories.has(segment.toLowerCase()));
 }
 
-function collectEligibleGmlFiles(
-    rootPath: string,
-    excludedDirectories: ReadonlySet<string>,
-    allowedDirectories: ReadonlyArray<string>
-): Array<string> {
-    const filePaths: Array<string> = [];
-    const directories = [rootPath];
-
-    while (directories.length > 0) {
-        const currentDirectory = directories.pop();
-        if (!currentDirectory) {
-            continue;
-        }
-
-        let entries: Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
-        try {
-            entries = readdirSync(currentDirectory, { withFileTypes: true });
-        } catch {
-            continue;
-        }
-
-        for (const entry of entries) {
-            const entryPath = path.join(currentDirectory, entry.name);
-            if (entry.isDirectory()) {
-                const excludedDirectory = isExcludedPath(entryPath, excludedDirectories, allowedDirectories);
-                const hasAllowedDescendant = allowedDirectories.some((directory) =>
-                    isPathWithinBoundary(directory, normalizeLintFilePath(entryPath))
-                );
-                if (excludedDirectory && !hasAllowedDescendant) {
-                    continue;
-                }
-
-                directories.push(entryPath);
-                continue;
-            }
-
-            if (entry.isFile() && entry.name.toLowerCase().endsWith(".gml")) {
-                filePaths.push(normalizeLintFilePath(entryPath));
-            }
-        }
-    }
-
-    filePaths.sort((left, right) => left.localeCompare(right));
-    return filePaths;
-}
-
-function buildTextProjectIndex(
-    rootPath: string,
-    excludedDirectories: ReadonlySet<string>,
-    allowedDirectories: ReadonlyArray<string>
-): ProjectIndex {
-    const identifierMap = new Map<string, Set<string>>();
-    const files = collectEligibleGmlFiles(rootPath, excludedDirectories, allowedDirectories);
-
-    for (const filePath of files) {
-        let sourceText: string;
-        try {
-            sourceText = readFileSync(filePath, "utf8");
-        } catch {
-            continue;
-        }
-
-        const identifiers = sourceText.match(IDENTIFIER_PATTERN) ?? [];
-        for (const identifier of identifiers) {
-            if (identifier.length === 0) {
-                continue;
-            }
-
-            const normalizedIdentifier = normalizeIdentifierName(identifier);
-            if (normalizedIdentifier.length === 0) {
-                continue;
-            }
-
-            const bucket = identifierMap.get(normalizedIdentifier) ?? new Set<string>();
-            bucket.add(filePath);
-            identifierMap.set(normalizedIdentifier, bucket);
-        }
-    }
-
-    const frozenEntries = new Map<string, ReadonlySet<string>>();
-    for (const [identifier, fileSet] of identifierMap.entries()) {
-        frozenEntries.set(identifier, new Set(fileSet));
-    }
-
-    return Object.freeze({
-        identifierToFiles: frozenEntries
-    });
-}
-
 function resolveLoopHoistIdentifierName(
     preferredName: string,
     localIdentifierNames: ReadonlySet<string>,
@@ -187,7 +95,7 @@ function resolveLoopHoistIdentifierName(
     return preferredName;
 }
 
-function createTextProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
+function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
     const isIdentifierOccupied = (identifierName: string): boolean => {
         return index.identifierToFiles.has(normalizeIdentifierName(identifierName));
     };
@@ -250,16 +158,6 @@ function createTextProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysis
     });
 }
 
-export function createTextProjectAnalysisProvider(): ProjectAnalysisProvider {
-    return Object.freeze({
-        buildSnapshot(projectRoot: string, options: ProjectAnalysisBuildOptions): ProjectAnalysisSnapshot {
-            const normalizedRoot = normalizeLintFilePath(projectRoot);
-            const index = buildTextProjectIndex(normalizedRoot, options.excludedDirectories, options.allowedDirectories);
-            return createTextProjectAnalysisSnapshot(index);
-        }
-    });
-}
-
 function createMissingProjectAnalysisSnapshot(): ProjectAnalysisSnapshot {
     return Object.freeze({
         capabilities: new Set<ProjectCapability>(),
@@ -315,7 +213,10 @@ function addIdentifierFile(
     options: ProjectAnalysisBuildOptions
 ): void {
     const normalizedIdentifierName = normalizeIdentifierName(identifierName);
-    if (!normalizedIdentifierName || isExcludedPath(filePath, options.excludedDirectories, options.allowedDirectories)) {
+    if (
+        !normalizedIdentifierName ||
+        isExcludedPath(filePath, options.excludedDirectories, options.allowedDirectories)
+    ) {
         return;
     }
 
@@ -426,7 +327,7 @@ export function createProjectAnalysisSnapshotFromProjectIndex(
 ): ProjectAnalysisSnapshot {
     const normalizedRoot = normalizeLintFilePath(projectRoot);
     const index = buildSemanticIdentifierIndex(projectIndex as SemanticProjectIndexLike, normalizedRoot, options);
-    return createTextProjectAnalysisSnapshot(index);
+    return createProjectAnalysisSnapshot(index);
 }
 
 export function createPrebuiltProjectAnalysisProvider(

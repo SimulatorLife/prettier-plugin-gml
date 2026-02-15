@@ -6,7 +6,8 @@ import test from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import { __lintCommandTest__ } from "../src/commands/lint.js";
+import { __lintCommandTest__, runLintCommand } from "../src/commands/lint.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 const { Lint } = LintWorkspace;
 
@@ -247,4 +248,42 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     });
 
     assert.deepEqual(offendingPaths, []);
+});
+
+void test("runLintCommand maps semantic provider prebuild failures to exit code 2", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-provider-failure-"));
+    const previousCwd = process.cwd();
+
+    await withTemporaryProperty(process, "exitCode", undefined, async () => {
+        await withTemporaryProperty(
+            console,
+            "error",
+            () => {},
+            async () => {
+                process.chdir(tempRoot);
+                try {
+                    await runLintCommand({
+                        args: ["."],
+                        opts() {
+                            return {
+                                fix: false,
+                                formatter: "stylish",
+                                maxWarnings: "-1",
+                                quiet: true,
+                                noDefaultConfig: true,
+                                verbose: false,
+                                project: path.join(tempRoot, "missing", "missing.yyp"),
+                                projectStrict: false,
+                                indexAllow: []
+                            };
+                        }
+                    });
+
+                    assert.equal(process.exitCode, 2);
+                } finally {
+                    process.chdir(previousCwd);
+                }
+            }
+        );
+    });
 });
