@@ -92,11 +92,11 @@ export class RefactorEngine {
      * This is useful for hot reload coordination to determine which symbols
      * need recompilation when a file changes.
      */
-    getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
+    async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
-        return this.semanticCache.getFileSymbols(filePath);
+        return await this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -104,11 +104,11 @@ export class RefactorEngine {
      * This is essential for hot reload to determine which symbols need recompilation
      * when dependencies change.
      */
-    getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
+    async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });
-        return this.semanticCache.getDependents(symbolIds);
+        return await this.semanticCache.getDependents(symbolIds);
     }
 
     /**
