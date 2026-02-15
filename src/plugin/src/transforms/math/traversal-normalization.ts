@@ -174,7 +174,7 @@ function simplifyOneMinusOperand(node, key, context) {
         return false;
     }
 
-    const expression = unwrapExpression(rawOperand);
+    const expression = Core.unwrapParenthesizedExpression(rawOperand);
     if (!expression || Core.hasComment(expression)) {
         return false;
     }
@@ -261,7 +261,7 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const expression = unwrapExpression(operand);
+    const expression = Core.unwrapParenthesizedExpression(operand);
     if (!expression) {
         return false;
     }
@@ -275,7 +275,7 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const sanitizedOperand = isSafeOperand(other) ? unwrapExpression(other) : other;
+    const sanitizedOperand = isSafeOperand(other) ? Core.unwrapParenthesizedExpression(other) : other;
 
     const replacement = Core.cloneAstNode(sanitizedOperand);
     if (!replaceNodeWith(node, replacement)) {
@@ -438,12 +438,12 @@ function combineLengthdirScalarAssignments(ast) {
 }
 
 function matchLengthdirReassignment(expression, identifierName) {
-    const root = unwrapExpression(expression);
+    const root = Core.unwrapParenthesizedExpression(expression);
     if (!root || root.type !== BINARY_EXPRESSION || root.operator !== "-") {
         return null;
     }
 
-    const callExpression = unwrapExpression(root.right);
+    const callExpression = Core.unwrapParenthesizedExpression(root.right);
     if (!callExpression || callExpression.type !== CALL_EXPRESSION) {
         return null;
     }
@@ -468,8 +468,8 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    const left = unwrapExpression(root.left);
-    const difference = unwrapExpression(left);
+    const left = Core.unwrapParenthesizedExpression(root.left);
+    const difference = Core.unwrapParenthesizedExpression(left);
     if (!difference || difference.type !== BINARY_EXPRESSION || difference.operator !== "-") {
         return null;
     }
@@ -499,7 +499,7 @@ function matchLengthdirReassignment(expression, identifierName) {
 }
 
 function matchIdentifierTimesFactor(expression, identifierName) {
-    const unwrapped = unwrapExpression(expression);
+    const unwrapped = Core.unwrapParenthesizedExpression(expression);
     if (!unwrapped || Core.hasComment(unwrapped)) {
         return null;
     }
@@ -547,7 +547,7 @@ function matchIdentifierTimesFactor(expression, identifierName) {
         return null;
     }
 
-    const literalNode = unwrapExpression(factorNode) ?? factorNode;
+    const literalNode = Core.unwrapParenthesizedExpression(factorNode) ?? factorNode;
 
     return {
         factor: factorValue,
@@ -808,7 +808,7 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
         }
 
         const term = terms[index];
-        const expression = unwrapExpression(term.expression);
+        const expression = Core.unwrapParenthesizedExpression(term.expression);
         if (!expression || expression.type !== BINARY_EXPRESSION) {
             continue;
         }
@@ -958,7 +958,7 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const expression = unwrapExpression(operand);
+    const expression = Core.unwrapParenthesizedExpression(operand);
     if (!expression) {
         return false;
     }
@@ -1009,7 +1009,10 @@ function isMultiplicationAnnihilatedByZero(node, context) {
         return false;
     }
 
-    return isNumericZeroLiteral(unwrapExpression(left)) || isNumericZeroLiteral(unwrapExpression(right));
+    return (
+        isNumericZeroLiteral(Core.unwrapParenthesizedExpression(left)) ||
+        isNumericZeroLiteral(Core.unwrapParenthesizedExpression(right))
+    );
 }
 
 function isNumericZeroLiteral(node) {
@@ -1053,7 +1056,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const expression = unwrapExpression(operand);
+    const expression = Core.unwrapParenthesizedExpression(operand);
     if (!expression) {
         return false;
     }
@@ -1106,7 +1109,7 @@ function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
         return false;
     }
 
-    const rightExpression = unwrapExpression(node.right);
+    const rightExpression = Core.unwrapParenthesizedExpression(node.right);
     if (!rightExpression) {
         return false;
     }
@@ -1163,7 +1166,7 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    const denominator = unwrapExpression(node.right);
+    const denominator = Core.unwrapParenthesizedExpression(node.right);
     if (!denominator || denominator.type !== BINARY_EXPRESSION || denominator.operator !== "/") {
         return false;
     }
@@ -1176,9 +1179,9 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    const numerator = unwrapExpression(denominator.left);
+    const numerator = Core.unwrapParenthesizedExpression(denominator.left);
     const rawReciprocalFactor = denominator.right;
-    const reciprocalFactor = unwrapExpression(rawReciprocalFactor);
+    const reciprocalFactor = Core.unwrapParenthesizedExpression(rawReciprocalFactor);
 
     if (!numerator || !rawReciprocalFactor || !reciprocalFactor) {
         return false;
@@ -1290,13 +1293,13 @@ function collectReciprocalRatioTerms({
             return null;
         }
 
-        const expression = unwrapExpression(term.expression);
+        const expression = Core.unwrapParenthesizedExpression(term.expression);
         if (!expression || expression.type !== BINARY_EXPRESSION || expression.operator !== "/") {
             continue;
         }
 
-        const numerator = unwrapExpression(expression.left);
-        const denominator = unwrapExpression(expression.right);
+        const numerator = Core.unwrapParenthesizedExpression(expression.left);
+        const denominator = Core.unwrapParenthesizedExpression(expression.right);
 
         if (!numerator || !denominator) {
             continue;
@@ -1378,7 +1381,7 @@ function buildReciprocalRatioRemovalPlan({
                 continue;
             }
 
-            const candidate = unwrapExpression(term.expression);
+            const candidate = Core.unwrapParenthesizedExpression(term.expression);
             if (!candidate) {
                 continue;
             }
@@ -1510,7 +1513,7 @@ function attemptSimplifyNegativeDivisionProduct(node, context) {
             continue;
         }
 
-        const fractionExpression = unwrapExpression(fractionNode);
+        const fractionExpression = Core.unwrapParenthesizedExpression(fractionNode);
         if (
             !fractionExpression ||
             fractionExpression.type !== BINARY_EXPRESSION ||
@@ -1523,8 +1526,8 @@ function attemptSimplifyNegativeDivisionProduct(node, context) {
             continue;
         }
 
-        const numerator = unwrapExpression(fractionExpression.left);
-        const denominator = unwrapExpression(fractionExpression.right);
+        const numerator = Core.unwrapParenthesizedExpression(fractionExpression.left);
+        const denominator = Core.unwrapParenthesizedExpression(fractionExpression.right);
 
         if (!numerator || !denominator) {
             continue;
@@ -2042,8 +2045,8 @@ function attemptConvertSquare(node, context) {
         return false;
     }
 
-    const left = unwrapExpression(rawLeft);
-    const right = unwrapExpression(rawRight);
+    const left = Core.unwrapParenthesizedExpression(rawLeft);
+    const right = Core.unwrapParenthesizedExpression(rawRight);
 
     if (!left || !right) {
         return false;
@@ -2071,8 +2074,8 @@ function attemptConvertSquare(node, context) {
     if (collectProductOperands(node, factors)) {
         for (let i = 0; i < factors.length; i++) {
             for (let j = i + 1; j < factors.length; j++) {
-                const a = unwrapExpression(factors[i]);
-                const b = unwrapExpression(factors[j]);
+                const a = Core.unwrapParenthesizedExpression(factors[i]);
+                const b = Core.unwrapParenthesizedExpression(factors[j]);
                 if (a && b && areNodesEquivalent(a, b) && isSafeOperand(a)) {
                     const remainingFactors = factors.filter((_, idx) => idx !== i && idx !== j);
                     const sqrNode = createCallExpressionNode("sqr", [Core.cloneAstNode(a)], node);
@@ -2117,13 +2120,13 @@ function attemptConvertRepeatedPower(node, context) {
         return false;
     }
 
-    const base = unwrapExpression(factors[0]);
+    const base = Core.unwrapParenthesizedExpression(factors[0]);
     if (!base || !isSafeOperand(base)) {
         return false;
     }
 
     for (let index = 1; index < factors.length; index += 1) {
-        const operand = unwrapExpression(factors[index]);
+        const operand = Core.unwrapParenthesizedExpression(factors[index]);
         if (!areNodesEquivalent(base, operand)) {
             return false;
         }
@@ -2140,7 +2143,7 @@ function attemptConvertMean(node, context) {
         return false;
     }
 
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
 
     if (!expression || expression.type !== BINARY_EXPRESSION) {
         return false;
@@ -2150,15 +2153,15 @@ function attemptConvertMean(node, context) {
     let divisor;
 
     if (expression.operator === "/") {
-        addition = unwrapExpression(expression.left);
-        divisor = unwrapExpression(expression.right);
+        addition = Core.unwrapParenthesizedExpression(expression.left);
+        divisor = Core.unwrapParenthesizedExpression(expression.right);
 
         if (!isLiteralNumber(divisor, 2)) {
             return false;
         }
     } else if (expression.operator === "*") {
-        const left = unwrapExpression(expression.left);
-        const right = unwrapExpression(expression.right);
+        const left = Core.unwrapParenthesizedExpression(expression.left);
+        const right = Core.unwrapParenthesizedExpression(expression.right);
 
         if (isLiteralNumber(left, 0.5)) {
             addition = right;
@@ -2183,8 +2186,8 @@ function attemptConvertMean(node, context) {
         return false;
     }
 
-    const leftTerm = unwrapExpression(addition.left);
-    const rightTerm = unwrapExpression(addition.right);
+    const leftTerm = Core.unwrapParenthesizedExpression(addition.left);
+    const rightTerm = Core.unwrapParenthesizedExpression(addition.right);
 
     if (!leftTerm || !rightTerm) {
         return false;
@@ -2200,8 +2203,8 @@ function attemptConvertLog2(node, context) {
         return false;
     }
 
-    const numerator = unwrapExpression(node.left);
-    const denominator = unwrapExpression(node.right);
+    const numerator = Core.unwrapParenthesizedExpression(node.left);
+    const denominator = Core.unwrapParenthesizedExpression(node.right);
 
     if (!isLnCall(numerator) || !isLnCall(denominator)) {
         return false;
@@ -2242,7 +2245,7 @@ function attemptConvertLengthDir(node, context) {
             continue;
         }
 
-        const lengthNode = unwrapExpression(candidate.length.node);
+        const lengthNode = Core.unwrapParenthesizedExpression(candidate.length.node);
         if (!lengthNode || !isSafeOperand(lengthNode)) {
             continue;
         }
@@ -2305,14 +2308,14 @@ function attemptConvertDotProducts(node, context) {
     const rightVector = [];
 
     for (const term of terms) {
-        const expr = unwrapExpression(term);
+        const expr = Core.unwrapParenthesizedExpression(term);
 
         if (!isBinaryOperator(expr, "*") || Core.hasComment(expr)) {
             return false;
         }
 
-        const left = unwrapExpression(expr.left);
-        const right = unwrapExpression(expr.right);
+        const left = Core.unwrapParenthesizedExpression(expr.left);
+        const right = Core.unwrapParenthesizedExpression(expr.right);
 
         if (!left || !right) {
             return false;
@@ -2334,13 +2337,13 @@ function isPotentialSquareMultiplication(node) {
         return false;
     }
 
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || !isBinaryOperator(expression, "*")) {
         return false;
     }
 
-    const left = unwrapExpression(expression.left);
-    const right = unwrapExpression(expression.right);
+    const left = Core.unwrapParenthesizedExpression(expression.left);
+    const right = Core.unwrapParenthesizedExpression(expression.right);
     if (!left || !right) {
         return false;
     }
@@ -2380,7 +2383,7 @@ function attemptConvertPointDistanceCall(node, context) {
             return false;
         }
 
-        const exponent = unwrapExpression(callArguments[1]);
+        const exponent = Core.unwrapParenthesizedExpression(callArguments[1]);
         if (!isHalfExponentLiteral(exponent)) {
             return false;
         }
@@ -2425,7 +2428,7 @@ function attemptConvertPowerToSqrt(node, context) {
         return false;
     }
 
-    const exponent = unwrapExpression(args[1]);
+    const exponent = Core.unwrapParenthesizedExpression(args[1]);
     if (!isHalfExponentLiteral(exponent)) {
         return false;
     }
@@ -2450,7 +2453,7 @@ function attemptConvertPowerToExp(node, context) {
         return false;
     }
 
-    const base = unwrapExpression(args[0]);
+    const base = Core.unwrapParenthesizedExpression(args[0]);
     const exponent = args[1];
 
     if (!isEulerLiteral(base)) {
@@ -2477,8 +2480,8 @@ function attemptConvertPointDirection(node, context) {
         return false;
     }
 
-    const dy = unwrapExpression(args[0]);
-    const dx = unwrapExpression(args[1]);
+    const dy = Core.unwrapParenthesizedExpression(args[0]);
+    const dx = Core.unwrapParenthesizedExpression(args[1]);
 
     const dyDiff = matchDifference(dy);
     const dxDiff = matchDifference(dx);
@@ -2540,13 +2543,13 @@ function matchSquaredDifferences(expression) {
     const differences = [];
 
     for (const term of terms) {
-        const product = unwrapExpression(term);
+        const product = Core.unwrapParenthesizedExpression(term);
         if (!isBinaryOperator(product, "*") || Core.hasComment(product)) {
             return null;
         }
 
-        const left = unwrapExpression(product.left);
-        const right = unwrapExpression(product.right);
+        const left = Core.unwrapParenthesizedExpression(product.left);
+        const right = Core.unwrapParenthesizedExpression(product.right);
 
         if (!left || !right || (!areNodesEquivalent(left, right) && !areNodesApproximatelyEquivalent(left, right))) {
             return null;
@@ -2568,14 +2571,14 @@ function matchSquaredDifferences(expression) {
 }
 
 function matchDifference(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
 
     if (!isBinaryOperator(expression, "-")) {
         return null;
     }
 
-    const minuend = unwrapExpression(expression.left);
-    const subtrahend = unwrapExpression(expression.right);
+    const minuend = Core.unwrapParenthesizedExpression(expression.left);
+    const subtrahend = Core.unwrapParenthesizedExpression(expression.right);
 
     if (!minuend || !subtrahend) {
         return null;
@@ -2585,7 +2588,7 @@ function matchDifference(node) {
 }
 
 function collectAdditionTerms(node, output) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return;
     }
@@ -2600,7 +2603,7 @@ function collectAdditionTerms(node, output) {
 }
 
 function matchScaledOperand(node, context) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return null;
     }
@@ -2649,7 +2652,7 @@ function matchScaledOperand(node, context) {
         const rightValue = parseNumericFactor(rawRight);
 
         if (expression.operator === "*") {
-            const rightBase = unwrapExpression(rawRight);
+            const rightBase = Core.unwrapParenthesizedExpression(rawRight);
             if (leftValue !== null && rightValue === null && rightBase) {
                 return {
                     coefficient: leftValue,
@@ -2658,7 +2661,7 @@ function matchScaledOperand(node, context) {
                 };
             }
 
-            const leftBase = unwrapExpression(rawLeft);
+            const leftBase = Core.unwrapParenthesizedExpression(rawLeft);
             if (rightValue !== null && leftValue === null && leftBase) {
                 return {
                     coefficient: rightValue,
@@ -2679,7 +2682,7 @@ function matchScaledOperand(node, context) {
                 return null;
             }
 
-            const numerator = unwrapExpression(rawLeft);
+            const numerator = Core.unwrapParenthesizedExpression(rawLeft);
             if (!numerator) {
                 return null;
             }
@@ -2696,7 +2699,7 @@ function matchScaledOperand(node, context) {
 }
 
 function matchLengthdirScaledOperand(node, context) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || expression.type !== CALL_EXPRESSION) {
         return null;
     }
@@ -2760,8 +2763,8 @@ function extractScalarAdditionTerm(expression, context) {
             return null;
         }
 
-        const left = unwrapExpression(rawLeft);
-        const right = unwrapExpression(rawRight);
+        const left = Core.unwrapParenthesizedExpression(rawLeft);
+        const right = Core.unwrapParenthesizedExpression(rawRight);
 
         if (!left || !right) {
             return null;
@@ -2833,8 +2836,8 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
         return false;
     }
 
-    const leftExpression = unwrapExpression(rawLeft);
-    const rightExpression = unwrapExpression(rawRight);
+    const leftExpression = Core.unwrapParenthesizedExpression(rawLeft);
+    const rightExpression = Core.unwrapParenthesizedExpression(rawRight);
 
     if (!leftExpression || !rightExpression) {
         return false;
@@ -2852,7 +2855,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
         return false;
     }
 
-    const minuend = unwrapExpression(leftExpression.left);
+    const minuend = Core.unwrapParenthesizedExpression(leftExpression.left);
     const identifierName = getUnwrappedIdentifierName(minuend);
     const scaledOperandInfo = matchScaledOperand(leftExpression.right, context);
 
@@ -3066,7 +3069,7 @@ function promoteLengthdirHalfDifference(
 function collectMultiplicativeChain(node, output, includeInDenominator, context) {
     collapseUnitMinusHalfFactor(node, context);
 
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return false;
     }
@@ -3080,7 +3083,7 @@ function collectMultiplicativeChain(node, output, includeInDenominator, context)
             }
 
             if (operator === "/") {
-                const rightExpression = unwrapExpression(expression.right);
+                const rightExpression = Core.unwrapParenthesizedExpression(expression.right);
                 if (!rightExpression) {
                     return false;
                 }
@@ -3186,7 +3189,7 @@ function collapseUnitMinusHalfFactor(node, context) {
         return false;
     }
 
-    const difference = unwrapExpression(node.expression);
+    const difference = Core.unwrapParenthesizedExpression(node.expression);
 
     if (!difference || difference.type !== BINARY_EXPRESSION) {
         return false;
@@ -3238,7 +3241,7 @@ function collapseUnitMinusHalfFactor(node, context) {
 }
 
 function collectProductOperands(node, output) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return false;
     }
@@ -3256,7 +3259,7 @@ function collectProductOperands(node, output) {
 }
 
 function extractSignedOperand(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return { node: null, negative: false };
     }
@@ -3272,7 +3275,7 @@ function extractSignedOperand(node) {
 }
 
 function identifyTrigCall(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || expression.type !== CALL_EXPRESSION) {
         return null;
     }
@@ -3285,11 +3288,11 @@ function identifyTrigCall(node) {
     const [argument] = expression.arguments;
 
     if (calleeName === "dcos") {
-        return { kind: "cos", argument: unwrapExpression(argument) };
+        return { kind: "cos", argument: Core.unwrapParenthesizedExpression(argument) };
     }
 
     if (calleeName === "dsin") {
-        return { kind: "sin", argument: unwrapExpression(argument) };
+        return { kind: "sin", argument: Core.unwrapParenthesizedExpression(argument) };
     }
 
     if (calleeName === "cos") {
@@ -3312,7 +3315,7 @@ function identifyTrigCall(node) {
 }
 
 function matchDegToRadCall(argument) {
-    const expression = unwrapExpression(argument);
+    const expression = Core.unwrapParenthesizedExpression(argument);
     if (
         !expression ||
         expression.type !== CALL_EXPRESSION ||
@@ -3323,26 +3326,26 @@ function matchDegToRadCall(argument) {
         return null;
     }
 
-    return unwrapExpression(expression.arguments[0]);
+    return Core.unwrapParenthesizedExpression(expression.arguments[0]);
 }
 
 function matchDegreesToRadians(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return null;
     }
 
     if (isBinaryOperator(expression, "/")) {
-        const left = unwrapExpression(expression.left);
-        const right = unwrapExpression(expression.right);
+        const left = Core.unwrapParenthesizedExpression(expression.left);
+        const right = Core.unwrapParenthesizedExpression(expression.right);
 
         if (!isLiteralNumber(right, 180)) {
             return null;
         }
 
         if (isBinaryOperator(left, "*")) {
-            const factorA = unwrapExpression(left.left);
-            const factorB = unwrapExpression(left.right);
+            const factorA = Core.unwrapParenthesizedExpression(left.left);
+            const factorB = Core.unwrapParenthesizedExpression(left.right);
 
             if (isPiIdentifier(factorA)) {
                 return factorB;
@@ -3355,8 +3358,8 @@ function matchDegreesToRadians(node) {
     }
 
     if (isBinaryOperator(expression, "*")) {
-        const left = unwrapExpression(expression.left);
-        const right = unwrapExpression(expression.right);
+        const left = Core.unwrapParenthesizedExpression(expression.left);
+        const right = Core.unwrapParenthesizedExpression(expression.right);
 
         if (isLiteralNumber(left, 0.017_453_292_519_943_295)) {
             return right;
@@ -3367,8 +3370,8 @@ function matchDegreesToRadians(node) {
         }
 
         if (isBinaryOperator(left, "/")) {
-            const numerator = unwrapExpression(left.left);
-            const denominator = unwrapExpression(left.right);
+            const numerator = Core.unwrapParenthesizedExpression(left.left);
+            const denominator = Core.unwrapParenthesizedExpression(left.right);
 
             if (isPiIdentifier(right) && isLiteralNumber(denominator, 180)) {
                 return numerator;
@@ -3376,8 +3379,8 @@ function matchDegreesToRadians(node) {
         }
 
         if (isBinaryOperator(right, "/")) {
-            const numerator = unwrapExpression(right.left);
-            const denominator = unwrapExpression(right.right);
+            const numerator = Core.unwrapParenthesizedExpression(right.left);
+            const denominator = Core.unwrapParenthesizedExpression(right.right);
 
             if (isPiIdentifier(left) && isLiteralNumber(denominator, 180)) {
                 return numerator;
@@ -3417,11 +3420,11 @@ function matchDegreesToRadiansViaReciprocalPi(expression) {
         return null;
     }
 
-    return unwrapExpression(operands[0]);
+    return Core.unwrapParenthesizedExpression(operands[0]);
 }
 
 function isLiteralReciprocalOf180(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return false;
     }
@@ -3435,7 +3438,7 @@ function isLiteralReciprocalOf180(node) {
 }
 
 function hasCommentsInDegreesToRadiansPattern(node, context, skipSelfCheck = false) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || expression.type !== BINARY_EXPRESSION) {
         return false;
     }
@@ -3591,7 +3594,7 @@ function parseNumericLiteral(node) {
 }
 
 function evaluateNumericExpression(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return null;
     }
@@ -3664,7 +3667,7 @@ function isNegativeOneFactor(node) {
 }
 
 function evaluateOneMinusNumeric(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || expression.type !== BINARY_EXPRESSION) {
         return null;
     }
@@ -3694,7 +3697,7 @@ function evaluateOneMinusNumeric(node) {
 }
 
 function parseNumericFactor(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return null;
     }
@@ -3744,7 +3747,7 @@ function parseNumericFactor(node) {
 }
 
 function isPiIdentifier(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     return (
         expression &&
         expression.type === IDENTIFIER &&
@@ -3758,8 +3761,8 @@ function areNodesApproximatelyEquivalent(a, b) {
         return true;
     }
 
-    const left = unwrapExpression(a);
-    const right = unwrapExpression(b);
+    const left = Core.unwrapParenthesizedExpression(a);
+    const right = Core.unwrapParenthesizedExpression(b);
 
     if (!left || !right || left.type !== right.type) {
         return false;
@@ -3796,8 +3799,8 @@ function areNodesApproximatelyEquivalent(a, b) {
 }
 
 function areNodesEquivalent(a, b) {
-    const left = unwrapExpression(a);
-    const right = unwrapExpression(b);
+    const left = Core.unwrapParenthesizedExpression(a);
+    const right = Core.unwrapParenthesizedExpression(b);
 
     if (left === right) {
         return true;
@@ -3876,7 +3879,7 @@ function compareIndexProperties(a, b) {
 }
 
 function isSafeOperand(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return false;
     }
@@ -3911,21 +3914,11 @@ function areAllSafe(nodes) {
     return nodes.every((node) => isSafeOperand(node));
 }
 
-function unwrapExpression(node) {
-    let current = node;
-
-    while (current && typeof current === "object" && current.type === PARENTHESIZED_EXPRESSION && current.expression) {
-        current = current.expression;
-    }
-
-    return current ?? null;
-}
-
 /**
  * Extract the identifier name from an expression, unwrapping parenthesized layers.
  */
 function getUnwrappedIdentifierName(node: unknown): string | null {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression) {
         return null;
     }
@@ -4629,7 +4622,7 @@ function hasInlineCommentBetween(left, right, context) {
 }
 
 function isLnCall(node) {
-    const expression = unwrapExpression(node);
+    const expression = Core.unwrapParenthesizedExpression(node);
     if (!expression || expression.type !== CALL_EXPRESSION || getUnwrappedIdentifierName(expression.object) !== "ln") {
         return false;
     }
