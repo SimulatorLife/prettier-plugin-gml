@@ -77,7 +77,9 @@ async function resolveReplacementName(parameters: {
 
             const touchesOnlyCurrentFile =
                 parameters.normalizedFilePath === null ||
-                [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === parameters.normalizedFilePath);
+                [...affectedAbsolutePaths.values()].every(
+                    (affectedPath) => affectedPath === parameters.normalizedFilePath
+                );
             if (!touchesOnlyCurrentFile) {
                 return await tryCandidateAtIndex(
                     index + 1,
@@ -104,7 +106,10 @@ async function planSingleFeatherRename(parameters: {
         return null;
     }
 
-    const symbolId = await SymbolQueries.resolveSymbolId(parameters.request.identifierName, parameters.context.semantic);
+    const symbolId = await SymbolQueries.resolveSymbolId(
+        parameters.request.identifierName,
+        parameters.context.semantic
+    );
     if (!Core.isNonEmptyString(symbolId)) {
         return {
             identifierName: parameters.request.identifierName,

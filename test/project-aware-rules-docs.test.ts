@@ -8,9 +8,7 @@ import { Lint } from "@gml-modules/lint";
 
 const rawDirectory = path.dirname(fileURLToPath(import.meta.url));
 const rootDirectory =
-    path.basename(rawDirectory) === "dist"
-        ? path.resolve(rawDirectory, "..", "..")
-        : path.resolve(rawDirectory, "..");
+    path.basename(rawDirectory) === "dist" ? path.resolve(rawDirectory, "..", "..") : path.resolve(rawDirectory, "..");
 const generatedProjectAwareRulesPath = path.join(rootDirectory, "docs", "generated", "project-aware-rules.md");
 
 void describe("project-aware lint rule docs", () => {

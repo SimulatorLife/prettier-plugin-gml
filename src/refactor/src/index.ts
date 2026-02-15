@@ -61,8 +61,8 @@ export {
     findOccurrencesInFile,
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
-export { RefactorEngine } from "./refactor-engine.js";
 export { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
+export { RefactorEngine } from "./refactor-engine.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
     formatBatchRenamePlanReport,

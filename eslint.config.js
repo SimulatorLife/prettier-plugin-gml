@@ -459,7 +459,13 @@ const tsConfig = defineConfig({
                     { from: "plugin", allow: ["core", "parser", "plugin"] },
                     {
                         from: "lint",
-                        allow: ["core", "parser", "semantic", "refactor", "lint"]
+                        allow: [
+                            "core",
+                            "parser",
+                            "semantic",
+                            "refactor",
+                            "lint"
+                        ]
                     },
                     {
                         from: "refactor",

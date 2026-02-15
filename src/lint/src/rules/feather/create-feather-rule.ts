@@ -162,12 +162,17 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const memberEntries: Array<{ lineIndex: number; name: string; hasInitializer: boolean }> = [];
                         for (const [index, line] of lines.entries()) {
                             const trimmed = line.trim();
-                            if (trimmed.length === 0 || trimmed.startsWith("//") || trimmed === "{" || trimmed === "}") {
+                            if (
+                                trimmed.length === 0 ||
+                                trimmed.startsWith("//") ||
+                                trimmed === "{" ||
+                                trimmed === "}"
+                            ) {
                                 continue;
                             }
 
                             const memberMatch =
-                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*[^,\n]+)?(?<suffix>\s*,?\s*(?:\/\/.*)?)$/u.exec(
+                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*[^,\n]+)?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
                                     trimmed
                                 );
                             if (!memberMatch?.groups?.name) {
@@ -273,12 +278,12 @@ function createGm1014Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                             continue;
                         }
 
-                        const memberPattern = new RegExp(`\\b${memberName}\\b`, "u");
+                        const memberPattern = new RegExp(String.raw`\b${memberName}\b`, "u");
                         if (memberPattern.test(declaration.text)) {
                             continue;
                         }
 
-                        const sizeofPattern = /^(\s*)(SIZEOF\b[^\n]*,?)/m;
+                        const sizeofPattern = /^(\s*)(SIZEOF\b[^\n]*)/m;
                         const sizeofMatch = sizeofPattern.exec(declaration.text);
                         if (!sizeofMatch) {
                             continue;
@@ -313,7 +318,7 @@ function createGm1016Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
-                    const rewritten = sourceText.replaceAll(/^\s*(?:true|false)\s*;\s*(?:\r?\n)?/gm, "");
+                    const rewritten = sourceText.replaceAll(/^\s*(?:true|false)\s*;\s*/gm, "");
                     if (rewritten === sourceText) {
                         return;
                     }

@@ -117,6 +117,10 @@ void test("integration fixture options do not include removed formatter migratio
 
         const keys = Object.keys(parsed as Record<string, unknown>);
         const removedKeys = keys.filter((key) => REMOVED_FORMATTER_OPTION_KEYS.has(key));
-        assert.deepEqual(removedKeys, [], `${optionFile} contains removed formatter option(s): ${removedKeys.join(", ")}`);
+        assert.deepEqual(
+            removedKeys,
+            [],
+            `${optionFile} contains removed formatter option(s): ${removedKeys.join(", ")}`
+        );
     }
 });

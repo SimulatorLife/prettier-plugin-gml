@@ -31,10 +31,10 @@ import {
     type PartialSemanticAnalyzer,
     type PrepareRenamePlanOptions,
     type RefactorEngineDependencies,
+    type RefactorProjectAnalysisProvider,
     type RenameImpactAnalysis,
     type RenamePlanSummary,
     type RenameRequest,
-    type RefactorProjectAnalysisProvider,
     type SymbolLocation,
     type SymbolOccurrence,
     type TranspilerBridge,
@@ -101,11 +101,11 @@ export class RefactorEngine {
      * This is useful for hot reload coordination to determine which symbols
      * need recompilation when a file changes.
      */
-    async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
+    getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
-        return await this.semanticCache.getFileSymbols(filePath);
+        return this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -113,11 +113,11 @@ export class RefactorEngine {
      * This is essential for hot reload to determine which symbols need recompilation
      * when dependencies change.
      */
-    async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
+    getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });
-        return await this.semanticCache.getDependents(symbolIds);
+        return this.semanticCache.getDependents(symbolIds);
     }
 
     /**
