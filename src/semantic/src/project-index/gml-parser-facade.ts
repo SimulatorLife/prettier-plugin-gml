@@ -92,7 +92,7 @@ function parseProjectIndexSource(sourceText: string, context = {}, parser: Parse
             }
         } as any);
     } catch (error) {
-        if (parserApi.isSyntaxErrorWithLocation(error)) {
+        if (Core.isSyntaxErrorWithLocation(error)) {
             throw formatProjectIndexSyntaxError(error, sourceText, context);
         }
 
