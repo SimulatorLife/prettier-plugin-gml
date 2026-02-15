@@ -23,16 +23,21 @@
 
 ### Misaligned / remaining gaps against full split plan
 
-1. Shared provider end-state is not complete yet:
-   - Lint now supports semantic-backed snapshots from semantic project-index payloads (`createProjectAnalysisSnapshotFromProjectIndex`), and CLI `lint` now prebuilds semantic indices per invocation root and injects snapshots via `createPrebuiltProjectAnalysisProvider`.
-   - A text provider still exists as an internal fallback surface, and lint/refactor are still not wired to one identical shared provider module.
-2. Shared-provider parity tests (same snapshot => same answers across lint/refactor consumers) are not present yet.
-3. Workspace-separation cleanup is functionally enforced at runtime but still disorganized in source layout:
+1. Provider ownership ambiguity is now resolved in docs:
+   - ADR-PA-001 in `docs/formatter-linter-split-plan.md` defines `src/lint/src/services/project-analysis-provider.ts` as the single canonical provider contract owner/module path.
+   - The canonical signature table is now explicit for occupancy, occurrence files, rename-collision planning, loop-hoist resolution, and globalvar safety.
+   - The sync/async boundary is explicit: synchronous provider calls, asynchronous prebuild lifecycle only.
+   - Final-state policy now explicitly states **no fallback provider path** for shared project-aware capabilities.
+2. Runtime convergence is still pending:
+   - Lint supports semantic-backed snapshots from semantic project-index payloads (`createProjectAnalysisSnapshotFromProjectIndex`), and CLI `lint` prebuilds semantic indices per invocation root and injects snapshots via `createPrebuiltProjectAnalysisProvider`.
+   - Refactor still carries a parallel provider contract surface and has not yet switched to consuming the canonical contract module.
+3. Shared-provider parity tests (same snapshot => same answers across lint/refactor consumers) are not present yet.
+4. Workspace-separation cleanup is functionally enforced at runtime but still disorganized in source layout:
    - formatter transform registry still contains/exports legacy migrated transform modules that are no longer active in the default parser-prep pipeline, which increases migration ambiguity and maintenance overhead.
 
 ### Remaining work to reach strict full-plan completion
 
-1. Implement a semantic-backed `ProjectAnalysisProvider` shared by lint and refactor, including resolution of the lint sync context API versus semantic async index build boundary.
+1. Remove refactor-side parallel provider contract and switch refactor wiring to the canonical contract owner/module path documented in ADR-PA-001.
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.

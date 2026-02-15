@@ -7,6 +7,65 @@
 
 ## Lint/Refactor Overlap Resolution Plan (2026-02-14)
 
+### ADR-PA-001: Canonical Project-Analysis Provider Contract Ownership (2026-02-15)
+1. **Decision**: The canonical provider contract for shared project-aware answers is owned by `src/lint/src/services/project-analysis-provider.ts` and exported for consumers via `@gml-modules/lint` services.
+2. **Rationale**:
+   - lint is the long-term owner of project-aware diagnostics/fixes;
+   - refactor consumes overlap checks but does not own duplicated provider semantics;
+   - one owner module removes contract drift between `ProjectAnalysisProvider` and `RefactorProjectAnalysisProvider`.
+3. **Binding module path**:
+   - source-of-truth type/behavior contract: `src/lint/src/services/project-analysis-provider.ts`;
+   - consumer-facing import path: `@gml-modules/lint` (`Lint.services`).
+4. **No parallel contracts allowed**:
+   - do not define or maintain a second provider interface with overlapping semantics in `refactor`;
+   - `refactor` must consume the canonical contract through explicit dependency wiring.
+5. **No fallback provider in final state**:
+   - final architecture explicitly prohibits text/local fallback providers for shared project-aware capabilities;
+   - when required semantic inputs are unavailable/partial, consumers must return documented missing-context outcomes instead of alternate provider implementations.
+
+### Canonical provider signatures (normative)
+1. Snapshot/build boundary:
+   ```ts
+   export interface ProjectAnalysisBuildOptions {
+     excludedDirectories: ReadonlySet<string>;
+     allowedDirectories: ReadonlyArray<string>;
+   }
+
+   export interface ProjectAnalysisProvider {
+     buildSnapshot(projectRoot: string, options: ProjectAnalysisBuildOptions): ProjectAnalysisSnapshot;
+   }
+   ```
+2. Required snapshot capability methods:
+   ```ts
+   export interface ProjectAnalysisSnapshot {
+     readonly capabilities: ReadonlySet<ProjectCapability>;
+
+     isIdentifierNameOccupiedInProject(identifierName: string): boolean;
+     listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string>;
+     planFeatherRenames(
+       requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
+     ): ReadonlyArray<GmlFeatherRenamePlanEntry>;
+     assessGlobalVarRewrite(
+       filePath: string | null,
+       hasInitializer: boolean
+     ): { allowRewrite: boolean; reason: string | null };
+     resolveLoopHoistIdentifier(
+       preferredName: string,
+       localIdentifierNames: ReadonlySet<string>
+     ): string | null;
+   }
+   ```
+3. Capability mapping:
+   - identifier occupancy => `isIdentifierNameOccupiedInProject`;
+   - occurrence-file lookup => `listIdentifierOccurrenceFiles`;
+   - rename-collision planning => `planFeatherRenames`;
+   - loop-hoist resolution => `resolveLoopHoistIdentifier`;
+   - globalvar safety => `assessGlobalVarRewrite`.
+4. Sync/async boundary rule:
+   - provider calls are synchronous at lint/refactor usage sites (`buildSnapshot(...)` + snapshot methods);
+   - semantic/index construction is asynchronous and must complete *before* provider injection;
+   - no on-demand async fallback computation inside snapshot method calls.
+
 ### Current-state findings
 1. `lint` already owns migrated formatter-era rewrites via ESLint rules (`gml/no-globalvar`, `gml/prefer-loop-length-hoist`, `gml/prefer-struct-literal-assignments`, `gml/prefer-string-interpolation`) and injects project context in `src/cli/src/commands/lint.ts`.
 2. `refactor` still owns symbol-driven, cross-file, transactional rename workflows and hot-reload-aware planning via `RefactorEngine`, and is still the backing implementation for `cli refactor` in `src/cli/src/commands/refactor.ts`.
