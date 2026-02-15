@@ -30,7 +30,6 @@ const removedSemanticTransforms = [
     "preprocessFunctionArgumentDefaultsTransform",
     "docCommentNormalizationTransform"
 ] as const;
-
 void describe("Transform registry", () => {
     void it("exposes every registered transform that implements the ParserTransform interface", () => {
         for (const name of availableTransforms) {

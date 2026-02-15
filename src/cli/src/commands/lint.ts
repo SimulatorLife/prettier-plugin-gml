@@ -197,8 +197,7 @@ async function createInvocationProjectAnalysisProvider(parameters: {
     targets: ReadonlyArray<string>;
     forcedProjectPath: string | null;
     indexAllowDirectories: ReadonlyArray<string>;
-    quiet: boolean;
-}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createTextProjectAnalysisProvider>> {
+}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>> {
     const projectRoots = inferProjectRootsForLintInvocation({
         cwd: parameters.cwd,
         targets: parameters.targets,
@@ -210,35 +209,21 @@ async function createInvocationProjectAnalysisProvider(parameters: {
     );
 
     const snapshotEntries = await Promise.all(
-        projectRoots.map(async (root): Promise<[string, SemanticSnapshot] | null> => {
-            try {
-                const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
-                const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(
-                    projectIndex,
-                    root,
-                    {
-                        excludedDirectories,
-                        allowedDirectories: normalizedAllowedDirectories
-                    }
-                );
-                return [root, snapshot];
-            } catch (error) {
-                if (!parameters.quiet) {
-                    console.warn(
-                        `Failed to build semantic project snapshot for ${root}: ${
-                            Core.isErrorLike(error) ? error.message : String(error)
-                        }`
-                    );
-                }
-                return null;
-            }
+        projectRoots.map(async (root): Promise<[string, SemanticSnapshot]> => {
+            const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
+            const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(projectIndex, root, {
+                excludedDirectories,
+                allowedDirectories: normalizedAllowedDirectories
+            });
+            return [root, snapshot];
         })
     );
 
-    const snapshotsByRoot = new Map<string, SemanticSnapshot>(
-        snapshotEntries.filter((entry): entry is [string, SemanticSnapshot] => entry !== null)
-    );
+    if (snapshotEntries.length === 0) {
+        throw new Error("Unable to construct semantic project snapshots because no project roots were resolved.");
+    }
 
+    const snapshotsByRoot = new Map<string, SemanticSnapshot>(snapshotEntries);
     return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
 }
 
@@ -658,17 +643,29 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
+    let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
+    try {
+        invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
+            cwd,
+            targets,
+            forcedProjectPath: options.project,
+            indexAllowDirectories: options.indexAllow
+        });
+    } catch (error) {
+        console.error(
+            `Unable to prepare semantic project analysis provider: ${
+                Core.isErrorLike(error) ? error.message : String(error)
+            }`
+        );
+        setProcessExitCode(2);
+        return;
+    }
+
     const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
         cwd,
         forcedProjectPath: options.project,
         indexAllowDirectories: options.indexAllow,
-        analysisProvider: await createInvocationProjectAnalysisProvider({
-            cwd,
-            targets,
-            forcedProjectPath: options.project,
-            indexAllowDirectories: options.indexAllow,
-            quiet: options.quiet
-        })
+        analysisProvider: invocationAnalysisProvider
     });
     const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
 

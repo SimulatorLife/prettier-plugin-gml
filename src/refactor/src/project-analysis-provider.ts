@@ -1,43 +1,135 @@
-import { Core, type ProjectAnalysisSnapshot } from "@gml-modules/core";
+import path from "node:path";
 
-import type { RefactorProjectAnalysisContext, RefactorProjectAnalysisProvider } from "./types.js";
+import { Core } from "@gml-modules/core";
 
-async function listSemanticOccurrencePaths(
-    identifierName: string,
-    context: RefactorProjectAnalysisContext
-): Promise<ReadonlySet<string>> {
-    const files = new Set<string>();
-    if (!context.semantic) {
-        return files;
+import * as SymbolQueries from "./symbol-queries.js";
+import type { PartialSemanticAnalyzer, RefactorProjectAnalysisProvider, RenamePlanSummary } from "./types.js";
+
+type FeatherRenamePlanEntry = {
+    identifierName: string;
+    mode: "local-fallback" | "project-aware";
+    preferredReplacementName: string;
+    replacementName: string | null;
+    skipReason?: string;
+};
+
+type PrepareRenamePlan = (
+    request: { symbolId: string; newName: string },
+    options: { validateHotReload: boolean }
+) => Promise<RenamePlanSummary>;
+
+type RefactorProjectAnalysisContext = {
+    semantic: PartialSemanticAnalyzer | null;
+    prepareRenamePlan: PrepareRenamePlan;
+};
+
+function enumerateRenameCandidates(preferredName: string): ReadonlyArray<string> {
+    if (!Core.isNonEmptyString(preferredName)) {
+        return ["__featherFix_reserved"];
     }
 
-    const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
-    if (!Array.isArray(occurrences)) {
-        return files;
+    const candidates = [preferredName];
+    for (let index = 1; index <= 32; index += 1) {
+        candidates.push(`${preferredName}_${index}`);
     }
 
-    for (const occurrence of occurrences) {
-        if (Core.isObjectLike(occurrence) && Core.isNonEmptyString(occurrence.path)) {
-            files.add(occurrence.path);
-        }
-    }
-
-    return files;
+    return candidates;
 }
 
-async function createSemanticSnapshot(
-    identifierNames: ReadonlyArray<string>,
-    context: RefactorProjectAnalysisContext
-): Promise<ProjectAnalysisSnapshot> {
-    const identifierToFiles = new Map<string, ReadonlySet<string>>();
-    await Core.runSequentially(identifierNames, async (identifierName) => {
-        const files = await listSemanticOccurrencePaths(identifierName, context);
-        if (files.size > 0) {
-            identifierToFiles.set(identifierName.trim().toLowerCase(), files);
+async function resolveReplacementName(parameters: {
+    candidateNames: ReadonlyArray<string>;
+    normalizedFilePath: string | null;
+    projectRoot: string;
+    symbolId: string;
+    prepareRenamePlan: PrepareRenamePlan;
+}): Promise<{ replacementName: string | null; skipReason?: string }> {
+    const tryCandidateAtIndex = async (
+        index: number,
+        lastSkipReason?: string
+    ): Promise<{ replacementName: string | null; skipReason?: string }> => {
+        if (index >= parameters.candidateNames.length) {
+            return {
+                replacementName: null,
+                skipReason: lastSkipReason
+            };
         }
+
+        const candidateName = parameters.candidateNames[index];
+        try {
+            const plan = await parameters.prepareRenamePlan(
+                {
+                    symbolId: parameters.symbolId,
+                    newName: candidateName
+                },
+                {
+                    validateHotReload: false
+                }
+            );
+
+            if (!plan.validation.valid) {
+                return await tryCandidateAtIndex(index + 1, plan.validation.errors.join("; "));
+            }
+
+            const affectedAbsolutePaths = new Set<string>();
+            for (const edit of plan.workspace.edits) {
+                affectedAbsolutePaths.add(path.resolve(parameters.projectRoot, edit.path));
+            }
+
+            const touchesOnlyCurrentFile =
+                parameters.normalizedFilePath === null ||
+                [...affectedAbsolutePaths.values()].every((affectedPath) => affectedPath === parameters.normalizedFilePath);
+            if (!touchesOnlyCurrentFile) {
+                return await tryCandidateAtIndex(
+                    index + 1,
+                    "Rename requires project-wide edits and cannot be applied safely inside formatter-only mode."
+                );
+            }
+
+            return { replacementName: candidateName };
+        } catch (error) {
+            return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
+        }
+    };
+
+    return await tryCandidateAtIndex(0);
+}
+
+async function planSingleFeatherRename(parameters: {
+    request: { identifierName: string; preferredReplacementName: string };
+    normalizedFilePath: string | null;
+    projectRoot: string;
+    context: RefactorProjectAnalysisContext;
+}): Promise<FeatherRenamePlanEntry | null> {
+    if (!parameters.request || !Core.isNonEmptyString(parameters.request.identifierName)) {
+        return null;
+    }
+
+    const symbolId = await SymbolQueries.resolveSymbolId(parameters.request.identifierName, parameters.context.semantic);
+    if (!Core.isNonEmptyString(symbolId)) {
+        return {
+            identifierName: parameters.request.identifierName,
+            mode: "local-fallback",
+            preferredReplacementName: parameters.request.preferredReplacementName,
+            replacementName: parameters.request.preferredReplacementName
+        };
+    }
+
+    const candidateNames = enumerateRenameCandidates(parameters.request.preferredReplacementName);
+    const resolution = await resolveReplacementName({
+        candidateNames,
+        normalizedFilePath: parameters.normalizedFilePath,
+        projectRoot: parameters.projectRoot,
+        symbolId,
+        prepareRenamePlan: parameters.context.prepareRenamePlan
     });
 
-    return Core.createProjectAnalysisSnapshotFromIndex(identifierToFiles);
+    return {
+        identifierName: parameters.request.identifierName,
+        mode: "project-aware",
+        preferredReplacementName: parameters.request.preferredReplacementName,
+        replacementName: resolution.replacementName,
+        skipReason: resolution.skipReason
+    };
 }
 
 /**
@@ -46,53 +138,62 @@ async function createSemanticSnapshot(
 export function createRefactorProjectAnalysisProvider(): RefactorProjectAnalysisProvider {
     return Object.freeze({
         async isIdentifierOccupied(identifierName: string, context: RefactorProjectAnalysisContext): Promise<boolean> {
-            const snapshot = await createSemanticSnapshot([identifierName], context);
-            return snapshot.isIdentifierNameOccupiedInProject(identifierName);
+            if (!context.semantic) {
+                return false;
+            }
+
+            const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
+            if (Array.isArray(occurrences) && occurrences.length > 0) {
+                return true;
+            }
+
+            const symbolId = await SymbolQueries.resolveSymbolId(identifierName, context.semantic);
+            return Core.isNonEmptyString(symbolId);
         },
         async listIdentifierOccurrences(
             identifierName: string,
             context: RefactorProjectAnalysisContext
         ): Promise<Set<string>> {
-            const snapshot = await createSemanticSnapshot([identifierName], context);
-            return new Set(snapshot.listIdentifierOccurrenceFiles(identifierName));
+            const files = new Set<string>();
+            if (!context.semantic) {
+                return files;
+            }
+
+            const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
+            if (!Array.isArray(occurrences)) {
+                return files;
+            }
+
+            for (const occurrence of occurrences) {
+                if (Core.isObjectLike(occurrence) && Core.isNonEmptyString(occurrence.path)) {
+                    files.add(occurrence.path);
+                }
+            }
+
+            return files;
         },
         async planFeatherRenames(
             requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
-            _filePath: string | null,
-            _projectRoot: string,
+            filePath: string | null,
+            projectRoot: string,
             context: RefactorProjectAnalysisContext
-        ): Promise<
-            Array<{
-                identifierName: string;
-                mode: "local-fallback" | "project-aware";
-                preferredReplacementName: string;
-                replacementName: string | null;
-                skipReason?: string;
-            }>
-        > {
-            const analyzedNames = requests.flatMap((request) => [
-                request.identifierName,
-                request.preferredReplacementName
-            ]);
-            const snapshot = await createSemanticSnapshot(analyzedNames, context);
-            const planned = snapshot.planIdentifierRenames(requests);
+        ): Promise<Array<FeatherRenamePlanEntry>> {
+            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+            const plannedEntries: Array<FeatherRenamePlanEntry> = [];
 
-            return planned.map((entry) => {
-                const translatedEntry = {
-                    identifierName: entry.identifierName,
-                    mode: "project-aware" as const,
-                    preferredReplacementName: entry.preferredReplacementName,
-                    replacementName: entry.safe ? entry.preferredReplacementName : null
-                };
-                if (entry.reason) {
-                    return {
-                        ...translatedEntry,
-                        skipReason: entry.reason
-                    };
+            await Core.runSequentially(requests, async (request) => {
+                const plannedEntry = await planSingleFeatherRename({
+                    request,
+                    normalizedFilePath,
+                    projectRoot,
+                    context
+                });
+                if (plannedEntry) {
+                    plannedEntries.push(plannedEntry);
                 }
-
-                return translatedEntry;
             });
+
+            return plannedEntries;
         },
         assessGlobalVarRewrite(
             filePath: string | null,
@@ -102,12 +203,9 @@ export function createRefactorProjectAnalysisProvider(): RefactorProjectAnalysis
             initializerMode: "existing" | "undefined";
             mode: "project-aware";
         } {
-            const assessment = Core.createProjectAnalysisSnapshotFromIndex(new Map()).assessGlobalVarRewrite(
-                filePath,
-                hasInitializer
-            );
+            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
             return {
-                allowRewrite: assessment.allowRewrite,
+                allowRewrite: hasInitializer || normalizedFilePath !== null,
                 initializerMode: hasInitializer ? "existing" : "undefined",
                 mode: "project-aware"
             };
@@ -116,10 +214,8 @@ export function createRefactorProjectAnalysisProvider(): RefactorProjectAnalysis
             identifierName: string;
             mode: "project-aware";
         } {
-            const snapshot = Core.createProjectAnalysisSnapshotFromIndex(new Map());
-            const resolvedIdentifierName = snapshot.resolveLoopHoistIdentifier(preferredName, new Set());
             return {
-                identifierName: resolvedIdentifierName ?? preferredName,
+                identifierName: preferredName,
                 mode: "project-aware"
             };
         }

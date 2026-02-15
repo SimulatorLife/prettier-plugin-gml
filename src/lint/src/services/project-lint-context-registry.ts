@@ -1,7 +1,7 @@
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
-import { createTextProjectAnalysisProvider, type ProjectAnalysisProvider } from "./project-analysis-provider.js";
+import type { ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
 
 export const DEFAULT_PROJECT_INDEX_EXCLUDES = Object.freeze([".git", "node_modules", "dist", "generated", "vendor"]);
@@ -10,7 +10,7 @@ type RegistryOptions = Readonly<{
     cwd: string;
     forcedProjectPath: string | null;
     indexAllowDirectories: ReadonlyArray<string>;
-    analysisProvider?: ProjectAnalysisProvider;
+    analysisProvider: ProjectAnalysisProvider;
 }>;
 
 function splitPathSegments(pathValue: string): Array<string> {
@@ -78,7 +78,11 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
         normalizeLintFilePath(directory)
     );
     const excludedDirectories = new Set(DEFAULT_PROJECT_INDEX_EXCLUDES.map((directory) => directory.toLowerCase()));
-    const analysisProvider = options.analysisProvider ?? createTextProjectAnalysisProvider();
+    if (!options.analysisProvider) {
+        throw new Error("Project lint context registry requires an injected project analysis provider.");
+    }
+
+    const analysisProvider = options.analysisProvider;
     const contextCache = new Map<string, GmlProjectContext>();
     const snapshotCache = new Map<string, ReturnType<ProjectAnalysisProvider["buildSnapshot"]>>();
 

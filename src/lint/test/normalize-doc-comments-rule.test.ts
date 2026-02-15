@@ -55,9 +55,9 @@ function runNormalizeDocCommentsRule(code: string): string {
             getLocFromIndex: (index: number) => getLocFromIndex(lineStarts, index)
         },
         report(payload: {
-            fix?: (fixer: { replaceTextRange(range: [number, number], text: string): FixOperation }) =>
-                | FixOperation
-                | null;
+            fix?: (fixer: {
+                replaceTextRange(range: [number, number], text: string): FixOperation;
+            }) => FixOperation | null;
         }) {
             if (!payload.fix) {
                 return;

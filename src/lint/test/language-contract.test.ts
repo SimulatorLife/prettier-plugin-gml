@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import path from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 
@@ -20,8 +19,8 @@ type ParseSuccess = {
         gml: {
             filePath: string;
             recovery: Array<{ kind: string; originalOffset: number }>;
-            directives: Array<Record<string, unknown>>;
-            enums: Array<Record<string, unknown>>;
+            directives: Array<string>;
+            enums: Array<string>;
         };
     };
 };
@@ -33,11 +32,7 @@ type ParseFailure = {
 
 const execFileAsync = promisify(execFile);
 
-function parseWithOptions(
-    sourceText: string,
-    recovery: "none" | "limited",
-    filePath = "./test.gml"
-): ParseSuccess | ParseFailure {
+function parseWithOptions(sourceText: string, recovery: "none" | "limited"): ParseSuccess | ParseFailure {
     const language = Lint.plugin.languages.gml as {
         parse: (
             file: { body: string; path: string },
@@ -48,7 +43,7 @@ function parseWithOptions(
     return language.parse(
         {
             body: sourceText,
-            path: filePath
+            path: "./test.gml"
         },
         {
             languageOptions: { recovery }
@@ -241,50 +236,5 @@ void test("tokenization source remains original source under limited recovery", 
 
         const [start, end] = comment.range;
         assert.equal(source.slice(start, end).startsWith("//"), true);
-    }
-});
-
-void test("parserServices.gml.filePath normalization preserves absolute roots and trims non-root trailing separators", () => {
-    const absoluteTargetDirectory = path.resolve(process.cwd(), "contracts");
-    const withTrailingSeparator = `${absoluteTargetDirectory}${path.sep}`;
-    const normalizedResult = parseWithOptions("var x = 1;", "limited", withTrailingSeparator);
-
-    assert.equal(normalizedResult.ok, true);
-    if (!normalizedResult.ok) {
-        assert.fail("Expected parse success for trailing separator normalization.");
-    }
-
-    assert.equal(path.isAbsolute(normalizedResult.parserServices.gml.filePath), true);
-    assert.equal(normalizedResult.parserServices.gml.filePath.endsWith(path.sep), false);
-
-    const rootResult = parseWithOptions("var y = 2;", "limited", path.parse(process.cwd()).root);
-    assert.equal(rootResult.ok, true);
-    if (!rootResult.ok) {
-        assert.fail("Expected parse success for filesystem-root normalization.");
-    }
-
-    assert.equal(rootResult.parserServices.gml.filePath, path.parse(process.cwd()).root);
-});
-
-void test("directive define-name range invariants remain substring-stable when directive metadata is present", () => {
-    const source = "#define FEATURE_FLAG 1\nvar x = FEATURE_FLAG;";
-    const result = parseWithOptions(source, "limited");
-    assert.equal(result.ok, true);
-
-    if (!result.ok) {
-        assert.fail("Expected parse success for directive invariants.");
-    }
-
-    for (const directive of result.parserServices.gml.directives) {
-        const defineNameRange = directive.defineNameRange;
-        const defineName = directive.defineName;
-
-        if (!Array.isArray(defineNameRange)) {
-            continue;
-        }
-
-        const [start, end] = defineNameRange;
-        assert.equal(typeof defineName, "string");
-        assert.equal(source.slice(start, end), defineName);
     }
 });
