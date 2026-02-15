@@ -307,7 +307,9 @@ void describe("debounce", () => {
 
             assert.equal(errors.length, 1, "Should call onError once");
             assert.ok(errors[0] instanceof Error, "Should pass the error to callback");
-            assert.equal(errors[0].message, "Test error", "Should preserve error message");
+            if (errors[0] instanceof Error) {
+                assert.equal(errors[0].message, "Test error", "Should preserve error message");
+            }
         });
 
         void it("should call onError for each execution that throws", async () => {
@@ -357,10 +359,19 @@ void describe("debounce", () => {
         void it("should write to stderr when no onError callback provided", (testContext, done) => {
             const stderrOutput: Array<string> = [];
             const originalWrite = process.stderr.write.bind(process.stderr);
-            const mockWrite = ((chunk: string | Uint8Array): boolean => {
+            const mockWrite: typeof process.stderr.write = (
+                chunk: string | Uint8Array,
+                encodingOrCallback?: BufferEncoding | ((error?: Error) => void),
+                callback?: (error?: Error) => void
+            ): boolean => {
                 stderrOutput.push(String(chunk));
+                if (typeof encodingOrCallback === "function") {
+                    encodingOrCallback();
+                } else if (callback !== undefined) {
+                    callback();
+                }
                 return true;
-            }) as typeof process.stderr.write;
+            };
 
             process.stderr.write = mockWrite;
 
