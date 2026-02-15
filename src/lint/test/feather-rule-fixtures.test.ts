@@ -6,20 +6,13 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import { lintWithFeatherRule as runFeatherRule } from "./rule-test-harness.js";
+import { lintWithFeatherRule } from "./rule-test-harness.js";
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRootCandidates = [
     path.resolve(testDirectory, "fixtures", "feather"),
     path.resolve(testDirectory, "../../test/fixtures/feather")
 ];
-
-function lintWithFeatherRule(
-    ruleName: string,
-    code: string
-): { messages: Array<{ messageId: string }>; output: string } {
-    return runFeatherRule(LintWorkspace.Lint.plugin, ruleName, code);
-}
 
 async function readFixture(ruleName: string, fileName: "input.gml" | "fixed.gml"): Promise<string> {
     for (const candidate of fixtureRootCandidates) {
@@ -63,7 +56,7 @@ void test("feather migrated fixture rules apply local fixes", async () => {
     );
 
     for (const entry of cases) {
-        const result = lintWithFeatherRule(entry.ruleName, entry.input);
+        const result = lintWithFeatherRule(LintWorkspace.Lint.plugin, entry.ruleName, entry.input);
         assert.equal(result.messages.length > 0, true, `${entry.ruleName} should report diagnostics`);
         assert.equal(result.output, entry.expected, `${entry.ruleName} should apply the expected fixer`);
     }

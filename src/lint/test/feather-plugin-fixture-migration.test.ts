@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import { lintWithFeatherRule as runFeatherRule } from "./rule-test-harness.js";
+import { lintWithFeatherRule } from "./rule-test-harness.js";
 
 type MigrationCase = {
     fixtureDirectory: string;
@@ -27,13 +27,6 @@ if (!migratedFeatherFixtureDirectory) {
             ", "
         )}`
     );
-}
-
-function lintWithFeatherRule(
-    ruleName: string,
-    code: string
-): { messages: Array<{ messageId: string }>; output: string } {
-    return runFeatherRule(LintWorkspace.Lint.plugin, ruleName, code);
 }
 
 async function readMigratedFeatherFixture(fixtureDirectory: string): Promise<string> {
@@ -564,7 +557,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
 void test("legacy plugin GM fixtures are now lint-owned feather rule tests", async () => {
     for (const migrationCase of migrationCases) {
         const input = await readMigratedFeatherFixture(migrationCase.fixtureDirectory);
-        const result = lintWithFeatherRule(migrationCase.ruleName, input);
+        const result = lintWithFeatherRule(LintWorkspace.Lint.plugin, migrationCase.ruleName, input);
         assert.equal(result.messages.length > 0, true, `${migrationCase.ruleName} should report diagnostics`);
         migrationCase.assertOutput(result.output);
     }
@@ -585,7 +578,7 @@ runner = function () constructor {
 }
 `;
 
-    const { output } = lintWithFeatherRule("gm1013", input);
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.plugin, "gm1013", input);
 
     assert.equal(output.includes("/// @param [speed=12]"), true);
     assert.equal(output.includes("function DamageHandler(speed = 12) constructor {"), true);
