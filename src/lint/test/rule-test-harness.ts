@@ -70,11 +70,18 @@ export function applyFixOperations(text: string, operations: Array<RuleTestFixOp
 }
 
 /**
+ * Type representing a lint plugin with rules.
+ */
+type LintPlugin = {
+    rules: Record<string, { create: (context: never) => { Program?: (node: never) => void } }>;
+};
+
+/**
  * Runs a feather rule against code and returns the messages and fixed output.
  * This is a shared test helper for testing feather lint rules.
  */
 export function lintWithFeatherRule(
-    plugin: { rules: Record<string, { create: (context: never) => { Program?: (node: never) => void } }> },
+    plugin: LintPlugin,
     ruleName: string,
     code: string
 ): { messages: Array<{ messageId: string }>; output: string } {
