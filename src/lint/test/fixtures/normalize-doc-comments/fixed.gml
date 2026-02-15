@@ -1,3 +1,5 @@
 /// Summary
 /// @description legacy style line
-function test() {}
+/// Keep me
+/// @param x
+function test(x) {}

@@ -153,7 +153,9 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
         "no-globalvar",
         "normalize-doc-comments",
         "optimize-math-expressions",
-        "require-argument-separators"
+        "require-argument-separators",
+        "normalize-data-structure-accessors",
+        "require-trailing-optional-defaults"
     ] as const;
 
     for (const ruleName of fixRules) {
@@ -210,7 +212,7 @@ void test("migrated mixed fixture: testIfBraces rewrite ownership moved to lint"
     assert.equal(result.output, expected);
     assert.equal(result.messages.length, 1);
 });
-  
+
 void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {
     const input = await readFixture("prefer-loop-length-hoist", "input.gml");
     const result = lintWithRule("prefer-loop-length-hoist", input, {
