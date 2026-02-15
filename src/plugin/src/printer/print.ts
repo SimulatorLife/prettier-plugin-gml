@@ -141,8 +141,6 @@ const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.comm
 
 const forcedStructArgumentBreaks = new WeakMap();
 
-const GM1015_DIAGNOSTIC_ID = "GM1015";
-
 /**
  * Cached regex for detecting decorative banner-style comment lines.
  * Hoisted to module scope to avoid re-creating the same regex on every
@@ -154,26 +152,6 @@ const GM1015_DIAGNOSTIC_ID = "GM1015";
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
     String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
 );
-
-function hasFeatherFix(node, id) {
-    if (!node || typeof node !== OBJECT_TYPE) {
-        return false;
-    }
-
-    const metadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
-
-    if (metadata.length === 0) {
-        return false;
-    }
-
-    for (const entry of metadata) {
-        if (entry && entry.id === id) {
-            return true;
-        }
-    }
-
-    return false;
-}
 
 function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
     if (!path) {
@@ -571,29 +549,10 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
 function tryPrintVariableNode(node, path, options, print) {
     switch (node.type) {
         case EXPRESSION_STATEMENT: {
-            const expression = node.expression;
-            if (
-                expression?.type === ASSIGNMENT_EXPRESSION &&
-                expression.operator === "/=" &&
-                hasFeatherFix(expression, GM1015_DIAGNOSTIC_ID)
-            ) {
-                return "";
-            }
             const printed = print("expression");
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
-            const parentNode = safeGetParentNode(path);
-            const parentType = parentNode?.type;
-            const isStandaloneAssignment =
-                parentType === "Program" ||
-                parentType === "BlockStatement" ||
-                parentType === "SwitchCase" ||
-                parentType === "ExpressionStatement";
-
-            if (node.operator === "/=" && isStandaloneAssignment && hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)) {
-                return "";
-            }
             return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {
@@ -740,9 +699,6 @@ function printParenthesizedExpressionNode(node, path, _options, print) {
 }
 
 function printBinaryExpressionNode(node, path, options, print) {
-    if (node.operator === "/" && hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)) {
-        return print("left");
-    }
     const left = print("left");
     let operator = node.operator;
     let right;
@@ -3416,16 +3372,7 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    let aliasName = declarator.id.name;
-    if (
-        Array.isArray(declarator.id._appliedFeatherDiagnostics) &&
-        declarator.id._appliedFeatherDiagnostics.length > 0
-    ) {
-        const firstFix = declarator.id._appliedFeatherDiagnostics[0];
-        if (firstFix && typeof firstFix.target === "string") {
-            aliasName = firstFix.target;
-        }
-    }
+    const aliasName = declarator.id.name;
 
     const normalizedAliasName = normalizePreferredParameterName(aliasName);
     const normalizedInitName = normalizePreferredParameterName(declarator.init.name);

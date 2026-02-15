@@ -275,7 +275,7 @@ Note: single-file fixtures (`*.gml`) should be converted to explicit paired fixt
 #### Move to lint (feather parity corpus) — 66 basenames
 
 All GM basenames below move from plugin fixture ownership to lint fixture ownership.  
-Target-state location pattern: `src/lint/test/fixtures/feather/<gm####>/input.gml` and `fixed.gml` when autofix is supported.
+Target-state location pattern: `src/lint/test/fixtures/feather/gm####/input.gml` and `fixed.gml`, with `options.json` retained only as migration inventory metadata where present.
 
 - `testGM1000`
 - `testGM1002`
@@ -373,7 +373,7 @@ Each basename below currently interweaves layout expectations with semantic/cont
 
 ### Options fixture handling
 
-- For lint-owned or split lint portions, existing `*.options.json` files in `src/plugin/test/fixtures/formatting` are not formatter fixtures in the target state; rule options should be modeled in lint test cases and lint fixture metadata.
+- For lint-owned or split lint portions, existing `*.options.json` files moved to `src/lint/test/fixtures/feather/gm####` directories are not formatter fixtures; rule options should be modeled in lint test cases and lint fixture metadata.
 - Formatter fixture options remain only for layout options (`printWidth`, `logicalOperatorsStyle`, and other rendering-only knobs).
 - No plugin formatter fixture may encode semantic rewrite toggles in the target state.
 
