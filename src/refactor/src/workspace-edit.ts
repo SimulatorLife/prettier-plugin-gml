@@ -95,7 +95,7 @@ export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRen
     fileRenames: Array<FileRename>;
 } {
     return {
-        metadataEdits: Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [],
-        fileRenames: Array.isArray(workspace.fileRenames) ? workspace.fileRenames : []
+        metadataEdits: Array.isArray(workspace.metadataEdits) ? (workspace.metadataEdits as Array<MetadataEdit>) : [],
+        fileRenames: Array.isArray(workspace.fileRenames) ? (workspace.fileRenames as Array<FileRename>) : []
     };
 }
