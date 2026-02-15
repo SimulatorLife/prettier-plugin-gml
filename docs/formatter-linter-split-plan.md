@@ -7,6 +7,65 @@
 
 ## Lint/Refactor Overlap Resolution Plan (2026-02-14)
 
+### ADR-PA-001: Canonical Project-Analysis Provider Contract Ownership (2026-02-15)
+1. **Decision**: The canonical provider contract for shared project-aware answers is owned by `src/lint/src/services/project-analysis-provider.ts` and exported for consumers via `@gml-modules/lint` services.
+2. **Rationale**:
+   - lint is the long-term owner of project-aware diagnostics/fixes;
+   - refactor consumes overlap checks but does not own duplicated provider semantics;
+   - one owner module removes contract drift between `ProjectAnalysisProvider` and `RefactorProjectAnalysisProvider`.
+3. **Binding module path**:
+   - source-of-truth type/behavior contract: `src/lint/src/services/project-analysis-provider.ts`;
+   - consumer-facing import path: `@gml-modules/lint` (`Lint.services`).
+4. **No parallel contracts allowed**:
+   - do not define or maintain a second provider interface with overlapping semantics in `refactor`;
+   - `refactor` must consume the canonical contract through explicit dependency wiring.
+5. **No fallback provider in final state**:
+   - final architecture explicitly prohibits text/local fallback providers for shared project-aware capabilities;
+   - when required semantic inputs are unavailable/partial, consumers must return documented missing-context outcomes instead of alternate provider implementations.
+
+### Canonical provider signatures (normative)
+1. Snapshot/build boundary:
+   ```ts
+   export interface ProjectAnalysisBuildOptions {
+     excludedDirectories: ReadonlySet<string>;
+     allowedDirectories: ReadonlyArray<string>;
+   }
+
+   export interface ProjectAnalysisProvider {
+     buildSnapshot(projectRoot: string, options: ProjectAnalysisBuildOptions): ProjectAnalysisSnapshot;
+   }
+   ```
+2. Required snapshot capability methods:
+   ```ts
+   export interface ProjectAnalysisSnapshot {
+     readonly capabilities: ReadonlySet<ProjectCapability>;
+
+     isIdentifierNameOccupiedInProject(identifierName: string): boolean;
+     listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string>;
+     planFeatherRenames(
+       requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
+     ): ReadonlyArray<GmlFeatherRenamePlanEntry>;
+     assessGlobalVarRewrite(
+       filePath: string | null,
+       hasInitializer: boolean
+     ): { allowRewrite: boolean; reason: string | null };
+     resolveLoopHoistIdentifier(
+       preferredName: string,
+       localIdentifierNames: ReadonlySet<string>
+     ): string | null;
+   }
+   ```
+3. Capability mapping:
+   - identifier occupancy => `isIdentifierNameOccupiedInProject`;
+   - occurrence-file lookup => `listIdentifierOccurrenceFiles`;
+   - rename-collision planning => `planFeatherRenames`;
+   - loop-hoist resolution => `resolveLoopHoistIdentifier`;
+   - globalvar safety => `assessGlobalVarRewrite`.
+4. Sync/async boundary rule:
+   - provider calls are synchronous at lint/refactor usage sites (`buildSnapshot(...)` + snapshot methods);
+   - semantic/index construction is asynchronous and must complete *before* provider injection;
+   - no on-demand async fallback computation inside snapshot method calls.
+
 ### Current-state findings
 1. `lint` already owns migrated formatter-era rewrites via ESLint rules (`gml/no-globalvar`, `gml/prefer-loop-length-hoist`, `gml/prefer-struct-literal-assignments`, `gml/prefer-string-interpolation`) and injects project context in `src/cli/src/commands/lint.ts`.
 2. `refactor` still owns symbol-driven, cross-file, transactional rename workflows and hot-reload-aware planning via `RefactorEngine`, and is still the backing implementation for `cli refactor` in `src/cli/src/commands/refactor.ts`.
@@ -991,12 +1050,22 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
 4. No deprecation between these two rules in this migration.
 
 ## Testing and Delivery
-Verification coverage, regression protections, and phased delivery criteria for this migration.
+Verification coverage and regression protections for the direct end-state migration.
+
+## Direct End-State Fixture/Test Ownership (Pinned)
+1. This migration targets the final ownership model directly, with no phased legacy bridge for formatter semantic rewrites.
+2. Formatter/plugin ownership is layout-only tests and fixtures.
+3. Lint ownership is all semantic/content rewrite tests and fixtures (including feather parity fixtures).
+4. Mixed legacy formatter fixtures must be split into:
+   - formatter-only layout fixtures in `src/plugin/test/fixtures/formatting`
+   - lint rule fixtures in `src/lint/test/fixtures/<rule>`
+5. The exhaustive per-file and per-basename ownership ledger lives in `docs/formatter-linter-split-implementation-notes.md` under **Formatter-Only Ownership Ledger (2026-02-15, Exhaustive)** and is normative for migration execution.
 
 ## Fixtures and Testing Strategy
 1. New lint fixtures live only under `src/lint/test/fixtures`.
-2. No modifications to parser/plugin golden `.gml` fixtures.
-3. Required test groups:
+2. Parser and parser-input golden `.gml` fixtures remain immutable.
+3. Legacy plugin formatter semantic fixtures are migration inventory, not end-state formatter goldens; they are moved or split per the ownership ledger.
+4. Required test groups:
    - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
    - Parse failure/recovery tests (fatal parse, recovered separators).
    - Rule detection/fix tests for each migrated rule and each feather parity ID.
@@ -1039,23 +1108,12 @@ Verification coverage, regression protections, and phased delivery criteria for 
      - `plugins.gml === Lint.plugin` present but `language !== "gml/gml"` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
      - `language === "gml/gml"` present but `plugins.gml !== Lint.plugin` for the resolved `.gml` file => emits `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`.
 
-## Implementation Phases and Exit Criteria
-1. Phase 1: Scaffold `/src/lint` workspace and namespace exports.  
-   Exit: build/test pass with a no-op rule and language stub.
-2. Phase 2: Implement ESLint v9 language object and ESTree bridge contract.  
-   Exit: `.gml` file lints successfully with real tokens/comments/ranges.
-3. Phase 3: Implement invocation-scoped `ProjectLintContextRegistry`.  
-   Exit: one project-aware rule can resolve name-occupancy synchronously from immutable context.
-4. Phase 4: Migrate formatter options to lint rules with schemas and docs.  
-   Exit: all matrix entries implemented; schemas validated; parity tests pass.
-5. Phase 5: Feather split via `feather/gm####` rules and parity manifest.  
-   Exit: parity ID set above has deterministic mapping, default severity, and fixability status.
-6. Phase 6: Formatter cleanup and runtime-port removal from plugin semantic/refactor paths.  
-   Exit: plugin no longer depends on semantic/refactor runtime hooks for migrated behavior.
-7. Phase 7: CLI lint command integration and reporting semantics.  
-   Exit: end-to-end `lint` and `lint --fix` pass integration suite.
-8. Phase 8: Migration docs and release notes update in `docs/formatter-linter-split-plan.md` and package READMEs.  
-   Exit: old option-to-rule migration table includes concrete schemas and before/after examples.
+## End-State Exit Criteria
+1. Plugin formatter runtime does not execute semantic/content rewrites.
+2. Plugin formatter tests/fixtures contain only layout/rendering expectations.
+3. Lint workspace owns semantic/content rewrite diagnostics and autofixes (including feather parity corpus).
+4. All mixed legacy fixtures are either moved to lint or split into explicit plugin+lint ownership artifacts.
+5. CLI `lint --fix` + formatter pipeline preserves the same final formatted style while making ownership boundaries explicit.
 
 ## Finalized Migration Mapping (Durable Contract)
 

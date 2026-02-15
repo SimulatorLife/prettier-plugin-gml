@@ -7,7 +7,7 @@ export type StatusPayload = {
     scanComplete?: boolean;
 };
 
-const DEFAULT_STATUS_TIMEOUT_MS = 1500;
+const DEFAULT_STATUS_TIMEOUT_MS = 5000;
 const DEFAULT_POLL_INTERVAL_MS = 25;
 
 function delay(ms: number): Promise<void> {

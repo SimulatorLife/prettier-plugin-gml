@@ -40,9 +40,7 @@ export type ProjectLintContextRegistry = Readonly<{
     isOutOfForcedRoot(filePath: string): boolean;
 }>;
 
-function createContextFromSnapshot(
-    snapshot: ReturnType<ProjectAnalysisProvider["buildSnapshot"]>
-): GmlProjectContext {
+function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider["buildSnapshot"]>): GmlProjectContext {
     return Object.freeze({
         capabilities: snapshot.capabilities,
         isIdentifierNameOccupiedInProject(identifierName: string): boolean {
@@ -105,7 +103,12 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
             }
 
             const cachedSnapshot = snapshotCache.get(cacheKey);
-            const snapshot = cachedSnapshot ?? analysisProvider.buildSnapshot(cacheKey, excludedDirectories);
+            const snapshot =
+                cachedSnapshot ??
+                analysisProvider.buildSnapshot(cacheKey, {
+                    excludedDirectories,
+                    allowedDirectories: normalizedAllowedDirectories
+                });
             if (!cachedSnapshot) {
                 snapshotCache.set(cacheKey, snapshot);
             }

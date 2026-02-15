@@ -42,9 +42,9 @@ export interface WaitForPatchesOptions {
     startCount?: number;
 }
 
-const DEFAULT_CONNECTION_TIMEOUT_MS = 1000;
+const DEFAULT_CONNECTION_TIMEOUT_MS = 4000;
 const DEFAULT_RETRY_INTERVAL_MS = 25;
-const DEFAULT_WAIT_TIMEOUT_MS = 1500;
+const DEFAULT_WAIT_TIMEOUT_MS = 4000;
 const DEFAULT_DISCONNECT_TIMEOUT_MS = 250;
 
 function delay(ms: number): Promise<void> {

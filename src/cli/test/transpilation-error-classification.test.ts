@@ -152,4 +152,40 @@ void describe("Transpilation error classification", () => {
             "Patch history should retain payload size for memory tracking"
         );
     });
+
+    void it("should skip emitting duplicate runtime patches when transpiled output is unchanged", async (t) => {
+        const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
+        const testFile = path.join(tempDir, "unchanged-runtime-patch.gml");
+
+        t.after(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const content = "function unchanged_patch() {\n    return 1;\n}";
+        await writeFile(testFile, content, "utf8");
+
+        let broadcastCount = 0;
+        const context = createTranspilationContext();
+        context.websocketServer = {
+            broadcast: () => {
+                broadcastCount += 1;
+                return {
+                    successCount: 1,
+                    failureCount: 0,
+                    totalClients: 1
+                };
+            },
+            getClientCount: () => 1
+        };
+
+        const firstResult = transpileFile(context, testFile, content, 3, { verbose: false, quiet: true });
+        const secondResult = transpileFile(context, testFile, content, 3, { verbose: false, quiet: true });
+
+        assert.strictEqual(firstResult.success, true);
+        assert.strictEqual(secondResult.success, true);
+        assert.strictEqual(broadcastCount, 1, "duplicate runtime patch should not be broadcast twice");
+        assert.strictEqual(context.totalPatchCount, 1, "duplicate runtime patch should not increase patch counter");
+        assert.strictEqual(context.patches.length, 1, "duplicate runtime patch should not add history entries");
+        assert.strictEqual(context.metrics.length, 2, "transpilation metrics should still capture both executions");
+    });
 });

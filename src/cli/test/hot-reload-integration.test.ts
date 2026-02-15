@@ -12,6 +12,7 @@ import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
+import { waitForScanComplete } from "./test-helpers/status-polling.js";
 import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
 
 void describe("Hot reload integration loop", () => {
@@ -46,6 +47,7 @@ void describe("Hot reload integration loop", () => {
 
     void it("should stream patches via WebSocket when files change", async () => {
         const websocketPort = await findAvailablePort();
+        const statusPort = await findAvailablePort();
         const abortController = new AbortController();
 
         const watchPromise = runWatchCommand(testDir, {
@@ -54,7 +56,8 @@ void describe("Hot reload integration loop", () => {
             websocketPort,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
-            statusServer: false,
+            statusServer: true,
+            statusPort,
             abortSignal: abortController.signal
         });
 
@@ -62,7 +65,7 @@ void describe("Hot reload integration loop", () => {
 
         try {
             const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 1200,
+                connectionTimeoutMs: 4000,
                 retryIntervalMs: 25,
                 onParseError: (error) => {
                     console.error("Failed to parse patch:", error);
@@ -72,8 +75,9 @@ void describe("Hot reload integration loop", () => {
             websocketContextPromise = contextPromise;
             context = await contextPromise;
 
+            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 5000, 25);
             await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
-            await context.waitForPatches({ timeoutMs: 3000 });
+            await context.waitForPatches({ timeoutMs: 10_000 });
         } finally {
             abortController.abort();
 

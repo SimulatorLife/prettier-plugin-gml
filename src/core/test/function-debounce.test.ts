@@ -287,6 +287,115 @@ void describe("debounce", () => {
 
             assert.equal(errorThrown, false, "Should not propagate error outside debounce");
         });
+
+        void it("should call onError callback when function throws", async () => {
+            const errors: Array<unknown> = [];
+            const debouncedFn = debounce(
+                () => {
+                    throw new Error("Test error");
+                },
+                50,
+                {
+                    onError: (error) => {
+                        errors.push(error);
+                    }
+                }
+            );
+
+            debouncedFn();
+            await sleep(60);
+
+            assert.equal(errors.length, 1, "Should call onError once");
+            assert.ok(errors[0] instanceof Error, "Should pass the error to callback");
+            if (errors[0] instanceof Error) {
+                assert.equal(errors[0].message, "Test error", "Should preserve error message");
+            }
+        });
+
+        void it("should call onError for each execution that throws", async () => {
+            const errors: Array<unknown> = [];
+            const debouncedFn = debounce(
+                () => {
+                    throw new Error("Test error");
+                },
+                30,
+                {
+                    onError: (error) => {
+                        errors.push(error);
+                    }
+                }
+            );
+
+            debouncedFn();
+            await sleep(40);
+
+            debouncedFn();
+            await sleep(40);
+
+            assert.equal(errors.length, 2, "Should call onError for each execution");
+        });
+
+        void it("should call onError when flush triggers an error", () => {
+            const errors: Array<unknown> = [];
+            const debouncedFn = debounce(
+                () => {
+                    throw new Error("Flush error");
+                },
+                100,
+                {
+                    onError: (error) => {
+                        errors.push(error);
+                    }
+                }
+            );
+
+            debouncedFn();
+            debouncedFn.flush();
+
+            assert.equal(errors.length, 1, "Should call onError when flush triggers error");
+            assert.ok(errors[0] instanceof Error, "Should pass the error to callback");
+        });
+
+        void it("should write to stderr when no onError callback provided", (testContext, done) => {
+            const stderrOutput: Array<string> = [];
+            const originalWrite = process.stderr.write.bind(process.stderr);
+            const mockWrite: typeof process.stderr.write = (
+                chunk: string | Uint8Array,
+                encodingOrCallback?: BufferEncoding | ((error?: Error) => void),
+                callback?: (error?: Error) => void
+            ): boolean => {
+                stderrOutput.push(String(chunk));
+                if (typeof encodingOrCallback === "function") {
+                    encodingOrCallback();
+                } else if (callback !== undefined) {
+                    callback();
+                }
+                return true;
+            };
+
+            process.stderr.write = mockWrite;
+
+            const debouncedFn = debounce(() => {
+                throw new Error("Test error");
+            }, 50);
+
+            debouncedFn();
+
+            setTimeout(() => {
+                process.stderr.write = originalWrite;
+
+                try {
+                    assert.ok(stderrOutput.length > 0, "Should write to stderr");
+                    assert.ok(
+                        stderrOutput.some((output) => output.includes("Test error")),
+                        "Should include error message in stderr output"
+                    );
+                    done();
+                } catch (error) {
+                    done(error);
+                }
+            }, 60);
+        });
     });
 
     void describe("real-world scenarios", () => {

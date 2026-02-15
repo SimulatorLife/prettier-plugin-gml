@@ -577,3 +577,60 @@ export function getOptionalArray(obj: unknown, key: string): unknown[] {
     const value = (obj as Record<string, unknown>)[key];
     return asArray(value);
 }
+
+/**
+ * Create a shallow snapshot of specific properties from a source object.
+ *
+ * This helper consolidates the pattern of extracting a subset of properties
+ * from an object into a new snapshot object. Use cases include comment metadata
+ * preservation during transformations where only certain fields need to be
+ * temporarily saved and restored.
+ *
+ * @template TSource
+ * @template {PropertyKey} TKey
+ * @param {TSource} source Object from which to snapshot properties.
+ * @param {ReadonlyArray<TKey> | Array<TKey>} keys Property names to include in the snapshot.
+ * @returns {Partial<Pick<TSource, TKey>>} Snapshot object containing only the
+ *          specified properties.
+ */
+export function snapshotProperties<TSource extends Record<PropertyKey, unknown>, TKey extends keyof TSource>(
+    source: TSource,
+    keys: ReadonlyArray<TKey> | Array<TKey>
+): Partial<Pick<TSource, TKey>> {
+    const snapshot = {} as Partial<Pick<TSource, TKey>>;
+    for (const key of keys) {
+        snapshot[key] = source[key];
+    }
+    return snapshot;
+}
+
+/**
+ * Restore properties from a snapshot to a target object. Properties that are
+ * `undefined` in the snapshot are deleted from the target; otherwise they are
+ * assigned.
+ *
+ * This helper consolidates the repeated "if undefined delete else assign"
+ * pattern used when restoring object properties from snapshots. The behavior
+ * mirrors the typical cleanup logic where missing properties should be fully
+ * removed rather than set to `undefined`.
+ *
+ * @template TTarget
+ * @template {PropertyKey} TKey
+ * @param {TTarget} target Object to which properties should be restored.
+ * @param {Partial<Pick<TTarget, TKey>>} snapshot Snapshot containing property values.
+ * @param {ReadonlyArray<TKey> | Array<TKey>} keys Property names to restore from the snapshot.
+ * @returns {void}
+ */
+export function restoreProperties<TTarget extends Record<PropertyKey, unknown>, TKey extends keyof TTarget>(
+    target: TTarget,
+    snapshot: Partial<Pick<TTarget, TKey>>,
+    keys: ReadonlyArray<TKey> | Array<TKey>
+): void {
+    for (const key of keys) {
+        if (snapshot[key] === undefined) {
+            delete target[key];
+        } else {
+            target[key] = snapshot[key] as TTarget[TKey];
+        }
+    }
+}

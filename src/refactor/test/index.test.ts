@@ -1173,7 +1173,7 @@ void test("generateTranspilerPatches continues on individual errors", async () =
     assert.equal(patches[0].symbolId, "gml/script/scr_ok");
 });
 
-// Batch rename tests
+// Batch rename tests.
 void test("planBatchRename requires an array", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.planBatchRename(null as unknown as Array<RenameRequest>), {
@@ -1492,7 +1492,7 @@ void test("executeBatchRename prepares hot reload when requested", async () => {
     assert.equal(result.hotReloadUpdates[0].action, "recompile");
 });
 
-// Impact analysis tests
+// Impact analysis tests.
 void test("analyzeRenameImpact requires symbolId and newName", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(
@@ -1660,7 +1660,7 @@ void test("analyzeRenameImpact handles errors gracefully", async () => {
     assert.equal(result.conflicts[0].type, "analysis_error");
 });
 
-// Hot reload validation tests
+// Hot reload validation tests.
 void test("validateHotReloadCompatibility requires a WorkspaceEdit", async () => {
     const engine = new RefactorEngineClass();
     const result = await engine.validateHotReloadCompatibility(null);
@@ -1856,7 +1856,7 @@ void test("validateHotReloadCompatibility skips non-GML files", async () => {
     assert.ok(result.warnings.some((w) => w.includes("No GML files found")));
 });
 
-// Hot reload cascade tests
+// Hot reload cascade tests.
 void test("computeHotReloadCascade requires array parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.computeHotReloadCascade(null), {
@@ -2244,7 +2244,7 @@ void test("computeHotReloadCascade handles wide dependency graphs with parallel 
     }
 });
 
-// === checkHotReloadSafety tests ===
+// checkHotReloadSafety tests.
 
 void test("checkHotReloadSafety rejects missing symbolId", async () => {
     const engine = new RefactorEngineClass();
@@ -2510,7 +2510,7 @@ void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async 
     assert.ok(result.suggestions.some((s) => s.includes("script, var, event, macro, enum")));
 });
 
-// verifyPostEditIntegrity tests
+// verifyPostEditIntegrity tests.
 void test("verifyPostEditIntegrity validates input parameters", async () => {
     const engine = new RefactorEngineClass();
 
@@ -3100,7 +3100,7 @@ void test("getFileSymbols queries semantic analyzer", async () => {
 
 void test("getFileSymbols validates file path", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(() => engine.getFileSymbols(null as unknown as string), {
+    assert.throws(() => engine.getFileSymbols(null as unknown as string), {
         name: "TypeError",
         message: /requires a valid file path/
     });
@@ -3140,7 +3140,7 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
 
 void test("getSymbolDependents validates input type", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(() => engine.getSymbolDependents("not-an-array" as unknown as Array<string>), {
+    assert.throws(() => engine.getSymbolDependents("not-an-array" as unknown as Array<string>), {
         name: "TypeError",
         message: /requires an array/
     });
@@ -3463,7 +3463,7 @@ void test("validateBatchRenameRequest handles invalid request objects", async ()
     assert.ok(validation.errors.some((e) => e.includes("valid request object")));
 });
 
-// detectRenameConflicts tests
+// detectRenameConflicts tests.
 void test("detectRenameConflicts validates oldName parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(

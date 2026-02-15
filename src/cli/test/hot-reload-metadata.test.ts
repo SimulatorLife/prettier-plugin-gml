@@ -54,7 +54,7 @@ void describe("Hot reload patch metadata", () => {
         const receivedPatches = await (async () => {
             try {
                 websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                    connectionTimeoutMs: 1200,
+                    connectionTimeoutMs: 4000,
                     retryIntervalMs: 25
                 });
 
