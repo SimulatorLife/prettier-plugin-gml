@@ -1,11 +1,8 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import type { ParserTransform } from "./functional-transform.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
 /**
@@ -14,10 +11,7 @@ import { stripCommentsTransform } from "./strip-comments.js";
  */
 const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
-    normalizeDataStructureAccessorsTransform,
-    preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
-    docCommentNormalizationTransform,
     markCallsMissingArgumentSeparatorsTransform
 ] as const;
 
@@ -89,12 +83,9 @@ export {
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
-export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";

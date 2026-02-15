@@ -94,6 +94,13 @@
   - `gml/prefer-loop-length-hoist` now owns local hoist autofixes (fixture-backed with `fixed.gml` expectations).
   - `gml/prefer-hoistable-loop-accessors` remains detect/suggest-only with no fixer application.
   - `functionSuffixes: { array_length: null }` is now covered as a contract test that disables hoist generation for that accessor.
+- Formatter runtime no longer applies parser-stage semantic rewrites for:
+  - trailing optional default synthesis (`preprocessFunctionArgumentDefaultsTransform`);
+  - data-structure accessor mutation (`normalizeDataStructureAccessorsTransform`).
+- Lint now owns migrated coverage and fixers for these behaviors:
+  - `gml/normalize-data-structure-accessors`;
+  - `gml/require-trailing-optional-defaults`.
+- Plugin semantic rewrite tests for these behaviors were removed from formatter workspace and replaced by formatter regression assertions that formatting does **not** perform these rewrites.
 - Additional feather parity fixture migration landed in lint:
   - Added rule implementations + fixture coverage for `feather/gm1014`, `feather/gm1016`, and `feather/gm1023`.
   - `src/lint/test/feather-rule-fixtures.test.ts` now validates migrated feather fixers for `gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, and `gm1023`.

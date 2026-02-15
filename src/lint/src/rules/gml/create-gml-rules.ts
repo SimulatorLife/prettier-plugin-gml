@@ -459,6 +459,108 @@ function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rul
     });
 }
 
+function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const rewrites: Array<{ start: number; end: number; replacement: string }> = [];
+                    const memberPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[\?|\[\||\[#)\s*/g;
+                    for (const match of text.matchAll(memberPattern)) {
+                        const variableName = match[1];
+                        const accessor = match[2];
+                        const lowerName = variableName.toLowerCase();
+
+                        let expectedAccessor: string | null = null;
+                        if (lowerName.includes("list") || lowerName.includes("lst")) {
+                            expectedAccessor = "[|";
+                        } else if (lowerName.includes("map")) {
+                            expectedAccessor = "[?";
+                        } else if (lowerName.includes("grid")) {
+                            expectedAccessor = "[#";
+                        }
+
+                        if (!expectedAccessor || expectedAccessor === accessor) {
+                            continue;
+                        }
+
+                        const start = (match.index ?? 0) + match[0].indexOf(accessor);
+                        rewrites.push({
+                            start,
+                            end: start + accessor.length,
+                            replacement: expectedAccessor
+                        });
+                    }
+
+                    for (const rewrite of rewrites) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
+function createRequireTrailingOptionalDefaultsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const functionPattern = /function\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([\s\S]*?)\)/g;
+                    for (const match of text.matchAll(functionPattern)) {
+                        const paramsStart = (match.index ?? 0) + match[0].indexOf("(") + 1;
+                        const paramsEnd = paramsStart + match[1].length;
+                        const paramsText = match[1];
+                        const pieces = paramsText.split(",");
+                        let sawDefault = false;
+                        let changed = false;
+                        const rewrittenPieces = pieces.map((piece) => {
+                            const raw = piece;
+                            const trimmed = piece.trim();
+                            if (trimmed.length === 0) {
+                                return raw;
+                            }
+
+                            if (trimmed.includes("=")) {
+                                sawDefault = true;
+                                return raw;
+                            }
+
+                            if (!sawDefault || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(trimmed)) {
+                                return raw;
+                            }
+
+                            changed = true;
+                            const leading = raw.slice(0, raw.indexOf(trimmed));
+                            const trailing = raw.slice(raw.indexOf(trimmed) + trimmed.length);
+                            return `${leading}${trimmed} = undefined${trailing}`;
+                        });
+
+                        if (!changed) {
+                            continue;
+                        }
+
+                        const rewritten = rewrittenPieces.join(",");
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(paramsStart),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([paramsStart, paramsEnd], rewritten)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
         case "prefer-loop-length-hoist": {
@@ -487,6 +589,12 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-argument-separators": {
             return createRequireArgumentSeparatorsRule(definition);
+        }
+        case "normalize-data-structure-accessors": {
+            return createNormalizeDataStructureAccessorsRule(definition);
+        }
+        case "require-trailing-optional-defaults": {
+            return createRequireTrailingOptionalDefaultsRule(definition);
         }
         default: {
             return Object.freeze({
