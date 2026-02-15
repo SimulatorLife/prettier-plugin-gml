@@ -82,3 +82,20 @@ export class WorkspaceEdit {
         return grouped;
     }
 }
+
+/**
+ * Safely extract metadataEdits and fileRenames arrays from a workspace-like object.
+ * Returns empty arrays if the properties are missing or not arrays.
+ *
+ * @param workspace - An object that may contain metadataEdits and/or fileRenames properties
+ * @returns Object containing validated metadataEdits and fileRenames arrays
+ */
+export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRenames?: unknown }): {
+    metadataEdits: Array<MetadataEdit>;
+    fileRenames: Array<FileRename>;
+} {
+    return {
+        metadataEdits: Array.isArray(workspace.metadataEdits) ? (workspace.metadataEdits as Array<MetadataEdit>) : [],
+        fileRenames: Array.isArray(workspace.fileRenames) ? (workspace.fileRenames as Array<FileRename>) : []
+    };
+}
