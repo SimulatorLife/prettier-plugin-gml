@@ -45,7 +45,7 @@ import {
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import { assertRenameRequest, assertValidIdentifierName, extractSymbolName, hasMethod } from "./validation-utils.js";
-import { type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
+import { getWorkspaceArrays, type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -101,11 +101,11 @@ export class RefactorEngine {
      * This is useful for hot reload coordination to determine which symbols
      * need recompilation when a file changes.
      */
-    getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
+    async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
         Core.assertNonEmptyString(filePath, {
             errorMessage: "getFileSymbols requires a valid file path string"
         });
-        return this.semanticCache.getFileSymbols(filePath);
+        return await this.semanticCache.getFileSymbols(filePath);
     }
 
     /**
@@ -113,11 +113,11 @@ export class RefactorEngine {
      * This is essential for hot reload to determine which symbols need recompilation
      * when dependencies change.
      */
-    getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
+    async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
         Core.assertArray(symbolIds, {
             errorMessage: "getSymbolDependents requires an array of symbol IDs"
         });
-        return this.semanticCache.getDependents(symbolIds);
+        return await this.semanticCache.getDependents(symbolIds);
     }
 
     /**
@@ -650,8 +650,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         const hasTextEdits = workspace.edits.length > 0;
         const hasMetadataEdits = metadataEdits.length > 0;
         const hasFileRenames = fileRenames.length > 0;
@@ -802,7 +801,7 @@ export class RefactorEngine {
             }
         });
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         await Core.runSequentially(metadataEdits, async (metadataEdit) => {
             results.set(metadataEdit.path, metadataEdit.content);
 
@@ -813,7 +812,6 @@ export class RefactorEngine {
 
         // Process file renames last to ensure we don't move files before we're done
         // with their text edits. This stabilizes path references during the build phase.
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
         if (!dryRun && fileRenames.length > 0) {
             const { renameFile } = opts;
             if (typeof renameFile !== "function") {
@@ -900,11 +898,10 @@ export class RefactorEngine {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
             }
-            const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
+            const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
             for (const metadataEdit of metadataEdits) {
                 merged.addMetadataEdit(metadataEdit.path, metadataEdit.content);
             }
-            const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
             for (const fileRename of fileRenames) {
                 merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
@@ -1304,8 +1301,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        const metadataEdits = Array.isArray(workspace.metadataEdits) ? workspace.metadataEdits : [];
-        const fileRenames = Array.isArray(workspace.fileRenames) ? workspace.fileRenames : [];
+        const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         const hasTextEdits = workspace.edits.length > 0;
         const hasMetadataEdits = metadataEdits.length > 0;
         const hasFileRenames = fileRenames.length > 0;
