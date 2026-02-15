@@ -48,14 +48,48 @@ function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     });
 }
 
+const DEFAULT_HOIST_ACCESSORS = Object.freeze({
+    array_length: "len"
+});
+
 function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const options = readObjectOption(context);
+            const functionSuffixes = options.functionSuffixes as Record<string, string | null> | undefined;
+
+            const enabledFunctions: Array<string> = [];
+            for (const [functionName] of Object.entries(DEFAULT_HOIST_ACCESSORS)) {
+                const userSuffix = functionSuffixes?.[functionName];
+                if (userSuffix === null) {
+                    continue;
+                }
+                enabledFunctions.push(functionName);
+            }
+
+            if (functionSuffixes) {
+                for (const [functionName, suffix] of Object.entries(functionSuffixes)) {
+                    if (suffix !== null && !(functionName in DEFAULT_HOIST_ACCESSORS)) {
+                        enabledFunctions.push(functionName);
+                    }
+                }
+            }
+
             const listener: Rule.RuleListener = {
                 Program(node) {
+                    if (enabledFunctions.length === 0) {
+                        return;
+                    }
+
                     const text = context.sourceCode.text;
-                    const loopPattern = /for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
+                    const functionsPattern = enabledFunctions
+                        .map((fn) => fn.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+                        .join("|");
+                    const loopPattern = new RegExp(
+                        String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
+                        "g"
+                    );
                     if (loopPattern.test(text)) {
                         context.report({
                             node,
