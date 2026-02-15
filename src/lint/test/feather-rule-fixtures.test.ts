@@ -74,14 +74,7 @@ async function readFixture(ruleName: string, fileName: "input.gml" | "fixed.gml"
 }
 
 void test("feather migrated fixture rules apply local fixes", async () => {
-    const fixtureRules = [
-        "gm1003",
-        "gm1004",
-        "gm1005",
-        "gm1014",
-        "gm1016",
-        "gm1023"
-    ] as const;
+    const fixtureRules = ["gm1003", "gm1004", "gm1005", "gm1014", "gm1016", "gm1023"] as const;
     const cases = await Promise.all(
         fixtureRules.map(async (ruleName) => {
             const [input, expected] = await Promise.all([
