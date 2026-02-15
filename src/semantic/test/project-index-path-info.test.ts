@@ -86,4 +86,18 @@ void describe("project-index/path-info", () => {
         assert.strictEqual(info.isInsideProjectRoot, true);
         assert.strictEqual(info.relativePath, path.win32.join("scripts", "init.gml"));
     });
+
+    void it("does not treat POSIX paths with backslashes in filenames as Win32", () => {
+        // Edge case: a POSIX filesystem allows backslashes in filenames
+        // This should still be treated as a POSIX path, not Win32
+        const projectRoot = "/tmp/project";
+        const filePath = String.raw`/tmp/project/file\with\backslash.gml`;
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        // Should be treated as POSIX since it starts with / and has no drive letter or UNC pattern
+        assert.strictEqual(info.absolutePath, String.raw`/tmp/project/file\with\backslash.gml`);
+        assert.strictEqual(info.relativePath, String.raw`file\with\backslash.gml`);
+    });
 });

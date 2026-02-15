@@ -10,12 +10,11 @@ const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
  * Returns true if the path contains:
  * - A drive letter (e.g., C:\ or C:/)
  * - UNC notation (e.g., \\server\share)
- * - Backslashes (Windows path separator)
  *
  * This avoids incorrectly treating POSIX absolute paths (e.g., /tmp/foo)
  * as Windows paths, which would happen if we only used path.win32.isAbsolute().
  */
-function isWin32Path(candidate: string | null | undefined): boolean {
+export function isWin32Path(candidate: string | null | undefined): boolean {
     if (!Core.isNonEmptyString(candidate)) {
         return false;
     }
@@ -26,12 +25,8 @@ function isWin32Path(candidate: string | null | undefined): boolean {
     }
 
     // Check for UNC path (e.g., \\server\share)
-    if (/^\\\\[^\\]/.test(candidate)) {
-        return true;
-    }
-
-    // Check for backslashes (Windows path separator)
-    if (candidate.includes("\\")) {
+    // Requires at least \\server\ (two backslashes, server name, backslash)
+    if (/^\\\\[^\\]+\\/.test(candidate)) {
         return true;
     }
 
