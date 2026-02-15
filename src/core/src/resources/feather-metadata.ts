@@ -1,5 +1,4 @@
-import fs from "node:fs";
-
+import { readTextFileSync } from "../fs/io.js";
 import { asArray, assertArray } from "../utils/array.js";
 import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
@@ -21,7 +20,7 @@ export type FeatherMetadata = {
 };
 
 export function loadBundledFeatherMetadata() {
-    const contents = fs.readFileSync(FEATHER_METADATA_PATH, "utf8");
+    const contents = readTextFileSync(FEATHER_METADATA_PATH);
     return JSON.parse(contents);
 }
 

@@ -7,7 +7,7 @@
 
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -69,6 +69,7 @@ const {
     isNonEmptyArray,
     isPathInside,
     mergeUniqueValues,
+    readTextFile,
     toArray,
     toNormalizedLowerCaseSet,
     uniqueArray,
@@ -760,7 +761,7 @@ async function readSnapshotContents(snapshot) {
     }
 
     try {
-        return await readFile(snapshotPath, "utf8");
+        return await readTextFile(snapshotPath);
     } catch {
         return null;
     }
@@ -946,7 +947,7 @@ async function reportAndTrackFormattingError(error, filePath) {
 
 async function detectNegatedIgnoreRules(ignoreFilePath) {
     try {
-        const contents = await readFile(ignoreFilePath, "utf8");
+        const contents = await readTextFile(ignoreFilePath);
 
         if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
             markNegatedIgnoreRulesDetected();
@@ -1414,7 +1415,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
 
         encounteredFormattableFile = true;
 
-        const data = await readFile(filePath, "utf8");
+        const data = await readTextFile(filePath);
         const cacheKey = createFormattingCacheKey(data, formattingOptions);
         let formatted = getFormattingCacheEntry(cacheKey);
 
