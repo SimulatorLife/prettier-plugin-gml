@@ -16,10 +16,13 @@ const { readTextFileSync } = Core;
 
 const defaultIdentifierCaseFsFacade = Object.freeze({
     readFileSync(targetPath: PathOrFileDescriptor) {
-        return readTextFileSync(targetPath as string);
+        if (typeof targetPath !== "string") {
+            throw new TypeError("readFileSync only accepts string paths");
+        }
+        return readTextFileSync(targetPath);
     },
-    writeFileSync(targetPath: PathOrFileDescriptor, contents: string | Buffer, _encoding: BufferEncoding = "utf8") {
-        nodeWriteFileSync(targetPath, contents, _encoding);
+    writeFileSync(targetPath: PathOrFileDescriptor, contents: string | Buffer, encoding: BufferEncoding = "utf8") {
+        nodeWriteFileSync(targetPath, contents, encoding);
     },
     renameSync(fromPath, toPath) {
         nodeRenameSync(fromPath, toPath);
