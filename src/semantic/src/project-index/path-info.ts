@@ -25,8 +25,8 @@ export function isWin32Path(candidate: string | null | undefined): boolean {
     }
 
     // Check for UNC path (e.g., \\server\share)
-    // Requires at least \\server\ (two backslashes, server name, backslash)
-    if (/^\\\\[^\\]+\\/.test(candidate)) {
+    // Requires both server and share components
+    if (/^\\\\[^\\]+\\[^\\]+/.test(candidate)) {
         return true;
     }
 

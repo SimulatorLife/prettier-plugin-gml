@@ -96,6 +96,9 @@ void describe("project-index/path-info", () => {
         const info = resolveProjectPathInfo(filePath, projectRoot);
 
         assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.hasProjectRoot, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
         // Should be treated as POSIX since it starts with / and has no drive letter or UNC pattern
         assert.strictEqual(info.absolutePath, String.raw`/tmp/project/file\with\backslash.gml`);
         assert.strictEqual(info.relativePath, String.raw`file\with\backslash.gml`);
