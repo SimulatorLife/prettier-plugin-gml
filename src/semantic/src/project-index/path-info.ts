@@ -4,8 +4,38 @@ import { Core } from "@gml-modules/core";
 
 const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
-function isWin32Absolute(candidate) {
-    return Core.isNonEmptyString(candidate) && path.win32.isAbsolute(candidate);
+/**
+ * Detect if a path is a Windows-style path.
+ *
+ * Returns true if the path contains:
+ * - A drive letter (e.g., C:\ or C:/)
+ * - UNC notation (e.g., \\server\share)
+ * - Backslashes (Windows path separator)
+ *
+ * This avoids incorrectly treating POSIX absolute paths (e.g., /tmp/foo)
+ * as Windows paths, which would happen if we only used path.win32.isAbsolute().
+ */
+function isWin32Path(candidate) {
+    if (!Core.isNonEmptyString(candidate)) {
+        return false;
+    }
+
+    // Check for drive letter (e.g., C:\ or C:/)
+    if (/^[a-zA-Z]:/.test(candidate)) {
+        return true;
+    }
+
+    // Check for UNC path (e.g., \\server\share)
+    if (/^\\\\[^\\]/.test(candidate)) {
+        return true;
+    }
+
+    // Check for backslashes (Windows path separator)
+    if (candidate.includes("\\")) {
+        return true;
+    }
+
+    return false;
 }
 
 function resolveContainedRelativePathWithPath(pathApi, childPath, parentPath) {
@@ -49,7 +79,7 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         return null;
     }
 
-    const useWin32 = isWin32Absolute(filePath) || isWin32Absolute(projectRoot);
+    const useWin32 = isWin32Path(filePath) || isWin32Path(projectRoot);
     const pathApi = useWin32 ? path.win32 : path;
 
     const absolutePath = pathApi.resolve(filePath);

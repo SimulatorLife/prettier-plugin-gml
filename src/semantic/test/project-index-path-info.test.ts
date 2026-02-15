@@ -56,4 +56,21 @@ void describe("project-index/path-info", () => {
         assert.strictEqual(info.isInsideProjectRoot, true);
         assert.strictEqual(info.relativePath, path.win32.join("scripts", "init.gml"));
     });
+
+    void it("treats POSIX absolute paths as POSIX, not Win32", () => {
+        const projectRoot = "/tmp/project";
+        const filePath = "/tmp/project/scripts/player.gml";
+
+        const info = resolveProjectPathInfo(filePath, projectRoot);
+
+        assert.ok(info);
+        assert.strictEqual(info.inputWasAbsolute, true);
+        assert.strictEqual(info.isInsideProjectRoot, true);
+        // Should use POSIX separators, not backslashes
+        assert.strictEqual(info.relativePath, "scripts/player.gml");
+        assert.strictEqual(info.absolutePath, path.resolve(filePath));
+        // Verify no backslashes in the output (which would indicate Win32 processing)
+        assert.ok(!info.absolutePath.includes("\\"));
+        assert.ok(!info.relativePath.includes("\\"));
+    });
 });
