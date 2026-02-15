@@ -254,6 +254,20 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                             fix: (fixer) => fixer.insertTextAfterRange([start, start], " ")
                         });
                     }
+
+                    const legacyDocPattern = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)/gm;
+                    for (const match of text.matchAll(legacyDocPattern)) {
+                        const start = match.index ?? 0;
+                        const end = start + match[0].length;
+                        const indentation = match[1] ?? "";
+                        const tag = match[2] ?? "";
+                        const normalized = `${indentation}/// @${tag}`;
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([start, end], normalized)
+                        });
+                    }
                 }
             });
         }

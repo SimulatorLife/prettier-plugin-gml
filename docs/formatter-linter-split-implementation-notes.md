@@ -36,6 +36,7 @@
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
+5. Continue feather parity extraction beyond currently migrated IDs (`gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, `gm1023`) so remaining GM fixture corpus no longer depends on plugin-era semantic behavior.
 
 ## Completed Since Prior Snapshot
 
@@ -84,6 +85,17 @@
 - Lint provider layer now exposes semantic snapshot builders and prebuilt provider injection (`buildSemanticProjectAnalysisSnapshot`, `createPrebuiltProjectAnalysisProvider`) for invocation-scoped deterministic indexing.
 - CLI lint command now prebuilds semantic snapshots for resolved invocation roots and injects a prebuilt provider into project-context registry wiring.
 - `--index-allow` indexing behavior now includes allowed descendants under otherwise hard-excluded directories during snapshot construction (covered by updated registry test assertions).
+<<<<<<< HEAD
+=======
+- Loop-hoist rule ownership is now aligned with the pinned split contract:
+  - `gml/prefer-loop-length-hoist` now owns local hoist autofixes (fixture-backed with `fixed.gml` expectations).
+  - `gml/prefer-hoistable-loop-accessors` remains detect/suggest-only with no fixer application.
+  - `functionSuffixes: { array_length: null }` is now covered as a contract test that disables hoist generation for that accessor.
+- Additional feather parity fixture migration landed in lint:
+  - Added rule implementations + fixture coverage for `feather/gm1014`, `feather/gm1016`, and `feather/gm1023`.
+  - `src/lint/test/feather-rule-fixtures.test.ts` now validates migrated feather fixers for `gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, and `gm1023`.
+- `gml/normalize-doc-comments` coverage was expanded to include legacy `// @tag` normalization into canonical `/// @tag` form.
+>>>>>>> main
 
 ## Test Migration Status
 
