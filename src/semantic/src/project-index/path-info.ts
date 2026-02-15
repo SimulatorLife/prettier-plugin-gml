@@ -2,6 +2,55 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/**
+ * Detect if a path is a Windows-style path.
+ *
+ * Returns true if the path contains:
+ * - A drive letter (e.g., C:\ or C:/)
+ * - UNC notation (e.g., \\server\share)
+ *
+ * This avoids incorrectly treating POSIX absolute paths (e.g., /tmp/foo)
+ * as Windows paths, which would happen if we only used path.win32.isAbsolute().
+ */
+export function isWin32Path(candidate: string | null | undefined): boolean {
+    if (!Core.isNonEmptyString(candidate)) {
+        return false;
+    }
+
+    // Check for drive letter (e.g., C:\ or C:/)
+    if (/^[a-zA-Z]:/.test(candidate)) {
+        return true;
+    }
+
+    // Check for UNC path (e.g., \\server\share)
+    // Requires both server and share components
+    if (/^\\\\[^\\]+\\[^\\]+/.test(candidate)) {
+        return true;
+    }
+
+    return false;
+}
+
+function resolveContainedRelativePathWithPath(
+    pathApi: typeof path,
+    childPath: string,
+    parentPath: string
+): string | null {
+    const relative = pathApi.relative(parentPath, childPath);
+
+    if (relative === "") {
+        return "";
+    }
+
+    if (PARENT_SEGMENT_PATTERN.test(relative) || pathApi.isAbsolute(relative)) {
+        return null;
+    }
+
+    return relative;
+}
+
 /**
  * Resolve high-level metadata about how {@link filePath} relates to
  * {@link projectRoot}.
@@ -29,8 +78,11 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         return null;
     }
 
-    const absolutePath = path.resolve(filePath);
-    const inputWasAbsolute = path.isAbsolute(filePath);
+    const useWin32 = isWin32Path(filePath) || isWin32Path(projectRoot);
+    const pathApi = useWin32 ? path.win32 : path;
+
+    const absolutePath = pathApi.resolve(filePath);
+    const inputWasAbsolute = pathApi.isAbsolute(filePath);
 
     if (!Core.isNonEmptyString(projectRoot)) {
         return {
@@ -43,8 +95,8 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         };
     }
 
-    const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = Core.resolveContainedRelativePath(absolutePath, absoluteProjectRoot);
+    const absoluteProjectRoot = pathApi.resolve(projectRoot);
+    const containedRelative = resolveContainedRelativePathWithPath(pathApi, absolutePath, absoluteProjectRoot);
     const isInsideProjectRoot = containedRelative !== null;
 
     return {
@@ -53,6 +105,6 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         inputWasAbsolute,
         isInsideProjectRoot,
         projectRoot: absoluteProjectRoot,
-        relativePath: isInsideProjectRoot ? containedRelative : path.relative(absoluteProjectRoot, absolutePath)
+        relativePath: isInsideProjectRoot ? containedRelative : pathApi.relative(absoluteProjectRoot, absolutePath)
     };
 }

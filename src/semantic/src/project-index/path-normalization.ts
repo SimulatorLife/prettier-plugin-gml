@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { resolveProjectPathInfo } from "./path-info.js";
+import { isWin32Path, resolveProjectPathInfo } from "./path-info.js";
 
 /** @typedef {NonNullable<ReturnType<typeof resolveProjectPathInfo>>} ProjectPathInfo */
 
@@ -43,7 +43,10 @@ function withProjectPathInfo(filePath, projectRoot, projector) {
  * @returns {string | null} Normalized resource path or `null` when the input is
  *          empty or outside the project tree.
  */
-export function normalizeProjectResourcePath(rawPath, { projectRoot }: any = {}) {
+export function normalizeProjectResourcePath(
+    rawPath: string | null | undefined,
+    { projectRoot }: { projectRoot?: string | null } = {}
+) {
     if (!Core.isNonEmptyString(rawPath)) {
         return null;
     }
@@ -53,7 +56,9 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot }: any = {})
         return normalized;
     }
 
-    const absoluteCandidate = path.isAbsolute(normalized) ? normalized : path.join(projectRoot, normalized);
+    const useWin32 = isWin32Path(normalized) || isWin32Path(projectRoot);
+    const pathApi = useWin32 ? path.win32 : path;
+    const absoluteCandidate = pathApi.isAbsolute(normalized) ? normalized : pathApi.join(projectRoot, normalized);
 
     return withProjectPathInfo(absoluteCandidate, projectRoot, (info) => Core.toPosixPath(info.relativePath));
 }
