@@ -6,74 +6,36 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
+
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRootCandidates = [
     path.resolve(testDirectory, "fixtures", "feather"),
     path.resolve(testDirectory, "../../test/fixtures/feather")
 ];
 
-type FixOperation = { kind: "replace"; range: [number, number]; text: string };
-
-function buildLineStarts(text: string): Array<number> {
-    const starts = [0];
-    for (const [index, character] of Array.from(text).entries()) {
-        if (character === "\n") {
-            starts.push(index + 1);
-        }
-    }
-    return starts;
-}
-
-function getLocFromIndex(lineStarts: Array<number>, index: number): { line: number; column: number } {
-    let line = 0;
-    for (const [candidate, lineStart] of lineStarts.entries()) {
-        if (lineStart > index) {
-            break;
-        }
-
-        line = candidate;
-    }
-
-    return { line: line + 1, column: index - lineStarts[line] };
-}
-
-function applyFixes(text: string, operations: Array<FixOperation>): string {
-    const ordered = [...operations].sort((left, right) => left.range[0] - right.range[0]);
-    let output = "";
-    let cursor = 0;
-    for (const operation of ordered) {
-        const [start, end] = operation.range;
-        output += text.slice(cursor, start);
-        output += operation.text;
-        cursor = end;
-    }
-
-    output += text.slice(cursor);
-    return output;
-}
-
 function lintWithFeatherRule(
     ruleName: string,
     code: string
 ): { messages: Array<{ messageId: string }>; output: string } {
     const rule = LintWorkspace.Lint.plugin.rules[ruleName];
-    const messages: Array<{ messageId: string; fix?: FixOperation }> = [];
-    const lineStarts = buildLineStarts(code);
+    const messages: Array<{ messageId: string; fix?: ReplaceTextRangeFixOperation }> = [];
+    const getLocFromIndex = createLocResolver(code);
 
     const context = {
         options: [{}],
         sourceCode: {
             text: code,
-            getLocFromIndex: (index: number) => getLocFromIndex(lineStarts, index)
+            getLocFromIndex
         },
         report(payload: {
             messageId: string;
             fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): FixOperation;
-            }) => FixOperation | null;
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
+            }) => ReplaceTextRangeFixOperation | null;
         }) {
             const fixer = {
-                replaceTextRange(range: [number, number], text: string): FixOperation {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
                     return { kind: "replace", range, text };
                 }
             };
@@ -87,9 +49,9 @@ function lintWithFeatherRule(
     const listeners = rule.create(context);
     listeners.Program?.({ type: "Program" } as never);
 
-    const output = applyFixes(
+    const output = applyFixOperations(
         code,
-        messages.map((message) => message.fix).filter((fix): fix is FixOperation => fix !== undefined)
+        messages.map((message) => message.fix).filter((fix): fix is ReplaceTextRangeFixOperation => fix !== undefined)
     );
 
     return {
