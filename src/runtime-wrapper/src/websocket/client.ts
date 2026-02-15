@@ -153,8 +153,11 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
         queueState.flushTimer = null;
     }
 
-    // Extract patches from queueHead to end without copying the array
-    const patchesToFlush = queueState.queue.slice(queueState.queueHead);
+    // Fast path: when no drops have occurred (queueHead === 0), reuse the
+    // existing queue array directly instead of slicing into a new array.
+    // This avoids an allocation for the common case where patches are flushed
+    // by timer/size before any overflow compaction is needed.
+    const patchesToFlush = queueState.queueHead === 0 ? queueState.queue : queueState.queue.slice(queueState.queueHead);
     const flushSize = patchesToFlush.length;
 
     // Reset queue to release old references for garbage collection
