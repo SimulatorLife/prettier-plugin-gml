@@ -3,68 +3,30 @@ import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-type FixOperation = { kind: "replace"; range: [number, number]; text: string };
-
-function buildLineStarts(text: string): Array<number> {
-    const starts = [0];
-    for (const [index, character] of Array.from(text).entries()) {
-        if (character === "\n") {
-            starts.push(index + 1);
-        }
-    }
-    return starts;
-}
-
-function getLocFromIndex(lineStarts: Array<number>, index: number): { line: number; column: number } {
-    let line = 0;
-    for (const [candidate, lineStart] of lineStarts.entries()) {
-        if (lineStart > index) {
-            break;
-        }
-
-        line = candidate;
-    }
-
-    return { line: line + 1, column: index - lineStarts[line] };
-}
-
-function applyFixes(text: string, operations: Array<FixOperation>): string {
-    const ordered = [...operations].sort((left, right) => left.range[0] - right.range[0]);
-    let output = "";
-    let cursor = 0;
-    for (const operation of ordered) {
-        const [start, end] = operation.range;
-        output += text.slice(cursor, start);
-        output += operation.text;
-        cursor = end;
-    }
-
-    output += text.slice(cursor);
-    return output;
-}
+import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function runNormalizeDocCommentsRule(code: string): string {
     const rule = LintWorkspace.Lint.plugin.rules["normalize-doc-comments"];
-    const fixes: Array<FixOperation> = [];
-    const lineStarts = buildLineStarts(code);
+    const fixes: Array<ReplaceTextRangeFixOperation> = [];
+    const getLocFromIndex = createLocResolver(code);
 
     const context = {
         options: [{}],
         sourceCode: {
             text: code,
-            getLocFromIndex: (index: number) => getLocFromIndex(lineStarts, index)
+            getLocFromIndex
         },
         report(payload: {
             fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): FixOperation;
-            }) => FixOperation | null;
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
+            }) => ReplaceTextRangeFixOperation | null;
         }) {
             if (!payload.fix) {
                 return;
             }
 
             const fixer = {
-                replaceTextRange(range: [number, number], text: string): FixOperation {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
                     return { kind: "replace", range, text };
                 }
             };
@@ -79,7 +41,7 @@ function runNormalizeDocCommentsRule(code: string): string {
     const listeners = rule.create(context);
     listeners.Program?.({ type: "Program" } as never);
 
-    return applyFixes(code, fixes);
+    return applyFixOperations(code, fixes);
 }
 
 void test("normalize-doc-comments promotes leading summary lines into @description", () => {
