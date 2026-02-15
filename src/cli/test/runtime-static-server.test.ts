@@ -4,6 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
 
@@ -113,6 +114,66 @@ void describe("runtime static server", () => {
             });
 
             assert.equal(statusCode, 403);
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    void it("closes keep-alive sockets when stopping the server", async () => {
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-stop-"));
+        const indexPath = path.join(tempDir, "index.html");
+        await writeFile(indexPath, "<html><body>ok</body></html>");
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            const socket = net.createConnection({
+                host: server.host,
+                port: server.port
+            });
+            socket.setEncoding("utf8");
+
+            const closePromise = new Promise<void>((resolve) => {
+                socket.once("close", () => resolve());
+            });
+
+            const responsePromise = new Promise<void>((resolve, reject) => {
+                let buffer = "";
+                const handleData = (chunk: string) => {
+                    buffer += chunk;
+                    if (buffer.includes("\r\n\r\n")) {
+                        socket.off("data", handleData);
+                        resolve();
+                    }
+                };
+
+                socket.on("data", handleData);
+                socket.once("error", reject);
+            });
+
+            socket.write(
+                `GET /index.html HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\nConnection: keep-alive\r\n\r\n`
+            );
+
+            await responsePromise;
+            await server.stop();
+
+            const closed = await Promise.race([closePromise.then(() => true), delay(500).then(() => false)]);
+
+            if (!socket.destroyed) {
+                socket.destroy();
+            }
+
+            assert.equal(closed, true, "Expected runtime server stop to close active sockets");
         } finally {
             if (server) {
                 await server.stop();
