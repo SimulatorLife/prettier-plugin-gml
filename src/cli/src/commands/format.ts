@@ -151,6 +151,17 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
     };
 }
 
+function createSampleLimitAccessors(state: { configure: (limit: unknown) => number; getValue: () => number }) {
+    return {
+        configureLimit(limit: unknown) {
+            state.configure(limit);
+        },
+        getLimit() {
+            return state.getValue();
+        }
+    };
+}
+
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
     const resolvedCwd = process.cwd();
@@ -533,40 +544,19 @@ const skippedDirectorySampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
     resolveLimit: resolveSkippedDirectorySampleLimit
 });
-
-function configureSkippedDirectorySampleLimit(limit) {
-    skippedDirectorySampleLimitState.configure(limit);
-}
-
-function getSkippedDirectorySampleLimit() {
-    return skippedDirectorySampleLimitState.getValue();
-}
+const skippedDirectorySampleLimitAccessors = createSampleLimitAccessors(skippedDirectorySampleLimitState);
 
 const ignoredFileSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultIgnoredFileSampleLimit,
     resolveLimit: resolveIgnoredFileSampleLimit
 });
-
-function configureIgnoredFileSampleLimit(limit) {
-    ignoredFileSampleLimitState.configure(limit);
-}
-
-function getIgnoredFileSampleLimit() {
-    return ignoredFileSampleLimitState.getValue();
-}
+const ignoredFileSampleLimitAccessors = createSampleLimitAccessors(ignoredFileSampleLimitState);
 
 const unsupportedExtensionSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
     resolveLimit: resolveUnsupportedExtensionSampleLimit
 });
-
-function configureUnsupportedExtensionSampleLimit(limit) {
-    unsupportedExtensionSampleLimitState.configure(limit);
-}
-
-function getUnsupportedExtensionSampleLimit() {
-    return unsupportedExtensionSampleLimitState.getValue();
-}
+const unsupportedExtensionSampleLimitAccessors = createSampleLimitAccessors(unsupportedExtensionSampleLimitState);
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -583,7 +573,7 @@ function resetSkippedDirectorySummary() {
 
 function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
-    const limit = getSkippedDirectorySampleLimit();
+    const limit = skippedDirectorySampleLimitAccessors.getLimit();
     tryAddSample(skippedDirectorySummary.ignoredSamples, directory, limit);
 }
 let baseProjectIgnorePaths = [];
@@ -1602,9 +1592,9 @@ async function prepareFormattingRun({
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
-    configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
-    configureIgnoredFileSampleLimit(ignoredFileSampleLimit);
-    configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
+    skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
+    ignoredFileSampleLimitAccessors.configureLimit(ignoredFileSampleLimit);
+    unsupportedExtensionSampleLimitAccessors.configureLimit(unsupportedExtensionSampleLimit);
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
@@ -2104,7 +2094,7 @@ function areIgnoredFileSamplesEqual(existing, candidate) {
 function recordIgnoredFile({ filePath, sourceDescription }) {
     skippedFileSummary.ignored += 1;
 
-    const limit = getIgnoredFileSampleLimit();
+    const limit = ignoredFileSampleLimitAccessors.getLimit();
     const sample = { filePath, sourceDescription };
 
     if (tryAddSample(skippedFileSummary.ignoredSamples, sample, limit, areIgnoredFileSamplesEqual)) {
@@ -2113,7 +2103,7 @@ function recordIgnoredFile({ filePath, sourceDescription }) {
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
-    const limit = getUnsupportedExtensionSampleLimit();
+    const limit = unsupportedExtensionSampleLimitAccessors.getLimit();
     tryAddSample(skippedFileSummary.unsupportedExtensionSamples, filePath, limit);
 }
 
