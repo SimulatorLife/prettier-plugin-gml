@@ -424,23 +424,35 @@ function reapplyLineCommentTrailingWhitespace(formatted: string, source: string)
     return lines.join("\n");
 }
 
+type NormalizationStep = (formatted: string) => string;
+
+function applyNormalizationSteps(formatted: string, steps: readonly NormalizationStep[]): string {
+    return steps.reduce((current, step) => step(current), formatted);
+}
+
+function ensureTrailingNewline(formatted: string): string {
+    return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
+}
+
 export function normalizeFormattedOutput(formatted: string, source: string): string {
-    const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
-    const singleBlankLines = collapseDuplicateBlankLines(normalized);
-    const collapsedBlockOpenings = collapseBlockOpeningBlankLines(singleBlankLines);
-    const normalizedCleaned = collapsedBlockOpenings.endsWith("\n")
-        ? collapsedBlockOpenings
-        : `${collapsedBlockOpenings}\n`;
-    const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
-    const dedupedComments = removeDuplicateDocLikeLineComments(collapseVertexFormatBeginSpacing(collapsedAfterStrip));
-    const normalizedCommentSpacing = normalizeInlineTrailingCommentSpacing(dedupedComments);
-    const spacedComments = ensureBlankLineBeforeTopLevelLineComments(normalizedCommentSpacing);
-    const trimmedDecorativeBlanks = trimDecorativeCommentBlankLines(spacedComments);
-    const collapsedAfterDecorativeTrim = collapseDuplicateBlankLines(trimmedDecorativeBlanks);
-    const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(collapsedAfterDecorativeTrim);
-    const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(collapsedWhitespaceOnlyLines);
-    const cleanedGuardComments = removeBlankLinesBeforeGuardComments(normalizedLineCommentBlockSpacing);
-    const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(cleanedGuardComments, source);
-    return collapseWhitespaceOnlyBlankLines(afterTrailingWhitespace);
+    const normalizedWithoutSource = applyNormalizationSteps(formatted, [
+        ensureBlankLineBetweenVertexFormatComments,
+        collapseDuplicateBlankLines,
+        collapseBlockOpeningBlankLines,
+        ensureTrailingNewline,
+        stripFunctionTagComments,
+        collapseDuplicateBlankLines,
+        collapseVertexFormatBeginSpacing,
+        removeDuplicateDocLikeLineComments,
+        normalizeInlineTrailingCommentSpacing,
+        ensureBlankLineBeforeTopLevelLineComments,
+        trimDecorativeCommentBlankLines,
+        collapseDuplicateBlankLines,
+        collapseWhitespaceOnlyBlankLines,
+        collapseLineCommentToBlockCommentBlankLines,
+        removeBlankLinesBeforeGuardComments
+    ]);
+
+    const withTrailingWhitespace = reapplyLineCommentTrailingWhitespace(normalizedWithoutSource, source);
+    return collapseWhitespaceOnlyBlankLines(withTrailingWhitespace);
 }

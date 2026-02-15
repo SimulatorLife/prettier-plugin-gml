@@ -14,7 +14,6 @@ const fixtureDirectory = path.join(currentDirectory, "fixtures", "formatting");
 const fileEncoding = "utf8";
 
 const FORMATTER_FIXTURE_BASENAMES = Object.freeze([
-    "testDrawEvent",
     "testHoistDisabled",
     "testIgnore",
     "testParams",
