@@ -10,15 +10,15 @@ import * as LintWorkspace from "@gml-modules/lint";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 type MigrationCase = {
-    fixtureName: string;
+    fixtureDirectory: string;
     ruleName: string;
     assertOutput: (output: string) => void;
 };
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const migratedFeatherFixtureCandidates = [
-    path.resolve(testDirectory, "fixtures/feather/plugin-migrated"),
-    path.resolve(testDirectory, "../../test/fixtures/feather/plugin-migrated")
+    path.resolve(testDirectory, "fixtures/feather"),
+    path.resolve(testDirectory, "../../test/fixtures/feather")
 ];
 const migratedFeatherFixtureDirectory = migratedFeatherFixtureCandidates.find((candidate) => existsSync(candidate));
 if (!migratedFeatherFixtureDirectory) {
@@ -75,8 +75,8 @@ function lintWithFeatherRule(
     };
 }
 
-async function readMigratedFeatherFixture(fixtureName: string): Promise<string> {
-    const inputPath = path.join(migratedFeatherFixtureDirectory, `${fixtureName}.input.gml`);
+async function readMigratedFeatherFixture(fixtureDirectory: string): Promise<string> {
+    const inputPath = path.join(migratedFeatherFixtureDirectory, fixtureDirectory, "input.gml");
     return readFile(inputPath, "utf8");
 }
 
@@ -86,7 +86,7 @@ function countOccurrences(text: string, needle: string): number {
 
 const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
-        fixtureName: "testGM1000",
+        fixtureDirectory: "gm1000",
         ruleName: "gm1000",
         assertOutput: (output) => {
             assert.equal(output.includes("break;"), false);
@@ -94,7 +94,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1002",
+        fixtureDirectory: "gm1002",
         ruleName: "gm1002",
         assertOutput: (output) => {
             assert.equal(output.includes("global.gameManager"), false);
@@ -102,7 +102,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1007",
+        fixtureDirectory: "gm1007",
         ruleName: "gm1007",
         assertOutput: (output) => {
             assert.equal(output.includes("new Point(0, 0) ="), false);
@@ -110,7 +110,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1008",
+        fixtureDirectory: "gm1008",
         ruleName: "gm1008",
         assertOutput: (output) => {
             assert.equal(/\bworking_directory\b/.test(output), false);
@@ -118,7 +118,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1009",
+        fixtureDirectory: "gm1009",
         ruleName: "gm1009",
         assertOutput: (output) => {
             assert.equal(output.includes("fa_readonly | fa_archive"), true);
@@ -126,7 +126,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1010",
+        fixtureDirectory: "gm1010",
         ruleName: "gm1010",
         assertOutput: (output) => {
             assert.equal(output.includes("result = 5 + 5;"), true);
@@ -134,7 +134,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1015",
+        fixtureDirectory: "gm1015",
         ruleName: "gm1015",
         assertOutput: (output) => {
             assert.equal(output.includes("/= 0"), false);
@@ -142,7 +142,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1024",
+        fixtureDirectory: "gm1024",
         ruleName: "gm1024",
         assertOutput: (output) => {
             assert.equal(output.includes("__featherFix_score"), true);
@@ -150,7 +150,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1026",
+        fixtureDirectory: "gm1026",
         ruleName: "gm1026",
         assertOutput: (output) => {
             assert.equal(output.includes("var __featherFix_pi = pi;"), true);
@@ -158,7 +158,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1028",
+        fixtureDirectory: "gm1028",
         ruleName: "gm1028",
         assertOutput: (output) => {
             assert.equal(output.includes("[?"), false);
@@ -166,7 +166,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1029",
+        fixtureDirectory: "gm1029",
         ruleName: "gm1029",
         assertOutput: (output) => {
             assert.equal(output.includes('"1234"'), false);
@@ -174,7 +174,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1030",
+        fixtureDirectory: "gm1030",
         ruleName: "gm1030",
         assertOutput: (output) => {
             assert.equal(output.includes("__featherFix_sprite_index"), true);
@@ -182,7 +182,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1033",
+        fixtureDirectory: "gm1033",
         ruleName: "gm1033",
         assertOutput: (output) => {
             assert.equal(output.includes(";;"), false);
@@ -190,14 +190,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1038",
+        fixtureDirectory: "gm1038",
         ruleName: "gm1038",
         assertOutput: (output) => {
             assert.equal(countOccurrences(output, "#macro dbg"), 1);
         }
     },
     {
-        fixtureName: "testGM1041",
+        fixtureDirectory: "gm1041",
         ruleName: "gm1041",
         assertOutput: (output) => {
             assert.equal(output.includes('"obj_player"'), false);
@@ -205,7 +205,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1051",
+        fixtureDirectory: "gm1051",
         ruleName: "gm1051",
         assertOutput: (output) => {
             assert.equal(output.includes("#macro FOO_SIMPLE 1;"), false);
@@ -213,7 +213,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1052",
+        fixtureDirectory: "gm1052",
         ruleName: "gm1052",
         assertOutput: (output) => {
             assert.equal(output.includes("delete values;"), false);
@@ -221,14 +221,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1058",
+        fixtureDirectory: "gm1058",
         ruleName: "gm1058",
         assertOutput: (output) => {
             assert.equal(/function item\(\)\s+constructor/.test(output), true);
         }
     },
     {
-        fixtureName: "testGM1063",
+        fixtureDirectory: "gm1063",
         ruleName: "gm1063",
         assertOutput: (output) => {
             assert.equal(output.includes("pointer_null"), true);
@@ -236,7 +236,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
-        fixtureName: "testGM1064",
+        fixtureDirectory: "gm1064",
         ruleName: "gm1064",
         assertOutput: (output) => {
             assert.equal(countOccurrences(output, "function make_game"), 1);
@@ -246,7 +246,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
 
 void test("legacy plugin GM fixtures are now lint-owned feather rule tests", async () => {
     for (const migrationCase of migrationCases) {
-        const input = await readMigratedFeatherFixture(migrationCase.fixtureName);
+        const input = await readMigratedFeatherFixture(migrationCase.fixtureDirectory);
         const result = lintWithFeatherRule(migrationCase.ruleName, input);
         assert.equal(result.messages.length > 0, true, `${migrationCase.ruleName} should report diagnostics`);
         migrationCase.assertOutput(result.output);
