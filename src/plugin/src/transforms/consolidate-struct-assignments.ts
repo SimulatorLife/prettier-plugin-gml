@@ -50,20 +50,12 @@ const COMMENT_SNAPSHOT_KEYS = [
     "_removedByConsolidation"
 ];
 
-const COMMENT_OPTIONAL_KEYS = ["_structPropertyTrailing", "_structPropertyHandled", "_removedByConsolidation"];
-
 function snapshotComment(comment) {
     return Core.snapshotProperties(comment, COMMENT_SNAPSHOT_KEYS);
 }
 
 function restoreComment(comment, snapshot) {
-    // Restore regular properties
-    const regularKeys = COMMENT_SNAPSHOT_KEYS.filter((key) => !COMMENT_OPTIONAL_KEYS.includes(key));
-    for (const key of regularKeys) {
-        comment[key] = snapshot[key];
-    }
-    // Restore optional properties using the delete-if-undefined pattern
-    Core.restoreProperties(comment, snapshot, COMMENT_OPTIONAL_KEYS);
+    Core.restoreProperties(comment, snapshot, COMMENT_SNAPSHOT_KEYS);
 }
 
 type PropertyKeyInfo = {

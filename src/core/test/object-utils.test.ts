@@ -253,11 +253,12 @@ void test("snapshotProperties creates a shallow copy of specified properties", (
 });
 
 void test("snapshotProperties handles missing properties by including undefined", () => {
-    const source = { existing: "value" };
-    const snapshot = Core.snapshotProperties(source, ["existing"] as const);
+    const source: { existing: string; missing?: string } = { existing: "value" };
+    const snapshot = Core.snapshotProperties(source, ["existing", "missing"] as const);
 
     assert.strictEqual(snapshot.existing, "value");
-    assert.strictEqual(Object.keys(snapshot).length, 1);
+    assert.strictEqual(snapshot.missing, undefined);
+    assert.strictEqual(Object.keys(snapshot).length, 2);
 });
 
 void test("restoreProperties assigns defined values and deletes undefined ones", () => {
