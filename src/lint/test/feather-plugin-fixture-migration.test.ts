@@ -243,6 +243,62 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
+        fixtureDirectory: "gm1013",
+        ruleName: "gm1013",
+        assertOutput: (output) => {
+            assert.equal(output.includes("/// @param [attack_bonus=10]"), true);
+            assert.equal(output.includes("other.attack_bonus"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1032",
+        ruleName: "gm1032",
+        assertOutput: (output) => {
+            assert.equal(output.includes("function sample3(zero, one, two, three)"), true);
+            assert.equal(output.includes("/// @param argument0"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1034",
+        ruleName: "gm1034",
+        assertOutput: (output) => {
+            assert.equal(output.includes("/// @param first_parameter"), true);
+            assert.equal(output.includes("function func_args(_first_parameter) {"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1036",
+        ruleName: "gm1036",
+        assertOutput: (output) => {
+            assert.equal(output.includes("[0][1][2][3]"), true);
+            assert.equal(output.includes("/// @param mat"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1056",
+        ruleName: "gm1056",
+        assertOutput: (output) => {
+            assert.equal(output.includes("c = undefined"), true);
+            assert.equal(output.includes("/// @param [c]"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1059",
+        ruleName: "gm1059",
+        assertOutput: (output) => {
+            assert.equal(output.includes("function example(value, value2)"), true);
+            assert.equal(output.includes("value, value, value"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm1062",
+        ruleName: "gm1062",
+        assertOutput: (output) => {
+            assert.equal(output.includes("/// @description"), true);
+            assert.equal(output.includes("{Id.Instance}"), true);
+        }
+    },
+    {
         fixtureDirectory: "gm2000",
         ruleName: "gm2000",
         assertOutput: (output) => {
@@ -254,6 +310,65 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm2003",
         assertOutput: (output) => {
             assert.equal(output.includes("shader_reset();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2004",
+        ruleName: "gm2004",
+        assertOutput: (output) => {
+            assert.equal(output.includes("repeat (amount)"), true);
+            assert.equal(output.includes("for (var i = 0;"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2005",
+        ruleName: "gm2005",
+        assertOutput: (output) => {
+            assert.equal(output.includes("surface_reset_target();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2007",
+        ruleName: "gm2007",
+        assertOutput: (output) => {
+            assert.equal(output.includes("var missing;"), true);
+            assert.equal(output.includes("var inside;"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2008",
+        ruleName: "gm2008",
+        assertOutput: (output) => {
+            assert.equal(output.includes("vertex_end(vb);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2009",
+        ruleName: "gm2009",
+        assertOutput: (output) => {
+            assert.equal(output.includes("vertex_end("), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2011",
+        ruleName: "gm2011",
+        assertOutput: (output) => {
+            assert.equal(output.includes("vertex_end(vb);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2012",
+        ruleName: "gm2012",
+        assertOutput: (output) => {
+            assert.equal(output.includes("vertex_format_add_position_3d();"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2015",
+        ruleName: "gm2015",
+        assertOutput: (output) => {
+            assert.equal(output.includes("TODO: Incomplete vertex format definition"), true);
+            assert.equal(output.includes("//vertex_format_begin();"), true);
         }
     },
     {
@@ -279,6 +394,42 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
+        fixtureDirectory: "gm2029",
+        ruleName: "gm2029",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_primitive_begin(pr_trianglelist);"), true);
+            assert.equal(countOccurrences(output, "draw_primitive_end();") <= 1, true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2029-attachment",
+        ruleName: "gm2029",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_primitive_begin(pr_trianglelist);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2030",
+        ruleName: "gm2030",
+        assertOutput: (output) => {
+            assert.equal(countOccurrences(output, "draw_primitive_end();"), 1);
+        }
+    },
+    {
+        fixtureDirectory: "gm2031",
+        ruleName: "gm2031",
+        assertOutput: (output) => {
+            assert.equal(output.includes("file_find_close();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2033",
+        ruleName: "gm2033",
+        assertOutput: (output) => {
+            assert.equal(output.trimEnd().endsWith("file_find_next();"), false);
+        }
+    },
+    {
         fixtureDirectory: "gm2032",
         ruleName: "gm2032",
         assertOutput: (output) => {
@@ -290,6 +441,36 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm2035",
         assertOutput: (output) => {
             assert.equal(output.includes("gpu_pop_state();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2042",
+        ruleName: "gm2042",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_push_state();\ngpu_push_state();"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2043",
+        ruleName: "gm2043",
+        assertOutput: (output) => {
+            assert.equal(output.includes("var i = 0;"), true);
+            assert.equal(output.includes("var i = 34;"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2044",
+        ruleName: "gm2044",
+        assertOutput: (output) => {
+            assert.equal(output.includes("/// @returns {undefined}"), true);
+            assert.equal(output.includes("var total = total + 1;"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm2046",
+        ruleName: "gm2046",
+        assertOutput: (output) => {
+            assert.equal(countOccurrences(output, "surface_reset_target();") >= 2, true);
         }
     },
     {

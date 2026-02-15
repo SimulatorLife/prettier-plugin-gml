@@ -36,7 +36,7 @@
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
-5. Continue feather parity extraction beyond currently migrated IDs (`gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, `gm1023`) so remaining GM fixture corpus no longer depends on plugin-era semantic behavior.
+5. Continue feather parity extraction for remaining non-migrated IDs (`gm1012`, `gm1021`, `gm1054`, `gm1100`, `gm2023`, `gm2025`, `gm2040`, `gm2064`) so remaining GM fixture corpus no longer depends on plugin-era semantic behavior.
 
 ## Completed Since Prior Snapshot
 
@@ -101,8 +101,9 @@
   - New lint tests in `src/lint/test/normalize-doc-comments-rule.test.ts` now validate migrated doc-comment behaviors that were previously plugin-owned.
   - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior.
 - Additional feather parity fixture migration landed in lint:
-  - Added rule implementations + fixture coverage for `feather/gm1014`, `feather/gm1016`, and `feather/gm1023`.
-  - `src/lint/test/feather-rule-fixtures.test.ts` now validates migrated feather fixers for `gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, and `gm1023`.
+  - Added rule implementations and migration-harness coverage for `feather/gm1013`, `feather/gm1032`, `feather/gm1034`, `feather/gm1036`, `feather/gm1056`, `feather/gm1059`, `feather/gm1062`, and migrated `GM20xx` fixture IDs through `gm2061`.
+  - `src/lint/test/feather-plugin-fixture-migration.test.ts` now covers these migrated fixtures under the lint-owned `src/lint/test/fixtures/feather/*` corpus.
+  - `src/lint/test/feather-rule-fixtures.test.ts` continues to enforce exact `fixed.gml` parity for the pinned migrated-feather baseline (`gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, `gm1023`).
 - `gml/normalize-doc-comments` coverage was expanded to include legacy `// @tag` normalization into canonical `/// @tag` form.
 
 ## Test Migration Status
