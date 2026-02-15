@@ -211,8 +211,7 @@ function applyParserTransforms(
 }
 
 function applyStructuralTransforms(ast: MutableGameMakerAstNode, _options: GmlParserAdapterOptions | undefined): void {
-    Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
-    Transforms.normalizeDataStructureAccessorsTransform.transform(ast);
+    void ast;
 }
 
 function applyOptionalTransforms(

@@ -154,7 +154,9 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
         "no-globalvar",
         "normalize-doc-comments",
         "optimize-math-expressions",
-        "require-argument-separators"
+        "require-argument-separators",
+        "normalize-data-structure-accessors",
+        "require-trailing-optional-defaults"
     ] as const;
 
     for (const ruleName of fixRules) {

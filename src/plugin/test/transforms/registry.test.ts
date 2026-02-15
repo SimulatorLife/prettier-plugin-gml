@@ -25,7 +25,10 @@ const removedSemanticTransforms = [
     "consolidateStructAssignmentsTransform",
     "convertStringConcatenationsTransform",
     "convertUndefinedGuardAssignmentsTransform",
-    "optimizeLogicalExpressionsTransform"
+    "optimizeLogicalExpressionsTransform",
+    "normalizeDataStructureAccessorsTransform",
+    "preprocessFunctionArgumentDefaultsTransform",
+    "docCommentNormalizationTransform"
 ] as const;
 
 void describe("Transform registry", () => {

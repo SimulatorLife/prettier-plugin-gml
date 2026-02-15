@@ -190,6 +190,26 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([
             { type: "object", additionalProperties: false, properties: { repair: { type: "boolean", default: true } } }
         ])
+    },
+    {
+        mapKey: "GmlNormalizeDataStructureAccessors",
+        shortName: "normalize-data-structure-accessors",
+        fullId: "gml/normalize-data-structure-accessors",
+        messageId: "normalizeDataStructureAccessors",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlRequireTrailingOptionalDefaults",
+        shortName: "require-trailing-optional-defaults",
+        fullId: "gml/require-trailing-optional-defaults",
+        messageId: "requireTrailingOptionalDefaults",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     }
 ]);
 

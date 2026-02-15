@@ -51,11 +51,30 @@ const COMMENT_SNAPSHOT_KEYS = [
 ];
 
 function snapshotComment(comment) {
-    return Core.snapshotProperties(comment, COMMENT_SNAPSHOT_KEYS);
+    const snapshot = Object.create(null) as Record<string, { hadKey: boolean; value: unknown }>;
+    for (const key of COMMENT_SNAPSHOT_KEYS) {
+        snapshot[key] = {
+            hadKey: Object.hasOwn(comment, key),
+            value: comment[key]
+        };
+    }
+    return snapshot;
 }
 
 function restoreComment(comment, snapshot) {
-    Core.restoreProperties(comment, snapshot, COMMENT_SNAPSHOT_KEYS);
+    for (const key of COMMENT_SNAPSHOT_KEYS) {
+        const entry = snapshot[key];
+        if (!entry) {
+            continue;
+        }
+
+        if (!entry.hadKey) {
+            delete comment[key];
+            continue;
+        }
+
+        comment[key] = entry.value;
+    }
 }
 
 type PropertyKeyInfo = {
