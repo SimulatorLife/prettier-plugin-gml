@@ -9,6 +9,12 @@ const POSIX_SEPARATOR_PATTERN = /\/+/g;
 // that legitimately begin with `..`.
 const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
+// Windows path patterns for root detection and normalization
+const WINDOWS_DRIVE_ROOT_PATTERN = /^[A-Za-z]:\\$/;
+const WINDOWS_DRIVE_ROOT_WITH_OPTIONAL_SEPARATOR_PATTERN = /^(?:[A-Za-z]:)\\?$/;
+const UNC_SHARE_ROOT_PATTERN = /^\\\\[^\\]+\\[^\\]+$/;
+const UNC_SHARE_ROOT_WITH_TRAILING_SEPARATOR_PATTERN = /^\\\\[^\\]+\\[^\\]+\\$/;
+
 /**
  * Replace any Windows-style backslashes with forward slashes so downstream
  * consumers can rely on a stable, POSIX-style path. Empty and non-string
@@ -125,4 +131,73 @@ export function* walkAncestorDirectories(startPath, { includeSelf = true } = {})
 export function isPathInside(childPath, parentPath) {
     const relative = resolveContainedRelativePath(childPath, parentPath);
     return relative !== null;
+}
+
+/**
+ * Detect whether a path represents a file system root (POSIX `/`, Windows drive
+ * root like `C:\`, or UNC share root like `\\server\share`).
+ *
+ * @param {string} value Path to test.
+ * @returns {boolean} True when the path is a canonical root.
+ */
+export function isRootPath(value: string): boolean {
+    if (!isNonEmptyString(value)) {
+        return false;
+    }
+
+    if (value === "/") {
+        return true;
+    }
+
+    if (WINDOWS_DRIVE_ROOT_PATTERN.test(value)) {
+        return true;
+    }
+
+    return UNC_SHARE_ROOT_PATTERN.test(value);
+}
+
+/**
+ * Normalize Windows root paths to ensure they have the correct separator shape.
+ * Drive roots must end with a backslash, UNC share roots must not have a
+ * trailing separator.
+ *
+ * @param {string} value Path to normalize.
+ * @returns {string} Normalized root path.
+ */
+function normalizeWindowsRootShape(value: string): string {
+    if (WINDOWS_DRIVE_ROOT_WITH_OPTIONAL_SEPARATOR_PATTERN.test(value)) {
+        return `${value.slice(0, 2)}\\`;
+    }
+
+    if (UNC_SHARE_ROOT_WITH_TRAILING_SEPARATOR_PATTERN.test(value)) {
+        return value.slice(0, -1);
+    }
+
+    return value;
+}
+
+/**
+ * Remove trailing path separators from a path while preserving root path
+ * integrity. File system roots (POSIX `/`, Windows `C:\`, UNC `\\server\share`)
+ * are normalized to their canonical form.
+ *
+ * @param {string} value Path to trim.
+ * @returns {string} Path with trailing separators removed.
+ */
+export function trimTrailingSeparators(value: string): string {
+    if (!isNonEmptyString(value)) {
+        return "";
+    }
+
+    const normalizedRoot = normalizeWindowsRootShape(value);
+    if (isRootPath(normalizedRoot)) {
+        return normalizedRoot;
+    }
+
+    let current = value;
+    while (current.endsWith("/") || current.endsWith("\\")) {
+        current = current.slice(0, -1);
+    }
+
+    return normalizeWindowsRootShape(current);
 }

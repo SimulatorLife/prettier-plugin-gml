@@ -98,11 +98,24 @@ export interface DebouncedFunction<TArgs extends Array<unknown>> {
 }
 
 /**
+ * Options for configuring debounced function behavior.
+ */
+export interface DebounceOptions {
+    /**
+     * Optional callback invoked when the debounced function throws an error.
+     * Receives the caught error as its only parameter. If not provided, errors
+     * are logged to stderr to ensure they remain visible for debugging.
+     */
+    onError?: (error: unknown) => void;
+}
+
+/**
  * Creates a debounced version of a function that delays execution until after
  * a specified delay has elapsed since the last invocation.
  *
  * @param fn - Function to debounce
  * @param delayMs - Delay in milliseconds to wait before executing
+ * @param options - Optional configuration for error handling
  * @returns Debounced function with flush, cancel, and isPending methods
  *
  * @example
@@ -121,11 +134,21 @@ export interface DebouncedFunction<TArgs extends Array<unknown>> {
  *
  * // Cancel pending execution
  * debouncedSave.cancel();
+ *
+ * // Handle errors with custom callback
+ * const debouncedWithErrorHandler = debounce((filePath: string) => {
+ *   throw new Error('Save failed');
+ * }, 200, {
+ *   onError: (error) => {
+ *     console.error('Debounced operation failed:', error);
+ *   }
+ * });
  * ```
  */
 export function debounce<TArgs extends Array<unknown>>(
     fn: (...args: TArgs) => void,
-    delayMs: number
+    delayMs: number,
+    options: DebounceOptions = {}
 ): DebouncedFunction<TArgs> {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let pendingArgs: TArgs | null = null;
@@ -147,12 +170,17 @@ export function debounce<TArgs extends Array<unknown>>(
 
         try {
             fn(...argsToUse);
-        } catch {
-            // Silently ignore errors to prevent uncaught exceptions from
-            // propagating out of the debounced execution. If the wrapped
-            // function throws, the error is swallowed to keep the debounce
-            // mechanism stable and avoid crashing the host process. Callers
-            // should handle errors inside their own function if recovery is needed.
+        } catch (error) {
+            if (options.onError === undefined) {
+                process.stderr.write(
+                    `[debounce] Error in debounced function: ${error instanceof Error ? error.message : String(error)}\n`
+                );
+                if (error instanceof Error && error.stack !== undefined) {
+                    process.stderr.write(`${error.stack}\n`);
+                }
+            } else {
+                options.onError(error);
+            }
         }
     };
 

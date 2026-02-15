@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { Core } from "../src/index.js";
 import {
     assertPlainObject,
     coalesceOption,
@@ -231,4 +232,91 @@ void test("incrementMapValue coerces existing values before incrementing", () =>
 
 void test("incrementMapValue throws when store lacks map methods", () => {
     assert.throws(() => incrementMapValue(null, "key"), /store must provide get and set functions/);
+});
+
+void test("snapshotProperties creates a shallow copy of specified properties", () => {
+    const source = {
+        name: "test",
+        value: 42,
+        flag: true,
+        nested: { deep: "data" },
+        extra: "ignored"
+    };
+
+    const snapshot = Core.snapshotProperties(source, ["name", "value", "flag", "nested"] as const);
+
+    assert.strictEqual(snapshot.name, "test");
+    assert.strictEqual(snapshot.value, 42);
+    assert.strictEqual(snapshot.flag, true);
+    assert.strictEqual(snapshot.nested, source.nested);
+    assert.strictEqual(Object.keys(snapshot).length, 4);
+});
+
+void test("snapshotProperties handles missing properties by including undefined", () => {
+    const source: { existing: string; missing?: string } = { existing: "value" };
+    const snapshot = Core.snapshotProperties(source, ["existing", "missing"] as const);
+
+    assert.strictEqual(snapshot.existing, "value");
+    assert.strictEqual(snapshot.missing, undefined);
+    assert.strictEqual(Object.keys(snapshot).length, 2);
+});
+
+void test("restoreProperties assigns defined values and deletes undefined ones", () => {
+    const target = {
+        keep: "original",
+        modify: "old",
+        remove: "deleted",
+        extra: "untouched"
+    };
+
+    const snapshot = {
+        keep: "updated",
+        modify: "new",
+        remove: undefined
+    };
+
+    Core.restoreProperties(target, snapshot, ["keep", "modify", "remove"] as const);
+
+    assert.strictEqual(target.keep, "updated");
+    assert.strictEqual(target.modify, "new");
+    assert.strictEqual(target.remove, undefined);
+    assert.strictEqual(Object.hasOwn(target, "remove"), false);
+    assert.strictEqual(target.extra, "untouched");
+});
+
+void test("restoreProperties handles null differently from undefined", () => {
+    const target = { value: "original" };
+    const snapshot = { value: null };
+
+    Core.restoreProperties(target, snapshot, ["value"] as const);
+
+    assert.strictEqual(target.value, null);
+    assert.strictEqual(Object.hasOwn(target, "value"), true);
+});
+
+void test("snapshot and restore round-trip preserves property state", () => {
+    const original = {
+        a: 1,
+        b: "text",
+        c: undefined as number | undefined,
+        d: { nested: true }
+    };
+
+    const keys = ["a", "b", "c", "d"] as const;
+    const snapshot = Core.snapshotProperties(original, keys);
+
+    // Modify original
+    original.a = 999;
+    original.b = "modified";
+    delete original.c;
+    original.d = { nested: false };
+
+    // Restore from snapshot
+    Core.restoreProperties(original, snapshot, keys);
+
+    assert.strictEqual(original.a, 1);
+    assert.strictEqual(original.b, "text");
+    assert.strictEqual(original.c, undefined);
+    assert.strictEqual(Object.hasOwn(original, "c"), false);
+    assert.strictEqual(original.d.nested, true);
 });

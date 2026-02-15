@@ -352,6 +352,65 @@ void test("WebSocket client defers patch batches until runtime readiness", async
     }
 });
 
+void test("WebSocket client bounds deferred patches before runtime readiness", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const readyJsonGame = {
+        ScriptNames: ["gml_Script_bootstrap"],
+        Scripts: [() => void 0]
+    };
+
+    globalWithJson.JSON_game = {
+        ScriptNames: readyJsonGame.ScriptNames,
+        Scripts: [null]
+    };
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    try {
+        await wait(50);
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+
+        for (let index = 0; index < 120; index += 1) {
+            mockSocket.simulateMessage(
+                JSON.stringify({
+                    kind: "script",
+                    id: `script:deferred_${index}`,
+                    js_body: `return ${index};`
+                })
+            );
+        }
+
+        await wait(40);
+
+        assert.strictEqual(wrapper.hasScript("script:deferred_0"), false);
+        assert.strictEqual(wrapper.hasScript("script:deferred_119"), false);
+
+        globalWithJson.JSON_game = readyJsonGame;
+
+        await wait(120);
+
+        const snapshot = wrapper.getRegistrySnapshot();
+        assert.strictEqual(snapshot.scriptCount, 100);
+        assert.strictEqual(wrapper.hasScript("script:deferred_0"), false);
+        assert.strictEqual(wrapper.hasScript("script:deferred_19"), false);
+        assert.ok(wrapper.hasScript("script:deferred_20"));
+        assert.ok(wrapper.hasScript("script:deferred_119"));
+    } finally {
+        client.disconnect();
+        globalWithJson.JSON_game = readyJsonGame;
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client reports hot reload error notifications", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let reportedError: RuntimePatchError | null = null;

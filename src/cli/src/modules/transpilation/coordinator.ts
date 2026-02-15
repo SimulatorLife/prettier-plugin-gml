@@ -338,6 +338,25 @@ function createPatchSummary(patchPayload: RuntimeTranspilerPatch): PatchSummary 
     };
 }
 
+function hasRuntimePatchChanged(
+    previousPatch: RuntimeTranspilerPatch | undefined,
+    nextPatch: RuntimeTranspilerPatch
+): boolean {
+    if (!previousPatch) {
+        return true;
+    }
+
+    const previousRuntimeId = (previousPatch as { runtimeId?: unknown }).runtimeId;
+    const nextRuntimeId = (nextPatch as { runtimeId?: unknown }).runtimeId;
+
+    return (
+        previousPatch.id !== nextPatch.id ||
+        previousPatch.kind !== nextPatch.kind ||
+        previousRuntimeId !== nextRuntimeId ||
+        previousPatch.js_body !== nextPatch.js_body
+    );
+}
+
 /**
  * Transpiles a GML file and manages the complete lifecycle including metrics
  * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
@@ -407,25 +426,32 @@ export function transpileFile(
 
         addToBoundedCollection(context.metrics, metrics, context.maxPatchHistory);
 
+        const previousPatch = context.lastSuccessfulPatches.get(symbolId);
+        const runtimePatchChanged = hasRuntimePatchChanged(previousPatch, patchPayload);
+
         context.lastSuccessfulPatches.set(symbolId, patchPayload);
 
         if (context.scriptNames) {
             registerScriptNamesFromSymbols(parsedSymbols, context.scriptNames);
         }
 
-        addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
-        context.totalPatchCount += 1;
+        if (runtimePatchChanged) {
+            addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
+            context.totalPatchCount += 1;
 
-        const broadcastResult = context.websocketServer?.broadcast(patchPayload);
-        if (broadcastResult && !quiet) {
-            if (verbose) {
-                console.log(`  ↳ Broadcasted to ${broadcastResult.successCount} clients`);
-                if (broadcastResult.failureCount > 0) {
-                    console.log(`  ↳ Failed to send to ${broadcastResult.failureCount} clients`);
+            const broadcastResult = context.websocketServer?.broadcast(patchPayload);
+            if (broadcastResult && !quiet) {
+                if (verbose) {
+                    console.log(`  ↳ Broadcasted to ${broadcastResult.successCount} clients`);
+                    if (broadcastResult.failureCount > 0) {
+                        console.log(`  ↳ Failed to send to ${broadcastResult.failureCount} clients`);
+                    }
+                } else if (broadcastResult.successCount > 0) {
+                    console.log(`  ↳ Streamed to ${broadcastResult.successCount} client(s)`);
                 }
-            } else if (broadcastResult.successCount > 0) {
-                console.log(`  ↳ Streamed to ${broadcastResult.successCount} client(s)`);
             }
+        } else if (verbose && !quiet) {
+            console.log("  ↳ Runtime patch unchanged; skipping patch broadcast");
         }
 
         if (!quiet) {
@@ -449,7 +475,7 @@ export function transpileFile(
                     });
                     console.log(`  ↳ Warning: Could not extract symbols/references from AST: ${message}`);
                 }
-            } else {
+            } else if (runtimePatchChanged) {
                 console.log(`  ↳ Generated patch: ${patchPayload.id}`);
             }
         }
