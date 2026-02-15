@@ -5,56 +5,6 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
 
-const DEFAULT_HOIST_ACCESSORS = Object.freeze({
-    array_length: "len"
-});
-
-function getFunctionSuffixOverride(options: Record<string, unknown>, functionName: string): string | null {
-    const rawFunctionSuffixes = options.functionSuffixes;
-    if (!rawFunctionSuffixes || typeof rawFunctionSuffixes !== "object") {
-        return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
-    }
-
-    const functionSuffixes = rawFunctionSuffixes as Record<string, unknown>;
-    const configuredSuffix = functionSuffixes[functionName];
-    if (configuredSuffix === null) {
-        return null;
-    }
-
-    if (typeof configuredSuffix === "string" && configuredSuffix.trim().length > 0) {
-        return configuredSuffix.trim();
-    }
-
-    return DEFAULT_HOIST_ACCESSORS[functionName as keyof typeof DEFAULT_HOIST_ACCESSORS] ?? null;
-}
-
-function findLoopLengthHoistCandidate(text: string): {
-    loopStart: number;
-    loopEnd: number;
-    indent: string;
-    accessorIdentifier: string;
-    loopHeaderText: string;
-} | null {
-    const loopPattern = /(^|\r?\n)([ \t]*)for\s*\([^)]*array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)[^)]*\)/g;
-    const match = loopPattern.exec(text);
-    if (!match) {
-        return null;
-    }
-
-    const prefix = match[1] ?? "";
-    const fullMatch = match[0];
-    const loopHeaderText = fullMatch.slice(prefix.length);
-    const loopStart = (match.index ?? 0) + prefix.length;
-    const loopEnd = loopStart + loopHeaderText.length;
-    return {
-        loopStart,
-        loopEnd,
-        indent: match[2] ?? "",
-        accessorIdentifier: match[3] ?? "",
-        loopHeaderText
-    };
-}
-
 function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs: {
         description: string;
@@ -98,68 +48,58 @@ function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     });
 }
 
+const DEFAULT_HOIST_ACCESSORS = Object.freeze({
+    array_length: "len"
+});
+
 function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             const options = readObjectOption(context);
-            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
-            const projectContext = resolveProjectContextForRule(context, definition);
+            const functionSuffixes = options.functionSuffixes as Record<string, string | null> | undefined;
+
+            const enabledFunctions: Array<string> = [];
+            for (const [functionName] of Object.entries(DEFAULT_HOIST_ACCESSORS)) {
+                const userSuffix = functionSuffixes?.[functionName];
+                if (userSuffix === null) {
+                    continue;
+                }
+                enabledFunctions.push(functionName);
+            }
+
+            if (functionSuffixes) {
+                for (const [functionName, suffix] of Object.entries(functionSuffixes)) {
+                    if (suffix !== null && !(functionName in DEFAULT_HOIST_ACCESSORS)) {
+                        enabledFunctions.push(functionName);
+                    }
+                }
+            }
+
             const listener: Rule.RuleListener = {
                 Program(node) {
+                    if (enabledFunctions.length === 0) {
+                        return;
+                    }
+
                     const text = context.sourceCode.text;
-                    const candidate = findLoopLengthHoistCandidate(text);
-                    if (!candidate) {
-                        return;
-                    }
-
-                    const functionSuffix = getFunctionSuffixOverride(options, "array_length");
-                    if (functionSuffix === null) {
-                        return;
-                    }
-
-                    const resolveLoopHoistIdentifier =
-                        projectContext.context && typeof projectContext.context.resolveLoopHoistIdentifier === "function"
-                            ? projectContext.context.resolveLoopHoistIdentifier.bind(projectContext.context)
-                            : null;
-                    const preferredName = `${candidate.accessorIdentifier}_${functionSuffix}`;
-                    const resolvedIdentifierName =
-                        resolveLoopHoistIdentifier?.(preferredName, new Set<string>()) ?? preferredName;
-                    if (!resolvedIdentifierName) {
+                    const functionsPattern = enabledFunctions
+                        .map((fn) => fn.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+                        .join("|");
+                    const loopPattern = new RegExp(
+                        String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
+                        "g"
+                    );
+                    if (loopPattern.test(text)) {
                         context.report({
                             node,
-                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
+                            messageId: definition.messageId
                         });
-                        return;
                     }
-
-                    const accessorCall = `array_length(${candidate.accessorIdentifier})`;
-                    const loopHeaderWithHoistIdentifier = candidate.loopHeaderText.replace(accessorCall, resolvedIdentifierName);
-                    const lineEnding = dominantLineEnding(text);
-                    const declaration = `${candidate.indent}var ${resolvedIdentifierName} = ${accessorCall};${lineEnding}`;
-                    const isInsertableContext = candidate.loopStart === 0 || text[candidate.loopStart - 1] === "\n";
-                    if (!isInsertableContext) {
-                        context.report({
-                            node,
-                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
-                        });
-                        return;
-                    }
-
-                    context.report({
-                        node,
-                        messageId: definition.messageId,
-                        fix: (fixer) => [
-                            fixer.insertTextAfterRange([candidate.loopStart, candidate.loopStart], declaration),
-                            fixer.replaceTextRange(
-                                [candidate.loopStart, candidate.loopEnd],
-                                loopHeaderWithHoistIdentifier
-                            )
-                        ]
-                    });
                 }
             };
 
+            const projectContext = resolveProjectContextForRule(context, definition);
             if (!projectContext.available) {
                 return reportMissingProjectContextOncePerFile(context, listener);
             }
@@ -332,6 +272,26 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
     });
 }
 
+function normalizeDocCommentPrefixLine(line: string): string {
+    const legacyTagMatch = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+    if (legacyTagMatch) {
+        return `${legacyTagMatch[1]}/// @${legacyTagMatch[2]}${legacyTagMatch[3]}`;
+    }
+
+    const legacyDocLikeMatch = /^(\s*)\/\/\s*\/\s*(.*)$/u.exec(line);
+    if (legacyDocLikeMatch) {
+        const suffix = legacyDocLikeMatch[2].length > 0 ? ` ${legacyDocLikeMatch[2]}` : "";
+        return `${legacyDocLikeMatch[1]}///${suffix}`;
+    }
+
+    const missingSpaceMatch = /^(\s*)\/\/\/(\S.*)$/u.exec(line);
+    if (missingSpaceMatch) {
+        return `${missingSpaceMatch[1]}/// ${missingSpaceMatch[2]}`;
+    }
+
+    return line;
+}
+
 function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -342,26 +302,6 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                     const lineEnding = dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines: Array<string> = [];
-
-                    const normalizeDocPrefix = (line: string): string => {
-                        const legacyTagMatch = /^(\s*)\/\/\s*@([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
-                        if (legacyTagMatch) {
-                            return `${legacyTagMatch[1]}/// @${legacyTagMatch[2]}${legacyTagMatch[3]}`;
-                        }
-
-                        const legacyDocLikeMatch = /^(\s*)\/\/\s*\/\s*(.*)$/u.exec(line);
-                        if (legacyDocLikeMatch) {
-                            const suffix = legacyDocLikeMatch[2].length > 0 ? ` ${legacyDocLikeMatch[2]}` : "";
-                            return `${legacyDocLikeMatch[1]}///${suffix}`;
-                        }
-
-                        const missingSpaceMatch = /^(\s*)\/\/\/(\S.*)$/u.exec(line);
-                        if (missingSpaceMatch) {
-                            return `${missingSpaceMatch[1]}/// ${missingSpaceMatch[2]}`;
-                        }
-
-                        return line;
-                    };
 
                     const flushDocBlock = (blockLines: Array<string>): void => {
                         if (blockLines.length === 0) {
@@ -375,7 +315,7 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
 
                         const normalizedBlock = blockLines
                             .filter((line) => !emptyDescriptionPattern.test(line))
-                            .map((line) => normalizeDocPrefix(line));
+                            .map((line) => normalizeDocCommentPrefixLine(line));
 
                         const hasDescription = normalizedBlock.some((line) => nonEmptyDescriptionPattern.test(line));
                         if (hasDescription) {
@@ -425,7 +365,7 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
 
                         flushDocBlock(pendingDocBlock);
                         pendingDocBlock = [];
-                        rewrittenLines.push(normalizeDocPrefix(line));
+                        rewrittenLines.push(normalizeDocCommentPrefixLine(line));
                     }
                     flushDocBlock(pendingDocBlock);
 

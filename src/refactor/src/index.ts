@@ -61,8 +61,8 @@ export {
     findOccurrencesInFile,
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
-export { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 export { RefactorEngine } from "./refactor-engine.js";
+export { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
     formatBatchRenamePlanReport,
@@ -108,7 +108,6 @@ export type {
     PrepareRenamePlanOptions,
     Range,
     RefactorEngineDependencies,
-    RefactorProjectAnalysisContext,
     RefactorProjectAnalysisProvider,
     RenameImpactAnalysis,
     RenameImpactGraph,

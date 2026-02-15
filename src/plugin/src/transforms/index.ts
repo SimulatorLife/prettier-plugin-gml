@@ -6,8 +6,8 @@ import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-sepa
 import { stripCommentsTransform } from "./strip-comments.js";
 
 /**
- * Central registry for parser transforms exposed by the formatter pipeline.
- * This list intentionally excludes semantic/content rewrites owned by lint.
+ * Central registry for parser transforms exposed by the plugin pipeline.
+ * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
  */
 const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
@@ -39,7 +39,7 @@ for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
 }
 
 export function getParserTransform<Name extends ParserTransformName>(name: Name): TransformByName[Name] {
-    const transform = TRANSFORM_REGISTRY[name] as TransformByName[Name];
+    const transform = TRANSFORM_REGISTRY[name];
     if (!transform) {
         throw new TypeError(`Unknown parser transform: ${String(name)}`);
     }
@@ -52,7 +52,7 @@ export function isParserTransformName(value: unknown): value is ParserTransformN
 }
 
 /**
- * Apply the requested transforms in curated order.
+ * Apply the requested transforms in the curated order so the plugin can share a single normalization pipeline.
  */
 export function applyTransforms(
     ast: MutableGameMakerAstNode,

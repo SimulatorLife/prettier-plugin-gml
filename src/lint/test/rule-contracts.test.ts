@@ -303,23 +303,3 @@ void test("only gml/require-argument-separators may consume inserted separator r
         "Recovery separator metadata must remain language-owned and not be consumed directly by unrelated rules."
     );
 });
-
-void test("project-aware docs inventory is generated from requiresProjectContext metadata", () => {
-    const expectedInventory = Object.entries(LintWorkspace.Lint.plugin.rules)
-        .filter(([, ruleModule]) => {
-            const typedRule = ruleModule as { meta?: { docs?: { requiresProjectContext?: boolean } } };
-            return typedRule.meta?.docs?.requiresProjectContext === true;
-        })
-        .map(([ruleName]) => (ruleName.startsWith("gm") ? `feather/${ruleName}` : `gml/${ruleName}`))
-        .sort((left, right) => left.localeCompare(right));
-
-    assert.deepEqual([...LintWorkspace.Lint.docs.collectProjectAwareRuleIds()], expectedInventory);
-
-    const markdown = LintWorkspace.Lint.docs.renderProjectAwareRulesMarkdown();
-    const listedRuleIds = markdown
-        .split(/\r?\n/)
-        .filter((line) => line.startsWith("- `") && line.endsWith("`"))
-        .map((line) => line.slice(3, -1));
-
-    assert.deepEqual(listedRuleIds, expectedInventory);
-});

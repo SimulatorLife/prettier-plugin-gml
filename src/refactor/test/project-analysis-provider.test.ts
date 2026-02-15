@@ -1,94 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Refactor, type RefactorProjectAnalysisContext, type RefactorProjectAnalysisProvider } from "../index.js";
+import { Refactor, type RefactorProjectAnalysisProvider } from "../index.js";
 
 const { RefactorEngine: RefactorEngineClass, createRefactorProjectAnalysisProvider } = Refactor;
 
-void test("createRefactorProjectAnalysisProvider uses shared snapshot semantics", async () => {
+void test("createRefactorProjectAnalysisProvider returns deterministic overlap defaults", () => {
     const provider = createRefactorProjectAnalysisProvider();
-    const context: RefactorProjectAnalysisContext = {
-        semantic: {
-            async getSymbolOccurrences(identifierName: string) {
-                if (identifierName === "occupied") {
-                    return [{ path: "/tmp/project/scripts/a.gml", start: 0, end: 1 }];
-                }
 
-                if (identifierName === "fresh") {
-                    return [];
-                }
-
-                return null;
-            }
-        },
-        async prepareRenamePlan(_request, _options) {
-            return {
-                workspace: new Refactor.WorkspaceEdit(),
-                validation: {
-                    valid: true,
-                    errors: [],
-                    warnings: []
-                },
-                hotReload: null,
-                analysis: {
-                    valid: true,
-                    summary: {
-                        symbolId: "id",
-                        oldName: "old",
-                        newName: "new",
-                        affectedFiles: [],
-                        totalOccurrences: 0,
-                        definitionCount: 0,
-                        referenceCount: 0,
-                        hotReloadRequired: false,
-                        dependentSymbols: []
-                    },
-                    conflicts: [],
-                    warnings: []
-                }
-            };
-        }
-    };
-
-    assert.equal(await provider.isIdentifierOccupied("occupied", context), true);
-    assert.deepEqual(
-        await provider.listIdentifierOccurrences("occupied", context),
-        new Set(["/tmp/project/scripts/a.gml"])
-    );
-    assert.deepEqual(
-        await provider.planFeatherRenames(
-            [
-                { identifierName: "occupied", preferredReplacementName: "occupied" },
-                { identifierName: "occupied", preferredReplacementName: "fresh" }
-            ],
-            "/tmp/project/scripts/a.gml",
-            "/tmp/project",
-            context
-        ),
-        [
-            {
-                identifierName: "occupied",
-                mode: "project-aware",
-                preferredReplacementName: "occupied",
-                replacementName: null,
-                skipReason: "no-op-rename"
-            },
-            {
-                identifierName: "occupied",
-                mode: "project-aware",
-                preferredReplacementName: "fresh",
-                replacementName: "fresh"
-            }
-        ]
-    );
-
-    assert.deepEqual(provider.assessGlobalVarRewrite(null, true), {
-        allowRewrite: false,
+    const globalVarWithInitializer = provider.assessGlobalVarRewrite(null, true);
+    assert.deepEqual(globalVarWithInitializer, {
+        allowRewrite: true,
         initializerMode: "existing",
         mode: "project-aware"
     });
-    assert.deepEqual(provider.resolveLoopHoistIdentifier("len"), {
-        identifierName: "len",
+
+    const loopIdentifier = provider.resolveLoopHoistIdentifier("loopLength");
+    assert.deepEqual(loopIdentifier, {
+        identifierName: "loopLength",
         mode: "project-aware"
     });
 });

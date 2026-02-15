@@ -552,25 +552,41 @@ export interface ConflictEntry {
     path?: string;
 }
 
-export interface RefactorProjectAnalysisContext {
-    semantic: PartialSemanticAnalyzer | null;
-    prepareRenamePlan: (
-        request: { symbolId: string; newName: string },
-        options: { validateHotReload: boolean }
-    ) => Promise<RenamePlanSummary>;
-}
-
 export type WorkspaceReadFile = (path: string) => MaybePromise<string>;
 export type WorkspaceWriteFile = (path: string, content: string) => MaybePromise<void>;
 
 export interface RefactorProjectAnalysisProvider {
-    isIdentifierOccupied(identifierName: string, context: RefactorProjectAnalysisContext): Promise<boolean>;
-    listIdentifierOccurrences(identifierName: string, context: RefactorProjectAnalysisContext): Promise<Set<string>>;
+    isIdentifierOccupied(
+        identifierName: string,
+        context: {
+            semantic: PartialSemanticAnalyzer | null;
+            prepareRenamePlan: (
+                request: { symbolId: string; newName: string },
+                options: { validateHotReload: boolean }
+            ) => Promise<RenamePlanSummary>;
+        }
+    ): Promise<boolean>;
+    listIdentifierOccurrences(
+        identifierName: string,
+        context: {
+            semantic: PartialSemanticAnalyzer | null;
+            prepareRenamePlan: (
+                request: { symbolId: string; newName: string },
+                options: { validateHotReload: boolean }
+            ) => Promise<RenamePlanSummary>;
+        }
+    ): Promise<Set<string>>;
     planFeatherRenames(
         requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
         filePath: string | null,
         projectRoot: string,
-        context: RefactorProjectAnalysisContext
+        context: {
+            semantic: PartialSemanticAnalyzer | null;
+            prepareRenamePlan: (
+                request: { symbolId: string; newName: string },
+                options: { validateHotReload: boolean }
+            ) => Promise<RenamePlanSummary>;
+        }
     ): Promise<
         Array<{
             identifierName: string;

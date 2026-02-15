@@ -4,8 +4,7 @@ import type { ProjectCapability } from "../types/index.js";
 import { isPathWithinBoundary } from "./path-boundary.js";
 import {
     createPrebuiltProjectAnalysisProvider,
-    createProjectAnalysisSnapshotFromProjectIndex,
-    createTextProjectAnalysisProvider
+    createProjectAnalysisSnapshotFromProjectIndex
 } from "./project-analysis-provider.js";
 import {
     createProjectLintContextRegistry,
@@ -42,7 +41,6 @@ export const services = Object.freeze({
     featherManifest,
     performanceOverrideRuleIds: PERFORMANCE_OVERRIDE_RULE_IDS,
     defaultProjectIndexExcludes: DEFAULT_PROJECT_INDEX_EXCLUDES,
-    createTextProjectAnalysisProvider,
     createPrebuiltProjectAnalysisProvider,
     createProjectAnalysisSnapshotFromProjectIndex,
     createProjectLintContextRegistry,

@@ -37,7 +37,9 @@ void describe("formatter migrated-transform regression coverage", () => {
     });
 
     void it("does not synthesize trailing optional defaults during formatting", async () => {
-        const source = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}"].join("\n");
+        const source = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}"].join(
+            "\n"
+        );
         const formatted = await Plugin.format(source);
         assert.match(formatted, /function demo\(first,\s*second = 1,\s*third\)/);
         assert.doesNotMatch(formatted, /third = undefined/);
