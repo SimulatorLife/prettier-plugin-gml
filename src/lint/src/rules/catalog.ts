@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
 import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
-import { featherManifest } from "./feather/manifest.js";
+import { createFeatherRule, featherManifest } from "./feather/index.js";
 import { createGmlRule } from "./gml/index.js";
 import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
@@ -16,7 +16,6 @@ export type GmlRuleDefinition = Readonly<{
     unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
 }>;
 
-const EMPTY_SCHEMA = Object.freeze([]) as ReadonlyArray<unknown>;
 const NO_CAPABILITIES = Object.freeze([]) as ReadonlyArray<ProjectCapability>;
 const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
 
@@ -217,24 +216,7 @@ function createPluginRuleMap(): Record<string, Rule.RuleModule> {
     }
     for (const entry of featherManifest.entries) {
         const shortName = entry.ruleId.replace("feather/", "");
-        map[shortName] = Object.freeze({
-            meta: Object.freeze({
-                type: "suggestion",
-                docs: Object.freeze({
-                    description: `Scaffold rule for ${entry.ruleId}.`,
-                    recommended: false,
-                    requiresProjectContext: entry.requiresProjectContext
-                }),
-                schema: EMPTY_SCHEMA,
-                messages: Object.freeze({
-                    diagnostic: `${entry.ruleId} diagnostic.`
-                })
-            }),
-            create(context: Rule.RuleContext) {
-                void context;
-                return Object.freeze({});
-            }
-        });
+        map[shortName] = createFeatherRule(entry);
     }
     return map;
 }

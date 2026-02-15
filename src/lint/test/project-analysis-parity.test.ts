@@ -1,10 +1,26 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "../src/index.js";
+
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveParityFixturePath(...segments: Array<string>): string {
+    const candidates = [
+        path.resolve(testDirectory, "fixtures", "project-analysis-parity", ...segments),
+        path.resolve(testDirectory, "../../test/fixtures/project-analysis-parity", ...segments)
+    ];
+    const resolved = candidates.find((candidate) => existsSync(candidate));
+    if (!resolved) {
+        throw new Error(`Unable to resolve parity fixture path from candidates: ${candidates.join(", ")}`);
+    }
+
+    return resolved;
+}
 
 type ParityScenarioReport = {
     occupancy: Record<string, boolean>;
@@ -20,14 +36,39 @@ type ParityScenarioReport = {
 };
 
 function loadExpectedReport(): Record<string, ParityScenarioReport> {
-    const reportPath = path.resolve("src/lint/test/fixtures/project-analysis-parity/expected-report.json");
+    const reportPath = resolveParityFixturePath("expected-report.json");
     return JSON.parse(readFileSync(reportPath, "utf8")) as Record<string, ParityScenarioReport>;
 }
 
+function toCanonicalPath(pathValue: string): string {
+    try {
+        return realpathSync(pathValue);
+    } catch {
+        return path.resolve(pathValue);
+    }
+}
+
 function toRelativeSortedPaths(projectRoot: string, files: ReadonlySet<string>): Array<string> {
+    const canonicalProjectRoot = toCanonicalPath(projectRoot);
     return [...files.values()]
-        .map((filePath) => path.relative(projectRoot, filePath).replaceAll("\\", "/"))
+        .map((filePath) => path.relative(canonicalProjectRoot, toCanonicalPath(filePath)).replaceAll("\\", "/"))
         .sort((left, right) => left.localeCompare(right));
+}
+
+function ensureParityScriptFixtures(projectRoot: string): void {
+    const scriptsDirectory = path.join(projectRoot, "scripts");
+    mkdirSync(scriptsDirectory, { recursive: true });
+
+    const caseCollisionPath = path.join(scriptsDirectory, "case-collision.gml");
+    const renameTargetPath = path.join(scriptsDirectory, "rename-target.gml");
+
+    if (!existsSync(caseCollisionPath)) {
+        writeFileSync(caseCollisionPath, "var CaseName = 1;\n", "utf8");
+    }
+
+    if (!existsSync(renameTargetPath)) {
+        writeFileSync(renameTargetPath, "var foo = 1;\nvar casename = foo;\n", "utf8");
+    }
 }
 
 function buildLintScenarioReport(parameters: {
@@ -85,23 +126,25 @@ function buildLintScenarioReport(parameters: {
 }
 
 void test("project-analysis snapshot fixtures cover parity edge cases and remain regression-locked", () => {
-    const fixtureRoot = path.resolve("src/lint/test/fixtures/project-analysis-parity/project");
+    const fixtureRoot = resolveParityFixturePath("project");
     const tempRoot = mkdtempSync(path.join(os.tmpdir(), "lint-parity-fixture-"));
     const projectRoot = path.join(tempRoot, "project");
 
     cpSync(fixtureRoot, projectRoot, { recursive: true });
+    ensureParityScriptFixtures(projectRoot);
+    const canonicalProjectRoot = toCanonicalPath(projectRoot);
 
     const report = {
         default: buildLintScenarioReport({
-            projectRoot,
+            projectRoot: canonicalProjectRoot,
             excludedDirectories: new Set(["generated"]),
             allowedDirectories: [],
             loopLocalIdentifiers: new Set(["loop_length", "loop_length_1"])
         }),
         allowGeneratedDirectory: buildLintScenarioReport({
-            projectRoot,
+            projectRoot: canonicalProjectRoot,
             excludedDirectories: new Set(["generated"]),
-            allowedDirectories: [path.join(projectRoot, "generated", "allowed")],
+            allowedDirectories: [path.join(canonicalProjectRoot, "generated", "allowed")],
             loopLocalIdentifiers: new Set(["loop_length", "loop_length_1"])
         })
     };
