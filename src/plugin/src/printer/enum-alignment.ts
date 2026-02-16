@@ -2,6 +2,8 @@
 
 import { Core } from "@gml-modules/core";
 
+const { isObjectLike } = Core;
+
 // Use flattened Core namespace helpers directly to match the Core export shape.
 // Avoid nested destructuring (Core.Utils / Core.AST) per AGENTS.md.
 const isNonEmptyArray = Core.isNonEmptyArray;
@@ -26,7 +28,7 @@ const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
  *        Optional resolver used to extract a stable member name.
  */
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
-    if (!enumNode || typeof enumNode !== "object") {
+    if (!isObjectLike(enumNode)) {
         return;
     }
 

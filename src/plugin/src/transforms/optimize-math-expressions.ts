@@ -15,7 +15,7 @@ import {
     simplifyZeroDivisionNumerators
 } from "./math/traversal-normalization.js";
 
-const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
+const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION, isObjectLike } = Core;
 
 /**
  * Compute a tolerance scaled to a reference value's magnitude. Used to determine
@@ -227,7 +227,7 @@ function applyDivisionToMultiplication(node: MutableGameMakerAstNode) {
 
 function execute(ast: MutableGameMakerAstNode, options: ConvertManualMathTransformOptions): MutableGameMakerAstNode {
     // Drive the composed math normalization helpers in the prescribed order.
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 

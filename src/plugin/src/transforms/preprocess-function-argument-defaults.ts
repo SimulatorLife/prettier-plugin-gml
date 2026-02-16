@@ -5,6 +5,8 @@ import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-
 
 import type { ParserTransform } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
 type TernaryExpressionNode = GameMakerAstNode & {
@@ -1221,7 +1223,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
     const directReferenceIndices = new Set<number>();
 
     function visit(node: any, parent: any, property: string | number) {
-        if (!node || typeof node !== "object") return;
+        if (!isObjectLike(node)) return;
 
         if (node !== functionNode && Core.isFunctionLikeNode(node)) {
             return;
@@ -1281,7 +1283,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 }
 
 function getArgumentIndexFromNode(node: any) {
-    if (!node || typeof node !== "object") return null;
+    if (!isObjectLike(node)) return null;
 
     if (node.type === "Identifier") {
         return getArgumentIndexFromIdentifier(node.name);

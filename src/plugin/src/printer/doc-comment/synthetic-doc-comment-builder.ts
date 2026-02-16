@@ -3,6 +3,8 @@ import { type Doc } from "prettier";
 
 import { hardline, join } from "../prettier-doc-builders.js";
 
+const { isObjectLike } = Core;
+
 type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
 type ComputeSyntheticDocCommentForStaticVariable = typeof Core.computeSyntheticDocCommentForStaticVariable;
 type ComputeSyntheticDocCommentForFunctionAssignment = typeof Core.computeSyntheticDocCommentForFunctionAssignment;
@@ -75,12 +77,12 @@ function buildDocFromSyntheticResult(result: SyntheticDocCommentCoreResult | nul
 }
 
 function readSyntheticDocCommentCache(node: unknown): SyntheticDocCommentCache | null {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return null;
     }
 
     const cache = (node as { _gmlSyntheticDocComment?: unknown })._gmlSyntheticDocComment;
-    if (!cache || typeof cache !== "object") {
+    if (!isObjectLike(cache)) {
         return null;
     }
 
