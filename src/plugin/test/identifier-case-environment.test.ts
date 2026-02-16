@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { configureIdentifierCaseIntegration, Plugin } from "../index.js";
+import { Plugin } from "../index.js";
 
 type DisposableBootstrap = {
     dispose: () => void;
@@ -22,7 +22,7 @@ function teardownIdentifierCaseEnvironment(options?: IdentifierCaseTestOptions):
     options?.__identifierCaseProjectIndexBootstrap.dispose();
 }
 
-configureIdentifierCaseIntegration({
+Plugin.configureIdentifierCaseIntegration({
     runtime: {
         createScopeTracker: () => null,
         prepareIdentifierCaseEnvironment,
