@@ -9,6 +9,8 @@
 import { Core } from "@gml-modules/core";
 import { Command, Option } from "commander";
 
+import { createPortValidator } from "../cli-core/command-parsing.js";
+
 const { getErrorMessage } = Core;
 
 interface WatchStatusCommandOptions {
@@ -224,13 +226,7 @@ export function createWatchStatusCommand(): Command {
         .addOption(new Option("--host <host>", "Status server host").default("127.0.0.1").env("WATCH_STATUS_HOST"))
         .addOption(
             new Option("--port <port>", "Status server port")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-                        throw new Error("Port must be between 1 and 65535");
-                    }
-                    return parsed;
-                })
+                .argParser(createPortValidator())
                 .default(17_891)
                 .env("WATCH_STATUS_PORT")
         )
