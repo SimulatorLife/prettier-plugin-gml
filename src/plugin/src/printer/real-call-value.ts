@@ -40,17 +40,12 @@ function getNumericStringLiteralValue(node) {
 }
 
 export function getNumericValueFromRealCall(node) {
-    if (!node || node.type !== "CallExpression") {
+    if (!Core.isCallExpressionIdentifierMatch(node, "real", { caseInsensitive: true })) {
         return null;
     }
 
-    const { object, arguments: args } = node;
-    if (!object || object.type !== "Identifier" || !Array.isArray(args) || args.length !== 1) {
-        return null;
-    }
-
-    const calleeName = Core.getIdentifierText(object);
-    if (!calleeName || calleeName.toLowerCase() !== "real") {
+    const args = node.arguments;
+    if (!Array.isArray(args) || args.length !== 1) {
         return null;
     }
 

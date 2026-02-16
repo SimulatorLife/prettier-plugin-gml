@@ -5,6 +5,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { createParserTransform } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 type StripCommentsTransformOptions = {
     stripComments: boolean;
     stripJsDoc: boolean;
@@ -16,13 +18,13 @@ type StripCommentsTransformOptions = {
  */
 function execute(ast: any, options: StripCommentsTransformOptions): MutableGameMakerAstNode {
     // Walk the AST and drop comment-related properties as requested by the options.
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 
     Core.walkObjectGraph(ast, {
         enterObject(value) {
-            if (!value || typeof value !== "object") {
+            if (!isObjectLike(value)) {
                 return;
             }
 

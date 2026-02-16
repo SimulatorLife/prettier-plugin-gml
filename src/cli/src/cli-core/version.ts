@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -6,7 +5,7 @@ import { Core } from "@gml-modules/core";
 
 import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
 
-const { getNonEmptyTrimmedString } = Core;
+const { getNonEmptyTrimmedString, readTextFileSync } = Core;
 
 const FALLBACK_CLI_VERSION_LABEL = "development build";
 
@@ -22,7 +21,7 @@ function normalizeVersionValue(value: unknown): string | null {
 
 function readPackageVersion(candidate: string): string | null {
     try {
-        const contents = fs.readFileSync(candidate, "utf8");
+        const contents = readTextFileSync(candidate);
         const packageJson = JSON.parse(contents) as { version?: unknown };
         return normalizeVersionValue(packageJson?.version);
     } catch {

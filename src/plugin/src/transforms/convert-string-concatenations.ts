@@ -5,6 +5,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import type { ParserTransform } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
@@ -200,12 +202,12 @@ export class ConvertStringConcatenationsTransform
         };
 
         for (const part of parts) {
-            if (!part || typeof part !== "object") {
+            if (!isObjectLike(part)) {
                 return null;
             }
 
             const core = Core.unwrapParenthesizedExpression(part);
-            if (!core || typeof core !== "object") {
+            if (!isObjectLike(core)) {
                 return null;
             }
 
@@ -227,7 +229,7 @@ export class ConvertStringConcatenationsTransform
                 }
 
                 for (const nestedAtom of nestedAtoms) {
-                    if (!nestedAtom || typeof nestedAtom !== "object") {
+                    if (!isObjectLike(nestedAtom)) {
                         return null;
                     }
 

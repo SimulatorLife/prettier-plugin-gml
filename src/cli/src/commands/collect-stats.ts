@@ -2,11 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { Core } from "@gml-modules/core";
 import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
 import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
+
+const { readTextFileSync } = Core;
 
 const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
 
@@ -72,7 +75,7 @@ function scanProjectHealth(rootDir: string) {
     let todos = 0;
 
     for (const file of srcFiles) {
-        const content = fs.readFileSync(file, "utf8");
+        const content = readTextFileSync(file);
         const lines = content.split("\n");
 
         if (lines.length > 1000) {
