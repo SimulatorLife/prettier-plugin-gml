@@ -5062,37 +5062,36 @@ function isComparisonWithinLogicalChain(path) {
     let depth = 1;
     let currentNode = path.getValue();
 
-    while (true) {
+    while (depth < 100) {
         const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
         }
 
+        // Skip over parenthesized expressions to find meaningful parent
         if (ancestor.type === "ParenthesizedExpression") {
             currentNode = ancestor;
             depth += 1;
             continue;
         }
 
+        // Continue through comparison operators in the chain
         if (ancestor.type === "BinaryExpression" && Core.isComparisonBinaryOperator(ancestor.operator)) {
             currentNode = ancestor;
             depth += 1;
             continue;
         }
 
-        if (
-            ancestor.type === "BinaryExpression" &&
-            (ancestor.operator === "&&" ||
-                ancestor.operator === "and" ||
-                ancestor.operator === "||" ||
-                ancestor.operator === "or")
-        ) {
+        // Check if we've reached a logical operator at the top of the chain
+        if (ancestor.type === "BinaryExpression" && Core.isLogicalBinaryOperator(ancestor.operator)) {
             return ancestor.left === currentNode || ancestor.right === currentNode;
         }
 
         return false;
     }
+
+    return false;
 }
 
 function shouldWrapTernaryExpression(path) {
