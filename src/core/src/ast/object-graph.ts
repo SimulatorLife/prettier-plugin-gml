@@ -76,13 +76,12 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
             }
         }
 
-        // Micro-optimization: Avoid Object.keys() allocation by iterating directly.
-        // AST nodes are plain objects with only own enumerable properties, so we can
-        // safely use for...in without Object.hasOwn checks. This eliminates one array
-        // allocation per object visited, reducing GC pressure on the hot path.
-        // Benchmark: ~15% faster on deeply nested ASTs (0.622ms → 0.526ms per iteration,
-        // 8.78M → 10.37M nodes/sec throughput on a 5461-node tree).
-        for (const childKey in objectValue) {
+        const keys = Object.keys(objectValue);
+        // Object.keys() only returns own enumerable string-keyed properties, so
+        // the Object.hasOwn check is redundant. Removing it reduces iterations
+        // in this hot path by eliminating an unnecessary property lookup.
+        for (let index = keys.length - 1; index >= 0; index -= 1) {
+            const childKey = keys[index];
             const childValue = objectValue[childKey];
             if (!childValue || typeof childValue !== "object") {
                 continue;
