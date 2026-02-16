@@ -1,5 +1,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+const { isObjectLike } = Core;
+
 const FUNCTION_INITIALIZER_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ConstructorDeclaration"]);
 
 type SyntheticDocCommentCache = {
@@ -19,13 +21,14 @@ function snapshotPrintedFlags(programNode: MutableGameMakerAstNode): Map<object,
     const comments = Core.getCommentArray(programNode);
 
     for (const comment of comments) {
-        if (!comment || typeof comment !== "object") {
+        if (!isObjectLike(comment)) {
             continue;
         }
 
-        const commentRecord = comment as { printed?: unknown };
+        const commentObject = comment as object;
+        const commentRecord = commentObject as { printed?: unknown };
         const printed = "printed" in commentRecord && commentRecord.printed === true;
-        snapshot.set(comment, printed);
+        snapshot.set(commentObject, printed);
     }
 
     return snapshot;
@@ -148,14 +151,14 @@ export function precomputeSyntheticDocComments(
     options: Record<string, unknown> = {},
     sourceText: string | null = null
 ): MutableGameMakerAstNode {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 
     const programNode = ast;
 
     Core.walkAst(ast, (node) => {
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             return;
         }
 

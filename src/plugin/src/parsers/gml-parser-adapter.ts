@@ -8,7 +8,7 @@ import { Parser, type ScopeTracker } from "@gml-modules/parser";
 
 import * as Transforms from "../transforms/index.js";
 
-const { getNodeStartIndex, getNodeEndIndex } = Core;
+const { getNodeStartIndex, getNodeEndIndex, isObjectLike } = Core;
 /**
  * Factory function type for creating scope tracker instances.
  * Abstracts the concrete implementation from the parser adapter.
@@ -132,7 +132,7 @@ async function parseImpl(
         identifierCaseRuntime.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
 
-        if (!ast || typeof ast !== "object") {
+        if (!isObjectLike(ast)) {
             throw new Error("GameMaker parser returned no AST for the provided source.");
         }
 
