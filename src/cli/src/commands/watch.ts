@@ -82,6 +82,7 @@ interface FileWatchingConfig {
     polling?: boolean;
     pollingInterval?: number;
     debounceDelay?: number;
+    maxConcurrentDirs?: number;
     watchFactory?: WatchFactory;
 }
 
@@ -369,6 +370,20 @@ export function createWatchCommand(): Command {
                 .default(200)
         )
         .addOption(
+            new Option(
+                "--max-concurrent-dirs <count>",
+                "Maximum number of directories to scan concurrently during initial file discovery"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value);
+                    if (Number.isNaN(parsed) || parsed < 1) {
+                        throw new Error("Max concurrent directories must be at least 1");
+                    }
+                    return parsed;
+                })
+                .default(4)
+        )
+        .addOption(
             new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
@@ -454,13 +469,15 @@ export function createWatchCommand(): Command {
  * @param {RuntimeContext} runtimeContext - Runtime context with transpiler and dependency tracker
  * @param {boolean} verbose - Whether verbose logging is enabled
  * @param {boolean} quiet - Whether quiet mode is enabled
+ * @param {number} maxConcurrentDirs - Maximum number of directories to scan concurrently
  */
 async function performInitialScan(
     dirPath: string,
     extensionMatcher: ExtensionMatcher,
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    maxConcurrentDirs: number
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
@@ -518,13 +535,12 @@ async function performInitialScan(
             // Traverse subdirectories with bounded parallelism to balance throughput
             // and resource usage. Limit concurrent directory operations to avoid
             // exhausting file handles while maintaining faster scan than sequential.
-            const MAX_CONCURRENT_DIRS = 4;
             await Core.runInParallelWithLimit(
                 directories,
                 async (subDirPath) => {
                     await scanDirectory(subDirPath);
                 },
-                MAX_CONCURRENT_DIRS
+                maxConcurrentDirs
             );
         } catch (error) {
             if (verbose && !quiet) {
@@ -641,6 +657,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         // 100ms provides immediate feedback for single-file changes while preventing redundant
         // transpilations during rapid editing (e.g., auto-save + manual save).
         debounceDelay = 100,
+        maxConcurrentDirs = 4,
         maxPatchHistory = 100,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
@@ -1080,7 +1097,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 console.log("Scanning existing GML files to build dependency graph...");
             }
 
-            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
+            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet, maxConcurrentDirs)
                 .then(() => {
                     runtimeContext.scanComplete = true;
                     return null;
