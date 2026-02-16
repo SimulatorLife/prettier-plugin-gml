@@ -1,10 +1,3 @@
-import * as Modules from "./src/index.js";
-
-export const RuntimeWrapper = Object.freeze({
-    ...Modules.Runtime,
-    ...Modules.Clients
-});
-
 export type {
     ApplyPatchResult,
     ErrorAnalytics,
@@ -35,7 +28,7 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
-    RuntimeWrapper as RuntimeWrapperApi,
+    RuntimeWrapperType as RuntimeWrapperApi,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult,
@@ -50,3 +43,4 @@ export type {
     WebSocketMetricsCollector,
     WebSocketPatchQueueManager
 } from "./src/index.js";
+export { RuntimeWrapper } from "./src/index.js";

@@ -1,3 +1,12 @@
+import * as Runtime from "./runtime/index.js";
+import * as Clients from "./websocket/index.js";
+
+// Export the RuntimeWrapper namespace as the primary public API
+export const RuntimeWrapper = Object.freeze({
+    ...Runtime,
+    ...Clients
+});
+
 export type {
     ApplyPatchResult,
     BatchApplyResult,
@@ -35,12 +44,13 @@ export type {
     RuntimeRegistry,
     RuntimeRegistryOverrides,
     RuntimeRegistrySnapshot,
-    RuntimeWrapper,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
+    RuntimeWrapper as RuntimeWrapperType,
     TrySafeApplyResult,
     WebSocketLogger
 } from "./runtime/index.js";
+// Export sub-namespaces for internal use and testing
 export * as Runtime from "./runtime/index.js";
 export type {
     MessageEventLike,
