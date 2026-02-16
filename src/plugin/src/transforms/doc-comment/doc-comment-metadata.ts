@@ -57,14 +57,12 @@ export function setDeprecatedDocCommentFunctionSet(ast: unknown, functions: Set<
         return;
     }
 
-    const astObject = ast as object;
-
     if (functions === null || functions.size === 0) {
-        Reflect.deleteProperty(astObject, DOC_COMMENT_DEPRECATED_SET_KEY);
+        Reflect.deleteProperty(ast as object, DOC_COMMENT_DEPRECATED_SET_KEY);
         return;
     }
 
-    Reflect.set(astObject, DOC_COMMENT_DEPRECATED_SET_KEY, functions);
+    Reflect.set(ast as object, DOC_COMMENT_DEPRECATED_SET_KEY, functions);
 }
 
 export function getDeprecatedDocCommentFunctionSet(ast: unknown): Set<string> | null {
@@ -72,8 +70,7 @@ export function getDeprecatedDocCommentFunctionSet(ast: unknown): Set<string> | 
         return null;
     }
 
-    const astObject = ast as object;
-    const functions = Reflect.get(astObject, DOC_COMMENT_DEPRECATED_SET_KEY);
+    const functions = Reflect.get(ast as object, DOC_COMMENT_DEPRECATED_SET_KEY);
 
     if (Core.isSetLike(functions)) {
         return functions;

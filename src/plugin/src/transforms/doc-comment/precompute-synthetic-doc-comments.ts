@@ -25,10 +25,9 @@ function snapshotPrintedFlags(programNode: MutableGameMakerAstNode): Map<object,
             continue;
         }
 
-        const commentObject = comment as object;
-        const commentRecord = commentObject as { printed?: unknown };
+        const commentRecord = comment as { printed?: unknown };
         const printed = "printed" in commentRecord && commentRecord.printed === true;
-        snapshot.set(commentObject, printed);
+        snapshot.set(comment as object, printed);
     }
 
     return snapshot;
