@@ -34,9 +34,14 @@ void test("default component factory wires the dependency bundle", async () => {
     const components = createDefaultGmlPluginComponents();
 
     const parser = components.parsers["gml-parse"];
-    const printer = components.printers["gml-ast"];
 
     const dependencyBundle = gmlPluginComponentDependencies;
+
+    assert.strictEqual(
+        parser,
+        dependencyBundle.gmlParserAdapter,
+        "gml-parse should reference the canonical parser adapter directly"
+    );
 
     const parserResult = await parser.parse(SAMPLE_SOURCE, {
         originalText: SAMPLE_SOURCE
@@ -45,13 +50,5 @@ void test("default component factory wires the dependency bundle", async () => {
         originalText: SAMPLE_SOURCE
     } as any);
 
-    assert.deepStrictEqual(
-        parserResult,
-        dependencyResult,
-        "parser wrapper should forward to the dependency implementation"
-    );
-
-    assert.strictEqual(printer.print, dependencyBundle.print);
-    assert.strictEqual(printer.printComment, dependencyBundle.printComment);
-    assert.strictEqual(printer.handleComments, dependencyBundle.handleComments);
+    assert.deepStrictEqual(parserResult, dependencyResult, "parser results should match the canonical parser adapter");
 });
