@@ -105,18 +105,6 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     });
 }
 
-function getEntryDeclarations(entry: IdentifierCaseEntry | null | undefined) {
-    return Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
-}
-
-function getEntityClassifications(entity: IdentifierCaseEntry | IdentifierCaseDeclaration | null | undefined) {
-    return Core.asArray(entity?.classifications) as string[];
-}
-
-function getEntryDeclarationKinds(entry: IdentifierCaseEntry | null | undefined) {
-    return Core.asArray(entry?.declarationKinds) as string[];
-}
-
 function applyAssetRenamesIfEligible({ options, projectIndex, assetRenames, assetConflicts, metrics }) {
     const evaluation = evaluateIdentifierCaseAssetRenamePolicy({
         options,
@@ -143,19 +131,12 @@ function applyAssetRenamesIfEligible({ options, projectIndex, assetRenames, asse
     metrics.counters.increment("assets.appliedRenames", result?.renames?.length ?? 0);
 }
 
-function getObjectValues(object) {
-    if (!Core.isObjectLike(object)) {
-        return [];
-    }
-    return Object.values(object);
-}
-
 function resolveIdentifierEntryName(entry) {
     if (!Core.isObjectLike(entry)) {
         return null;
     }
 
-    const declarations = getEntryDeclarations(entry);
+    const declarations = Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
     for (const declaration of declarations) {
         const declarationName = Core.getNonEmptyString(declaration?.name);
         if (declarationName) {
@@ -179,8 +160,10 @@ function resolveIdentifierEntryName(entry) {
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
     const classificationSources = [
-        ...getEntryDeclarations(entry).flatMap((declaration) => getEntityClassifications(declaration)),
-        ...getEntryDeclarationKinds(entry)
+        ...(Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[]).flatMap(
+            (declaration) => Core.asArray(declaration?.classifications) as string[]
+        ),
+        ...(Core.asArray(entry?.declarationKinds) as string[])
     ];
 
     for (const tag of classificationSources) {
@@ -235,7 +218,7 @@ function getReferenceLocation(reference) {
 
 function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
     const scopeMap = projectIndex?.scopes ?? {};
-    const declarations = getEntryDeclarations(entry);
+    const declarations = Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
 
     for (const declaration of declarations) {
         const scopeId = declaration?.scopeId ?? entry?.scopeId ?? null;
@@ -395,7 +378,7 @@ function planIdentifierRenamesForScope({
             continue;
         }
 
-        const declarations = getEntryDeclarations(entry);
+        const declarations = Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
         if (declarations.length === 0) {
             continue;
         }
@@ -516,12 +499,12 @@ function planTopLevelIdentifierRenames({
     }
 
     const identifiers = projectIndex.identifiers;
-    const scriptEntries = getObjectValues(identifiers.scripts);
+    const scriptEntries = Object.values(identifiers.scripts ?? {});
     const functionEntries = scriptEntries.filter((entry) => isFunctionScriptEntry(entry));
     const structEntries = scriptEntries.filter((entry) => isStructScriptEntry(entry));
-    const macroEntries = getObjectValues(identifiers.macros);
-    const globalEntries = getObjectValues(identifiers.globalVariables);
-    const instanceEntries = getObjectValues(identifiers.instanceVariables);
+    const macroEntries = Object.values(identifiers.macros ?? {});
+    const globalEntries = Object.values(identifiers.globalVariables ?? {});
+    const instanceEntries = Object.values(identifiers.instanceVariables ?? {});
 
     const collisionTracker = createNameCollisionTracker();
 
@@ -1160,7 +1143,7 @@ function collectReferencesByScopeAndName(fileRecord, projectIndex, relativeFileP
 
         metrics.counters.increment("locals.referencesScanned");
 
-        const classifications = getEntityClassifications(reference);
+        const classifications = Core.asArray(reference?.classifications) as string[];
 
         if (!classifications.includes("variable")) {
             continue;
@@ -1213,7 +1196,7 @@ function gatherActiveLocalCandidates({
 
         metrics.counters.increment("locals.declarationCandidates");
 
-        const classifications = getEntityClassifications(declaration);
+        const classifications = Core.asArray(declaration?.classifications) as string[];
 
         if (!classifications.includes("variable")) {
             continue;
