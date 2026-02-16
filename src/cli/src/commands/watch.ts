@@ -21,6 +21,7 @@ import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
+import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
@@ -342,13 +343,7 @@ export function createWatchCommand(): Command {
         .addOption(new Option("--polling", "Use polling instead of native file watching").default(false))
         .addOption(
             new Option("--polling-interval <ms>", "Polling interval in milliseconds")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 100) {
-                        throw new Error("Polling interval must be at least 100ms");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(100, "Polling interval must be at least 100ms"))
                 .default(1000)
         )
         .addOption(new Option("--verbose", "Enable verbose logging").default(false))
@@ -360,13 +355,7 @@ export function createWatchCommand(): Command {
                 "--debounce-delay <ms>",
                 "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 0) {
-                        throw new Error("Debounce delay must be non-negative");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(0, "Debounce delay must be non-negative"))
                 .default(200)
         )
         .addOption(
@@ -374,35 +363,17 @@ export function createWatchCommand(): Command {
                 "--max-concurrent-dirs <count>",
                 "Maximum number of directories to scan concurrently during initial file discovery"
             )
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1) {
-                        throw new Error("Max concurrent directories must be at least 1");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(1, "Max concurrent directories must be at least 1"))
                 .default(4)
         )
         .addOption(
             new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1) {
-                        throw new Error("Max patch history must be a positive integer");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(1, "Max patch history must be a positive integer"))
                 .default(100)
         )
         .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-                        throw new Error("Port must be between 1 and 65535");
-                    }
-                    return parsed;
-                })
+                .argParser(createPortValidator())
                 .default(17_890)
         )
         .addOption(
@@ -411,13 +382,7 @@ export function createWatchCommand(): Command {
         .option("--no-websocket-server", "Disable starting the WebSocket server for patch streaming.")
         .addOption(
             new Option("--status-port <port>", "HTTP status server port for querying watch command status")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-                        throw new Error("Port must be between 1 and 65535");
-                    }
-                    return parsed;
-                })
+                .argParser(createPortValidator())
                 .default(17_891)
         )
         .addOption(
