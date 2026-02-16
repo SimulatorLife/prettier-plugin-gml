@@ -34,9 +34,6 @@
     "fast-xml-parser": "^5.3.4",
     "ws": "^8.18.0"
   },
-  "devDependencies": {
-    "prettier": "3.6.2"
-  },
   "engines": {
     "node": ">=22.0.0"
   },
