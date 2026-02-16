@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
 
+const { isObjectLike } = Core;
+
 /**
  * Resolve the identifier-case rename for a node from active printer services.
  */
@@ -54,7 +56,7 @@ export function cacheProgramNodeOnPrinterOptions(
     programNode: Record<string, unknown> | null | undefined,
     options: Record<string, unknown> | null | undefined
 ): void {
-    if (!programNode || !options || typeof options !== "object") {
+    if (!programNode || !isObjectLike(options)) {
         return;
     }
 

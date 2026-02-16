@@ -8,6 +8,8 @@ import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js"
 import { countTrailingBlankLines } from "../printer/semicolons.js";
 import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
+const { isObjectLike } = Core;
+
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
 
@@ -160,7 +162,7 @@ function shouldSuppressComment(comment, options) {
 }
 
 function isFunctionAssignmentDocCommentTarget(node: unknown): boolean {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return false;
     }
 
@@ -823,7 +825,7 @@ function findFollowingNodeForComment(ast, comment) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -1016,7 +1018,7 @@ function findBraceOwnerForComment(ast, comment) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!node || typeof node !== "object" || seen.has(node)) {
+        if (!isObjectLike(node) || seen.has(node)) {
             continue;
         }
 
@@ -1149,7 +1151,7 @@ function attachDocCommentToFollowingNode(comment, options) {
 }
 
 function isDocCommentCandidate(comment, followingNode) {
-    if (!followingNode || typeof followingNode !== "object") {
+    if (!isObjectLike(followingNode)) {
         return false;
     }
 

@@ -6,6 +6,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import type { ParserTransform } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 /**
  * Functional transform orchestrating the `if`-to-`??=` conversions.
  */
@@ -285,7 +287,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
         }
 
         const expression = node.expression;
-        if (!expression || typeof expression !== "object") {
+        if (!isObjectLike(expression)) {
             return false;
         }
 

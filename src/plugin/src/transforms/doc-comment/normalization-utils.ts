@@ -1,5 +1,7 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
+const { isObjectLike } = Core;
+
 export type DocCommentNormalizationPayload = {
     docCommentDocs: MutableDocCommentLines;
     needsLeadingBlankLine: boolean;
@@ -16,7 +18,7 @@ export function getDocCommentNormalization(node: unknown): DocCommentNormalizati
 
     const maybePayload = Reflect.get(node as object, DOC_COMMENT_NORMALIZATION_KEY);
 
-    if (!maybePayload || typeof maybePayload !== "object") {
+    if (!isObjectLike(maybePayload)) {
         return null;
     }
 

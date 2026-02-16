@@ -2,6 +2,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes } from "./helpers.js";
 
+const { isObjectLike } = Core;
+
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {
     filepath?: string;
     loopLengthHoistFunctionSuffixes?: string | string[] | null;
@@ -15,7 +17,7 @@ export function hoistLoopLengthBounds(
     ast: MutableGameMakerAstNode,
     options?: LoopLengthHoistTransformOptions
 ): MutableGameMakerAstNode {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 
@@ -40,7 +42,7 @@ function processStatementList(
 
     for (let index = 0; index < statements.length; index += 1) {
         const statement = statements[index];
-        if (!statement || typeof statement !== "object") {
+        if (!isObjectLike(statement)) {
             continue;
         }
 
@@ -57,7 +59,7 @@ function visitStatementChildren(
     sizeFunctionSuffixes: Map<string, string>,
     options?: LoopLengthHoistTransformOptions
 ) {
-    if (!statement || typeof statement !== "object") {
+    if (!isObjectLike(statement)) {
         return;
     }
 
@@ -171,7 +173,7 @@ function collectIdentifierNamesFromNode(
     node: MutableGameMakerAstNode | null | undefined,
     identifierNames: Set<string>
 ): void {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return;
     }
 
