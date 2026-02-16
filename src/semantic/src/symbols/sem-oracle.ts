@@ -267,32 +267,3 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
         }
     }
 }
-
-/**
- * Legacy standalone functions for backward compatibility. These delegate to
- * a default oracle instance with no scope tracker, builtin knowledge, or
- * script tracking.
- *
- * @deprecated Use `BasicSemanticOracle` directly for better control and testing.
- */
-const defaultOracle = new BasicSemanticOracle(null, new Set(), new Set());
-
-export function kindOfIdent(node?: IdentifierMetadata | null): SemKind {
-    return defaultOracle.kindOfIdent(node);
-}
-
-export function nameOfIdent(node?: IdentifierMetadata | null): string {
-    return defaultOracle.nameOfIdent(node);
-}
-
-export function qualifiedSymbol(node?: IdentifierMetadata | null): string | null {
-    return defaultOracle.qualifiedSymbol(node);
-}
-
-export function callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown" {
-    return defaultOracle.callTargetKind(node);
-}
-
-export function callTargetSymbol(node: CallExpressionNode): string | null {
-    return defaultOracle.callTargetSymbol(node);
-}
