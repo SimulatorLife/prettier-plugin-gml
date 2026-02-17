@@ -79,6 +79,10 @@ export class ScopeTracker {
     private lookupCache: Map<string, ScopeSymbolMetadata | null>;
     private lookupCacheDepth: number;
 
+    private normalizeTrackedPath(path: string): string {
+        return path.replaceAll("\\", "/");
+    }
+
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
@@ -129,10 +133,11 @@ export class ScopeTracker {
 
         const path = metadata?.path;
         if (typeof path === "string" && path.length > 0) {
-            let scopeSet = this.pathToScopesIndex.get(path);
+            const trackedPath = this.normalizeTrackedPath(path);
+            let scopeSet = this.pathToScopesIndex.get(trackedPath);
             if (!scopeSet) {
                 scopeSet = new Set<string>();
-                this.pathToScopesIndex.set(path, scopeSet);
+                this.pathToScopesIndex.set(trackedPath, scopeSet);
             }
             scopeSet.add(scope.id);
         }
@@ -1014,19 +1019,12 @@ export class ScopeTracker {
         }
 
         const externalRefs: ExternalReference[] = [];
-        const processedSymbols = new Set<string>();
 
         for (const [name, entry] of scope.occurrences) {
             // Check references first before any other work (early exit optimization)
             if (entry.references.length === 0) {
                 continue;
             }
-
-            // Skip duplicate processing
-            if (processedSymbols.has(name)) {
-                continue;
-            }
-            processedSymbols.add(name);
 
             // Skip local declarations
             if (scope.symbolMetadata.has(name)) {
@@ -1353,23 +1351,6 @@ export class ScopeTracker {
         >();
         const descendantScopesCache = new Map<string, Array<{ scopeId: string; scopeKind: string; depth: number }>>();
 
-        const createAddScopeFunction = (
-            seenScopes: Set<string>,
-            pathInvalidationSet: Array<{ scopeId: string; scopeKind: string; reason: string }>
-        ) => {
-            return (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
-                if (seenScopes.has(scopeIdToAdd)) {
-                    return;
-                }
-                seenScopes.add(scopeIdToAdd);
-                pathInvalidationSet.push({
-                    scopeId: scopeIdToAdd,
-                    scopeKind,
-                    reason
-                });
-            };
-        };
-
         for (const path of paths) {
             if (!path || typeof path !== "string" || path.length === 0) {
                 continue;
@@ -1379,7 +1360,8 @@ export class ScopeTracker {
                 continue;
             }
 
-            const scopeIds = this.pathToScopesIndex.get(path);
+            const trackedPath = this.normalizeTrackedPath(path);
+            const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
                 results.set(path, []);
                 continue;
@@ -1391,7 +1373,6 @@ export class ScopeTracker {
                 reason: string;
             }> = [];
             const seenScopes = new Set<string>();
-            const addScope = createAddScopeFunction(seenScopes, pathInvalidationSet);
 
             for (const scopeId of scopeIds) {
                 const scope = this.scopesById.get(scopeId);
@@ -1399,7 +1380,14 @@ export class ScopeTracker {
                     continue;
                 }
 
-                addScope(scope.id, scope.kind, "self");
+                if (!seenScopes.has(scope.id)) {
+                    seenScopes.add(scope.id);
+                    pathInvalidationSet.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        reason: "self"
+                    });
+                }
 
                 let dependents = transitiveDependentsCache.get(scopeId);
                 if (!dependents) {
@@ -1408,7 +1396,15 @@ export class ScopeTracker {
                 }
 
                 for (const dep of dependents) {
-                    addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
+                    if (seenScopes.has(dep.dependentScopeId)) {
+                        continue;
+                    }
+                    seenScopes.add(dep.dependentScopeId);
+                    pathInvalidationSet.push({
+                        scopeId: dep.dependentScopeId,
+                        scopeKind: dep.dependentScopeKind,
+                        reason: "dependent"
+                    });
                 }
 
                 if (includeDescendants) {
@@ -1419,7 +1415,15 @@ export class ScopeTracker {
                     }
 
                     for (const desc of descendants) {
-                        addScope(desc.scopeId, desc.scopeKind, "descendant");
+                        if (seenScopes.has(desc.scopeId)) {
+                            continue;
+                        }
+                        seenScopes.add(desc.scopeId);
+                        pathInvalidationSet.push({
+                            scopeId: desc.scopeId,
+                            scopeKind: desc.scopeKind,
+                            reason: "descendant"
+                        });
                     }
                 }
             }
@@ -1509,7 +1513,8 @@ export class ScopeTracker {
             return [];
         }
 
-        const scopeIds = this.pathToScopesIndex.get(path);
+        const trackedPath = this.normalizeTrackedPath(path);
+        const scopeIds = this.pathToScopesIndex.get(trackedPath);
         if (!scopeIds || scopeIds.size === 0) {
             return [];
         }
@@ -1569,23 +1574,25 @@ export class ScopeTracker {
 
         if (Object.hasOwn(metadata, "path")) {
             const previousPath = scope.metadata.path;
+            const trackedPreviousPath = previousPath ? this.normalizeTrackedPath(previousPath) : undefined;
             const nextPath = typeof metadata.path === "string" && metadata.path.length > 0 ? metadata.path : undefined;
+            const trackedNextPath = nextPath ? this.normalizeTrackedPath(nextPath) : undefined;
 
             if (previousPath && previousPath !== nextPath) {
-                const scopeSet = this.pathToScopesIndex.get(previousPath);
+                const scopeSet = this.pathToScopesIndex.get(trackedPreviousPath ?? previousPath);
                 if (scopeSet) {
                     scopeSet.delete(scope.id);
                     if (scopeSet.size === 0) {
-                        this.pathToScopesIndex.delete(previousPath);
+                        this.pathToScopesIndex.delete(trackedPreviousPath ?? previousPath);
                     }
                 }
             }
 
             if (nextPath && nextPath !== previousPath) {
-                let scopeSet = this.pathToScopesIndex.get(nextPath);
+                let scopeSet = this.pathToScopesIndex.get(trackedNextPath ?? nextPath);
                 if (!scopeSet) {
                     scopeSet = new Set<string>();
-                    this.pathToScopesIndex.set(nextPath, scopeSet);
+                    this.pathToScopesIndex.set(trackedNextPath ?? nextPath, scopeSet);
                 }
                 scopeSet.add(scope.id);
             }
