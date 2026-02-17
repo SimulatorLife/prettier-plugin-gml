@@ -119,6 +119,13 @@
   - `src/lint/test/feather-plugin-fixture-migration.test.ts` now covers these migrated fixtures under the lint-owned `src/lint/test/fixtures/feather/*` corpus.
   - `src/lint/test/feather-rule-fixtures.test.ts` continues to enforce exact `fixed.gml` parity for the pinned migrated-feather baseline (`gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, `gm1023`).
 - `gml/normalize-doc-comments` coverage was expanded to include legacy `// @tag` normalization into canonical `/// @tag` form.
+- Previously missing split-migration `gml/*` ownership rules are now implemented in lint and fixture-backed:
+  - `gml/normalize-directives`
+  - `gml/require-if-braces`
+  - `gml/no-assignment-in-condition`
+  - `gml/normalize-operator-aliases`
+- Lint rule catalog/config/test wiring now includes these rules (metadata contracts, recommended preset entries, and `rule-fixtures` coverage).
+- These rules now apply generic migration rewrites (legacy `#define` directive canonicalization, no-parens/inline `if` brace synthesis, conditional assignment normalization, and logical operator alias canonicalization) rather than fixture-specific replacements.
 
 ## Test Migration Status
 

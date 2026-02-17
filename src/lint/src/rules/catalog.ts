@@ -159,6 +159,46 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlNormalizeDirectives",
+        shortName: "normalize-directives",
+        fullId: "gml/normalize-directives",
+        messageId: "normalizeDirectives",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlRequireIfBraces",
+        shortName: "require-if-braces",
+        fullId: "gml/require-if-braces",
+        messageId: "requireIfBraces",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNoAssignmentInCondition",
+        shortName: "no-assignment-in-condition",
+        fullId: "gml/no-assignment-in-condition",
+        messageId: "noAssignmentInCondition",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNormalizeOperatorAliases",
+        shortName: "normalize-operator-aliases",
+        fullId: "gml/normalize-operator-aliases",
+        messageId: "normalizeOperatorAliases",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlPreferStringInterpolation",
         shortName: "prefer-string-interpolation",
         fullId: "gml/prefer-string-interpolation",

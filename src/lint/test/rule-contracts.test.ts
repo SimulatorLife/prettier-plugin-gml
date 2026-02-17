@@ -93,6 +93,26 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "normalize-directives",
+        messageId: "normalizeDirectives",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "require-if-braces",
+        messageId: "requireIfBraces",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "no-assignment-in-condition",
+        messageId: "noAssignmentInCondition",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "normalize-operator-aliases",
+        messageId: "normalizeOperatorAliases",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-string-interpolation",
         messageId: "preferStringInterpolation",
         schema: [
@@ -218,6 +238,10 @@ void test("non-project-aware rules do not expose gml project metadata", () => {
         "prefer-repeat-loops",
         "optimize-logical-flow",
         "normalize-doc-comments",
+        "normalize-directives",
+        "require-if-braces",
+        "no-assignment-in-condition",
+        "normalize-operator-aliases",
         "optimize-math-expressions",
         "require-argument-separators",
         "normalize-data-structure-accessors",

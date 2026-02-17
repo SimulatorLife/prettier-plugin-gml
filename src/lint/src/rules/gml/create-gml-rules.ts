@@ -496,6 +496,404 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
     });
 }
 
+function normalizeLegacyDirectiveLine(line: string): string {
+    const legacyCommentedRegion = /^(\s*)\/\/\s*#\s*(region|endregion)\b(.*)$/u.exec(line);
+    if (legacyCommentedRegion) {
+        const indentation = legacyCommentedRegion[1];
+        const directive = legacyCommentedRegion[2];
+        const suffix = legacyCommentedRegion[3].trim();
+        return suffix.length > 0 ? `${indentation}#${directive} ${suffix}` : `${indentation}#${directive}`;
+    }
+
+    const legacyDefineRegion = /^(\s*)#define\s+(end\s+)?region\b(.*)$/iu.exec(line);
+    if (legacyDefineRegion) {
+        const indentation = legacyDefineRegion[1];
+        const directive = legacyDefineRegion[2] ? "#endregion" : "#region";
+        const suffix = legacyDefineRegion[3].trim();
+        return suffix.length > 0 ? `${indentation}${directive} ${suffix}` : `${indentation}${directive}`;
+    }
+
+    const legacyMacro = /^(\s*)#(macro|define)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+    if (!legacyMacro) {
+        return line;
+    }
+
+    const indentation = legacyMacro[1];
+    const rawTail = legacyMacro[4];
+    const lineCommentIndex = rawTail.indexOf("//");
+    const bodyPortion = lineCommentIndex >= 0 ? rawTail.slice(0, lineCommentIndex) : rawTail;
+    const commentPortion = lineCommentIndex >= 0 ? rawTail.slice(lineCommentIndex).trimEnd() : "";
+    const normalizedBody = bodyPortion.trim().replace(/;\s*$/u, "");
+    const normalizedComment = commentPortion.length > 0 ? ` ${commentPortion}` : "";
+
+    if (normalizedBody.length === 0) {
+        return `${indentation}#macro ${legacyMacro[3]}${normalizedComment}`;
+    }
+
+    return `${indentation}#macro ${legacyMacro[3]} ${normalizedBody}${normalizedComment}`;
+}
+
+type BracedSingleClause = Readonly<{
+    indentation: string;
+    header: string;
+    statement: string;
+}>;
+
+function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
+    return [`${indentation}${header} {`, `${indentation}    ${statement}`, `${indentation}}`];
+}
+
+function parseInlineIfClause(line: string): BracedSingleClause | null {
+    const inlineParens = /^(\s*)if\s*\((.+)\)\s*(?!\{)([^;{}].*;\s*)$/u.exec(line);
+    if (inlineParens) {
+        const indentation = inlineParens[1];
+        const condition = inlineParens[2].trim();
+        const statement = inlineParens[3].trim();
+        return {
+            indentation,
+            header: `if (${condition})`,
+            statement
+        };
+    }
+
+    const legacyNoParens = /^(\s*)if\s+(.+);\s*$/u.exec(line);
+    if (!legacyNoParens) {
+        return null;
+    }
+
+    const indentation = legacyNoParens[1];
+    const payload = legacyNoParens[2].trim();
+    if (payload.includes("{") || payload.includes("}") || /\belse\b/u.test(payload)) {
+        return null;
+    }
+
+    const lastClosingParenIndex = payload.lastIndexOf(")");
+    if (lastClosingParenIndex <= 0 || lastClosingParenIndex >= payload.length - 1) {
+        return null;
+    }
+
+    const condition = payload.slice(0, lastClosingParenIndex + 1).trim();
+    const statement = `${payload.slice(lastClosingParenIndex + 1).trim()};`;
+    if (statement === ";") {
+        return null;
+    }
+
+    return {
+        indentation,
+        header: `if (${condition})`,
+        statement
+    };
+}
+
+function parseInlineElseClause(line: string): BracedSingleClause | null {
+    const inlineElse = /^(\s*)else\s+(?!if\b)(?!\{)([^;{}].*;\s*)$/u.exec(line);
+    if (!inlineElse) {
+        return null;
+    }
+
+    return {
+        indentation: inlineElse[1],
+        header: "else",
+        statement: inlineElse[2].trim()
+    };
+}
+
+function normalizeConditionAssignments(conditionText: string): string {
+    return conditionText.replaceAll(/(?<![!<>=+\-*/%|&^])=(?!=)/g, "==");
+}
+
+function normalizeLogicalOperatorAliases(sourceText: string): string {
+    const rewritten: Array<string> = [];
+    let index = 0;
+    let inSingleLineComment = false;
+    let inBlockComment = false;
+    let inString: "'" | '"' | null = null;
+
+    const isIdentifierCharacter = (value: string): boolean => /[A-Za-z0-9_]/u.test(value);
+
+    while (index < sourceText.length) {
+        const character = sourceText[index];
+        const nextCharacter = sourceText[index + 1];
+
+        if (inSingleLineComment) {
+            rewritten.push(character);
+            if (character === "\n") {
+                inSingleLineComment = false;
+            }
+            index += 1;
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (character === "*" && nextCharacter === "/") {
+                rewritten.push(character, nextCharacter);
+                inBlockComment = false;
+                index += 2;
+                continue;
+            }
+
+            rewritten.push(character);
+            index += 1;
+            continue;
+        }
+
+        if (inString) {
+            rewritten.push(character);
+            if (character === "\\") {
+                if (nextCharacter !== undefined) {
+                    rewritten.push(nextCharacter);
+                    index += 2;
+                    continue;
+                }
+            } else if (character === inString) {
+                inString = null;
+            }
+
+            index += 1;
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "/") {
+            rewritten.push(character, nextCharacter);
+            inSingleLineComment = true;
+            index += 2;
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "*") {
+            rewritten.push(character, nextCharacter);
+            inBlockComment = true;
+            index += 2;
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            rewritten.push(character);
+            inString = character;
+            index += 1;
+            continue;
+        }
+
+        if (character === "&" && nextCharacter === "&") {
+            rewritten.push("and");
+            index += 2;
+            continue;
+        }
+
+        if (character === "|" && nextCharacter === "|") {
+            rewritten.push("or");
+            index += 2;
+            continue;
+        }
+
+        if (character === "^" && nextCharacter === "^") {
+            rewritten.push("xor");
+            index += 2;
+            continue;
+        }
+
+        if (character === "!" && nextCharacter !== "=") {
+            rewritten.push("not");
+            if (nextCharacter !== undefined && !/\s/u.test(nextCharacter)) {
+                rewritten.push(" ");
+            }
+            index += 1;
+            continue;
+        }
+
+        if (isIdentifierCharacter(character)) {
+            const start = index;
+            let end = index + 1;
+            while (end < sourceText.length && isIdentifierCharacter(sourceText[end])) {
+                end += 1;
+            }
+
+            const token = sourceText.slice(start, end);
+            const normalized = token.toLowerCase();
+            if (normalized === "and" || normalized === "or" || normalized === "xor" || normalized === "not") {
+                rewritten.push(normalized);
+            } else {
+                rewritten.push(token);
+            }
+
+            index = end;
+            continue;
+        }
+
+        rewritten.push(character);
+        index += 1;
+    }
+
+    return rewritten.join("");
+}
+
+function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const lineEnding = dominantLineEnding(text);
+                    const lines = text.split(/\r?\n/u);
+                    const rewrittenLines = lines.map((line) => normalizeLegacyDirectiveLine(line));
+
+                    const rewritten = rewrittenLines.join(lineEnding);
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
+                }
+            });
+        }
+    });
+}
+
+function createRequireIfBracesRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const lineEnding = dominantLineEnding(text);
+                    const lines = text.split(/\r?\n/u);
+                    const rewrittenLines: Array<string> = [];
+
+                    for (let index = 0; index < lines.length; index += 1) {
+                        const line = lines[index];
+                        const inlineIf = parseInlineIfClause(line);
+                        if (inlineIf) {
+                            rewrittenLines.push(...toBracedSingleClause(inlineIf.indentation, inlineIf.header, inlineIf.statement));
+                            continue;
+                        }
+
+                        const inlineElse = parseInlineElseClause(line);
+                        if (inlineElse) {
+                            rewrittenLines.push(
+                                ...toBracedSingleClause(inlineElse.indentation, inlineElse.header, inlineElse.statement)
+                            );
+                            continue;
+                        }
+
+                        const lineIfMatch = /^(\s*)if\s*\((.+)\)\s*$/u.exec(line);
+                        if (lineIfMatch && index + 1 < lines.length) {
+                            const nextLine = lines[index + 1];
+                            const nextTrimmed = nextLine.trim();
+                            if (nextTrimmed.length > 0 && !nextTrimmed.startsWith("{")) {
+                                const indentation = lineIfMatch[1];
+                                rewrittenLines.push(
+                                    ...toBracedSingleClause(indentation, `if (${lineIfMatch[2].trim()})`, nextTrimmed)
+                                );
+                                index += 1;
+                                continue;
+                            }
+                        }
+
+                        const lineElseMatch = /^(\s*)else\s*$/u.exec(line);
+                        if (lineElseMatch && index + 1 < lines.length) {
+                            const nextLine = lines[index + 1];
+                            const nextTrimmed = nextLine.trim();
+                            if (
+                                nextTrimmed.length > 0 &&
+                                !nextTrimmed.startsWith("{") &&
+                                !nextTrimmed.startsWith("if ")
+                            ) {
+                                const indentation = lineElseMatch[1];
+                                rewrittenLines.push(...toBracedSingleClause(indentation, "else", nextTrimmed));
+                                index += 1;
+                                continue;
+                            }
+                        }
+
+                        rewrittenLines.push(line);
+                    }
+
+                    const rewritten = rewrittenLines.join(lineEnding);
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
+                }
+            });
+        }
+    });
+}
+
+function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    let rewritten = text.replaceAll(
+                        /\b(if|while)\s*\(([^)]*)\)/g,
+                        (_fullMatch, keyword: string, conditionText: string) => {
+                            const normalizedCondition = normalizeConditionAssignments(conditionText);
+                            return `${keyword} (${normalizedCondition})`;
+                        }
+                    );
+                    rewritten = rewritten.replaceAll(/(^|\r?\n)(\s*if\s+)([^;\r\n]*?\))(\s+[A-Za-z_][^;\r\n]*;)/g, (
+                        _fullMatch: string,
+                        prefix: string,
+                        ifPrefix: string,
+                        conditionText: string,
+                        statementPortion: string
+                    ) => {
+                        const normalizedCondition = normalizeConditionAssignments(conditionText.trim());
+                        return `${prefix}${ifPrefix}${normalizedCondition}${statementPortion}`;
+                    });
+
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
+                }
+            });
+        }
+    });
+}
+
+function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const text = context.sourceCode.text;
+                    const rewritten = normalizeLogicalOperatorAliases(text);
+
+                    if (rewritten === text) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(0),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
+                    });
+                }
+            });
+        }
+    });
+}
+
 function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -711,6 +1109,18 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "normalize-doc-comments": {
             return createNormalizeDocCommentsRule(definition);
+        }
+        case "normalize-directives": {
+            return createNormalizeDirectivesRule(definition);
+        }
+        case "require-if-braces": {
+            return createRequireIfBracesRule(definition);
+        }
+        case "no-assignment-in-condition": {
+            return createNoAssignmentInConditionRule(definition);
+        }
+        case "normalize-operator-aliases": {
+            return createNormalizeOperatorAliasesRule(definition);
         }
         case "prefer-string-interpolation": {
             return createPreferStringInterpolationRule(definition);
