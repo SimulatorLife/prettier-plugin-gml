@@ -2,22 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { handleComments, printComment } from "../src/comments/index.js";
-import { gmlPluginComponentImplementations } from "../src/components/plugin-component-bundles.js";
+import { defaultGmlPluginComponentImplementations } from "../src/components/default-component-instances.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 
 void test("default implementation bundle is frozen and reuses canonical references", () => {
-    assert.ok(Object.isFrozen(gmlPluginComponentImplementations), "implementation bundle should be frozen");
+    assert.ok(Object.isFrozen(defaultGmlPluginComponentImplementations), "implementation bundle should be frozen");
 
-    assert.strictEqual(gmlPluginComponentImplementations.gmlParserAdapter, gmlParserAdapter);
-    assert.strictEqual(gmlPluginComponentImplementations.print, print);
-    assert.strictEqual(gmlPluginComponentImplementations.printComment, printComment);
-    assert.strictEqual(gmlPluginComponentImplementations.handleComments, handleComments);
-    assert.deepStrictEqual(gmlPluginComponentImplementations.identifierCaseOptions, {});
+    assert.strictEqual(defaultGmlPluginComponentImplementations.gmlParserAdapter, gmlParserAdapter);
+    assert.strictEqual(defaultGmlPluginComponentImplementations.print, print);
+    assert.strictEqual(defaultGmlPluginComponentImplementations.printComment, printComment);
+    assert.strictEqual(defaultGmlPluginComponentImplementations.handleComments, handleComments);
+    assert.deepStrictEqual(defaultGmlPluginComponentImplementations.identifierCaseOptions, {});
     assert.ok(
-        Object.isFrozen(gmlPluginComponentImplementations.identifierCaseOptions),
+        Object.isFrozen(defaultGmlPluginComponentImplementations.identifierCaseOptions),
         "identifier-case option map should be immutable"
     );
-    assert.strictEqual(gmlPluginComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
+    assert.strictEqual(defaultGmlPluginComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
 });

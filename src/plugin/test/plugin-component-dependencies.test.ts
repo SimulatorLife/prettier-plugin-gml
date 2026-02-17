@@ -1,24 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { defaultGmlPluginComponentImplementations } from "../src/components/default-component-instances.js";
 import { createDefaultGmlPluginComponents } from "../src/components/default-plugin-components.js";
-import {
-    gmlPluginComponentDependencies,
-    gmlPluginComponentImplementations
-} from "../src/components/plugin-component-bundles.js";
 
 const SAMPLE_SOURCE = "function example() { return 1; }";
 
 void test("dependency bundle is frozen and exposes expected contract keys", () => {
-    assert.ok(Object.isFrozen(gmlPluginComponentDependencies), "dependency bundle should be frozen");
-    assert.strictEqual(
-        gmlPluginComponentDependencies,
-        gmlPluginComponentImplementations,
-        "dependency bundle should alias the implementation bundle"
-    );
+    const dependencyBundle = defaultGmlPluginComponentImplementations;
+
+    assert.ok(Object.isFrozen(dependencyBundle), "dependency bundle should be frozen");
 
     assert.deepStrictEqual(
-        Object.keys(gmlPluginComponentDependencies).toSorted(),
+        Object.keys(dependencyBundle).toSorted(),
         [
             "LogicalOperatorsStyle",
             "gmlParserAdapter",
@@ -35,7 +29,7 @@ void test("default component factory wires the dependency bundle", async () => {
 
     const parser = components.parsers["gml-parse"];
 
-    const dependencyBundle = gmlPluginComponentDependencies;
+    const dependencyBundle = defaultGmlPluginComponentImplementations;
 
     assert.strictEqual(
         parser,

@@ -1,11 +1,11 @@
 import type { GameMakerAstNode } from "@gml-modules/core";
 
-import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
+import { defaultGmlPluginComponentImplementations } from "./default-component-instances.js";
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const { gmlParserAdapter, print, handleComments, printComment, identifierCaseOptions, LogicalOperatorsStyle } =
-        gmlPluginComponentDependencies;
+        defaultGmlPluginComponentImplementations;
 
     return {
         parsers: {
