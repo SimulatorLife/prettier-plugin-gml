@@ -370,4 +370,64 @@ void describe("Error Analytics", () => {
             assert.ok(errorTimestamps[i] >= errorTimestamps[i - 1]);
         }
     });
+
+    void test("error history automatically trims when maxErrorHistorySize is reached", () => {
+        const maxErrorHistorySize = 10;
+        const wrapper = createRuntimeWrapper({ validateBeforeApply: true, maxErrorHistorySize });
+
+        for (let i = 0; i < 20; i++) {
+            try {
+                wrapper.applyPatch({ kind: "script", id: `script:${i}`, js_body: "return {{ bad" });
+            } catch {
+                // Expected
+            }
+        }
+
+        const analytics = wrapper.getErrorAnalytics();
+        assert.strictEqual(analytics.totalErrors, maxErrorHistorySize);
+        assert.ok(analytics.recentErrors.length <= maxErrorHistorySize);
+    });
+
+    void test("error history respects unbounded mode when maxErrorHistorySize is zero", () => {
+        const wrapper = createRuntimeWrapper({ validateBeforeApply: true, maxErrorHistorySize: 0 });
+
+        for (let i = 0; i < 15; i++) {
+            try {
+                wrapper.applyPatch({ kind: "script", id: `script:${i}`, js_body: "return {{ bad" });
+            } catch {
+                // Expected
+            }
+        }
+
+        const analytics = wrapper.getErrorAnalytics();
+        assert.strictEqual(analytics.totalErrors, 15);
+    });
+
+    void test("error history trims oldest errors first", () => {
+        const maxErrorHistorySize = 5;
+        const wrapper = createRuntimeWrapper({ validateBeforeApply: true, maxErrorHistorySize });
+
+        for (let i = 0; i < 10; i++) {
+            try {
+                wrapper.applyPatch({ kind: "script", id: `script:${i}`, js_body: "return {{ bad" });
+            } catch {
+                // Expected
+            }
+        }
+
+        const analytics = wrapper.getErrorAnalytics();
+        assert.strictEqual(analytics.totalErrors, maxErrorHistorySize);
+
+        // The most recent errors should be from patches 5-9 (the last 5)
+        const recentPatchIds = new Set(analytics.recentErrors.map((e) => e.patchId));
+        assert.ok(recentPatchIds.has("script:9"));
+        assert.ok(recentPatchIds.has("script:8"));
+        assert.ok(recentPatchIds.has("script:7"));
+        assert.ok(recentPatchIds.has("script:6"));
+        assert.ok(recentPatchIds.has("script:5"));
+
+        // The oldest errors (0-4) should have been trimmed
+        assert.ok(!recentPatchIds.has("script:0"));
+        assert.ok(!recentPatchIds.has("script:1"));
+    });
 });
