@@ -166,11 +166,14 @@ export function tryFoldConstantUnaryExpression(ast: UnaryExpressionNode): number
 
     const op = ast.operator;
 
+    // Helper to check if a value is a boolean literal (handles parser quirk where
+    // boolean literals are represented as strings "true"/"false")
+    const isBooleanLiteral = typeof operand === "boolean" || operand === "true" || operand === "false";
+
     // Numeric unary operations
-    // Note: The parser represents numeric literals as strings, so we need to parse them
-    // But don't try to convert boolean strings or actual booleans
-    const isBoolValue = typeof operand === "boolean" || operand === "true" || operand === "false";
-    if (!isBoolValue) {
+    // Note: The parser represents numeric literals as strings, so we need to parse them.
+    // Skip boolean values to avoid incorrect numeric conversion (e.g., true → 1)
+    if (!isBooleanLiteral) {
         const numValue = typeof operand === "number" ? operand : Number(operand);
         if (!Number.isNaN(numValue)) {
             switch (op) {
@@ -190,8 +193,7 @@ export function tryFoldConstantUnaryExpression(ast: UnaryExpressionNode): number
     // Boolean/logical unary operations
     // Note: The parser represents boolean literals as strings ("true"/"false")
     // so we need to handle both actual booleans and string representations
-    const isBool = typeof operand === "boolean" || operand === "true" || operand === "false";
-    if (isBool) {
+    if (isBooleanLiteral) {
         const boolValue = operand === true || operand === "true";
         switch (op) {
             case "!":
