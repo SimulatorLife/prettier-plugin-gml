@@ -77,6 +77,29 @@ import {
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
+import {
+    expressionIsStringLike,
+    hasLineBreak,
+    isArgumentAssignment,
+    isCallbackArgument,
+    isCallExpressionSanitized,
+    isComparisonWithinLogicalChain,
+    isComplexArgumentNode,
+    isControlFlowLogicalTest,
+    isDecorativeBlockComment,
+    isInlineEmptyBlockComment,
+    isInLValueChain,
+    isInsideConstructorFunction,
+    isLogicalComparisonClause,
+    isNumericCallExpression,
+    isNumericComputationNode,
+    isSelfMultiplicationExpression,
+    isSimpleCallArgument,
+    isSyntheticParenFlatteningEnabled,
+    isSyntheticParenFlatteningForced,
+    isValidIdentifierName,
+    isWithinNumericCallArgument
+} from "./type-guards.js";
 
 // Import node type constants to replace magic strings
 const {
@@ -117,15 +140,6 @@ const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
 
 /**
- * Maximum depth to traverse when walking up the AST.
- *
- * This limit prevents infinite loops when traversing malformed or deeply nested ASTs.
- * A value of 100 is sufficient for any reasonable GML code while protecting against
- * pathological cases that could hang the formatter.
- */
-const MAX_ANCESTOR_TRAVERSAL_DEPTH = 100;
-
-/**
  * Bounds for safe division-to-multiplication optimization.
  *
  * When converting `x / divisor` to `x * reciprocal`, we must ensure both the divisor
@@ -149,18 +163,6 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.commentText
 const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.commentPrefixText");
 
 const forcedStructArgumentBreaks = new WeakMap();
-
-/**
- * Cached regex for detecting decorative banner-style comment lines.
- * Hoisted to module scope to avoid re-creating the same regex on every
- * isDecorativeBlockComment() call, reducing allocations in the hot printer path.
- *
- * SAFETY: This pattern depends on the banner policy config's minLeadingSlashes value,
- * which is frozen (Object.freeze) and immutable, so caching at module scope is safe.
- */
-const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-    String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
-);
 
 function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
     if (!path) {
@@ -1427,34 +1429,6 @@ function printProgramNode(node, path, options, print) {
  * The regex pattern is now cached at module scope rather than recreated on every call.
  * Benchmark: 2.65x speedup on representative inputs (100K iterations: 739ms → 279ms).
  */
-function isDecorativeBlockComment(comment) {
-    if (!comment || (comment.type !== "BlockComment" && comment.type !== "CommentBlock")) {
-        return false;
-    }
-
-    const value = comment.value;
-    if (typeof value !== "string") {
-        return false;
-    }
-
-    const lines = value.split(/\r?\n/);
-    let hasDecorativeContent = false;
-    for (const line_ of lines) {
-        const normalizedLine = line_.replaceAll("\t", "    ");
-        if (!Core.isNonEmptyTrimmedString(normalizedLine)) {
-            continue;
-        }
-
-        if (!DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
-            // Found a non-decorative line -> treat entire comment as normal content
-            return false;
-        }
-        hasDecorativeContent = true;
-    }
-
-    return hasDecorativeContent;
-}
-
 function printBlockStatementNode(node, path, options, print) {
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
@@ -2043,104 +2017,6 @@ function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPe
 
         return parts;
     }, listKey);
-}
-
-function isSimpleCallExpression(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.getCallExpressionIdentifier(node)) {
-        return false;
-    }
-
-    const args = Core.getCallExpressionArguments(node);
-    if (args.length === 0) {
-        return true;
-    }
-
-    if (args.length > 1) {
-        return false;
-    }
-
-    const [onlyArgument] = args;
-    const argumentType = Core.getNodeType(onlyArgument);
-
-    if (
-        argumentType === "FunctionDeclaration" ||
-        argumentType === "StructExpression" ||
-        argumentType === "CallExpression"
-    ) {
-        return false;
-    }
-
-    if (Core.hasComment(onlyArgument)) {
-        return false;
-    }
-
-    return true;
-}
-
-function isComplexArgumentNode(node) {
-    const nodeType = Core.getNodeType(node);
-    if (!nodeType) {
-        return false;
-    }
-
-    if (nodeType === "CallExpression") {
-        return !isSimpleCallExpression(node);
-    }
-
-    return (
-        nodeType === "FunctionDeclaration" ||
-        nodeType === "FunctionExpression" ||
-        nodeType === "ConstructorDeclaration" ||
-        nodeType === "StructExpression"
-    );
-}
-
-const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
-    "Identifier",
-    "Literal",
-    "MemberDotExpression",
-    "MemberIndexExpression",
-    "ThisExpression",
-    "BooleanLiteral",
-    "UndefinedLiteral"
-]);
-
-function isSimpleCallArgument(node) {
-    const nodeType = Core.getNodeType(node);
-    if (!nodeType) {
-        return false;
-    }
-
-    if (isComplexArgumentNode(node)) {
-        return false;
-    }
-
-    if (SIMPLE_CALL_ARGUMENT_TYPES.has(nodeType)) {
-        return true;
-    }
-
-    if (nodeType === "Literal" && typeof node.value === STRING_TYPE) {
-        const literalValue = node.value.toLowerCase();
-        if (literalValue === UNDEFINED_TYPE || literalValue === "noone") {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function isCallbackArgument(argument) {
-    const argumentType = argument?.type;
-    return (
-        argumentType === "FunctionDeclaration" ||
-        argumentType === "FunctionExpression" ||
-        argumentType === "ConstructorDeclaration" ||
-        argumentType === "StructExpression"
-    );
 }
 
 function countLeadingSimpleCallArguments(node) {
@@ -3537,37 +3413,6 @@ function joinDeclaratorPartsWithCommas(parts) {
     return joined;
 }
 
-function isInsideConstructorFunction(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let functionAncestorDepth = null;
-
-    for (let depth = 0; ; depth += 1) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (functionAncestorDepth === null && ancestor.type === "FunctionDeclaration") {
-            const functionParent = path.getParentNode(depth + 1);
-            if (!functionParent || functionParent.type !== "BlockStatement") {
-                return false;
-            }
-
-            functionAncestorDepth = depth;
-            continue;
-        }
-
-        if (ancestor.type === "ConstructorDeclaration") {
-            return functionAncestorDepth !== null;
-        }
-    }
-
-    return false;
-}
-
 function findEnclosingFunctionDeclaration(path) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
@@ -3622,10 +3467,6 @@ function normalizePreferredParameterName(name) {
 
     const normalized = (normalizedValue as string).trim();
     return normalized.length === 0 ? null : normalized;
-}
-
-function isValidIdentifierName(name) {
-    return typeof name === STRING_TYPE && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
 // Collects index/reference bookkeeping for implicit `arguments[index]` usages
@@ -3977,38 +3818,6 @@ function getAssignmentExpression(node: any) {
     }
 
     return null;
-}
-
-function isArgumentAssignment(assign: any, paramName: string, argIndex: number) {
-    const left = assign.left;
-    if (!left || left.type !== "Identifier" || left.name !== paramName) {
-        return false;
-    }
-
-    const rightExpr = assign.right;
-    if (!rightExpr || rightExpr.type !== "MemberIndexExpression") {
-        return false;
-    }
-
-    if (rightExpr.object?.type !== "Identifier" || rightExpr.object.name !== "argument") {
-        return false;
-    }
-
-    if (!Array.isArray(rightExpr.property)) {
-        return false;
-    }
-
-    if (rightExpr.property.length !== 1) {
-        return false;
-    }
-
-    const literal = rightExpr.property[0];
-    if (!literal || literal.type !== "Literal") {
-        return false;
-    }
-
-    const parsed = Number.parseInt(literal.value, 10);
-    return Number.isInteger(parsed) && parsed === argIndex;
 }
 
 function structLiteralHasLeadingLineBreak(node, options) {
@@ -4903,55 +4712,6 @@ function shouldOmitSyntheticParens(path) {
     }
 }
 
-function isControlFlowLogicalTest(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let depth = 1;
-    let currentNode = path.getValue();
-
-    while (true) {
-        const ancestor = safeGetParentNode(path, depth - 1);
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (ancestor.type === "ParenthesizedExpression" || ancestor.type === "BinaryExpression") {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        if (ancestor.type === "IfStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "WhileStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "DoUntilStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "RepeatStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "WithStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "ForStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        return false;
-    }
-}
-
 // For ternary expressions, omit unnecessary parentheses around simple identifiers
 // or member expressions in the guard/test position. This mirrors the previous
 // inline logic that only trimmed parentheses when they added no semantic value,
@@ -5061,46 +4821,6 @@ function evaluateNumericBinaryFlattening(parent: any, expression: any, path: any
     }
 
     return null;
-}
-
-function isComparisonWithinLogicalChain(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let depth = 1;
-    let currentNode = path.getValue();
-
-    while (depth < MAX_ANCESTOR_TRAVERSAL_DEPTH) {
-        const ancestor = safeGetParentNode(path, depth - 1);
-
-        if (!ancestor) {
-            return false;
-        }
-
-        // Skip over parenthesized expressions to find meaningful parent
-        if (ancestor.type === "ParenthesizedExpression") {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        // Continue through comparison operators in the chain
-        if (ancestor.type === "BinaryExpression" && Core.isComparisonBinaryOperator(ancestor.operator)) {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        // Check if we've reached a logical operator at the top of the chain
-        if (ancestor.type === "BinaryExpression" && Core.isLogicalBinaryOperator(ancestor.operator)) {
-            return ancestor.left === currentNode || ancestor.right === currentNode;
-        }
-
-        return false;
-    }
-
-    return false;
 }
 
 function shouldWrapTernaryExpression(path) {
@@ -5224,76 +4944,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
  * @param {boolean} [requireExplicit=false] - Whether to require explicit flattening.
  * @returns {boolean} `true` when synthetic paren flattening is permitted.
  */
-function checkSyntheticParenFlattening(path, requireExplicit = false) {
-    let depth = 1;
-    while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (ancestor.type === "FunctionDeclaration" || ancestor.type === "ConstructorDeclaration") {
-            if (ancestor._flattenSyntheticNumericParens === true) {
-                return true;
-            }
-        } else if (ancestor.type === "Program") {
-            return requireExplicit
-                ? ancestor._flattenSyntheticNumericParens === true
-                : ancestor._flattenSyntheticNumericParens !== false;
-        }
-
-        depth += 1;
-    }
-}
-
-function isSyntheticParenFlatteningEnabled(path) {
-    return checkSyntheticParenFlattening(path);
-}
-
-function isSyntheticParenFlatteningForced(path) {
-    return checkSyntheticParenFlattening(path, true);
-}
-
-function isWithinNumericCallArgument(path) {
-    let depth = 1;
-    let currentNode = callPathMethod(path, "getValue", { defaultValue: null });
-
-    while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (ancestor.type === "CallExpression") {
-            if (Array.isArray(ancestor.arguments) && ancestor.arguments.includes(currentNode)) {
-                return isNumericCallExpression(ancestor);
-            }
-
-            return false;
-        }
-
-        currentNode = ancestor;
-        depth += 1;
-    }
-}
-
-function isSelfMultiplicationExpression(expression) {
-    if (!expression || expression.type !== "BinaryExpression" || expression.operator !== "*") {
-        return false;
-    }
-
-    return areNumericExpressionsEquivalent(expression.left, expression.right);
-}
-
-function areNumericExpressionsEquivalent(left, right) {
+function _areNumericExpressionsEquivalent(left, right) {
     if (!left || !right || left.type !== right.type) {
         return false;
     }
@@ -5306,16 +4957,16 @@ function areNumericExpressionsEquivalent(left, right) {
             return left.value === right.value;
         }
         case "ParenthesizedExpression": {
-            return areNumericExpressionsEquivalent(left.expression, right.expression);
+            return _areNumericExpressionsEquivalent(left.expression, right.expression);
         }
         case "MemberDotExpression": {
             return (
-                areNumericExpressionsEquivalent(left.object, right.object) &&
-                areNumericExpressionsEquivalent(left.property, right.property)
+                _areNumericExpressionsEquivalent(left.object, right.object) &&
+                _areNumericExpressionsEquivalent(left.property, right.property)
             );
         }
         case "MemberIndexExpression": {
-            if (!areNumericExpressionsEquivalent(left.object, right.object)) {
+            if (!_areNumericExpressionsEquivalent(left.object, right.object)) {
                 return false;
             }
 
@@ -5327,7 +4978,7 @@ function areNumericExpressionsEquivalent(left, right) {
             }
 
             for (const [index, leftProp] of leftProps.entries()) {
-                if (!areNumericExpressionsEquivalent(leftProp, rightProps[index])) {
+                if (!_areNumericExpressionsEquivalent(leftProp, rightProps[index])) {
                     return false;
                 }
             }
@@ -5494,20 +5145,6 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
     return false;
 }
 
-function isCallExpressionSanitized(current: unknown, sanitizedMacroNames: Set<string>) {
-    if (!current || typeof current !== OBJECT_TYPE || sanitizedMacroNames.size === 0) {
-        return false;
-    }
-
-    const expression = current as { type?: string; object?: unknown };
-    if (expression.type !== "CallExpression") {
-        return false;
-    }
-
-    const calleeName = Core.getIdentifierText(expression.object);
-    return typeof calleeName === STRING_TYPE && sanitizedMacroNames.has(calleeName);
-}
-
 function pushSanitizedMacroChildren(stack: Array<any>, value: unknown): void {
     if (!value || typeof value !== OBJECT_TYPE) {
         return;
@@ -5532,75 +5169,6 @@ function pushSanitizedMacroChildren(stack: Array<any>, value: unknown): void {
 // numeric so we avoid unwrapping macro invocations that expand to complex
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
-const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
-
-function isNumericCallExpression(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const calleeName = Core.getIdentifierText(node.object);
-
-    if (typeof calleeName !== STRING_TYPE) {
-        return false;
-    }
-
-    return NUMERIC_CALL_IDENTIFIERS.has(calleeName.toLowerCase());
-}
-
-function isNumericComputationNode(node) {
-    if (!node || typeof node !== OBJECT_TYPE) {
-        return false;
-    }
-
-    switch (node.type) {
-        case "Literal": {
-            const value = Core.toTrimmedString(node.value);
-            if (value === "") {
-                return false;
-            }
-
-            const numericValue = Number(value);
-            return Number.isFinite(numericValue);
-        }
-        case "UnaryExpression": {
-            if (node.operator === "+" || node.operator === "-") {
-                return isNumericComputationNode(node.argument);
-            }
-
-            return false;
-        }
-        case "Identifier": {
-            return true;
-        }
-        case "ParenthesizedExpression": {
-            return isNumericComputationNode(node.expression);
-        }
-        case "BinaryExpression": {
-            if (!Core.isArithmeticBinaryOperator(node.operator)) {
-                return false;
-            }
-
-            return isNumericComputationNode(node.left) && isNumericComputationNode(node.right);
-        }
-        case "MemberIndexExpression": {
-            return true;
-        }
-        case "MemberDotExpression": {
-            return true;
-        }
-        case "CallExpression": {
-            if (expressionIsStringLike(node)) {
-                return false;
-            }
-
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
-}
 
 function binaryExpressionContainsString(node) {
     if (!node || node.type !== "BinaryExpression") {
@@ -5612,40 +5180,6 @@ function binaryExpressionContainsString(node) {
     }
 
     return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
-}
-
-function expressionIsStringLike(node) {
-    if (!node || typeof node !== OBJECT_TYPE) {
-        return false;
-    }
-
-    if (node.type === "Literal") {
-        if (typeof node.value === STRING_TYPE && /^".*"$/.test(node.value)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    if (node.type === "ParenthesizedExpression") {
-        return expressionIsStringLike(node.expression);
-    }
-
-    if (node.type === "BinaryExpression" && node.operator === "+") {
-        return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
-    }
-
-    if (node.type === "CallExpression") {
-        const calleeName = Core.getIdentifierText(node.object);
-        if (typeof calleeName === STRING_TYPE) {
-            const normalized = calleeName.toLowerCase();
-            if (normalized === STRING_TYPE || normalized.startsWith("string_")) {
-                return true;
-            }
-        }
-    }
-
-    return false;
 }
 
 function shouldOmitUnaryPlus(argument) {
@@ -5913,78 +5447,6 @@ function shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode) {
     return isLogicalComparisonClause(clauseNode);
 }
 
-function isLogicalComparisonClause(node) {
-    const clauseExpression = unwrapLogicalClause(node);
-    if (clauseExpression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!isLogicalOrOperator(clauseExpression.operator)) {
-        return false;
-    }
-
-    return isComparisonAndConjunction(clauseExpression.left) && isComparisonAndConjunction(clauseExpression.right);
-}
-
-function isComparisonAndConjunction(node) {
-    const expression = unwrapLogicalClause(node);
-    if (expression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!isLogicalAndOperator(expression.operator)) {
-        return false;
-    }
-
-    if (!isComparisonExpression(expression.left)) {
-        return false;
-    }
-
-    return isSimpleLogicalOperand(expression.right);
-}
-
-function isComparisonExpression(node) {
-    const expression = unwrapLogicalClause(node);
-    return expression?.type === "BinaryExpression" && Core.isComparisonBinaryOperator(expression.operator);
-}
-
-function isSimpleLogicalOperand(node) {
-    const expression = unwrapLogicalClause(node);
-    if (!expression) {
-        return false;
-    }
-
-    if (expression.type === "Identifier") {
-        return true;
-    }
-
-    if (expression.type === "Literal") {
-        return true;
-    }
-
-    if (expression.type === "UnaryExpression") {
-        return isSimpleLogicalOperand(expression.argument);
-    }
-
-    return isComparisonExpression(expression);
-}
-
-function unwrapLogicalClause(node) {
-    let current = node;
-    while (current?.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current ?? null;
-}
-
-function isLogicalOrOperator(operator) {
-    return operator === "or" || operator === "||";
-}
-
-function isLogicalAndOperator(operator) {
-    return operator === "and" || operator === "&&";
-}
-
 function printSimpleDeclaration(leftDoc, rightDoc) {
     return rightDoc ? [leftDoc, " = ", rightDoc] : leftDoc;
 }
@@ -6218,67 +5680,10 @@ function findInlineBlockCommentIndex(comments) {
     return inlineIndex;
 }
 
-function isInlineEmptyBlockComment(comment) {
-    if (!comment || comment.type !== "CommentBlock") {
-        return false;
-    }
-
-    if (hasLineBreak(comment.leadingWS) || hasLineBreak(comment.trailingWS)) {
-        return false;
-    }
-
-    if (typeof comment.lineCount === NUMBER_TYPE && comment.lineCount > 1) {
-        return false;
-    }
-
-    if (typeof comment.value === STRING_TYPE && hasLineBreak(comment.value)) {
-        return false;
-    }
-
-    return true;
-}
-
 function getInlineBlockCommentSpacing(text, fallback) {
     if (typeof text !== STRING_TYPE || text.length === 0) {
         return fallback;
     }
 
     return hasLineBreak(text) ? fallback : text;
-}
-
-function hasLineBreak(text) {
-    return typeof text === STRING_TYPE && /[\r\n\u2028\u2029]/.test(text);
-}
-
-function isInLValueChain(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const node = path.getValue();
-    const parent = safeGetParentNode(path);
-
-    if (!parent || typeof parent.type !== STRING_TYPE) {
-        return false;
-    }
-
-    if (parent.type === "CallExpression" && Array.isArray(parent.arguments) && parent.arguments.includes(node)) {
-        return false;
-    }
-
-    if (parent.type === "CallExpression" && parent.object === node) {
-        const grandparent = path.getParentNode(1);
-
-        if (!grandparent || typeof grandparent.type !== STRING_TYPE) {
-            return false;
-        }
-
-        return isLValueExpression(grandparent.type);
-    }
-
-    return isLValueExpression(parent.type);
-}
-
-function isLValueExpression(nodeType) {
-    return nodeType === "MemberIndexExpression" || nodeType === "CallExpression" || nodeType === "MemberDotExpression";
 }
