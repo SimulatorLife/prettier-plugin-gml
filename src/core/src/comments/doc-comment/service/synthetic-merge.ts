@@ -1,4 +1,5 @@
 import {
+    copyDocCommentArrayFlags,
     type DocCommentLines,
     findLastIndex,
     isNonEmptyArray,
@@ -86,18 +87,6 @@ function hasMultiLineDocCommentSummary(docLines: DocCommentLines | string[]): bo
     return false;
 }
 
-function copyDocCommentSpecialProperties(source: DocCommentLines | string[], target: MutableDocCommentLines): void {
-    if ((source as any)._preserveDescriptionBreaks === true) {
-        (target as any)._preserveDescriptionBreaks = true;
-    }
-    if ((source as any)._suppressLeadingBlank === true) {
-        (target as any)._suppressLeadingBlank = true;
-    }
-    if ((source as any)._blockCommentDocs === true) {
-        (target as any)._blockCommentDocs = true;
-    }
-}
-
 function checkOriginalDocLinesHasTags(existingDocLines: DocCommentLines | string[]): boolean {
     return (
         Array.isArray(existingDocLines) &&
@@ -175,7 +164,7 @@ export function mergeSyntheticDocComments(
         existingDocLines.map((line) => line.trim())
     ) as MutableDocCommentLines;
 
-    copyDocCommentSpecialProperties(existingDocLines, normalizedExistingLines);
+    copyDocCommentArrayFlags(existingDocLines as any, normalizedExistingLines);
     const originalExistingHasTags = checkOriginalDocLinesHasTags(existingDocLines);
     const originalHasDeprecatedTag = checkHasDeprecatedTag(existingDocLines);
 
