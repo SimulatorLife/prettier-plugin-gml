@@ -15,6 +15,8 @@ type EnumDeclarationMatch = {
     text: string;
 };
 
+type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
+
 function createFeatherRuleMeta(entry: FeatherManifestEntry): Rule.RuleMetaData {
     return Object.freeze({
         type: "suggestion",
@@ -1228,7 +1230,10 @@ function createGm1034Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     }
 
                     const docs = parameterNames
-                        .map((parameterName) => `${indentation}/// @param ${toDocParameterName(parameterName)}`)
+                        .map(
+                            (functionParameterName) =>
+                                `${indentation}/// @param ${toDocParameterName(functionParameterName)}`
+                        )
                         .join("\n");
                     return `${docs}\n${fullMatch}`;
                 }
@@ -1405,7 +1410,7 @@ function createGm1062Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     .replaceAll(/\bString\b/g, "string")
                     .replaceAll(/\bArray\s*\[\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\]/g, "array<$1>")
                     .replaceAll(/\bId\s+Instance\b/g, "Id.Instance")
-                    .replaceAll('|', ",")
+                    .replaceAll("|", ",")
                     .replaceAll(/\s+/g, "");
                 const normalizedParameterName = toDocParameterName(parameterName);
                 const normalizedSuffix = suffix.replace(/^\s*-\s*/u, " ");
@@ -1682,304 +1687,87 @@ function createGm2046Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+const featherRuleFactoriesById: ReadonlyMap<string, FeatherRuleFactory> = new Map([
+    ["GM1000", createGm1000Rule],
+    ["GM1002", createGm1002Rule],
+    ["GM1003", createGm1003Rule],
+    ["GM1004", createGm1004Rule],
+    ["GM1005", createGm1005Rule],
+    ["GM1007", createGm1007Rule],
+    ["GM1008", createGm1008Rule],
+    ["GM1009", createGm1009Rule],
+    ["GM1010", createGm1010Rule],
+    ["GM1012", createGm1012Rule],
+    ["GM1014", createGm1014Rule],
+    ["GM1015", createGm1015Rule],
+    ["GM1016", createGm1016Rule],
+    ["GM1017", createGm1017Rule],
+    ["GM1021", createGm1021Rule],
+    ["GM1023", createGm1023Rule],
+    ["GM1024", createGm1024Rule],
+    ["GM1026", createGm1026Rule],
+    ["GM1028", createGm1028Rule],
+    ["GM1029", createGm1029Rule],
+    ["GM1030", createGm1030Rule],
+    ["GM1033", createGm1033Rule],
+    ["GM1038", createGm1038Rule],
+    ["GM1041", createGm1041Rule],
+    ["GM1051", createGm1051Rule],
+    ["GM1052", createGm1052Rule],
+    ["GM1054", createGm1054Rule],
+    ["GM1058", createGm1058Rule],
+    ["GM1063", createGm1063Rule],
+    ["GM1064", createGm1064Rule],
+    ["GM1100", createGm1100Rule],
+    ["GM1013", createGm1013Rule],
+    ["GM1032", createGm1032Rule],
+    ["GM1034", createGm1034Rule],
+    ["GM1036", createGm1036Rule],
+    ["GM1056", createGm1056Rule],
+    ["GM1059", createGm1059Rule],
+    ["GM1062", createGm1062Rule],
+    ["GM2000", createGm2000Rule],
+    ["GM2003", createGm2003Rule],
+    ["GM2009", createGm2009Rule],
+    ["GM2004", createGm2004Rule],
+    ["GM2005", createGm2005Rule],
+    ["GM2007", createGm2007Rule],
+    ["GM2008", createGm2008Rule],
+    ["GM2011", createGm2011Rule],
+    ["GM2012", createGm2012Rule],
+    ["GM2015", createGm2015Rule],
+    ["GM2020", createGm2020Rule],
+    ["GM2023", createGm2023Rule],
+    ["GM2025", createGm2025Rule],
+    ["GM2026", createGm2026Rule],
+    ["GM2028", createGm2028Rule],
+    ["GM2029", createGm2029Rule],
+    ["GM2032", createGm2032Rule],
+    ["GM2030", createGm2030Rule],
+    ["GM2031", createGm2031Rule],
+    ["GM2033", createGm2033Rule],
+    ["GM2035", createGm2035Rule],
+    ["GM2040", createGm2040Rule],
+    ["GM2042", createGm2042Rule],
+    ["GM2043", createGm2043Rule],
+    ["GM2044", createGm2044Rule],
+    ["GM2046", createGm2046Rule],
+    ["GM2048", createGm2048Rule],
+    ["GM2050", createGm2050Rule],
+    ["GM2051", createGm2051Rule],
+    ["GM2052", createGm2052Rule],
+    ["GM2053", createGm2053Rule],
+    ["GM2054", createGm2054Rule],
+    ["GM2056", createGm2056Rule],
+    ["GM2061", createGm2061Rule],
+    ["GM2064", createGm2064Rule]
+]);
+
 export function createFeatherRule(entry: FeatherManifestEntry): Rule.RuleModule {
-    if (entry.id === "GM1000") {
-        return createGm1000Rule(entry);
+    const createRule = featherRuleFactoriesById.get(entry.id);
+    if (createRule) {
+        return createRule(entry);
     }
 
-    if (entry.id === "GM1002") {
-        return createGm1002Rule(entry);
-    }
-
-    if (entry.id === "GM1003") {
-        return createGm1003Rule(entry);
-    }
-
-    if (entry.id === "GM1004") {
-        return createGm1004Rule(entry);
-    }
-
-    if (entry.id === "GM1005") {
-        return createGm1005Rule(entry);
-    }
-
-    if (entry.id === "GM1007") {
-        return createGm1007Rule(entry);
-    }
-
-    if (entry.id === "GM1008") {
-        return createGm1008Rule(entry);
-    }
-
-    if (entry.id === "GM1009") {
-        return createGm1009Rule(entry);
-    }
-
-    if (entry.id === "GM1010") {
-        return createGm1010Rule(entry);
-    }
-
-    if (entry.id === "GM1012") {
-        return createGm1012Rule(entry);
-    }
-
-    if (entry.id === "GM1014") {
-        return createGm1014Rule(entry);
-    }
-
-    if (entry.id === "GM1015") {
-        return createGm1015Rule(entry);
-    }
-
-    if (entry.id === "GM1016") {
-        return createGm1016Rule(entry);
-    }
-
-    if (entry.id === "GM1017") {
-        return createGm1017Rule(entry);
-    }
-
-    if (entry.id === "GM1021") {
-        return createGm1021Rule(entry);
-    }
-
-    if (entry.id === "GM1023") {
-        return createGm1023Rule(entry);
-    }
-
-    if (entry.id === "GM1024") {
-        return createGm1024Rule(entry);
-    }
-
-    if (entry.id === "GM1026") {
-        return createGm1026Rule(entry);
-    }
-
-    if (entry.id === "GM1028") {
-        return createGm1028Rule(entry);
-    }
-
-    if (entry.id === "GM1029") {
-        return createGm1029Rule(entry);
-    }
-
-    if (entry.id === "GM1030") {
-        return createGm1030Rule(entry);
-    }
-
-    if (entry.id === "GM1033") {
-        return createGm1033Rule(entry);
-    }
-
-    if (entry.id === "GM1038") {
-        return createGm1038Rule(entry);
-    }
-
-    if (entry.id === "GM1041") {
-        return createGm1041Rule(entry);
-    }
-
-    if (entry.id === "GM1051") {
-        return createGm1051Rule(entry);
-    }
-
-    if (entry.id === "GM1052") {
-        return createGm1052Rule(entry);
-    }
-
-    if (entry.id === "GM1054") {
-        return createGm1054Rule(entry);
-    }
-
-    if (entry.id === "GM1058") {
-        return createGm1058Rule(entry);
-    }
-
-    if (entry.id === "GM1063") {
-        return createGm1063Rule(entry);
-    }
-
-    if (entry.id === "GM1064") {
-        return createGm1064Rule(entry);
-    }
-
-    if (entry.id === "GM1100") {
-        return createGm1100Rule(entry);
-    }
-
-    if (entry.id === "GM1013") {
-        return createGm1013Rule(entry);
-    }
-
-    if (entry.id === "GM1032") {
-        return createGm1032Rule(entry);
-    }
-
-    if (entry.id === "GM1034") {
-        return createGm1034Rule(entry);
-    }
-
-    if (entry.id === "GM1036") {
-        return createGm1036Rule(entry);
-    }
-
-    if (entry.id === "GM1056") {
-        return createGm1056Rule(entry);
-    }
-
-    if (entry.id === "GM1059") {
-        return createGm1059Rule(entry);
-    }
-
-    if (entry.id === "GM1062") {
-        return createGm1062Rule(entry);
-    }
-
-    if (entry.id === "GM2000") {
-        return createGm2000Rule(entry);
-    }
-
-    if (entry.id === "GM2003") {
-        return createGm2003Rule(entry);
-    }
-
-    if (entry.id === "GM2009") {
-        return createGm2009Rule(entry);
-    }
-
-    if (entry.id === "GM2004") {
-        return createGm2004Rule(entry);
-    }
-
-    if (entry.id === "GM2005") {
-        return createGm2005Rule(entry);
-    }
-
-    if (entry.id === "GM2007") {
-        return createGm2007Rule(entry);
-    }
-
-    if (entry.id === "GM2008") {
-        return createGm2008Rule(entry);
-    }
-
-    if (entry.id === "GM2011") {
-        return createGm2011Rule(entry);
-    }
-
-    if (entry.id === "GM2012") {
-        return createGm2012Rule(entry);
-    }
-
-    if (entry.id === "GM2015") {
-        return createGm2015Rule(entry);
-    }
-
-    if (entry.id === "GM2020") {
-        return createGm2020Rule(entry);
-    }
-
-    if (entry.id === "GM2023") {
-        return createGm2023Rule(entry);
-    }
-
-    if (entry.id === "GM2025") {
-        return createGm2025Rule(entry);
-    }
-
-    if (entry.id === "GM2026") {
-        return createGm2026Rule(entry);
-    }
-
-    if (entry.id === "GM2028") {
-        return createGm2028Rule(entry);
-    }
-
-    if (entry.id === "GM2029") {
-        return createGm2029Rule(entry);
-    }
-
-    if (entry.id === "GM2032") {
-        return createGm2032Rule(entry);
-    }
-
-    if (entry.id === "GM2030") {
-        return createGm2030Rule(entry);
-    }
-
-    if (entry.id === "GM2031") {
-        return createGm2031Rule(entry);
-    }
-
-    if (entry.id === "GM2033") {
-        return createGm2033Rule(entry);
-    }
-
-    if (entry.id === "GM2035") {
-        return createGm2035Rule(entry);
-    }
-
-    if (entry.id === "GM2040") {
-        return createGm2040Rule(entry);
-    }
-
-    if (entry.id === "GM2042") {
-        return createGm2042Rule(entry);
-    }
-
-    if (entry.id === "GM2043") {
-        return createGm2043Rule(entry);
-    }
-
-    if (entry.id === "GM2044") {
-        return createGm2044Rule(entry);
-    }
-
-    if (entry.id === "GM2046") {
-        return createGm2046Rule(entry);
-    }
-
-    if (entry.id === "GM2048") {
-        return createGm2048Rule(entry);
-    }
-
-    if (entry.id === "GM2050") {
-        return createGm2050Rule(entry);
-    }
-
-    if (entry.id === "GM2051") {
-        return createGm2051Rule(entry);
-    }
-
-    if (entry.id === "GM2052") {
-        return createGm2052Rule(entry);
-    }
-
-    if (entry.id === "GM2053") {
-        return createGm2053Rule(entry);
-    }
-
-    if (entry.id === "GM2054") {
-        return createGm2054Rule(entry);
-    }
-
-    if (entry.id === "GM2056") {
-        return createGm2056Rule(entry);
-    }
-
-    if (entry.id === "GM2061") {
-        return createGm2061Rule(entry);
-    }
-
-    if (entry.id === "GM2064") {
-        return createGm2064Rule(entry);
-    }
-
-    return Object.freeze({
-        meta: createFeatherRuleMeta(entry),
-        create(context: Rule.RuleContext) {
-            void context;
-            return Object.freeze({});
-        }
-    });
+    throw new Error(`Missing feather rule implementation for id '${entry.id}'.`);
 }

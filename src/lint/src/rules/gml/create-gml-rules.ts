@@ -728,12 +728,7 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
             return createRequireTrailingOptionalDefaultsRule(definition);
         }
         default: {
-            return Object.freeze({
-                meta: createMeta(definition),
-                create() {
-                    return Object.freeze({});
-                }
-            });
+            throw new Error(`Missing gml rule implementation for shortName '${definition.shortName}'.`);
         }
     }
 }

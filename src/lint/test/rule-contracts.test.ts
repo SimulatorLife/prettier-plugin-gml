@@ -254,6 +254,44 @@ void test("project-aware rules report missingProjectContext at most once per fil
     assert.deepEqual(reported, ["missingProjectContext"]);
 });
 
+void test("all registered lint rules return non-empty listeners (no silent placeholder rules)", () => {
+    const allCapabilities = new Set([
+        "IDENTIFIER_OCCUPANCY",
+        "IDENTIFIER_OCCURRENCES",
+        "LOOP_HOIST_NAME_RESOLUTION",
+        "RENAME_CONFLICT_PLANNING"
+    ]);
+
+    for (const [ruleShortName, ruleModule] of Object.entries(LintWorkspace.Lint.plugin.rules)) {
+        const listeners = ruleModule.create({
+            options: [{}],
+            settings: {
+                gml: {
+                    project: {
+                        getContext: () => ({ capabilities: allCapabilities })
+                    }
+                }
+            },
+            sourceCode: {
+                text: "var value = 1;\n",
+                parserServices: {
+                    gml: {
+                        filePath: "sample.gml"
+                    }
+                },
+                getLocFromIndex: () => ({ line: 1, column: 0 })
+            },
+            report: () => undefined
+        } as never);
+
+        assert.equal(
+            Object.keys(listeners).length > 0,
+            true,
+            `${ruleShortName} unexpectedly returned an empty listener object`
+        );
+    }
+});
+
 void test("only gml/require-argument-separators may consume inserted separator recovery metadata", () => {
     assert.ok(
         LintWorkspace.Lint.ruleIds.GmlRequireArgumentSeparators,

@@ -1012,6 +1012,10 @@ Verification coverage and regression protections for the direct end-state migrat
    - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
    - Parse failure/recovery tests (fatal parse, recovered separators).
    - Rule detection/fix tests for each migrated rule and each feather parity ID.
+   - Rule factory completeness tests:
+     - every `gml/*` rule definition in lint catalog resolves to an implemented rule module;
+     - every Feather manifest ID resolves to an implemented rule module;
+     - unresolved mappings fail fast (throw) and are not allowed to degrade into silent no-op listeners.
    - Unsafe-fix reporting tests with `reportUnsafe: true|false`.
    - CLI integration tests for config search, `--config`, `--project`, ignore behavior, formatter output, and exit codes.
    - Config discovery tests covering candidate filename order, searched-location reporting, multiple-config same-directory selection behavior, cwd-origin discovery for outside-cwd targets, fallback gating, and `--config` missing/invalid => exit `2`.
@@ -1057,6 +1061,7 @@ Verification coverage and regression protections for the direct end-state migrat
 3. Lint workspace owns semantic/content rewrite diagnostics and autofixes (including feather parity corpus).
 4. All mixed legacy fixtures are either moved to lint or split into explicit plugin+lint ownership artifacts.
 5. CLI `lint --fix` + formatter pipeline preserves the same final formatted style while making ownership boundaries explicit.
+6. Lint workspace ships no placeholder/no-op rule implementations in the active catalog; unknown rule mappings fail fast during rule creation.
 
 ## Finalized Migration Mapping (Durable Contract)
 

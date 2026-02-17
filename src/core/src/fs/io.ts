@@ -134,7 +134,7 @@ export function readTextFileSync(filePath: string): string {
  * @returns {Promise<string>} File contents as a UTF-8 string.
  * @throws {NodeJS.ErrnoException} When the file cannot be read.
  */
-export async function readTextFile(filePath: string): Promise<string> {
+export function readTextFile(filePath: string): Promise<string> {
     return fsReadFileAsync(filePath, "utf8");
 }
 

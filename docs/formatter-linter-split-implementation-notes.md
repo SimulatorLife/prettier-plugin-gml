@@ -1,12 +1,12 @@
 # Formatter/Linter Split Implementation Notes
 
-## Snapshot (2026-02-15)
+## Snapshot (2026-02-17)
 
 - Formatter/linter split migration is largely complete on runtime behavior:
   - formatter is strict/layout-first and does not expose legacy semantic/refactor adapter hooks;
   - lint owns migrated semantic/content rewrite responsibilities.
 - Full pinned-plan completion still has remaining architecture/doc alignment work (see current audit findings below).
-- `plugin`, `lint`, and `cli` workspace test suites are passing with zero skipped tests.
+- `plugin`, `lint`, and `cli` workspace suites remain largely stable; lint currently has known project-context registry failures outside the formatter/linter split migration scope.
 - Legacy formatter-lint adapter integration paths were removed from active runtime wiring and tests.
 
 ## Current Audit Findings (2026-02-15)
@@ -19,7 +19,9 @@
 3. Overlay guardrail behavior (`GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`) is implemented and covered with normalization/dedupe/path-sample tests.
 4. Project-context registry behavior (root resolution, hard excludes, `--index-allow`, forced-root boundaries, deterministic caching) is covered by dedicated lint tests.
 5. Missing-context emission policy (once per file per rule) and unsafe-fix reason-code declaration/validation are covered by rule contract tests.
-6. Current lint suite baseline is green (`pass 36`, `fail 0`, `skipped 0`).
+6. Rule implementation coverage now enforces non-placeholder behavior:
+   - `gml` and `feather` rule factories fail fast on missing implementation instead of returning silent no-op rules.
+   - rule-contract coverage includes a guard that every registered rule returns a non-empty listener object.
 
 ### Misaligned / remaining gaps against full split plan
 
@@ -36,11 +38,20 @@
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
-5. Continue tightening fixer fidelity for newer migrated Feather IDs where current implementation still uses conservative text rewrites (for example `gm1013`/`gm1032` family), while keeping all semantic fixture ownership in lint.
+5. Continue tightening fixer fidelity where conservative text rewrites remain, but keep ownership in lint and avoid fixture-symbol hardcoding.
 
 ## Completed Since Prior Snapshot
 
 - Lint rules are wired through real `gml/*` implementations (instead of no-op scaffolding), with schema/capability alignment updates in rule catalog and helpers.
+- Lint rule factory wiring no longer silently falls back to placeholder/no-op modules:
+  - `createGmlRule(...)` now throws on unmapped `gml/*` definitions.
+  - `createFeatherRule(...)` now throws on unmapped Feather IDs.
+  - deprecated `src/lint/src/rules/noop.ts` scaffold was removed.
+- Feather fixer genericity hardening landed for previously fixture-bound rules:
+  - `gm1012`, `gm1032`, `gm1034`, `gm1036`, `gm1056`, `gm1059`, `gm1062`, and `gm2044` now use generic pattern transforms instead of fixture-specific symbol replacements.
+  - legacy one-off fixture symbol rewrites were removed from `gm2004`, `gm2012`, and `gm2043`.
+- Rule contracts now enforce no silent placeholders:
+  - `src/lint/test/rule-contracts.test.ts` includes a guard that each registered lint rule returns at least one listener.
 - Project context registry now builds an index-backed context (identifier occupancy and occurrence helpers, rename planning hooks, and globalvar rewrite assessment hooks).
 - Project context indexing now normalizes identifier matching by canonical lowercase keys for occupancy/occurrence/planning parity across files.
 - CLI lint guardrail behavior/messaging was tightened (overlay warning policy and fallback messaging improvements).
