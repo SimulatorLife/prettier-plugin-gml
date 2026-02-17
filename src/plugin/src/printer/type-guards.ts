@@ -365,11 +365,7 @@ export function isInsideConstructorFunction(path: any): boolean {
         }
 
         if (ancestor.type === "ConstructorDeclaration") {
-            if (functionAncestorDepth === null) {
-                return true;
-            }
-
-            return depth > functionAncestorDepth;
+            return functionAncestorDepth !== null;
         }
 
         if (ancestor.type === "Program") {
