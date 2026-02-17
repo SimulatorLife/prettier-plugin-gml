@@ -140,7 +140,7 @@ const references = includeReferences
 // After (pre-allocated arrays)
 const declCount = entry.declarations.length;
 const refCount = entry.references.length;
-const declarations: Occurrence[] = new Array(declCount);
+const declarations: Occurrence[] = Array.from({ length: declCount });
 for (let i = 0; i < declCount; i++) {
     declarations[i] = cloneOccurrence(entry.declarations[i]);
 }
@@ -258,10 +258,6 @@ These optimizations collectively reduce memory allocations, eliminate intermedia
 5. **Type-specific comparisons**: Use simple `<`/`>` comparison for machine-generated identifiers instead of `localeCompare()`
 
 All optimizations are validated by performance tests with concrete budgets to prevent regressions.
-2. Find transitive dependents when a symbol changes (`getTransitiveDependents()`)
-3. Export occurrence metadata in SCIP format for cross-reference tracking
-
-**Optimizations applied**: Sorting, descendant traversal, SCIP exports
 
 ### Symbol Resolution
 During transpilation, the emitter must:
