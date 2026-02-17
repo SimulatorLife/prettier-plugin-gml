@@ -24,7 +24,14 @@
  */
 
 // Array utilities
-export { asArray, compactArray, findLastIndex, isNonEmptyArray, toMutableArray } from "../../utils/index.js";
+export {
+    asArray,
+    compactArray,
+    copyDocCommentArrayFlags,
+    findLastIndex,
+    isNonEmptyArray,
+    toMutableArray
+} from "../../utils/index.js";
 
 // String utilities
 export {
