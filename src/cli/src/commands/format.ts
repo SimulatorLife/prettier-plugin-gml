@@ -1189,6 +1189,33 @@ function hasSimilarKnownCommand(target: string, knownCommands: Set<string>): boo
     return false;
 }
 
+function resolveClosestKnownCommand(target: string, knownCommands: Set<string>): string | null {
+    const normalizedTarget = target.toLowerCase();
+    let closestCommand: string | null = null;
+    let closestScore = Number.POSITIVE_INFINITY;
+
+    for (const command of knownCommands) {
+        if (!isWithinCommandLengthThreshold(command, normalizedTarget)) {
+            continue;
+        }
+
+        const differences = countCommandCharacterDifferences(command, normalizedTarget, Number.POSITIVE_INFINITY);
+
+        if (!isWithinCommandSimilarityThreshold(differences, command.length)) {
+            continue;
+        }
+
+        const score = differences + Math.abs(command.length - normalizedTarget.length);
+
+        if (score < closestScore) {
+            closestScore = score;
+            closestCommand = command;
+        }
+    }
+
+    return closestCommand;
+}
+
 function isWithinCommandLengthThreshold(command: string, target: string): boolean {
     return Math.abs(command.length - target.length) <= MAX_COMMAND_LENGTH_DIFFERENCE;
 }
@@ -1228,6 +1255,9 @@ async function resolveTargetStats(
                 const inputToCheck = originalInput ?? target;
                 if (looksLikeCommandName(inputToCheck)) {
                     const isKnownCommand = CLI_COMMAND_NAMES.has(inputToCheck);
+                    const suggestedCommand = isKnownCommand
+                        ? inputToCheck
+                        : resolveClosestKnownCommand(inputToCheck, CLI_COMMAND_NAMES);
                     const guidanceParts = isKnownCommand
                         ? [
                               `Did you mean to run the '${inputToCheck}' command?`,
@@ -1238,6 +1268,11 @@ async function resolveTargetStats(
                           ]
                         : [
                               `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
+                              ...(suggestedCommand === null
+                                  ? []
+                                  : [
+                                        `Did you mean '${suggestedCommand}'? Try "prettier-plugin-gml ${suggestedCommand} --help".`
+                                    ]),
                               'Run "prettier-plugin-gml --help" to see available commands.',
                               "If you intended to format a file or directory, verify the path exists relative",
                               `to the current working directory (${process.cwd()}) or provide an absolute path.`
