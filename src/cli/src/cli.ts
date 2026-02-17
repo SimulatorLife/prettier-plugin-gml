@@ -6,7 +6,6 @@
  *   way to format GameMaker Language files.
  * - Watch mode for monitoring GML source files and coordinating the
  *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
- * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
  * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
@@ -32,7 +31,6 @@ import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./c
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
-import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
@@ -54,7 +52,7 @@ function resolveDefaultAction() {
 
 function normalizeCommandLineArguments(argv) {
     const normalizedArgs = normalizeArgumentList(argv);
-    const withoutSeparator = stripLeadingArgumentSeparator(normalizedArgs);
+    const withoutSeparator = stripPnpmArgumentSeparators(normalizedArgs);
     return resolveHelpAliasArguments(withoutSeparator);
 }
 
@@ -62,12 +60,12 @@ function normalizeArgumentList(argv) {
     return isNonEmptyArray(argv) ? [...argv] : [];
 }
 
-function stripLeadingArgumentSeparator(args) {
-    // Some package managers (like pnpm) may inject a leading '--' separator
-    // when passing arguments to a script. If we see this as the first argument,
-    // we strip it so Commander can correctly identify subcommands and options
-    // instead of treating them as positional arguments.
-    return args[0] === "--" ? args.slice(1) : args;
+function stripPnpmArgumentSeparators(args) {
+    // pnpm forwards script arguments through `--`, which can show up as
+    // standalone tokens in argv (e.g., `format -- --check`). These separators
+    // are transport-only and should not reach command handlers because they can
+    // be misinterpreted as a positional path.
+    return args.filter((argument) => argument !== "--");
 }
 
 function resolveHelpAliasArguments(args) {
@@ -333,16 +331,6 @@ cliCommandRegistry.registerCommand({
         handleCliError(error, {
             prefix: "Lint command failed.",
             exitCode: 2
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createPerformanceCommand(),
-    run: ({ command }) => runPerformanceCommand({ command }),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to run performance benchmarks.",
-            exitCode: 1
         })
 });
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { tryFoldConstantExpression } from "../src/emitter/constant-folding.js";
+import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "../src/emitter/constant-folding.js";
 
 // Unit tests for the constant folding function itself
 // These tests create AST nodes directly to test the folding logic
@@ -15,6 +15,17 @@ void test("constant folding: arithmetic addition", () => {
     };
     const result = tryFoldConstantExpression(ast);
     assert.strictEqual(result, 5, "Should fold 2 + 3 to 5");
+});
+
+void test("constant folding: parses numeric string literals for arithmetic", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "2" },
+        right: { type: "Literal" as const, value: "3" },
+        operator: "+"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, 5, 'Should fold numeric strings "2" + "3" to 5');
 });
 
 void test("constant folding: arithmetic subtraction", () => {
@@ -125,6 +136,17 @@ void test("constant folding: GML and operator", () => {
     };
     const result = tryFoldConstantExpression(ast);
     assert.strictEqual(result, false, "Should fold true and false to false");
+});
+
+void test("constant folding: parses boolean string literals", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "true" },
+        right: { type: "Literal" as const, value: "false" },
+        operator: "and"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, false, 'Should fold "true" and "false" to false');
 });
 
 void test("constant folding: boolean OR", () => {
@@ -327,4 +349,158 @@ void test("constant folding: handles floating point correctly", () => {
         typeof result === "number" && result > 0.79 && result < 0.81,
         "Should fold 0.5 + 0.3 to approximately 0.8"
     );
+});
+
+void test("unary constant folding: negation of positive number", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Literal" as const, value: 5 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, -5, "Should fold -5 to -5");
+});
+
+void test("unary constant folding: negation of negative number", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Literal" as const, value: -10 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, 10, "Should fold -(-10) to 10");
+});
+
+void test("unary constant folding: unary plus", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "+",
+        argument: { type: "Literal" as const, value: 42 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, 42, "Should fold +42 to 42");
+});
+
+void test("unary constant folding: bitwise NOT", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "~",
+        argument: { type: "Literal" as const, value: 15 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, -16, "Should fold ~15 to -16");
+});
+
+void test("unary constant folding: logical NOT on true", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "!",
+        argument: { type: "Literal" as const, value: true },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, false, "Should fold !true to false");
+});
+
+void test("unary constant folding: logical NOT on false", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "!",
+        argument: { type: "Literal" as const, value: false },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, true, "Should fold !false to true");
+});
+
+void test("unary constant folding: GML not keyword on true", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "not",
+        argument: { type: "Literal" as const, value: true },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, false, "Should fold not true to false");
+});
+
+void test("unary constant folding: GML not keyword on false", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "not",
+        argument: { type: "Literal" as const, value: false },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, true, "Should fold not false to true");
+});
+
+void test("unary constant folding: returns null for non-literal operand", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Identifier" as const, name: "x" },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold non-literal operands");
+});
+
+void test("unary constant folding: returns null for null operand value", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Literal" as const, value: null },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold null operand");
+});
+
+void test("unary constant folding: returns null for undefined operand value", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Literal" as const, value: undefined },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold undefined operand");
+});
+
+void test("unary constant folding: returns null for unsupported operator", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "++",
+        argument: { type: "Literal" as const, value: 5 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold unsupported operators like ++");
+});
+
+void test("unary constant folding: returns null for type mismatch (boolean with numeric operator)", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "-",
+        argument: { type: "Literal" as const, value: true },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold when operator doesn't match operand type");
+});
+
+void test("unary constant folding: returns null for type mismatch (number with logical operator)", () => {
+    const ast = {
+        type: "UnaryExpression" as const,
+        operator: "!",
+        argument: { type: "Literal" as const, value: 42 },
+        prefix: true
+    };
+    const result = tryFoldConstantUnaryExpression(ast);
+    assert.strictEqual(result, null, "Should not fold when operator doesn't match operand type");
 });

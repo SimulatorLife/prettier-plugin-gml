@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 import { Core } from "@gml-modules/core";
 
-import { createIntegerEnvConfiguredValue } from "../env-configured-integer.js";
+import { createIntegerEnvConfiguredValue } from "./env-configured-integer.js";
 
 const {
     callWithFallback,

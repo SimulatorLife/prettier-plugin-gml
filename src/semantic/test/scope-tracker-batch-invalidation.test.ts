@@ -164,6 +164,28 @@ void describe("ScopeTracker batch invalidation", () => {
         );
     });
 
+    void it("supports windows-style path queries against normalized scope paths", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "C:/project/root.gml" });
+        tracker.withScope(
+            "function",
+            () => {
+                tracker.declare("playerHealth", { name: "playerHealth" });
+            },
+            { path: "C:/project/scripts/player.gml" }
+        );
+
+        const windowsPath = String.raw`C:\project\scripts\player.gml`;
+        const invalidationResults = tracker.getBatchInvalidationSets([windowsPath]);
+        const scopesByPath = tracker.getScopesByPath(windowsPath);
+
+        const invalidationSet = invalidationResults.get(windowsPath);
+        assert.ok(invalidationSet, "Windows-style path should resolve invalidation entries");
+        assert.ok(invalidationSet.length > 0, "Windows-style path should return at least one scope");
+        assert.ok(scopesByPath.length > 0, "Windows-style path should resolve scopes by path");
+    });
+
     void it("handles empty input gracefully", () => {
         const tracker = new ScopeTracker({ enabled: true });
 

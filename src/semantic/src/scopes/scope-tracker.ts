@@ -79,6 +79,10 @@ export class ScopeTracker {
     private lookupCache: Map<string, ScopeSymbolMetadata | null>;
     private lookupCacheDepth: number;
 
+    private normalizeTrackedPath(path: string): string {
+        return path.replaceAll("\\", "/");
+    }
+
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
@@ -129,10 +133,11 @@ export class ScopeTracker {
 
         const path = metadata?.path;
         if (typeof path === "string" && path.length > 0) {
-            let scopeSet = this.pathToScopesIndex.get(path);
+            const trackedPath = this.normalizeTrackedPath(path);
+            let scopeSet = this.pathToScopesIndex.get(trackedPath);
             if (!scopeSet) {
                 scopeSet = new Set<string>();
-                this.pathToScopesIndex.set(path, scopeSet);
+                this.pathToScopesIndex.set(trackedPath, scopeSet);
             }
             scopeSet.add(scope.id);
         }
@@ -180,6 +185,15 @@ export class ScopeTracker {
      */
     public getScopeStack(): Scope[] {
         return this.scopeStack;
+    }
+
+    /**
+     * Helper method to get a single scope as an array, avoiding filter allocation.
+     * Returns empty array if scope doesn't exist.
+     */
+    private getSingleScopeArray(scopeId: string): Scope[] {
+        const scope = this.scopesById.get(scopeId);
+        return scope ? [scope] : [];
     }
 
     private getDescendantScopeIds(scopeId: string): Set<string> {
@@ -457,13 +471,24 @@ export class ScopeTracker {
         const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
 
         for (const [name, entry] of scope.occurrences) {
-            const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
-            const references = includeReferences
-                ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
-                : [];
+            // Pre-allocate arrays with exact size to avoid reallocation during iteration
+            const declCount = entry.declarations.length;
+            const refCount = entry.references.length;
 
-            if (declarations.length === 0 && references.length === 0) {
+            if (declCount === 0 && refCount === 0) {
                 continue;
+            }
+
+            const declarations: Occurrence[] = Array.from({ length: declCount });
+            for (let i = 0; i < declCount; i++) {
+                declarations[i] = cloneOccurrence(entry.declarations[i]);
+            }
+
+            const references: Occurrence[] = includeReferences ? Array.from({ length: refCount }) : [];
+            if (includeReferences) {
+                for (let i = 0; i < refCount; i++) {
+                    references[i] = cloneOccurrence(entry.references[i]);
+                }
             }
 
             identifiers.push({
@@ -994,19 +1019,15 @@ export class ScopeTracker {
         }
 
         const externalRefs: ExternalReference[] = [];
-        const processedSymbols = new Set();
 
         for (const [name, entry] of scope.occurrences) {
-            if (processedSymbols.has(name)) {
-                continue;
-            }
-
+            // Check references first before any other work (early exit optimization)
             if (entry.references.length === 0) {
                 continue;
             }
 
-            const declaration = scope.symbolMetadata.get(name);
-            if (declaration) {
+            // Skip local declarations
+            if (scope.symbolMetadata.has(name)) {
                 continue;
             }
 
@@ -1017,7 +1038,12 @@ export class ScopeTracker {
                 continue;
             }
 
-            const occurrences = entry.references.map((occurrence) => cloneOccurrence(occurrence));
+            // Pre-allocate array for occurrences
+            const refCount = entry.references.length;
+            const occurrences: Occurrence[] = Array.from({ length: refCount });
+            for (let i = 0; i < refCount; i++) {
+                occurrences[i] = cloneOccurrence(entry.references[i]);
+            }
 
             externalRefs.push({
                 name,
@@ -1026,8 +1052,6 @@ export class ScopeTracker {
                 declaration: resolvedDeclaration ? cloneDeclarationMetadata(resolvedDeclaration) : null,
                 occurrences
             });
-
-            processedSymbols.add(name);
         }
 
         return externalRefs;
@@ -1327,23 +1351,6 @@ export class ScopeTracker {
         >();
         const descendantScopesCache = new Map<string, Array<{ scopeId: string; scopeKind: string; depth: number }>>();
 
-        const createAddScopeFunction = (
-            seenScopes: Set<string>,
-            pathInvalidationSet: Array<{ scopeId: string; scopeKind: string; reason: string }>
-        ) => {
-            return (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
-                if (seenScopes.has(scopeIdToAdd)) {
-                    return;
-                }
-                seenScopes.add(scopeIdToAdd);
-                pathInvalidationSet.push({
-                    scopeId: scopeIdToAdd,
-                    scopeKind,
-                    reason
-                });
-            };
-        };
-
         for (const path of paths) {
             if (!path || typeof path !== "string" || path.length === 0) {
                 continue;
@@ -1353,7 +1360,8 @@ export class ScopeTracker {
                 continue;
             }
 
-            const scopeIds = this.pathToScopesIndex.get(path);
+            const trackedPath = this.normalizeTrackedPath(path);
+            const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
                 results.set(path, []);
                 continue;
@@ -1365,7 +1373,6 @@ export class ScopeTracker {
                 reason: string;
             }> = [];
             const seenScopes = new Set<string>();
-            const addScope = createAddScopeFunction(seenScopes, pathInvalidationSet);
 
             for (const scopeId of scopeIds) {
                 const scope = this.scopesById.get(scopeId);
@@ -1373,7 +1380,14 @@ export class ScopeTracker {
                     continue;
                 }
 
-                addScope(scope.id, scope.kind, "self");
+                if (!seenScopes.has(scope.id)) {
+                    seenScopes.add(scope.id);
+                    pathInvalidationSet.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        reason: "self"
+                    });
+                }
 
                 let dependents = transitiveDependentsCache.get(scopeId);
                 if (!dependents) {
@@ -1382,7 +1396,15 @@ export class ScopeTracker {
                 }
 
                 for (const dep of dependents) {
-                    addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
+                    if (seenScopes.has(dep.dependentScopeId)) {
+                        continue;
+                    }
+                    seenScopes.add(dep.dependentScopeId);
+                    pathInvalidationSet.push({
+                        scopeId: dep.dependentScopeId,
+                        scopeKind: dep.dependentScopeKind,
+                        reason: "dependent"
+                    });
                 }
 
                 if (includeDescendants) {
@@ -1393,7 +1415,15 @@ export class ScopeTracker {
                     }
 
                     for (const desc of descendants) {
-                        addScope(desc.scopeId, desc.scopeKind, "descendant");
+                        if (seenScopes.has(desc.scopeId)) {
+                            continue;
+                        }
+                        seenScopes.add(desc.scopeId);
+                        pathInvalidationSet.push({
+                            scopeId: desc.scopeId,
+                            scopeKind: desc.scopeKind,
+                            reason: "descendant"
+                        });
                     }
                 }
             }
@@ -1483,7 +1513,8 @@ export class ScopeTracker {
             return [];
         }
 
-        const scopeIds = this.pathToScopesIndex.get(path);
+        const trackedPath = this.normalizeTrackedPath(path);
+        const scopeIds = this.pathToScopesIndex.get(trackedPath);
         if (!scopeIds || scopeIds.size === 0) {
             return [];
         }
@@ -1543,23 +1574,25 @@ export class ScopeTracker {
 
         if (Object.hasOwn(metadata, "path")) {
             const previousPath = scope.metadata.path;
+            const trackedPreviousPath = previousPath ? this.normalizeTrackedPath(previousPath) : undefined;
             const nextPath = typeof metadata.path === "string" && metadata.path.length > 0 ? metadata.path : undefined;
+            const trackedNextPath = nextPath ? this.normalizeTrackedPath(nextPath) : undefined;
 
             if (previousPath && previousPath !== nextPath) {
-                const scopeSet = this.pathToScopesIndex.get(previousPath);
+                const scopeSet = this.pathToScopesIndex.get(trackedPreviousPath ?? previousPath);
                 if (scopeSet) {
                     scopeSet.delete(scope.id);
                     if (scopeSet.size === 0) {
-                        this.pathToScopesIndex.delete(previousPath);
+                        this.pathToScopesIndex.delete(trackedPreviousPath ?? previousPath);
                     }
                 }
             }
 
             if (nextPath && nextPath !== previousPath) {
-                let scopeSet = this.pathToScopesIndex.get(nextPath);
+                let scopeSet = this.pathToScopesIndex.get(trackedNextPath ?? nextPath);
                 if (!scopeSet) {
                     scopeSet = new Set<string>();
-                    this.pathToScopesIndex.set(nextPath, scopeSet);
+                    this.pathToScopesIndex.set(trackedNextPath ?? nextPath, scopeSet);
                 }
                 scopeSet.add(scope.id);
             }
@@ -1980,9 +2013,7 @@ export class ScopeTracker {
         const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        const scopesToProcess = scopeId
-            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : Array.from(this.scopesById.values());
+        const scopesToProcess = scopeId ? this.getSingleScopeArray(scopeId) : Array.from(this.scopesById.values());
 
         for (const scope of scopesToProcess) {
             const occurrences: ScipOccurrence[] = [];
@@ -2052,9 +2083,7 @@ export class ScopeTracker {
         const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        const scopesToProcess = scopeId
-            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : this.collectScopesForSymbols(symbolSet);
+        const scopesToProcess = scopeId ? this.getSingleScopeArray(scopeId) : this.collectScopesForSymbols(symbolSet);
 
         if (scopesToProcess.length === 0) {
             return [];
@@ -2152,6 +2181,98 @@ export class ScopeTracker {
         }
 
         return results;
+    }
+
+    /**
+     * Efficiently checks if any of the given symbols have modifications in scopes
+     * newer than the specified timestamp.
+     *
+     * This method is optimized for hot-reload invalidation scenarios where you need
+     * to quickly determine if a symbol has changed without allocating occurrence arrays.
+     * It performs early-exit checks and avoids unnecessary object creation.
+     *
+     * Use case: Before triggering a full hot-reload, check if any of the symbols
+     * referenced by a module have actually changed since the last reload.
+     *
+     * @param symbols - Set of symbol names to check for modifications
+     * @param sinceTimestamp - Only consider scopes modified after this timestamp
+     * @returns Map of symbol names to arrays of scope IDs where they were modified
+     */
+    public getModifiedSymbolScopes(symbols: Set<string> | string[], sinceTimestamp: number): Map<string, string[]> {
+        if (!this.enabled) {
+            return new Map();
+        }
+
+        const symbolSet = symbols instanceof Set ? symbols : new Set(symbols);
+        if (symbolSet.size === 0) {
+            return new Map();
+        }
+
+        const results = new Map<string, string[]>();
+
+        for (const symbol of symbolSet) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(symbol);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const modifiedScopes: string[] = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                if (scope.lastModifiedTimestamp <= sinceTimestamp) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(symbol);
+                if (!entry) {
+                    continue;
+                }
+
+                if (entry.declarations.length > 0 || entry.references.length > 0) {
+                    modifiedScopes.push(scopeId);
+                }
+            }
+
+            if (modifiedScopes.length > 0) {
+                modifiedScopes.sort();
+                results.set(symbol, modifiedScopes);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Checks if a specific scope contains any declarations or references for the given symbol.
+     *
+     * This is a lightweight check that avoids allocating occurrence arrays, making it
+     * suitable for fast hot-reload decision paths where you only need a yes/no answer.
+     *
+     * @param scopeId - Scope ID to check
+     * @param symbol - Symbol name to look for
+     * @returns True if the scope has any occurrences of the symbol, false otherwise
+     */
+    public scopeHasSymbol(scopeId: string | null | undefined, symbol: string | null | undefined): boolean {
+        if (!scopeId || !symbol || !this.enabled) {
+            return false;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return false;
+        }
+
+        const entry = scope.occurrences.get(symbol);
+        if (!entry) {
+            return false;
+        }
+
+        return entry.declarations.length > 0 || entry.references.length > 0;
     }
 }
 

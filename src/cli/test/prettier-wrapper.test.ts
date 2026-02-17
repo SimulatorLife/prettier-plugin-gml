@@ -1094,6 +1094,21 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
+    void it("suggests the closest command name when a mistyped command is passed as a format target", async () => {
+        try {
+            await execFileAsync("node", [wrapperPath, "formt"]);
+            assert.fail("Expected the wrapper to exit with a non-zero status code");
+        } catch (error) {
+            assert.ok(error, "Expected an error to be thrown");
+            assert.strictEqual(error.code, 1, "Expected a non-zero exit code for an invalid target");
+            assert.match(
+                error.stderr,
+                /Did you mean 'format'\? Try "prettier-plugin-gml format --help"\./,
+                "Expected stderr to include an actionable command typo suggestion"
+            );
+        }
+    });
+
     void it("formats the current working directory when no target path is provided", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

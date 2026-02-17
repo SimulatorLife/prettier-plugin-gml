@@ -1,4 +1,3 @@
-import { isFunctionLikeNode } from "../../../ast/node-helpers.js";
 import {
     getIdentifierText,
     getNodeEndIndex,
@@ -8,6 +7,7 @@ import {
     isObjectLike,
     isUndefinedSentinel
 } from "../utils.js";
+import { isFunctionLikeDocCommentNode } from "./ast-contract.js";
 import { normalizeDocMetadataName } from "./params.js";
 
 const STRING_TYPE = "string";
@@ -258,7 +258,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             return;
         }
 
-        if (node !== functionNode && isFunctionLikeNode(node)) {
+        if (node !== functionNode && isFunctionLikeDocCommentNode(node)) {
             return;
         }
 

@@ -1,10 +1,4 @@
-import { handleComments, printComment } from "../comments/index.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
-// Concrete adapter imports - encapsulated at this module boundary.
-// Higher-level code receives these through the factory function rather than
-// importing them directly, establishing a proper dependency inversion boundary.
-import { gmlParserAdapter } from "../parsers/index.js";
-import { print } from "../printer/index.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
 
 const IDENTIFIER_CASE_OPTIONS: GmlPluginComponentContract["identifierCaseOptions"] = Object.freeze({});
@@ -25,6 +19,9 @@ export type GmlPluginComponentDependencies = {
  * This factory function accepts concrete implementations as parameters, establishing
  * a proper dependency inversion boundary where high-level orchestration code depends
  * on abstractions (this factory) rather than concrete adapter imports.
+ *
+ * @param dependencies - Concrete parser, printer, and comment handler implementations
+ * @returns Frozen component contract with all required plugin components
  */
 export function createDefaultGmlPluginComponentImplementations(
     dependencies: GmlPluginComponentDependencies
@@ -38,19 +35,3 @@ export function createDefaultGmlPluginComponentImplementations(
         LogicalOperatorsStyle
     });
 }
-
-const gmlPluginComponentImplementations = Object.freeze(
-    createDefaultGmlPluginComponentImplementations({
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment
-    })
-);
-
-const gmlPluginComponentDependencies = gmlPluginComponentImplementations;
-
-export { gmlPluginComponentDependencies, gmlPluginComponentImplementations };
-
-export const defaultGmlPluginComponentImplementations = gmlPluginComponentImplementations;
-export const defaultGmlPluginComponentDependencies = gmlPluginComponentDependencies;
