@@ -306,7 +306,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
    | `gml/no-globalvar` | `warn` | `yes` |
    | `gml/normalize-doc-comments` | `warn` | `no` |
    | `gml/normalize-directives` | `warn` | `no` |
-   | `gml/require-if-braces` | `warn` | `no` |
+   | `gml/require-control-flow-braces` | `warn` | `no` |
    | `gml/no-assignment-in-condition` | `warn` | `no` |
    | `gml/normalize-operator-aliases` | `warn` | `no` |
    | `gml/prefer-string-interpolation` | `warn` | `yes` |
@@ -865,7 +865,7 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
 8. `gml/normalize-directives`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
    Replaces: formatter-side `#define`/`#region` legacy directive canonicalization.
-9. `gml/require-if-braces`  
+9. `gml/require-control-flow-braces`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
    Replaces: formatter-side single-clause `if`/`else` brace synthesis.
 10. `gml/no-assignment-in-condition`  
@@ -983,9 +983,9 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
       - trigger: legacy directive spellings (`//#region`, `#define region`, `#define end region`, `#define NAME ...`).
       - messageIds: `normalizeDirectives`.
       - fix canonical form: normalize to `#region`/`#endregion` and `#macro` forms with stable spacing and no trailing macro semicolon.
-    - `gml/require-if-braces`:
+    - `gml/require-control-flow-braces`:
       - trigger: `if`/`else` single-statement clauses without braces.
-      - messageIds: `requireIfBraces`.
+      - messageIds: `requireControlFlowBraces`.
       - fix canonical form: wrap single statement bodies into braces without changing clause order.
     - `gml/no-assignment-in-condition`:
       - trigger: assignment operator (`=`) used in `if`/`while` condition contexts.

@@ -169,10 +169,10 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
-        mapKey: "GmlRequireIfBraces",
-        shortName: "require-if-braces",
-        fullId: "gml/require-if-braces",
-        messageId: "requireIfBraces",
+        mapKey: "GmlRequireControlFlowBraces",
+        shortName: "require-control-flow-braces",
+        fullId: "gml/require-control-flow-braces",
+        messageId: "requireControlFlowBraces",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
         unsafeReasonCodes: NO_REASON_CODES,

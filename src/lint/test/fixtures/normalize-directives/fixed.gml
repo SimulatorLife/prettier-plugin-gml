@@ -8,3 +8,9 @@ var util = function (val) {
 #endregion
 #macro BAR 2 // keep comment
 #define 123 not valid
+if (ready) {
+    do_work();
+} // done
+{
+    nested += 1;
+}

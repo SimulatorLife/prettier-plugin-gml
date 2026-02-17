@@ -120,7 +120,7 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
         "no-globalvar",
         "normalize-doc-comments",
         "normalize-directives",
-        "require-if-braces",
+        "require-control-flow-braces",
         "no-assignment-in-condition",
         "normalize-operator-aliases",
         "optimize-math-expressions",

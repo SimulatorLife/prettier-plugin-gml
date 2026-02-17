@@ -496,13 +496,76 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
     });
 }
 
+function findLineCommentIndexOutsideStrings(line: string): number {
+    let inString: "'" | '"' | null = null;
+
+    for (let index = 0; index < line.length; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (inString) {
+            if (character === "\\") {
+                index += 1;
+                continue;
+            }
+
+            if (character === inString) {
+                inString = null;
+            }
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            inString = character;
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "/") {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
+function normalizeLegacyBlockKeywordLine(line: string): string {
+    const commentMarkerIndex = findLineCommentIndexOutsideStrings(line);
+    let codePortion = line;
+    let commentPortion = "";
+    if (commentMarkerIndex >= 0) {
+        let commentStart = commentMarkerIndex;
+        while (commentStart > 0 && (line[commentStart - 1] === " " || line[commentStart - 1] === "\t")) {
+            commentStart -= 1;
+        }
+
+        codePortion = line.slice(0, commentStart);
+        commentPortion = line.slice(commentStart);
+    }
+
+    if (/^\s*#/u.test(codePortion)) {
+        return line;
+    }
+
+    const standaloneEnd = /^(\s*)end\s*;?\s*$/iu.exec(codePortion);
+    if (standaloneEnd) {
+        return `${standaloneEnd[1]}}${commentPortion}`;
+    }
+
+    if (/\bbegin\s*;?\s*$/iu.test(codePortion)) {
+        return `${codePortion.replace(/\bbegin\s*;?\s*$/iu, "{")}${commentPortion}`;
+    }
+
+    return line;
+}
+
 function normalizeLegacyDirectiveLine(line: string): string {
     const legacyCommentedRegion = /^(\s*)\/\/\s*#\s*(region|endregion)\b(.*)$/u.exec(line);
     if (legacyCommentedRegion) {
         const indentation = legacyCommentedRegion[1];
         const directive = legacyCommentedRegion[2];
         const suffix = legacyCommentedRegion[3].trim();
-        return suffix.length > 0 ? `${indentation}#${directive} ${suffix}` : `${indentation}#${directive}`;
+        const normalized = suffix.length > 0 ? `${indentation}#${directive} ${suffix}` : `${indentation}#${directive}`;
+        return normalizeLegacyBlockKeywordLine(normalized);
     }
 
     const legacyDefineRegion = /^(\s*)#define\s+(end\s+)?region\b(.*)$/iu.exec(line);
@@ -510,19 +573,20 @@ function normalizeLegacyDirectiveLine(line: string): string {
         const indentation = legacyDefineRegion[1];
         const directive = legacyDefineRegion[2] ? "#endregion" : "#region";
         const suffix = legacyDefineRegion[3].trim();
-        return suffix.length > 0 ? `${indentation}${directive} ${suffix}` : `${indentation}${directive}`;
+        const normalized = suffix.length > 0 ? `${indentation}${directive} ${suffix}` : `${indentation}${directive}`;
+        return normalizeLegacyBlockKeywordLine(normalized);
     }
 
     const legacyMacro = /^(\s*)#(macro|define)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
     if (!legacyMacro) {
-        return line;
+        return normalizeLegacyBlockKeywordLine(line);
     }
 
     const indentation = legacyMacro[1];
     const rawTail = legacyMacro[4];
     const lineCommentIndex = rawTail.indexOf("//");
-    const bodyPortion = lineCommentIndex >= 0 ? rawTail.slice(0, lineCommentIndex) : rawTail;
-    const commentPortion = lineCommentIndex >= 0 ? rawTail.slice(lineCommentIndex).trimEnd() : "";
+    const bodyPortion = lineCommentIndex === -1 ? rawTail : rawTail.slice(0, lineCommentIndex);
+    const commentPortion = lineCommentIndex === -1 ? "" : rawTail.slice(lineCommentIndex).trimEnd();
     const normalizedBody = bodyPortion.trim().replace(/;\s*$/u, "");
     const normalizedComment = commentPortion.length > 0 ? ` ${commentPortion}` : "";
 
@@ -539,21 +603,75 @@ type BracedSingleClause = Readonly<{
     statement: string;
 }>;
 
+type ConditionedControlFlowKeyword = "if" | "repeat" | "while" | "for" | "with";
+
+type ControlFlowLineHeader = Readonly<{
+    indentation: string;
+    header: string;
+}>;
+
+type DoUntilClause = Readonly<{
+    indentation: string;
+    statement: string;
+    untilCondition: string;
+}>;
+
+const CONDITIONED_CONTROL_FLOW_KEYWORDS = Object.freeze([
+    "if",
+    "repeat",
+    "while",
+    "for",
+    "with"
+]) as ReadonlyArray<ConditionedControlFlowKeyword>;
+
 function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
     return [`${indentation}${header} {`, `${indentation}    ${statement}`, `${indentation}}`];
 }
 
-function parseInlineIfClause(line: string): BracedSingleClause | null {
-    const inlineParens = /^(\s*)if\s*\((.+)\)\s*(?!\{)([^;{}].*;\s*)$/u.exec(line);
-    if (inlineParens) {
-        const indentation = inlineParens[1];
-        const condition = inlineParens[2].trim();
-        const statement = inlineParens[3].trim();
-        return {
-            indentation,
-            header: `if (${condition})`,
-            statement
-        };
+function parseInlineConditionedClause(
+    line: string,
+    keyword: ConditionedControlFlowKeyword
+): BracedSingleClause | null {
+    const inlinePattern = new RegExp(String.raw`^(\s*)${keyword}\s*\((.+)\)\s*(?!\{)([^;{}].*;\s*)$`, "u");
+    const inlineMatch = inlinePattern.exec(line);
+    if (!inlineMatch) {
+        return null;
+    }
+
+    return {
+        indentation: inlineMatch[1],
+        header: `${keyword} (${inlineMatch[2].trim()})`,
+        statement: inlineMatch[3].trim()
+    };
+}
+
+function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
+    for (const keyword of CONDITIONED_CONTROL_FLOW_KEYWORDS) {
+        const conditionedClause = parseInlineConditionedClause(line, keyword);
+        if (conditionedClause) {
+            return conditionedClause;
+        }
+    }
+
+    return null;
+}
+
+function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
+    const lineMatch = /^(\s*)(if|repeat|while|for|with)\s*\((.+)\)\s*$/u.exec(line);
+    if (!lineMatch) {
+        return null;
+    }
+
+    return {
+        indentation: lineMatch[1],
+        header: `${lineMatch[2]} (${lineMatch[3].trim()})`
+    };
+}
+
+function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
+    const inlineControlFlowClause = parseInlineControlFlowClause(line);
+    if (inlineControlFlowClause) {
+        return inlineControlFlowClause;
     }
 
     const legacyNoParens = /^(\s*)if\s+(.+);\s*$/u.exec(line);
@@ -596,6 +714,33 @@ function parseInlineElseClause(line: string): BracedSingleClause | null {
         header: "else",
         statement: inlineElse[2].trim()
     };
+}
+
+function toBracedDoUntilClause(indentation: string, statement: string, untilCondition: string): Array<string> {
+    return [`${indentation}do {`, `${indentation}    ${statement}`, `${indentation}} until (${untilCondition});`];
+}
+
+function parseInlineDoUntilClause(line: string): DoUntilClause | null {
+    const inlineDoUntil = /^(\s*)do\s+(?!\{)([^;{}].*;\s*)until\s*\((.+)\)\s*;?\s*$/u.exec(line);
+    if (!inlineDoUntil) {
+        return null;
+    }
+
+    return {
+        indentation: inlineDoUntil[1],
+        statement: inlineDoUntil[2].trim(),
+        untilCondition: inlineDoUntil[3].trim()
+    };
+}
+
+function parseLineOnlyDoHeader(line: string): string | null {
+    const doHeaderMatch = /^(\s*)do\s*$/u.exec(line);
+    return doHeaderMatch ? doHeaderMatch[1] : null;
+}
+
+function parseLineOnlyUntilFooter(line: string): string | null {
+    const untilFooterMatch = /^\s*until\s*\((.+)\)\s*;?\s*$/u.exec(line);
+    return untilFooterMatch ? untilFooterMatch[1].trim() : null;
 }
 
 function normalizeConditionAssignments(conditionText: string): string {
@@ -754,7 +899,7 @@ function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.Rule
     });
 }
 
-function createRequireIfBracesRule(definition: GmlRuleDefinition): Rule.RuleModule {
+function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
@@ -767,9 +912,15 @@ function createRequireIfBracesRule(definition: GmlRuleDefinition): Rule.RuleModu
 
                     for (let index = 0; index < lines.length; index += 1) {
                         const line = lines[index];
-                        const inlineIf = parseInlineIfClause(line);
-                        if (inlineIf) {
-                            rewrittenLines.push(...toBracedSingleClause(inlineIf.indentation, inlineIf.header, inlineIf.statement));
+                        const inlineControlFlow = parseInlineControlFlowClauseWithLegacyIf(line);
+                        if (inlineControlFlow) {
+                            rewrittenLines.push(
+                                ...toBracedSingleClause(
+                                    inlineControlFlow.indentation,
+                                    inlineControlFlow.header,
+                                    inlineControlFlow.statement
+                                )
+                            );
                             continue;
                         }
 
@@ -781,16 +932,45 @@ function createRequireIfBracesRule(definition: GmlRuleDefinition): Rule.RuleModu
                             continue;
                         }
 
-                        const lineIfMatch = /^(\s*)if\s*\((.+)\)\s*$/u.exec(line);
-                        if (lineIfMatch && index + 1 < lines.length) {
+                        const inlineDoUntil = parseInlineDoUntilClause(line);
+                        if (inlineDoUntil) {
+                            rewrittenLines.push(
+                                ...toBracedDoUntilClause(
+                                    inlineDoUntil.indentation,
+                                    inlineDoUntil.statement,
+                                    inlineDoUntil.untilCondition
+                                )
+                            );
+                            continue;
+                        }
+
+                        const lineHeaderMatch = parseLineOnlyControlFlowHeader(line);
+                        if (lineHeaderMatch && index + 1 < lines.length) {
                             const nextLine = lines[index + 1];
                             const nextTrimmed = nextLine.trim();
                             if (nextTrimmed.length > 0 && !nextTrimmed.startsWith("{")) {
-                                const indentation = lineIfMatch[1];
                                 rewrittenLines.push(
-                                    ...toBracedSingleClause(indentation, `if (${lineIfMatch[2].trim()})`, nextTrimmed)
+                                    ...toBracedSingleClause(lineHeaderMatch.indentation, lineHeaderMatch.header, nextTrimmed)
                                 );
                                 index += 1;
+                                continue;
+                            }
+                        }
+
+                        const doHeaderIndentation = parseLineOnlyDoHeader(line);
+                        if (doHeaderIndentation !== null && index + 2 < lines.length) {
+                            const statementLine = lines[index + 1];
+                            const statementTrimmed = statementLine.trim();
+                            const untilCondition = parseLineOnlyUntilFooter(lines[index + 2]);
+                            if (
+                                statementTrimmed.length > 0 &&
+                                !statementTrimmed.startsWith("{") &&
+                                untilCondition !== null
+                            ) {
+                                rewrittenLines.push(
+                                    ...toBracedDoUntilClause(doHeaderIndentation, statementTrimmed, untilCondition)
+                                );
+                                index += 2;
                                 continue;
                             }
                         }
@@ -1113,8 +1293,8 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         case "normalize-directives": {
             return createNormalizeDirectivesRule(definition);
         }
-        case "require-if-braces": {
-            return createRequireIfBracesRule(definition);
+        case "require-control-flow-braces": {
+            return createRequireControlFlowBracesRule(definition);
         }
         case "no-assignment-in-condition": {
             return createNoAssignmentInConditionRule(definition);
