@@ -54,7 +54,7 @@ function resolveDefaultAction() {
 
 function normalizeCommandLineArguments(argv) {
     const normalizedArgs = normalizeArgumentList(argv);
-    const withoutSeparator = stripLeadingArgumentSeparator(normalizedArgs);
+    const withoutSeparator = stripPnpmArgumentSeparators(normalizedArgs);
     return resolveHelpAliasArguments(withoutSeparator);
 }
 
@@ -62,12 +62,12 @@ function normalizeArgumentList(argv) {
     return isNonEmptyArray(argv) ? [...argv] : [];
 }
 
-function stripLeadingArgumentSeparator(args) {
-    // Some package managers (like pnpm) may inject a leading '--' separator
-    // when passing arguments to a script. If we see this as the first argument,
-    // we strip it so Commander can correctly identify subcommands and options
-    // instead of treating them as positional arguments.
-    return args[0] === "--" ? args.slice(1) : args;
+function stripPnpmArgumentSeparators(args) {
+    // pnpm forwards script arguments through `--`, which can show up as
+    // standalone tokens in argv (e.g., `format -- --check`). These separators
+    // are transport-only and should not reach command handlers because they can
+    // be misinterpreted as a positional path.
+    return args.filter((argument) => argument !== "--");
 }
 
 function resolveHelpAliasArguments(args) {

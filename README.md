@@ -616,6 +616,9 @@ pnpm run cli -- --help
 # Run the benchmarking helper
 pnpm run cli -- performance
 
+# Forward options through script separators safely
+pnpm run cli -- format -- --check
+
 # Run the hot-reload watcher against the 3DSpider demo (injects wrapper into the latest HTML5 output)
 pnpm run demo:watch
 ```
