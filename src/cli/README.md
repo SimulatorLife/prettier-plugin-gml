@@ -568,14 +568,6 @@ Generates Feather metadata for GameMaker's static analysis.
 pnpm run cli -- generate-feather-metadata
 ```
 
-### `performance` - Run Performance Benchmarks
-
-Executes performance benchmarks for parser, formatter, and other subsystems.
-
-```bash
-pnpm run cli -- performance
-```
-
 ### `memory` - Run Memory Benchmarks
 
 Measures memory usage across various operations.
@@ -642,7 +634,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
 - `generate-feather-metadata.ts` - Feather metadata generation
-- `performance.ts` - Performance benchmarking
 - `memory.ts` - Memory profiling
 
 **Modules** (`src/modules/`)
@@ -652,7 +643,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `runtime/` - HTML5 runtime integration
 - `manual/` - GameMaker manual processing
 - `feather/` - Feather metadata handling
-- `performance/` - Performance measurement utilities
 - `memory/` - Memory profiling utilities
 
 ## Development

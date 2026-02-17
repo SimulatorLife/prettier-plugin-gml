@@ -6,7 +6,6 @@
  *   way to format GameMaker Language files.
  * - Watch mode for monitoring GML source files and coordinating the
  *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
- * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
  * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
@@ -32,7 +31,6 @@ import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./c
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
-import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
@@ -333,16 +331,6 @@ cliCommandRegistry.registerCommand({
         handleCliError(error, {
             prefix: "Lint command failed.",
             exitCode: 2
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createPerformanceCommand(),
-    run: ({ command }) => runPerformanceCommand({ command }),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to run performance benchmarks.",
-            exitCode: 1
         })
 });
 

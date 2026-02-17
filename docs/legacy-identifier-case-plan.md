@@ -189,16 +189,6 @@ revealed three practical improvements:
    tuning opportunities for ignore/preserve lists visible when the numbers
    spiked.
 
-The `performance` CLI command (for example,
-`pnpm run cli -- performance --suite identifier-text`) ran the selected
-benchmark suites and printed the captured metrics as structured JSON. Passing
-`--stdout` kept the JSON stream clean for tooling like `jq` by redirecting the
-"report written" summary to stderr. The command also emitted a short stderr
-summary when any benchmark suite failed so the failure remained visible even
-without inspecting the JSON, and it exited with a non-zero status so automation
-could react immediately. This provided an ad-hoc regression harness for spotting
-problems before they made it into CI.
-
 ### Cache persistence schema
 
 The persisted cache lived inside `.prettier-plugin-gml/project-index-cache.json`
