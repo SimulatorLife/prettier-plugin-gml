@@ -6,8 +6,8 @@ import { Core } from "@gml-modules/core";
 import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { formatByteSizeDisplay } from "../shared/byte-format.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
-import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
 
 const { readTextFileSync } = Core;
 
