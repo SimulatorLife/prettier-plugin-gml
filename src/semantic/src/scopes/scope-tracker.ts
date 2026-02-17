@@ -182,6 +182,15 @@ export class ScopeTracker {
         return this.scopeStack;
     }
 
+    /**
+     * Helper method to get a single scope as an array, avoiding filter allocation.
+     * Returns empty array if scope doesn't exist.
+     */
+    private getSingleScopeArray(scopeId: string): Scope[] {
+        const scope = this.scopesById.get(scopeId);
+        return scope ? [scope] : [];
+    }
+
     private getDescendantScopeIds(scopeId: string): Set<string> {
         const descendants = new Set<string>();
         const children = this.scopeChildrenIndex.get(scopeId);
@@ -457,13 +466,24 @@ export class ScopeTracker {
         const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
 
         for (const [name, entry] of scope.occurrences) {
-            const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
-            const references = includeReferences
-                ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
-                : [];
+            // Pre-allocate arrays with exact size to avoid reallocation during iteration
+            const declCount = entry.declarations.length;
+            const refCount = entry.references.length;
 
-            if (declarations.length === 0 && references.length === 0) {
+            if (declCount === 0 && refCount === 0) {
                 continue;
+            }
+
+            const declarations: Occurrence[] = Array.from({ length: declCount });
+            for (let i = 0; i < declCount; i++) {
+                declarations[i] = cloneOccurrence(entry.declarations[i]);
+            }
+
+            const references: Occurrence[] = includeReferences ? Array.from({ length: refCount }) : [];
+            if (includeReferences) {
+                for (let i = 0; i < refCount; i++) {
+                    references[i] = cloneOccurrence(entry.references[i]);
+                }
             }
 
             identifiers.push({
@@ -994,19 +1014,22 @@ export class ScopeTracker {
         }
 
         const externalRefs: ExternalReference[] = [];
-        const processedSymbols = new Set();
+        const processedSymbols = new Set<string>();
 
         for (const [name, entry] of scope.occurrences) {
-            if (processedSymbols.has(name)) {
-                continue;
-            }
-
+            // Check references first before any other work (early exit optimization)
             if (entry.references.length === 0) {
                 continue;
             }
 
-            const declaration = scope.symbolMetadata.get(name);
-            if (declaration) {
+            // Skip duplicate processing
+            if (processedSymbols.has(name)) {
+                continue;
+            }
+            processedSymbols.add(name);
+
+            // Skip local declarations
+            if (scope.symbolMetadata.has(name)) {
                 continue;
             }
 
@@ -1017,7 +1040,12 @@ export class ScopeTracker {
                 continue;
             }
 
-            const occurrences = entry.references.map((occurrence) => cloneOccurrence(occurrence));
+            // Pre-allocate array for occurrences
+            const refCount = entry.references.length;
+            const occurrences: Occurrence[] = Array.from({ length: refCount });
+            for (let i = 0; i < refCount; i++) {
+                occurrences[i] = cloneOccurrence(entry.references[i]);
+            }
 
             externalRefs.push({
                 name,
@@ -1026,8 +1054,6 @@ export class ScopeTracker {
                 declaration: resolvedDeclaration ? cloneDeclarationMetadata(resolvedDeclaration) : null,
                 occurrences
             });
-
-            processedSymbols.add(name);
         }
 
         return externalRefs;
@@ -1980,9 +2006,7 @@ export class ScopeTracker {
         const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        const scopesToProcess = scopeId
-            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : Array.from(this.scopesById.values());
+        const scopesToProcess = scopeId ? this.getSingleScopeArray(scopeId) : Array.from(this.scopesById.values());
 
         for (const scope of scopesToProcess) {
             const occurrences: ScipOccurrence[] = [];
@@ -2052,9 +2076,7 @@ export class ScopeTracker {
         const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        const scopesToProcess = scopeId
-            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : this.collectScopesForSymbols(symbolSet);
+        const scopesToProcess = scopeId ? this.getSingleScopeArray(scopeId) : this.collectScopesForSymbols(symbolSet);
 
         if (scopesToProcess.length === 0) {
             return [];
