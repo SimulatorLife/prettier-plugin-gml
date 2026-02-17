@@ -27,20 +27,7 @@
  * ```
  */
 export function mapBinaryOperator(op: string): string {
-    const mapping: Record<string, string> = {
-        div: "/",
-        mod: "%",
-        and: "&&",
-        or: "||",
-        xor: "^",
-        "==": "===",
-        "!=": "!==",
-        "&": "&",
-        "|": "|",
-        "<<": "<<",
-        ">>": ">>"
-    };
-    return mapping[op] ?? op;
+    return BINARY_OPERATOR_MAPPINGS[op] ?? op;
 }
 
 /**
@@ -60,11 +47,15 @@ export function mapBinaryOperator(op: string): string {
  * ```
  */
 export function mapUnaryOperator(op: string): string {
-    const mapping: Record<string, string> = {
-        not: "!",
-        "~": "~",
-        "-": "-",
-        "+": "+"
-    };
-    return mapping[op] ?? op;
+    return op === "not" ? "!" : op;
 }
+
+const BINARY_OPERATOR_MAPPINGS: Readonly<Record<string, string>> = Object.freeze({
+    div: "/",
+    mod: "%",
+    and: "&&",
+    or: "||",
+    xor: "^",
+    "==": "===",
+    "!=": "!=="
+});
