@@ -1,5 +1,34 @@
 import type { BinaryExpressionNode, UnaryExpressionNode } from "./ast.js";
 
+function toNumericLiteral(value: string | number | boolean): number | null {
+    if (typeof value === "number") {
+        return value;
+    }
+
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function toBooleanLiteral(value: string | number | boolean): boolean | null {
+    if (typeof value === "boolean") {
+        return value;
+    }
+
+    if (value === "true") {
+        return true;
+    }
+
+    if (value === "false") {
+        return false;
+    }
+
+    return null;
+}
+
 /**
  * Attempt to fold a constant binary expression at compile time.
  *
@@ -36,69 +65,73 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
 
     const op = ast.operator;
 
-    // Arithmetic operations (numbers only)
-    if (typeof left === "number" && typeof right === "number") {
+    // Arithmetic and bitwise operations (numbers only).
+    // The parser sometimes stores numeric literals as strings, so we normalize
+    // both operands once up front and reuse them for all numeric operators.
+    const leftNumber = toNumericLiteral(left);
+    const rightNumber = toNumericLiteral(right);
+    if (leftNumber !== null && rightNumber !== null) {
         switch (op) {
             case "+": {
-                return left + right;
+                return leftNumber + rightNumber;
             }
             case "-": {
-                return left - right;
+                return leftNumber - rightNumber;
             }
             case "*": {
-                return left * right;
+                return leftNumber * rightNumber;
             }
             case "/": {
                 // Avoid division by zero
-                return right === 0 ? null : left / right;
+                return rightNumber === 0 ? null : leftNumber / rightNumber;
             }
             case "div": {
                 // GML's div performs integer division (floor division)
-                return right === 0 ? null : Math.floor(left / right);
+                return rightNumber === 0 ? null : Math.floor(leftNumber / rightNumber);
             }
             case "%":
             case "mod": {
                 // Avoid modulo by zero
-                return right === 0 ? null : left % right;
+                return rightNumber === 0 ? null : leftNumber % rightNumber;
             }
             case "**": {
-                return left ** right;
+                return leftNumber ** rightNumber;
             }
             case "<": {
-                return left < right;
+                return leftNumber < rightNumber;
             }
             case "<=": {
-                return left <= right;
+                return leftNumber <= rightNumber;
             }
             case ">": {
-                return left > right;
+                return leftNumber > rightNumber;
             }
             case ">=": {
-                return left >= right;
+                return leftNumber >= rightNumber;
             }
             case "==":
             case "===": {
-                return left === right;
+                return leftNumber === rightNumber;
             }
             case "!=":
             case "!==": {
-                return left !== right;
+                return leftNumber !== rightNumber;
             }
             case "&": {
-                return left & right;
+                return leftNumber & rightNumber;
             }
             case "|": {
-                return left | right;
+                return leftNumber | rightNumber;
             }
             case "^":
             case "xor": {
-                return left ^ right;
+                return leftNumber ^ rightNumber;
             }
             case "<<": {
-                return left << right;
+                return leftNumber << rightNumber;
             }
             case ">>": {
-                return left >> right;
+                return leftNumber >> rightNumber;
             }
         }
     }
@@ -109,23 +142,25 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
     }
 
     // Logical operations (boolean only)
-    if (typeof left === "boolean" && typeof right === "boolean") {
+    const leftBoolean = toBooleanLiteral(left);
+    const rightBoolean = toBooleanLiteral(right);
+    if (leftBoolean !== null && rightBoolean !== null) {
         switch (op) {
             case "&&":
             case "and": {
-                return left && right;
+                return leftBoolean && rightBoolean;
             }
             case "||":
             case "or": {
-                return left || right;
+                return leftBoolean || rightBoolean;
             }
             case "==":
             case "===": {
-                return left === right;
+                return leftBoolean === rightBoolean;
             }
             case "!=":
             case "!==": {
-                return left !== right;
+                return leftBoolean !== rightBoolean;
             }
         }
     }

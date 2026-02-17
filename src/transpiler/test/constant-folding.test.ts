@@ -17,6 +17,17 @@ void test("constant folding: arithmetic addition", () => {
     assert.strictEqual(result, 5, "Should fold 2 + 3 to 5");
 });
 
+void test("constant folding: parses numeric string literals for arithmetic", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "2" },
+        right: { type: "Literal" as const, value: "3" },
+        operator: "+"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, 5, 'Should fold numeric strings "2" + "3" to 5');
+});
+
 void test("constant folding: arithmetic subtraction", () => {
     const ast = {
         type: "BinaryExpression" as const,
@@ -125,6 +136,17 @@ void test("constant folding: GML and operator", () => {
     };
     const result = tryFoldConstantExpression(ast);
     assert.strictEqual(result, false, "Should fold true and false to false");
+});
+
+void test("constant folding: parses boolean string literals", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "true" },
+        right: { type: "Literal" as const, value: "false" },
+        operator: "and"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, false, 'Should fold "true" and "false" to false');
 });
 
 void test("constant folding: boolean OR", () => {
