@@ -827,7 +827,10 @@ function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
             return true;
         });
-        return rewrittenLines.join("\n").replaceAll(/\n{2,}/g, "\n").replace(/\n?$/u, "\n");
+        return rewrittenLines
+            .join("\n")
+            .replaceAll(/\n{2,}/g, "\n")
+            .replace(/\n?$/u, "\n");
     });
 }
 
@@ -1191,8 +1194,7 @@ function createGm1034Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             "$1function $2() {"
         );
 
-        const functionDeclarationMatch =
-            /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*\{/m.exec(rewritten);
+        const functionDeclarationMatch = /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*\{/m.exec(rewritten);
         const aliasMatch = /^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*argument0\s*;\s*$/m.exec(rewritten);
         if (functionDeclarationMatch && aliasMatch) {
             const functionDeclaration = functionDeclarationMatch[0];
@@ -1398,19 +1400,12 @@ function createGm1062Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*\/\/\/\s*)@desc\b/gm, "$1@description");
         rewritten = rewritten.replaceAll(
             /^([ \t]*\/\/\/\s*@param\s*)\{([^}]*)\}(\s+)([A-Za-z_][A-Za-z0-9_]*)(.*)$/gm,
-            (
-                _fullMatch,
-                prefix: string,
-                typeText: string,
-                spacing: string,
-                parameterName: string,
-                suffix: string
-            ) => {
+            (_fullMatch, prefix: string, typeText: string, spacing: string, parameterName: string, suffix: string) => {
                 const normalizedType = typeText
                     .replaceAll(/\bString\b/g, "string")
                     .replaceAll(/\bArray\s*\[\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\]/g, "array<$1>")
                     .replaceAll(/\bId\s+Instance\b/g, "Id.Instance")
-                    .replaceAll(/\|/g, ",")
+                    .replaceAll('|', ",")
                     .replaceAll(/\s+/g, "");
                 const normalizedParameterName = toDocParameterName(parameterName);
                 const normalizedSuffix = suffix.replace(/^\s*-\s*/u, " ");

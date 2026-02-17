@@ -59,7 +59,7 @@ type RepeatLoopCandidate = Readonly<{
 }>;
 
 function escapeRegularExpressionPattern(text: string): string {
-    return text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
@@ -114,7 +114,7 @@ function collectRepeatLoopCandidates(sourceText: string): Array<RepeatLoopCandid
             continue;
         }
 
-        const iteratorPattern = new RegExp(`\\b${escapeRegularExpressionPattern(iteratorName)}\\b`, "u");
+        const iteratorPattern = new RegExp(String.raw`\b${escapeRegularExpressionPattern(iteratorName)}\b`, "u");
         if (iteratorPattern.test(limitExpression)) {
             continue;
         }
@@ -171,9 +171,7 @@ function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.Ru
                     }
 
                     const text = context.sourceCode.text;
-                    const functionsPattern = enabledFunctions
-                        .map((fn) => escapeRegularExpressionPattern(fn))
-                        .join("|");
+                    const functionsPattern = enabledFunctions.map((fn) => escapeRegularExpressionPattern(fn)).join("|");
                     const loopPattern = new RegExp(
                         String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
                         "g"

@@ -192,12 +192,7 @@ void test("prefer-loop-length-hoist respects null suffix override by disabling h
 });
 
 void test("prefer-repeat-loops skips conversion when loop iterator is used in body", () => {
-    const input = [
-        "for (var i = 0; i < array_length(items); i++) {",
-        "    sum += i;",
-        "}",
-        ""
-    ].join("\n");
+    const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += i;", "}", ""].join("\n");
     const result = lintWithRule("prefer-repeat-loops", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);

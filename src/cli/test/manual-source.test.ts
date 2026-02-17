@@ -12,7 +12,8 @@ import {
     getManualRootMetadataPath,
     readManualText,
     resolveManualSource,
-    resolveManualSourceCommitHash} from "../src/modules/manual/source.js";
+    resolveManualSourceCommitHash
+} from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
 
 function runGit(args: Array<string>, cwd: string) {
