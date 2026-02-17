@@ -614,7 +614,7 @@ pnpm run format:check
 pnpm run cli -- --help
 
 # Run the benchmarking helper
-pnpm run cli -- performance
+pnpm run cli -- memory
 
 # Forward options through script separators safely
 pnpm run cli -- format -- --check
