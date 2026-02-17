@@ -1846,3 +1846,61 @@ void test("GmlToJsEmitter handles unknown node types gracefully", () => {
 
     assert.strictEqual(result, "", "Should return empty string for unknown node types");
 });
+
+// Integration tests for unary constant folding in the emitter
+
+void test("Transpiler.emitJavaScript folds constant unary negation", () => {
+    const code = "var x = -5;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = -5;");
+});
+
+void test("Transpiler.emitJavaScript folds constant unary plus", () => {
+    const code = "var x = +42;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = 42;");
+});
+
+void test("Transpiler.emitJavaScript folds constant bitwise NOT", () => {
+    const code = "var x = ~15;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = -16;");
+});
+
+void test("Transpiler.emitJavaScript folds constant logical NOT on true", () => {
+    const code = "var x = !true;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = false;");
+});
+
+void test("Transpiler.emitJavaScript folds constant logical NOT on false", () => {
+    const code = "var x = !false;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = true;");
+});
+
+void test("Transpiler.emitJavaScript folds constant GML not keyword", () => {
+    const code = "var x = not true;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = false;");
+});
+
+void test("Transpiler.emitJavaScript does not fold unary with variable operand", () => {
+    const code = "var x = -y;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result, "var x = -(y);");
+});
