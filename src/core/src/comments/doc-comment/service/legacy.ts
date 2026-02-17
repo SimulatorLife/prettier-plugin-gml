@@ -1,5 +1,11 @@
 import { type DocCommentLines, type MutableDocCommentLines } from "../../comment-utils.js";
-import { capitalize, isNonEmptyTrimmedString, toMutableArray, toTrimmedString } from "../utils.js";
+import {
+    capitalize,
+    copyDocCommentArrayFlags,
+    isNonEmptyTrimmedString,
+    toMutableArray,
+    toTrimmedString
+} from "../utils.js";
 import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
 
 const STRING_TYPE = "string";
@@ -38,18 +44,12 @@ function isDocCommentLines(lines: DocCommentLines | string[]): lines is DocComme
 
 /**
  * Copies doc comment metadata flags from a source to a target.
+ * This is a wrapper around copyDocCommentArrayFlags that checks if the source
+ * is a DocCommentLines object before copying.
  */
 function copyDocCommentFlags(source: DocCommentLines | string[], target: MutableDocCommentLines): void {
     if (isDocCommentLines(source)) {
-        if (source._preserveDescriptionBreaks === true) {
-            target._preserveDescriptionBreaks = true;
-        }
-        if (source._suppressLeadingBlank === true) {
-            target._suppressLeadingBlank = true;
-        }
-        if (source._blockCommentDocs === true) {
-            target._blockCommentDocs = true;
-        }
+        copyDocCommentArrayFlags(source as any, target);
     }
 }
 
