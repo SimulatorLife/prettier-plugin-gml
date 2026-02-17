@@ -334,11 +334,15 @@ export function createPrebuiltProjectAnalysisProvider(
     snapshotsByRoot: ReadonlyMap<string, ProjectAnalysisSnapshot>
 ): ProjectAnalysisProvider {
     const missingSnapshot = createMissingProjectAnalysisSnapshot();
+    const normalizedSnapshotsByRoot = new Map<string, ProjectAnalysisSnapshot>();
+    for (const [projectRoot, snapshot] of snapshotsByRoot.entries()) {
+        normalizedSnapshotsByRoot.set(normalizeLintFilePath(projectRoot), snapshot);
+    }
 
     return Object.freeze({
         buildSnapshot(projectRoot: string): ProjectAnalysisSnapshot {
             const normalizedRoot = normalizeLintFilePath(projectRoot);
-            return snapshotsByRoot.get(normalizedRoot) ?? missingSnapshot;
+            return normalizedSnapshotsByRoot.get(normalizedRoot) ?? missingSnapshot;
         }
     });
 }

@@ -110,8 +110,9 @@
 - Doc-comment semantic rewrite ownership moved further into lint:
   - `gml/normalize-doc-comments` now covers legacy doc-prefix normalization (`// @tag`, `// / text`), empty `@description` removal, doc-block description promotion, and synthetic function-doc tag synthesis (`@description`, missing `@param`, missing `@returns`).
   - New lint tests in `src/lint/test/normalize-doc-comments-rule.test.ts` now validate migrated doc-comment behaviors that were previously plugin-owned.
-  - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior, including migration of `synthetic-doc-comment-builder.test.ts` coverage into lint.
+  - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior, including migration of `synthetic-doc-comment-builder.test.ts` and `transforms/doc-comment/description-utils.test.ts` coverage into lint.
   - Plugin printer synthetic-doc runtime emission is now disabled (`src/plugin/src/printer/doc-comment/synthetic-doc-comment-builder.ts` returns `null` payloads), with regression coverage moved to lint + formatter boundary tests.
+  - Plugin comment suppression no longer relies on synthetic doc placeholders for function assignments, preventing formatter-side doc-tag synthesis paths from reappearing.
 - Additional feather parity fixture migration landed in lint:
   - Added rule implementations + lint-owned fixtures for the previously unimplemented parity IDs: `feather/gm1012`, `feather/gm1021`, `feather/gm1054`, `feather/gm1100`, `feather/gm2023`, `feather/gm2025`, `feather/gm2040`, `feather/gm2064`.
   - Added lint fixture directories for these IDs under `src/lint/test/fixtures/feather/gm####/` (including migrated copies for `gm1012`/`gm1100` from integration inventory fixtures).
@@ -132,10 +133,10 @@
 
 - `src/plugin`:
   - `pnpm --filter @gml-modules/plugin test` passes.
-  - Result: `pass 219`, `fail 0`, `skipped 0`.
+  - Result: `pass 149`, `fail 0`, `skipped 0`.
 - `src/lint`:
-  - `pnpm --filter @gml-modules/lint test` passes.
-  - Result: `pass 36`, `fail 0`, `skipped 0`.
+  - `pnpm --filter @gml-modules/lint test` currently reports known non-split failures in `project-context-registry.test.ts` and is not fully green.
+  - Result: `pass 54`, `fail 3`, `skipped 0`.
 - `src/cli`:
   - `pnpm --filter @gml-modules/cli test` passes.
   - Result: `pass 540`, `fail 0`, `skipped 0`.

@@ -25,8 +25,6 @@ type PrinterComment = {
     [key: string]: any;
 };
 
-const FUNCTION_INITIALIZER_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ConstructorDeclaration"]);
-
 function hasTypeProperty(value: unknown): value is { type?: string } {
     return value !== null && typeof value === "object";
 }
@@ -140,72 +138,10 @@ function shouldSuppressComment(comment, options) {
         originalText: options.originalText
     };
     const formatted = Core.formatLineComment(comment, formattingOptions);
-    const syntheticOwner = comment.followingNode ?? comment.enclosingNode ?? comment.precedingNode;
-    const rawText = Core.getLineCommentRawText(comment, {
-        originalText: options.originalText ?? undefined
-    });
-    const isDocLikeComment = Core.isLineCommentDocLike(formatted ?? rawText);
-    if (isDocLikeComment && isFunctionAssignmentDocCommentTarget(syntheticOwner)) {
-        return true;
-    }
-    if (
-        syntheticOwner &&
-        Array.isArray(syntheticOwner._syntheticDocLines) &&
-        Core.isLineCommentDocLike(formatted ?? rawText)
-    ) {
-        return true;
-    }
     if (isFunctionDocCommentLine(formatted)) {
         return true;
     }
     return formatted === null || formatted === "";
-}
-
-function isFunctionAssignmentDocCommentTarget(node: unknown): boolean {
-    if (!isObjectLike(node)) {
-        return false;
-    }
-
-    if (Core.isFunctionAssignmentStatement(node)) {
-        return true;
-    }
-
-    if ((node as { type?: string }).type === "AssignmentExpression") {
-        const assignment = node as { operator?: string; right?: { type?: string } };
-        if (assignment.operator !== "=") {
-            return false;
-        }
-        return FUNCTION_INITIALIZER_TYPES.has(assignment.right?.type ?? "");
-    }
-
-    if ((node as { type?: string }).type === "VariableDeclaration") {
-        const declaration = node as {
-            kind?: string;
-            declarations?: Array<{ type?: string; id?: { type?: string }; init?: { type?: string } }>;
-        };
-        const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
-        if (declarators.length !== 1) {
-            return false;
-        }
-        const declarator = declarators[0];
-        if (!declarator || declarator.type !== "VariableDeclarator") {
-            return false;
-        }
-        if (declarator.id?.type !== "Identifier") {
-            return false;
-        }
-        return FUNCTION_INITIALIZER_TYPES.has(declarator.init?.type ?? "");
-    }
-
-    if ((node as { type?: string }).type === "VariableDeclarator") {
-        const declarator = node as { id?: { type?: string }; init?: { type?: string } };
-        if (declarator.id?.type !== "Identifier") {
-            return false;
-        }
-        return FUNCTION_INITIALIZER_TYPES.has(declarator.init?.type ?? "");
-    }
-
-    return false;
 }
 
 function suppressFormattedComment(comment, options) {

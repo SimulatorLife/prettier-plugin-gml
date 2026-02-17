@@ -127,3 +127,29 @@ void test("normalize-doc-comments synthesizes tags when braces are on the next l
     assert.match(output, /^\/\/\/ @param arg_two/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
 });
+
+void test("normalize-doc-comments synthesizes tags for static function variable declarations", () => {
+    const input = ["static spawn_enemy = function (_x, y = 0) {", "    return _x + y;", "};"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description spawn_enemy/m);
+    assert.match(output, /^\/\/\/ @param x/m);
+    assert.match(output, /^\/\/\/ @param y/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments preserves multiline @description continuations while synthesizing missing tags", () => {
+    const input = [
+        "/// @description Build a spawn packet",
+        "/// with a deterministic seed",
+        "function build_packet(seed) {",
+        "    return seed;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description Build a spawn packet/m);
+    assert.match(output, /^\/\/\/ with a deterministic seed/m);
+    assert.match(output, /^\/\/\/ @param seed/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});

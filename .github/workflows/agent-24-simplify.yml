@@ -23,8 +23,9 @@ jobs:
       pr_title: "Agent: Overengineered Block Cleanup"
       prompt: |
         Locate a single block, function, or file whose implementation is noticeably over-engineered: bespoke helpers,
-        verbose control flow, redundant state tracking, or other non-Pythonic patterns that obscure the intent. Refactor
+        verbose control flow, redundant state tracking, or other non-idiomatic TypeScript patterns that obscure the intent. Refactor
         that one target into a concise, idiomatic solution that keeps behaviour intact while improving readability and
         maintainability. Avoid sweeping rewrites—focus on the clumsiest area you can make elegant without touching
         unrelated code. Make sure tests still pass and explain the original issues and the leaner approach in the commit
-        message.
+        message. Respect the formatter/linter split contract: semantic/content rewrites belong in `@gml-modules/lint`
+        (or refactor transactions), while `@gml-modules/plugin` remains formatter-only and layout-focused.
