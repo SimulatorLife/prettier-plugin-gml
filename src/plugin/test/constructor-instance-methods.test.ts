@@ -19,10 +19,6 @@ void describe("constructor instance method semicolons", () => {
 
         const expected = [
             "function Line() : Shape() constructor {",
-            "",
-            "    /// @param x1",
-            "    /// @param y1",
-            "    /// @returns {undefined}",
             "    function set_points(x1, y1) {",
             "        self.x1 = x1",
             "        self.y1 = y1",

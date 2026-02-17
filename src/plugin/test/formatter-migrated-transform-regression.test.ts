@@ -45,6 +45,18 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.doesNotMatch(formatted, /third = undefined/);
     });
 
+    void it("does not synthesize doc-comment tags during formatting", async () => {
+        const source = [
+            "function make_struct(value) {",
+            "var result = {alpha:1,beta:value,gamma:call()};",
+            "return result;",
+            "}"
+        ].join("\n");
+        const formatted = await Plugin.format(source);
+        assert.doesNotMatch(formatted, /^\/\/\/ @/m);
+        assert.match(formatted, /function make_struct\(value\)/);
+    });
+
     void it("fails fast on invalid syntax instead of repairing parse input", async () => {
         const malformedSource = 'if (ready) {\n    show_debug_message("x");\n';
 

@@ -9,12 +9,7 @@ void describe("empty block comments", () => {
 
         const formatted = await Plugin.format(source);
 
-        const expected = [
-            "/// @param genre",
-            "/// @returns {undefined}",
-            "function make_game(_genre) { /* ... */ }",
-            ""
-        ].join("\n");
+        const expected = ["function make_game(_genre) { /* ... */ }", ""].join("\n");
 
         assert.strictEqual(formatted, expected);
     });

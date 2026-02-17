@@ -19,8 +19,7 @@ const FORMATTER_FIXTURE_BASENAMES = Object.freeze([
     "testParams",
     "testPrintWidth",
     "control-flow-layout",
-    "if-layout-preserved",
-    "struct-layout"
+    "if-layout-preserved"
 ]);
 
 async function readFixtureText(

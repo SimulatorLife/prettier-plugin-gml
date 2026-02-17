@@ -403,6 +403,133 @@ function normalizeDocCommentPrefixLine(line: string): string {
     return line;
 }
 
+type FunctionDocCommentTarget = Readonly<{
+    indentation: string;
+    functionName: string;
+    parameterNames: ReadonlyArray<string>;
+}>;
+
+type TrailingDocCommentBlock = Readonly<{
+    startIndex: number;
+    lines: ReadonlyArray<string>;
+}>;
+
+function toDocCommentParameterName(parameterName: string): string {
+    return parameterName.replace(/^_+/u, "");
+}
+
+function parseFunctionParameterNames(parameterListText: string): Array<string> {
+    const parameterNames = parameterListText
+        .split(",")
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0)
+        .map((segment) => {
+            const equalsIndex = segment.indexOf("=");
+            const withoutDefault = equalsIndex === -1 ? segment : segment.slice(0, equalsIndex);
+            return withoutDefault.replace(/^\.\.\./u, "").trim();
+        })
+        .filter((parameterName) => /^[A-Za-z_][A-Za-z0-9_]*$/u.test(parameterName))
+        .map((parameterName) => toDocCommentParameterName(parameterName));
+
+    return [...new Set(parameterNames)];
+}
+
+function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget | null {
+    const declarationMatch =
+        /^(\s*)(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*\}?\s*)?$/u.exec(
+            line
+        );
+    if (declarationMatch) {
+        return {
+            indentation: declarationMatch[1],
+            functionName: declarationMatch[2],
+            parameterNames: parseFunctionParameterNames(declarationMatch[3])
+        };
+    }
+
+    const assignmentMatch =
+        /^(\s*)(?:var\s+|static\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*function(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*\}?\s*)?$/u.exec(
+            line
+        );
+    if (!assignmentMatch) {
+        return null;
+    }
+
+    return {
+        indentation: assignmentMatch[1],
+        functionName: assignmentMatch[2],
+        parameterNames: parseFunctionParameterNames(assignmentMatch[3])
+    };
+}
+
+function readTrailingDocCommentBlock(lines: ReadonlyArray<string>): TrailingDocCommentBlock | null {
+    let index = lines.length - 1;
+    if (index < 0 || !/^\s*\/\/\//u.test(lines[index])) {
+        return null;
+    }
+
+    while (index >= 0 && /^\s*\/\/\//u.test(lines[index])) {
+        index -= 1;
+    }
+
+    return {
+        startIndex: index + 1,
+        lines: lines.slice(index + 1)
+    };
+}
+
+function collectExistingDocParamNames(docLines: ReadonlyArray<string>): ReadonlySet<string> {
+    const parameterNames = new Set<string>();
+    const paramPattern = /^\s*\/\/\/\s*@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/u;
+
+    for (const line of docLines) {
+        const paramMatch = paramPattern.exec(line);
+        if (!paramMatch) {
+            continue;
+        }
+
+        const bracketless = paramMatch[1].replace(/^\[/u, "").replace(/\]$/u, "");
+        const normalized = bracketless.split("=")[0]?.trim() ?? "";
+        if (normalized.length > 0) {
+            parameterNames.add(normalized);
+        }
+    }
+
+    return parameterNames;
+}
+
+function synthesizeFunctionDocCommentBlock(
+    target: FunctionDocCommentTarget,
+    existingDocLines: ReadonlyArray<string> | null
+): ReadonlyArray<string> | null {
+    const docLines = existingDocLines ? [...existingDocLines] : [];
+    const hasDescription = docLines.some((line) => /^\s*\/\/\/\s*@description\b/u.test(line));
+    const hasReturns = docLines.some((line) => /^\s*\/\/\/\s*@returns\b/u.test(line));
+    const existingParamNames = collectExistingDocParamNames(docLines);
+    const missingParamNames = target.parameterNames.filter((parameterName) => !existingParamNames.has(parameterName));
+
+    if (!hasDescription) {
+        docLines.unshift(`${target.indentation}/// @description ${target.functionName}`);
+    }
+
+    for (const parameterName of missingParamNames) {
+        docLines.push(`${target.indentation}/// @param ${parameterName}`);
+    }
+
+    if (!hasReturns) {
+        docLines.push(`${target.indentation}/// @returns {undefined}`);
+    }
+
+    if (existingDocLines) {
+        const hasChanged =
+            docLines.length !== existingDocLines.length ||
+            docLines.some((line, index) => line !== existingDocLines[index]);
+        return hasChanged ? docLines : null;
+    }
+
+    return docLines;
+}
+
 function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -476,7 +603,29 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
 
                         flushDocBlock(pendingDocBlock);
                         pendingDocBlock = [];
-                        rewrittenLines.push(normalizeDocCommentPrefixLine(line));
+                        const normalizedLine = normalizeDocCommentPrefixLine(line);
+                        const docCommentTarget = parseFunctionDocCommentTarget(normalizedLine);
+                        if (docCommentTarget) {
+                            const trailingDocCommentBlock = readTrailingDocCommentBlock(rewrittenLines);
+                            const synthesizedDocCommentBlock = synthesizeFunctionDocCommentBlock(
+                                docCommentTarget,
+                                trailingDocCommentBlock?.lines ?? null
+                            );
+
+                            if (synthesizedDocCommentBlock) {
+                                if (trailingDocCommentBlock) {
+                                    rewrittenLines.splice(
+                                        trailingDocCommentBlock.startIndex,
+                                        trailingDocCommentBlock.lines.length,
+                                        ...synthesizedDocCommentBlock
+                                    );
+                                } else {
+                                    rewrittenLines.push(...synthesizedDocCommentBlock);
+                                }
+                            }
+                        }
+
+                        rewrittenLines.push(normalizedLine);
                     }
                     flushDocBlock(pendingDocBlock);
 

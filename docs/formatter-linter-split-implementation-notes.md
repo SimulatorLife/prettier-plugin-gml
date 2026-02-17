@@ -108,9 +108,10 @@
   - `gml/require-trailing-optional-defaults`.
 - Plugin semantic rewrite tests for these behaviors were removed from formatter workspace and replaced by formatter regression assertions that formatting does **not** perform these rewrites.
 - Doc-comment semantic rewrite ownership moved further into lint:
-  - `gml/normalize-doc-comments` now covers legacy doc-prefix normalization (`// @tag`, `// / text`), empty `@description` removal, and doc-block description promotion.
+  - `gml/normalize-doc-comments` now covers legacy doc-prefix normalization (`// @tag`, `// / text`), empty `@description` removal, doc-block description promotion, and synthetic function-doc tag synthesis (`@description`, missing `@param`, missing `@returns`).
   - New lint tests in `src/lint/test/normalize-doc-comments-rule.test.ts` now validate migrated doc-comment behaviors that were previously plugin-owned.
-  - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior.
+  - Plugin semantic tests for comment-promotion/description cleanup were removed from `src/plugin/test` as lint-owned behavior, including migration of `synthetic-doc-comment-builder.test.ts` coverage into lint.
+  - Plugin printer synthetic-doc runtime emission is now disabled (`src/plugin/src/printer/doc-comment/synthetic-doc-comment-builder.ts` returns `null` payloads), with regression coverage moved to lint + formatter boundary tests.
 - Additional feather parity fixture migration landed in lint:
   - Added rule implementations + lint-owned fixtures for the previously unimplemented parity IDs: `feather/gm1012`, `feather/gm1021`, `feather/gm1054`, `feather/gm1100`, `feather/gm2023`, `feather/gm2025`, `feather/gm2040`, `feather/gm2064`.
   - Added lint fixture directories for these IDs under `src/lint/test/fixtures/feather/gm####/` (including migrated copies for `gm1012`/`gm1100` from integration inventory fixtures).

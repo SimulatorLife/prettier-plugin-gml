@@ -83,7 +83,6 @@ export {
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
-export { precomputeSyntheticDocComments } from "./doc-comment/precompute-synthetic-doc-comments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";

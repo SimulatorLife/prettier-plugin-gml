@@ -52,6 +52,7 @@ Migration quick map:
 - `globalvar` rewrites => `gml/no-globalvar` (lint)
 - loop-hoist rewrites => `gml/prefer-loop-length-hoist` (lint)
 - separator repair => `gml/require-argument-separators` (lint)
+- doc-comment tag synthesis/normalization => `gml/normalize-doc-comments` (lint)
 - indentation/wrapping/layout => plugin formatter
 
 See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).
