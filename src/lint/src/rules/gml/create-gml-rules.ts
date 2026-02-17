@@ -628,10 +628,7 @@ function toBracedSingleClause(indentation: string, header: string, statement: st
     return [`${indentation}${header} {`, `${indentation}    ${statement}`, `${indentation}}`];
 }
 
-function parseInlineConditionedClause(
-    line: string,
-    keyword: ConditionedControlFlowKeyword
-): BracedSingleClause | null {
+function parseInlineConditionedClause(line: string, keyword: ConditionedControlFlowKeyword): BracedSingleClause | null {
     const inlinePattern = new RegExp(String.raw`^(\s*)${keyword}\s*\((.+)\)\s*(?!\{)([^;{}].*;\s*)$`, "u");
     const inlineMatch = inlinePattern.exec(line);
     if (!inlineMatch) {
@@ -747,14 +744,16 @@ function normalizeConditionAssignments(conditionText: string): string {
     return conditionText.replaceAll(/(?<![!<>=+\-*/%|&^])=(?!=)/g, "==");
 }
 
+function isIdentifierCharacter(value: string): boolean {
+    return /[A-Za-z0-9_]/u.test(value);
+}
+
 function normalizeLogicalOperatorAliases(sourceText: string): string {
     const rewritten: Array<string> = [];
     let index = 0;
     let inSingleLineComment = false;
     let inBlockComment = false;
     let inString: "'" | '"' | null = null;
-
-    const isIdentifierCharacter = (value: string): boolean => /[A-Za-z0-9_]/u.test(value);
 
     while (index < sourceText.length) {
         const character = sourceText[index];
@@ -950,7 +949,11 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                             const nextTrimmed = nextLine.trim();
                             if (nextTrimmed.length > 0 && !nextTrimmed.startsWith("{")) {
                                 rewrittenLines.push(
-                                    ...toBracedSingleClause(lineHeaderMatch.indentation, lineHeaderMatch.header, nextTrimmed)
+                                    ...toBracedSingleClause(
+                                        lineHeaderMatch.indentation,
+                                        lineHeaderMatch.header,
+                                        nextTrimmed
+                                    )
                                 );
                                 index += 1;
                                 continue;
@@ -1024,16 +1027,19 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
                             return `${keyword} (${normalizedCondition})`;
                         }
                     );
-                    rewritten = rewritten.replaceAll(/(^|\r?\n)(\s*if\s+)([^;\r\n]*?\))(\s+[A-Za-z_][^;\r\n]*;)/g, (
-                        _fullMatch: string,
-                        prefix: string,
-                        ifPrefix: string,
-                        conditionText: string,
-                        statementPortion: string
-                    ) => {
-                        const normalizedCondition = normalizeConditionAssignments(conditionText.trim());
-                        return `${prefix}${ifPrefix}${normalizedCondition}${statementPortion}`;
-                    });
+                    rewritten = rewritten.replaceAll(
+                        /(^|\r?\n)(\s*if\s+)([^;\r\n]*?\))(\s+[A-Za-z_][^;\r\n]*;)/g,
+                        (
+                            _fullMatch: string,
+                            prefix: string,
+                            ifPrefix: string,
+                            conditionText: string,
+                            statementPortion: string
+                        ) => {
+                            const normalizedCondition = normalizeConditionAssignments(conditionText.trim());
+                            return `${prefix}${ifPrefix}${normalizedCondition}${statementPortion}`;
+                        }
+                    );
 
                     if (rewritten === text) {
                         return;
