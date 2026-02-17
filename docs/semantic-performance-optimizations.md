@@ -120,6 +120,88 @@ for (const childId of children) {
 **Affected Methods**:
 - `getDescendantScopeIds()`
 
+### 5. Pre-Allocated Arrays for Cloning Operations (Current)
+
+**Problem**: Methods like `buildScopeOccurrencesSummary()` and `getScopeExternalReferences()` used `.map()` to clone occurrence arrays, which creates intermediate arrays and allocates memory dynamically during iteration.
+
+**Solution**:
+- Pre-allocate arrays with exact size using `new Array(count)`
+- Use indexed loops instead of `.map()` to populate the arrays
+- Check array lengths early to skip empty results before allocation
+
+**Impact**:
+```typescript
+// Before (map creates intermediate array)
+const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+const references = includeReferences 
+    ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
+    : [];
+
+// After (pre-allocated arrays)
+const declCount = entry.declarations.length;
+const refCount = entry.references.length;
+const declarations: Occurrence[] = new Array(declCount);
+for (let i = 0; i < declCount; i++) {
+    declarations[i] = cloneOccurrence(entry.declarations[i]);
+}
+```
+
+**Affected Methods**:
+- `buildScopeOccurrencesSummary()`
+- `getScopeExternalReferences()`
+
+### 6. Eliminated Filter Chains (Current)
+
+**Problem**: Methods like `exportScipOccurrences()` used `.filter()` on single-element arrays to handle optional scope lookups, creating unnecessary intermediate arrays.
+
+**Solution**:
+- Add `getSingleScopeArray()` helper that directly returns a single-element array or empty array
+- Eliminates the spread-and-filter pattern `[scope].filter((s): s is Scope => s !== undefined)`
+
+**Impact**:
+```typescript
+// Before (filter creates intermediate array)
+const scopesToProcess = scopeId
+    ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
+    : Array.from(this.scopesById.values());
+
+// After (direct conditional)
+const scopesToProcess = scopeId 
+    ? this.getSingleScopeArray(scopeId) 
+    : Array.from(this.scopesById.values());
+```
+
+**Affected Methods**:
+- `exportScipOccurrences()`
+- `exportOccurrencesBySymbols()`
+
+### 7. Early Exit Optimizations (Current)
+
+**Problem**: `getScopeExternalReferences()` checked for processed symbols after checking other conditions, and checked references late in the function.
+
+**Solution**:
+- Check `entry.references.length === 0` first to exit early before any other work
+- Move `processedSymbols.add()` immediately after the duplicate check
+- Use `.has()` for Map lookups instead of `.get()` when only checking existence
+
+**Impact**:
+```typescript
+// Before (checks in suboptimal order)
+if (processedSymbols.has(name)) continue;
+if (entry.references.length === 0) continue;
+const declaration = scope.symbolMetadata.get(name);
+if (declaration) continue;
+
+// After (check references first)
+if (entry.references.length === 0) continue;
+if (processedSymbols.has(name)) continue;
+processedSymbols.add(name);
+if (scope.symbolMetadata.has(name)) continue;
+```
+
+**Affected Methods**:
+- `getScopeExternalReferences()`
+
 ## Performance Budgets
 
 The performance test suite (`scope-tracker-performance.test.ts`) validates that critical operations meet these budgets:
@@ -131,6 +213,10 @@ The performance test suite (`scope-tracker-performance.test.ts`) validates that 
 | Cache invalidation | < 10ms | 50 scopes with 10 symbols each |
 | Dependency queries | < 50ms | 50 scopes with shared dependencies |
 | getAllDeclarations | < 100ms | 1000 declarations across 100 scopes |
+| exportModifiedOccurrences | < 100ms | 500 identifiers with 5 references each |
+| getScopeExternalReferences | < 50ms | 50 symbols with 3 references each |
+| getScopeExternalReferences (local only) | < 10ms | 100 local references (fast path) |
+| exportScipOccurrences (single scope) | < 20ms | Single scope query |
 
 ## Hot-Reload Scenarios
 
@@ -143,11 +229,35 @@ When a file changes, the system must:
 3. Find all references to those symbols across the project (`getSymbolOccurrences()`)
 4. Compute the invalidation set (`getInvalidationSet()`)
 
-**Optimizations applied**: Sorting, batch queries, cache invalidation
+**Optimizations applied**: Sorting, batch queries, cache invalidation, pre-allocated arrays
 
 ### Dependency Analysis
 For incremental compilation, the system must:
 1. Identify which symbols a scope depends on (`getScopeDependencies()`)
+2. Find transitive dependents when a symbol changes (`getTransitiveDependents()`)
+3. Export occurrences for dependency tracking (`exportScipOccurrences()`)
+
+**Optimizations applied**: Sorting, dependency collection, filter elimination
+
+### Occurrence Export
+When exporting symbol occurrences for hot-reload coordination:
+1. Export modified scopes only (`exportModifiedOccurrences()`)
+2. Export specific symbols (`exportOccurrencesBySymbols()`)
+3. Convert to SCIP format for cross-reference tracking (`exportScipOccurrences()`)
+
+**Optimizations applied**: Pre-allocated arrays, early exits, filter elimination
+
+## Summary
+
+These optimizations collectively reduce memory allocations, eliminate intermediate array creation, and improve cache efficiency for hot-reload scenarios. The key principles are:
+
+1. **Avoid intermediate allocations**: Use pre-allocated arrays and in-place operations
+2. **Early exit paths**: Check cheapest conditions first to avoid unnecessary work
+3. **Cache-friendly access patterns**: Use indexed access instead of higher-order functions when beneficial
+4. **Eliminate filter chains**: Use direct conditionals instead of `.filter()` for single-element cases
+5. **Type-specific comparisons**: Use simple `<`/`>` comparison for machine-generated identifiers instead of `localeCompare()`
+
+All optimizations are validated by performance tests with concrete budgets to prevent regressions.
 2. Find transitive dependents when a symbol changes (`getTransitiveDependents()`)
 3. Export occurrence metadata in SCIP format for cross-reference tracking
 
