@@ -124,8 +124,8 @@ for (const childId of children) {
 
 **Problem**: Methods like `buildScopeOccurrencesSummary()` and `getScopeExternalReferences()` used `.map()` to clone occurrence arrays, which creates intermediate arrays and allocates memory dynamically during iteration.
 
-**Solution**:
-- Pre-allocate arrays with exact size using `new Array(count)`
+**Solution**: 
+- Pre-allocate arrays with exact size using `Array.from({ length: count })`
 - Use indexed loops instead of `.map()` to populate the arrays
 - Check array lengths early to skip empty results before allocation
 
@@ -247,18 +247,6 @@ When exporting symbol occurrences for hot-reload coordination:
 
 **Optimizations applied**: Pre-allocated arrays, early exits, filter elimination
 
-## Summary
-
-These optimizations collectively reduce memory allocations, eliminate intermediate array creation, and improve cache efficiency for hot-reload scenarios. The key principles are:
-
-1. **Avoid intermediate allocations**: Use pre-allocated arrays and in-place operations
-2. **Early exit paths**: Check cheapest conditions first to avoid unnecessary work
-3. **Cache-friendly access patterns**: Use indexed access instead of higher-order functions when beneficial
-4. **Eliminate filter chains**: Use direct conditionals instead of `.filter()` for single-element cases
-5. **Type-specific comparisons**: Use simple `<`/`>` comparison for machine-generated identifiers instead of `localeCompare()`
-
-All optimizations are validated by performance tests with concrete budgets to prevent regressions.
-
 ### Symbol Resolution
 During transpilation, the emitter must:
 1. Resolve each identifier to its declaring scope (`resolveIdentifier()`)
@@ -274,6 +262,18 @@ These optimizations trade minimal memory overhead for reduced allocations:
 - **Before**: Each sort created a new array; each string comparison allocated locale comparison state
 - **After**: Sorts modify arrays in-place; string comparisons use simple character-by-character comparison
 - **Memory savings**: ~30-40% reduction in short-lived allocations during queries
+
+## Summary
+
+These optimizations collectively reduce memory allocations, eliminate intermediate array creation, and improve cache efficiency for hot-reload scenarios. The key principles are:
+
+1. **Avoid intermediate allocations**: Use pre-allocated arrays and in-place operations
+2. **Early exit paths**: Check cheapest conditions first to avoid unnecessary work
+3. **Cache-friendly access patterns**: Use indexed access instead of higher-order functions when beneficial
+4. **Eliminate filter chains**: Use direct conditionals instead of `.filter()` for single-element cases
+5. **Type-specific comparisons**: Use simple `<`/`>` comparison for machine-generated identifiers instead of `localeCompare()`
+
+All optimizations are validated by performance tests with concrete budgets to prevent regressions.
 
 ## Unsafe Accessor Methods (Zero-Copy Queries)
 
