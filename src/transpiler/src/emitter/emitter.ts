@@ -52,7 +52,7 @@ import type {
 } from "./ast.js";
 import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
-import { tryFoldConstantExpression } from "./constant-folding.js";
+import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
@@ -329,6 +329,13 @@ export class GmlToJsEmitter {
     }
 
     private visitUnaryExpression(ast: UnaryExpressionNode): string {
+        // Try constant folding first for compile-time optimization
+        const folded = tryFoldConstantUnaryExpression(ast);
+        if (folded !== null) {
+            // Emit the folded constant directly
+            return String(folded);
+        }
+        // Fall back to runtime evaluation
         const operand = this.visit(ast.argument);
         const op = mapUnaryOperator(ast.operator);
         if (ast.argument.type === "Literal") {
