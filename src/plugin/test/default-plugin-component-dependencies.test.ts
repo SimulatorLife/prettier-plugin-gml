@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { handleComments, printComment } from "../src/comments/index.js";
-import { defaultGmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
+import { defaultGmlPluginComponentImplementations } from "../src/components/default-component-instances.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
@@ -17,7 +17,7 @@ const REQUIRED_KEYS = [
 ];
 
 void test("default dependency bundle exposes canonical components", () => {
-    const resolved = defaultGmlPluginComponentDependencies;
+    const resolved = defaultGmlPluginComponentImplementations;
 
     assert.ok(Object.isFrozen(resolved), "default dependency bundle should be frozen");
 
@@ -35,8 +35,8 @@ void test("default dependency bundle exposes canonical components", () => {
 });
 
 void test("default dependency bundle maintains a stable reference", () => {
-    const first = defaultGmlPluginComponentDependencies;
-    const second = defaultGmlPluginComponentDependencies;
+    const first = defaultGmlPluginComponentImplementations;
+    const second = defaultGmlPluginComponentImplementations;
 
     assert.strictEqual(first, second, "default dependency bundle should be a shared singleton");
 });
