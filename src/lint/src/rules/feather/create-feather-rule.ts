@@ -823,7 +823,7 @@ function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return false;
             }
 
-            if (/^_this\s*\*\s*something\s*;\s*$/u.test(trimmed)) {
+            if (/^_this\s*\*\s*\w+\s*;\s*$/u.test(trimmed)) {
                 return false;
             }
 
