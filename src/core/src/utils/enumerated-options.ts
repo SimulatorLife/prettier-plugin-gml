@@ -24,10 +24,11 @@ export interface EnumeratedOptionHelpers {
  * @param options.formatError - Optional function to format validation error messages (legacy: can be passed directly as function)
  * @param options.enforceStringType - If true, rejects non-string inputs early with TypeError
  * @param options.valueLabel - Label for the value type in error messages (only with enforceStringType)
+ * @param options.caseSensitive - If true, performs exact string matching instead of normalizing to lowercase (default: false)
  * @returns Frozen helper object with validation and normalization methods
  *
  * @example
- * // Basic usage
+ * // Basic usage with case-insensitive normalization
  * const helpers = createEnumeratedOptionHelpers(["json", "yaml"]);
  * helpers.normalize("JSON"); // "json"
  * helpers.requireValue("xml"); // throws Error
@@ -39,6 +40,14 @@ export interface EnumeratedOptionHelpers {
  *   valueLabel: "Output format"
  * });
  * helpers.requireValue(42); // throws TypeError
+ *
+ * @example
+ * // With case-sensitive matching
+ * const helpers = createEnumeratedOptionHelpers(["script", "var"], {
+ *   caseSensitive: true
+ * });
+ * helpers.normalize("SCRIPT"); // null (not "script")
+ * helpers.normalize("script"); // "script"
  */
 export function createEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
@@ -48,11 +57,12 @@ export function createEnumeratedOptionHelpers(
               formatError?: (list: string, received: string) => string;
               enforceStringType?: boolean;
               valueLabel?: string;
+              caseSensitive?: boolean;
           }
 ): EnumeratedOptionHelpers {
     // Normalize options to object form for consistent handling
     const config = typeof options === "function" ? { formatError: options } : (options ?? {});
-    const { formatError, enforceStringType = false, valueLabel = "Value" } = config;
+    const { formatError, enforceStringType = false, valueLabel = "Value", caseSensitive = false } = config;
 
     const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].toSorted().join(", ");
@@ -62,7 +72,11 @@ export function createEnumeratedOptionHelpers(
         if (value == null || (enforceStringType && typeof value !== "string")) {
             return null;
         }
-        const normalized = toNormalizedLowerCaseString(value) as string;
+        const normalized: string | null = caseSensitive
+            ? typeof value === "string"
+                ? value
+                : null
+            : toNormalizedLowerCaseString(value);
         return normalized && valueSet.has(normalized) ? normalized : null;
     };
 

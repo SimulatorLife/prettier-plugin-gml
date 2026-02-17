@@ -263,6 +263,13 @@ export interface TranspilationResult {
     references?: Array<string>;
 }
 
+interface ParsedAstExtractionResult {
+    ast: unknown;
+    parseError: unknown;
+    parsedSymbols: Array<string>;
+    parsedReferences: Array<string>;
+}
+
 /**
  * Adds an item to a bounded collection, removing the oldest item if the
  * collection exceeds its maximum size.
@@ -271,6 +278,29 @@ function addToBoundedCollection<T>(collection: Array<T>, item: T, maxSize: numbe
     collection.push(item);
     if (collection.length > maxSize) {
         collection.shift();
+    }
+}
+
+/**
+ * Parses GML content and extracts symbols/references when parsing succeeds.
+ */
+function parseAstAndExtractMetadata(content: string, filePath: string): ParsedAstExtractionResult {
+    try {
+        const parser = new Parser.GMLParser(content, {});
+        const ast = parser.parse();
+        return {
+            ast,
+            parseError: null,
+            parsedSymbols: extractSymbolsFromAst(ast, filePath),
+            parsedReferences: extractReferencesFromAst(ast)
+        };
+    } catch (error) {
+        return {
+            ast: undefined,
+            parseError: error,
+            parsedSymbols: [],
+            parsedReferences: []
+        };
     }
 }
 
@@ -374,21 +404,7 @@ export function transpileFile(
     try {
         const fileName = path.basename(filePath, path.extname(filePath));
         const defaultSymbolId = `gml/script/${fileName}`;
-
-        let parsedSymbols: Array<string> = [];
-        let parsedReferences: Array<string> = [];
-        let parseError: unknown = null;
-        let ast: unknown = undefined;
-
-        try {
-            const parser = new Parser.GMLParser(content, {});
-            ast = parser.parse();
-            parsedSymbols = extractSymbolsFromAst(ast, filePath);
-            parsedReferences = extractReferencesFromAst(ast);
-        } catch (error) {
-            parseError = error;
-            ast = undefined;
-        }
+        const { ast, parseError, parsedSymbols, parsedReferences } = parseAstAndExtractMetadata(content, filePath);
 
         const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
         const symbolId = scriptSymbolId ?? defaultSymbolId;

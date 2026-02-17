@@ -117,6 +117,15 @@ const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
 
 /**
+ * Maximum depth to traverse when walking up the AST.
+ *
+ * This limit prevents infinite loops when traversing malformed or deeply nested ASTs.
+ * A value of 100 is sufficient for any reasonable GML code while protecting against
+ * pathological cases that could hang the formatter.
+ */
+const MAX_ANCESTOR_TRAVERSAL_DEPTH = 100;
+
+/**
  * Bounds for safe division-to-multiplication optimization.
  *
  * When converting `x / divisor` to `x * reciprocal`, we must ensure both the divisor
@@ -5062,37 +5071,36 @@ function isComparisonWithinLogicalChain(path) {
     let depth = 1;
     let currentNode = path.getValue();
 
-    while (true) {
+    while (depth < MAX_ANCESTOR_TRAVERSAL_DEPTH) {
         const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
         }
 
+        // Skip over parenthesized expressions to find meaningful parent
         if (ancestor.type === "ParenthesizedExpression") {
             currentNode = ancestor;
             depth += 1;
             continue;
         }
 
+        // Continue through comparison operators in the chain
         if (ancestor.type === "BinaryExpression" && Core.isComparisonBinaryOperator(ancestor.operator)) {
             currentNode = ancestor;
             depth += 1;
             continue;
         }
 
-        if (
-            ancestor.type === "BinaryExpression" &&
-            (ancestor.operator === "&&" ||
-                ancestor.operator === "and" ||
-                ancestor.operator === "||" ||
-                ancestor.operator === "or")
-        ) {
+        // Check if we've reached a logical operator at the top of the chain
+        if (ancestor.type === "BinaryExpression" && Core.isLogicalBinaryOperator(ancestor.operator)) {
             return ancestor.left === currentNode || ancestor.right === currentNode;
         }
 
         return false;
     }
+
+    return false;
 }
 
 function shouldWrapTernaryExpression(path) {

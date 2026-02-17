@@ -2,6 +2,8 @@
 
 import { Core } from "@gml-modules/core";
 
+const { isObjectLike } = Core;
+
 // Use flattened Core namespace helpers directly to match the Core export shape.
 // Avoid nested destructuring (Core.Utils / Core.AST) per AGENTS.md.
 const isNonEmptyArray = Core.isNonEmptyArray;
@@ -26,7 +28,7 @@ const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
  *        Optional resolver used to extract a stable member name.
  */
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
-    if (!enumNode || typeof enumNode !== "object") {
+    if (!isObjectLike(enumNode)) {
         return;
     }
 
@@ -121,11 +123,40 @@ function collectTrailingEnumComments(member) {
     return trailingComments.length > 0 ? trailingComments : null;
 }
 
+/**
+ * Extract statistics for a single enum member, including name length,
+ * initializer presence, and trailing comments.
+ *
+ * @param {unknown} member Enum member node to analyze.
+ * @param {((node: unknown) => string | null | undefined) | undefined} resolveName
+ *        Optional resolver to extract member name.
+ * @returns {{
+ *     member: unknown;
+ *     nameLength: number;
+ *     initializerWidth: number;
+ *     hasInitializer: boolean;
+ *     trailingComments: unknown[] | null;
+ * }} Member statistics object.
+ */
+function collectSingleMemberStats(member, resolveName) {
+    const rawName = resolveName ? resolveName(member?.name) : undefined;
+    const nameLength = typeof rawName === "string" ? rawName.length : 0;
+    const initializer = member?.initializer;
+    const hasInitializer = Boolean(initializer);
+    const initializerWidth = getEnumInitializerWidth(initializer);
+
+    return {
+        member,
+        nameLength,
+        initializerWidth,
+        hasInitializer,
+        trailingComments: collectTrailingEnumComments(member)
+    };
+}
+
 function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = Array.from({ length: memberCount });
-    let maxInitializerNameLength = 0;
-    let allMembersHaveInitializer = true;
 
     // Avoid `Array#map` here to prevent allocating a fresh callback closure on every
     // enum formatting pass. The enum alignment logic runs frequently in real-world GML
@@ -137,27 +168,21 @@ function collectEnumMemberStats(members, resolveName) {
     // more aggressive inline code. The tradeoff is slightly more verbose iteration logic
     // in exchange for faster enum printing, which matters because enum alignment is one
     // of the formatter's performance bottlenecks when handling large GameMaker projects.
-    for (let index = 0; index < memberCount; index += 1) {
-        const member = members[index];
-        const rawName = resolveName ? resolveName(member?.name) : undefined;
-        const nameLength = typeof rawName === "string" ? rawName.length : 0;
-        const initializer = member?.initializer;
-        const hasInitializer = Boolean(initializer);
-        const initializerWidth = getEnumInitializerWidth(initializer);
+    //
+    // We also compute maxInitializerNameLength and allMembersHaveInitializer in a single
+    // pass to avoid multiple O(n) iterations over the memberStats array.
+    let maxInitializerNameLength = 0;
+    let allMembersHaveInitializer = true;
 
-        if (hasInitializer && nameLength > maxInitializerNameLength) {
-            maxInitializerNameLength = nameLength;
-        } else if (!hasInitializer) {
+    for (let index = 0; index < memberCount; index += 1) {
+        const stats = collectSingleMemberStats(members[index], resolveName);
+        memberStats[index] = stats;
+
+        if (stats.hasInitializer && stats.nameLength > maxInitializerNameLength) {
+            maxInitializerNameLength = stats.nameLength;
+        } else if (!stats.hasInitializer) {
             allMembersHaveInitializer = false;
         }
-
-        memberStats[index] = {
-            member,
-            nameLength,
-            initializerWidth,
-            hasInitializer,
-            trailingComments: collectTrailingEnumComments(member)
-        };
     }
 
     return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };

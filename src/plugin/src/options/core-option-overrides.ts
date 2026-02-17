@@ -2,6 +2,8 @@ import { Core } from "@gml-modules/core";
 
 import { assertTrailingCommaValue, TRAILING_COMMA } from "./trailing-comma-option.js";
 
+const { isObjectLike } = Core;
+
 type TrailingCommaOption = (typeof TRAILING_COMMA)[keyof typeof TRAILING_COMMA];
 type ArrowParensOption = "always" | "avoid";
 type ProseWrapOption = "always" | "never" | "preserve";
@@ -118,7 +120,7 @@ function normalizeCoreOptionOverrides(overrides: unknown): CoreOptionOverrides {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 
-    if (!overrides || typeof overrides !== "object") {
+    if (!isObjectLike(overrides)) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 

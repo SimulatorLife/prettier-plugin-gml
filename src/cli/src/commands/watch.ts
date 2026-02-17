@@ -21,6 +21,7 @@ import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
+import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
@@ -82,6 +83,7 @@ interface FileWatchingConfig {
     polling?: boolean;
     pollingInterval?: number;
     debounceDelay?: number;
+    maxConcurrentDirs?: number;
     watchFactory?: WatchFactory;
 }
 
@@ -341,13 +343,7 @@ export function createWatchCommand(): Command {
         .addOption(new Option("--polling", "Use polling instead of native file watching").default(false))
         .addOption(
             new Option("--polling-interval <ms>", "Polling interval in milliseconds")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 100) {
-                        throw new Error("Polling interval must be at least 100ms");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(100, "Polling interval must be at least 100ms"))
                 .default(1000)
         )
         .addOption(new Option("--verbose", "Enable verbose logging").default(false))
@@ -359,35 +355,25 @@ export function createWatchCommand(): Command {
                 "--debounce-delay <ms>",
                 "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 0) {
-                        throw new Error("Debounce delay must be non-negative");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(0, "Debounce delay must be non-negative"))
                 .default(200)
         )
         .addOption(
+            new Option(
+                "--max-concurrent-dirs <count>",
+                "Maximum number of directories to scan concurrently during initial file discovery"
+            )
+                .argParser(createMinimumValueValidator(1, "Max concurrent directories must be at least 1"))
+                .default(4)
+        )
+        .addOption(
             new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1) {
-                        throw new Error("Max patch history must be a positive integer");
-                    }
-                    return parsed;
-                })
+                .argParser(createMinimumValueValidator(1, "Max patch history must be a positive integer"))
                 .default(100)
         )
         .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-                        throw new Error("Port must be between 1 and 65535");
-                    }
-                    return parsed;
-                })
+                .argParser(createPortValidator())
                 .default(17_890)
         )
         .addOption(
@@ -396,13 +382,7 @@ export function createWatchCommand(): Command {
         .option("--no-websocket-server", "Disable starting the WebSocket server for patch streaming.")
         .addOption(
             new Option("--status-port <port>", "HTTP status server port for querying watch command status")
-                .argParser((value) => {
-                    const parsed = Number.parseInt(value);
-                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-                        throw new Error("Port must be between 1 and 65535");
-                    }
-                    return parsed;
-                })
+                .argParser(createPortValidator())
                 .default(17_891)
         )
         .addOption(
@@ -454,13 +434,15 @@ export function createWatchCommand(): Command {
  * @param {RuntimeContext} runtimeContext - Runtime context with transpiler and dependency tracker
  * @param {boolean} verbose - Whether verbose logging is enabled
  * @param {boolean} quiet - Whether quiet mode is enabled
+ * @param {number} maxConcurrentDirs - Maximum number of directories to scan concurrently
  */
 async function performInitialScan(
     dirPath: string,
     extensionMatcher: ExtensionMatcher,
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    maxConcurrentDirs: number
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
@@ -518,13 +500,12 @@ async function performInitialScan(
             // Traverse subdirectories with bounded parallelism to balance throughput
             // and resource usage. Limit concurrent directory operations to avoid
             // exhausting file handles while maintaining faster scan than sequential.
-            const MAX_CONCURRENT_DIRS = 4;
             await Core.runInParallelWithLimit(
                 directories,
                 async (subDirPath) => {
                     await scanDirectory(subDirPath);
                 },
-                MAX_CONCURRENT_DIRS
+                maxConcurrentDirs
             );
         } catch (error) {
             if (verbose && !quiet) {
@@ -641,6 +622,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         // 100ms provides immediate feedback for single-file changes while preventing redundant
         // transpilations during rapid editing (e.g., auto-save + manual save).
         debounceDelay = 100,
+        maxConcurrentDirs = 4,
         maxPatchHistory = 100,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
@@ -1080,7 +1062,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 console.log("Scanning existing GML files to build dependency graph...");
             }
 
-            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
+            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet, maxConcurrentDirs)
                 .then(() => {
                     runtimeContext.scanComplete = true;
                     return null;

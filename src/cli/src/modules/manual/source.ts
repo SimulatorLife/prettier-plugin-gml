@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -118,6 +120,57 @@ export function describeManualSource(source: ManualSourceDescriptor) {
     }
 
     return root;
+}
+
+function normalizeGitCommitHash(value: unknown) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const candidate = value.trim().toLowerCase();
+    return /^[0-9a-f]{40}$/.test(candidate) ? candidate : null;
+}
+
+function resolveManualRootGitCommitHash(root: string) {
+    try {
+        const resolvedRoot = realpathSync(root);
+        const gitTopLevel = execFileSync("git", ["-C", root, "rev-parse", "--show-toplevel"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"]
+        });
+        const resolvedTopLevel = realpathSync(gitTopLevel.trim());
+        if (resolvedTopLevel !== resolvedRoot) {
+            return null;
+        }
+
+        const output = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"]
+        });
+
+        return normalizeGitCommitHash(output);
+    } catch {
+        return null;
+    }
+}
+
+function resolveManualPackageGitCommitHash(packageJson: Record<string, unknown> | null) {
+    return normalizeGitCommitHash(packageJson?.gitHead);
+}
+
+/**
+ * Resolve the GameMaker manual commit hash used for metadata generation.
+ *
+ * When the manual source is a git checkout (for example the
+ * `vendor/GameMaker-Manual` submodule), this reads `HEAD` from that checkout.
+ * If the manual source is package-based, this falls back to the package.json
+ * `gitHead` field when available.
+ *
+ * @param source Descriptor for the resolved manual source.
+ * @returns Lowercase 40-character commit hash, or null when unavailable.
+ */
+export function resolveManualSourceCommitHash(source: ManualSourceDescriptor) {
+    return resolveManualRootGitCommitHash(source.root) ?? resolveManualPackageGitCommitHash(source.packageJson);
 }
 
 /**

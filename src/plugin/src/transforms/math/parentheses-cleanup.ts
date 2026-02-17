@@ -12,7 +12,7 @@ import {
     replaceNodeWith
 } from "./traversal-normalization.js";
 
-const { BINARY_EXPRESSION, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION } = Core;
+const { BINARY_EXPRESSION, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION, isObjectLike } = Core;
 
 /**
  * Recursively remove parentheses inserted around multiplicative identity expressions when safe.
@@ -22,7 +22,7 @@ export function cleanupMultiplicativeIdentityParentheses(
     context: ConvertManualMathTransformOptions | null,
     parent = null
 ) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return;
     }
 
@@ -52,7 +52,7 @@ export function cleanupMultiplicativeIdentityParentheses(
     }
 
     for (const value of Object.values(node)) {
-        if (!value || typeof value !== "object") {
+        if (!isObjectLike(value)) {
             continue;
         }
 
@@ -74,7 +74,7 @@ export function cleanupMultiplicativeIdentityParentheses(
  * Certain ancestors (modulo, logical negation) must keep their defending parentheses so semantics stays stable.
  */
 function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
-    if (!ancestor || typeof ancestor !== "object") {
+    if (!isObjectLike(ancestor)) {
         return false;
     }
 

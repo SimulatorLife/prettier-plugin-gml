@@ -1,6 +1,5 @@
 import type { GameMakerAstNode } from "@gml-modules/core";
 
-import { prettierParserAdapter } from "../parsers/index.js";
 import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 
@@ -10,7 +9,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
 
     return {
         parsers: {
-            "gml-parse": prettierParserAdapter,
+            "gml-parse": gmlParserAdapter,
             gmlParserAdapter
         },
         printers: {

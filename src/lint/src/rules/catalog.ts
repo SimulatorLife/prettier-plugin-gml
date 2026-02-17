@@ -71,6 +71,16 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferRepeatLoops",
+        shortName: "prefer-repeat-loops",
+        fullId: "gml/prefer-repeat-loops",
+        messageId: "preferRepeatLoops",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlPreferStructLiteralAssignments",
         shortName: "prefer-struct-literal-assignments",
         fullId: "gml/prefer-struct-literal-assignments",
@@ -143,6 +153,46 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-doc-comments",
         fullId: "gml/normalize-doc-comments",
         messageId: "normalizeDocComments",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNormalizeDirectives",
+        shortName: "normalize-directives",
+        fullId: "gml/normalize-directives",
+        messageId: "normalizeDirectives",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlRequireControlFlowBraces",
+        shortName: "require-control-flow-braces",
+        fullId: "gml/require-control-flow-braces",
+        messageId: "requireControlFlowBraces",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNoAssignmentInCondition",
+        shortName: "no-assignment-in-condition",
+        fullId: "gml/no-assignment-in-condition",
+        messageId: "noAssignmentInCondition",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNormalizeOperatorAliases",
+        shortName: "normalize-operator-aliases",
+        fullId: "gml/normalize-operator-aliases",
+        messageId: "normalizeOperatorAliases",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
         unsafeReasonCodes: NO_REASON_CODES,

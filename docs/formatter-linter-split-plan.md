@@ -300,22 +300,30 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
    |---|---:|---:|
    | `gml/prefer-loop-length-hoist` | `warn` | `yes` |
    | `gml/prefer-hoistable-loop-accessors` | `warn` | `no` |
+   | `gml/prefer-repeat-loops` | `warn` | `no` |
    | `gml/prefer-struct-literal-assignments` | `warn` | `yes` |
    | `gml/optimize-logical-flow` | `warn` | `no` |
    | `gml/no-globalvar` | `warn` | `yes` |
    | `gml/normalize-doc-comments` | `warn` | `no` |
+   | `gml/normalize-directives` | `warn` | `no` |
+   | `gml/require-control-flow-braces` | `warn` | `no` |
+   | `gml/no-assignment-in-condition` | `warn` | `no` |
+   | `gml/normalize-operator-aliases` | `warn` | `no` |
    | `gml/prefer-string-interpolation` | `warn` | `yes` |
    | `gml/optimize-math-expressions` | `warn` | `no` |
    | `gml/require-argument-separators` | `error` | `no` |
-2. `recommended` does not enable `feather/*` rules by default; use `Lint.configs.feather` for feather diagnostics.
-3. Derived project-aware rule IDs are generated from `meta.docs.requiresProjectContext === true` and must match this appendix.
-4. Any change to this appendix must be accompanied by matching updates to fallback-mode docs/tests and config snapshots.
-5. `Lint.configs.feather` baseline:
+2. Additional migrated `gml/*` rules are implemented and fixture-backed but are not in the default recommended preset:
+   - `gml/normalize-data-structure-accessors`
+   - `gml/require-trailing-optional-defaults`
+3. `recommended` does not enable `feather/*` rules by default; use `Lint.configs.feather` for feather diagnostics.
+4. Derived project-aware rule IDs are generated from `meta.docs.requiresProjectContext === true` and must match this appendix.
+5. Any change to this appendix must be accompanied by matching updates to fallback-mode docs/tests and config snapshots.
+6. `Lint.configs.feather` baseline:
    - composition: overlay preset with `files: ["**/*.gml"]` guard and feather-rule entries only; no language/plugin wiring.
    - enables all feather parity rules listed in this plan.
    - severity source: per-rule `defaultSeverity` from feather parity manifest.
    - standalone note: supported when paired with `recommended` (or equivalent user-provided language/plugin wiring).
-6. `Lint.configs.performance` baseline:
+7. `Lint.configs.performance` baseline:
    - composition: overlay preset with `files: ["**/*.gml"]` guard and `gml/*` severity/enablement overrides only; no language/plugin wiring.
    - source-of-truth rule-ID set is frozen constant `PERFORMANCE_OVERRIDE_RULE_IDS` (`src/lint/src/configs/performance-rule-ids.ts`).
    - `PERFORMANCE_OVERRIDE_RULE_IDS` entries are canonical full ESLint rule IDs.
@@ -326,7 +334,7 @@ Public, semver-governed API surfaces for `@gml-modules/lint` consumers and CLI-f
      - `gml/prefer-string-interpolation`: `off`
    - keeps parse behavior unchanged (`recovery` default unchanged).
    - does not modify `feather/*` severities and does not alter rule option objects.
-7. Canonical overlay composition patterns for docs/examples:
+8. Canonical overlay composition patterns for docs/examples:
    - `...Lint.configs.recommended`
    - `...Lint.configs.recommended, ...Lint.configs.feather`
    - `...Lint.configs.recommended, ...Lint.configs.performance`
@@ -839,28 +847,49 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
    `reportUnsafe` semantics:
    - controls whether the rule emits “not safely hoistable” diagnostics for candidate loops
    - this rule does not emit fix operations
-3. `gml/prefer-struct-literal-assignments`  
+3. `gml/prefer-repeat-loops`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter-side loop-shape normalization for count loops.
+4. `gml/prefer-struct-literal-assignments`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{"reportUnsafe":{"type":"boolean","default":true}}}`  
    Replaces: `condenseStructAssignments`.
-4. `gml/optimize-logical-flow`  
+5. `gml/optimize-logical-flow`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{"maxBooleanVariables":{"type":"integer","minimum":1,"maximum":10,"default":10}}}`  
    Replaces: `optimizeLogicalExpressions`.
-5. `gml/no-globalvar`  
+6. `gml/no-globalvar`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{"enableAutofix":{"type":"boolean","default":true},"reportUnsafe":{"type":"boolean","default":true}}}`  
    Replaces: `preserveGlobalVarStatements`.
-6. `gml/normalize-doc-comments`  
+7. `gml/normalize-doc-comments`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
    Replaces: `normalizeDocComments`.
-7. `gml/prefer-string-interpolation`  
+8. `gml/normalize-directives`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter-side `#define`/`#region` legacy directive canonicalization.
+9. `gml/require-control-flow-braces`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter-side single-clause `if`/`else` brace synthesis.
+10. `gml/no-assignment-in-condition`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter conditional-assignment sanitizer ownership.
+11. `gml/normalize-operator-aliases`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter/operator alias canonicalization rewrites.
+12. `gml/prefer-string-interpolation`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{"reportUnsafe":{"type":"boolean","default":true}}}`  
    Replaces: `useStringInterpolation`.
-8. `gml/optimize-math-expressions`  
+13. `gml/optimize-math-expressions`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
    Replaces: `optimizeMathExpressions`.
-9. `gml/require-argument-separators`  
+14. `gml/require-argument-separators`  
    Schema: `{"type":"object","additionalProperties":false,"properties":{"repair":{"type":"boolean","default":true}}}`  
    Replaces: `sanitizeMissingArgumentSeparators`.
-10. Feather extraction model:
+15. `gml/normalize-data-structure-accessors`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter parser-prep accessor canonicalization (`[?`, `[|`, `[#`) ownership.
+16. `gml/require-trailing-optional-defaults`  
+   Schema: `{"type":"object","additionalProperties":false,"properties":{}}`  
+   Replaces: formatter parser-prep optional-parameter default synthesis (`= undefined`) ownership.
+17. Feather extraction model:
     - Rule naming pattern is `feather/gm####`.
     - Initial explicit parity set equals IDs currently implemented in `apply-feather-fixes`.
     - Authoritative parity IDs:
@@ -945,13 +974,42 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
    - messageIds: `requireArgumentSeparators`.
    - fix canonical form: insert bare comma characters (`,`) at recorded original-source UTF-16 offsets (no trailing spaces; spacing is formatter-owned).
    - insertion ordering/tie-break: sort entries by `(offset ASC, argumentIndex ASC)` for identity/dedup, collapse duplicates for the same `(callRange, argumentIndex, offset)`, then apply text edits in `offset DESC` order to avoid offset-shift compensation.
-10. Rule-level safety requirements:
+10. Additional migrated `gml/*` rule contracts:
+    - `gml/prefer-repeat-loops`:
+      - trigger: canonical count loops (`for (var i = 0; i < <limit>; i++)`) whose body does not use the iterator symbol.
+      - messageIds: `preferRepeatLoops`.
+      - fix canonical form: rewrite loop header to `repeat (<limit>) {`.
+    - `gml/normalize-directives`:
+      - trigger: legacy directive spellings (`//#region`, `#define region`, `#define end region`, `#define NAME ...`).
+      - messageIds: `normalizeDirectives`.
+      - fix canonical form: normalize to `#region`/`#endregion` and `#macro` forms with stable spacing and no trailing macro semicolon.
+    - `gml/require-control-flow-braces`:
+      - trigger: `if`/`else` single-statement clauses without braces.
+      - messageIds: `requireControlFlowBraces`.
+      - fix canonical form: wrap single statement bodies into braces without changing clause order.
+    - `gml/no-assignment-in-condition`:
+      - trigger: assignment operator (`=`) used in `if`/`while` condition contexts.
+      - messageIds: `noAssignmentInCondition`.
+      - fix canonical form: replace assignment tokens with comparison (`==`) in condition expressions only.
+    - `gml/normalize-operator-aliases`:
+      - trigger: mixed logical alias forms (`&&`, `||`, `^^`, `!`, and case-variant keyword aliases).
+      - messageIds: `normalizeOperatorAliases`.
+      - fix canonical form: normalize to a single keyword alias family (`and`, `or`, `xor`, `not`).
+    - `gml/normalize-data-structure-accessors`:
+      - trigger: mismatched DS accessor sigils for obvious list/map/grid identifier naming contexts.
+      - messageIds: `normalizeDataStructureAccessors`.
+      - fix canonical form: replace only accessor token (`[?`, `[|`, `[#`) with expected sigil.
+    - `gml/require-trailing-optional-defaults`:
+      - trigger: non-default parameters following a defaulted parameter in function signatures.
+      - messageIds: `requireTrailingOptionalDefaults`.
+      - fix canonical form: synthesize ` = undefined` for trailing optional parameters.
+11. Rule-level safety requirements:
     - any rule emitting `unsafeFix` must declare its reason-code set in metadata and docs.
     - project-aware rules must declare required capabilities in metadata; missing capabilities route to `missingProjectContext`.
-11. Metadata field locations (pinned):
+12. Metadata field locations (pinned):
     - `meta.docs.gml.requiredCapabilities: ReadonlyArray<ProjectCapability>`
     - `meta.docs.gml.unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>`
-12. Minimum rule->reason-code mapping:
+13. Minimum rule->reason-code mapping:
     - `gml/prefer-loop-length-hoist`: `NAME_COLLISION`, `CROSS_FILE_CONFLICT`, `SEMANTIC_AMBIGUITY`
     - `gml/prefer-struct-literal-assignments`: `SEMANTIC_AMBIGUITY`, `CROSS_FILE_CONFLICT`
     - `gml/no-globalvar`: `NAME_COLLISION`, `SEMANTIC_AMBIGUITY`, `CROSS_FILE_CONFLICT`
@@ -1012,6 +1070,10 @@ Verification coverage and regression protections for the direct end-state migrat
    - ESLint language contract tests (keys, parser wiring, loc/range/token/comment invariants, UTF-16 offset behavior).
    - Parse failure/recovery tests (fatal parse, recovered separators).
    - Rule detection/fix tests for each migrated rule and each feather parity ID.
+   - Rule factory completeness tests:
+     - every `gml/*` rule definition in lint catalog resolves to an implemented rule module;
+     - every Feather manifest ID resolves to an implemented rule module;
+     - unresolved mappings fail fast (throw) and are not allowed to degrade into silent no-op listeners.
    - Unsafe-fix reporting tests with `reportUnsafe: true|false`.
    - CLI integration tests for config search, `--config`, `--project`, ignore behavior, formatter output, and exit codes.
    - Config discovery tests covering candidate filename order, searched-location reporting, multiple-config same-directory selection behavior, cwd-origin discovery for outside-cwd targets, fallback gating, and `--config` missing/invalid => exit `2`.
@@ -1057,6 +1119,7 @@ Verification coverage and regression protections for the direct end-state migrat
 3. Lint workspace owns semantic/content rewrite diagnostics and autofixes (including feather parity corpus).
 4. All mixed legacy fixtures are either moved to lint or split into explicit plugin+lint ownership artifacts.
 5. CLI `lint --fix` + formatter pipeline preserves the same final formatted style while making ownership boundaries explicit.
+6. Lint workspace ships no placeholder/no-op rule implementations in the active catalog; unknown rule mappings fail fast during rule creation.
 
 ## Finalized Migration Mapping (Durable Contract)
 

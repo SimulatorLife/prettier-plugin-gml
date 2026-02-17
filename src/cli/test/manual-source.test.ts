@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -10,9 +11,18 @@ import {
     describeManualSource,
     getManualRootMetadataPath,
     readManualText,
-    resolveManualSource
+    resolveManualSource,
+    resolveManualSourceCommitHash
 } from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
+
+function runGit(args: Array<string>, cwd: string) {
+    return execFileSync("git", args, {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"]
+    }).trim();
+}
 
 void test("resolveManualSource returns explicit manual root", async (t) => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "manual-root-"));
@@ -95,4 +105,43 @@ void test("getManualRootMetadataPath falls back to external roots", () => {
     };
 
     assert.equal(getManualRootMetadataPath(manualSource), Core.toPosixPath(externalRoot));
+});
+
+void test("resolveManualSourceCommitHash reads the git commit from manual root", async (t) => {
+    const manualRoot = await fs.mkdtemp(path.join(os.tmpdir(), "manual-git-root-"));
+    t.after(async () => {
+        await fs.rm(manualRoot, { recursive: true, force: true });
+    });
+
+    runGit(["init"], manualRoot);
+    runGit(["config", "user.email", "manual-test@example.com"], manualRoot);
+    runGit(["config", "user.name", "Manual Test"], manualRoot);
+    await fs.writeFile(path.join(manualRoot, "README.md"), "manual\n", "utf8");
+    runGit(["add", "README.md"], manualRoot);
+    runGit(["commit", "-m", "seed manual repo"], manualRoot);
+
+    const expectedHash = runGit(["rev-parse", "HEAD"], manualRoot).toLowerCase();
+    const hash = resolveManualSourceCommitHash({
+        root: manualRoot,
+        packageName: null,
+        packageJson: null
+    });
+
+    assert.equal(hash, expectedHash);
+});
+
+void test("resolveManualSourceCommitHash falls back to package gitHead when root is not a git repo", async (t) => {
+    const manualRoot = await fs.mkdtemp(path.join(os.tmpdir(), "manual-package-root-"));
+    t.after(async () => {
+        await fs.rm(manualRoot, { recursive: true, force: true });
+    });
+
+    const gitHead = "8f6d4f0112a8fa5d36f73fe6766f9af087c2add4";
+    const hash = resolveManualSourceCommitHash({
+        root: manualRoot,
+        packageName: "manual-package",
+        packageJson: { gitHead }
+    });
+
+    assert.equal(hash, gitHead);
 });

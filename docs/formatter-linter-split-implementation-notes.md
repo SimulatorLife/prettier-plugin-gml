@@ -1,12 +1,12 @@
 # Formatter/Linter Split Implementation Notes
 
-## Snapshot (2026-02-15)
+## Snapshot (2026-02-17)
 
 - Formatter/linter split migration is largely complete on runtime behavior:
   - formatter is strict/layout-first and does not expose legacy semantic/refactor adapter hooks;
   - lint owns migrated semantic/content rewrite responsibilities.
 - Full pinned-plan completion still has remaining architecture/doc alignment work (see current audit findings below).
-- `plugin`, `lint`, and `cli` workspace test suites are passing with zero skipped tests.
+- `plugin`, `lint`, and `cli` workspace suites remain largely stable; lint currently has known project-context registry failures outside the formatter/linter split migration scope.
 - Legacy formatter-lint adapter integration paths were removed from active runtime wiring and tests.
 
 ## Current Audit Findings (2026-02-15)
@@ -19,7 +19,9 @@
 3. Overlay guardrail behavior (`GML_OVERLAY_WITHOUT_LANGUAGE_WIRING`) is implemented and covered with normalization/dedupe/path-sample tests.
 4. Project-context registry behavior (root resolution, hard excludes, `--index-allow`, forced-root boundaries, deterministic caching) is covered by dedicated lint tests.
 5. Missing-context emission policy (once per file per rule) and unsafe-fix reason-code declaration/validation are covered by rule contract tests.
-6. Current lint suite baseline is green (`pass 36`, `fail 0`, `skipped 0`).
+6. Rule implementation coverage now enforces non-placeholder behavior:
+   - `gml` and `feather` rule factories fail fast on missing implementation instead of returning silent no-op rules.
+   - rule-contract coverage includes a guard that every registered rule returns a non-empty listener object.
 
 ### Misaligned / remaining gaps against full split plan
 
@@ -36,11 +38,20 @@
 2. Add shared-provider parity contract tests that validate identical answers for occupancy/occurrence/rename-planning/loop-hoist/globalvar safety across lint and refactor consumers.
 3. Finish docs migration cleanup in remaining package docs (if any references to removed formatter-era semantic options or legacy adapter ownership persist).
 4. Remove or isolate dormant migrated semantic transform modules from formatter workspace exports to make boundary ownership explicit in source, not only in runtime wiring.
-5. Continue tightening fixer fidelity for newer migrated Feather IDs where current implementation still uses conservative text rewrites (for example `gm1013`/`gm1032` family), while keeping all semantic fixture ownership in lint.
+5. Continue tightening fixer fidelity where conservative text rewrites remain, but keep ownership in lint and avoid fixture-symbol hardcoding.
 
 ## Completed Since Prior Snapshot
 
 - Lint rules are wired through real `gml/*` implementations (instead of no-op scaffolding), with schema/capability alignment updates in rule catalog and helpers.
+- Lint rule factory wiring no longer silently falls back to placeholder/no-op modules:
+  - `createGmlRule(...)` now throws on unmapped `gml/*` definitions.
+  - `createFeatherRule(...)` now throws on unmapped Feather IDs.
+  - deprecated `src/lint/src/rules/noop.ts` scaffold was removed.
+- Feather fixer genericity hardening landed for previously fixture-bound rules:
+  - `gm1012`, `gm1032`, `gm1034`, `gm1036`, `gm1056`, `gm1059`, `gm1062`, and `gm2044` now use generic pattern transforms instead of fixture-specific symbol replacements.
+  - legacy one-off fixture symbol rewrites were removed from `gm2004`, `gm2012`, and `gm2043`.
+- Rule contracts now enforce no silent placeholders:
+  - `src/lint/test/rule-contracts.test.ts` includes a guard that each registered lint rule returns at least one listener.
 - Project context registry now builds an index-backed context (identifier occupancy and occurrence helpers, rename planning hooks, and globalvar rewrite assessment hooks).
 - Project context indexing now normalizes identifier matching by canonical lowercase keys for occupancy/occurrence/planning parity across files.
 - CLI lint guardrail behavior/messaging was tightened (overlay warning policy and fallback messaging improvements).
@@ -108,6 +119,13 @@
   - `src/lint/test/feather-plugin-fixture-migration.test.ts` now covers these migrated fixtures under the lint-owned `src/lint/test/fixtures/feather/*` corpus.
   - `src/lint/test/feather-rule-fixtures.test.ts` continues to enforce exact `fixed.gml` parity for the pinned migrated-feather baseline (`gm1003`, `gm1004`, `gm1005`, `gm1014`, `gm1016`, `gm1023`).
 - `gml/normalize-doc-comments` coverage was expanded to include legacy `// @tag` normalization into canonical `/// @tag` form.
+- Previously missing split-migration `gml/*` ownership rules are now implemented in lint and fixture-backed:
+  - `gml/normalize-directives`
+  - `gml/require-control-flow-braces`
+  - `gml/no-assignment-in-condition`
+  - `gml/normalize-operator-aliases`
+- Lint rule catalog/config/test wiring now includes these rules (metadata contracts, recommended preset entries, and `rule-fixtures` coverage).
+- These rules now apply generic migration rewrites (legacy `#define` directive canonicalization, no-parens/inline `if` brace synthesis, conditional assignment normalization, and logical operator alias canonicalization) rather than fixture-specific replacements.
 
 ## Test Migration Status
 
@@ -151,7 +169,7 @@
 | Optional parameter default synthesis (`= undefined`) | `src/plugin/src/parsers/gml-parser-adapter.ts` (`preprocessFunctionArgumentDefaultsTransform`), `src/plugin/src/printer/print.ts` | `lint` | New `gml/require-trailing-optional-defaults` |
 | Data-structure accessor rewrites (`[?`, `[|`, `[#`) | `src/plugin/src/parsers/gml-parser-adapter.ts` (`normalizeDataStructureAccessorsTransform`) | `lint` | New `gml/normalize-data-structure-accessors` |
 | Conditional assignment sanitizer (`if (a = b)` rewrites) | `src/plugin/src/transforms/conditional-assignment-sanitizer.ts`, `testIfBraces` expectations | `lint` | New `gml/no-assignment-in-condition` (or equivalent) |
-| Guard/if structural rewrites (brace insertion, single-line guard restructuring) | `src/plugin/src/printer/print.ts` (`printSingleClauseStatement`, `allowSingleLineIfStatements`) | `lint` | New `gml/require-if-braces` |
+| Guard/if structural rewrites (brace insertion, single-line guard restructuring) | `src/plugin/src/printer/print.ts` (`printSingleClauseStatement`, `allowSingleLineIfStatements`) | `lint` | New `gml/require-control-flow-braces` |
 | Doc-comment content rewriting/promotion/synthesis (`@description`, `@returns`, tag cleanup) | `src/plugin/src/printer/normalize-formatted-output.ts`, `src/plugin/src/printer/doc-comment/*`, `src/plugin/src/transforms/doc-comment/*`, `Core.formatLineComment` behavior consumed by plugin | `lint` | `gml/normalize-doc-comments` (expanded scope) + feather doc-comment rule coverage |
 | Comment banner/content normalization (drop boilerplate, collapse decorated banners) | `src/plugin/src/comments/*`, `Core.formatLineComment`, `normalizeFormattedOutput` | `lint` | `gml/normalize-doc-comments` (expanded scope) |
 | String/math/logical semantic rewrites | `src/plugin/src/printer/print.ts` (`simplifyBooleanBinaryExpression`, trig conversion, operator alias rewrites), `src/plugin/src/transforms/math/*`, `src/plugin/src/transforms/logical-expressions/*`, `src/plugin/src/transforms/convert-string-concatenations.ts` | `lint` | `gml/prefer-string-interpolation`, `gml/optimize-math-expressions`, `gml/optimize-logical-flow`, plus new `gml/normalize-operator-aliases` where needed |
@@ -226,7 +244,7 @@
 
 #### Move from plugin to lint (semantic/content rewrite coverage) — 28 files
 
-- `src/plugin/test/allow-single-line-if-default.test.ts` -> `src/lint/test/rules/gml/require-if-braces.test.ts`
+- `src/plugin/test/allow-single-line-if-default.test.ts` -> `src/lint/test/rules/gml/require-control-flow-braces.test.ts`
 - `src/plugin/test/annotate-static-overrides.test.ts` -> `src/lint/test/rules/feather/static-overrides.test.ts`
 - `src/plugin/test/comment-promotion.test.ts` -> `src/lint/test/rules/gml/normalize-doc-comments.test.ts`
 - `src/plugin/test/conditional-assignment-sanitizer.test.ts` -> `src/lint/test/rules/gml/no-assignment-in-condition.test.ts`
@@ -364,13 +382,13 @@ Each basename below currently interweaves layout expectations with semantic/cont
 | `testFlow` | `src/lint/test/fixtures/gml-flow-migration/*` (decompose into rule-specific fixtures) | `src/plugin/test/fixtures/formatting/control-flow-layout.*` |
 | `testFunctionDescription` | `src/lint/test/fixtures/normalize-doc-comments/function-description.*` | `src/plugin/test/fixtures/formatting/function-doc-layout.*` |
 | `testHoist` | `src/lint/test/fixtures/prefer-loop-length-hoist/legacy-hoist.*` | `src/plugin/test/fixtures/formatting/loop-layout.*` |
-| `testIfBraces` | `src/lint/test/fixtures/require-if-braces/if-braces.*` and `src/lint/test/fixtures/no-assignment-in-condition/if-assignment.*` | `src/plugin/test/fixtures/formatting/if-layout-preserved.*` |
+| `testIfBraces` | `src/lint/test/fixtures/require-control-flow-braces/if-braces.*` and `src/lint/test/fixtures/no-assignment-in-condition/if-assignment.*` | `src/plugin/test/fixtures/formatting/if-layout-preserved.*` |
 | `testLogical` | `src/lint/test/fixtures/optimize-logical-flow/logical.*` | `src/plugin/test/fixtures/formatting/logical-wrap-layout.*` |
 | `testManualMath` | `src/lint/test/fixtures/optimize-math-expressions/manual-math.*` | `src/plugin/test/fixtures/formatting/math-layout-manual.*` |
 | `testMath` | `src/lint/test/fixtures/optimize-math-expressions/math.*` | `src/plugin/test/fixtures/formatting/math-layout.*` |
 | `testOperators` | `src/lint/test/fixtures/normalize-operator-aliases/operators.*` | `src/plugin/test/fixtures/formatting/operators-wrap-layout.*` |
 | `testOptimizeMathExpression` | `src/lint/test/fixtures/optimize-math-expressions/optimize.*` | `src/plugin/test/fixtures/formatting/optimize-math-layout.*` |
-| `testSingleLineIf` | `src/lint/test/fixtures/require-if-braces/single-line-if.*` | `src/plugin/test/fixtures/formatting/single-line-if-layout.*` |
+| `testSingleLineIf` | `src/lint/test/fixtures/require-control-flow-braces/single-line-if.*` | `src/plugin/test/fixtures/formatting/single-line-if-layout.*` |
 | `testStrings` | `src/lint/test/fixtures/prefer-string-interpolation/strings.*` | `src/plugin/test/fixtures/formatting/string-wrap-layout.*` |
 | `testStructs` | `src/lint/test/fixtures/prefer-struct-literal-assignments/structs.*` | `src/plugin/test/fixtures/formatting/struct-layout.*` |
 | `testStructsLoose` | `src/lint/test/fixtures/prefer-struct-literal-assignments/structs-loose.*` | `src/plugin/test/fixtures/formatting/struct-layout-loose.*` |

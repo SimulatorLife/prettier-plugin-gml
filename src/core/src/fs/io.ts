@@ -1,3 +1,6 @@
+import { readFileSync as fsReadFileSync, writeFileSync as fsWriteFileSync } from "node:fs";
+import { readFile as fsReadFileAsync, writeFile as fsWriteFileAsync } from "node:fs/promises";
+
 import { createAbortGuard } from "../utils/abort.js";
 import { toArrayFromIterable } from "../utils/array.js";
 import { isErrorWithCode } from "../utils/error.js";
@@ -102,4 +105,66 @@ export async function getFileMtime(
         }
         throw error;
     }
+}
+
+/**
+ * Read the contents of a file synchronously with UTF-8 encoding.
+ *
+ * Eliminates the need for repeated `"utf8"` encoding parameters across the
+ * codebase. Centralizes file reading so error handling, logging, and future
+ * enhancements (such as caching or encoding detection) can be added in a
+ * single location.
+ *
+ * @param {string} filePath Absolute or relative path to the file.
+ * @returns {string} File contents as a UTF-8 string.
+ * @throws {NodeJS.ErrnoException} When the file cannot be read.
+ */
+export function readTextFileSync(filePath: string): string {
+    return fsReadFileSync(filePath, "utf8");
+}
+
+/**
+ * Read the contents of a file asynchronously with UTF-8 encoding.
+ *
+ * Promise-based variant of {@link readTextFileSync} for use in async workflows.
+ * Standardizes encoding to UTF-8 and provides a single point for future
+ * enhancements like retry logic or streaming support.
+ *
+ * @param {string} filePath Absolute or relative path to the file.
+ * @returns {Promise<string>} File contents as a UTF-8 string.
+ * @throws {NodeJS.ErrnoException} When the file cannot be read.
+ */
+export function readTextFile(filePath: string): Promise<string> {
+    return fsReadFileAsync(filePath, "utf8");
+}
+
+/**
+ * Write text content to a file synchronously with UTF-8 encoding.
+ *
+ * Synchronous variant of {@link writeTextFile} for use in contexts where
+ * blocking I/O is acceptable. Standardizes file writes across the codebase
+ * by defaulting to UTF-8 encoding.
+ *
+ * @param {string} filePath Absolute or relative path to the target file.
+ * @param {string} content Text content to write.
+ * @throws {NodeJS.ErrnoException} When the file cannot be written.
+ */
+export function writeTextFileSync(filePath: string, content: string): void {
+    fsWriteFileSync(filePath, content, "utf8");
+}
+
+/**
+ * Write text content to a file asynchronously with UTF-8 encoding.
+ *
+ * Standardizes file writes across the codebase by defaulting to UTF-8 encoding
+ * and providing a single integration point for future features like atomic
+ * writes, backup creation, or permission management.
+ *
+ * @param {string} filePath Absolute or relative path to the target file.
+ * @param {string} content Text content to write.
+ * @returns {Promise<void>} Resolves when the write completes.
+ * @throws {NodeJS.ErrnoException} When the file cannot be written.
+ */
+export function writeTextFile(filePath: string, content: string): Promise<void> {
+    return fsWriteFileAsync(filePath, content, "utf8");
 }

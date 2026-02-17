@@ -47,6 +47,11 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-repeat-loops",
+        messageId: "preferRepeatLoops",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
         schema: [
@@ -85,6 +90,26 @@ const expectedRules = Object.freeze([
     {
         shortName: "normalize-doc-comments",
         messageId: "normalizeDocComments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "normalize-directives",
+        messageId: "normalizeDirectives",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "require-control-flow-braces",
+        messageId: "requireControlFlowBraces",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "no-assignment-in-condition",
+        messageId: "noAssignmentInCondition",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "normalize-operator-aliases",
+        messageId: "normalizeOperatorAliases",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
@@ -210,8 +235,13 @@ void test("project-aware rules declare required capabilities and unsafe reason c
 void test("non-project-aware rules do not expose gml project metadata", () => {
     const nonProjectAwareRuleIds = [
         "prefer-hoistable-loop-accessors",
+        "prefer-repeat-loops",
         "optimize-logical-flow",
         "normalize-doc-comments",
+        "normalize-directives",
+        "require-control-flow-braces",
+        "no-assignment-in-condition",
+        "normalize-operator-aliases",
         "optimize-math-expressions",
         "require-argument-separators",
         "normalize-data-structure-accessors",
@@ -246,6 +276,44 @@ void test("project-aware rules report missingProjectContext at most once per fil
     listeners.Program?.({ type: "Program" } as never);
     listeners.Program?.({ type: "Program" } as never);
     assert.deepEqual(reported, ["missingProjectContext"]);
+});
+
+void test("all registered lint rules return non-empty listeners (no silent placeholder rules)", () => {
+    const allCapabilities = new Set([
+        "IDENTIFIER_OCCUPANCY",
+        "IDENTIFIER_OCCURRENCES",
+        "LOOP_HOIST_NAME_RESOLUTION",
+        "RENAME_CONFLICT_PLANNING"
+    ]);
+
+    for (const [ruleShortName, ruleModule] of Object.entries(LintWorkspace.Lint.plugin.rules)) {
+        const listeners = ruleModule.create({
+            options: [{}],
+            settings: {
+                gml: {
+                    project: {
+                        getContext: () => ({ capabilities: allCapabilities })
+                    }
+                }
+            },
+            sourceCode: {
+                text: "var value = 1;\n",
+                parserServices: {
+                    gml: {
+                        filePath: "sample.gml"
+                    }
+                },
+                getLocFromIndex: () => ({ line: 1, column: 0 })
+            },
+            report: () => undefined
+        } as never);
+
+        assert.equal(
+            Object.keys(listeners).length > 0,
+            true,
+            `${ruleShortName} unexpectedly returned an empty listener object`
+        );
+    }
 });
 
 void test("only gml/require-argument-separators may consume inserted separator recovery metadata", () => {

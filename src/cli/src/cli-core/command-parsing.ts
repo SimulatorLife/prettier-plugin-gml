@@ -22,6 +22,40 @@ export const coerceNonNegativeInteger: typeof Core.coerceNonNegativeInteger = Co
 export const resolveIntegerOption: typeof Core.resolveIntegerOption = Core.resolveIntegerOption;
 
 /**
+ * Create an argParser for Commander.js options that validates port numbers.
+ * Ports must be integers in the range 1-65535.
+ *
+ * @returns {(value: string) => number} An argParser function for Commander.js
+ */
+export function createPortValidator() {
+    return wrapInvalidArgumentResolver((value: string) => {
+        const parsed = Number.parseInt(value);
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
+            throw new Error("Port must be between 1 and 65535");
+        }
+        return parsed;
+    });
+}
+
+/**
+ * Create an argParser for Commander.js options that validates integers against
+ * a minimum value.
+ *
+ * @param {number} min - Minimum allowed value (inclusive)
+ * @param {string} errorMessage - Error message to display on validation failure
+ * @returns {(value: string) => number} An argParser function for Commander.js
+ */
+export function createMinimumValueValidator(min: number, errorMessage: string) {
+    return wrapInvalidArgumentResolver((value: string) => {
+        const parsed = Number.parseInt(value);
+        if (Number.isNaN(parsed) || parsed < min) {
+            throw new Error(errorMessage);
+        }
+        return parsed;
+    });
+}
+
+/**
  * Wrap a Commander option resolver so thrown errors are converted into
  * {@link InvalidArgumentError} instances. Callers can provide a custom error
  * constructor (for example when subclassing Commander) along with an optional
