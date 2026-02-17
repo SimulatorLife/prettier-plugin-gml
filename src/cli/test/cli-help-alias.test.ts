@@ -73,4 +73,11 @@ void describe("cli help command normalization", () => {
 
         assert.deepEqual(normalized, ["--help"]);
     });
+
+    void it("strips pnpm argument separators between command and command options", async () => {
+        const { normalizeCommandLineArguments } = await loadCliTestUtilities();
+        const normalized = normalizeCommandLineArguments(["format", "--", "--check"]);
+
+        assert.deepEqual(normalized, ["format", "--check"]);
+    });
 });
