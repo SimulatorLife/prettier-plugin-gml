@@ -11,7 +11,7 @@ import { XMLParser } from "fast-xml-parser";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { ParseResultStatus, ScanStatus, TestCaseStatus } from "../modules/quality-report/index.js";
-import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
+import { formatByteSizeDisplay } from "../shared/byte-format.js";
 
 const {
     assertArray,
