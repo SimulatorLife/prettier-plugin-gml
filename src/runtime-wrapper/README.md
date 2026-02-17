@@ -30,6 +30,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 - `validateBeforeApply` (optional): When `true`, validates patches in a shadow registry before applying to the real registry. Default is `false`.
 - `onChange` (optional): Lifecycle listener that receives events for all registry changes (patch applied, undone, rolled back, registry cleared). See [Registry Lifecycle Hooks](#registry-lifecycle-hooks) for details.
 - `maxUndoStackSize` (optional): Maximum number of undo snapshots to retain. When the limit is reached, the oldest snapshots are automatically discarded. Default is `50`. Set to `0` for unlimited (not recommended for long-running sessions).
+- `maxErrorHistorySize` (optional): Maximum number of error records to retain in the error history. When the limit is reached, the oldest error records are automatically discarded. Default is `100`. Set to `0` for unlimited (not recommended for long-running sessions). This prevents unbounded memory growth during development sessions with frequent errors.
 
 **Returns:** An object with the following methods:
 

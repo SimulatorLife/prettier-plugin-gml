@@ -36,6 +36,7 @@ import { evaluateUndoStackTrimPolicy } from "./undo-stack-policy.js";
 
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
+const DEFAULT_MAX_ERROR_HISTORY_SIZE = 100;
 
 export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): RuntimeWrapper {
     const baseRegistry = createRegistry(options.registry);
@@ -47,7 +48,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         errorHistory: [],
         options: {
             validateBeforeApply: options.validateBeforeApply ?? false,
-            maxUndoStackSize: options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE
+            maxUndoStackSize: options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE,
+            maxErrorHistorySize: options.maxErrorHistorySize ?? DEFAULT_MAX_ERROR_HISTORY_SIZE
         }
     };
 
@@ -77,6 +79,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             timestamp: getWallClockTime(),
             stackTrace
         });
+
+        trimErrorHistory();
     }
 
     function trimUndoStack(): void {
@@ -87,6 +91,17 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
         if (decision.shouldTrim) {
             state.undoStack.splice(0, decision.trimCount);
+        }
+    }
+
+    function trimErrorHistory(): void {
+        const decision = evaluateUndoStackTrimPolicy({
+            maxSize: state.options.maxErrorHistorySize,
+            currentSize: state.errorHistory.length
+        });
+
+        if (decision.shouldTrim) {
+            state.errorHistory.splice(0, decision.trimCount);
         }
     }
 
