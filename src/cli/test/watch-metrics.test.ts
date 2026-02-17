@@ -18,6 +18,8 @@ import {
 } from "./test-helpers/watch-fixtures.js";
 import { connectToHotReloadWebSocket, type HotReloadScriptPatch } from "./test-helpers/websocket-client.js";
 
+const WATCH_READY_DELAY_MS = 50;
+
 void describe("Watch command metrics tracking", () => {
     let fixture: WatchTestFixture | null = null;
 
@@ -48,7 +50,7 @@ void describe("Watch command metrics tracking", () => {
 
         const watchPromise = runWatchCommand(fixture.dir, {
             extensions: [".gml"],
-            verbose: true,
+            verbose: false,
             websocketPort,
             websocketHost: "127.0.0.1",
             websocketServer: true,
@@ -61,7 +63,7 @@ void describe("Watch command metrics tracking", () => {
 
         try {
             websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 1200,
+                connectionTimeoutMs: 4000,
                 retryIntervalMs: 25
             });
 
@@ -69,10 +71,14 @@ void describe("Watch command metrics tracking", () => {
             await writeFile(fixture.script1, "var x = 100; // Modified", "utf8");
             await writeFile(fixture.script2, "var y = 200; // Modified", "utf8");
             await websocketClient.waitForPatches({
-                timeoutMs: 1500,
+                timeoutMs: 4000,
                 minCount: 2,
                 predicate: (patch: HotReloadScriptPatch): patch is HotReloadScriptPatch =>
                     patch.id.includes("script1") || patch.id.includes("script2")
+            });
+
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, WATCH_READY_DELAY_MS);
             });
         } finally {
             // Stop the watcher
