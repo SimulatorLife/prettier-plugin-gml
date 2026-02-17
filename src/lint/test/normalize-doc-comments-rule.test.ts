@@ -77,3 +77,53 @@ void test("normalize-doc-comments canonicalizes legacy // @tag comments", () => 
     const output = runNormalizeDocCommentsRule(input);
     assert.match(output, /^\/\/\/ @description legacy style/m);
 });
+
+void test("normalize-doc-comments synthesizes missing doc tags for undocumented functions", () => {
+    const input = ["function synth_me(_a, b = 1) {", "    return _a + b;", "}"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description synth_me/m);
+    assert.match(output, /^\/\/\/ @param a/m);
+    assert.match(output, /^\/\/\/ @param b/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments appends missing @param and @returns tags to existing doc blocks", () => {
+    const input = [
+        "/// @description Existing docs",
+        "/// @param alpha",
+        "function enrich_me(alpha, beta) {",
+        "    return alpha + beta;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description Existing docs/m);
+    assert.match(output, /^\/\/\/ @param alpha/m);
+    assert.match(output, /^\/\/\/ @param beta/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments synthesizes tags for function assignments", () => {
+    const input = [
+        "var build_struct = function (_value, amount = 1) {",
+        "    return { value: _value, amount: amount };",
+        "};"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description build_struct/m);
+    assert.match(output, /^\/\/\/ @param value/m);
+    assert.match(output, /^\/\/\/ @param amount/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments synthesizes tags when braces are on the next line", () => {
+    const input = ["function split_header(arg_one, _arg_two)", "{", "    return arg_one + _arg_two;", "}"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description split_header/m);
+    assert.match(output, /^\/\/\/ @param arg_one/m);
+    assert.match(output, /^\/\/\/ @param arg_two/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});

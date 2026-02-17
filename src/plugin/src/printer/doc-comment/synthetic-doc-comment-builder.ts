@@ -5,14 +5,6 @@ import { hardline, join } from "../prettier-doc-builders.js";
 
 const { isObjectLike } = Core;
 
-type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
-type ComputeSyntheticDocCommentForStaticVariable = typeof Core.computeSyntheticDocCommentForStaticVariable;
-type ComputeSyntheticDocCommentForFunctionAssignment = typeof Core.computeSyntheticDocCommentForFunctionAssignment;
-
-export type SyntheticDocComment = NonNullable<ReturnType<ComputeSyntheticDocComment>>;
-
-export type SyntheticDocCommentDoc = SyntheticDocComment & { doc: Doc };
-
 export type SyntheticDocCommentPayload = {
     doc: Doc | null;
     docLines: string[] | null;
@@ -20,137 +12,131 @@ export type SyntheticDocCommentPayload = {
     plainLeadingLines: Doc[];
 };
 
-type SyntheticDocCommentCoreResult =
-    | NonNullable<ReturnType<ComputeSyntheticDocCommentForStaticVariable>>
-    | NonNullable<ReturnType<ComputeSyntheticDocCommentForFunctionAssignment>>;
-
-type SyntheticDocCommentResolver = (
-    node: unknown,
-    options: Record<string, unknown>,
-    programNode: unknown,
-    sourceText: string | null | undefined
-) => SyntheticDocCommentCoreResult | null;
-
-type SyntheticDocCommentCache = {
-    docLines: string[] | null;
-    hasExistingDocLines: boolean;
-    plainLeadingLines: unknown;
-};
-
-export function buildSyntheticDocComment(
-    functionNode: unknown,
-    existingDocLines: string[],
-    options: Record<string, unknown>,
-    overrides: Record<string, unknown> = {},
-    computeSyntheticDocComment: ComputeSyntheticDocComment = Core.computeSyntheticDocComment
-): SyntheticDocCommentDoc | null {
-    const syntheticDocComment = computeSyntheticDocComment(functionNode, existingDocLines, options, overrides);
-
-    return buildSyntheticDocCommentDoc(syntheticDocComment);
-}
-
-export function buildSyntheticDocCommentDoc(
-    syntheticDocComment: SyntheticDocComment | null
-): SyntheticDocCommentDoc | null {
-    if (!syntheticDocComment) {
-        return null;
-    }
-
-    return {
-        ...syntheticDocComment,
-        doc: join(hardline, syntheticDocComment.docLines)
-    };
-}
-
-function normalizePlainLeadingLines(lines: unknown): Doc[] {
-    return Core.asArray(lines);
-}
-
-function buildDocFromSyntheticResult(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentDoc | null {
-    if (!result?.docLines) {
-        return null;
-    }
-
-    const syntheticDocLines = Core.isNonEmptyArray(result.docLines) ? result.docLines : null;
-
-    if (!syntheticDocLines) {
-        return null;
-    }
-
-    return buildSyntheticDocCommentDoc({
-        docLines: syntheticDocLines,
-        hasExistingDocLines: result.hasExistingDocLines === true
-    });
-}
-
-function readSyntheticDocCommentCache(node: unknown): SyntheticDocCommentCache | null {
+function readNodeStartIndex(node: unknown): number | null {
     if (!isObjectLike(node)) {
         return null;
     }
 
-    const cache = (node as { _gmlSyntheticDocComment?: unknown })._gmlSyntheticDocComment;
-    if (!isObjectLike(cache)) {
+    const start = (node as { start?: unknown }).start;
+    if (typeof start === "number") {
+        return start;
+    }
+
+    if (isObjectLike(start) && typeof (start as { index?: unknown }).index === "number") {
+        return (start as { index: number }).index;
+    }
+
+    return null;
+}
+
+function collectLeadingDocCommentLinesFromSource(sourceText: string, nodeStartIndex: number): string[] {
+    const precedingText = sourceText.slice(0, nodeStartIndex);
+    const lines = precedingText.split(/\r?\n/u);
+    const collected: string[] = [];
+    let index = lines.length - 1;
+
+    while (index >= 0 && lines[index].trim().length === 0) {
+        index -= 1;
+    }
+
+    while (index >= 0) {
+        const line = lines[index].trimEnd();
+        if (/^\s*\/\/\/(?:\s|$)/u.test(line)) {
+            collected.unshift(line);
+            index -= 1;
+            continue;
+        }
+
+        break;
+    }
+
+    return collected;
+}
+
+function resolveExistingDocCommentPayload(
+    node: unknown,
+    sourceText: string | null | undefined
+): SyntheticDocCommentPayload | null {
+    if (typeof sourceText !== "string") {
         return null;
     }
 
-    const rawDocLines = Array.isArray((cache as { docLines?: unknown }).docLines)
-        ? (cache as { docLines: unknown[] }).docLines
-        : null;
-    const docLines = rawDocLines ? rawDocLines.filter((line): line is string => typeof line === "string") : null;
-    const hasExistingDocLines = (cache as { hasExistingDocLines?: boolean }).hasExistingDocLines === true;
-    const plainLeadingLines = (cache as { plainLeadingLines?: unknown }).plainLeadingLines ?? [];
+    const nodeStartIndex = readNodeStartIndex(node);
+    if (nodeStartIndex === null || nodeStartIndex < 0 || nodeStartIndex > sourceText.length) {
+        return null;
+    }
 
-    if (!Core.isNonEmptyArray(docLines) && Core.asArray(plainLeadingLines).length === 0) {
+    const docLines = collectLeadingDocCommentLinesFromSource(sourceText, nodeStartIndex);
+    if (!Core.isNonEmptyArray(docLines)) {
         return null;
     }
 
     return {
-        docLines: Core.isNonEmptyArray(docLines) ? docLines : null,
-        hasExistingDocLines,
-        plainLeadingLines
+        doc: join(hardline, docLines),
+        docLines,
+        hasExistingDocLines: true,
+        plainLeadingLines: []
     };
 }
 
-function resolveDocCommentPayloadFromCache(cache: SyntheticDocCommentCache): SyntheticDocCommentPayload | null {
-    const docLines = Core.isNonEmptyArray(cache.docLines) ? cache.docLines : null;
-    const doc = docLines
-        ? buildSyntheticDocCommentDoc({
-              docLines,
-              hasExistingDocLines: cache.hasExistingDocLines
-          })
-        : null;
-    const plainLeadingLines = normalizePlainLeadingLines(cache.plainLeadingLines);
-
-    if (!doc && plainLeadingLines.length === 0) {
-        return null;
+function isStaticFunctionVariableDeclaration(node: unknown): boolean {
+    if (!isObjectLike(node) || (node as { type?: unknown }).type !== "VariableDeclaration") {
+        return false;
     }
 
-    return {
-        doc: doc?.doc ?? null,
-        docLines: doc?.docLines ?? null,
-        hasExistingDocLines: cache.hasExistingDocLines,
-        plainLeadingLines
-    };
+    if ((node as { kind?: unknown }).kind !== "static") {
+        return false;
+    }
+
+    const declarations = (node as { declarations?: unknown }).declarations;
+    if (!Array.isArray(declarations) || declarations.length !== 1 || !isObjectLike(declarations[0])) {
+        return false;
+    }
+
+    const initializerType = (declarations[0] as { init?: { type?: unknown } }).init?.type;
+    return initializerType === "FunctionExpression" || initializerType === "FunctionDeclaration";
 }
 
-function resolveDocCommentPayload(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentPayload | null {
-    if (!result) {
-        return null;
+function isFunctionAssignmentLikeStatement(node: unknown): boolean {
+    if (!isObjectLike(node)) {
+        return false;
     }
 
-    const doc = buildDocFromSyntheticResult(result);
-    const plainLeadingLines = normalizePlainLeadingLines(result.plainLeadingLines);
+    const statement = node as { type?: unknown; expression?: unknown; declarations?: unknown };
 
-    if (!doc && plainLeadingLines.length === 0) {
-        return null;
+    if (statement.type === "VariableDeclaration") {
+        const declarations = statement.declarations;
+        if (!Array.isArray(declarations) || declarations.length !== 1 || !isObjectLike(declarations[0])) {
+            return false;
+        }
+
+        const declaration = declarations[0] as { id?: { type?: unknown }; init?: { type?: unknown } };
+        const initializerType = declaration.init?.type;
+        return (
+            declaration.id?.type === "Identifier" &&
+            (initializerType === "FunctionExpression" ||
+                initializerType === "FunctionDeclaration" ||
+                initializerType === "ConstructorDeclaration")
+        );
     }
 
-    return {
-        doc: doc?.doc ?? null,
-        docLines: doc?.docLines ?? null,
-        hasExistingDocLines: result.hasExistingDocLines === true,
-        plainLeadingLines
-    };
+    const assignmentNode =
+        statement.type === "ExpressionStatement" && isObjectLike(statement.expression)
+            ? (statement.expression as { type?: unknown; operator?: unknown; right?: { type?: unknown } })
+            : statement.type === "AssignmentExpression"
+              ? (statement as { type?: unknown; operator?: unknown; right?: { type?: unknown } })
+              : null;
+
+    if (!assignmentNode || assignmentNode.type !== "AssignmentExpression" || assignmentNode.operator !== "=") {
+        return false;
+    }
+
+    const rightType = assignmentNode.right?.type;
+    return (
+        rightType === "FunctionExpression" ||
+        rightType === "FunctionDeclaration" ||
+        rightType === "ConstructorDeclaration"
+    );
 }
 
 export function getSyntheticDocCommentForStaticVariable(
@@ -159,9 +145,13 @@ export function getSyntheticDocCommentForStaticVariable(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
-    return resolveSyntheticDocCommentPayload(node, options, programNode, sourceText, (candidate) =>
-        Core.computeSyntheticDocCommentForStaticVariable(candidate, options, programNode, sourceText)
-    );
+    void options;
+    void programNode;
+    if (!isStaticFunctionVariableDeclaration(node)) {
+        return null;
+    }
+
+    return resolveExistingDocCommentPayload(node, sourceText);
 }
 
 export function getSyntheticDocCommentForFunctionAssignment(
@@ -170,24 +160,11 @@ export function getSyntheticDocCommentForFunctionAssignment(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
-    return resolveSyntheticDocCommentPayload(node, options, programNode, sourceText, (candidate) =>
-        Core.computeSyntheticDocCommentForFunctionAssignment(candidate, options, programNode, sourceText)
-    );
-}
-
-function resolveSyntheticDocCommentPayload(
-    node: unknown,
-    options: Record<string, unknown>,
-    programNode: unknown,
-    sourceText: string | null | undefined,
-    resolveSyntheticDocComment: SyntheticDocCommentResolver
-): SyntheticDocCommentPayload | null {
-    const cached = readSyntheticDocCommentCache(node);
-    if (cached) {
-        return resolveDocCommentPayloadFromCache(cached);
+    void options;
+    void programNode;
+    if (!isFunctionAssignmentLikeStatement(node)) {
+        return null;
     }
 
-    const result = resolveSyntheticDocComment(node, options, programNode, sourceText);
-
-    return resolveDocCommentPayload(result);
+    return resolveExistingDocCommentPayload(node, sourceText);
 }

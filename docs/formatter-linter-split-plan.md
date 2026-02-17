@@ -951,7 +951,7 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
    - trigger: non-canonical documentation comment content.
    - eligibility preconditions: comment token classified as doc comment.
    - messageIds: `normalizeDocComments`.
-   - fix canonical form: in-place normalization of doc-comment content only.
+   - fix canonical form: normalize legacy doc-comment prefixes/tags and synthesize missing function-doc tags (`@description`, `@param`, `@returns`) for function-like signatures.
 7. `gml/prefer-string-interpolation`:
    - trigger: string concatenation patterns convertible to interpolation.
    - eligibility preconditions: concatenation chain is interpolation-safe and preserves evaluation order.
@@ -984,7 +984,7 @@ Rule authoring/runtime behavior contracts, safety diagnostics, fixer boundaries,
       - messageIds: `normalizeDirectives`.
       - fix canonical form: normalize to `#region`/`#endregion` and `#macro` forms with stable spacing and no trailing macro semicolon.
     - `gml/require-control-flow-braces`:
-      - trigger: `if`/`else` single-statement clauses without braces.
+      - trigger: single-statement control-flow clauses without braces (`if`, `else`, `repeat`, `while`, `for`, `with`, and `do ... until`).
       - messageIds: `requireControlFlowBraces`.
       - fix canonical form: wrap single statement bodies into braces without changing clause order.
     - `gml/no-assignment-in-condition`:

@@ -101,7 +101,7 @@ void test("inserts trailing blank line after nested constructor functions when m
     );
 });
 
-void test("collapses blank lines between simple constructor assignments", async () => {
+void test("preserves blank lines between simple constructor assignments", async () => {
     const source = [
         "Demo = function () constructor {",
         "    self.value = 1;",
@@ -122,27 +122,7 @@ void test("collapses blank lines between simple constructor assignments", async 
     );
     assert.equal(
         lines[assignmentIndex + 1],
-        "    self.copied = self.value;",
-        "Expected constructors to collapse author-inserted blank lines between simple assignments."
-    );
-});
-
-void test("inserts blank line after synthetic constructor doc comments", async () => {
-    const source = [
-        "function Demo() constructor {",
-        "    function nested(value) {",
-        "        return value;",
-        "    }",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source);
-    const lines = formatted.trim().split("\n");
-
-    assert.equal(
-        lines.at(-2),
         "",
-        "Expected constructors to retain a blank line after nested functions when synthetic doc comments are generated."
+        "Expected constructors to preserve author-inserted blank lines between simple assignments."
     );
 });

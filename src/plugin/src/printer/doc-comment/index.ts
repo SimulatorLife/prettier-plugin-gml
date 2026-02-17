@@ -1,8 +1,8 @@
 /**
  * Public API for doc-comment printing.
  *
- * This module provides the doc-comment printing infrastructure including function
- * doc processing and synthetic doc-comment generation.
+ * This module provides doc-comment printing helpers that preserve/format existing
+ * comments only. Synthetic tag generation is lint-owned.
  *
  * Architectural boundaries:
  * - Printer owns: Doc-comment formatting and Prettier doc builders
@@ -13,4 +13,3 @@
  */
 
 export * from "./function-docs.js";
-export * from "./synthetic-doc-comment-builder.js";

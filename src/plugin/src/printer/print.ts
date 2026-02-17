@@ -421,6 +421,7 @@ function printNodeDocComments(node, path, options) {
 
         const hasLeadingNonDocComment =
             !Core.isNonEmptyArray(node.docComments) &&
+            docCommentDocs.length === 0 &&
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             Core.hasCommentImmediatelyBefore(originalText, nodeStartIndex);
@@ -429,8 +430,15 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             isPreviousLineEmpty(originalText, nodeStartIndex);
+        const isTopOfFileDocBlock =
+            originalText !== null &&
+            typeof nodeStartIndex === NUMBER_TYPE &&
+            originalText.slice(0, nodeStartIndex).trim().length === 0;
 
-        if (!suppressLeadingBlank && (needsLeadingBlankLine || (hasLeadingNonDocComment && !hasExistingBlankLine))) {
+        if (
+            !suppressLeadingBlank &&
+            ((!isTopOfFileDocBlock && needsLeadingBlankLine) || (hasLeadingNonDocComment && !hasExistingBlankLine))
+        ) {
             parts.push(hardline);
         }
 
