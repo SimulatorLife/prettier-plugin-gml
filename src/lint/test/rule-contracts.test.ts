@@ -47,6 +47,11 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-repeat-loops",
+        messageId: "preferRepeatLoops",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
         schema: [
@@ -210,6 +215,7 @@ void test("project-aware rules declare required capabilities and unsafe reason c
 void test("non-project-aware rules do not expose gml project metadata", () => {
     const nonProjectAwareRuleIds = [
         "prefer-hoistable-loop-accessors",
+        "prefer-repeat-loops",
         "optimize-logical-flow",
         "normalize-doc-comments",
         "optimize-math-expressions",

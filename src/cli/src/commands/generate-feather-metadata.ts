@@ -6,7 +6,7 @@ import type { Element } from "linkedom/types/interface/element.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
-import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
+import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHash } from "../modules/manual/source.js";
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
@@ -1042,13 +1042,13 @@ function parseTypeSystem(html) {
     };
 }
 
-function createFeatherManualMetadataPayload({ manualSource, sections }) {
+function createFeatherManualMetadataPayload({ manualSource, manualCommitHash, sections }) {
     return {
         meta: {
             manualRoot: getManualRootMetadataPath(manualSource),
             packageName: manualSource.packageName,
             packageVersion: manualSource.packageJson?.version ?? null,
-            generatedAt: Core.formatGeneratedDate(),
+            manualCommitHash,
             manualPaths: { ...FEATHER_PAGES }
         },
         ...sections
@@ -1093,7 +1093,7 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
  * artefact. Returning the final payload keeps the command runner free from
  * low-level payload maps and section assembly concerns.
  */
-async function buildFeatherMetadataPayload({ manualSource, verbose, onRead }) {
+async function buildFeatherMetadataPayload({ manualSource, manualCommitHash, verbose, onRead }) {
     const htmlPayloads = await readFeatherManualPayloads({
         manualSource,
         onRead
@@ -1103,6 +1103,7 @@ async function buildFeatherMetadataPayload({ manualSource, verbose, onRead }) {
 
     return createFeatherManualMetadataPayload({
         manualSource,
+        manualCommitHash,
         sections
     });
 }
@@ -1133,10 +1134,12 @@ export async function runGenerateFeatherMetadata({ command, workflow }: FeatherM
         manualPackage,
         quiet
     });
+    const manualCommitHash = resolveManualSourceCommitHash(manualSource);
 
     const logCompletion = createVerboseDurationLogger({ verbose });
     const payload = await buildFeatherMetadataPayload({
         manualSource,
+        manualCommitHash,
         verbose,
         onRead: quiet
             ? undefined

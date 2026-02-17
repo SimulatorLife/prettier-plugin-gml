@@ -115,6 +115,7 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
     }
 
     const fixRules = [
+        "prefer-repeat-loops",
         "optimize-logical-flow",
         "no-globalvar",
         "normalize-doc-comments",
@@ -186,6 +187,18 @@ void test("prefer-loop-length-hoist respects null suffix override by disabling h
             array_length: null
         }
     });
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("prefer-repeat-loops skips conversion when loop iterator is used in body", () => {
+    const input = [
+        "for (var i = 0; i < array_length(items); i++) {",
+        "    sum += i;",
+        "}",
+        ""
+    ].join("\n");
+    const result = lintWithRule("prefer-repeat-loops", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
 });

@@ -9,7 +9,7 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
-import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
+import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHash } from "../modules/manual/source.js";
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { getDefaultVmEvalTimeoutMs, resolveVmEvalTimeout } from "../runtime-options/vm-eval-timeout.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
@@ -555,7 +555,7 @@ function classifyManualIdentifierMetadata({ identifierMap, manualKeywords, manua
     );
 }
 
-function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose }) {
+function createIdentifierArtifactPayload({ identifierMap, manualSource, manualCommitHash, verbose }) {
     const sortedIdentifiers = timeSync("Sorting identifiers", () => sortIdentifierEntries(identifierMap), { verbose });
 
     const identifiersObject = Object.fromEntries(sortedIdentifiers);
@@ -575,7 +575,7 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose 
                 manualRoot: getManualRootMetadataPath(manualSource),
                 packageName: manualSource.packageName,
                 packageVersion: manualSource.packageJson?.version ?? null,
-                generatedAt: Core.formatGeneratedDate()
+                manualCommitHash
             },
             identifiers
         },
@@ -588,7 +588,7 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose 
  * while keeping {@link runGenerateGmlIdentifiers} free from map mutations and
  * tag bookkeeping.
  */
-function buildIdentifierArtifact({ payloads, manualSource, vmEvalTimeoutMs, verbose }) {
+function buildIdentifierArtifact({ payloads, manualSource, manualCommitHash, vmEvalTimeoutMs, verbose }) {
     const identifierMap = buildIdentifierMapFromManualPayloads({
         payloads,
         vmEvalTimeoutMs,
@@ -610,6 +610,7 @@ function buildIdentifierArtifact({ payloads, manualSource, vmEvalTimeoutMs, verb
     return createIdentifierArtifactPayload({
         identifierMap,
         manualSource,
+        manualCommitHash,
         verbose
     });
 }
@@ -695,6 +696,7 @@ export async function runGenerateGmlIdentifiers({ command, workflow }: RunGenera
         manualKeywordsPath,
         manualTagsPath
     });
+    const manualCommitHash = resolveManualSourceCommitHash(manualSource);
 
     const logCompletion = createVerboseDurationLogger({
         verbose: verboseState
@@ -703,6 +705,7 @@ export async function runGenerateGmlIdentifiers({ command, workflow }: RunGenera
     const { payload, entryCount } = buildIdentifierArtifact({
         payloads,
         manualSource,
+        manualCommitHash,
         vmEvalTimeoutMs,
         verbose: verboseState
     });

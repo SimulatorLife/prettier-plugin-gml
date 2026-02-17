@@ -17,6 +17,7 @@ export const GML_LINT_FILES_GLOB = Object.freeze(["**/*.gml"]);
 const RECOMMENDED_RULES = Object.freeze({
     "gml/prefer-loop-length-hoist": "warn",
     "gml/prefer-hoistable-loop-accessors": "warn",
+    "gml/prefer-repeat-loops": "warn",
     "gml/prefer-struct-literal-assignments": "warn",
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",

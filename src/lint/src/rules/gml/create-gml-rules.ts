@@ -52,6 +52,94 @@ const DEFAULT_HOIST_ACCESSORS = Object.freeze({
     array_length: "len"
 });
 
+type RepeatLoopCandidate = Readonly<{
+    limitExpression: string;
+    loopStartIndex: number;
+    loopHeaderEndIndex: number;
+}>;
+
+function escapeRegularExpressionPattern(text: string): string {
+    return text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
+    let braceDepth = 0;
+    for (let index = openBraceIndex; index < sourceText.length; index += 1) {
+        const character = sourceText[index];
+        if (character === "{") {
+            braceDepth += 1;
+            continue;
+        }
+
+        if (character !== "}") {
+            continue;
+        }
+
+        braceDepth -= 1;
+        if (braceDepth === 0) {
+            return index + 1;
+        }
+    }
+
+    return -1;
+}
+
+function usesUnitIncrement(iteratorName: string, updateExpression: string): boolean {
+    const compactExpression = updateExpression.replaceAll(/\s+/g, "");
+    return (
+        compactExpression === `${iteratorName}++` ||
+        compactExpression === `++${iteratorName}` ||
+        compactExpression === `${iteratorName}+=1` ||
+        compactExpression === `${iteratorName}=${iteratorName}+1`
+    );
+}
+
+function collectRepeatLoopCandidates(sourceText: string): Array<RepeatLoopCandidate> {
+    const candidates: Array<RepeatLoopCandidate> = [];
+    const forLoopPattern =
+        /for\s*\(\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*0\s*;\s*([A-Za-z_][A-Za-z0-9_]*)\s*<\s*([^;]+?)\s*;\s*([^)]+?)\s*\)\s*\{/g;
+
+    for (const match of sourceText.matchAll(forLoopPattern)) {
+        const matchStartIndex = match.index ?? 0;
+        const iteratorName = match[1];
+        const conditionLeftIdentifier = match[2];
+        const limitExpression = match[3].trim();
+        const updateExpression = match[4];
+
+        if (conditionLeftIdentifier !== iteratorName || limitExpression.length === 0) {
+            continue;
+        }
+
+        if (!usesUnitIncrement(iteratorName, updateExpression)) {
+            continue;
+        }
+
+        const iteratorPattern = new RegExp(`\\b${escapeRegularExpressionPattern(iteratorName)}\\b`, "u");
+        if (iteratorPattern.test(limitExpression)) {
+            continue;
+        }
+
+        const loopOpenBraceIndex = matchStartIndex + match[0].length - 1;
+        const loopEndIndex = findMatchingBraceEndIndex(sourceText, loopOpenBraceIndex);
+        if (loopEndIndex === -1) {
+            continue;
+        }
+
+        const loopBodyText = sourceText.slice(loopOpenBraceIndex + 1, loopEndIndex - 1);
+        if (iteratorPattern.test(loopBodyText)) {
+            continue;
+        }
+
+        candidates.push({
+            limitExpression,
+            loopStartIndex: matchStartIndex,
+            loopHeaderEndIndex: loopOpenBraceIndex + 1
+        });
+    }
+
+    return candidates;
+}
+
 function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -84,7 +172,7 @@ function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.Ru
 
                     const text = context.sourceCode.text;
                     const functionsPattern = enabledFunctions
-                        .map((fn) => fn.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+                        .map((fn) => escapeRegularExpressionPattern(fn))
                         .join("|");
                     const loopPattern = new RegExp(
                         String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
@@ -131,6 +219,31 @@ function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefinition): 
                             context.report({ node, messageId: definition.messageId });
                             break;
                         }
+                    }
+                }
+            });
+        }
+    });
+}
+
+function createPreferRepeatLoopsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const sourceText = context.sourceCode.text;
+                    const loopCandidates = collectRepeatLoopCandidates(sourceText);
+                    for (const loopCandidate of loopCandidates) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(loopCandidate.loopStartIndex),
+                            messageId: definition.messageId,
+                            fix: (fixer) =>
+                                fixer.replaceTextRange(
+                                    [loopCandidate.loopStartIndex, loopCandidate.loopHeaderEndIndex],
+                                    `repeat (${loopCandidate.limitExpression}) {`
+                                )
+                        });
                     }
                 }
             });
@@ -585,6 +698,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "prefer-hoistable-loop-accessors": {
             return createPreferHoistableLoopAccessorsRule(definition);
+        }
+        case "prefer-repeat-loops": {
+            return createPreferRepeatLoopsRule(definition);
         }
         case "prefer-struct-literal-assignments": {
             return createPreferStructLiteralAssignmentsRule(definition);
