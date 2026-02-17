@@ -2175,6 +2175,98 @@ export class ScopeTracker {
 
         return results;
     }
+
+    /**
+     * Efficiently checks if any of the given symbols have modifications in scopes
+     * newer than the specified timestamp.
+     *
+     * This method is optimized for hot-reload invalidation scenarios where you need
+     * to quickly determine if a symbol has changed without allocating occurrence arrays.
+     * It performs early-exit checks and avoids unnecessary object creation.
+     *
+     * Use case: Before triggering a full hot-reload, check if any of the symbols
+     * referenced by a module have actually changed since the last reload.
+     *
+     * @param symbols - Set of symbol names to check for modifications
+     * @param sinceTimestamp - Only consider scopes modified after this timestamp
+     * @returns Map of symbol names to arrays of scope IDs where they were modified
+     */
+    public getModifiedSymbolScopes(symbols: Set<string> | string[], sinceTimestamp: number): Map<string, string[]> {
+        if (!this.enabled) {
+            return new Map();
+        }
+
+        const symbolSet = symbols instanceof Set ? symbols : new Set(symbols);
+        if (symbolSet.size === 0) {
+            return new Map();
+        }
+
+        const results = new Map<string, string[]>();
+
+        for (const symbol of symbolSet) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(symbol);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const modifiedScopes: string[] = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                if (scope.lastModifiedTimestamp <= sinceTimestamp) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(symbol);
+                if (!entry) {
+                    continue;
+                }
+
+                if (entry.declarations.length > 0 || entry.references.length > 0) {
+                    modifiedScopes.push(scopeId);
+                }
+            }
+
+            if (modifiedScopes.length > 0) {
+                modifiedScopes.sort();
+                results.set(symbol, modifiedScopes);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Checks if a specific scope contains any declarations or references for the given symbol.
+     *
+     * This is a lightweight check that avoids allocating occurrence arrays, making it
+     * suitable for fast hot-reload decision paths where you only need a yes/no answer.
+     *
+     * @param scopeId - Scope ID to check
+     * @param symbol - Symbol name to look for
+     * @returns True if the scope has any occurrences of the symbol, false otherwise
+     */
+    public scopeHasSymbol(scopeId: string | null | undefined, symbol: string | null | undefined): boolean {
+        if (!scopeId || !symbol || !this.enabled) {
+            return false;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return false;
+        }
+
+        const entry = scope.occurrences.get(symbol);
+        if (!entry) {
+            return false;
+        }
+
+        return entry.declarations.length > 0 || entry.references.length > 0;
+    }
 }
 
 export default ScopeTracker;
