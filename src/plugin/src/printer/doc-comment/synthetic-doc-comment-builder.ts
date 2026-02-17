@@ -24,6 +24,13 @@ type SyntheticDocCommentCoreResult =
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForStaticVariable>>
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForFunctionAssignment>>;
 
+type SyntheticDocCommentResolver = (
+    node: unknown,
+    options: Record<string, unknown>,
+    programNode: unknown,
+    sourceText: string | null | undefined
+) => SyntheticDocCommentCoreResult | null;
+
 type SyntheticDocCommentCache = {
     docLines: string[] | null;
     hasExistingDocLines: boolean;
@@ -152,14 +159,9 @@ export function getSyntheticDocCommentForStaticVariable(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
-    const cached = readSyntheticDocCommentCache(node);
-    if (cached) {
-        return resolveDocCommentPayloadFromCache(cached);
-    }
-
-    const result = Core.computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText);
-
-    return resolveDocCommentPayload(result);
+    return resolveSyntheticDocCommentPayload(node, options, programNode, sourceText, (candidate) =>
+        Core.computeSyntheticDocCommentForStaticVariable(candidate, options, programNode, sourceText)
+    );
 }
 
 export function getSyntheticDocCommentForFunctionAssignment(
@@ -168,12 +170,24 @@ export function getSyntheticDocCommentForFunctionAssignment(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
+    return resolveSyntheticDocCommentPayload(node, options, programNode, sourceText, (candidate) =>
+        Core.computeSyntheticDocCommentForFunctionAssignment(candidate, options, programNode, sourceText)
+    );
+}
+
+function resolveSyntheticDocCommentPayload(
+    node: unknown,
+    options: Record<string, unknown>,
+    programNode: unknown,
+    sourceText: string | null | undefined,
+    resolveSyntheticDocComment: SyntheticDocCommentResolver
+): SyntheticDocCommentPayload | null {
     const cached = readSyntheticDocCommentCache(node);
     if (cached) {
         return resolveDocCommentPayloadFromCache(cached);
     }
 
-    const result = Core.computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText);
+    const result = resolveSyntheticDocComment(node, options, programNode, sourceText);
 
     return resolveDocCommentPayload(result);
 }
