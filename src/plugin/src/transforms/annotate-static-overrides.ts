@@ -6,6 +6,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { createParserTransform } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 type AnnotateStaticFunctionOverridesTransformOptions = Record<string, never>;
 
 type ConstructorInfo = {
@@ -106,7 +108,7 @@ function findAncestorStaticFunction(
  * Build a map of constructors with their names, parents, and declared static helper functions.
  */
 function collectConstructorInfos(ast: MutableGameMakerAstNode): Map<string, ConstructorInfo> {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return new Map();
     }
 

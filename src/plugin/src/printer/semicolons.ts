@@ -1,4 +1,7 @@
+import { Core } from "@gml-modules/core";
 import type { AstPath } from "prettier";
+
+const { isObjectLike } = Core;
 
 // Helpers focused solely on semicolon emission rules within the printer.
 
@@ -200,7 +203,7 @@ function getParentNodeListProperty(path: AstPath<unknown>) {
 }
 
 function getNodeListProperty(node: unknown) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return null;
     }
 

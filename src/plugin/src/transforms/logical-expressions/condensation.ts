@@ -12,7 +12,8 @@ const {
     compactArray,
     getOrCreateMapEntry,
     isNonEmptyArray,
-    toNormalizedLowerCaseString
+    toNormalizedLowerCaseString,
+    isObjectLike
 } = Core;
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -84,7 +85,7 @@ export function applyLogicalExpressionCondensation(ast: any, helpers?: OptimizeL
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return false;
     }
 
@@ -1302,7 +1303,7 @@ function applyComplementLaw(type, terms) {
 }
 
 function factorBooleanExpression(expression) {
-    if (!expression || typeof expression !== "object") {
+    if (!isObjectLike(expression)) {
         return expression;
     }
 
@@ -1665,7 +1666,7 @@ function buildBinaryAst(operator, terms, context) {
 }
 
 function getBooleanOrTermPriority(expression) {
-    if (!expression || typeof expression !== "object") {
+    if (!isObjectLike(expression)) {
         return 1;
     }
 
@@ -1673,7 +1674,7 @@ function getBooleanOrTermPriority(expression) {
 }
 
 function getOriginalBooleanTermIndex(orderMap, term) {
-    if (!orderMap || !term || typeof term !== "object") {
+    if (!orderMap || !isObjectLike(term)) {
         return Number.MAX_SAFE_INTEGER;
     }
 
@@ -1682,7 +1683,7 @@ function getOriginalBooleanTermIndex(orderMap, term) {
 }
 
 function getBooleanExpressionSourceStart(expression, context) {
-    if (!expression || typeof expression !== "object") {
+    if (!isObjectLike(expression)) {
         return Number.POSITIVE_INFINITY;
     }
 
@@ -1719,7 +1720,7 @@ function getBooleanExpressionSourceStart(expression, context) {
 }
 
 function getNodeLocationIndex(node) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return Number.POSITIVE_INFINITY;
     }
 

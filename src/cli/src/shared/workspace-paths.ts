@@ -1,8 +1,11 @@
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { Core } from "@gml-modules/core";
+
 import { findRepoRootSync } from "./repo-root.js";
+
+const { readTextFileSync } = Core;
 
 /**
  * Centralized workspace path helpers for the CLI package. Several modules
@@ -18,7 +21,7 @@ const SHARED_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 function readPackageName(candidateDirectory: string): string | null {
     try {
         const packageJsonPath = path.resolve(candidateDirectory, "package.json");
-        const contents = fs.readFileSync(packageJsonPath, "utf8");
+        const contents = readTextFileSync(packageJsonPath);
         const parsed = JSON.parse(contents) as { name?: string };
         return typeof parsed.name === "string" ? parsed.name : null;
     } catch {

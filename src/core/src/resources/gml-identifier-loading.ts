@@ -1,5 +1,4 @@
-import fs from "node:fs";
-
+import { readTextFileSync } from "../fs/io.js";
 import { noop } from "../utils/function.js";
 import { isObjectLike, isPlainObject } from "../utils/object.js";
 import { getNonEmptyString } from "../utils/string.js";
@@ -19,7 +18,7 @@ export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath("gml-iden
  * @returns {unknown} Raw identifier metadata payload bundled with the package.
  */
 export function loadBundledIdentifierMetadata() {
-    const contents = fs.readFileSync(GML_IDENTIFIER_METADATA_PATH, "utf8");
+    const contents = readTextFileSync(GML_IDENTIFIER_METADATA_PATH);
     return JSON.parse(contents);
 }
 

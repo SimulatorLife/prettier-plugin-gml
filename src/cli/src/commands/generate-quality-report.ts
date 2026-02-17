@@ -21,6 +21,7 @@ const {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     isObjectLike,
+    readTextFileSync,
     toArray,
     toTrimmedString
 } = Core;
@@ -307,7 +308,7 @@ function readCoverage(lcovFiles) {
     let hit = 0;
     for (const file of lcovFiles) {
         try {
-            const text = fs.readFileSync(file, "utf8");
+            const text = readTextFileSync(file);
             for (const line of text.split(/\r?\n/)) {
                 if (line.startsWith("LF:")) {
                     found += Number.parseInt(line.slice(3), 10) || 0;
@@ -337,7 +338,7 @@ function readCheckstyle(checkstyleFiles) {
     let errors = 0;
     for (const file of checkstyleFiles) {
         try {
-            const xml = fs.readFileSync(file, "utf8");
+            const xml = readTextFileSync(file);
             for (const match of xml.matchAll(/<error\b[^>]*severity="([^"]*)"/gi)) {
                 const severity = (match[1] || "").toLowerCase();
                 if (severity === "warning") {
@@ -512,7 +513,7 @@ function readDuplicates(files) {
     }
     const file = files[0];
     try {
-        const content = fs.readFileSync(file, "utf8");
+        const content = readTextFileSync(file);
         const data = JSON.parse(content);
         return data.statistics?.total || null;
     } catch {
@@ -526,7 +527,7 @@ function readProjectHealth(files) {
     }
     const file = files[0];
     try {
-        const content = fs.readFileSync(file, "utf8");
+        const content = readTextFileSync(file);
         return JSON.parse(content);
     } catch {
         return null;
@@ -663,7 +664,7 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
 
 function readXmlFile(filePath, displayPath) {
     try {
-        return { status: ParseResultStatus.OK, contents: fs.readFileSync(filePath, "utf8") };
+        return { status: ParseResultStatus.OK, contents: readTextFileSync(filePath) };
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         return {
@@ -1373,7 +1374,7 @@ function scanProjectHealth(rootDir) {
     let todos = 0;
 
     for (const file of srcFiles) {
-        const content = fs.readFileSync(file, "utf8");
+        const content = readTextFileSync(file);
         const lines = content.split("\n");
 
         if (lines.length > 1000) {

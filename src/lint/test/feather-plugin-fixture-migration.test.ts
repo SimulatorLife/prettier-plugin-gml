@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
+import { lintWithFeatherRule } from "./rule-test-harness.js";
 
 type MigrationCase = {
     fixtureDirectory: string;
@@ -27,52 +27,6 @@ if (!migratedFeatherFixtureDirectory) {
             ", "
         )}`
     );
-}
-
-function lintWithFeatherRule(
-    ruleName: string,
-    code: string
-): { messages: Array<{ messageId: string }>; output: string } {
-    const rule = LintWorkspace.Lint.plugin.rules[ruleName];
-    const messages: Array<{ messageId: string; fix?: ReplaceTextRangeFixOperation }> = [];
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            messageId: string;
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-            messages.push({
-                messageId: payload.messageId,
-                fix: payload.fix ? (payload.fix(fixer) ?? undefined) : undefined
-            });
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.({ type: "Program" } as never);
-
-    const output = applyFixOperations(
-        code,
-        messages.map((message) => message.fix).filter((fix): fix is ReplaceTextRangeFixOperation => fix !== undefined)
-    );
-
-    return {
-        messages: messages.map((message) => ({ messageId: message.messageId })),
-        output
-    };
 }
 
 async function readMigratedFeatherFixture(fixtureDirectory: string): Promise<string> {
@@ -134,11 +88,35 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
+        fixtureDirectory: "gm1012",
+        ruleName: "gm1012",
+        assertOutput: (output) => {
+            assert.equal(output.includes("/// @param value"), true);
+            assert.equal(output.includes("string_length("), true);
+        }
+    },
+    {
         fixtureDirectory: "gm1015",
         ruleName: "gm1015",
         assertOutput: (output) => {
             assert.equal(output.includes("/= 0"), false);
             assert.equal(output.includes("%= -1"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm1017",
+        ruleName: "gm1017",
+        assertOutput: (output) => {
+            assert.equal(output.includes("start_new_game();"), true);
+            assert.equal(output.includes("make_game();"), false);
+        }
+    },
+    {
+        fixtureDirectory: "gm1021",
+        ruleName: "gm1021",
+        assertOutput: (output) => {
+            assert.equal(output.includes("argument[0]"), false);
+            assert.equal(output.includes("var first = value;"), true);
         }
     },
     {
@@ -221,6 +199,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
+        fixtureDirectory: "gm1054",
+        ruleName: "gm1054",
+        assertOutput: (output) => {
+            assert.equal(output.includes("array_length_1d("), false);
+            assert.equal(output.includes("array_length("), true);
+        }
+    },
+    {
         fixtureDirectory: "gm1058",
         ruleName: "gm1058",
         assertOutput: (output) => {
@@ -240,6 +226,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1064",
         assertOutput: (output) => {
             assert.equal(countOccurrences(output, "function make_game"), 1);
+        }
+    },
+    {
+        fixtureDirectory: "gm1100",
+        ruleName: "gm1100",
+        assertOutput: (output) => {
+            assert.equal(output.includes("_this * something;"), false);
+            assert.equal(output.includes("= 48;"), false);
         }
     },
     {
@@ -380,6 +374,20 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         }
     },
     {
+        fixtureDirectory: "gm2023",
+        ruleName: "gm2023",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_set_alpha(1);"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2025",
+        ruleName: "gm2025",
+        assertOutput: (output) => {
+            assert.equal(output.includes("draw_set_color(c_white);"), true);
+        }
+    },
+    {
         fixtureDirectory: "gm2026",
         ruleName: "gm2026",
         assertOutput: (output) => {
@@ -441,6 +449,13 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm2035",
         assertOutput: (output) => {
             assert.equal(output.includes("gpu_pop_state();"), true);
+        }
+    },
+    {
+        fixtureDirectory: "gm2040",
+        ruleName: "gm2040",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_zwriteenable(true);"), true);
         }
     },
     {
@@ -529,14 +544,47 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
             assert.equal(output.includes("?? []"), true);
             assert.equal(output.includes("== undefined"), false);
         }
+    },
+    {
+        fixtureDirectory: "gm2064",
+        ruleName: "gm2064",
+        assertOutput: (output) => {
+            assert.equal(output.includes("gpu_set_ztestenable(true);"), true);
+        }
     }
 ]);
 
 void test("legacy plugin GM fixtures are now lint-owned feather rule tests", async () => {
     for (const migrationCase of migrationCases) {
         const input = await readMigratedFeatherFixture(migrationCase.fixtureDirectory);
-        const result = lintWithFeatherRule(migrationCase.ruleName, input);
+        const result = lintWithFeatherRule(LintWorkspace.Lint.plugin, migrationCase.ruleName, input);
         assert.equal(result.messages.length > 0, true, `${migrationCase.ruleName} should report diagnostics`);
         migrationCase.assertOutput(result.output);
     }
+});
+
+void test("gm1013 applies generic rewrites beyond fixture-specific symbols", () => {
+    const input = `function DamageHandler (speed = 12) constructor {
+    /// @function trigger
+    static strike = function () {
+        with (other) {
+            var total = (base + speed);
+        }
+    }
+}
+
+runner = function () constructor {
+    value = 1;
+}
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.plugin, "gm1013", input);
+
+    assert.equal(output.includes("/// @param [speed=12]"), true);
+    assert.equal(output.includes("function DamageHandler(speed = 12) constructor {"), true);
+    assert.equal(output.includes("/// @returns {undefined}"), true);
+    assert.equal(output.includes("var total = base + other.speed;"), true);
+    assert.equal(output.includes("static strike = function () {"), true);
+    assert.equal(output.includes("runner = function () constructor {"), true);
+    assert.equal(output.includes("};"), true);
 });

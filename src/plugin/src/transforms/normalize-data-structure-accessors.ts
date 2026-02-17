@@ -24,6 +24,8 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
+const { isObjectLike } = Core;
+
 type MemberIndexNode = {
     type?: string;
     object?: unknown;
@@ -130,7 +132,7 @@ function visitAndNormalize(node: unknown): void {
  * Normalize accessor operators in MemberIndexExpression nodes based on variable naming conventions.
  */
 function normalizeAccessors(ast: MutableGameMakerAstNode): void {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return;
     }
 
