@@ -16,7 +16,7 @@ then return here for deeper context.
   file tuned for common GameMaker metadata folders.
 - [Sample `.prettierrc`](examples/example.prettierrc) — Baseline Prettier
   config for formatting `.gml` files in a GameMaker project.
-- [Sample `eslint.config.mjs`](examples/example.eslint.config.mjs) — Flat ESLint
+- [Sample `eslint.config.js`](examples/example.eslint.config.js) — Flat ESLint
   config that composes the `@gml-modules/lint` presets (without TypeScript requirement)
 
 ## Usage & rollout

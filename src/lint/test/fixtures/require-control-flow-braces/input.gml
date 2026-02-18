@@ -1,4 +1,6 @@
 if should_exit() return;
+if my_var == your_var++ then their_var;
+if my_var == your_var then ++their_var;
 if (ready) do_it();
 if (a > b)
     draw_text(x, y, "ok");

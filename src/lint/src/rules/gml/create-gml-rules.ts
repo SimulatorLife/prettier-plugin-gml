@@ -79,6 +79,24 @@ function findFirstChangedCharacterOffset(originalText: string, rewrittenText: st
     return 0;
 }
 
+function computeLineStartOffsets(sourceText: string): Array<number> {
+    const offsets = [0];
+    for (let index = 0; index < sourceText.length; index += 1) {
+        const character = sourceText[index];
+        if (character === "\r" && sourceText[index + 1] === "\n") {
+            offsets.push(index + 2);
+            index += 1;
+            continue;
+        }
+
+        if (character === "\n") {
+            offsets.push(index + 1);
+        }
+    }
+
+    return offsets;
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let braceDepth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -294,16 +312,15 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
         meta: createMeta(definition),
         create(context) {
             const listener: Rule.RuleListener = {
-                Program(node) {
+                Program() {
                     const text = context.sourceCode.text;
                     const lines = text.split(/\r?\n/);
+                    const lineStartOffsets = computeLineStartOffsets(text);
+                    const assignmentPattern =
+                        /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/u;
                     for (let index = 0; index < lines.length - 1; index += 1) {
-                        const firstMatch = lines[index].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
-                        );
-                        const secondMatch = lines[index + 1].match(
-                            /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/
-                        );
+                        const firstMatch = assignmentPattern.exec(lines[index]);
+                        const secondMatch = assignmentPattern.exec(lines[index + 1]);
                         if (!firstMatch || !secondMatch) {
                             continue;
                         }
@@ -316,7 +333,12 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             continue;
                         }
 
-                        context.report({ node, messageId: definition.messageId });
+                        const assignmentColumnOffset = lines[index].search(/[A-Za-z_]/u);
+                        const reportOffset = (lineStartOffsets[index] ?? 0) + Math.max(assignmentColumnOffset, 0);
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(reportOffset),
+                            messageId: definition.messageId
+                        });
                         break;
                     }
                 }
@@ -476,7 +498,7 @@ function parseFunctionParameterNames(parameterListText: string): Array<string> {
 
 function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget | null {
     const declarationMatch =
-        /^(\s*)(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*\}?\s*)?$/u.exec(
+        /^(\s*)(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*.*\s*\}?\s*)?$/u.exec(
             line
         );
     if (declarationMatch) {
@@ -488,7 +510,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     }
 
     const assignmentMatch =
-        /^(\s*)(?:var\s+|static\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*function(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*\}?\s*)?$/u.exec(
+        /^(\s*)(?:var\s+|static\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*function(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*.*\s*\}?\s*)?$/u.exec(
             line
         );
     if (!assignmentMatch) {
@@ -538,19 +560,25 @@ function collectExistingDocParamNames(docLines: ReadonlyArray<string>): Readonly
     return parameterNames;
 }
 
+function isFunctionNamePlaceholderDescription(line: string, functionName: string): boolean {
+    const descriptionMatch = /^\s*\/\/\/\s*@description\s+(.+?)\s*$/u.exec(line);
+    if (!descriptionMatch) {
+        return false;
+    }
+
+    return descriptionMatch[1].trim() === functionName;
+}
+
 function synthesizeFunctionDocCommentBlock(
     target: FunctionDocCommentTarget,
     existingDocLines: ReadonlyArray<string> | null
 ): ReadonlyArray<string> | null {
-    const docLines = existingDocLines ? [...existingDocLines] : [];
-    const hasDescription = docLines.some((line) => /^\s*\/\/\/\s*@description\b/u.test(line));
+    const docLines = (existingDocLines ?? []).filter(
+        (line) => !isFunctionNamePlaceholderDescription(line, target.functionName)
+    );
     const hasReturns = docLines.some((line) => /^\s*\/\/\/\s*@returns\b/u.test(line));
     const existingParamNames = collectExistingDocParamNames(docLines);
     const missingParamNames = target.parameterNames.filter((parameterName) => !existingParamNames.has(parameterName));
-
-    if (!hasDescription) {
-        docLines.unshift(`${target.indentation}/// @description ${target.functionName}`);
-    }
 
     for (const parameterName of missingParamNames) {
         docLines.push(`${target.indentation}/// @param ${parameterName}`);
@@ -1000,21 +1028,99 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
     return trimmed.endsWith(";");
 }
 
+function findLegacyThenSeparatorIndex(payload: string): number {
+    let inString: "'" | '"' | null = null;
+    let inBlockComment = false;
+
+    for (let index = 0; index < payload.length; index += 1) {
+        const character = payload[index];
+        const nextCharacter = payload[index + 1];
+
+        if (inString) {
+            if (character === "\\") {
+                index += 1;
+                continue;
+            }
+
+            if (character === inString) {
+                inString = null;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (character === "*" && nextCharacter === "/") {
+                inBlockComment = false;
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "/") {
+            return -1;
+        }
+
+        if (character === "/" && nextCharacter === "*") {
+            inBlockComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            inString = character;
+            continue;
+        }
+
+        if (payload.slice(index, index + 4).toLowerCase() !== "then") {
+            continue;
+        }
+
+        const previousCharacter = index > 0 ? payload[index - 1] : null;
+        const followingCharacter = index + 4 < payload.length ? payload[index + 4] : null;
+        if (previousCharacter !== null && isIdentifierCharacter(previousCharacter)) {
+            continue;
+        }
+
+        if (followingCharacter !== null && isIdentifierCharacter(followingCharacter)) {
+            continue;
+        }
+
+        return index;
+    }
+
+    return -1;
+}
+
 function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
     const inlineControlFlowClause = parseInlineControlFlowClause(line);
     if (inlineControlFlowClause) {
         return inlineControlFlowClause;
     }
 
-    const legacyNoParens = /^(\s*)if\s+(.+);\s*$/u.exec(line);
-    if (!legacyNoParens) {
+    const legacyInlineIf = /^(\s*)if\s+(.+);\s*$/u.exec(line);
+    if (!legacyInlineIf) {
         return null;
     }
 
-    const indentation = legacyNoParens[1];
-    const payload = legacyNoParens[2].trim();
+    const indentation = legacyInlineIf[1];
+    const payload = legacyInlineIf[2].trim();
     if (payload.includes("{") || payload.includes("}") || /\belse\b/u.test(payload)) {
         return null;
+    }
+
+    const thenSeparatorIndex = findLegacyThenSeparatorIndex(payload);
+    if (thenSeparatorIndex > 0 && thenSeparatorIndex < payload.length - 4) {
+        const condition = payload.slice(0, thenSeparatorIndex).trim();
+        const statement = `${payload.slice(thenSeparatorIndex + 4).trim()};`;
+        if (condition.length === 0 || !isSafeSingleLineControlFlowStatement(statement)) {
+            return null;
+        }
+
+        return {
+            indentation,
+            header: `if (${condition})`,
+            statement
+        };
     }
 
     const lastClosingParenIndex = payload.lastIndexOf(")");
@@ -1024,7 +1130,7 @@ function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleCla
 
     const condition = payload.slice(0, lastClosingParenIndex + 1).trim();
     const statement = `${payload.slice(lastClosingParenIndex + 1).trim()};`;
-    if (statement === ";") {
+    if (condition.length === 0 || !isSafeSingleLineControlFlowStatement(statement)) {
         return null;
     }
 

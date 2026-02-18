@@ -148,6 +148,45 @@ void test("prefer-struct-literal-assignments ignores non-identifier struct bases
     assert.equal(result.messages.length, 0);
 });
 
+void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
+    const input = [
+        "#macro STILE_PLATFORM_HEIGHT 120",
+        "",
+        "function demo() {",
+        "    settings.speed = 10;",
+        '    settings.mode = "arcade";',
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input);
+    assert.equal(result.messages.length, 1);
+    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 4 });
+});
+
+void test("normalize-doc-comments removes placeholder description equal to function name", () => {
+    const input = [
+        "/// @description __ChatterboxClassSource",
+        "/// @param filename",
+        "/// @param buffer",
+        "/// @param compile",
+        "/// @returns {undefined}",
+        "function __ChatterboxClassSource(_filename, _buffer, _compile) constructor { /* ... */ }",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param filename",
+        "/// @param buffer",
+        "/// @param compile",
+        "/// @returns {undefined}",
+        "function __ChatterboxClassSource(_filename, _buffer, _compile) constructor { /* ... */ }",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
 void test("require-argument-separators preserves separator payload comments", async () => {
     const input = await readFixture("require-argument-separators", "separator-payload.gml");
     const result = lintWithRule("require-argument-separators", input, {});
@@ -284,6 +323,22 @@ void test("require-control-flow-braces wraps inline statements with nested call 
     const expected = [
         "if (_starting_font == undefined) {",
         String.raw`    __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`,
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("require-control-flow-braces rewrites legacy then inline if clauses", () => {
+    const input = ["if my_var == your_var++ then their_var;", "if my_var == your_var THEN ++their_var;", ""].join("\n");
+    const expected = [
+        "if (my_var == your_var++) {",
+        "    their_var;",
+        "}",
+        "if (my_var == your_var) {",
+        "    ++their_var;",
         "}",
         ""
     ].join("\n");

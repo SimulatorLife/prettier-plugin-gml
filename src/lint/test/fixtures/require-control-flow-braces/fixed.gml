@@ -1,6 +1,12 @@
 if (should_exit()) {
     return;
 }
+if (my_var == your_var++) {
+    their_var;
+}
+if (my_var == your_var) {
+    ++their_var;
+}
 if (ready) {
     do_it();
 }

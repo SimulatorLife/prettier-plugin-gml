@@ -189,6 +189,18 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
     }
 });
 
+void test("feather rules declare fixable metadata for autofix reports", () => {
+    for (const ruleId of Object.values(LintWorkspace.Lint.ruleIds)) {
+        if (!ruleId.startsWith("feather/")) {
+            continue;
+        }
+
+        const shortName = ruleId.replace("feather/", "");
+        const rule = LintWorkspace.Lint.plugin.rules[shortName] as { meta?: { fixable?: string } };
+        assert.equal(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
+    }
+});
+
 void test("project-aware rules declare required capabilities and unsafe reason codes", () => {
     const projectAwareRuleIds = [
         "prefer-loop-length-hoist",

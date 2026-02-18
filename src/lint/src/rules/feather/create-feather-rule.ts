@@ -20,6 +20,7 @@ type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
 function createFeatherRuleMeta(entry: FeatherManifestEntry): Rule.RuleMetaData {
     return Object.freeze({
         type: "suggestion",
+        fixable: "code",
         docs: Object.freeze({
             description: `Rule for ${entry.ruleId}.`,
             recommended: false,

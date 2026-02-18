@@ -17,12 +17,12 @@ The plugin workspace owns formatting and parser-to-printer orchestration only.
 
 ## Plugin Architecture
 
-### Constants (`src/constants.ts`)
+### Constants ([`src/constants.ts`](src/constants.ts))
 
 The plugin uses a centralized constants file to define formatting defaults and thresholds. This ensures consistency across the codebase and makes it easy to understand and maintain default values.
 
 Key constants include:
-- `DEFAULT_PRINT_WIDTH` (120): The default line width for code and documentation
+- `DEFAULT_PRINT_WIDTH` (120): The default line width for code
 - `DEFAULT_TAB_WIDTH` (4): The default indentation width
 - `DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS` (4): Minimum declarations to trigger spacing
 
