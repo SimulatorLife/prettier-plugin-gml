@@ -82,7 +82,7 @@ void test("normalize-doc-comments synthesizes missing doc tags for undocumented 
     const input = ["function synth_me(_a, b = 1) {", "    return _a + b;", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.match(output, /^\/\/\/ @description synth_me/m);
+    assert.doesNotMatch(output, /^\/\/\/ @description synth_me/m);
     assert.match(output, /^\/\/\/ @param a/m);
     assert.match(output, /^\/\/\/ @param b/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
@@ -104,6 +104,37 @@ void test("normalize-doc-comments appends missing @param and @returns tags to ex
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
 });
 
+void test("normalize-doc-comments treats @arg and @argument as documented parameters", () => {
+    const input = [
+        "/// @arg alpha",
+        "/// @argument beta",
+        "function enrich_me(alpha, beta) {",
+        "    return alpha + beta;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param alpha$/m);
+    assert.match(output, /^\/\/\/ @param beta$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @arg alpha$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @argument beta$/m);
+    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments treats @return as an existing returns tag", () => {
+    const input = [
+        "/// @return {real}",
+        "function enrich_me(alpha) {",
+        "    return alpha;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @returns \{real\}$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @return \{real\}$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
+});
+
 void test("normalize-doc-comments synthesizes tags for function assignments", () => {
     const input = [
         "var build_struct = function (_value, amount = 1) {",
@@ -112,7 +143,7 @@ void test("normalize-doc-comments synthesizes tags for function assignments", ()
     ].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.match(output, /^\/\/\/ @description build_struct/m);
+    assert.doesNotMatch(output, /^\/\/\/ @description build_struct/m);
     assert.match(output, /^\/\/\/ @param value/m);
     assert.match(output, /^\/\/\/ @param amount/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
@@ -122,7 +153,7 @@ void test("normalize-doc-comments synthesizes tags when braces are on the next l
     const input = ["function split_header(arg_one, _arg_two)", "{", "    return arg_one + _arg_two;", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.match(output, /^\/\/\/ @description split_header/m);
+    assert.doesNotMatch(output, /^\/\/\/ @description split_header/m);
     assert.match(output, /^\/\/\/ @param arg_one/m);
     assert.match(output, /^\/\/\/ @param arg_two/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
@@ -132,7 +163,7 @@ void test("normalize-doc-comments synthesizes tags for static function variable 
     const input = ["static spawn_enemy = function (_x, y = 0) {", "    return _x + y;", "};"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.match(output, /^\/\/\/ @description spawn_enemy/m);
+    assert.doesNotMatch(output, /^\/\/\/ @description spawn_enemy/m);
     assert.match(output, /^\/\/\/ @param x/m);
     assert.match(output, /^\/\/\/ @param y/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
@@ -152,4 +183,33 @@ void test("normalize-doc-comments preserves multiline @description continuations
     assert.match(output, /^\/\/\/ with a deterministic seed/m);
     assert.match(output, /^\/\/\/ @param seed/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+});
+
+void test("normalize-doc-comments does not convert // // section comments into synthetic docs", () => {
+    const input = [
+        "// //A couple additional examples for optional gamepad types (see __input_define_gamepad_types)",
+        "//",
+        "// //Nintendo 64",
+        "// input_icons(INPUT_GAMEPAD_TYPE_N64)",
+        '// .add("gamepad face south",         "A")',
+        '// .add("gamepad face east",          "B")',
+        "",
+        '// .add("gamepad thumbstick r down",  "C down")',
+        "//",
+        "// //Sega Saturn",
+        "// input_icons(INPUT_GAMEPAD_TYPE_SATURN)",
+        '// .add("gamepad face south", "A")',
+        '// .add("gamepad face east",  "B")'
+    ].join("\n");
+
+    const output = runNormalizeDocCommentsRule(input);
+    assert.equal(output, input);
+});
+
+void test("normalize-doc-comments preserves function indentation for synthesized docs", () => {
+    const input = ["if (enabled) {", "    function inner(_value) {", "        return _value;", "    }", "}"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^ {4}\/\/\/ @param value$/m);
+    assert.match(output, /^ {4}\/\/\/ @returns \{undefined\}$/m);
 });
