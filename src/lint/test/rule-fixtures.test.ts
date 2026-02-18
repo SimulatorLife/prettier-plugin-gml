@@ -33,6 +33,33 @@ const allCapabilities = new Set([
     "RENAME_CONFLICT_PLANNING"
 ]);
 
+function parseProgramNode(code: string): Record<string, unknown> {
+    const language = Lint.plugin.languages.gml as {
+        parse: (
+            file: { body: string; path: string; physicalPath: string; bom: boolean },
+            context: { languageOptions: { recovery: "none" | "limited" } }
+        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
+    };
+
+    const parseResult = language.parse(
+        {
+            body: code,
+            path: "test.gml",
+            physicalPath: "test.gml",
+            bom: false
+        },
+        {
+            languageOptions: { recovery: "limited" }
+        }
+    );
+
+    if (parseResult.ok) {
+        return parseResult.ast;
+    }
+
+    return { type: "Program", body: [] };
+}
+
 function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
     const rule = Lint.plugin.rules[ruleName];
     const messages: Array<{
@@ -88,7 +115,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
     } as never;
 
     const listeners = rule.create(context);
-    listeners.Program?.({ type: "Program" } as never);
+    listeners.Program?.(parseProgramNode(code) as never);
 
     return {
         messages,
@@ -187,10 +214,102 @@ void test("normalize-doc-comments removes placeholder description equal to funct
     assert.equal(result.output, expected);
 });
 
+void test("normalize-doc-comments aligns multiline description continuations", () => {
+    const input = [
+        "/// Alpha summary",
+        "/// Beta continuation",
+        "function demo() {",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Alpha summary",
+        "///              Beta continuation",
+        "/// @returns {undefined}",
+        "function demo() {",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
+    const input = [
+        "/// Summary",
+        "/// Returns: Boolean, indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Summary",
+        "/// @returns {Boolean} Indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
 void test("require-argument-separators preserves separator payload comments", async () => {
     const input = await readFixture("require-argument-separators", "separator-payload.gml");
     const result = lintWithRule("require-argument-separators", input, {});
     assert.equal(result.output, "show_debug_message_ext(name, /* keep */ payload);\n");
+});
+
+void test("require-trailing-optional-defaults lifts leading argument_count ternary fallbacks into params", () => {
+    const input = [
+        "function greet() {",
+        "    var name = argument_count > 0 ? argument[0] : \"friend\";",
+        "    var greeting = argument_count > 1 ? argument[1] : \"Hello\";",
+        "    return $\"{greeting}, {name}\";",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "function greet(name = \"friend\", greeting = \"Hello\") {",
+        "    return $\"{greeting}, {name}\";",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-trailing-optional-defaults", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("require-trailing-optional-defaults condenses var+if argument_count fallback and adds trailing params", () => {
+    const input = [
+        "function spring(a, b, dst, force) {",
+        "    var push_out = true;",
+        "    if (argument_count > 4) {",
+        "        push_out = argument[4];",
+        "    }",
+        "    return push_out;",
+        "}",
+        "",
+        "my_func4(undefined, undefined);",
+        ""
+    ].join("\n");
+    const expected = [
+        "function spring(a, b, dst, force, push_out) {",
+        "    var push_out = argument_count > 4 ? argument[4] : true;",
+        "    return push_out;",
+        "}",
+        "",
+        "my_func4(undefined);",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-trailing-optional-defaults", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
@@ -199,11 +318,33 @@ void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
     assert.equal(result.messages.length, 0);
 });
 
-void test("no-globalvar rewrite scope only touches declarations", async () => {
+void test("no-globalvar rewrites declared globals and preserves non-matching identifiers", async () => {
     const input = await readFixture("no-globalvar", "rewrite-scope.gml");
     const result = lintWithRule("no-globalvar", input, {});
     assert.equal(result.output.includes("globalvarToken"), true);
-    assert.equal(result.output.includes("global.score = undefined;"), true);
+    assert.equal(result.output.includes("globalvar score"), false);
+    assert.equal(result.output.includes("global.globalvarToken"), false);
+});
+
+void test("no-globalvar rewrites comma-separated declarations and identifier uses", () => {
+    const input = [
+        "globalvar score, lives;",
+        "score = 1;",
+        "if (lives > 0) {",
+        "    score += lives;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "global.score = 1;",
+        "if (global.lives > 0) {",
+        "    global.score += global.lives;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("no-globalvar", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("migrated mixed fixture: testFlow rewrite ownership moved to lint", async () => {

@@ -78,6 +78,7 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
+export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
@@ -86,4 +87,5 @@ export {
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";

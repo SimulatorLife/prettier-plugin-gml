@@ -213,7 +213,6 @@ function printComment(commentPath, options) {
                 if (typeof comment.inlinePadding === "number") {
                     comment.inlinePadding = 0;
                 }
-                comment.trailingWS = "\n";
 
                 const endIndexRaw =
                     typeof comment.end === "number"
@@ -226,11 +225,23 @@ function printComment(commentPath, options) {
                           : comment.end;
                 const endIndex = typeof endIndexRaw === "number" ? endIndexRaw : 0;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
+                const isAttachedLeadingComment =
+                    comment.trailing !== true && (comment as PrinterComment).followingNode != null;
 
-                const alreadyHasLeadingBlankLine =
-                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
+                if (isAttachedLeadingComment) {
+                    comment.leadingWS = "";
+                    comment.trailingWS = "\n";
+                    comment.leading = true;
+                    comment.trailing = false;
+                    comment.placement = "ownLine";
+                } else {
+                    comment.trailingWS = "\n";
+                }
+
+                const alreadyHasLeadingBlankLine = hasLeadingBlankLine(comment);
                 const shouldPrependBlankLine =
-                    comment._gmlForceLeadingBlankLine === true || !alreadyHasLeadingBlankLine;
+                    comment._gmlForceLeadingBlankLine === true ||
+                    (!isAttachedLeadingComment && alreadyHasLeadingBlankLine);
                 const parts = [];
                 if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);
@@ -242,46 +253,28 @@ function printComment(commentPath, options) {
                     comment.leadingWS = "\n";
                 }
 
-                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
-                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
-
-                const computeIndentation = (): string => {
-                    if (newlineIndex === -1) {
-                        return options?.useTabs ? "\t" : fallbackIndentation;
-                    }
-
-                    const indentationFragment = leadingWhitespace.slice(newlineIndex + 1);
-                    if (!indentationFragment || options?.useTabs) {
-                        return indentationFragment;
-                    }
-
-                    return indentationFragment.replaceAll("\t", fallbackIndentation);
-                };
-
-                const indentation = comment._gmlForceLeadingBlankLine === true ? "" : computeIndentation();
-
-                // Apply indentation to each line of multi-line decorated comments
-                const decoratedLines = decorated.split("\n");
-                const indentedDecorated = decoratedLines
-                    .map((line, index) => (index === 0 ? line : `${indentation}${line}`))
-                    .join("\n");
-
-                // When adding leading padding, apply indentation to the FIRST line as well
                 const decoratedWithLeadingPadding =
-                    comment._gmlForceLeadingBlankLine === true
-                        ? `\n\n${decoratedLines.map((line) => `${indentation}${line}`).join("\n")}`
-                        : indentedDecorated;
+                    comment._gmlForceLeadingBlankLine === true ? `\n\n${decorated}` : decorated;
                 parts.push(decoratedWithLeadingPadding);
-                if (blankLines > 0) {
-                    parts.push(hardline, hardline);
-                } else {
-                    parts.push(hardline);
+
+                const shouldAppendTrailingHardline = comment._gmlForceLeadingBlankLine === true;
+
+                if (shouldAppendTrailingHardline) {
+                    if (blankLines > 0) {
+                        parts.push(hardline, hardline);
+                    } else {
+                        parts.push(hardline);
+                    }
                 }
 
-                return parts;
+                return parts.length === 1 ? parts[0] : parts;
             }
-            return `/*${comment.value}*/`;
+            const canonicalTopLevelBlockComment = formatCanonicalTopLevelBlockComment(comment);
+            if (canonicalTopLevelBlockComment !== null) {
+                return canonicalTopLevelBlockComment;
+            }
+
+            return `/*${normalizeNonDecorativeBlockCommentValue(comment.value)}*/`;
         }
         case "CommentLine": {
             const lineCommentOptions = Core.resolveLineCommentOptions(options);
@@ -705,7 +698,7 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
 }
 
 function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
-    void _text;
+    const text = _text;
     void _options;
     if (!comment || comment.type !== "CommentBlock") {
         return false;
@@ -716,10 +709,15 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
         return false;
     }
 
+    extendDecorativeCommentEndAcrossSlashSuffix(comment, text);
+
     const followingNode = comment.followingNode ?? findFollowingNodeForComment(ast, comment);
     if (!followingNode) {
         return false;
     }
+
+    const hadPrecedingNode = Boolean(comment.precedingNode);
+    const shouldForceLeadingBlankLine = !hadPrecedingNode && comment.enclosingNode?.type === "Program";
 
     if (Array.isArray(followingNode.comments)) {
         const index = followingNode.comments.indexOf(comment);
@@ -734,18 +732,87 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
             comment.precedingNode.comments.splice(index, 1);
         }
     }
+    if (comment.enclosingNode && Array.isArray(comment.enclosingNode.comments)) {
+        const index = comment.enclosingNode.comments.indexOf(comment);
+        if (index !== -1) {
+            comment.enclosingNode.comments.splice(index, 1);
+        }
+    }
     comment.precedingNode = null;
     comment.followingNode = followingNode;
     comment.leading = true;
     comment.trailing = false;
     comment.placement = "ownLine";
-    comment._gmlForceLeadingBlankLine = true;
+    comment._gmlForceLeadingBlankLine = shouldForceLeadingBlankLine;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-    if (!/\r|\n/.test(leadingWhitespace)) {
+
+    if (!shouldForceLeadingBlankLine) {
+        comment.leadingWS = "";
+    } else if (!/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
     }
-    comment.trailingWS = "\n";
+    comment.trailingWS = shouldForceLeadingBlankLine ? "\n" : "";
     return true;
+}
+
+function extendDecorativeCommentEndAcrossSlashSuffix(comment, text) {
+    if (typeof text !== "string") {
+        return;
+    }
+
+    const endIndex = getCommentEndIndex(comment);
+    if (!Number.isInteger(endIndex) || endIndex < 0 || endIndex >= text.length - 1) {
+        return;
+    }
+
+    let cursor = endIndex + 1;
+    while (cursor < text.length && (text[cursor] === " " || text[cursor] === "\t")) {
+        cursor += 1;
+    }
+
+    const suffixStart = cursor;
+
+    while (cursor < text.length) {
+        const char = text[cursor];
+        if (char === "\n" || char === "\r") {
+            break;
+        }
+
+        if (char !== "/" && char !== "*") {
+            return;
+        }
+
+        cursor += 1;
+    }
+
+    if (cursor <= suffixStart) {
+        return;
+    }
+
+    const suffix = text.slice(suffixStart, cursor);
+    if (!suffix.includes("/")) {
+        return;
+    }
+
+    const extendedEndIndex = cursor - 1;
+    if (typeof comment.end === "number") {
+        comment.end = extendedEndIndex;
+        return;
+    }
+
+    if (
+        typeof comment.end === "object" &&
+        comment.end !== null &&
+        "index" in comment.end &&
+        typeof comment.end.index === "number"
+    ) {
+        const location = comment.end as { index: number; column?: number };
+        const originalIndex = location.index;
+        location.index = extendedEndIndex;
+        if (typeof location.column === "number") {
+            location.column += extendedEndIndex - originalIndex;
+        }
+    }
 }
 
 function findFollowingNodeForComment(ast, comment) {
@@ -839,7 +906,12 @@ function isDecorativeBlockComment(comment) {
         return false;
     }
 
-    return formatDecorativeBlockComment(comment) !== null;
+    const value = typeof comment.value === "string" ? comment.value : null;
+    if (value === null) {
+        return false;
+    }
+
+    return hasDecorativeSlashBanner(value);
 }
 
 function handleCommentAttachedToOpenBrace(comment, _text, _options, ast /*, isLastComment */) {
@@ -1132,11 +1204,6 @@ function formatDecorativeBlockComment(comment) {
         return null;
     }
 
-    // Use the centralized banner comment policy configuration to ensure
-    // block comments and line comments share consistent criteria.
-    const MIN_DECORATIVE_SLASHES = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
-    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
-
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
     if (containsCommentedOutCodeLines(lines)) {
         return null;
@@ -1146,50 +1213,82 @@ function formatDecorativeBlockComment(comment) {
         return null;
     }
 
-    const hasDecoration = significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
-
-    // If this is a decorative comment, handle it as before
-    if (hasDecoration) {
-        const textLines = significantLines
-            .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
-            .map((line) => line.trim());
-
-        if (textLines.length === 0) {
-            return "";
-        }
-
-        if (textLines.length === 1) {
-            return `// ${textLines[0]}`;
-        }
-
-        return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+    if (!hasDecorativeSlashBanner(value)) {
+        return null;
     }
 
-    // For non-decorative multi-line comments, format them with * prefix on each line
-    // BUT only if they appear to be standalone (not inline/trailing)
-    if (lines.length > 1) {
-        // Check if this is an inline comment by looking at leading whitespace
-        // Inline comments typically don't have a newline before them
-        // Comments at the start of the file or after a newline are standalone
-        const leadingWS = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-        const hasNewlineBeforeComment = /[\r\n]/.test(leadingWS);
-        const isAtStartOfFile = leadingWS === "";
+    const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
+    const textLines = significantLines.filter((line) => !decorativeSlashLinePattern.test(line)).map((line) => line.trim());
 
-        // Only format multi-line comments that are standalone (have newline before or at start of file)
-        if (!hasNewlineBeforeComment && !isAtStartOfFile) {
-            return null;
-        }
-
-        // Use significantLines for consistency with decorative comment handling
-        const textLines = significantLines.map((line) => line.trim());
-        if (textLines.length === 0) {
-            return null;
-        }
-        return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+    if (textLines.length === 0) {
+        return "";
     }
 
-    // Single-line non-decorative comments are not formatted
-    return null;
+    if (textLines.length === 1) {
+        return `/* ${textLines[0]} */`;
+    }
+
+    return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+}
+
+function formatCanonicalTopLevelBlockComment(comment): string | null {
+    const value = typeof comment?.value === "string" ? comment.value : null;
+    if (value === null) {
+        return null;
+    }
+
+    const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    if (lines.length <= 1 || containsCommentedOutCodeLines(lines)) {
+        return null;
+    }
+
+    const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    const newlineIndex = Math.max(leadingWhitespace.lastIndexOf("\n"), leadingWhitespace.lastIndexOf("\r"));
+    const indentationFragment = newlineIndex === -1 ? leadingWhitespace : leadingWhitespace.slice(newlineIndex + 1);
+    const isTopLevel = leadingWhitespace === "" || indentationFragment.length === 0;
+
+    if (!isTopLevel) {
+        return null;
+    }
+
+    const textLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line)).map((line) => line.trim());
+    if (textLines.length === 0) {
+        return null;
+    }
+
+    return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+}
+
+function normalizeNonDecorativeBlockCommentValue(value: unknown): string {
+    if (typeof value !== "string" || !value.includes("\t")) {
+        return typeof value === "string" ? value : "";
+    }
+
+    return value.replaceAll("\t", "    ");
+}
+
+function createDecorativeSlashLinePattern(): RegExp {
+    const minDecorativeSlashes = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
+    return new RegExp(String.raw`^\s*\*?\/{${minDecorativeSlashes},}\*?\s*$`);
+}
+
+function hasDecorativeSlashBanner(commentValue: string): boolean {
+    const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
+    const lines = commentValue.split(/\r?\n/);
+    let hasDecorativeLine = false;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.length === 0) {
+            continue;
+        }
+
+        if (decorativeSlashLinePattern.test(trimmedLine)) {
+            hasDecorativeLine = true;
+        }
+    }
+
+    return hasDecorativeLine;
 }
 
 function containsCommentedOutCodeLines(lines) {
