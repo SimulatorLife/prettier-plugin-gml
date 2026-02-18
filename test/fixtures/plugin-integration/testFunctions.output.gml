@@ -79,9 +79,11 @@ var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
-/// @param {real} r1 - The horizontal radius of the oval
+/// @param {real} [r1=1] The horizontal radius of the oval
+/// @param [r2=1]
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
-    self = { r1: r1, r2: r2 };
+    self.r1 = r1;
+    self.r2 = r2;
 }
 
 function Line() : Shape() constructor {
@@ -100,7 +102,6 @@ function Line() : Shape() constructor {
 
 /// @param settings
 /// @param fallback
-/// @returns {undefined}
 function choose_profile(settings, fallback) {
     var config = settings ?? global.default_settings;
     var themeCandidate = config.theme_override ?? fallback.theme_override;
@@ -168,9 +169,7 @@ var message5 = greet(undefined, "Welcome");
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
     var length = point_distance_3d(0, 0, 0, dir[0], dir[1], dir[2]);
-    if (!is_undefined(multiplier)) {
-        length *= multiplier;
-    }
+    length *= multiplier ?? 1;
     if (abs(length) > math_get_epsilon()) {
         dir[0] /= length;
         dir[1] /= length;
