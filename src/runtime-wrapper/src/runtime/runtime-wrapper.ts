@@ -38,6 +38,26 @@ const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
 const DEFAULT_MAX_ERROR_HISTORY_SIZE = 100;
 
+function resolvePatchErrorMessage(error: unknown): string {
+    if (isErrorLike(error)) {
+        return error.message;
+    }
+
+    if (error === null || error === undefined) {
+        return UNKNOWN_ERROR_MESSAGE;
+    }
+
+    if (typeof error === "string") {
+        return error;
+    }
+
+    if (typeof error === "number" || typeof error === "boolean") {
+        return String(error);
+    }
+
+    return "Non-Error object thrown";
+}
+
 export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): RuntimeWrapper {
     const baseRegistry = createRegistry(options.registry);
 
@@ -57,18 +77,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     const onChange = options.onChange;
 
     function recordError(patch: Patch, category: PatchErrorCategory, error: unknown): void {
-        let errorMessage: string;
-        if (isErrorLike(error)) {
-            errorMessage = error.message;
-        } else if (error === null || error === undefined) {
-            errorMessage = UNKNOWN_ERROR_MESSAGE;
-        } else if (typeof error === "string") {
-            errorMessage = error;
-        } else if (typeof error === "number" || typeof error === "boolean") {
-            errorMessage = String(error);
-        } else {
-            errorMessage = "Non-Error object thrown";
-        }
+        const errorMessage = resolvePatchErrorMessage(error);
         const stackTrace = isErrorLike(error) && error.stack ? error.stack : undefined;
 
         state.errorHistory.push({
