@@ -357,35 +357,129 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
             const listener: Rule.RuleListener = {
                 Program() {
                     const text = context.sourceCode.text;
                     const lines = text.split(/\r?\n/);
                     const lineStartOffsets = computeLineStartOffsets(text);
                     const assignmentPattern =
-                        /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/u;
-                    for (let index = 0; index < lines.length - 1; index += 1) {
-                        const firstMatch = assignmentPattern.exec(lines[index]);
-                        const secondMatch = assignmentPattern.exec(lines[index + 1]);
-                        if (!firstMatch || !secondMatch) {
-                            continue;
+                        /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);\s*$/u;
+
+                    type StructAssignmentRecord = Readonly<{
+                        indentation: string;
+                        objectName: string;
+                        propertyName: string;
+                        valueText: string;
+                    }>;
+
+                    function parseStructAssignmentLine(line: string): StructAssignmentRecord | null {
+                        const assignmentMatch = assignmentPattern.exec(line);
+                        if (!assignmentMatch) {
+                            return null;
                         }
 
-                        if (firstMatch[1] !== secondMatch[1]) {
-                            continue;
-                        }
-
-                        if (!isIdentifier(firstMatch[1])) {
-                            continue;
-                        }
-
-                        const assignmentColumnOffset = lines[index].search(/[A-Za-z_]/u);
-                        const reportOffset = (lineStartOffsets[index] ?? 0) + Math.max(assignmentColumnOffset, 0);
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(reportOffset),
-                            messageId: definition.messageId
+                        return Object.freeze({
+                            indentation: assignmentMatch[1],
+                            objectName: assignmentMatch[2],
+                            propertyName: assignmentMatch[3],
+                            valueText: assignmentMatch[4].trim()
                         });
-                        break;
+                    }
+
+                    function containsInlineCommentTokens(valueText: string): boolean {
+                        return valueText.includes("//") || valueText.includes("/*") || valueText.includes("*/");
+                    }
+
+                    const rewrittenLines: Array<string> = [];
+                    let firstUnsafeOffset: number | null = null;
+                    let firstRewriteOffset: number | null = null;
+                    let lineIndex = 0;
+                    while (lineIndex < lines.length) {
+                        const firstAssignment = parseStructAssignmentLine(lines[lineIndex]);
+                        if (!firstAssignment || !isIdentifier(firstAssignment.objectName)) {
+                            rewrittenLines.push(lines[lineIndex]);
+                            lineIndex += 1;
+                            continue;
+                        }
+
+                        const cluster: Array<StructAssignmentRecord> = [firstAssignment];
+                        let clusterEndIndex = lineIndex;
+                        while (clusterEndIndex + 1 < lines.length) {
+                            const nextAssignment = parseStructAssignmentLine(lines[clusterEndIndex + 1]);
+                            if (!nextAssignment) {
+                                break;
+                            }
+
+                            if (
+                                nextAssignment.objectName !== firstAssignment.objectName ||
+                                nextAssignment.indentation !== firstAssignment.indentation
+                            ) {
+                                break;
+                            }
+
+                            cluster.push(nextAssignment);
+                            clusterEndIndex += 1;
+                        }
+
+                        if (cluster.length < 2) {
+                            rewrittenLines.push(lines[lineIndex]);
+                            lineIndex += 1;
+                            continue;
+                        }
+
+                        const assignmentColumnOffset = lines[lineIndex].search(/[A-Za-z_]/u);
+                        const reportOffset = (lineStartOffsets[lineIndex] ?? 0) + Math.max(assignmentColumnOffset, 0);
+                        const seenProperties = new Set<string>();
+                        let isClusterSafe = true;
+                        for (const assignment of cluster) {
+                            if (containsInlineCommentTokens(assignment.valueText) || seenProperties.has(assignment.propertyName)) {
+                                isClusterSafe = false;
+                                break;
+                            }
+
+                            seenProperties.add(assignment.propertyName);
+                        }
+
+                        if (!isClusterSafe) {
+                            if (firstUnsafeOffset === null) {
+                                firstUnsafeOffset = reportOffset;
+                            }
+
+                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
+                                rewrittenLines.push(lines[currentIndex]);
+                            }
+                            lineIndex = clusterEndIndex + 1;
+                            continue;
+                        }
+
+                        if (firstRewriteOffset === null) {
+                            firstRewriteOffset = reportOffset;
+                        }
+
+                        const propertyInitializers = cluster.map(
+                            (assignment) => `${assignment.propertyName}: ${assignment.valueText}`
+                        );
+                        rewrittenLines.push(
+                            `${firstAssignment.indentation}${firstAssignment.objectName} = { ${propertyInitializers.join(", ")} };`
+                        );
+                        lineIndex = clusterEndIndex + 1;
+                    }
+
+                    const rewrittenText = rewrittenLines.join(dominantLineEnding(text));
+                    if (rewrittenText !== text) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstRewriteOffset ?? findFirstChangedCharacterOffset(text, rewrittenText)),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([0, text.length], rewrittenText)
+                        });
+                    }
+
+                    if (firstUnsafeOffset !== null && shouldReportUnsafeFixes) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstUnsafeOffset),
+                            messageId: "unsafeFix"
+                        });
                     }
                 }
             };
@@ -1913,6 +2007,115 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
     });
 }
 
+type UndefinedComparisonRewrite = Readonly<{
+    start: number;
+    end: number;
+    replacement: string;
+}>;
+
+function isUndefinedComparisonOperator(operator: unknown): operator is "==" | "!=" | "===" | "!==" {
+    return (
+        typeof operator === "string" &&
+        (operator === "==" || operator === "!=" || operator === "===" || operator === "!==")
+    );
+}
+
+function createUndefinedComparisonRewrite(sourceText: string, node: unknown): UndefinedComparisonRewrite | null {
+    if (!isAstNodeRecord(node) || node.type !== "BinaryExpression" || !isUndefinedComparisonOperator(node.operator)) {
+        return null;
+    }
+
+    const leftNode = unwrapParenthesized(node.left);
+    const rightNode = unwrapParenthesized(node.right);
+    const leftIsUndefined = isUndefinedValueNode(leftNode);
+    const rightIsUndefined = isUndefinedValueNode(rightNode);
+    if (leftIsUndefined === rightIsUndefined) {
+        return null;
+    }
+
+    const comparedExpression = leftIsUndefined ? rightNode : leftNode;
+    const comparedExpressionStart = getNodeStartIndex(comparedExpression);
+    const comparedExpressionEnd = getNodeEndIndex(comparedExpression);
+    if (
+        typeof comparedExpressionStart !== "number" ||
+        typeof comparedExpressionEnd !== "number" ||
+        comparedExpressionEnd <= comparedExpressionStart
+    ) {
+        return null;
+    }
+
+    const comparedExpressionText = sourceText.slice(comparedExpressionStart, comparedExpressionEnd).trim();
+    if (comparedExpressionText.length === 0) {
+        return null;
+    }
+
+    const fullStart = getNodeStartIndex(node);
+    const fullEnd = getNodeEndIndex(node);
+    if (typeof fullStart !== "number" || typeof fullEnd !== "number" || fullEnd <= fullStart) {
+        return null;
+    }
+
+    const undefinedCheck = `is_undefined(${comparedExpressionText})`;
+    const replacement = node.operator === "!=" || node.operator === "!==" ? `!${undefinedCheck}` : undefinedCheck;
+    if (sourceText.slice(fullStart, fullEnd) === replacement) {
+        return null;
+    }
+
+    return Object.freeze({
+        start: fullStart,
+        end: fullEnd,
+        replacement
+    });
+}
+
+function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const candidateRewrites: Array<UndefinedComparisonRewrite> = [];
+                    walkAstNodes(programNode, (node) => {
+                        const rewrite = createUndefinedComparisonRewrite(sourceText, node);
+                        if (rewrite) {
+                            candidateRewrites.push(rewrite);
+                        }
+                    });
+
+                    if (candidateRewrites.length === 0) {
+                        return;
+                    }
+
+                    const nonOverlappingRewrites: Array<UndefinedComparisonRewrite> = [];
+                    const orderedCandidates = candidateRewrites.toSorted((left, right) => {
+                        if (left.start !== right.start) {
+                            return left.start - right.start;
+                        }
+
+                        return right.end - left.end;
+                    });
+                    for (const candidate of orderedCandidates) {
+                        if (hasOverlappingRange(candidate.start, candidate.end, nonOverlappingRewrites)) {
+                            continue;
+                        }
+
+                        nonOverlappingRewrites.push(candidate);
+                    }
+
+                    for (const rewrite of nonOverlappingRewrites) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
 function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -1938,18 +2141,297 @@ function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule
     });
 }
 
+type InterpolationSafeRewrite = Readonly<{
+    start: number;
+    end: number;
+    replacement: string;
+}>;
+
+type InterpolationCandidateAnalysis =
+    | Readonly<{
+          kind: "safe";
+          rewrite: InterpolationSafeRewrite;
+      }>
+    | Readonly<{
+          kind: "unsafe";
+          offset: number;
+      }>;
+
+function isStringCoercionCallExpression(node: unknown): node is {
+    type: "CallExpression";
+    object: { type: "Identifier"; name: string };
+    arguments: ReadonlyArray<unknown>;
+} {
+    if (!isAstNodeRecord(node) || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+        return false;
+    }
+
+    const callTarget = node.object;
+    return isAstNodeRecord(callTarget) && callTarget.type === "Identifier" && callTarget.name === "string";
+}
+
+function extractSimpleDoubleQuotedLiteralContent(sourceText: string, node: unknown): string | null {
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
+    if (typeof start !== "number" || typeof end !== "number" || end <= start) {
+        return null;
+    }
+
+    const rawLiteral = sourceText.slice(start, end);
+    if (!/^"(?:[^"\\]|\\.)*"$/u.test(rawLiteral)) {
+        return null;
+    }
+
+    const content = rawLiteral.slice(1, -1);
+    if (content.includes("{") || content.includes("}")) {
+        return null;
+    }
+
+    return content;
+}
+
+function isIdentifierRootedMemberAccess(node: unknown): boolean {
+    if (!isAstNodeRecord(node)) {
+        return false;
+    }
+
+    if (node.type === "Identifier") {
+        return true;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return isIdentifierRootedMemberAccess(node.expression);
+    }
+
+    if (node.type === "MemberDotExpression") {
+        return isIdentifierRootedMemberAccess(node.object);
+    }
+
+    if (node.type === "MemberIndexExpression") {
+        if (!isIdentifierRootedMemberAccess(node.object)) {
+            return false;
+        }
+
+        const properties = Array.isArray(node.property) ? node.property : [];
+        if (properties.length !== 1) {
+            return false;
+        }
+
+        return isInterpolationSafeValueExpression(properties[0]);
+    }
+
+    return false;
+}
+
+function isInterpolationSafeValueExpression(node: unknown): boolean {
+    if (!isAstNodeRecord(node)) {
+        return false;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return isInterpolationSafeValueExpression(node.expression);
+    }
+
+    if (node.type === "Identifier") {
+        return true;
+    }
+
+    if (node.type === "Literal") {
+        return true;
+    }
+
+    if (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") {
+        return isIdentifierRootedMemberAccess(node);
+    }
+
+    return false;
+}
+
+function collectConcatenationParts(node: unknown, output: Array<unknown>) {
+    const unwrapped = unwrapParenthesized(node);
+    if (isAstNodeRecord(unwrapped) && unwrapped.type === "BinaryExpression" && unwrapped.operator === "+") {
+        collectConcatenationParts(unwrapped.left, output);
+        collectConcatenationParts(unwrapped.right, output);
+        return;
+    }
+
+    output.push(node);
+}
+
+function analyzeStringInterpolationCandidate(sourceText: string, node: unknown): InterpolationCandidateAnalysis | null {
+    if (!isAstNodeRecord(node) || node.type !== "BinaryExpression" || node.operator !== "+") {
+        return null;
+    }
+
+    const rangeStart = getNodeStartIndex(node);
+    const rangeEnd = getNodeEndIndex(node);
+    if (typeof rangeStart !== "number" || typeof rangeEnd !== "number" || rangeEnd <= rangeStart) {
+        return null;
+    }
+
+    const parts: Array<unknown> = [];
+    collectConcatenationParts(node, parts);
+    if (parts.length < 2) {
+        return null;
+    }
+
+    const templateSegments: Array<string> = [];
+    let containsTextLiteral = false;
+    let containsInterpolatedExpression = false;
+    let hasUnsafeInterpolationExpression = false;
+
+    for (const part of parts) {
+        const unwrappedPart = unwrapParenthesized(part);
+        const literalContent = extractSimpleDoubleQuotedLiteralContent(sourceText, unwrappedPart);
+        if (literalContent !== null) {
+            templateSegments.push(literalContent);
+            containsTextLiteral = true;
+            continue;
+        }
+
+        if (!isStringCoercionCallExpression(unwrappedPart)) {
+            return null;
+        }
+
+        const [expressionArgument] = unwrappedPart.arguments;
+        const expressionStart = getNodeStartIndex(expressionArgument);
+        const expressionEnd = getNodeEndIndex(expressionArgument);
+        if (
+            typeof expressionStart !== "number" ||
+            typeof expressionEnd !== "number" ||
+            expressionEnd <= expressionStart
+        ) {
+            return null;
+        }
+
+        const expressionText = sourceText.slice(expressionStart, expressionEnd).trim();
+        if (expressionText.length === 0) {
+            return null;
+        }
+
+        if (!isInterpolationSafeValueExpression(expressionArgument)) {
+            hasUnsafeInterpolationExpression = true;
+        }
+
+        templateSegments.push(`{${expressionText}}`);
+        containsInterpolatedExpression = true;
+    }
+
+    if (!containsTextLiteral || !containsInterpolatedExpression) {
+        return null;
+    }
+
+    if (hasUnsafeInterpolationExpression) {
+        return Object.freeze({
+            kind: "unsafe",
+            offset: rangeStart
+        });
+    }
+
+    const replacement = `$"${templateSegments.join("")}"`;
+    if (replacement === sourceText.slice(rangeStart, rangeEnd)) {
+        return null;
+    }
+
+    return Object.freeze({
+        kind: "safe",
+        rewrite: Object.freeze({
+            start: rangeStart,
+            end: rangeEnd,
+            replacement
+        })
+    });
+}
+
+function collectStringInterpolationRewrites(
+    sourceText: string,
+    programNode: unknown
+): Readonly<{
+    safeRewrites: ReadonlyArray<InterpolationSafeRewrite>;
+    unsafeOffsets: ReadonlyArray<number>;
+}> {
+    const safeCandidates: Array<InterpolationSafeRewrite> = [];
+    const unsafeOffsets = new Set<number>();
+
+    walkAstNodes(programNode, (node) => {
+        const analysis = analyzeStringInterpolationCandidate(sourceText, node);
+        if (!analysis) {
+            return;
+        }
+
+        if (analysis.kind === "unsafe") {
+            unsafeOffsets.add(analysis.offset);
+            return;
+        }
+
+        safeCandidates.push(analysis.rewrite);
+    });
+
+    const safeRewrites: Array<InterpolationSafeRewrite> = [];
+    const orderedSafeCandidates = safeCandidates.toSorted((left, right) => {
+        if (left.start !== right.start) {
+            return left.start - right.start;
+        }
+
+        return right.end - left.end;
+    });
+
+    for (const safeCandidate of orderedSafeCandidates) {
+        if (hasOverlappingRange(safeCandidate.start, safeCandidate.end, safeRewrites)) {
+            continue;
+        }
+
+        safeRewrites.push(safeCandidate);
+    }
+
+    const filteredUnsafeOffsets = [...unsafeOffsets]
+        .toSorted((left, right) => left - right)
+        .filter((offset) => {
+            for (const rewrite of safeRewrites) {
+                if (offset >= rewrite.start && offset < rewrite.end) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+    return Object.freeze({
+        safeRewrites: Object.freeze(safeRewrites),
+        unsafeOffsets: Object.freeze(filteredUnsafeOffsets)
+    });
+}
+
 function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
             const listener: Rule.RuleListener = {
-                Program(node) {
-                    const text = context.sourceCode.text;
-                    const pattern = /"[^"]*"\s*\+\s*string\(/g;
-                    const isUnsafeReportingEnabled = shouldReportUnsafe(context);
-                    if (isUnsafeReportingEnabled && pattern.test(text)) {
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const rewriteAnalysis = collectStringInterpolationRewrites(sourceText, programNode);
+
+                    for (const safeRewrite of rewriteAnalysis.safeRewrites) {
                         context.report({
-                            node,
+                            loc: context.sourceCode.getLocFromIndex(safeRewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) =>
+                                fixer.replaceTextRange([safeRewrite.start, safeRewrite.end], safeRewrite.replacement)
+                        });
+                    }
+
+                    if (!shouldReportUnsafeFixes) {
+                        return;
+                    }
+
+                    for (const unsafeOffset of rewriteAnalysis.unsafeOffsets) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(unsafeOffset),
                             messageId: "unsafeFix"
                         });
                     }
@@ -2704,7 +3186,7 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
     });
 }
 
-function isUndefinedArgumentValue(node: any): boolean {
+function isUndefinedValueNode(node: any): boolean {
     if (!node || typeof node !== "object") {
         return false;
     }
@@ -2726,7 +3208,7 @@ function createCollapseUndefinedCallArgumentEdit(sourceText: string, callExpress
     }
 
     const args = callExpression.arguments;
-    if (args.length <= 1 || !args.every((argument) => isUndefinedArgumentValue(argument))) {
+    if (args.length <= 1 || !args.every((argument) => isUndefinedValueNode(argument))) {
         return null;
     }
 
@@ -2848,6 +3330,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-assignment-in-condition": {
             return createNoAssignmentInConditionRule(definition);
+        }
+        case "prefer-is-undefined-check": {
+            return createPreferIsUndefinedCheckRule(definition);
         }
         case "normalize-operator-aliases": {
             return createNormalizeOperatorAliasesRule(definition);

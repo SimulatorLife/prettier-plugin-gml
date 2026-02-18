@@ -135,9 +135,7 @@ async function readFixture(...segments: Array<string>): Promise<string> {
 void test("rule fixtures: diagnostics and safe fixers", async () => {
     const nonFixRules = [
         "prefer-loop-length-hoist",
-        "prefer-hoistable-loop-accessors",
-        "prefer-struct-literal-assignments",
-        "prefer-string-interpolation"
+        "prefer-hoistable-loop-accessors"
     ] as const;
 
     for (const ruleName of nonFixRules) {
@@ -148,13 +146,16 @@ void test("rule fixtures: diagnostics and safe fixers", async () => {
 
     const fixRules = [
         "prefer-repeat-loops",
+        "prefer-struct-literal-assignments",
         "optimize-logical-flow",
         "no-globalvar",
         "normalize-doc-comments",
         "normalize-directives",
         "require-control-flow-braces",
         "no-assignment-in-condition",
+        "prefer-is-undefined-check",
         "normalize-operator-aliases",
+        "prefer-string-interpolation",
         "optimize-math-expressions",
         "require-argument-separators",
         "normalize-data-structure-accessors",
@@ -308,9 +309,47 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
 });
 
 void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
-    const input = await readFixture("prefer-string-interpolation", "input.gml");
+    const input = 'message = "HP: " + string(random(99));\n';
     const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
     assert.equal(result.messages.length, 0);
+});
+
+void test("prefer-string-interpolation rewrites string literal + string(variable) chains", () => {
+    const input = [
+        "for (var _i = vk_f1 + 12; _i < vk_f1 + 32; _i++) {",
+        '    __input_key_name_set(_i, "f" + string(_i));',
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "for (var _i = vk_f1 + 12; _i < vk_f1 + 32; _i++) {",
+        '    __input_key_name_set(_i, $"f{_i}");',
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-is-undefined-check rewrites undefined comparisons in either operand position", () => {
+    const input = [
+        "if (score == undefined) return;",
+        "if (undefined == lives) return;",
+        "if (score != undefined) return;",
+        "if (undefined != lives) return;",
+        ""
+    ].join("\n");
+    const expected = [
+        "if (is_undefined(score)) return;",
+        "if (is_undefined(lives)) return;",
+        "if (!is_undefined(score)) return;",
+        "if (!is_undefined(lives)) return;",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-is-undefined-check", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("no-globalvar rewrites declared globals and preserves non-matching identifiers", async () => {
@@ -347,8 +386,9 @@ void test("migrated mixed fixture: testFlow rewrite ownership moved to lint", as
 
 void test("migrated mixed fixture: testStructs rewrite ownership moved to lint", async () => {
     const input = await readFixture("prefer-struct-literal-assignments", "testStructs.input.gml");
-    const result = lintWithRule("prefer-struct-literal-assignments", input);
-    assert.equal(result.messages.length, 1);
+    const expected = await readFixture("prefer-struct-literal-assignments", "testStructs.fixed.gml");
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("migrated mixed fixture: testIfBraces rewrite ownership moved to lint", async () => {
