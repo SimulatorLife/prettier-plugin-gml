@@ -170,7 +170,7 @@ var message5 = greet(undefined, "Welcome");
 /// @returns {undefined}
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
-    var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    var length = point_distance_3d(0, 0, 0, dir[0], dir[1], dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
     }
