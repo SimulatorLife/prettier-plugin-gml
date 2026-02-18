@@ -246,3 +246,76 @@ void test("full-file rewrite rules report the first changed source location", ()
         );
     }
 });
+
+void test("prefer-hoistable-loop-accessors reports the first matching accessor location", () => {
+    const input = [
+        "#macro STILE_PLATFORM_HEIGHT 120",
+        "",
+        "function demo(items) {",
+        "    var total = array_length(items);",
+        "    total += array_length(items);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input);
+    assert.equal(result.messages.length, 1);
+    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 16 });
+});
+
+void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
+    const input = [
+        "if (p.DistanceTo(vertices[0][0].p) < self.vertLength * 1.5)",
+        "|| (p.DistanceTo(vertices[1][0].p) < self.vertLength * 1.5)",
+        "{",
+        "    __addVert(vertices[0]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
+    const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
+`;
+    const expected = [
+        "if (_starting_font == undefined) {",
+        String.raw`    __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`,
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
+    const input =
+        "repeat(_tag_parameter_count-1) _command_string += \",\" + string(_tag_parameters[_j++]);\n";
+    const expected = [
+        "repeat (_tag_parameter_count-1) {",
+        "    _command_string += \",\" + string(_tag_parameters[_j++]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions does not rewrite decimal literals that start with zero", () => {
+    const input = "__fit_scale = _lower_limit + 0.5*(_upper_limit - _lower_limit);\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
+    const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
+    const expected = ["#region Emergency!", "var ready_state = not ready;", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
+});

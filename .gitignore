@@ -2,6 +2,7 @@
 *.cpuprofile
 tmp/
 tmp-*/
+.tmp*/
 src/parser/.antlr/
 .tools/
 .pnpm-store/
