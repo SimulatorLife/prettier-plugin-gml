@@ -83,7 +83,6 @@ import {
     isArgumentAssignment,
     isCallbackArgument,
     isCallExpressionSanitized,
-    isComparisonWithinLogicalChain,
     isComplexArgumentNode,
     isControlFlowLogicalTest,
     isDecorativeBlockComment,
@@ -96,9 +95,7 @@ import {
     isSelfMultiplicationExpression,
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled,
-    isSyntheticParenFlatteningForced,
-    isValidIdentifierName,
-    isWithinNumericCallArgument
+    isValidIdentifierName
 } from "./type-guards.js";
 
 // Import node type constants to replace magic strings
@@ -408,10 +405,9 @@ function printNodeDocComments(node, path, options) {
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
     const parts: any[] = [];
-    const shouldEmitPlainLeadingBeforeDoc =
-        plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
+    const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0 && existingDocLines.length === 0;
 
-    if (shouldEmitPlainLeadingBeforeDoc) {
+    if (shouldEmitPlainLeadingLines) {
         parts.push(join(hardline, plainLeadingLines), hardline, hardline);
     }
 
@@ -709,8 +705,8 @@ function tryPrintExpressionNode(node, path, options, print) {
     }
 }
 
-function printParenthesizedExpressionNode(node, path, _options, print) {
-    if (shouldOmitSyntheticParens(path)) {
+function printParenthesizedExpressionNode(node, path, options, print) {
+    if (shouldOmitSyntheticParens(path, options)) {
         return printWithoutExtraParens(path, print, "expression");
     }
 
@@ -2641,6 +2637,7 @@ function applyTrailingSpacing({
             statements,
             index,
             node,
+            containerNode,
             options,
             syntheticDocByNode,
             hardline: hardlineDoc,
@@ -2670,11 +2667,33 @@ function applyTrailingSpacing({
     });
 }
 
+function isStaticFunctionVariableDeclaration(node) {
+    if (node?.type !== VARIABLE_DECLARATION || node.kind !== "static" || !Array.isArray(node.declarations)) {
+        return false;
+    }
+
+    return node.declarations.some((declaration) => {
+        const initializerType = declaration?.init?.type;
+        return initializerType === FUNCTION_EXPRESSION || initializerType === FUNCTION_DECLARATION;
+    });
+}
+
+function isLoopLikeStatement(node) {
+    return (
+        node?.type === FOR_STATEMENT ||
+        node?.type === WHILE_STATEMENT ||
+        node?.type === REPEAT_STATEMENT ||
+        node?.type === DO_UNTIL_STATEMENT ||
+        node?.type === WITH_STATEMENT
+    );
+}
+
 function handleIntermediateTrailingSpacing({
     parts,
     statements,
     index,
     node,
+    containerNode,
     options,
     syntheticDocByNode,
     hardline: hardlineDoc,
@@ -2720,23 +2739,20 @@ function handleIntermediateTrailingSpacing({
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
-    const isLoopStatement =
-        node?.type === FOR_STATEMENT ||
-        node?.type === WHILE_STATEMENT ||
-        node?.type === REPEAT_STATEMENT ||
-        node?.type === DO_UNTIL_STATEMENT ||
-        node?.type === WITH_STATEMENT;
-    const nextNodeIsLoop =
-        nextNode?.type === FOR_STATEMENT ||
-        nextNode?.type === WHILE_STATEMENT ||
-        nextNode?.type === REPEAT_STATEMENT ||
-        nextNode?.type === DO_UNTIL_STATEMENT ||
-        nextNode?.type === WITH_STATEMENT;
+    const isLoopStatement = isLoopLikeStatement(node);
+    const nextNodeIsLoop = isLoopLikeStatement(nextNode);
     const nextNodeIsVariableDeclaration = nextNode?.type === VARIABLE_DECLARATION;
     const shouldForceLoopSectionPadding =
         !suppressFollowingEmptyLine &&
         isLoopStatement &&
         (nextNodeIsVariableDeclaration || nextNodeIsLoop) &&
+        !nextLineEmpty &&
+        !shouldSuppressExtraEmptyLine &&
+        !sanitizedMacroHasExplicitBlankLine;
+    const shouldForceConstructorStaticSectionPadding =
+        !suppressFollowingEmptyLine &&
+        containerNode?.type === "ConstructorDeclaration" &&
+        isStaticFunctionVariableDeclaration(nextNode) &&
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
@@ -2746,6 +2762,7 @@ function handleIntermediateTrailingSpacing({
     const shouldAddForcedPadding =
         shouldForceMacroPadding ||
         shouldForceLoopSectionPadding ||
+        shouldForceConstructorStaticSectionPadding ||
         (forceFollowingEmptyLine &&
             !nextLineEmpty &&
             !shouldSuppressExtraEmptyLine &&
@@ -2795,6 +2812,13 @@ function handleTerminalTrailingSpacing({
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
+    const constructorBodyStatements =
+        containerNode?.type === "ConstructorDeclaration" && Array.isArray(containerNode?.body?.body)
+            ? containerNode.body.body
+            : [];
+    const constructorContainsOnlyStaticFunctions =
+        constructorBodyStatements.length > 0 &&
+        constructorBodyStatements.every((statement) => isStaticFunctionVariableDeclaration(statement));
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
@@ -2820,10 +2844,11 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine =
-                isConstructorBlock && nextCharacter !== "}"
-                    ? false
-                    : nextCharacter === "}" || (syntheticDocComment == null && nextCharacter !== null);
+            if (nextCharacter === "}") {
+                shouldPreserveTrailingBlankLine = constructorContainsOnlyStaticFunctions;
+            } else {
+                shouldPreserveTrailingBlankLine = syntheticDocComment == null && nextCharacter !== null;
+            }
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
@@ -4622,7 +4647,8 @@ function getBinaryOperatorInfo(operator) {
     return operator === undefined ? undefined : BINARY_OPERATOR_INFO.get(operator);
 }
 
-function shouldOmitSyntheticParens(path) {
+function shouldOmitSyntheticParens(path, _options) {
+    void _options;
     const node = callPathMethod(path, "getValue", { defaultValue: null });
     if (!node || node.type !== "ParenthesizedExpression") {
         return false;
@@ -4655,6 +4681,14 @@ function shouldOmitSyntheticParens(path) {
 
     // For non-ternary cases, only process synthetic parentheses
     if (!isSynthetic) {
+        if (
+            parent.type === "BinaryExpression" &&
+            expression?.type === "BinaryExpression" &&
+            shouldFlattenSyntheticBinary(parent, expression, path)
+        ) {
+            return true;
+        }
+
         return shouldFlattenMultiplicationChain(parent, expression, path);
     }
 
@@ -4779,28 +4813,13 @@ function shouldFlattenComparisonLogicalTest(parent, expression, path) {
 }
 
 function evaluateNumericBinaryFlattening(parent: any, expression: any, path: any): "allow" | "deny" | null {
-    if (!isNumericComputationNode(expression)) {
+    if (!expression || expression.type !== "BinaryExpression") {
         return null;
     }
 
     if (parent.operator === "+" || parent.operator === "-") {
         const childOperator = expression.operator;
-        const flatteningForced = childOperator === "*" ? isSyntheticParenFlatteningForced(path) : false;
-
-        if (
-            childOperator === "/" ||
-            childOperator === "div" ||
-            childOperator === "%" ||
-            childOperator === "mod" ||
-            (childOperator === "*" &&
-                !flatteningForced &&
-                !isWithinNumericCallArgument(path) &&
-                !isSelfMultiplicationExpression(expression))
-        ) {
-            return "deny";
-        }
-
-        if (parent.operator === "-" && childOperator === "*" && !flatteningForced) {
+        if (childOperator === "/" || childOperator === "div" || childOperator === "%" || childOperator === "mod") {
             return "deny";
         }
 
@@ -4817,15 +4836,16 @@ function evaluateNumericBinaryFlattening(parent: any, expression: any, path: any
     }
 
     if (expression.operator === "*") {
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
         if (
-            Core.isComparisonBinaryOperator(parent.operator) &&
-            isSelfMultiplicationExpression(expression) &&
-            isComparisonWithinLogicalChain(path)
+            sanitizedMacroNames &&
+            (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+                expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
         ) {
-            return "allow";
+            return "deny";
         }
 
-        return "deny";
+        return "allow";
     }
 
     return null;
@@ -4882,12 +4902,8 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     if (
         !isLogicalAndPair &&
         !isLogicalOrPair &&
-        (!isNumericComputationNode(parent) || !isNumericComputationNode(expression))
+        (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))
     ) {
-        return false;
-    }
-
-    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
         return false;
     }
 

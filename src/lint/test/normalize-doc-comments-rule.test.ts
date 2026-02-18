@@ -175,7 +175,7 @@ void test("normalize-doc-comments preserves multiline @description continuations
     const output = runNormalizeDocCommentsRule(input);
 
     assert.match(output, /^\/\/\/ @description Build a spawn packet/m);
-    assert.match(output, /^\/\/\/ with a deterministic seed/m);
+    assert.match(output, /^\/\/\/\s+with a deterministic seed/m);
     assert.match(output, /^\/\/\/ @param seed/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
 });

@@ -218,6 +218,10 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
             }
             return `${leadingWhitespace}// ${fallback}`;
         }
+
+        if (normalizedRemainder.startsWith(".")) {
+            return `${leadingWhitespace}// ${normalizedRemainder}`;
+        }
         return formatted;
     }
 
@@ -230,6 +234,10 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
 
         if (formattedRemainder.length === 0) {
             return `${leadingWhitespace}///`;
+        }
+
+        if (formattedRemainder.startsWith(".")) {
+            return `${leadingWhitespace}// ${formattedRemainder}`;
         }
 
         if (formattedRemainder.startsWith("/") || !/[A-Za-z0-9]/.test(formattedRemainder)) {

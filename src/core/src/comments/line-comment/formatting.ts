@@ -404,13 +404,23 @@ function tryFormatPlainTripleSlash(
         return null;
     }
 
+    const rawRemainder = trimmedOriginal.slice(3);
+    const remainder = rawRemainder.trimStart();
+
+    if (remainder.length === 0) {
+        return "";
+    }
+
+    // Preserve continuation-style triple-slash lines that carry deliberate
+    // visual indentation (typically @description continuation text).
+    if (!isInlineComment && /^\s{2,}\S/.test(rawRemainder) && !remainder.startsWith("@")) {
+        return applyInlinePadding(comment, trimmedOriginal);
+    }
+
     if (isInlineComment) {
-        const remainder = trimmedOriginal.slice(3).trimStart();
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
         return applyInlinePadding(comment, formatted);
     }
-
-    const remainder = trimmedOriginal.slice(3).trimStart();
 
     if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
@@ -569,7 +579,10 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
         trimmedValue,
         rawValue
     });
-    const fallbackContent = trimmedValue;
+    const fallbackContent =
+        startsWithTripleSlash && isPlainTripleSlash && trimmedValue.startsWith("/") && !trimmedValue.startsWith("//")
+            ? trimmedValue.slice(1).trimStart()
+            : trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
     const fallbackPreserveTabs = /\t/.test(fallbackSpacing);
 
