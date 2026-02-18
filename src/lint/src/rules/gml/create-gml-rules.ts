@@ -69,7 +69,10 @@ function isAstNodeRecord(value: unknown): value is AstNodeRecord {
     return isObjectLike(value) && !Array.isArray(value);
 }
 
-function shouldRewriteGlobalvarIdentifierNode(identifierNode: AstNodeRecord, parentNode: AstNodeRecord | null): boolean {
+function shouldRewriteGlobalvarIdentifierNode(
+    identifierNode: AstNodeRecord,
+    parentNode: AstNodeRecord | null
+): boolean {
     if (!parentNode) {
         return false;
     }
@@ -504,10 +507,7 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
                 const isWithinGlobalVarDeclaration = (start: number, end: number): boolean =>
                     globalVarStatements.some((statement) => start >= statement.start && end <= statement.end);
 
-                const visit = (
-                    node: unknown,
-                    parentNode: Record<string, unknown> | null
-                ): void => {
+                const visit = (node: unknown, parentNode: Record<string, unknown> | null): void => {
                     if (Array.isArray(node)) {
                         for (const element of node) {
                             visit(element, parentNode);
@@ -2280,7 +2280,11 @@ function getSingleAssignmentFromIfConsequent(ifNode: unknown): AstNodeRecord | n
 }
 
 function getVariableDeclarator(statement: unknown): AstNodeRecord | null {
-    if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration" || !Array.isArray(statement.declarations)) {
+    if (
+        !isAstNodeRecord(statement) ||
+        statement.type !== "VariableDeclaration" ||
+        !Array.isArray(statement.declarations)
+    ) {
         return null;
     }
 
@@ -2364,7 +2368,7 @@ function splitTopLevelCommaSegments(text: string): string[] {
     let parenDepth = 0;
     let bracketDepth = 0;
     let braceDepth = 0;
-    let quote: "'" | "\"" | null = null;
+    let quote: "'" | '"' | null = null;
     let escapeNext = false;
 
     for (const character of text) {
@@ -2384,7 +2388,7 @@ function splitTopLevelCommaSegments(text: string): string[] {
             continue;
         }
 
-        if (character === "'" || character === "\"") {
+        if (character === "'" || character === '"') {
             quote = character;
             current += character;
             continue;
@@ -2470,10 +2474,7 @@ function materializeTrailingOptionalDefaults(parameterSegments: string[]): strin
     return rewritten;
 }
 
-function resolveFunctionParameterRange(
-    sourceText: string,
-    functionNode: any
-): { start: number; end: number } | null {
+function resolveFunctionParameterRange(sourceText: string, functionNode: any): { start: number; end: number } | null {
     const functionStart = getNodeStartIndex(functionNode);
     const functionBodyStart = getNodeStartIndex(functionNode?.body);
     if (typeof functionStart !== "number" || typeof functionBodyStart !== "number") {
@@ -2641,7 +2642,11 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
             const removalEnd =
                 nextStatement === null ? getNodeEndIndex(trailingFallbackStatement) : getNodeStartIndex(nextStatement);
 
-            if (typeof firstStatementStart === "number" && typeof removalEnd === "number" && removalEnd >= firstStatementStart) {
+            if (
+                typeof firstStatementStart === "number" &&
+                typeof removalEnd === "number" &&
+                removalEnd >= firstStatementStart
+            ) {
                 localEdits.push(
                     Object.freeze({
                         start: firstStatementStart - functionStart,
@@ -2742,7 +2747,11 @@ function createCollapseUndefinedCallArgumentEdit(sourceText: string, callExpress
     });
 }
 
-function hasOverlappingRange(rangeStart: number, rangeEnd: number, ranges: ReadonlyArray<{ start: number; end: number }>): boolean {
+function hasOverlappingRange(
+    rangeStart: number,
+    rangeEnd: number,
+    ranges: ReadonlyArray<{ start: number; end: number }>
+): boolean {
     for (const range of ranges) {
         if (rangeStart < range.end && rangeEnd > range.start) {
             return true;

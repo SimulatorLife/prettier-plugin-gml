@@ -108,9 +108,7 @@ function collectProgramLeadingDocLines({
         const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
         const trimmed = normalized ? normalized.trim() : "";
         const blankDocSeparator =
-            trimmed.length === 0 &&
-            typeof comment.value === STRING_TYPE &&
-            /^\/\s*$/.test(comment.value.trim());
+            trimmed.length === 0 && typeof comment.value === STRING_TYPE && /^\/\s*$/.test(comment.value.trim());
         if (blankDocSeparator) {
             comment.printed = true;
             anchorIndex = commentStart;
