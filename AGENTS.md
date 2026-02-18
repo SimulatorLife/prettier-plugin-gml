@@ -16,6 +16,7 @@
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting. For instance, instead of multiple options to control line-length formatting (such as printWidth, wrapThreshold, maxLineLength, etc.), there should be a single `printWidth` option that governs line length. Excessive configurability leads to maintenance burden and unpredictable output.
 - **ONLY** the `plugin` workspace may depend on `prettier` and related formatting packages. All other workspaces must remain free of formatting dependencies. If they require formatting-related functionality, it must be moved into and exposed by the `plugin` workspace (only the project's root `package.json` should have Prettier as a `devDependency` for formatting of *this* codebase).
 - When any unrelated changes appear in the repo, ignore them and continue. Do not discard those changes; just focus on the scope of your task(s). Other agents or processes may be working on different parts of the codebase simultaneously, and their changes may be interleaved in commits or pull requests. As long as your specific task is completed correctly, you can safely ignore unrelated modifications made by others. Do not pause or delay or ask for confirmation to continue your work; focus on your assigned tasks and trust that other contributors will handle their respective areas appropriately.
+- Respect the formatter/linter split contract: semantic/content rewrites belong in `@gml-modules/lint` (or refactor transactions), while `@gml-modules/plugin` remains formatter-only and layout-focused.
 
 ----
 
@@ -97,6 +98,7 @@ The plugin should handle:
 - ✅ AST → AST (formatting transforms)
 - ✅ AST → GML (printer)
 - ✅ Prettier glue
+- ✅ Formatter-only and layout-focused
 
 The plugin *should* import:
 - AST types + traversal from core
@@ -106,6 +108,7 @@ The plugin must **not** import:
 - ❌ Parser internals
 - ❌ Grammar rules
 - ❌ Lexer logic
+- ❌ Semantic/content rewrites
 
 ### Target State Summarized
 - `@gml-modules/core`: Pure data model + shared utilities, AST types/interfaces, traversal helpers used by the plugin and parser to walk the AST.
@@ -318,7 +321,7 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
      ```bash
      git fetch origin
      git worktree add ../base-format origin/<base>
-     (cd ../base-format && npm ci && npm run format && npm run lint -- --fix)
+     (cd ../base-format && pnpm run format && pnpm run lint:fix)
      ```
      The base worktree should end up clean; if the formatter produces real changes here, stop and raise a follow-up rather than committing against the base branch.
    - Back in your main worktree (the PR branch), copy the authoritative formatter/linter configuration from the base worktree:
@@ -328,9 +331,8 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
      (Adjust the list to include any other formatter, lint, or tooling configs that affect whitespace or ordering.)
    - Install dependencies if needed and run the same normalization passes on the PR branch:
      ```bash
-     npm ci
-     npm run format
-     npm run lint -- --fix
+     pnpm run format
+     pnpm run lint:fix
      git status --short
      ```
      Commit or stash only the mechanical formatter output; this step ensures both branches share the same baseline before conflicts are resolved.
