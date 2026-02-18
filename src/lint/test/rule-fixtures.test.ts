@@ -35,7 +35,11 @@ const allCapabilities = new Set([
 
 function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
     const rule = Lint.plugin.rules[ruleName];
-    const messages: Array<{ messageId: string; fix?: Array<RuleTestFixOperation> }> = [];
+    const messages: Array<{
+        messageId: string;
+        loc?: { line: number; column: number };
+        fix?: Array<RuleTestFixOperation>;
+    }> = [];
     const getLocFromIndex = createLocResolver(code);
 
     const context = {
@@ -58,6 +62,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
         },
         report(payload: {
             messageId: string;
+            loc?: { line: number; column: number };
             fix?: (fixer: {
                 replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
                 insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation;
@@ -78,7 +83,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
                 fixes = output ? (Array.isArray(output) ? output : [output]) : undefined;
             }
 
-            messages.push({ messageId: payload.messageId, fix: fixes });
+            messages.push({ messageId: payload.messageId, loc: payload.loc, fix: fixes });
         }
     } as never;
 
@@ -198,6 +203,162 @@ void test("prefer-loop-length-hoist respects null suffix override by disabling h
 void test("prefer-repeat-loops skips conversion when loop iterator is used in body", () => {
     const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += i;", "}", ""].join("\n");
     const result = lintWithRule("prefer-repeat-loops", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("full-file rewrite rules report the first changed source location", () => {
+    const locationCases = [
+        {
+            ruleName: "normalize-doc-comments",
+            input: ["var keep = 1;", "// @description convert me", "function demo() {}", ""].join("\n"),
+            expectedLoc: { line: 2, column: 2 }
+        },
+        {
+            ruleName: "normalize-directives",
+            input: ["var keep = 1;", "// #region Setup", ""].join("\n"),
+            expectedLoc: { line: 2, column: 0 }
+        },
+        {
+            ruleName: "require-control-flow-braces",
+            input: ["var keep = 1;", "if (ready) step();", ""].join("\n"),
+            expectedLoc: { line: 2, column: 11 }
+        },
+        {
+            ruleName: "no-assignment-in-condition",
+            input: ["var keep = 1;", "if (left = right) value = 1;", ""].join("\n"),
+            expectedLoc: { line: 2, column: 10 }
+        },
+        {
+            ruleName: "normalize-operator-aliases",
+            input: ["var keep = 1;", "if (not right) {", "    keep = 2;", "}", ""].join("\n"),
+            expectedLoc: { line: 2, column: 4 }
+        }
+    ] as const;
+
+    for (const locationCase of locationCases) {
+        const result = lintWithRule(locationCase.ruleName, locationCase.input, {});
+        assert.equal(result.messages.length, 1, `${locationCase.ruleName} should report exactly one diagnostic`);
+        assert.deepEqual(
+            result.messages[0]?.loc,
+            locationCase.expectedLoc,
+            `${locationCase.ruleName} should report its first changed location`
+        );
+    }
+});
+
+void test("prefer-hoistable-loop-accessors reports the first matching accessor location", () => {
+    const input = [
+        "#macro STILE_PLATFORM_HEIGHT 120",
+        "",
+        "function demo(items) {",
+        "    var total = array_length(items);",
+        "    total += array_length(items);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input);
+    assert.equal(result.messages.length, 1);
+    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 16 });
+});
+
+void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
+    const input = [
+        "if (p.DistanceTo(vertices[0][0].p) < self.vertLength * 1.5)",
+        "|| (p.DistanceTo(vertices[1][0].p) < self.vertLength * 1.5)",
+        "{",
+        "    __addVert(vertices[0]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
+    const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
+`;
+    const expected = [
+        "if (_starting_font == undefined) {",
+        String.raw`    __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`,
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
+    const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
+    const expected = [
+        "repeat (_tag_parameter_count-1) {",
+        '    _command_string += "," + string(_tag_parameters[_j++]);',
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions does not rewrite decimal literals that start with zero", () => {
+    const input = "__fit_scale = _lower_limit + 0.5*(_upper_limit - _lower_limit);\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
+    const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
+    const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-operator-aliases replaces invalid logical keyword 'not' with '!'", () => {
+    const input = ["if (not ready) {", "    value = not(extra);", "}", ""].join("\n");
+    const expected = ["if (! ready) {", "    value = !(extra);", "}", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-operator-aliases does not rewrite identifier usage of 'not'", () => {
+    const input = ["var not = 1;", "value = not + 2;", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("require-control-flow-braces skips macro continuation blocks", () => {
+    const input = [
+        '#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == "body")\\',
+        "                                        {\\",
+        '                                            _new_style = "bold";\\',
+        "                                        }\\",
+        "                                        if (_old_style != _new_style) _write_style = true;",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("require-control-flow-braces does not reinterpret already braced headers with trailing comments", () => {
+    const input = [
+        "if (point_in_triangle(D.x, D.y, A.x, A.y, B.x, B.y, C.x, C.y)) { // stile_point_in_triangle(x3, y3, z3, x0, y0, z0, x1, y1, z1, x2, y2, z2, N)",
+        '    // show_debug_message("Verts inside");',
+        "    good = false;",
+        "    break;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
 });

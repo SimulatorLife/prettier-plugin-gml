@@ -1,9 +1,9 @@
-if (a and not b or c xor d) {
+if (a && !b || c ^^ d) {
     result = true;
 }
-if (ready and not done or extra xor flag) {
+if (ready AND ! done OR extra XOR flag) {
     finish();
 }
-if (not (a and b) or value != other) {
+if (!(a && b) || value != other) {
     keep();
 }

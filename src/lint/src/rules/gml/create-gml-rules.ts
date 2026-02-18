@@ -1,5 +1,6 @@
 import type { Rule } from "eslint";
 
+import { createLimitedRecoveryProjection } from "../../language/recovery.js";
 import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
 import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
@@ -61,6 +62,21 @@ type RepeatLoopCandidate = Readonly<{
 
 function escapeRegularExpressionPattern(text: string): string {
     return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
+    const minLength = Math.min(originalText.length, rewrittenText.length);
+    for (let index = 0; index < minLength; index += 1) {
+        if (originalText[index] !== rewrittenText[index]) {
+            return index;
+        }
+    }
+
+    if (originalText.length !== rewrittenText.length) {
+        return minLength;
+    }
+
+    return 0;
 }
 
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
@@ -204,21 +220,44 @@ function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefinition): 
             const minOccurrences = typeof options.minOccurrences === "number" ? options.minOccurrences : 2;
 
             return Object.freeze({
-                Program(node) {
+                Program() {
                     const text = context.sourceCode.text;
                     const accessPattern = /array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
-                    const counts = new Map<string, number>();
+                    const identifierOccurrences = new Map<string, { count: number; firstOffset: number }>();
                     for (const match of text.matchAll(accessPattern)) {
                         const identifier = match[1];
-                        counts.set(identifier, (counts.get(identifier) ?? 0) + 1);
+                        const firstOffset = match.index ?? 0;
+                        const existing = identifierOccurrences.get(identifier);
+                        if (existing) {
+                            existing.count += 1;
+                            continue;
+                        }
+
+                        identifierOccurrences.set(identifier, {
+                            count: 1,
+                            firstOffset
+                        });
                     }
 
-                    for (const count of counts.values()) {
-                        if (count >= minOccurrences) {
-                            context.report({ node, messageId: definition.messageId });
-                            break;
+                    let firstReportOffset: number | null = null;
+                    for (const occurrence of identifierOccurrences.values()) {
+                        if (occurrence.count < minOccurrences) {
+                            continue;
+                        }
+
+                        if (firstReportOffset === null || occurrence.firstOffset < firstReportOffset) {
+                            firstReportOffset = occurrence.firstOffset;
                         }
                     }
+
+                    if (firstReportOffset === null) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(firstReportOffset),
+                        messageId: definition.messageId
+                    });
                 }
             });
         }
@@ -635,8 +674,9 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -779,16 +819,40 @@ function toBracedSingleClause(indentation: string, header: string, statement: st
 }
 
 function parseInlineConditionedClause(line: string, keyword: ConditionedControlFlowKeyword): BracedSingleClause | null {
-    const inlinePattern = new RegExp(String.raw`^(\s*)${keyword}\s*\((.+)\)\s*(?!\{)([^;{}].*;\s*)$`, "u");
-    const inlineMatch = inlinePattern.exec(line);
-    if (!inlineMatch) {
+    const keywordPattern = new RegExp(String.raw`^(\s*)${keyword}\b`, "u");
+    const keywordMatch = keywordPattern.exec(line);
+    if (!keywordMatch) {
+        return null;
+    }
+
+    let cursor = keywordMatch[0].length;
+    while (cursor < line.length && /\s/u.test(line[cursor])) {
+        cursor += 1;
+    }
+
+    if (line[cursor] !== "(") {
+        return null;
+    }
+
+    const closingParenthesisIndex = findMatchingParenthesisIndexInLine(line, cursor);
+    if (closingParenthesisIndex < 0) {
+        return null;
+    }
+
+    const condition = line.slice(cursor + 1, closingParenthesisIndex).trim();
+    if (condition.length === 0) {
+        return null;
+    }
+
+    const statement = line.slice(closingParenthesisIndex + 1).trim();
+    if (!isSafeSingleLineControlFlowStatement(statement)) {
         return null;
     }
 
     return {
-        indentation: inlineMatch[1],
-        header: `${keyword} (${inlineMatch[2].trim()})`,
-        statement: inlineMatch[3].trim()
+        indentation: keywordMatch[1],
+        header: `${keyword} (${condition})`,
+        statement
     };
 }
 
@@ -804,15 +868,136 @@ function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
 }
 
 function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
-    const lineMatch = /^(\s*)(if|repeat|while|for|with)\s*\((.+)\)\s*$/u.exec(line);
-    if (!lineMatch) {
+    const keywordMatch = /^(\s*)(if|repeat|while|for|with)\b/u.exec(line);
+    if (!keywordMatch) {
+        return null;
+    }
+
+    let cursor = keywordMatch[0].length;
+    while (cursor < line.length && /\s/u.test(line[cursor])) {
+        cursor += 1;
+    }
+
+    if (line[cursor] !== "(") {
+        return null;
+    }
+
+    const closingParenthesisIndex = findMatchingParenthesisIndexInLine(line, cursor);
+    if (closingParenthesisIndex < 0) {
+        return null;
+    }
+
+    const condition = line.slice(cursor + 1, closingParenthesisIndex).trim();
+    if (condition.length === 0) {
+        return null;
+    }
+
+    const trailingText = line.slice(closingParenthesisIndex + 1).trim();
+    if (trailingText.length > 0) {
         return null;
     }
 
     return {
-        indentation: lineMatch[1],
-        header: `${lineMatch[2]} (${lineMatch[3].trim()})`
+        indentation: keywordMatch[1],
+        header: `${keywordMatch[2]} (${condition})`
     };
+}
+
+function findMatchingParenthesisIndexInLine(line: string, openParenthesisIndex: number): number {
+    let parenthesisDepth = 0;
+    let inString: "'" | '"' | null = null;
+    let inBlockComment = false;
+
+    for (let index = openParenthesisIndex; index < line.length; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (inString) {
+            if (character === "\\") {
+                index += 1;
+                continue;
+            }
+            if (character === inString) {
+                inString = null;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (character === "*" && nextCharacter === "/") {
+                inBlockComment = false;
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "/") {
+            break;
+        }
+
+        if (character === "/" && nextCharacter === "*") {
+            inBlockComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            inString = character;
+            continue;
+        }
+
+        if (character === "(") {
+            parenthesisDepth += 1;
+            continue;
+        }
+
+        if (character === ")") {
+            parenthesisDepth -= 1;
+            if (parenthesisDepth === 0) {
+                return index;
+            }
+        }
+    }
+
+    return -1;
+}
+
+function isLikelyConditionContinuationLine(line: string): boolean {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    if (
+        trimmed.startsWith("||") ||
+        trimmed.startsWith("&&") ||
+        trimmed.startsWith(")") ||
+        trimmed.startsWith("?") ||
+        trimmed.startsWith(":")
+    ) {
+        return true;
+    }
+
+    const lower = trimmed.toLowerCase();
+    return lower.startsWith("and ") || lower.startsWith("or ") || lower.startsWith("xor ");
+}
+
+function isSafeSingleLineControlFlowStatement(statement: string): boolean {
+    const trimmed = statement.trim();
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    if (
+        trimmed.startsWith("{") ||
+        trimmed.startsWith("}") ||
+        trimmed.startsWith("#") ||
+        isLikelyConditionContinuationLine(trimmed)
+    ) {
+        return false;
+    }
+
+    return trimmed.endsWith(";");
 }
 
 function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
@@ -885,6 +1070,10 @@ function parseLineOnlyDoHeader(line: string): string | null {
     return doHeaderMatch ? doHeaderMatch[1] : null;
 }
 
+function lineUsesMacroContinuation(line: string): boolean {
+    return /\\\s*(?:\/\/.*)?$/u.test(line);
+}
+
 function parseLineOnlyUntilFooter(line: string): string | null {
     const untilFooterMatch = /^\s*until\s*\((.+)\)\s*;?\s*$/u.exec(line);
     return untilFooterMatch ? untilFooterMatch[1].trim() : null;
@@ -896,6 +1085,73 @@ function normalizeConditionAssignments(conditionText: string): string {
 
 function isIdentifierCharacter(value: string): boolean {
     return /[A-Za-z0-9_]/u.test(value);
+}
+
+function previousNonWhitespaceCharacter(sourceText: string, fromIndex: number): string | null {
+    let index = fromIndex - 1;
+    while (index >= 0) {
+        const character = sourceText[index];
+        if (!/\s/u.test(character)) {
+            return character;
+        }
+        index -= 1;
+    }
+
+    return null;
+}
+
+function nextNonWhitespaceCharacter(sourceText: string, fromIndex: number): string | null {
+    let index = fromIndex;
+    while (index < sourceText.length) {
+        const character = sourceText[index];
+        if (!/\s/u.test(character)) {
+            return character;
+        }
+        index += 1;
+    }
+
+    return null;
+}
+
+function previousIdentifierToken(sourceText: string, fromIndex: number): string | null {
+    let end = fromIndex - 1;
+    while (end >= 0 && /\s/u.test(sourceText[end])) {
+        end -= 1;
+    }
+
+    if (end < 0 || !isIdentifierCharacter(sourceText[end])) {
+        return null;
+    }
+
+    let start = end;
+    while (start - 1 >= 0 && isIdentifierCharacter(sourceText[start - 1])) {
+        start -= 1;
+    }
+
+    return sourceText.slice(start, end + 1);
+}
+
+function isLogicalNotKeywordInContext(sourceText: string, tokenStart: number, tokenEnd: number): boolean {
+    const previousCharacter = previousNonWhitespaceCharacter(sourceText, tokenStart);
+    if (previousCharacter !== null) {
+        if (previousCharacter === "." || previousCharacter === ")" || previousCharacter === "]") {
+            return false;
+        }
+
+        if (isIdentifierCharacter(previousCharacter)) {
+            const previousToken = previousIdentifierToken(sourceText, tokenStart)?.toLowerCase();
+            if (previousToken !== "and" && previousToken !== "or" && previousToken !== "xor") {
+                return false;
+            }
+        }
+    }
+
+    const nextCharacter = nextNonWhitespaceCharacter(sourceText, tokenEnd);
+    if (nextCharacter === null) {
+        return false;
+    }
+
+    return /[A-Za-z0-9_([{'"!]/u.test(nextCharacter);
 }
 
 function normalizeLogicalOperatorAliases(sourceText: string): string {
@@ -968,33 +1224,6 @@ function normalizeLogicalOperatorAliases(sourceText: string): string {
             continue;
         }
 
-        if (character === "&" && nextCharacter === "&") {
-            rewritten.push("and");
-            index += 2;
-            continue;
-        }
-
-        if (character === "|" && nextCharacter === "|") {
-            rewritten.push("or");
-            index += 2;
-            continue;
-        }
-
-        if (character === "^" && nextCharacter === "^") {
-            rewritten.push("xor");
-            index += 2;
-            continue;
-        }
-
-        if (character === "!" && nextCharacter !== "=") {
-            rewritten.push("not");
-            if (nextCharacter !== undefined && !/\s/u.test(nextCharacter)) {
-                rewritten.push(" ");
-            }
-            index += 1;
-            continue;
-        }
-
         if (isIdentifierCharacter(character)) {
             const start = index;
             let end = index + 1;
@@ -1004,8 +1233,8 @@ function normalizeLogicalOperatorAliases(sourceText: string): string {
 
             const token = sourceText.slice(start, end);
             const normalized = token.toLowerCase();
-            if (normalized === "and" || normalized === "or" || normalized === "xor" || normalized === "not") {
-                rewritten.push(normalized);
+            if (normalized === "not" && isLogicalNotKeywordInContext(sourceText, start, end)) {
+                rewritten.push("!");
             } else {
                 rewritten.push(token);
             }
@@ -1037,8 +1266,9 @@ function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1058,9 +1288,23 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                     const lineEnding = dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines: Array<string> = [];
+                    let inMacroContinuation = false;
 
                     for (let index = 0; index < lines.length; index += 1) {
                         const line = lines[index];
+
+                        if (inMacroContinuation) {
+                            rewrittenLines.push(line);
+                            inMacroContinuation = lineUsesMacroContinuation(line);
+                            continue;
+                        }
+
+                        if (/^\s*#macro\b/u.test(line)) {
+                            rewrittenLines.push(line);
+                            inMacroContinuation = lineUsesMacroContinuation(line);
+                            continue;
+                        }
+
                         const inlineControlFlow = parseInlineControlFlowClauseWithLegacyIf(line);
                         if (inlineControlFlow) {
                             rewrittenLines.push(
@@ -1097,7 +1341,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                         if (lineHeaderMatch && index + 1 < lines.length) {
                             const nextLine = lines[index + 1];
                             const nextTrimmed = nextLine.trim();
-                            if (nextTrimmed.length > 0 && !nextTrimmed.startsWith("{")) {
+                            if (isSafeSingleLineControlFlowStatement(nextTrimmed)) {
                                 rewrittenLines.push(
                                     ...toBracedSingleClause(
                                         lineHeaderMatch.indentation,
@@ -1115,11 +1359,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                             const statementLine = lines[index + 1];
                             const statementTrimmed = statementLine.trim();
                             const untilCondition = parseLineOnlyUntilFooter(lines[index + 2]);
-                            if (
-                                statementTrimmed.length > 0 &&
-                                !statementTrimmed.startsWith("{") &&
-                                untilCondition !== null
-                            ) {
+                            if (isSafeSingleLineControlFlowStatement(statementTrimmed) && untilCondition !== null) {
                                 rewrittenLines.push(
                                     ...toBracedDoUntilClause(doHeaderIndentation, statementTrimmed, untilCondition)
                                 );
@@ -1132,11 +1372,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                         if (lineElseMatch && index + 1 < lines.length) {
                             const nextLine = lines[index + 1];
                             const nextTrimmed = nextLine.trim();
-                            if (
-                                nextTrimmed.length > 0 &&
-                                !nextTrimmed.startsWith("{") &&
-                                !nextTrimmed.startsWith("if ")
-                            ) {
+                            if (isSafeSingleLineControlFlowStatement(nextTrimmed) && !nextTrimmed.startsWith("if ")) {
                                 const indentation = lineElseMatch[1];
                                 rewrittenLines.push(...toBracedSingleClause(indentation, "else", nextTrimmed));
                                 index += 1;
@@ -1152,8 +1388,9 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1195,8 +1432,9 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1219,8 +1457,9 @@ function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1265,7 +1504,7 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const pattern = /([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*0\b/g;
+                    const pattern = /([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*0\b(?!\s*\.)/g;
                     for (const match of text.matchAll(pattern)) {
                         const start = match.index ?? 0;
                         const end = start + match[0].length;
@@ -1281,6 +1520,70 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
     });
 }
 
+type ArgumentSeparatorInsertion = Readonly<{
+    originalOffset: number;
+    insertedText: ",";
+}>;
+
+function tryReadArgumentSeparatorRecoveryFromParserServices(
+    context: Rule.RuleContext
+): ReadonlyArray<ArgumentSeparatorInsertion> | null {
+    const parserServices = context.sourceCode.parserServices;
+    if (!parserServices || typeof parserServices !== "object") {
+        return null;
+    }
+
+    const parserServicesWithGml = parserServices as { gml?: unknown };
+    if (!parserServicesWithGml.gml || typeof parserServicesWithGml.gml !== "object") {
+        return null;
+    }
+
+    const gmlWithRecovery = parserServicesWithGml.gml as { recovery?: unknown };
+    if (!Array.isArray(gmlWithRecovery.recovery)) {
+        return null;
+    }
+
+    const insertions: Array<ArgumentSeparatorInsertion> = [];
+    for (const recoveryEntry of gmlWithRecovery.recovery) {
+        if (!recoveryEntry || typeof recoveryEntry !== "object") {
+            continue;
+        }
+
+        const originalOffset = Reflect.get(recoveryEntry, "originalOffset");
+        const insertedText = Reflect.get(recoveryEntry, "insertedText");
+
+        if (typeof originalOffset === "number" && Number.isInteger(originalOffset) && insertedText === ",") {
+            insertions.push(
+                Object.freeze({
+                    originalOffset,
+                    insertedText
+                })
+            );
+        }
+    }
+
+    return Object.freeze(insertions);
+}
+
+function collectArgumentSeparatorInsertionOffsets(
+    context: Rule.RuleContext,
+    sourceText: string
+): ReadonlyArray<number> {
+    const parserRecoveryInsertions = tryReadArgumentSeparatorRecoveryFromParserServices(context);
+    const recoveries = parserRecoveryInsertions ?? createLimitedRecoveryProjection(sourceText).insertions;
+    const uniqueOffsets = new Set<number>();
+
+    for (const recovery of recoveries) {
+        if (recovery.originalOffset < 0 || recovery.originalOffset > sourceText.length) {
+            continue;
+        }
+
+        uniqueOffsets.add(recovery.originalOffset);
+    }
+
+    return Object.freeze([...uniqueOffsets].sort((left, right) => left - right));
+}
+
 function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -1289,29 +1592,16 @@ function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rul
             const shouldRepair = options.repair === undefined ? true : options.repair === true;
 
             return Object.freeze({
-                Program(node) {
-                    const text = context.sourceCode.text;
-                    const callPattern = /\(([^)]*)\)/g;
-                    for (const callMatch of text.matchAll(callPattern)) {
-                        const payload = callMatch[1];
-                        const payloadStart = (callMatch.index ?? 0) + 1;
-                        const missingSeparator =
-                            /([A-Za-z_][A-Za-z0-9_]*)(\s+\/\*[^*]*\*\/\s+|\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(payload);
-                        if (!missingSeparator) {
-                            continue;
-                        }
+                Program() {
+                    const sourceText = context.sourceCode.text;
+                    const insertionOffsets = collectArgumentSeparatorInsertionOffsets(context, sourceText);
 
-                        const insertIndex = payloadStart + missingSeparator.index + missingSeparator[1].length;
+                    for (const insertionOffset of insertionOffsets) {
                         context.report({
-                            node,
+                            loc: context.sourceCode.getLocFromIndex(insertionOffset),
                             messageId: definition.messageId,
                             fix: shouldRepair
-                                ? (fixer) => {
-                                      const insertion = missingSeparator[2].includes("\n")
-                                          ? `,${dominantLineEnding(text)}`
-                                          : ",";
-                                      return fixer.insertTextAfterRange([insertIndex, insertIndex], insertion);
-                                  }
+                                ? (fixer) => fixer.insertTextAfterRange([insertionOffset, insertionOffset], ",")
                                 : null
                         });
                     }

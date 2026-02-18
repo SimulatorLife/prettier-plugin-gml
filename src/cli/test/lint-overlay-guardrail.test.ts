@@ -237,6 +237,77 @@ void test("resolveEslintCwd anchors external targets to their shared directory",
         workspaceRoot
     );
 });
+
+void test("extractLintRuntimeFailureLocation parses file path with line and column", () => {
+    const parsed = __lintCommandTest__.extractLintRuntimeFailureLocation(
+        'Cannot read properties of undefined (reading "0")\nOccurred while linting /tmp/example.gml:42:7\nRule: "gml/some-rule"'
+    );
+
+    assert.equal(parsed.filePath, "/tmp/example.gml");
+    assert.equal(parsed.line, 42);
+    assert.equal(parsed.column, 7);
+});
+
+void test("extractLintRuntimeFailureLocation falls back when location is unavailable", () => {
+    const parsed = __lintCommandTest__.extractLintRuntimeFailureLocation("Unexpected lint runtime failure.");
+
+    assert.equal(parsed.filePath, null);
+    assert.equal(parsed.line, 1);
+    assert.equal(parsed.column, 1);
+});
+
+void test("lintTargetsWithRuntimeRecovery records recoverable crashes and continues", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-recovery-targets-"));
+    const firstFile = path.join(tempRoot, "alpha.gml");
+    const secondFile = path.join(tempRoot, "beta.gml");
+    await fs.writeFile(firstFile, "var alpha = 1;\n", "utf8");
+    await fs.writeFile(secondFile, "var beta = 2;\n", "utf8");
+
+    const lintedTargets: Array<string> = [];
+    const fakeEslint = {
+        async lintFiles(filePatterns: string | Array<string>) {
+            if (typeof filePatterns === "string") {
+                return [];
+            }
+            const [filePath] = filePatterns;
+            if (typeof filePath !== "string") {
+                return [];
+            }
+
+            lintedTargets.push(filePath);
+            if (filePath === secondFile) {
+                throw new Error(`Synthetic failure\nOccurred while linting ${secondFile}:13`);
+            }
+
+            return [
+                {
+                    filePath,
+                    messages: [],
+                    suppressedMessages: [],
+                    errorCount: 0,
+                    fatalErrorCount: 0,
+                    warningCount: 0,
+                    fixableErrorCount: 0,
+                    fixableWarningCount: 0,
+                    usedDeprecatedRules: []
+                }
+            ];
+        }
+    };
+
+    const results = await __lintCommandTest__.lintTargetsWithRuntimeRecovery({
+        eslint: fakeEslint,
+        cwd: tempRoot,
+        targets: [tempRoot]
+    });
+
+    assert.equal(results.length, 2);
+    assert.deepEqual(lintedTargets.sort(), [firstFile, secondFile].sort());
+
+    const fatalResult = results.find((result) => result.filePath === secondFile);
+    assert.equal(fatalResult?.fatalErrorCount, 1);
+    assert.equal(fatalResult?.messages[0]?.line, 13);
+});
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {

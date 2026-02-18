@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 
 import * as LintWorkspace from "@gml-modules/lint";
-import { ESLint } from "eslint";
+import { ESLint, type Linter } from "eslint";
 
 const { Lint } = LintWorkspace;
 
@@ -52,8 +52,25 @@ function parseWithOptions(sourceText: string, recovery: "none" | "limited"): Par
 }
 
 async function lintTextWithESLintVersion(ESLintImplementation: typeof ESLint, sourceText: string) {
+    return lintTextWithConfiguredRules(
+        ESLintImplementation,
+        sourceText,
+        {
+            "gml/no-globalvar": "off"
+        },
+        false
+    );
+}
+
+async function lintTextWithConfiguredRules(
+    ESLintImplementation: typeof ESLint,
+    sourceText: string,
+    rules: Linter.RulesRecord,
+    fix: boolean
+) {
     const eslint = new ESLintImplementation({
         overrideConfigFile: true,
+        fix,
         overrideConfig: [
             {
                 files: ["**/*.gml"],
@@ -61,9 +78,7 @@ async function lintTextWithESLintVersion(ESLintImplementation: typeof ESLint, so
                     gml: Lint.plugin
                 },
                 language: "gml/gml",
-                rules: {
-                    "gml/no-globalvar": "off"
-                }
+                rules
             }
         ]
     });
@@ -229,6 +244,81 @@ void test("limited recovery preserves projected substring invariants for argumen
     const [start, end] = secondArgumentRange;
     assert.equal(source.slice(start, end), "20");
     assert.equal(result.parserServices.gml.recovery[0]?.originalOffset, 21);
+});
+
+void test("limited recovery inserts exactly one separator across block-comment payload gaps", () => {
+    const source = "show_debug_message_ext(name /* keep */ payload);\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assert.equal(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assert.equal(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.equal(limitedResult.parserServices.gml.recovery.length, 1);
+    assert.equal(limitedResult.parserServices.gml.recovery[0]?.originalOffset, source.indexOf(" /* keep */"));
+});
+
+void test("require-argument-separators ignores macros, declarations, comments, and strings", async () => {
+    const source = [
+        "#macro STILE_PLATFORM_HEIGHT 120",
+        "function scribble_rgb_to_bgr(_rgb) {",
+        "    // (the industry standard)",
+        '    var label = "Colour values should be in the format (RGB)."',
+        "    return _rgb;",
+        "}",
+        "function scribble_color_set(_name, _colour) {",
+        "    show_debug_message(_name);",
+        "}"
+    ].join("\n");
+
+    const result = await lintTextWithConfiguredRules(
+        ESLint,
+        source,
+        {
+            "gml/no-globalvar": "off",
+            "gml/require-argument-separators": "error"
+        },
+        false
+    );
+
+    assert.equal(result.fatalErrorCount, 0);
+    assert.equal(result.errorCount, 0);
+});
+
+void test("require-argument-separators reports precise location and fixes comment payload gaps", async () => {
+    const source = "show_debug_message_ext(name /* keep */ payload);\n";
+    const expectedColumn = source.indexOf(" /* keep */") + 1;
+
+    const diagnosticResult = await lintTextWithConfiguredRules(
+        ESLint,
+        source,
+        {
+            "gml/no-globalvar": "off",
+            "gml/require-argument-separators": "error"
+        },
+        false
+    );
+
+    assert.equal(diagnosticResult.fatalErrorCount, 0);
+    assert.equal(diagnosticResult.messages.length, 1);
+    assert.equal(diagnosticResult.messages[0]?.line, 1);
+    assert.equal(diagnosticResult.messages[0]?.column, expectedColumn);
+
+    const fixedResult = await lintTextWithConfiguredRules(
+        ESLint,
+        source,
+        {
+            "gml/no-globalvar": "off",
+            "gml/require-argument-separators": "error"
+        },
+        true
+    );
+    assert.equal(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
 void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
