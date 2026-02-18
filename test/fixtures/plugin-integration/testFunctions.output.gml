@@ -1,8 +1,5 @@
 some(
     thisArgumentIsQuiteLong,
-    /// @param cool
-    /// @param [f=function (]
-    /// @returns {undefined}
     function foo(cool, f = function () { ez(); }) : bar() constructor {
         return cool;
     }
@@ -69,7 +66,7 @@ function Shape(color = undefined) constructor {
     };
 }
 
-/// @param {real} r -  The radius of the circle
+/// @param {real} r The radius of the circle
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
