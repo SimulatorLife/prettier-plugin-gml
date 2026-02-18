@@ -843,7 +843,11 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                     let lineIndex = 0;
                     while (lineIndex < lines.length) {
                         const firstAssignment = parseStructAssignmentLine(lines[lineIndex]);
-                        if (!firstAssignment || !isIdentifier(firstAssignment.objectName)) {
+                        if (
+                            !firstAssignment ||
+                            !isIdentifier(firstAssignment.objectName) ||
+                            firstAssignment.objectName.toLowerCase() === "global"
+                        ) {
                             rewrittenLines.push(lines[lineIndex]);
                             lineIndex += 1;
                             continue;

@@ -318,6 +318,13 @@ void test("prefer-struct-literal-assignments ignores duplicate property update c
     assert.equal(result.output, input);
 });
 
+void test("prefer-struct-literal-assignments never collapses built-in global property writes", () => {
+    const input = ["global.AsyncLoaderQueue = ds_queue_create();", "global.AsyncLoaderHandle = -1;", ""].join("\n");
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
     const input = [
         "#macro STILE_PLATFORM_HEIGHT 120",
