@@ -1,6 +1,6 @@
 /// Summary
 /// @description legacy style line
-/// Keep me
+///              Keep me
 /// @param x
 /// @returns {undefined}
 function test(x) {}

@@ -7,6 +7,8 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
 
+const { getNodeStartIndex, getNodeEndIndex, isObjectLike } = CoreWorkspace.Core;
+
 function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs: {
         description: string;
@@ -60,6 +62,49 @@ type RepeatLoopCandidate = Readonly<{
     loopStartIndex: number;
     loopHeaderEndIndex: number;
 }>;
+
+type AstNodeRecord = Record<string, unknown>;
+
+function isAstNodeRecord(value: unknown): value is AstNodeRecord {
+    return isObjectLike(value) && !Array.isArray(value);
+}
+
+function shouldRewriteGlobalvarIdentifierNode(
+    identifierNode: AstNodeRecord,
+    parentNode: AstNodeRecord | null
+): boolean {
+    if (!parentNode) {
+        return false;
+    }
+
+    if (identifierNode.name === "global") {
+        return false;
+    }
+
+    if (parentNode.type === "GlobalVarStatement") {
+        return false;
+    }
+
+    if (parentNode.type === "MemberDotExpression" && parentNode.property === identifierNode) {
+        return false;
+    }
+
+    if ((parentNode.type === "Property" || parentNode.type === "EnumMember") && parentNode.name === identifierNode) {
+        return false;
+    }
+
+    if (
+        (parentNode.type === "VariableDeclarator" ||
+            parentNode.type === "FunctionDeclaration" ||
+            parentNode.type === "ConstructorDeclaration" ||
+            parentNode.type === "ConstructorParentClause") &&
+        parentNode.id === identifierNode
+    ) {
+        return false;
+    }
+
+    return true;
+}
 
 function escapeRegularExpressionPattern(text: string): string {
     return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -387,53 +432,226 @@ function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
             const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
             const shouldReportUnsafeFixes = shouldReportUnsafe(context);
             const projectContext = resolveProjectContextForRule(context, definition);
+
+            type TextEdit = Readonly<{
+                start: number;
+                end: number;
+                replacement: string;
+            }>;
+
+            type GlobalVarStatementRange = Readonly<{
+                start: number;
+                end: number;
+                names: ReadonlyArray<string>;
+            }>;
+
+            const collectGlobalVarStatements = (programNode: unknown): ReadonlyArray<GlobalVarStatementRange> => {
+                const statements: Array<GlobalVarStatementRange> = [];
+
+                const visit = (node: unknown): void => {
+                    if (Array.isArray(node)) {
+                        for (const element of node) {
+                            visit(element);
+                        }
+                        return;
+                    }
+
+                    if (!isAstNodeRecord(node)) {
+                        return;
+                    }
+
+                    if (node.type === "GlobalVarStatement") {
+                        const start = getNodeStartIndex(node);
+                        const endExclusive = getNodeEndIndex(node);
+                        if (typeof start === "number" && typeof endExclusive === "number") {
+                            const declarations = CoreWorkspace.Core.asArray<Record<string, unknown>>(node.declarations);
+                            const names = declarations
+                                .map((declaration) => CoreWorkspace.Core.getIdentifierText(declaration.id ?? null))
+                                .filter((name): name is string => isIdentifier(name));
+
+                            if (names.length > 0) {
+                                statements.push(
+                                    Object.freeze({
+                                        start,
+                                        end: endExclusive,
+                                        names
+                                    })
+                                );
+                            }
+                        }
+                    }
+
+                    CoreWorkspace.Core.forEachNodeChild(node, (childNode) => visit(childNode));
+                };
+
+                visit(programNode);
+                return statements;
+            };
+
+            const collectGlobalIdentifierReplacementEdits = (
+                programNode: unknown,
+                globalVarStatements: ReadonlyArray<GlobalVarStatementRange>
+            ): ReadonlyArray<TextEdit> => {
+                const declaredNames = new Set<string>();
+                for (const statement of globalVarStatements) {
+                    for (const name of statement.names) {
+                        declaredNames.add(name);
+                    }
+                }
+
+                if (declaredNames.size === 0) {
+                    return [];
+                }
+
+                const edits: Array<TextEdit> = [];
+                const isWithinGlobalVarDeclaration = (start: number, end: number): boolean =>
+                    globalVarStatements.some((statement) => start >= statement.start && end <= statement.end);
+
+                const visit = (node: unknown, parentNode: Record<string, unknown> | null): void => {
+                    if (Array.isArray(node)) {
+                        for (const element of node) {
+                            visit(element, parentNode);
+                        }
+                        return;
+                    }
+
+                    if (!isAstNodeRecord(node)) {
+                        return;
+                    }
+
+                    if (node.type === "Identifier" && typeof node.name === "string" && declaredNames.has(node.name)) {
+                        const start = getNodeStartIndex(node);
+                        const endExclusive = getNodeEndIndex(node);
+                        if (
+                            typeof start === "number" &&
+                            typeof endExclusive === "number" &&
+                            shouldRewriteGlobalvarIdentifierNode(node, parentNode) &&
+                            !isWithinGlobalVarDeclaration(start, endExclusive)
+                        ) {
+                            edits.push(
+                                Object.freeze({
+                                    start,
+                                    end: endExclusive,
+                                    replacement: `global.${node.name}`
+                                })
+                            );
+                        }
+                    }
+
+                    CoreWorkspace.Core.forEachNodeChild(node, (childNode) => visit(childNode, node));
+                };
+
+                visit(programNode, null);
+                return edits;
+            };
+
+            const collectGlobalVarDeclarationRemovalEdits = (
+                sourceText: string,
+                globalVarStatements: ReadonlyArray<GlobalVarStatementRange>
+            ): ReadonlyArray<TextEdit> =>
+                globalVarStatements.map((statement) => {
+                    const start = statement.start;
+                    let end = statement.end;
+
+                    if (sourceText[end] === "\r" && sourceText[end + 1] === "\n") {
+                        end += 2;
+                    } else if (sourceText[end] === "\n") {
+                        end += 1;
+                    }
+
+                    return Object.freeze({
+                        start,
+                        end,
+                        replacement: ""
+                    });
+                });
+
+            const applyTextEdits = (sourceText: string, edits: ReadonlyArray<TextEdit>): string => {
+                if (edits.length === 0) {
+                    return sourceText;
+                }
+
+                const sortedEdits = edits
+                    .filter((edit) => edit.start >= 0 && edit.end >= edit.start && edit.end <= sourceText.length)
+                    .toSorted((left, right) => {
+                        if (left.start !== right.start) {
+                            return left.start - right.start;
+                        }
+
+                        return left.end - right.end;
+                    });
+
+                const nonOverlappingEdits: Array<TextEdit> = [];
+                let previousEnd = -1;
+                for (const edit of sortedEdits) {
+                    if (edit.start < previousEnd) {
+                        continue;
+                    }
+
+                    nonOverlappingEdits.push(edit);
+                    previousEnd = edit.end;
+                }
+
+                let rewrittenText = sourceText;
+                for (const edit of nonOverlappingEdits.toReversed()) {
+                    rewrittenText =
+                        rewrittenText.slice(0, edit.start) + edit.replacement + rewrittenText.slice(edit.end);
+                }
+
+                return rewrittenText;
+            };
+
             const listener: Rule.RuleListener = {
-                Program() {
+                Program(programNode) {
                     const text = context.sourceCode.text;
                     const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
                     const filePath = typeof sourcePath === "string" ? sourcePath : null;
-                    const pattern = /(^|\r?\n)(\s*)globalvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g;
+                    const globalVarStatements = collectGlobalVarStatements(programNode);
+                    if (globalVarStatements.length === 0) {
+                        return;
+                    }
+
                     const assessGlobalVarRewrite =
                         projectContext.context && typeof projectContext.context.assessGlobalVarRewrite === "function"
                             ? projectContext.context.assessGlobalVarRewrite.bind(projectContext.context)
                             : null;
-                    for (const match of text.matchAll(pattern)) {
-                        const start = (match.index ?? 0) + match[1].length;
-                        const end = start + match[2].length + "globalvar".length + 1 + match[3].length + 1;
-                        const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
-                            allowRewrite: true,
-                            reason: null
-                        };
-                        if (!rewriteAssessment.allowRewrite) {
-                            if (shouldReportUnsafeFixes) {
-                                context.report({
-                                    loc: context.sourceCode.getLocFromIndex(start),
-                                    messageId: "unsafeFix"
-                                });
-                            } else {
-                                context.report({
-                                    loc: context.sourceCode.getLocFromIndex(start),
-                                    messageId: definition.messageId
-                                });
-                            }
-                            continue;
-                        }
+                    const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
+                        allowRewrite: true,
+                        reason: null
+                    };
 
-                        if (!enableAutofix) {
-                            context.report({
-                                loc: context.sourceCode.getLocFromIndex(start),
-                                messageId: definition.messageId
-                            });
-                            continue;
-                        }
-
+                    const firstStatementStart = globalVarStatements[0]?.start ?? 0;
+                    if (!rewriteAssessment.allowRewrite) {
                         context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) =>
-                                fixer.replaceTextRange([start, end], `${match[2]}global.${match[3]} = undefined;`)
+                            loc: context.sourceCode.getLocFromIndex(firstStatementStart),
+                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
                         });
+                        return;
                     }
+
+                    const edits = [
+                        ...collectGlobalVarDeclarationRemovalEdits(text, globalVarStatements),
+                        ...collectGlobalIdentifierReplacementEdits(programNode, globalVarStatements)
+                    ];
+                    const rewrittenText = applyTextEdits(text, edits);
+                    if (rewrittenText === text) {
+                        return;
+                    }
+
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewrittenText);
+                    if (!enableAutofix) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+                            messageId: definition.messageId
+                        });
+                        return;
+                    }
+
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewrittenText)
+                    });
                 }
             };
 
@@ -600,6 +818,50 @@ function canonicalizeDocCommentTagAliases(docLines: ReadonlyArray<string>): Read
     });
 }
 
+function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
+    const alignedLines: Array<string> = [];
+    let activeContinuationIndentation: string | null = null;
+
+    for (const line of docLines) {
+        const descriptionMatch = /^(\s*)\/\/\/\s*@description\b(?:\s*(.*))?$/iu.exec(line);
+        if (descriptionMatch) {
+            const indentation = descriptionMatch[1] ?? "";
+            activeContinuationIndentation = `${indentation}/// ${" ".repeat("@description ".length)}`;
+            alignedLines.push(line);
+            continue;
+        }
+
+        const taggedLine = /^\s*\/\/\/\s*@/iu.test(line);
+        if (taggedLine) {
+            activeContinuationIndentation = null;
+            alignedLines.push(line);
+            continue;
+        }
+
+        if (activeContinuationIndentation === null) {
+            alignedLines.push(line);
+            continue;
+        }
+
+        const plainDocLineMatch = /^(\s*)\/\/\/\s*(.*)$/u.exec(line);
+        if (!plainDocLineMatch) {
+            activeContinuationIndentation = null;
+            alignedLines.push(line);
+            continue;
+        }
+
+        const continuationText = (plainDocLineMatch[2] ?? "").trim();
+        if (continuationText.length === 0) {
+            alignedLines.push(`${plainDocLineMatch[1] ?? ""}///`);
+            continue;
+        }
+
+        alignedLines.push(`${activeContinuationIndentation}${continuationText}`);
+    }
+
+    return alignedLines;
+}
+
 function createSyntheticDocCommentFunctionNode(target: FunctionDocCommentTarget): SyntheticDocCommentFunctionNode {
     const params: ReadonlyArray<SyntheticDocCommentParameterNode> = target.parameterNames.map((parameterName) => ({
         type: "Identifier",
@@ -753,7 +1015,10 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                             [],
                             true
                         );
-                        rewrittenLines.push(...promotedBlock);
+                        const returnsNormalizedBlock =
+                            CoreWorkspace.Core.convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
+                        const alignedDescriptionBlock = alignDescriptionContinuationLines(returnsNormalizedBlock);
+                        rewrittenLines.push(...alignedDescriptionBlock);
                     };
 
                     let pendingDocBlock: Array<string> = [];
@@ -1863,54 +2128,689 @@ function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDefinition
     });
 }
 
+type SourceTextEdit = Readonly<{
+    start: number;
+    end: number;
+    text: string;
+}>;
+
+type LeadingArgumentFallback = Readonly<{
+    parameterName: string;
+    argumentIndex: number;
+    defaultExpression: string;
+    statement: any;
+}>;
+
+function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {
+    if (edits.length === 0) {
+        return sourceText;
+    }
+
+    const ordered = [...edits].toSorted((left, right) => right.start - left.start);
+    let rewritten = sourceText;
+    for (const edit of ordered) {
+        if (edit.start < 0 || edit.end < edit.start || edit.end > rewritten.length) {
+            continue;
+        }
+
+        rewritten = `${rewritten.slice(0, edit.start)}${edit.text}${rewritten.slice(edit.end)}`;
+    }
+
+    return rewritten;
+}
+
+function walkAstNodes(root: unknown, visit: (node: any) => void) {
+    if (!root || typeof root !== "object") {
+        return;
+    }
+
+    const visited = new WeakSet<object>();
+    const stack: unknown[] = [root];
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (Array.isArray(current)) {
+            for (let index = current.length - 1; index >= 0; index -= 1) {
+                stack.push(current[index]);
+            }
+            continue;
+        }
+
+        if (visited.has(current)) {
+            continue;
+        }
+
+        visited.add(current);
+        visit(current);
+
+        for (const [key, value] of Object.entries(current)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            stack.push(value);
+        }
+    }
+}
+
+function parseNumericLiteralValue(node: any): number | null {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const asText = typeof node.value === "string" ? node.value.trim() : "";
+    if (!/^\d+$/.test(asText)) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(asText, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+}
+
+function unwrapParenthesized(node: any): any {
+    let current = node;
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current;
+}
+
+function getMemberArgumentIndex(node: any): number | null {
+    const unwrapped = unwrapParenthesized(node);
+    if (!unwrapped || unwrapped.type !== "MemberIndexExpression") {
+        return null;
+    }
+
+    const objectIdentifier = unwrapped.object;
+    if (!objectIdentifier || objectIdentifier.type !== "Identifier" || objectIdentifier.name !== "argument") {
+        return null;
+    }
+
+    const properties = Array.isArray(unwrapped.property) ? unwrapped.property : [];
+    if (properties.length !== 1) {
+        return null;
+    }
+
+    return parseNumericLiteralValue(properties[0]);
+}
+
+function getArgumentCountGuardIndex(testNode: any): number | null {
+    const unwrapped = unwrapParenthesized(testNode);
+    if (!unwrapped || unwrapped.type !== "BinaryExpression" || unwrapped.operator !== ">") {
+        return null;
+    }
+
+    const left = unwrapParenthesized(unwrapped.left);
+    if (!left || left.type !== "Identifier" || left.name !== "argument_count") {
+        return null;
+    }
+
+    return parseNumericLiteralValue(unwrapParenthesized(unwrapped.right));
+}
+
+function getSingleAssignmentFromIfConsequent(ifNode: unknown): AstNodeRecord | null {
+    if (!isAstNodeRecord(ifNode) || ifNode.type !== "IfStatement" || ifNode.alternate !== null) {
+        return null;
+    }
+
+    const consequent = ifNode.consequent;
+    if (!isAstNodeRecord(consequent)) {
+        return null;
+    }
+
+    if (consequent.type === "BlockStatement") {
+        const bodyStatements = Array.isArray(consequent.body) ? consequent.body : [];
+        if (bodyStatements.length !== 1) {
+            return null;
+        }
+        const singleStatement = bodyStatements[0];
+        return isAstNodeRecord(singleStatement) ? singleStatement : null;
+    }
+
+    return isAstNodeRecord(consequent) ? consequent : null;
+}
+
+function getVariableDeclarator(statement: unknown): AstNodeRecord | null {
+    if (
+        !isAstNodeRecord(statement) ||
+        statement.type !== "VariableDeclaration" ||
+        !Array.isArray(statement.declarations)
+    ) {
+        return null;
+    }
+
+    if (statement.declarations.length !== 1) {
+        return null;
+    }
+
+    const declarator = statement.declarations[0];
+    return isAstNodeRecord(declarator) ? declarator : null;
+}
+
+function matchVarIfArgumentFallbackRewrite(
+    sourceText: string,
+    variableStatement: any,
+    ifStatement: any
+): {
+    replacementStart: number;
+    replacementEnd: number;
+    replacementText: string;
+    parameterName: string;
+    argumentIndex: number;
+} | null {
+    const declarator = getVariableDeclarator(variableStatement);
+    if (!declarator) {
+        return null;
+    }
+
+    const identifier = isAstNodeRecord(declarator.id) ? declarator.id : null;
+    if (!identifier || identifier.type !== "Identifier" || typeof identifier.name !== "string" || !declarator.init) {
+        return null;
+    }
+
+    const argumentIndex = getArgumentCountGuardIndex(ifStatement?.test);
+    if (argumentIndex === null) {
+        return null;
+    }
+
+    const assignment = getSingleAssignmentFromIfConsequent(ifStatement);
+    if (!assignment || assignment.type !== "AssignmentExpression" || assignment.operator !== "=") {
+        return null;
+    }
+
+    const left = unwrapParenthesized(assignment.left);
+    if (!left || left.type !== "Identifier" || left.name !== identifier.name) {
+        return null;
+    }
+
+    const memberArgumentIndex = getMemberArgumentIndex(assignment.right);
+    if (memberArgumentIndex === null || memberArgumentIndex !== argumentIndex) {
+        return null;
+    }
+
+    const initStart = getNodeStartIndex(declarator.init);
+    const initEnd = getNodeEndIndex(declarator.init);
+    const replacementStart = getNodeStartIndex(variableStatement);
+    const replacementEnd = getNodeEndIndex(ifStatement);
+
+    if (
+        typeof initStart !== "number" ||
+        typeof initEnd !== "number" ||
+        typeof replacementStart !== "number" ||
+        typeof replacementEnd !== "number"
+    ) {
+        return null;
+    }
+
+    const fallbackExpression = sourceText.slice(initStart, initEnd).trim();
+
+    return {
+        replacementStart,
+        replacementEnd,
+        replacementText: `var ${identifier.name} = argument_count > ${argumentIndex} ? argument[${argumentIndex}] : ${fallbackExpression};`,
+        parameterName: identifier.name,
+        argumentIndex
+    };
+}
+
+function splitTopLevelCommaSegments(text: string): string[] {
+    const segments: string[] = [];
+    let current = "";
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    let braceDepth = 0;
+    let quote: "'" | '"' | null = null;
+    let escapeNext = false;
+
+    for (const character of text) {
+        if (quote !== null) {
+            current += character;
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (character === "\\") {
+                escapeNext = true;
+                continue;
+            }
+            if (character === quote) {
+                quote = null;
+            }
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            quote = character;
+            current += character;
+            continue;
+        }
+
+        if (character === "(") {
+            parenDepth += 1;
+            current += character;
+            continue;
+        }
+
+        if (character === ")" && parenDepth > 0) {
+            parenDepth -= 1;
+            current += character;
+            continue;
+        }
+
+        if (character === "[") {
+            bracketDepth += 1;
+            current += character;
+            continue;
+        }
+
+        if (character === "]" && bracketDepth > 0) {
+            bracketDepth -= 1;
+            current += character;
+            continue;
+        }
+
+        if (character === "{") {
+            braceDepth += 1;
+            current += character;
+            continue;
+        }
+
+        if (character === "}" && braceDepth > 0) {
+            braceDepth -= 1;
+            current += character;
+            continue;
+        }
+
+        const isTopLevel = parenDepth === 0 && bracketDepth === 0 && braceDepth === 0;
+        if (character === "," && isTopLevel) {
+            segments.push(current.trim());
+            current = "";
+            continue;
+        }
+
+        current += character;
+    }
+
+    if (current.trim().length > 0) {
+        segments.push(current.trim());
+    }
+
+    return segments;
+}
+
+function materializeTrailingOptionalDefaults(parameterSegments: string[]): string[] {
+    let sawDefault = false;
+    const rewritten: string[] = [];
+
+    for (const parameterSegment of parameterSegments) {
+        const segment = parameterSegment.trim();
+        if (segment.length === 0) {
+            continue;
+        }
+
+        if (segment.includes("=")) {
+            sawDefault = true;
+            rewritten.push(segment);
+            continue;
+        }
+
+        if (sawDefault && /^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) {
+            rewritten.push(`${segment} = undefined`);
+            continue;
+        }
+
+        rewritten.push(segment);
+    }
+
+    return rewritten;
+}
+
+function resolveFunctionParameterRange(sourceText: string, functionNode: any): { start: number; end: number } | null {
+    const functionStart = getNodeStartIndex(functionNode);
+    const functionBodyStart = getNodeStartIndex(functionNode?.body);
+    if (typeof functionStart !== "number" || typeof functionBodyStart !== "number") {
+        return null;
+    }
+
+    const idEndIndex = functionNode?.idLocation?.end?.index;
+    const searchStart = typeof idEndIndex === "number" ? idEndIndex : functionStart;
+    const openParenIndex = sourceText.indexOf("(", searchStart);
+    if (openParenIndex === -1 || openParenIndex >= functionBodyStart) {
+        return null;
+    }
+
+    let depth = 0;
+    let closeParenIndex = -1;
+    for (let index = openParenIndex; index < functionBodyStart; index += 1) {
+        const character = sourceText[index];
+        if (character === "(") {
+            depth += 1;
+            continue;
+        }
+
+        if (character !== ")") {
+            continue;
+        }
+
+        depth -= 1;
+        if (depth === 0) {
+            closeParenIndex = index;
+            break;
+        }
+    }
+
+    if (closeParenIndex < 0) {
+        return null;
+    }
+
+    return {
+        start: openParenIndex + 1,
+        end: closeParenIndex
+    };
+}
+
+function getIdentifierNameFromParameterSegment(segment: string): string | null {
+    const trimmed = segment.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    const leftSide = trimmed.includes("=") ? trimmed.slice(0, trimmed.indexOf("=")).trim() : trimmed;
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(leftSide)) {
+        return null;
+    }
+
+    return leftSide;
+}
+
+function matchLeadingTernaryFallback(statement: any, sourceText: string): LeadingArgumentFallback | null {
+    const declarator = getVariableDeclarator(statement);
+    if (!declarator) {
+        return null;
+    }
+
+    const identifier = isAstNodeRecord(declarator.id) ? declarator.id : null;
+    const initExpression = isAstNodeRecord(declarator.init) ? declarator.init : null;
+    if (
+        !identifier ||
+        identifier.type !== "Identifier" ||
+        typeof identifier.name !== "string" ||
+        !initExpression ||
+        initExpression.type !== "TernaryExpression"
+    ) {
+        return null;
+    }
+
+    const argumentIndex = getArgumentCountGuardIndex(initExpression.test);
+    if (argumentIndex === null) {
+        return null;
+    }
+
+    const consequentIndex = getMemberArgumentIndex(initExpression.consequent);
+    if (consequentIndex === null || consequentIndex !== argumentIndex) {
+        return null;
+    }
+
+    const alternateStart = getNodeStartIndex(initExpression.alternate);
+    const alternateEnd = getNodeEndIndex(initExpression.alternate);
+    if (typeof alternateStart !== "number" || typeof alternateEnd !== "number") {
+        return null;
+    }
+
+    return Object.freeze({
+        parameterName: identifier.name,
+        argumentIndex,
+        defaultExpression: sourceText.slice(alternateStart, alternateEnd).trim(),
+        statement
+    });
+}
+
+function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: any): SourceTextEdit | null {
+    const functionStart = getNodeStartIndex(functionNode);
+    const functionEnd = getNodeEndIndex(functionNode);
+    const bodyStatements = Array.isArray(functionNode?.body?.body) ? functionNode.body.body : [];
+    const parameterRange = resolveFunctionParameterRange(sourceText, functionNode);
+
+    if (
+        typeof functionStart !== "number" ||
+        typeof functionEnd !== "number" ||
+        !parameterRange ||
+        parameterRange.start < functionStart ||
+        parameterRange.end > functionEnd
+    ) {
+        return null;
+    }
+
+    const localEdits: SourceTextEdit[] = [];
+    const fallbackRecords: Array<{ parameterName: string; argumentIndex: number }> = [];
+
+    for (let index = 0; index < bodyStatements.length - 1; index += 1) {
+        const match = matchVarIfArgumentFallbackRewrite(sourceText, bodyStatements[index], bodyStatements[index + 1]);
+        if (!match) {
+            continue;
+        }
+
+        localEdits.push(
+            Object.freeze({
+                start: match.replacementStart - functionStart,
+                end: match.replacementEnd - functionStart,
+                text: match.replacementText
+            })
+        );
+        fallbackRecords.push({
+            parameterName: match.parameterName,
+            argumentIndex: match.argumentIndex
+        });
+        index += 1;
+    }
+
+    const paramsText = sourceText.slice(parameterRange.start, parameterRange.end);
+    const originalSegments = splitTopLevelCommaSegments(paramsText);
+    let rewrittenSegments = [...originalSegments];
+
+    if (originalSegments.length === 0 && bodyStatements.length > 0) {
+        const leadingFallbacks: LeadingArgumentFallback[] = [];
+        for (const statement of bodyStatements) {
+            const fallback = matchLeadingTernaryFallback(statement, sourceText);
+            if (!fallback) {
+                break;
+            }
+            leadingFallbacks.push(fallback);
+        }
+
+        const isContiguousLeadingFallback = leadingFallbacks.every(
+            (fallback, index) => fallback.argumentIndex === index
+        );
+
+        if (leadingFallbacks.length > 0 && isContiguousLeadingFallback) {
+            rewrittenSegments = leadingFallbacks.map(
+                (fallback) => `${fallback.parameterName} = ${fallback.defaultExpression}`
+            );
+
+            const firstStatementStart = getNodeStartIndex(leadingFallbacks[0]?.statement);
+            const nextStatement = bodyStatements[leadingFallbacks.length] ?? null;
+            const trailingFallbackStatement = leadingFallbacks.at(-1)?.statement;
+            const removalEnd =
+                nextStatement === null ? getNodeEndIndex(trailingFallbackStatement) : getNodeStartIndex(nextStatement);
+
+            if (
+                typeof firstStatementStart === "number" &&
+                typeof removalEnd === "number" &&
+                removalEnd >= firstStatementStart
+            ) {
+                localEdits.push(
+                    Object.freeze({
+                        start: firstStatementStart - functionStart,
+                        end: removalEnd - functionStart,
+                        text: ""
+                    })
+                );
+            }
+        }
+    }
+
+    const sortedFallbackRecords = fallbackRecords.toSorted((left, right) => left.argumentIndex - right.argumentIndex);
+    for (const fallbackRecord of sortedFallbackRecords) {
+        if (fallbackRecord.argumentIndex !== rewrittenSegments.length) {
+            continue;
+        }
+
+        const parameterName = fallbackRecord.parameterName;
+        const existingParameterName = getIdentifierNameFromParameterSegment(
+            rewrittenSegments[fallbackRecord.argumentIndex] ?? ""
+        );
+        if (existingParameterName && existingParameterName === parameterName) {
+            continue;
+        }
+
+        rewrittenSegments.push(parameterName);
+    }
+
+    rewrittenSegments = materializeTrailingOptionalDefaults(rewrittenSegments);
+    const rewrittenParams = rewrittenSegments.join(", ");
+    if (rewrittenParams !== paramsText) {
+        localEdits.push(
+            Object.freeze({
+                start: parameterRange.start - functionStart,
+                end: parameterRange.end - functionStart,
+                text: rewrittenParams
+            })
+        );
+    }
+
+    if (localEdits.length === 0) {
+        return null;
+    }
+
+    const functionText = sourceText.slice(functionStart, functionEnd);
+    const rewrittenFunctionText = applySourceTextEdits(functionText, localEdits);
+    if (rewrittenFunctionText === functionText) {
+        return null;
+    }
+
+    return Object.freeze({
+        start: functionStart,
+        end: functionEnd,
+        text: rewrittenFunctionText
+    });
+}
+
+function isUndefinedArgumentValue(node: any): boolean {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Identifier") {
+        return typeof node.name === "string" && node.name.toLowerCase() === "undefined";
+    }
+
+    if (node.type !== "Literal" || typeof node.value !== "string") {
+        return false;
+    }
+
+    return node.value.toLowerCase() === "undefined";
+}
+
+function createCollapseUndefinedCallArgumentEdit(sourceText: string, callExpression: any): SourceTextEdit | null {
+    if (!callExpression || callExpression.type !== "CallExpression" || !Array.isArray(callExpression.arguments)) {
+        return null;
+    }
+
+    const args = callExpression.arguments;
+    if (args.length <= 1 || !args.every((argument) => isUndefinedArgumentValue(argument))) {
+        return null;
+    }
+
+    const firstArgument = args[0];
+    const lastArgument = args.at(-1);
+    const firstStart = getNodeStartIndex(firstArgument);
+    const firstEnd = getNodeEndIndex(firstArgument);
+    const lastEnd = getNodeEndIndex(lastArgument);
+
+    if (typeof firstStart !== "number" || typeof firstEnd !== "number" || typeof lastEnd !== "number") {
+        return null;
+    }
+
+    return Object.freeze({
+        start: firstStart,
+        end: lastEnd,
+        text: sourceText.slice(firstStart, firstEnd)
+    });
+}
+
+function hasOverlappingRange(
+    rangeStart: number,
+    rangeEnd: number,
+    ranges: ReadonlyArray<{ start: number; end: number }>
+): boolean {
+    for (const range of ranges) {
+        if (rangeStart < range.end && rangeEnd > range.start) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function rewriteTrailingOptionalDefaultsProgram(sourceText: string, programNode: any): string {
+    const functionEdits: SourceTextEdit[] = [];
+    const functionRanges: Array<{ start: number; end: number }> = [];
+    const callEdits: SourceTextEdit[] = [];
+
+    walkAstNodes(programNode, (node) => {
+        if (node?.type === "FunctionDeclaration" || node?.type === "ConstructorDeclaration") {
+            const edit = rewriteFunctionForOptionalDefaults(sourceText, node);
+            if (edit) {
+                functionEdits.push(edit);
+                functionRanges.push({ start: edit.start, end: edit.end });
+            }
+            return;
+        }
+
+        if (node?.type === "CallExpression") {
+            const edit = createCollapseUndefinedCallArgumentEdit(sourceText, node);
+            if (!edit) {
+                return;
+            }
+
+            if (hasOverlappingRange(edit.start, edit.end, functionRanges)) {
+                return;
+            }
+
+            callEdits.push(edit);
+        }
+    });
+
+    return applySourceTextEdits(sourceText, [...functionEdits, ...callEdits]);
+}
+
 function createRequireTrailingOptionalDefaultsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
-                Program() {
-                    const text = context.sourceCode.text;
-                    const functionPattern = /function\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([\s\S]*?)\)/g;
-                    for (const match of text.matchAll(functionPattern)) {
-                        const paramsStart = (match.index ?? 0) + match[0].indexOf("(") + 1;
-                        const paramsEnd = paramsStart + match[1].length;
-                        const paramsText = match[1];
-                        const pieces = paramsText.split(",");
-                        let sawDefault = false;
-                        let changed = false;
-                        const rewrittenPieces = pieces.map((piece) => {
-                            const raw = piece;
-                            const trimmed = piece.trim();
-                            if (trimmed.length === 0) {
-                                return raw;
-                            }
-
-                            if (trimmed.includes("=")) {
-                                sawDefault = true;
-                                return raw;
-                            }
-
-                            if (!sawDefault || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(trimmed)) {
-                                return raw;
-                            }
-
-                            changed = true;
-                            const leading = raw.slice(0, raw.indexOf(trimmed));
-                            const trailing = raw.slice(raw.indexOf(trimmed) + trimmed.length);
-                            return `${leading}${trimmed} = undefined${trailing}`;
-                        });
-
-                        if (!changed) {
-                            continue;
-                        }
-
-                        const rewritten = rewrittenPieces.join(",");
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(paramsStart),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([paramsStart, paramsEnd], rewritten)
-                        });
+                Program(node) {
+                    const sourceText = context.sourceCode.text;
+                    const rewrittenText = rewriteTrailingOptionalDefaultsProgram(sourceText, node);
+                    if (rewrittenText === sourceText) {
+                        return;
                     }
+
+                    const firstChangedOffset = findFirstChangedCharacterOffset(sourceText, rewrittenText);
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewrittenText)
+                    });
                 }
             });
         }

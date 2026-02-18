@@ -107,6 +107,13 @@ function collectProgramLeadingDocLines({
 
         const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
         const trimmed = normalized ? normalized.trim() : "";
+        const blankDocSeparator =
+            trimmed.length === 0 && typeof comment.value === STRING_TYPE && /^\/\s*$/.test(comment.value.trim());
+        if (blankDocSeparator) {
+            comment.printed = true;
+            anchorIndex = commentStart;
+            continue;
+        }
 
         const isDocLike =
             trimmed.startsWith("///") || LINE_DOC_CONT_PATTERN.test(trimmed) || LINE_DOC_AT_PATTERN.test(trimmed);
@@ -163,6 +170,83 @@ function collectMethodListComments(
     }
 
     return collected.reverse();
+}
+
+function collectProgramLeadingMethodListLines({
+    programNode,
+    nodeStartIndex,
+    originalText,
+    lineCommentOptions
+}: {
+    programNode: any;
+    nodeStartIndex: number | undefined;
+    originalText: string | undefined;
+    lineCommentOptions: any;
+}): string[] {
+    if (!programNode || !Array.isArray(programNode.comments) || typeof nodeStartIndex !== "number") {
+        return [];
+    }
+
+    const collected: string[] = [];
+    let anchorIndex = nodeStartIndex;
+
+    for (let index = programNode.comments.length - 1; index >= 0; index -= 1) {
+        const comment = programNode.comments[index];
+        if (!comment || comment.type !== "CommentLine" || comment.printed) {
+            continue;
+        }
+
+        const commentEnd = typeof comment.end === "number" ? comment.end : (comment.end?.index ?? null);
+        const commentStart = typeof comment.start === "number" ? comment.start : (comment.start?.index ?? null);
+        if (commentEnd === null || commentStart === null || commentEnd >= anchorIndex) {
+            continue;
+        }
+
+        if (typeof originalText === STRING_TYPE) {
+            const gapText = originalText.slice(commentEnd, anchorIndex);
+            if (Core.getLineBreakCount(gapText) >= 2 && collected.length > 0) {
+                break;
+            }
+        }
+
+        if (isBlankDocSeparatorComment(comment, lineCommentOptions)) {
+            if (collected.length === 0) {
+                break;
+            }
+
+            comment.printed = true;
+            anchorIndex = commentStart;
+            continue;
+        }
+
+        const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
+        const trimmed = typeof normalized === STRING_TYPE ? normalized.trim() : "";
+        if (!METHOD_LIST_COMMENT_PATTERN.test(trimmed)) {
+            if (collected.length > 0) {
+                break;
+            }
+            continue;
+        }
+
+        collected.unshift(trimmed);
+        comment.printed = true;
+        anchorIndex = commentStart;
+    }
+
+    return collected;
+}
+
+function isBlankDocSeparatorComment(comment: any, lineCommentOptions: any): boolean {
+    if (!comment || comment.type !== "CommentLine") {
+        return false;
+    }
+
+    const normalized = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
+    if (typeof normalized === STRING_TYPE && normalized.trim().length === 0) {
+        return true;
+    }
+
+    return typeof comment.value === STRING_TYPE && /^\/\s*$/.test(comment.value.trim());
 }
 
 function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
@@ -267,12 +351,14 @@ function collectNodeLeadingDocs({
     nodeComments,
     node,
     nodeStartIndex,
-    lineCommentOptions
+    lineCommentOptions,
+    plainLeadingLines
 }: {
     nodeComments: any[];
     node: any;
     nodeStartIndex: number | undefined;
     lineCommentOptions: any;
+    plainLeadingLines: string[];
 }) {
     const nodeLeadingDocs: { start: number; text: string }[] = [];
 
@@ -288,12 +374,33 @@ function collectNodeLeadingDocs({
             continue;
         }
 
+        const normalizedLine = formatDocLikeLineComment(comment, lineCommentOptions, lineCommentOptions.originalText);
+        const trimmedNormalizedLine = typeof normalizedLine === STRING_TYPE ? normalizedLine.trim() : "";
+        if (METHOD_LIST_COMMENT_PATTERN.test(trimmedNormalizedLine)) {
+            plainLeadingLines.push(trimmedNormalizedLine);
+            comment.printed = true;
+            detachPrintedCommentFromNode(node, comment);
+            continue;
+        }
+
+        if (plainLeadingLines.length > 0 && isBlankDocSeparatorComment(comment, lineCommentOptions)) {
+            comment.printed = true;
+            detachPrintedCommentFromNode(node, comment);
+            continue;
+        }
+
         const lineDoc = formatLineCommentDocEntry(comment, lineCommentOptions);
         if (lineDoc) {
             nodeLeadingDocs.push({
                 start: commentStart,
                 text: lineDoc
             });
+            comment.printed = true;
+            detachPrintedCommentFromNode(node, comment);
+            continue;
+        }
+
+        if (isBlankDocSeparatorComment(comment, lineCommentOptions)) {
             comment.printed = true;
             detachPrintedCommentFromNode(node, comment);
             continue;
@@ -326,6 +433,23 @@ function dedupeDocCommentLines(lines: string[]): string[] {
     return deduped;
 }
 
+function isDescriptionLine(text: string): boolean {
+    return /^\/\/\/\s*@description\b/i.test(text.trim());
+}
+
+function isDescriptionContinuationLine(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith("///")) {
+        return false;
+    }
+
+    return !/^\/\/\/\s*@/i.test(trimmed);
+}
+
+function shouldSkipDescriptionSeparator(currentText: string, nextText: string): boolean {
+    return isDescriptionLine(currentText) && isDescriptionContinuationLine(nextText);
+}
+
 function insertBlankDocSeparators(
     lines: { start: number; text: string }[],
     originalText: string | undefined
@@ -343,6 +467,10 @@ function insertBlankDocSeparators(
         result.push(current);
 
         if (!next) {
+            continue;
+        }
+
+        if (shouldSkipDescriptionSeparator(current.text, next.text)) {
             continue;
         }
 
@@ -431,6 +559,8 @@ function shouldKeepParamDocLine(line: string, implicitNames: Set<string>): boole
  */
 export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIndex, originalText }: any) {
     const docCommentDocs: MutableDocCommentLines = [];
+    const resolvedNodeStartIndex =
+        typeof nodeStartIndex === "number" ? nodeStartIndex : (Core.getNodeStartIndex(node) ?? undefined);
     const lineCommentOptions = {
         ...Core.resolveLineCommentOptions(options),
         originalText
@@ -463,13 +593,23 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     const programNode = resolveProgramNode(path);
     const formattedProgramLines = collectProgramLeadingDocLines({
         programNode,
-        nodeStartIndex,
+        nodeStartIndex: resolvedNodeStartIndex,
         originalText,
         lineCommentOptions
     });
 
     docCommentDocs.push(...formattedProgramLines);
-    plainLeadingLines.push(...collectMethodListComments(originalText, nodeStartIndex));
+    const methodListLines = collectProgramLeadingMethodListLines({
+        programNode,
+        nodeStartIndex: resolvedNodeStartIndex,
+        originalText,
+        lineCommentOptions
+    });
+    if (methodListLines.length > 0) {
+        plainLeadingLines.push(...methodListLines);
+    } else {
+        plainLeadingLines.push(...collectMethodListComments(originalText, resolvedNodeStartIndex));
+    }
 
     const nodeComments = [...(node.comments || [])];
 
@@ -490,27 +630,12 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
         }
     }
 
-    // Also consider comments attached to the first statement of the function body
-    // as they might be intended as function documentation (e.g. inside the braces).
-    if (
-        node.body &&
-        node.body.type === "BlockStatement" &&
-        Array.isArray(node.body.body) &&
-        node.body.body.length > 0
-    ) {
-        const firstStatement = node.body.body[0];
-        if (firstStatement && Core.isNonEmptyArray(firstStatement.comments)) {
-            // We append these to the list of comments to check.
-            // We'll rely on the isDocLike check to avoid picking up regular comments.
-            nodeComments.push(...firstStatement.comments);
-        }
-    }
-
     const nodeLeadingDocs = collectNodeLeadingDocs({
         nodeComments,
         node,
-        nodeStartIndex,
-        lineCommentOptions
+        nodeStartIndex: resolvedNodeStartIndex,
+        lineCommentOptions,
+        plainLeadingLines
     });
 
     const formattedNodeDocs = nodeLeadingDocs.map((doc) => {
@@ -587,6 +712,11 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
 
     docCommentDocs.length = 0;
     docCommentDocs.push(...dedupedDocLines);
+    if (plainLeadingLines.length > 1) {
+        const dedupedPlainLeadingLines = [...new Set(plainLeadingLines)];
+        plainLeadingLines.length = 0;
+        plainLeadingLines.push(...dedupedPlainLeadingLines);
+    }
     if (nodeComments.some((comment) => comment?._docCommentBlockConverted === true)) {
         (docCommentDocs as any)._blockCommentDocs = true;
     }

@@ -4,7 +4,9 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { Lint } from "@gml-modules/lint";
 import { Plugin } from "@gml-modules/plugin";
+import { ESLint } from "eslint";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
@@ -27,6 +29,50 @@ type IntegrationCaseFiles = {
     inputFile?: string;
     outputFile?: string;
 };
+
+const allCapabilities = new Set([
+    "IDENTIFIER_OCCUPANCY",
+    "IDENTIFIER_OCCURRENCES",
+    "LOOP_HOIST_NAME_RESOLUTION",
+    "RENAME_CONFLICT_PLANNING"
+]);
+const allGmlRuleLevels = Object.freeze(
+    Object.fromEntries(
+        Object.values(Lint.ruleIds)
+            .filter((ruleId) => ruleId.startsWith("gml/"))
+            .map((ruleId) => [ruleId, "error" as const])
+    )
+);
+const integrationProjectContext = Object.freeze({
+    capabilities: allCapabilities,
+    assessGlobalVarRewrite: () =>
+        Object.freeze({
+            allowRewrite: true,
+            reason: null
+        })
+});
+
+const integrationLint = new ESLint({
+    overrideConfigFile: true,
+    fix: true,
+    overrideConfig: [
+        {
+            files: ["**/*.gml"],
+            plugins: {
+                gml: Lint.plugin
+            },
+            language: "gml/gml",
+            rules: allGmlRuleLevels,
+            settings: {
+                gml: {
+                    project: {
+                        getContext: () => integrationProjectContext
+                    }
+                }
+            }
+        }
+    ]
+});
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error;
@@ -150,6 +196,18 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
     );
 }
 
+async function runIntegrationLintPass(sourceText: string, baseName: string): Promise<string> {
+    const [result] = await integrationLint.lintText(sourceText, {
+        filePath: `${baseName}.gml`
+    });
+
+    if (typeof result.output === "string") {
+        return result.output;
+    }
+
+    return sourceText;
+}
+
 const integrationCases = await loadIntegrationCases();
 
 void describe("Plugin integration fixtures", () => {
@@ -167,9 +225,10 @@ void describe("Plugin integration fixtures", () => {
             }
 
             const formatted = await Plugin.format(inputSource, options ?? undefined);
+            const linted = await runIntegrationLintPass(formatted, baseName);
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
-            assert.strictEqual(canonicalizeFixtureText(formatted), canonicalizeFixtureText(expectedOutput));
+            assert.strictEqual(canonicalizeFixtureText(linted), canonicalizeFixtureText(expectedOutput));
         });
     }
 });
