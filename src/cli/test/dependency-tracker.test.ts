@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DependencyTracker } from "../src/modules/dependency-tracker.js";
+import { DependencyTracker } from "../src/modules/transpilation/dependency-tracker.js";
 
 void describe("DependencyTracker", () => {
     void describe("registerFileDefines", () => {

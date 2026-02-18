@@ -23,7 +23,6 @@ import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
-import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -50,6 +49,7 @@ import {
     transpileFile,
     type TranspilerProvider
 } from "../modules/transpilation/coordinator.js";
+import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
