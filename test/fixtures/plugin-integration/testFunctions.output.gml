@@ -126,7 +126,6 @@ var best = choose_profile(undefined, {profile: "dev"});
 // .__GetString()
 // .__GetBuffer()
 
-/// @returns {undefined}
 function __ChatterboxBufferBatch() constructor {
     __destroyed = false;
     __inBuffer = undefined;
@@ -152,7 +151,6 @@ function __ChatterboxBufferBatch() constructor {
     };
 }
 
-/// @returns {undefined}
 /// @param [name="friend"]
 /// @param [greeting="Hello"]
 function greet(name = "friend", greeting = "Hello") {
@@ -231,7 +229,6 @@ function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
     return true;
 }
 
-/// @returns {undefined}
 get_debug_text = function () {
     var txt = "";
 
