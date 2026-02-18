@@ -63,10 +63,105 @@ type RepeatLoopCandidate = Readonly<{
     loopHeaderEndIndex: number;
 }>;
 
+type AstNodeWithType = AstNodeRecord & Readonly<{ type: string }>;
+
+type AstNodeParentVisitContext = Readonly<{
+    node: AstNodeWithType;
+    parent: AstNodeWithType | null;
+    parentKey: string | null;
+    parentIndex: number | null;
+}>;
+
+type ForStatementContainerContext = Readonly<{
+    forNode: AstNodeWithType;
+    canInsertHoistBeforeLoop: boolean;
+}>;
+
+type LoopLengthAccessorCall = Readonly<{
+    functionName: string;
+    argumentNode: AstNodeWithType;
+    callStart: number;
+    callEnd: number;
+    callText: string;
+}>;
+
+type LoopLengthHoistRewrite = Readonly<{
+    insertionOffset: number;
+    insertionText: string;
+    callRewrites: ReadonlyArray<SourceTextEdit>;
+    reportOffset: number;
+}>;
+
 type AstNodeRecord = Record<string, unknown>;
 
 function isAstNodeRecord(value: unknown): value is AstNodeRecord {
     return isObjectLike(value) && !Array.isArray(value);
+}
+
+function isAstNodeWithType(value: unknown): value is AstNodeWithType {
+    return isAstNodeRecord(value) && typeof value.type === "string";
+}
+
+function walkAstNodesWithParent(root: unknown, visit: (context: AstNodeParentVisitContext) => void): void {
+    const pending: Array<AstNodeParentVisitContext> = [];
+    if (isAstNodeWithType(root)) {
+        pending.push({
+            node: root,
+            parent: null,
+            parentKey: null,
+            parentIndex: null
+        });
+    }
+
+    const seen = new WeakSet<object>();
+    while (pending.length > 0) {
+        const current = pending.pop();
+        if (!current) {
+            continue;
+        }
+
+        const { node } = current;
+        if (seen.has(node)) {
+            continue;
+        }
+
+        seen.add(node);
+        visit(current);
+
+        for (const [key, value] of Object.entries(node)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (let index = value.length - 1; index >= 0; index -= 1) {
+                    const childNode = value[index];
+                    if (!isAstNodeWithType(childNode)) {
+                        continue;
+                    }
+
+                    pending.push({
+                        node: childNode,
+                        parent: node,
+                        parentKey: key,
+                        parentIndex: index
+                    });
+                }
+                continue;
+            }
+
+            if (!isAstNodeWithType(value)) {
+                continue;
+            }
+
+            pending.push({
+                node: value,
+                parent: node,
+                parentKey: key,
+                parentIndex: null
+            });
+        }
+    }
 }
 
 function shouldRewriteGlobalvarIdentifierNode(
@@ -221,55 +316,377 @@ function collectRepeatLoopCandidates(sourceText: string): Array<RepeatLoopCandid
     return candidates;
 }
 
+function containsInlineCommentTokens(valueText: string): boolean {
+    return valueText.includes("//") || valueText.includes("/*") || valueText.includes("*/");
+}
+
+function resolveLoopLengthHoistSuffixMap(
+    functionSuffixOverrides: Record<string, string | null> | undefined
+): ReadonlyMap<string, string> {
+    const suffixMap = new Map<string, string>(Object.entries(DEFAULT_HOIST_ACCESSORS));
+    if (!functionSuffixOverrides) {
+        return suffixMap;
+    }
+
+    for (const [functionName, suffix] of Object.entries(functionSuffixOverrides)) {
+        if (!isIdentifier(functionName)) {
+            continue;
+        }
+
+        if (suffix === null) {
+            suffixMap.delete(functionName);
+            continue;
+        }
+
+        if (typeof suffix !== "string" || suffix.length === 0) {
+            continue;
+        }
+
+        suffixMap.set(functionName, suffix);
+    }
+
+    return suffixMap;
+}
+
+function readLineIndentationBeforeOffset(sourceText: string, offset: number): string {
+    const boundedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    let lineStart = sourceText.lastIndexOf("\n", boundedOffset - 1);
+    if (lineStart < 0) {
+        lineStart = 0;
+    } else {
+        lineStart += 1;
+    }
+
+    const prefix = sourceText.slice(lineStart, boundedOffset);
+    const indentationMatch = /^[\t ]*/u.exec(prefix);
+    return indentationMatch?.[0] ?? "";
+}
+
+function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
+    const identifierNames = new Set<string>();
+    walkAstNodes(programNode, (node) => {
+        if (!isAstNodeRecord(node) || node.type !== "Identifier" || typeof node.name !== "string") {
+            return;
+        }
+
+        identifierNames.add(node.name);
+    });
+
+    return identifierNames;
+}
+
+function collectForStatementContainerContexts(programNode: unknown): ReadonlyArray<ForStatementContainerContext> {
+    const contexts: Array<ForStatementContainerContext> = [];
+
+    walkAstNodesWithParent(programNode, (visitContext) => {
+        const { node, parent, parentKey } = visitContext;
+        if (node.type !== "ForStatement") {
+            return;
+        }
+
+        const canInsertHoistBeforeLoop =
+            parent !== null &&
+            parentKey === "body" &&
+            (parent.type === "Program" || parent.type === "BlockStatement");
+
+        contexts.push(
+            Object.freeze({
+                forNode: node,
+                canInsertHoistBeforeLoop
+            })
+        );
+    });
+
+    return contexts;
+}
+
+function collectLoopLengthAccessorCallsFromTestExpression(parameters: {
+    sourceText: string;
+    testNode: unknown;
+    enabledFunctionNames: ReadonlySet<string>;
+}): ReadonlyArray<LoopLengthAccessorCall> {
+    const collectedCalls: Array<LoopLengthAccessorCall> = [];
+    walkAstNodes(parameters.testNode, (node) => {
+        if (!isAstNodeRecord(node) || node.type !== "CallExpression") {
+            return;
+        }
+
+        const callTarget = isAstNodeRecord(node.object) ? node.object : null;
+        if (
+            !callTarget ||
+            callTarget.type !== "Identifier" ||
+            typeof callTarget.name !== "string" ||
+            !parameters.enabledFunctionNames.has(callTarget.name)
+        ) {
+            return;
+        }
+
+        if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+            return;
+        }
+
+        const argumentNode = unwrapParenthesized(node.arguments[0]);
+        if (!isAstNodeWithType(argumentNode) || argumentNode.type !== "Identifier") {
+            return;
+        }
+
+        const callStart = getNodeStartIndex(node);
+        const callEnd = getNodeEndIndex(node);
+        if (typeof callStart !== "number" || typeof callEnd !== "number" || callEnd <= callStart) {
+            return;
+        }
+
+        const callText = parameters.sourceText.slice(callStart, callEnd).trim();
+        if (callText.length === 0) {
+            return;
+        }
+
+        collectedCalls.push(
+            Object.freeze({
+                functionName: callTarget.name,
+                argumentNode,
+                callStart,
+                callEnd,
+                callText
+            })
+        );
+    });
+
+    const nonOverlappingCalls: Array<LoopLengthAccessorCall> = [];
+    const orderedCalls = collectedCalls.toSorted((left, right) => {
+        if (left.callStart !== right.callStart) {
+            return left.callStart - right.callStart;
+        }
+
+        return right.callEnd - left.callEnd;
+    });
+
+    for (const call of orderedCalls) {
+        if (
+            hasOverlappingRange(
+                call.callStart,
+                call.callEnd,
+                nonOverlappingCalls.map((existingCall) => ({ start: existingCall.callStart, end: existingCall.callEnd }))
+            )
+        ) {
+            continue;
+        }
+
+        nonOverlappingCalls.push(call);
+    }
+
+    return nonOverlappingCalls;
+}
+
+function buildLoopLengthHoistPreferredName(
+    call: LoopLengthAccessorCall,
+    suffixMap: ReadonlyMap<string, string>
+): string | null {
+    const functionSuffix = suffixMap.get(call.functionName);
+    if (typeof functionSuffix !== "string" || functionSuffix.length === 0) {
+        return null;
+    }
+
+    const argumentIdentifierName = call.argumentNode.name;
+    if (typeof argumentIdentifierName !== "string") {
+        return `${call.functionName}_${functionSuffix}`;
+    }
+
+    if (!isIdentifier(argumentIdentifierName)) {
+        return `${call.functionName}_${functionSuffix}`;
+    }
+
+    return `${argumentIdentifierName}_${functionSuffix}`;
+}
+
+function createLoopLengthHoistRewrite(parameters: {
+    sourceText: string;
+    loopContext: ForStatementContainerContext;
+    suffixMap: ReadonlyMap<string, string>;
+    resolveHoistName: (preferredName: string, localIdentifierNames: ReadonlySet<string>) => string | null;
+    localIdentifierNames: Set<string>;
+    lineEnding: string;
+}): LoopLengthHoistRewrite | null {
+    const forNode = parameters.loopContext.forNode;
+    const forStart = getNodeStartIndex(forNode);
+    if (typeof forStart !== "number") {
+        return null;
+    }
+
+    const accessorCalls = collectLoopLengthAccessorCallsFromTestExpression({
+        sourceText: parameters.sourceText,
+        testNode: forNode.test,
+        enabledFunctionNames: new Set(parameters.suffixMap.keys())
+    });
+    if (accessorCalls.length === 0) {
+        return null;
+    }
+
+    if (!parameters.loopContext.canInsertHoistBeforeLoop) {
+        return null;
+    }
+
+    const byAccessorText = new Map<string, { hoistName: string; calls: Array<LoopLengthAccessorCall> }>();
+    const localIdentifierNamesInLoop = new Set(parameters.localIdentifierNames);
+    const reservedHoistNames: Array<string> = [];
+    for (const accessorCall of accessorCalls) {
+        const existing = byAccessorText.get(accessorCall.callText);
+        if (existing) {
+            existing.calls.push(accessorCall);
+            continue;
+        }
+
+        const preferredName = buildLoopLengthHoistPreferredName(accessorCall, parameters.suffixMap);
+        if (!preferredName) {
+            return null;
+        }
+
+        const resolvedHoistName = parameters.resolveHoistName(preferredName, localIdentifierNamesInLoop);
+        if (!resolvedHoistName) {
+            return null;
+        }
+
+        localIdentifierNamesInLoop.add(resolvedHoistName);
+        reservedHoistNames.push(resolvedHoistName);
+        byAccessorText.set(accessorCall.callText, {
+            hoistName: resolvedHoistName,
+            calls: [accessorCall]
+        });
+    }
+
+    const loopIndentation = readLineIndentationBeforeOffset(parameters.sourceText, forStart);
+    const orderedHoists = [...byAccessorText.entries()].toSorted((left, right) => {
+        const leftStart = left[1].calls[0]?.callStart ?? 0;
+        const rightStart = right[1].calls[0]?.callStart ?? 0;
+        return leftStart - rightStart;
+    });
+
+    const hoistLines: Array<string> = [];
+    const callRewrites: Array<SourceTextEdit> = [];
+    let reportOffset = forStart;
+    for (const [callText, record] of orderedHoists) {
+        hoistLines.push(`${loopIndentation}var ${record.hoistName} = ${callText};`);
+
+        for (const call of record.calls) {
+            callRewrites.push(
+                Object.freeze({
+                    start: call.callStart,
+                    end: call.callEnd,
+                    text: record.hoistName
+                })
+            );
+
+            if (call.callStart < reportOffset) {
+                reportOffset = call.callStart;
+            }
+        }
+    }
+
+    for (const hoistName of reservedHoistNames) {
+        parameters.localIdentifierNames.add(hoistName);
+    }
+
+    return Object.freeze({
+        insertionOffset: forStart,
+        insertionText: `${hoistLines.join(parameters.lineEnding)}${parameters.lineEnding}`,
+        callRewrites,
+        reportOffset
+    });
+}
+
 function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             const options = readObjectOption(context);
             const functionSuffixes = options.functionSuffixes as Record<string, string | null> | undefined;
-
-            const enabledFunctions: Array<string> = [];
-            for (const [functionName] of Object.entries(DEFAULT_HOIST_ACCESSORS)) {
-                const userSuffix = functionSuffixes?.[functionName];
-                if (userSuffix === null) {
-                    continue;
-                }
-                enabledFunctions.push(functionName);
-            }
-
-            if (functionSuffixes) {
-                for (const [functionName, suffix] of Object.entries(functionSuffixes)) {
-                    if (suffix !== null && !(functionName in DEFAULT_HOIST_ACCESSORS)) {
-                        enabledFunctions.push(functionName);
-                    }
-                }
-            }
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
+            const suffixMap = resolveLoopLengthHoistSuffixMap(functionSuffixes);
 
             const listener: Rule.RuleListener = {
-                Program(node) {
-                    if (enabledFunctions.length === 0) {
+                Program(programNode) {
+                    if (suffixMap.size === 0) {
                         return;
                     }
 
                     const text = context.sourceCode.text;
-                    const functionsPattern = enabledFunctions.map((fn) => escapeRegularExpressionPattern(fn)).join("|");
-                    const loopPattern = new RegExp(
-                        String.raw`for\s*\([^)]*(?:${functionsPattern})\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)`,
-                        "g"
-                    );
-                    if (loopPattern.test(text)) {
+                    const lineEnding = dominantLineEnding(text);
+                    const projectContextResolution = resolveProjectContextForRule(context, definition);
+                    if (!projectContextResolution.available || !projectContextResolution.context) {
                         context.report({
-                            node,
-                            messageId: definition.messageId
+                            node: programNode as never,
+                            messageId: "missingProjectContext"
+                        });
+                        return;
+                    }
+
+                    const localIdentifierNames = new Set(collectIdentifierNamesInProgram(programNode));
+                    const loopContexts = collectForStatementContainerContexts(programNode);
+                    const resolveHoistName = (
+                        preferredName: string,
+                        inScopeIdentifierNames: ReadonlySet<string>
+                    ): string | null =>
+                        projectContextResolution.context.resolveLoopHoistIdentifier(
+                            preferredName,
+                            inScopeIdentifierNames
+                        );
+                    let firstUnsafeOffset: number | null = null;
+
+                    for (const loopContext of loopContexts) {
+                        const rewrite = createLoopLengthHoistRewrite({
+                            sourceText: text,
+                            loopContext,
+                            suffixMap,
+                            resolveHoistName,
+                            localIdentifierNames,
+                            lineEnding
+                        });
+
+                        if (!rewrite) {
+                            const forStart = getNodeStartIndex(loopContext.forNode);
+                            if (typeof forStart !== "number") {
+                                continue;
+                            }
+
+                            const hasAccessorCallInTest =
+                                collectLoopLengthAccessorCallsFromTestExpression({
+                                    sourceText: text,
+                                    testNode: loopContext.forNode.test,
+                                    enabledFunctionNames: new Set(suffixMap.keys())
+                                }).length > 0;
+                            if (!hasAccessorCallInTest) {
+                                continue;
+                            }
+
+                            if (firstUnsafeOffset === null || forStart < firstUnsafeOffset) {
+                                firstUnsafeOffset = forStart;
+                            }
+                            continue;
+                        }
+
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.reportOffset),
+                            messageId: definition.messageId,
+                            fix: (fixer) => [
+                                fixer.insertTextAfterRange(
+                                    [rewrite.insertionOffset, rewrite.insertionOffset],
+                                    rewrite.insertionText
+                                ),
+                                ...rewrite.callRewrites.map((callRewrite) =>
+                                    fixer.replaceTextRange([callRewrite.start, callRewrite.end], callRewrite.text)
+                                )
+                            ]
+                        });
+                    }
+
+                    if (firstUnsafeOffset !== null && shouldReportUnsafeFixes) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstUnsafeOffset),
+                            messageId: "unsafeFix"
                         });
                     }
                 }
             };
-
-            const projectContext = resolveProjectContextForRule(context, definition);
-            if (!projectContext.available) {
-                return reportMissingProjectContextOncePerFile(context, listener);
-            }
 
             return Object.freeze(listener);
         }
@@ -284,44 +701,77 @@ function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefinition): 
             const minOccurrences = typeof options.minOccurrences === "number" ? options.minOccurrences : 2;
 
             return Object.freeze({
-                Program() {
-                    const text = context.sourceCode.text;
-                    const accessPattern = /array_length\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g;
-                    const identifierOccurrences = new Map<string, { count: number; firstOffset: number }>();
-                    for (const match of text.matchAll(accessPattern)) {
-                        const identifier = match[1];
-                        const firstOffset = match.index ?? 0;
-                        const existing = identifierOccurrences.get(identifier);
-                        if (existing) {
-                            existing.count += 1;
-                            continue;
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const loopNodes: Array<AstNodeWithType> = [];
+                    walkAstNodes(programNode, (node) => {
+                        if (!isAstNodeWithType(node)) {
+                            return;
                         }
 
-                        identifierOccurrences.set(identifier, {
-                            count: 1,
-                            firstOffset
-                        });
-                    }
+                        if (
+                            node.type === "ForStatement" ||
+                            node.type === "WhileStatement" ||
+                            node.type === "RepeatStatement" ||
+                            node.type === "DoUntilStatement"
+                        ) {
+                            loopNodes.push(node);
+                        }
+                    });
 
                     let firstReportOffset: number | null = null;
-                    for (const occurrence of identifierOccurrences.values()) {
-                        if (occurrence.count < minOccurrences) {
+                    for (const loopNode of loopNodes) {
+                        const loopCalls = collectLoopLengthAccessorCallsFromTestExpression({
+                            sourceText,
+                            testNode: loopNode,
+                            enabledFunctionNames: new Set(["array_length"])
+                        });
+                        if (loopCalls.length === 0) {
                             continue;
                         }
 
-                        if (firstReportOffset === null || occurrence.firstOffset < firstReportOffset) {
-                            firstReportOffset = occurrence.firstOffset;
+                        if (loopNode.type === "ForStatement") {
+                            const testCalls = collectLoopLengthAccessorCallsFromTestExpression({
+                                sourceText,
+                                testNode: loopNode.test,
+                                enabledFunctionNames: new Set(["array_length"])
+                            });
+                            if (testCalls.length > 0) {
+                                continue;
+                            }
+                        }
+
+                        const groupedByAccessor = new Map<string, { count: number; firstOffset: number }>();
+                        for (const call of loopCalls) {
+                            const existing = groupedByAccessor.get(call.callText);
+                            if (existing) {
+                                existing.count += 1;
+                                continue;
+                            }
+
+                            groupedByAccessor.set(call.callText, {
+                                count: 1,
+                                firstOffset: call.callStart
+                            });
+                        }
+
+                        for (const group of groupedByAccessor.values()) {
+                            if (group.count < minOccurrences) {
+                                continue;
+                            }
+
+                            if (firstReportOffset === null || group.firstOffset < firstReportOffset) {
+                                firstReportOffset = group.firstOffset;
+                            }
                         }
                     }
 
-                    if (firstReportOffset === null) {
-                        return;
+                    if (firstReportOffset !== null) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstReportOffset),
+                            messageId: definition.messageId
+                        });
                     }
-
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstReportOffset),
-                        messageId: definition.messageId
-                    });
                 }
             });
         }
@@ -357,35 +807,143 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
             const listener: Rule.RuleListener = {
                 Program() {
                     const text = context.sourceCode.text;
                     const lines = text.split(/\r?\n/);
                     const lineStartOffsets = computeLineStartOffsets(text);
                     const assignmentPattern =
-                        /^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:\S.*|\s);\s*$/u;
-                    for (let index = 0; index < lines.length - 1; index += 1) {
-                        const firstMatch = assignmentPattern.exec(lines[index]);
-                        const secondMatch = assignmentPattern.exec(lines[index + 1]);
-                        if (!firstMatch || !secondMatch) {
-                            continue;
+                        /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);\s*$/u;
+
+                    type StructAssignmentRecord = Readonly<{
+                        indentation: string;
+                        objectName: string;
+                        propertyName: string;
+                        valueText: string;
+                    }>;
+
+                    function parseStructAssignmentLine(line: string): StructAssignmentRecord | null {
+                        const assignmentMatch = assignmentPattern.exec(line);
+                        if (!assignmentMatch) {
+                            return null;
                         }
 
-                        if (firstMatch[1] !== secondMatch[1]) {
-                            continue;
-                        }
-
-                        if (!isIdentifier(firstMatch[1])) {
-                            continue;
-                        }
-
-                        const assignmentColumnOffset = lines[index].search(/[A-Za-z_]/u);
-                        const reportOffset = (lineStartOffsets[index] ?? 0) + Math.max(assignmentColumnOffset, 0);
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(reportOffset),
-                            messageId: definition.messageId
+                        return Object.freeze({
+                            indentation: assignmentMatch[1],
+                            objectName: assignmentMatch[2],
+                            propertyName: assignmentMatch[3],
+                            valueText: assignmentMatch[4].trim()
                         });
-                        break;
+                    }
+
+                    const rewrittenLines: Array<string> = [];
+                    let firstUnsafeOffset: number | null = null;
+                    let firstRewriteOffset: number | null = null;
+                    let lineIndex = 0;
+                    while (lineIndex < lines.length) {
+                        const firstAssignment = parseStructAssignmentLine(lines[lineIndex]);
+                        if (
+                            !firstAssignment ||
+                            !isIdentifier(firstAssignment.objectName) ||
+                            firstAssignment.objectName.toLowerCase() === "global"
+                        ) {
+                            rewrittenLines.push(lines[lineIndex]);
+                            lineIndex += 1;
+                            continue;
+                        }
+
+                        const cluster: Array<StructAssignmentRecord> = [firstAssignment];
+                        let clusterEndIndex = lineIndex;
+                        while (clusterEndIndex + 1 < lines.length) {
+                            const nextAssignment = parseStructAssignmentLine(lines[clusterEndIndex + 1]);
+                            if (!nextAssignment) {
+                                break;
+                            }
+
+                            if (
+                                nextAssignment.objectName !== firstAssignment.objectName ||
+                                nextAssignment.indentation !== firstAssignment.indentation
+                            ) {
+                                break;
+                            }
+
+                            cluster.push(nextAssignment);
+                            clusterEndIndex += 1;
+                        }
+
+                        if (cluster.length < 2) {
+                            rewrittenLines.push(lines[lineIndex]);
+                            lineIndex += 1;
+                            continue;
+                        }
+
+                        const assignmentColumnOffset = lines[lineIndex].search(/[A-Za-z_]/u);
+                        const reportOffset = (lineStartOffsets[lineIndex] ?? 0) + Math.max(assignmentColumnOffset, 0);
+                        const seenProperties = new Set<string>();
+                        let hasInlineCommentInValue = false;
+                        let hasDuplicatePropertyAssignment = false;
+                        for (const assignment of cluster) {
+                            if (containsInlineCommentTokens(assignment.valueText)) {
+                                hasInlineCommentInValue = true;
+                                break;
+                            }
+
+                            if (seenProperties.has(assignment.propertyName)) {
+                                hasDuplicatePropertyAssignment = true;
+                                break;
+                            }
+
+                            seenProperties.add(assignment.propertyName);
+                        }
+
+                        if (hasDuplicatePropertyAssignment) {
+                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
+                                rewrittenLines.push(lines[currentIndex]);
+                            }
+                            lineIndex = clusterEndIndex + 1;
+                            continue;
+                        }
+
+                        if (hasInlineCommentInValue) {
+                            if (firstUnsafeOffset === null) {
+                                firstUnsafeOffset = reportOffset;
+                            }
+
+                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
+                                rewrittenLines.push(lines[currentIndex]);
+                            }
+                            lineIndex = clusterEndIndex + 1;
+                            continue;
+                        }
+
+                        if (firstRewriteOffset === null) {
+                            firstRewriteOffset = reportOffset;
+                        }
+
+                        const propertyInitializers = cluster.map(
+                            (assignment) => `${assignment.propertyName}: ${assignment.valueText}`
+                        );
+                        rewrittenLines.push(
+                            `${firstAssignment.indentation}${firstAssignment.objectName} = { ${propertyInitializers.join(", ")} };`
+                        );
+                        lineIndex = clusterEndIndex + 1;
+                    }
+
+                    const rewrittenText = rewrittenLines.join(dominantLineEnding(text));
+                    if (rewrittenText !== text) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstRewriteOffset ?? findFirstChangedCharacterOffset(text, rewrittenText)),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([0, text.length], rewrittenText)
+                        });
+                    }
+
+                    if (firstUnsafeOffset !== null && shouldReportUnsafeFixes) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(firstUnsafeOffset),
+                            messageId: "unsafeFix"
+                        });
                     }
                 }
             };
@@ -687,7 +1245,7 @@ function normalizeDocCommentPrefixLine(line: string): string {
 type FunctionDocCommentTarget = Readonly<{
     indentation: string;
     functionName: string;
-    parameterNames: ReadonlyArray<string>;
+    parameters: ReadonlyArray<FunctionDocCommentParameterDefinition>;
 }>;
 
 type TrailingDocCommentBlock = Readonly<{
@@ -695,14 +1253,34 @@ type TrailingDocCommentBlock = Readonly<{
     lines: ReadonlyArray<string>;
 }>;
 
+type FunctionDocCommentParameterDefinition = Readonly<{
+    sourceName: string;
+    defaultExpression: string | null;
+}>;
+
+type SyntheticDocCommentNodeWithSourceSpan = Readonly<{
+    _docSourceStart?: number;
+    _docSourceEnd?: number;
+}>;
+
 type SyntheticDocCommentParameterNode = Readonly<{
     type: "Identifier";
     name: string;
-}>;
+}> &
+    SyntheticDocCommentNodeWithSourceSpan;
+
+type SyntheticDocCommentDefaultParameterNode = Readonly<{
+    type: "DefaultParameter";
+    left: SyntheticDocCommentParameterNode;
+    right: SyntheticDocCommentParameterNode;
+}> &
+    SyntheticDocCommentNodeWithSourceSpan;
+
+type SyntheticDocCommentParameterLikeNode = SyntheticDocCommentParameterNode | SyntheticDocCommentDefaultParameterNode;
 
 type SyntheticDocCommentFunctionNode = Readonly<{
     type: "FunctionDeclaration";
-    params: ReadonlyArray<SyntheticDocCommentParameterNode>;
+    params: ReadonlyArray<SyntheticDocCommentParameterLikeNode>;
     body: Readonly<{
         type: "BlockStatement";
         body: ReadonlyArray<unknown>;
@@ -713,20 +1291,54 @@ function toDocCommentParameterName(parameterName: string): string {
     return parameterName.replace(/^_+/u, "");
 }
 
-function parseFunctionParameterNames(parameterListText: string): Array<string> {
-    const parameterNames = parameterListText
-        .split(",")
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0)
-        .map((segment) => {
-            const equalsIndex = segment.indexOf("=");
-            const withoutDefault = equalsIndex === -1 ? segment : segment.slice(0, equalsIndex);
-            return withoutDefault.replace(/^\.\.\./u, "").trim();
-        })
-        .filter((parameterName) => /^[A-Za-z_][A-Za-z0-9_]*$/u.test(parameterName))
-        .map((parameterName) => toDocCommentParameterName(parameterName));
+function parseFunctionParameterDefinitions(parameterListText: string): Array<FunctionDocCommentParameterDefinition> {
+    const parameterDefinitions: Array<FunctionDocCommentParameterDefinition> = [];
+    const seenParameterNames = new Set<string>();
 
-    return [...new Set(parameterNames)];
+    for (const parameterSegment of splitTopLevelCommaSegments(parameterListText)) {
+        const trimmedSegment = parameterSegment.trim();
+        if (trimmedSegment.length === 0) {
+            continue;
+        }
+
+        const normalizedSegment = trimmedSegment.replace(/^\.\.\./u, "").trim();
+        const defaultMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/u.exec(normalizedSegment);
+        if (defaultMatch) {
+            const sourceName = defaultMatch[1];
+            const canonicalName = toDocCommentParameterName(sourceName);
+            if (seenParameterNames.has(canonicalName)) {
+                continue;
+            }
+
+            seenParameterNames.add(canonicalName);
+            parameterDefinitions.push(
+                Object.freeze({
+                    sourceName,
+                    defaultExpression: defaultMatch[2].trim()
+                })
+            );
+            continue;
+        }
+
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(normalizedSegment)) {
+            continue;
+        }
+
+        const canonicalName = toDocCommentParameterName(normalizedSegment);
+        if (seenParameterNames.has(canonicalName)) {
+            continue;
+        }
+
+        seenParameterNames.add(canonicalName);
+        parameterDefinitions.push(
+            Object.freeze({
+                sourceName: normalizedSegment,
+                defaultExpression: null
+            })
+        );
+    }
+
+    return parameterDefinitions;
 }
 
 function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget | null {
@@ -738,7 +1350,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
         return {
             indentation: declarationMatch[1],
             functionName: declarationMatch[2],
-            parameterNames: parseFunctionParameterNames(declarationMatch[3])
+            parameters: parseFunctionParameterDefinitions(declarationMatch[3])
         };
     }
 
@@ -753,7 +1365,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     return {
         indentation: assignmentMatch[1],
         functionName: assignmentMatch[2],
-        parameterNames: parseFunctionParameterNames(assignmentMatch[3])
+        parameters: parseFunctionParameterDefinitions(assignmentMatch[3])
     };
 }
 
@@ -784,38 +1396,18 @@ function isFunctionNamePlaceholderDescription(line: string, functionName: string
 
 function canonicalizeDocCommentTagAliases(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
     return docLines.map((line) => {
-        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
-        if (!metadata) {
+        if (!/^\s*\/\/\//u.test(line)) {
             return line;
         }
 
-        const indentationMatch = /^(\s*)\/\/\//u.exec(line);
-        const indentation = indentationMatch?.[1] ?? "";
-
-        if (metadata.tag === "arg" || metadata.tag === "argument") {
-            if (typeof metadata.name !== "string") {
-                return line;
-            }
-
-            const typePrefix =
-                typeof metadata.type === "string" && metadata.type.trim().length > 0
-                    ? ` {${metadata.type.trim()}}`
-                    : "";
-            const descriptionText =
-                typeof metadata.description === "string" && metadata.description.trim().length > 0
-                    ? ` - ${metadata.description.trim()}`
-                    : "";
-            return `${indentation}/// @param${typePrefix} ${metadata.name.trim()}${descriptionText}`.trimEnd();
-        }
-
-        if (metadata.tag === "return") {
-            const returnsText = typeof metadata.name === "string" ? metadata.name.trim() : "";
-            const returnsSuffix = returnsText.length > 0 ? ` ${returnsText}` : "";
-            return `${indentation}/// @returns${returnsSuffix}`;
-        }
-
-        return line;
+        const normalizedLine = CoreWorkspace.Core.applyJsDocTagAliasReplacements(line);
+        return typeof normalizedLine === "string" ? normalizedLine : line;
     });
+}
+
+function isFunctionDocCommentTagLine(line: string): boolean {
+    const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
+    return metadata?.tag === "function" || metadata?.tag === "func";
 }
 
 function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -878,41 +1470,92 @@ function createSyntheticDocCommentFunctionNode(target: FunctionDocCommentTarget)
     };
 }
 
-type ExistingDocCommentState = Readonly<{
-    paramCanonicalNames: ReadonlySet<string>;
-    hasReturnsTag: boolean;
+type SyntheticDocCommentFunctionBuildResult = Readonly<{
+    functionNode: SyntheticDocCommentFunctionNode;
+    syntheticSourceText: string;
 }>;
 
-function collectExistingDocCommentState(docLines: ReadonlyArray<string>): ExistingDocCommentState {
-    const paramCanonicalNames = new Set<string>();
-    let hasReturnsTag = false;
-
-    for (const line of docLines) {
-        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
-        if (!metadata) {
-            continue;
-        }
-
-        if (metadata.tag === "return" || metadata.tag === "returns") {
-            hasReturnsTag = true;
-            continue;
-        }
-
-        if (
-            (metadata.tag === "param" || metadata.tag === "arg" || metadata.tag === "argument") &&
-            typeof metadata.name === "string"
-        ) {
-            const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
-            if (canonicalName) {
-                paramCanonicalNames.add(canonicalName);
-            }
-        }
+function getSyntheticDocCommentNodeSourceStart(node: unknown): number {
+    if (!isObjectLike(node)) {
+        return -1;
     }
 
-    return {
-        paramCanonicalNames,
-        hasReturnsTag
-    };
+    const sourceNode = node as { _docSourceStart?: unknown };
+    return typeof sourceNode._docSourceStart === "number" ? sourceNode._docSourceStart : -1;
+}
+
+function getSyntheticDocCommentNodeSourceEnd(node: unknown): number {
+    if (!isObjectLike(node)) {
+        return -1;
+    }
+
+    const sourceNode = node as { _docSourceEnd?: unknown };
+    return typeof sourceNode._docSourceEnd === "number" ? sourceNode._docSourceEnd : -1;
+}
+
+function createSyntheticDocCommentFunctionNode(target: FunctionDocCommentTarget): SyntheticDocCommentFunctionBuildResult {
+    const params: Array<SyntheticDocCommentParameterLikeNode> = [];
+    const syntheticSourceSegments: Array<string> = [];
+    let syntheticSourceText = "";
+
+    for (const parameter of target.parameters) {
+        if (syntheticSourceText.length > 0) {
+            syntheticSourceText += ", ";
+        }
+
+        const segmentStart = syntheticSourceText.length;
+        const sourceName = parameter.sourceName;
+        if (parameter.defaultExpression === null) {
+            syntheticSourceText += sourceName;
+            params.push(
+                Object.freeze({
+                    type: "Identifier",
+                    name: sourceName
+                })
+            );
+            syntheticSourceSegments.push(sourceName);
+            continue;
+        }
+
+        const serializedParameter = `${sourceName} = ${parameter.defaultExpression}`;
+        const defaultStart = segmentStart + sourceName.length + " = ".length;
+        const defaultEnd = defaultStart + parameter.defaultExpression.length;
+        syntheticSourceText += serializedParameter;
+
+        const identifierNode = Object.freeze({
+            type: "Identifier",
+            name: sourceName
+        }) as SyntheticDocCommentParameterNode;
+        const defaultValueNode = Object.freeze({
+            type: "Identifier",
+            name: parameter.defaultExpression,
+            _docSourceStart: defaultStart,
+            _docSourceEnd: defaultEnd
+        }) as SyntheticDocCommentParameterNode;
+
+        params.push(
+            Object.freeze({
+                type: "DefaultParameter",
+                left: identifierNode,
+                right: defaultValueNode,
+                _docSourceStart: segmentStart,
+                _docSourceEnd: segmentStart + serializedParameter.length
+            })
+        );
+        syntheticSourceSegments.push(serializedParameter);
+    }
+
+    return Object.freeze({
+        functionNode: Object.freeze({
+            type: "FunctionDeclaration",
+            params,
+            body: {
+                type: "BlockStatement" as const,
+                body: [] as ReadonlyArray<unknown>
+            }
+        }),
+        syntheticSourceText: syntheticSourceSegments.join(", ")
+    });
 }
 
 function withTargetIndentation(indentation: string, line: string): string {
@@ -930,21 +1573,47 @@ function synthesizeFunctionDocCommentBlock(
     const docLinesWithoutPlaceholders = (existingDocLines ?? []).filter(
         (line) => !isFunctionNamePlaceholderDescription(line, target.functionName)
     );
-    const canonicalizedDocLines = canonicalizeDocCommentTagAliases(docLinesWithoutPlaceholders);
+    const canonicalizedDocLines = canonicalizeDocCommentTagAliases(docLinesWithoutPlaceholders).filter(
+        (line) => !isFunctionDocCommentTagLine(line)
+    );
+    const syntheticFunctionBuild = createSyntheticDocCommentFunctionNode(target);
     const syntheticDocLines = CoreWorkspace.Core.computeSyntheticFunctionDocLines(
-        createSyntheticDocCommentFunctionNode(target),
+        syntheticFunctionBuild.functionNode,
         canonicalizedDocLines,
+        {
+            originalText: syntheticFunctionBuild.syntheticSourceText,
+            locStart: getSyntheticDocCommentNodeSourceStart,
+            locEnd: getSyntheticDocCommentNodeSourceEnd
+        },
         {}
     );
-    const existingDocCommentState = collectExistingDocCommentState(canonicalizedDocLines);
-    const existingParamCanonicalNames = new Set(existingDocCommentState.paramCanonicalNames);
-    let hasReturnsTag = existingDocCommentState.hasReturnsTag;
-    const mergedDocLines = [...canonicalizedDocLines];
+    const existingParamLineIndicesByCanonical = new Map<string, number>();
+    let hasReturnsTag = false;
+    const mergedDocLines = canonicalizedDocLines.map((line, index) => {
+        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
+        if (!metadata) {
+            return line;
+        }
+
+        if (metadata.tag === "return" || metadata.tag === "returns") {
+            hasReturnsTag = true;
+            return line;
+        }
+
+        if (metadata.tag === "param" && typeof metadata.name === "string") {
+            const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
+            if (canonicalName) {
+                existingParamLineIndicesByCanonical.set(canonicalName, index);
+            }
+        }
+
+        return line;
+    });
 
     for (const syntheticLine of syntheticDocLines) {
         const metadata = CoreWorkspace.Core.parseDocCommentMetadata(syntheticLine);
+        const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
         if (!metadata) {
-            const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
             if (!mergedDocLines.includes(normalizedSyntheticLine)) {
                 mergedDocLines.push(normalizedSyntheticLine);
             }
@@ -956,25 +1625,29 @@ function synthesizeFunctionDocCommentBlock(
                 continue;
             }
 
-            mergedDocLines.push(withTargetIndentation(target.indentation, syntheticLine));
+            mergedDocLines.push(normalizedSyntheticLine);
             hasReturnsTag = true;
             continue;
         }
 
         if (metadata.tag === "param" && typeof metadata.name === "string") {
             const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
-            if (canonicalName && existingParamCanonicalNames.has(canonicalName)) {
+            if (canonicalName) {
+                const existingIndex = existingParamLineIndicesByCanonical.get(canonicalName);
+                if (typeof existingIndex === "number") {
+                    const existingLine = mergedDocLines[existingIndex];
+                    if (existingLine !== normalizedSyntheticLine) {
+                        mergedDocLines[existingIndex] = normalizedSyntheticLine;
+                    }
+                    continue;
+                }
+
+                mergedDocLines.push(normalizedSyntheticLine);
+                existingParamLineIndicesByCanonical.set(canonicalName, mergedDocLines.length - 1);
                 continue;
             }
-
-            mergedDocLines.push(withTargetIndentation(target.indentation, syntheticLine));
-            if (canonicalName) {
-                existingParamCanonicalNames.add(canonicalName);
-            }
-            continue;
         }
 
-        const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
         if (!mergedDocLines.includes(normalizedSyntheticLine)) {
             mergedDocLines.push(normalizedSyntheticLine);
         }
@@ -1158,13 +1831,13 @@ function normalizeLegacyDirectiveLine(line: string): string {
         return normalizeLegacyBlockKeywordLine(normalized);
     }
 
-    const legacyMacro = /^(\s*)#(macro|define)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+    const legacyMacro = /^(\s*)#define\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/iu.exec(line);
     if (!legacyMacro) {
         return normalizeLegacyBlockKeywordLine(line);
     }
 
     const indentation = legacyMacro[1];
-    const rawTail = legacyMacro[4];
+    const rawTail = legacyMacro[3];
     const lineCommentIndex = rawTail.indexOf("//");
     const bodyPortion = lineCommentIndex === -1 ? rawTail : rawTail.slice(0, lineCommentIndex);
     const commentPortion = lineCommentIndex === -1 ? "" : rawTail.slice(lineCommentIndex).trimEnd();
@@ -1172,10 +1845,10 @@ function normalizeLegacyDirectiveLine(line: string): string {
     const normalizedComment = commentPortion.length > 0 ? ` ${commentPortion}` : "";
 
     if (normalizedBody.length === 0) {
-        return `${indentation}#macro ${legacyMacro[3]}${normalizedComment}`;
+        return `${indentation}#macro ${legacyMacro[2]}${normalizedComment}`;
     }
 
-    return `${indentation}#macro ${legacyMacro[3]} ${normalizedBody}${normalizedComment}`;
+    return `${indentation}#macro ${legacyMacro[2]} ${normalizedBody}${normalizedComment}`;
 }
 
 type BracedSingleClause = Readonly<{
@@ -1913,6 +2586,162 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
     });
 }
 
+type UndefinedComparisonRewrite = Readonly<{
+    start: number;
+    end: number;
+    replacement: string;
+}>;
+
+function isUndefinedComparisonOperator(operator: unknown): operator is "==" | "!=" | "===" | "!==" {
+    return (
+        typeof operator === "string" &&
+        (operator === "==" || operator === "!=" || operator === "===" || operator === "!==")
+    );
+}
+
+function expandRewriteRangeToSingleWrappedParentheses(
+    sourceText: string,
+    rangeStart: number,
+    rangeEnd: number
+): Readonly<{ start: number; end: number }> {
+    let trimmedStart = rangeStart;
+    while (trimmedStart > 0 && /\s/u.test(sourceText[trimmedStart - 1] ?? "")) {
+        trimmedStart -= 1;
+    }
+
+    const leftParenIndex = trimmedStart - 1;
+    if (leftParenIndex < 0 || sourceText[leftParenIndex] !== "(") {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    let previousIndex = leftParenIndex - 1;
+    while (previousIndex >= 0 && /\s/u.test(sourceText[previousIndex] ?? "")) {
+        previousIndex -= 1;
+    }
+
+    if (previousIndex >= 0 && /[A-Za-z0-9_\])"']/u.test(sourceText[previousIndex] ?? "")) {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    let trimmedEnd = rangeEnd;
+    while (trimmedEnd < sourceText.length && /\s/u.test(sourceText[trimmedEnd] ?? "")) {
+        trimmedEnd += 1;
+    }
+
+    if (sourceText[trimmedEnd] !== ")") {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    return Object.freeze({
+        start: leftParenIndex,
+        end: trimmedEnd + 1
+    });
+}
+
+function createUndefinedComparisonRewrite(sourceText: string, node: unknown): UndefinedComparisonRewrite | null {
+    if (!isAstNodeRecord(node) || node.type !== "BinaryExpression" || !isUndefinedComparisonOperator(node.operator)) {
+        return null;
+    }
+
+    const leftNode = unwrapParenthesized(node.left);
+    const rightNode = unwrapParenthesized(node.right);
+    const leftIsUndefined = isUndefinedValueNode(leftNode);
+    const rightIsUndefined = isUndefinedValueNode(rightNode);
+    if (leftIsUndefined === rightIsUndefined) {
+        return null;
+    }
+
+    const comparedExpression = leftIsUndefined ? rightNode : leftNode;
+    const comparedExpressionStart = getNodeStartIndex(comparedExpression);
+    const comparedExpressionEnd = getNodeEndIndex(comparedExpression);
+    if (
+        typeof comparedExpressionStart !== "number" ||
+        typeof comparedExpressionEnd !== "number" ||
+        comparedExpressionEnd <= comparedExpressionStart
+    ) {
+        return null;
+    }
+
+    const comparedExpressionText = sourceText.slice(comparedExpressionStart, comparedExpressionEnd).trim();
+    if (comparedExpressionText.length === 0) {
+        return null;
+    }
+
+    const parentNode = isAstNodeRecord(node.parent) ? node.parent : null;
+    const replacementRangeNode =
+        parentNode && parentNode.type === "ParenthesizedExpression" && parentNode.expression === node
+            ? parentNode
+            : node;
+
+    const fullStart = getNodeStartIndex(replacementRangeNode);
+    const fullEnd = getNodeEndIndex(replacementRangeNode);
+    if (typeof fullStart !== "number" || typeof fullEnd !== "number" || fullEnd <= fullStart) {
+        return null;
+    }
+
+    const replacementRange = expandRewriteRangeToSingleWrappedParentheses(sourceText, fullStart, fullEnd);
+
+    const undefinedCheck = `is_undefined(${comparedExpressionText})`;
+    const replacement = node.operator === "!=" || node.operator === "!==" ? `!${undefinedCheck}` : undefinedCheck;
+    if (sourceText.slice(replacementRange.start, replacementRange.end) === replacement) {
+        return null;
+    }
+
+    return Object.freeze({
+        start: replacementRange.start,
+        end: replacementRange.end,
+        replacement
+    });
+}
+
+function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const candidateRewrites: Array<UndefinedComparisonRewrite> = [];
+                    walkAstNodes(programNode, (node) => {
+                        const rewrite = createUndefinedComparisonRewrite(sourceText, node);
+                        if (rewrite) {
+                            candidateRewrites.push(rewrite);
+                        }
+                    });
+
+                    if (candidateRewrites.length === 0) {
+                        return;
+                    }
+
+                    const nonOverlappingRewrites: Array<UndefinedComparisonRewrite> = [];
+                    const orderedCandidates = candidateRewrites.toSorted((left, right) => {
+                        if (left.start !== right.start) {
+                            return left.start - right.start;
+                        }
+
+                        return right.end - left.end;
+                    });
+                    for (const candidate of orderedCandidates) {
+                        if (hasOverlappingRange(candidate.start, candidate.end, nonOverlappingRewrites)) {
+                            continue;
+                        }
+
+                        nonOverlappingRewrites.push(candidate);
+                    }
+
+                    for (const rewrite of nonOverlappingRewrites) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
+
 function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -1938,18 +2767,265 @@ function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule
     });
 }
 
+type InterpolationSafeRewrite = Readonly<{
+    start: number;
+    end: number;
+    replacement: string;
+}>;
+
+type InterpolationCandidateAnalysis =
+    | Readonly<{
+          kind: "safe";
+          rewrite: InterpolationSafeRewrite;
+      }>
+    | Readonly<{
+          kind: "unsafe";
+          offset: number;
+      }>;
+
+function isStringCoercionCallExpression(node: unknown): node is {
+    type: "CallExpression";
+    object: { type: "Identifier"; name: string };
+    arguments: ReadonlyArray<unknown>;
+} {
+    if (!isAstNodeRecord(node) || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+        return false;
+    }
+
+    const callTarget = node.object;
+    return isAstNodeRecord(callTarget) && callTarget.type === "Identifier" && callTarget.name === "string";
+}
+
+function extractSimpleDoubleQuotedLiteralContent(sourceText: string, node: unknown): string | null {
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
+    if (typeof start !== "number" || typeof end !== "number" || end <= start) {
+        return null;
+    }
+
+    const rawLiteral = sourceText.slice(start, end);
+    if (!/^"(?:[^"\\]|\\.)*"$/u.test(rawLiteral)) {
+        return null;
+    }
+
+    const content = rawLiteral.slice(1, -1);
+    if (content.includes("{") || content.includes("}")) {
+        return null;
+    }
+
+    return content;
+}
+
+const INTERPOLATION_UNSAFE_EXPRESSION_NODE_TYPES = new Set(["AssignmentExpression", "IncDecStatement"]);
+
+function isInterpolationSafeValueExpression(node: unknown): boolean {
+    if (!isAstNodeWithType(node)) {
+        return false;
+    }
+
+    let hasUnsafeExpressionNode = false;
+    walkAstNodes(node, (currentNode) => {
+        if (!isAstNodeWithType(currentNode)) {
+            return;
+        }
+
+        if (INTERPOLATION_UNSAFE_EXPRESSION_NODE_TYPES.has(currentNode.type)) {
+            hasUnsafeExpressionNode = true;
+        }
+    });
+
+    return !hasUnsafeExpressionNode;
+}
+
+function collectConcatenationParts(node: unknown, output: Array<unknown>) {
+    const unwrapped = unwrapParenthesized(node);
+    if (isAstNodeRecord(unwrapped) && unwrapped.type === "BinaryExpression" && unwrapped.operator === "+") {
+        collectConcatenationParts(unwrapped.left, output);
+        collectConcatenationParts(unwrapped.right, output);
+        return;
+    }
+
+    output.push(node);
+}
+
+function analyzeStringInterpolationCandidate(sourceText: string, node: unknown): InterpolationCandidateAnalysis | null {
+    if (!isAstNodeRecord(node) || node.type !== "BinaryExpression" || node.operator !== "+") {
+        return null;
+    }
+
+    const rangeStart = getNodeStartIndex(node);
+    const rangeEnd = getNodeEndIndex(node);
+    if (typeof rangeStart !== "number" || typeof rangeEnd !== "number" || rangeEnd <= rangeStart) {
+        return null;
+    }
+
+    const parts: Array<unknown> = [];
+    collectConcatenationParts(node, parts);
+    if (parts.length < 2) {
+        return null;
+    }
+
+    const templateSegments: Array<string> = [];
+    let containsTextLiteral = false;
+    let containsInterpolatedExpression = false;
+    let hasUnsafeInterpolationExpression = false;
+
+    for (const part of parts) {
+        const unwrappedPart = unwrapParenthesized(part);
+        const literalContent = extractSimpleDoubleQuotedLiteralContent(sourceText, unwrappedPart);
+        if (literalContent !== null) {
+            templateSegments.push(literalContent);
+            containsTextLiteral = true;
+            continue;
+        }
+
+        if (!isStringCoercionCallExpression(unwrappedPart)) {
+            return null;
+        }
+
+        const [expressionArgument] = unwrappedPart.arguments;
+        const expressionStart = getNodeStartIndex(expressionArgument);
+        const expressionEnd = getNodeEndIndex(expressionArgument);
+        if (
+            typeof expressionStart !== "number" ||
+            typeof expressionEnd !== "number" ||
+            expressionEnd <= expressionStart
+        ) {
+            return null;
+        }
+
+        const expressionText = sourceText.slice(expressionStart, expressionEnd).trim();
+        if (expressionText.length === 0) {
+            return null;
+        }
+
+        if (
+            expressionText.includes("{") ||
+            expressionText.includes("}") ||
+            !isInterpolationSafeValueExpression(expressionArgument)
+        ) {
+            hasUnsafeInterpolationExpression = true;
+        }
+
+        templateSegments.push(`{${expressionText}}`);
+        containsInterpolatedExpression = true;
+    }
+
+    if (!containsTextLiteral || !containsInterpolatedExpression) {
+        return null;
+    }
+
+    if (hasUnsafeInterpolationExpression) {
+        return Object.freeze({
+            kind: "unsafe",
+            offset: rangeStart
+        });
+    }
+
+    const replacement = `$"${templateSegments.join("")}"`;
+    if (replacement === sourceText.slice(rangeStart, rangeEnd)) {
+        return null;
+    }
+
+    return Object.freeze({
+        kind: "safe",
+        rewrite: Object.freeze({
+            start: rangeStart,
+            end: rangeEnd,
+            replacement
+        })
+    });
+}
+
+function collectStringInterpolationRewrites(
+    sourceText: string,
+    programNode: unknown
+): Readonly<{
+    safeRewrites: ReadonlyArray<InterpolationSafeRewrite>;
+    unsafeOffsets: ReadonlyArray<number>;
+}> {
+    const safeCandidates: Array<InterpolationSafeRewrite> = [];
+    const unsafeOffsets = new Set<number>();
+
+    walkAstNodes(programNode, (node) => {
+        const analysis = analyzeStringInterpolationCandidate(sourceText, node);
+        if (!analysis) {
+            return;
+        }
+
+        if (analysis.kind === "unsafe") {
+            unsafeOffsets.add(analysis.offset);
+            return;
+        }
+
+        safeCandidates.push(analysis.rewrite);
+    });
+
+    const safeRewrites: Array<InterpolationSafeRewrite> = [];
+    const orderedSafeCandidates = safeCandidates.toSorted((left, right) => {
+        if (left.start !== right.start) {
+            return left.start - right.start;
+        }
+
+        return right.end - left.end;
+    });
+
+    for (const safeCandidate of orderedSafeCandidates) {
+        if (hasOverlappingRange(safeCandidate.start, safeCandidate.end, safeRewrites)) {
+            continue;
+        }
+
+        safeRewrites.push(safeCandidate);
+    }
+
+    const filteredUnsafeOffsets = [...unsafeOffsets]
+        .toSorted((left, right) => left - right)
+        .filter((offset) => {
+            for (const rewrite of safeRewrites) {
+                if (offset >= rewrite.start && offset < rewrite.end) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+    return Object.freeze({
+        safeRewrites: Object.freeze(safeRewrites),
+        unsafeOffsets: Object.freeze(filteredUnsafeOffsets)
+    });
+}
+
 function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
             const listener: Rule.RuleListener = {
-                Program(node) {
-                    const text = context.sourceCode.text;
-                    const pattern = /"[^"]*"\s*\+\s*string\(/g;
-                    const isUnsafeReportingEnabled = shouldReportUnsafe(context);
-                    if (isUnsafeReportingEnabled && pattern.test(text)) {
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const rewriteAnalysis = collectStringInterpolationRewrites(sourceText, programNode);
+
+                    for (const safeRewrite of rewriteAnalysis.safeRewrites) {
                         context.report({
-                            node,
+                            loc: context.sourceCode.getLocFromIndex(safeRewrite.start),
+                            messageId: definition.messageId,
+                            fix: (fixer) =>
+                                fixer.replaceTextRange([safeRewrite.start, safeRewrite.end], safeRewrite.replacement)
+                        });
+                    }
+
+                    if (!shouldReportUnsafeFixes) {
+                        return;
+                    }
+
+                    for (const unsafeOffset of rewriteAnalysis.unsafeOffsets) {
+                        context.report({
+                            loc: context.sourceCode.getLocFromIndex(unsafeOffset),
                             messageId: "unsafeFix"
                         });
                     }
@@ -2704,7 +3780,7 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
     });
 }
 
-function isUndefinedArgumentValue(node: any): boolean {
+function isUndefinedValueNode(node: any): boolean {
     if (!node || typeof node !== "object") {
         return false;
     }
@@ -2726,7 +3802,7 @@ function createCollapseUndefinedCallArgumentEdit(sourceText: string, callExpress
     }
 
     const args = callExpression.arguments;
-    if (args.length <= 1 || !args.every((argument) => isUndefinedArgumentValue(argument))) {
+    if (args.length <= 1 || !args.every((argument) => isUndefinedValueNode(argument))) {
         return null;
     }
 
@@ -2848,6 +3924,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-assignment-in-condition": {
             return createNoAssignmentInConditionRule(definition);
+        }
+        case "prefer-is-undefined-check": {
+            return createPreferIsUndefinedCheckRule(definition);
         }
         case "normalize-operator-aliases": {
             return createNormalizeOperatorAliasesRule(definition);

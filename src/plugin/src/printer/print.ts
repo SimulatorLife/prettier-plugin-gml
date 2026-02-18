@@ -1236,7 +1236,7 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 }
             }
 
-            return concat(stripTrailingLineTerminators(textToPrint));
+            return concat(stripTrailingLineTerminators(normalizeMacroNameSeparatorSpacing(textToPrint)));
         }
         case "RegionStatement": {
             return concat(["#region", print("name")]);
@@ -1282,6 +1282,19 @@ function tryPrintDeclarationNode(node, path, options, print) {
             return concat("");
         }
     }
+}
+
+function normalizeMacroNameSeparatorSpacing(macroText) {
+    const newlineMatch = /\r?\n/u.exec(macroText);
+    const firstLineEnd = newlineMatch ? newlineMatch.index : macroText.length;
+    const firstLine = macroText.slice(0, firstLineEnd);
+    const remainder = macroText.slice(firstLineEnd);
+
+    const normalizedFirstLine = firstLine.replace(
+        /^(\s*#macro\s+[A-Za-z_][A-Za-z0-9_]*)(?:[ \t]{2,})(\S.*)$/u,
+        "$1 $2"
+    );
+    return `${normalizedFirstLine}${remainder}`;
 }
 
 function tryPrintLiteralNode(node, path, options, print) {

@@ -14,9 +14,7 @@ Almost done!
 
 var x = 1;`;
 
-        const expected = `
-
-/*
+        const expected = `/*
  * This is a multi-line comment
  * It continues on this line
  * Woah, still going
@@ -41,9 +39,7 @@ And another line
 
 var x = 1;`;
 
-        const expected = `
-
-/*
+        const expected = `/*
  * This is a comment with empty lines
  * And another line
  */
