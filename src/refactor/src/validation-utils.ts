@@ -6,6 +6,12 @@
 import { Core } from "@gml-modules/core";
 
 /**
+ * Re-export the non-throwing method checker from core for backwards compatibility.
+ * @deprecated Import {@link Core.hasMethods} directly instead.
+ */
+export const hasMethod = Core.hasMethods;
+
+/**
  * Validate and normalize an identifier name.
  * Throws TypeError or Error if the name is invalid.
  *
@@ -31,27 +37,6 @@ export function assertValidIdentifierName(name: unknown): string {
     }
 
     return validated;
-}
-
-/**
- * Check if an object has a callable method with the given name.
- * This helper eliminates the repeated pattern of checking
- * `obj && typeof obj.method === "function"` throughout the refactor codebase.
- *
- * @param obj - The object to check (may be null or undefined)
- * @param methodName - The name of the method to check for
- * @returns true if obj is non-null and has a callable method with the given name
- *
- * @example
- * if (hasMethod(semantic, "getSymbolOccurrences")) {
- *     const occurrences = await semantic.getSymbolOccurrences(name);
- * }
- */
-export function hasMethod<T, K extends string>(
-    obj: T | null | undefined,
-    methodName: K
-): obj is T & { [P in K]: (...args: never[]) => unknown } {
-    return obj != null && typeof (obj as Record<string, unknown>)[methodName] === "function";
 }
 
 /**

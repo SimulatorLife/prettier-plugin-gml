@@ -270,6 +270,52 @@ export function assertFunctionProperties(
 }
 
 /**
+ * Check if a value has callable properties matching the provided method names.
+ * Returns true only when all specified methods exist and are functions.
+ *
+ * This is the non-throwing variant of {@link assertFunctionProperties}, providing
+ * a boolean predicate for conditional logic where error handling is unnecessary.
+ * Use this when you need to check capabilities without enforcing requirements.
+ *
+ * @template T
+ * @template K
+ * @param {T | null | undefined} value Candidate object to inspect.
+ * @param {K | ReadonlyArray<K>} methodNames Method name(s) to check for.
+ *        Pass a single property key or an array of keys.
+ * @returns {boolean} `true` when {@link value} is non-null and has all specified
+ *          methods as callable properties; `false` otherwise.
+ *
+ * @example
+ * if (hasMethods(semantic, "getSymbolOccurrences")) {
+ *     const occurrences = await semantic.getSymbolOccurrences(name);
+ * }
+ *
+ * @example
+ * if (hasMethods(cache, ["get", "set", "has"])) {
+ *     cache.set(key, value);
+ * }
+ */
+export function hasMethods<T, K extends PropertyKey>(
+    value: T | null | undefined,
+    methodNames: K | ReadonlyArray<K>
+): value is T & Record<K, (...args: never[]) => unknown> {
+    if (!isObjectOrFunction(value)) {
+        return false;
+    }
+
+    const methods = Array.isArray(methodNames) ? methodNames : [methodNames];
+    const target = value as Record<PropertyKey, unknown>;
+
+    for (const methodName of methods) {
+        if (typeof target[methodName] !== "function") {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Resolve the built-in `Object.prototype.toString` tag name for {@link value}.
  *
  * Normalizes the repeated guard logic used across CLI modules when formatting

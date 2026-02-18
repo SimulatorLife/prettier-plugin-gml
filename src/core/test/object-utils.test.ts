@@ -7,6 +7,7 @@ import {
     coalesceOption,
     describeValueWithArticle,
     getOrCreateMapEntry,
+    hasMethods,
     incrementMapValue,
     isObjectLike,
     isPlainObject,
@@ -319,4 +320,103 @@ void test("snapshot and restore round-trip preserves property state", () => {
     assert.strictEqual(original.c, undefined);
     assert.strictEqual(Object.hasOwn(original, "c"), false);
     assert.strictEqual(original.d.nested, true);
+});
+
+void test("hasMethods returns true when object has the specified method", () => {
+    const obj = {
+        foo: () => "bar",
+        baz: 42
+    };
+
+    assert.strictEqual(hasMethods(obj, "foo"), true);
+});
+
+void test("hasMethods returns false when object does not have the specified method", () => {
+    const obj = {
+        foo: () => "bar",
+        baz: 42
+    };
+
+    assert.strictEqual(hasMethods(obj, "nonexistent"), false);
+});
+
+void test("hasMethods returns false when property exists but is not a function", () => {
+    const obj = {
+        foo: () => "bar",
+        baz: 42
+    };
+
+    assert.strictEqual(hasMethods(obj, "baz"), false);
+});
+
+void test("hasMethods returns false when object is null", () => {
+    assert.strictEqual(hasMethods(null, "foo"), false);
+});
+
+void test("hasMethods returns false when object is undefined", () => {
+    assert.strictEqual(hasMethods(undefined, "foo"), false);
+});
+
+void test("hasMethods works with class instances", () => {
+    class TestClass {
+        myMethod() {
+            return "result";
+        }
+    }
+
+    const instance = new TestClass();
+    assert.strictEqual(hasMethods(instance, "myMethod"), true);
+    assert.strictEqual(hasMethods(instance, "nonexistent"), false);
+});
+
+void test("hasMethods works with inherited methods like toString", () => {
+    const obj = {};
+    assert.strictEqual(hasMethods(obj, "toString"), true);
+});
+
+void test("hasMethods handles async functions", () => {
+    const obj = {
+        async asyncMethod() {
+            return "result";
+        }
+    };
+
+    assert.strictEqual(hasMethods(obj, "asyncMethod"), true);
+});
+
+void test("hasMethods handles arrow functions", () => {
+    const obj = {
+        arrowMethod: () => "result"
+    };
+
+    assert.strictEqual(hasMethods(obj, "arrowMethod"), true);
+});
+
+void test("hasMethods returns true when all specified methods exist (array)", () => {
+    const obj = {
+        get: () => "value",
+        set: () => {},
+        has: () => true
+    };
+
+    assert.strictEqual(hasMethods(obj, ["get", "set", "has"]), true);
+});
+
+void test("hasMethods returns false when any method is missing (array)", () => {
+    const obj = {
+        get: () => "value",
+        set: () => {}
+    };
+
+    assert.strictEqual(hasMethods(obj, ["get", "set", "has"]), false);
+});
+
+void test("hasMethods returns false when any property is not a function (array)", () => {
+    const obj = {
+        get: () => "value",
+        set: 42,
+        has: () => true
+    };
+
+    assert.strictEqual(hasMethods(obj, ["get", "set", "has"]), false);
 });
