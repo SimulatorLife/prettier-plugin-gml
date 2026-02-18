@@ -35,7 +35,11 @@ const allCapabilities = new Set([
 
 function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
     const rule = Lint.plugin.rules[ruleName];
-    const messages: Array<{ messageId: string; fix?: Array<RuleTestFixOperation> }> = [];
+    const messages: Array<{
+        messageId: string;
+        loc?: { line: number; column: number };
+        fix?: Array<RuleTestFixOperation>;
+    }> = [];
     const getLocFromIndex = createLocResolver(code);
 
     const context = {
@@ -58,6 +62,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
         },
         report(payload: {
             messageId: string;
+            loc?: { line: number; column: number };
             fix?: (fixer: {
                 replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
                 insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation;
@@ -78,7 +83,7 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
                 fixes = output ? (Array.isArray(output) ? output : [output]) : undefined;
             }
 
-            messages.push({ messageId: payload.messageId, fix: fixes });
+            messages.push({ messageId: payload.messageId, loc: payload.loc, fix: fixes });
         }
     } as never;
 
@@ -200,4 +205,44 @@ void test("prefer-repeat-loops skips conversion when loop iterator is used in bo
     const result = lintWithRule("prefer-repeat-loops", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
+});
+
+void test("full-file rewrite rules report the first changed source location", () => {
+    const locationCases = [
+        {
+            ruleName: "normalize-doc-comments",
+            input: ["var keep = 1;", "// @description convert me", "function demo() {}", ""].join("\n"),
+            expectedLoc: { line: 2, column: 2 }
+        },
+        {
+            ruleName: "normalize-directives",
+            input: ["var keep = 1;", "// #region Setup", ""].join("\n"),
+            expectedLoc: { line: 2, column: 0 }
+        },
+        {
+            ruleName: "require-control-flow-braces",
+            input: ["var keep = 1;", "if (ready) step();", ""].join("\n"),
+            expectedLoc: { line: 2, column: 11 }
+        },
+        {
+            ruleName: "no-assignment-in-condition",
+            input: ["var keep = 1;", "if (left = right) value = 1;", ""].join("\n"),
+            expectedLoc: { line: 2, column: 10 }
+        },
+        {
+            ruleName: "normalize-operator-aliases",
+            input: ["var keep = 1;", "if (left AND right) {", "    keep = 2;", "}", ""].join("\n"),
+            expectedLoc: { line: 2, column: 9 }
+        }
+    ] as const;
+
+    for (const locationCase of locationCases) {
+        const result = lintWithRule(locationCase.ruleName, locationCase.input, {});
+        assert.equal(result.messages.length, 1, `${locationCase.ruleName} should report exactly one diagnostic`);
+        assert.deepEqual(
+            result.messages[0]?.loc,
+            locationCase.expectedLoc,
+            `${locationCase.ruleName} should report its first changed location`
+        );
+    }
 });

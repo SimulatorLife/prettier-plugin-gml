@@ -64,6 +64,21 @@ function escapeRegularExpressionPattern(text: string): string {
     return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
+function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
+    const minLength = Math.min(originalText.length, rewrittenText.length);
+    for (let index = 0; index < minLength; index += 1) {
+        if (originalText[index] !== rewrittenText[index]) {
+            return index;
+        }
+    }
+
+    if (originalText.length !== rewrittenText.length) {
+        return minLength;
+    }
+
+    return 0;
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let braceDepth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -636,8 +651,9 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1038,8 +1054,9 @@ function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1153,8 +1170,9 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1196,8 +1214,9 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
@@ -1220,8 +1239,9 @@ function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule
                         return;
                     }
 
+                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
                     context.report({
-                        loc: context.sourceCode.getLocFromIndex(0),
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
                         messageId: definition.messageId,
                         fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
                     });
