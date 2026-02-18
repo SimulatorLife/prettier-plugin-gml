@@ -1,5 +1,6 @@
+import { Core } from "@gml-modules/core";
+
 import { resolveBuiltinConstants } from "./builtin-constants.js";
-import { areNumbersApproximatelyEqual, isErrorLike, isNonEmptyString } from "./runtime-core-helpers.js";
 import type {
     ApplyPatchResult,
     ClosurePatch,
@@ -70,7 +71,7 @@ function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string
 
 function resolveRuntimeId(patch: ScriptPatch): string {
     const candidate = (patch as { runtimeId?: unknown }).runtimeId;
-    if (isNonEmptyString(candidate)) {
+    if (Core.isNonEmptyString(candidate)) {
         return candidate;
     }
 
@@ -476,7 +477,7 @@ export function testPatchInShadow(patch: Patch): ShadowTestResult {
     } catch (error) {
         return {
             valid: false,
-            error: isErrorLike(error) ? error.message : String(error ?? "Unknown error")
+            error: Core.isErrorLike(error) ? error.message : String(error ?? "Unknown error")
         };
     }
 }
@@ -829,7 +830,7 @@ function calculatePercentile(sorted: Array<number>, percentile: number): number 
     // 8.999999999999998 instead of an exact 9, so we compare the raw index to
     // its rounded integer rather than comparing floor/ceil directly.
     const nearest = Math.round(index);
-    if (areNumbersApproximatelyEqual(index, nearest)) {
+    if (Core.areNumbersApproximatelyEqual(index, nearest)) {
         return sorted[nearest];
     }
 
