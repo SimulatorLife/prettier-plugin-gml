@@ -135,6 +135,36 @@ void describe("watch command integration", () => {
         }
     });
 
+    void it("uses the default watcher when watchFactory is explicitly undefined", async () => {
+        const testDir = path.join("/tmp", `watch-test-default-factory-${Date.now()}-${randomUUID()}`);
+
+        await mkdir(testDir, { recursive: true });
+
+        try {
+            const abortController = new AbortController();
+
+            const watchPromise = runWatchCommand(testDir, {
+                extensions: [".gml"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false,
+                abortSignal: abortController.signal,
+                hydrateRuntime: false,
+                websocketServer: false,
+                statusServer: false,
+                watchFactory: undefined
+            });
+
+            await sleep(100);
+
+            abortController.abort();
+
+            await watchPromise;
+        } finally {
+            await rm(testDir, { recursive: true, force: true });
+        }
+    });
+
     void it("should transpile GML files when they change", async () => {
         // Create a temporary directory for testing
         const testDir = path.join("/tmp", `watch-test-transpile-${Date.now()}-${randomUUID()}`);
