@@ -1,4 +1,4 @@
-import { getCommentValue } from "../comment-utils.js";
+import { getCommentBoundaryIndex, getCommentValue } from "../comment-utils.js";
 import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
 import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
 import {
@@ -44,8 +44,8 @@ const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![/])/;
 
 function getLineCommentRawText(comment, options: any = {}) {
-    const commentStart = typeof comment.start === "number" ? comment.start : (comment.start?.index ?? null);
-    const commentEnd = typeof comment.end === "number" ? comment.end : (comment.end?.index ?? null);
+    const commentStart = getCommentBoundaryIndex(comment, "start");
+    const commentEnd = getCommentBoundaryIndex(comment, "end");
 
     if (options.originalText && commentStart !== null && commentEnd !== null) {
         return options.originalText.slice(commentStart, commentEnd + 1);

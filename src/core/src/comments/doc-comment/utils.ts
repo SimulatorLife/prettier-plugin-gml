@@ -66,7 +66,7 @@ export type { MutableGameMakerAstNode } from "../../ast/index.js";
 
 // Comment utilities
 export type { DocCommentLines, MutableDocCommentLines } from "../comment-utils.js";
-export { getCommentArray, isLineComment } from "../comment-utils.js";
+export { getCommentArray, getCommentBoundaryIndex, isLineComment } from "../comment-utils.js";
 
 // Line comment utilities
 export { formatLineComment, getLineCommentRawText, resolveLineCommentOptions } from "../line-comment/index.js";
