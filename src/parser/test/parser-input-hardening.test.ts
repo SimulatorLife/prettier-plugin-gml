@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { Core } from "@gml-modules/core";
+
 import { Parser } from "../src/index.js";
-import { validateSourceText } from "../src/utils/input-validation.js";
 
 const { GMLParser } = Parser;
+const { validateSourceText } = Core;
 
 void describe("GMLParser constructor input validation", () => {
     void describe("valid input", () => {
