@@ -248,8 +248,6 @@ interface FileChangeOptions extends LoggingConfig {
     fileStats?: Stats | null;
 }
 
-const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) => watch(pathToWatch, options, listener);
-
 async function runAutoInjectHotReload(
     quiet: boolean,
     verbose: boolean,
@@ -641,7 +639,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         runtimeResolver = resolveRuntimeSource,
         runtimeDescriptor = describeRuntimeSource,
         runtimeServerStarter = startRuntimeStaticServer,
-        watchFactory = DEFAULT_WATCH_FACTORY
+        watchFactory = watch
     } = options;
     const unknownServerStopErrorMessage = "Unknown server stop error";
 
@@ -850,8 +848,6 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     let watcher: FSWatcher | null = null;
     let resolved = false;
 
-    const watchImplementation = watchFactory ?? watch;
-
     return new Promise((resolve) => {
         let removeAbortListener = noopAbortListener;
 
@@ -969,7 +965,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         }
 
         try {
-            watcher = watchImplementation(
+            watcher = watchFactory(
                 normalizedPath,
                 {
                     ...watchOptions,
