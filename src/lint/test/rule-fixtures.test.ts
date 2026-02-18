@@ -231,8 +231,8 @@ void test("full-file rewrite rules report the first changed source location", ()
         },
         {
             ruleName: "normalize-operator-aliases",
-            input: ["var keep = 1;", "if (left AND right) {", "    keep = 2;", "}", ""].join("\n"),
-            expectedLoc: { line: 2, column: 9 }
+            input: ["var keep = 1;", "if (not right) {", "    keep = 2;", "}", ""].join("\n"),
+            expectedLoc: { line: 2, column: 4 }
         }
     ] as const;
 
@@ -293,11 +293,10 @@ void test("require-control-flow-braces wraps inline statements with nested call 
 });
 
 void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
-    const input =
-        "repeat(_tag_parameter_count-1) _command_string += \",\" + string(_tag_parameters[_j++]);\n";
+    const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const expected = [
         "repeat (_tag_parameter_count-1) {",
-        "    _command_string += \",\" + string(_tag_parameters[_j++]);",
+        '    _command_string += "," + string(_tag_parameters[_j++]);',
         "}",
         ""
     ].join("\n");
@@ -315,16 +314,30 @@ void test("optimize-math-expressions does not rewrite decimal literals that star
 
 void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
     const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
-    const expected = ["#region Emergency!", "var ready_state = not ready;", ""].join("\n");
+    const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assert.equal(result.output, expected);
 });
 
+void test("normalize-operator-aliases replaces invalid logical keyword 'not' with '!'", () => {
+    const input = ["if (not ready) {", "    value = not(extra);", "}", ""].join("\n");
+    const expected = ["if (! ready) {", "    value = !(extra);", "}", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-operator-aliases does not rewrite identifier usage of 'not'", () => {
+    const input = ["var not = 1;", "value = not + 2;", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("require-control-flow-braces skips macro continuation blocks", () => {
     const input = [
-        "#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == \"body\")\\",
+        '#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == "body")\\',
         "                                        {\\",
-        "                                            _new_style = \"bold\";\\",
+        '                                            _new_style = "bold";\\',
         "                                        }\\",
         "                                        if (_old_style != _new_style) _write_style = true;",
         ""
@@ -338,7 +351,7 @@ void test("require-control-flow-braces skips macro continuation blocks", () => {
 void test("require-control-flow-braces does not reinterpret already braced headers with trailing comments", () => {
     const input = [
         "if (point_in_triangle(D.x, D.y, A.x, A.y, B.x, B.y, C.x, C.y)) { // stile_point_in_triangle(x3, y3, z3, x0, y0, z0, x1, y1, z1, x2, y2, z2, N)",
-        "    // show_debug_message(\"Verts inside\");",
+        '    // show_debug_message("Verts inside");',
         "    good = false;",
         "    break;",
         "}",

@@ -1087,26 +1087,71 @@ function isIdentifierCharacter(value: string): boolean {
     return /[A-Za-z0-9_]/u.test(value);
 }
 
-function isLogicalNotOperatorInContext(sourceText: string, index: number): boolean {
-    const previousCharacter = index > 0 ? sourceText[index - 1] : null;
-    if (previousCharacter && /[A-Za-z0-9_)\]]/u.test(previousCharacter)) {
+function previousNonWhitespaceCharacter(sourceText: string, fromIndex: number): string | null {
+    let index = fromIndex - 1;
+    while (index >= 0) {
+        const character = sourceText[index];
+        if (!/\s/u.test(character)) {
+            return character;
+        }
+        index -= 1;
+    }
+
+    return null;
+}
+
+function nextNonWhitespaceCharacter(sourceText: string, fromIndex: number): string | null {
+    let index = fromIndex;
+    while (index < sourceText.length) {
+        const character = sourceText[index];
+        if (!/\s/u.test(character)) {
+            return character;
+        }
+        index += 1;
+    }
+
+    return null;
+}
+
+function previousIdentifierToken(sourceText: string, fromIndex: number): string | null {
+    let end = fromIndex - 1;
+    while (end >= 0 && /\s/u.test(sourceText[end])) {
+        end -= 1;
+    }
+
+    if (end < 0 || !isIdentifierCharacter(sourceText[end])) {
+        return null;
+    }
+
+    let start = end;
+    while (start - 1 >= 0 && isIdentifierCharacter(sourceText[start - 1])) {
+        start -= 1;
+    }
+
+    return sourceText.slice(start, end + 1);
+}
+
+function isLogicalNotKeywordInContext(sourceText: string, tokenStart: number, tokenEnd: number): boolean {
+    const previousCharacter = previousNonWhitespaceCharacter(sourceText, tokenStart);
+    if (previousCharacter !== null) {
+        if (previousCharacter === "." || previousCharacter === ")" || previousCharacter === "]") {
+            return false;
+        }
+
+        if (isIdentifierCharacter(previousCharacter)) {
+            const previousToken = previousIdentifierToken(sourceText, tokenStart)?.toLowerCase();
+            if (previousToken !== "and" && previousToken !== "or" && previousToken !== "xor") {
+                return false;
+            }
+        }
+    }
+
+    const nextCharacter = nextNonWhitespaceCharacter(sourceText, tokenEnd);
+    if (nextCharacter === null) {
         return false;
     }
 
-    const tail = sourceText.slice(index + 1).trimStart();
-    if (tail.length === 0) {
-        return false;
-    }
-
-    const [nextCharacter] = tail;
-    return (
-        /[A-Za-z0-9_]/u.test(nextCharacter) ||
-        nextCharacter === "(" ||
-        nextCharacter === "'" ||
-        nextCharacter === '"' ||
-        nextCharacter === "[" ||
-        nextCharacter === "-"
-    );
+    return /[A-Za-z0-9_([{'"!]/u.test(nextCharacter);
 }
 
 function normalizeLogicalOperatorAliases(sourceText: string): string {
@@ -1179,33 +1224,6 @@ function normalizeLogicalOperatorAliases(sourceText: string): string {
             continue;
         }
 
-        if (character === "&" && nextCharacter === "&") {
-            rewritten.push("and");
-            index += 2;
-            continue;
-        }
-
-        if (character === "|" && nextCharacter === "|") {
-            rewritten.push("or");
-            index += 2;
-            continue;
-        }
-
-        if (character === "^" && nextCharacter === "^") {
-            rewritten.push("xor");
-            index += 2;
-            continue;
-        }
-
-        if (character === "!" && nextCharacter !== "=" && isLogicalNotOperatorInContext(sourceText, index)) {
-            rewritten.push("not");
-            if (nextCharacter !== undefined && !/\s/u.test(nextCharacter)) {
-                rewritten.push(" ");
-            }
-            index += 1;
-            continue;
-        }
-
         if (isIdentifierCharacter(character)) {
             const start = index;
             let end = index + 1;
@@ -1215,8 +1233,8 @@ function normalizeLogicalOperatorAliases(sourceText: string): string {
 
             const token = sourceText.slice(start, end);
             const normalized = token.toLowerCase();
-            if (normalized === "and" || normalized === "or" || normalized === "xor" || normalized === "not") {
-                rewritten.push(normalized);
+            if (normalized === "not" && isLogicalNotKeywordInContext(sourceText, start, end)) {
+                rewritten.push("!");
             } else {
                 rewritten.push(token);
             }
