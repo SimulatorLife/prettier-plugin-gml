@@ -868,14 +868,38 @@ function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
 }
 
 function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
-    const lineMatch = /^(\s*)(if|repeat|while|for|with)\s*\((.+)\)\s*$/u.exec(line);
-    if (!lineMatch) {
+    const keywordMatch = /^(\s*)(if|repeat|while|for|with)\b/u.exec(line);
+    if (!keywordMatch) {
+        return null;
+    }
+
+    let cursor = keywordMatch[0].length;
+    while (cursor < line.length && /\s/u.test(line[cursor])) {
+        cursor += 1;
+    }
+
+    if (line[cursor] !== "(") {
+        return null;
+    }
+
+    const closingParenthesisIndex = findMatchingParenthesisIndexInLine(line, cursor);
+    if (closingParenthesisIndex < 0) {
+        return null;
+    }
+
+    const condition = line.slice(cursor + 1, closingParenthesisIndex).trim();
+    if (condition.length === 0) {
+        return null;
+    }
+
+    const trailingText = line.slice(closingParenthesisIndex + 1).trim();
+    if (trailingText.length > 0) {
         return null;
     }
 
     return {
-        indentation: lineMatch[1],
-        header: `${lineMatch[2]} (${lineMatch[3].trim()})`
+        indentation: keywordMatch[1],
+        header: `${keywordMatch[2]} (${condition})`
     };
 }
 
@@ -1044,6 +1068,10 @@ function parseInlineDoUntilClause(line: string): DoUntilClause | null {
 function parseLineOnlyDoHeader(line: string): string | null {
     const doHeaderMatch = /^(\s*)do\s*$/u.exec(line);
     return doHeaderMatch ? doHeaderMatch[1] : null;
+}
+
+function lineUsesMacroContinuation(line: string): boolean {
+    return /\\\s*(?:\/\/.*)?$/u.test(line);
 }
 
 function parseLineOnlyUntilFooter(line: string): string | null {
@@ -1242,9 +1270,23 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                     const lineEnding = dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines: Array<string> = [];
+                    let inMacroContinuation = false;
 
                     for (let index = 0; index < lines.length; index += 1) {
                         const line = lines[index];
+
+                        if (inMacroContinuation) {
+                            rewrittenLines.push(line);
+                            inMacroContinuation = lineUsesMacroContinuation(line);
+                            continue;
+                        }
+
+                        if (/^\s*#macro\b/u.test(line)) {
+                            rewrittenLines.push(line);
+                            inMacroContinuation = lineUsesMacroContinuation(line);
+                            continue;
+                        }
+
                         const inlineControlFlow = parseInlineControlFlowClauseWithLegacyIf(line);
                         if (inlineControlFlow) {
                             rewrittenLines.push(

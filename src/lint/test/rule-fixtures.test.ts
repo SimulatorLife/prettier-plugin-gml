@@ -319,3 +319,33 @@ void test("normalize-operator-aliases does not replace punctuation exclamation m
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assert.equal(result.output, expected);
 });
+
+void test("require-control-flow-braces skips macro continuation blocks", () => {
+    const input = [
+        "#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == \"body\")\\",
+        "                                        {\\",
+        "                                            _new_style = \"bold\";\\",
+        "                                        }\\",
+        "                                        if (_old_style != _new_style) _write_style = true;",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("require-control-flow-braces does not reinterpret already braced headers with trailing comments", () => {
+    const input = [
+        "if (point_in_triangle(D.x, D.y, A.x, A.y, B.x, B.y, C.x, C.y)) { // stile_point_in_triangle(x3, y3, z3, x0, y0, z0, x1, y1, z1, x2, y2, z2, N)",
+        "    // show_debug_message(\"Verts inside\");",
+        "    good = false;",
+        "    break;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
