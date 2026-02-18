@@ -119,6 +119,61 @@ function normalizeProgramShape(ast: unknown): GMLAstNode {
     return program as GMLAstNode;
 }
 
+function normalizeSwitchCaseConsequentShape(ast: unknown): void {
+    const pending: Array<unknown> = [ast];
+    const seen = new Set<object>();
+
+    while (pending.length > 0) {
+        const current = pending.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (seen.has(current)) {
+            continue;
+        }
+        seen.add(current);
+
+        if (Array.isArray(current)) {
+            for (const entry of current) {
+                pending.push(entry);
+            }
+            continue;
+        }
+
+        const record = current as Record<string, unknown>;
+        if (record.type === "SwitchStatement") {
+            const rawCases = Array.isArray(record.cases) ? record.cases : [];
+            const normalizedCases = rawCases.filter((caseNode) => {
+                return (
+                    caseNode !== null &&
+                    typeof caseNode === "object" &&
+                    (caseNode as Record<string, unknown>).type === "SwitchCase"
+                );
+            });
+            record.cases = normalizedCases;
+        }
+
+        if (record.type === "SwitchCase") {
+            const normalizedConsequent = Array.isArray(record.consequent)
+                ? record.consequent
+                : Array.isArray(record.body)
+                  ? record.body
+                  : [];
+
+            record.consequent = normalizedConsequent;
+
+            if (!Array.isArray(record.body)) {
+                record.body = normalizedConsequent;
+            }
+        }
+
+        for (const value of Object.values(record)) {
+            pending.push(value);
+        }
+    }
+}
+
 function decodeFileBody(body: string | Uint8Array): string {
     if (typeof body === "string") {
         return body;
@@ -420,6 +475,7 @@ export const gmlLanguage = Object.freeze({
 
         try {
             const ast = parseAst(sourceText);
+            normalizeSwitchCaseConsequentShape(ast);
             projectLocationsToOriginalSource(ast, sourceText, Object.freeze([]));
             assignRangesRecursively(ast);
             return {
@@ -460,6 +516,7 @@ export const gmlLanguage = Object.freeze({
 
             try {
                 const ast = parseAst(recoveryProjection.parseSource);
+                normalizeSwitchCaseConsequentShape(ast);
                 projectLocationsToOriginalSource(ast, sourceText, recoveryProjection.insertions);
                 assignRangesRecursively(ast);
                 return {

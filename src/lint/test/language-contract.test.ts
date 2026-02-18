@@ -159,6 +159,61 @@ void test("strict parse fails while limited recovery succeeds for missing argume
     assert.deepEqual(recoveredArgumentRange, [21, 22]);
 });
 
+void test("switch cases expose estree consequent arrays for ESLint code-path analysis", async () => {
+    const source = [
+        "switch (state) {",
+        "    case 0:",
+        "        value = 1;",
+        "        break;",
+        "    default:",
+        "        break;",
+        "}"
+    ].join("\n");
+    const result = await lintTextWithESLintVersion(ESLint, source);
+
+    assert.equal(result.fatalErrorCount, 0);
+    assert.equal(
+        result.messages.some((message) => message.fatal),
+        false
+    );
+
+    const parseResult = parseWithOptions(source, "limited");
+    assert.equal(parseResult.ok, true);
+    if (!parseResult.ok) {
+        return;
+    }
+
+    const firstStatement = parseResult.ast.body?.[0] as { cases?: Array<{ consequent?: unknown[]; body?: unknown[] }> };
+    const firstCase = firstStatement.cases?.[0];
+
+    assert.ok(Array.isArray(firstCase?.consequent));
+    assert.ok(Array.isArray(firstCase?.body));
+});
+
+void test("switch blocks ignore non-case directives in cases array for ESLint compatibility", async () => {
+    const source = [
+        "switch (state) {",
+        "    #region parser-state",
+        "    case 0:",
+        "        value = 1;",
+        "        break;",
+        "}"
+    ].join("\n");
+
+    const result = await lintTextWithESLintVersion(ESLint, source);
+    assert.equal(result.fatalErrorCount, 0);
+
+    const parseResult = parseWithOptions(source, "limited");
+    assert.equal(parseResult.ok, true);
+    if (!parseResult.ok) {
+        return;
+    }
+
+    const firstStatement = parseResult.ast.body?.[0] as { cases?: Array<{ type?: string }> };
+    const caseTypes = (firstStatement.cases ?? []).map((entry) => entry.type);
+    assert.deepEqual(caseTypes, ["SwitchCase"]);
+});
+
 void test("limited recovery preserves projected substring invariants for argument ranges", () => {
     const source = "show_debug_message(10 20);";
     const result = parseWithOptions(source, "limited");

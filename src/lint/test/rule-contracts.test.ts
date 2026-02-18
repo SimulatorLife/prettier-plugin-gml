@@ -10,6 +10,7 @@ type RuleMeta = Readonly<{
     docs: Readonly<Record<string, unknown>>;
     messages: Readonly<Record<string, string>>;
     schema: ReadonlyArray<unknown>;
+    fixable?: "code" | "whitespace";
 }>;
 
 const expectedRules = Object.freeze([
@@ -179,11 +180,12 @@ function resolveSourceRoot(testDirectory: string): string {
 void test("recommended baseline rules expose stable messageIds and exact schemas", () => {
     for (const ruleDefinition of expectedRules) {
         const rule = LintWorkspace.Lint.plugin.rules[ruleDefinition.shortName] as {
-            meta?: { messages?: Record<string, string>; schema?: ReadonlyArray<unknown> };
+            meta?: { messages?: Record<string, string>; schema?: ReadonlyArray<unknown>; fixable?: string };
         };
 
         assert.equal(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
+        assert.equal(rule.meta?.fixable, "code");
     }
 });
 

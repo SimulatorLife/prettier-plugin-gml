@@ -42,6 +42,7 @@ function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
 
     return Object.freeze({
         type: "suggestion",
+        fixable: "code",
         docs: Object.freeze(docs),
         schema: definition.schema,
         messages: Object.freeze(messages)
