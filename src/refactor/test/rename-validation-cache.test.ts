@@ -137,6 +137,52 @@ void describe("RenameValidationCache", () => {
             assert.equal(stats.size, 1);
         });
 
+        void it("deduplicates concurrent validation requests for the same key", async () => {
+            const cache = new RenameValidationCache();
+            let computeCount = 0;
+
+            const compute = async (): Promise<CachedValidationResult> => {
+                computeCount += 1;
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 20);
+                });
+                return createValidResult();
+            };
+
+            const [resultA, resultB] = await Promise.all([
+                cache.getOrCompute("gml/script/scr_test", "scr_new", compute),
+                cache.getOrCompute("gml/script/scr_test", "scr_new", compute)
+            ]);
+
+            assert.equal(computeCount, 1);
+            assert.deepEqual(resultA, resultB);
+            assert.equal(cache.getStats().hits, 1);
+            assert.equal(cache.getStats().misses, 1);
+        });
+
+        void it("cleans up in-flight requests when computation fails", async () => {
+            const cache = new RenameValidationCache();
+            let computeCount = 0;
+
+            await assert.rejects(async () => {
+                await cache.getOrCompute("gml/script/scr_test", "scr_new", async () => {
+                    computeCount += 1;
+                    throw new Error("Validation failed");
+                });
+            });
+
+            await assert.rejects(async () => {
+                await cache.getOrCompute("gml/script/scr_test", "scr_new", async () => {
+                    computeCount += 1;
+                    throw new Error("Validation failed");
+                });
+            });
+
+            assert.equal(computeCount, 2);
+            assert.equal(cache.getStats().hits, 0);
+            assert.equal(cache.getStats().misses, 2);
+        });
+
         void it("preserves all validation result fields", async () => {
             const cache = new RenameValidationCache();
 
