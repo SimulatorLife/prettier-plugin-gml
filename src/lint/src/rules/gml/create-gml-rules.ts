@@ -1,5 +1,6 @@
 import type { Rule } from "eslint";
 
+import { createLimitedRecoveryProjection } from "../../language/recovery.js";
 import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
 import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
@@ -1281,6 +1282,70 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
     });
 }
 
+type ArgumentSeparatorInsertion = Readonly<{
+    originalOffset: number;
+    insertedText: ",";
+}>;
+
+function tryReadArgumentSeparatorRecoveryFromParserServices(
+    context: Rule.RuleContext
+): ReadonlyArray<ArgumentSeparatorInsertion> | null {
+    const parserServices = context.sourceCode.parserServices;
+    if (!parserServices || typeof parserServices !== "object") {
+        return null;
+    }
+
+    const parserServicesWithGml = parserServices as { gml?: unknown };
+    if (!parserServicesWithGml.gml || typeof parserServicesWithGml.gml !== "object") {
+        return null;
+    }
+
+    const gmlWithRecovery = parserServicesWithGml.gml as { recovery?: unknown };
+    if (!Array.isArray(gmlWithRecovery.recovery)) {
+        return null;
+    }
+
+    const insertions: Array<ArgumentSeparatorInsertion> = [];
+    for (const recoveryEntry of gmlWithRecovery.recovery) {
+        if (!recoveryEntry || typeof recoveryEntry !== "object") {
+            continue;
+        }
+
+        const originalOffset = Reflect.get(recoveryEntry, "originalOffset");
+        const insertedText = Reflect.get(recoveryEntry, "insertedText");
+
+        if (typeof originalOffset === "number" && Number.isInteger(originalOffset) && insertedText === ",") {
+            insertions.push(
+                Object.freeze({
+                    originalOffset,
+                    insertedText
+                })
+            );
+        }
+    }
+
+    return Object.freeze(insertions);
+}
+
+function collectArgumentSeparatorInsertionOffsets(
+    context: Rule.RuleContext,
+    sourceText: string
+): ReadonlyArray<number> {
+    const parserRecoveryInsertions = tryReadArgumentSeparatorRecoveryFromParserServices(context);
+    const recoveries = parserRecoveryInsertions ?? createLimitedRecoveryProjection(sourceText).insertions;
+    const uniqueOffsets = new Set<number>();
+
+    for (const recovery of recoveries) {
+        if (recovery.originalOffset < 0 || recovery.originalOffset > sourceText.length) {
+            continue;
+        }
+
+        uniqueOffsets.add(recovery.originalOffset);
+    }
+
+    return Object.freeze([...uniqueOffsets].sort((left, right) => left - right));
+}
+
 function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -1289,29 +1354,16 @@ function createRequireArgumentSeparatorsRule(definition: GmlRuleDefinition): Rul
             const shouldRepair = options.repair === undefined ? true : options.repair === true;
 
             return Object.freeze({
-                Program(node) {
-                    const text = context.sourceCode.text;
-                    const callPattern = /\(([^)]*)\)/g;
-                    for (const callMatch of text.matchAll(callPattern)) {
-                        const payload = callMatch[1];
-                        const payloadStart = (callMatch.index ?? 0) + 1;
-                        const missingSeparator =
-                            /([A-Za-z_][A-Za-z0-9_]*)(\s+\/\*[^*]*\*\/\s+|\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(payload);
-                        if (!missingSeparator) {
-                            continue;
-                        }
+                Program() {
+                    const sourceText = context.sourceCode.text;
+                    const insertionOffsets = collectArgumentSeparatorInsertionOffsets(context, sourceText);
 
-                        const insertIndex = payloadStart + missingSeparator.index + missingSeparator[1].length;
+                    for (const insertionOffset of insertionOffsets) {
                         context.report({
-                            node,
+                            loc: context.sourceCode.getLocFromIndex(insertionOffset),
                             messageId: definition.messageId,
                             fix: shouldRepair
-                                ? (fixer) => {
-                                      const insertion = missingSeparator[2].includes("\n")
-                                          ? `,${dominantLineEnding(text)}`
-                                          : ",";
-                                      return fixer.insertTextAfterRange([insertIndex, insertIndex], insertion);
-                                  }
+                                ? (fixer) => fixer.insertTextAfterRange([insertionOffset, insertionOffset], ",")
                                 : null
                         });
                     }

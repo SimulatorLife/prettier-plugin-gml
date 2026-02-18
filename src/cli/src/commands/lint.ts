@@ -22,6 +22,8 @@ const FLAT_CONFIG_CANDIDATES = Object.freeze([
 ]);
 
 const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
+const GML_FILE_EXTENSION = ".gml";
+const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
 type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
@@ -157,6 +159,270 @@ function resolveEslintCwd(parameters: { cwd: string; targets: ReadonlyArray<stri
     });
 
     return findCommonAncestorDirectory(targetDirectories);
+}
+
+function validateForcedProjectPath(forcedProjectPath: string | null): string | null {
+    if (!forcedProjectPath) {
+        return null;
+    }
+
+    const resolvedPath = path.resolve(forcedProjectPath);
+    if (!existsSync(resolvedPath)) {
+        return `Forced project path does not exist: ${resolvedPath}`;
+    }
+
+    let resolvedStats: ReturnType<typeof statSync>;
+    try {
+        resolvedStats = statSync(resolvedPath);
+    } catch (error) {
+        return `Unable to inspect forced project path ${resolvedPath}: ${
+            Core.isErrorLike(error) ? error.message : String(error)
+        }`;
+    }
+
+    if (resolvedPath.toLowerCase().endsWith(".yyp")) {
+        if (!resolvedStats.isFile()) {
+            return `Forced project .yyp path must be a file: ${resolvedPath}`;
+        }
+        return null;
+    }
+
+    if (!resolvedStats.isDirectory()) {
+        return `Forced project path must be a directory or .yyp file: ${resolvedPath}`;
+    }
+
+    return null;
+}
+
+type LintRuntimeFailureLocation = Readonly<{
+    filePath: string | null;
+    line: number;
+    column: number;
+}>;
+
+type LintResultMessageLike = Readonly<{
+    ruleId: string | null;
+    fatal?: boolean;
+}>;
+
+type LintResultLike = Readonly<{
+    filePath: string;
+    messages?: ReadonlyArray<LintResultMessageLike>;
+}>;
+
+type LintFilesExecutor = Readonly<{
+    lintFiles(filePatterns: string | Array<string>): Promise<Array<ESLint.LintResult>>;
+}>;
+
+function collectGmlFilesFromDirectory(directoryPath: string): Array<string> {
+    const discoveredFilePaths: Array<string> = [];
+    const pendingDirectories = [directoryPath];
+
+    while (pendingDirectories.length > 0) {
+        const currentDirectory = pendingDirectories.pop();
+        if (!currentDirectory) {
+            continue;
+        }
+
+        let entries: Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
+        try {
+            entries = readdirSync(currentDirectory, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            const entryPath = path.join(currentDirectory, entry.name);
+            if (entry.isDirectory()) {
+                pendingDirectories.push(entryPath);
+                continue;
+            }
+
+            if (!entry.isFile()) {
+                continue;
+            }
+
+            if (!entry.name.toLowerCase().endsWith(GML_FILE_EXTENSION)) {
+                continue;
+            }
+
+            discoveredFilePaths.push(entryPath);
+        }
+    }
+
+    return discoveredFilePaths.sort((leftPath, rightPath) => leftPath.localeCompare(rightPath));
+}
+
+function expandLintTargetsForRecovery(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+}): Readonly<{ fileTargets: Array<string>; passthroughTargets: Array<string> }> {
+    const fileTargetSet = new Set<string>();
+    const passthroughTargets: Array<string> = [];
+
+    for (const target of parameters.targets) {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (!existsSync(absoluteTarget)) {
+            passthroughTargets.push(target);
+            continue;
+        }
+
+        let targetStats: ReturnType<typeof statSync>;
+        try {
+            targetStats = statSync(absoluteTarget);
+        } catch {
+            passthroughTargets.push(target);
+            continue;
+        }
+
+        if (targetStats.isDirectory()) {
+            for (const discoveredPath of collectGmlFilesFromDirectory(absoluteTarget)) {
+                fileTargetSet.add(discoveredPath);
+            }
+            continue;
+        }
+
+        if (targetStats.isFile()) {
+            if (absoluteTarget.toLowerCase().endsWith(GML_FILE_EXTENSION)) {
+                fileTargetSet.add(absoluteTarget);
+            } else {
+                passthroughTargets.push(target);
+            }
+            continue;
+        }
+
+        passthroughTargets.push(target);
+    }
+
+    return Object.freeze({
+        fileTargets: [...fileTargetSet.values()],
+        passthroughTargets: [...new Set(passthroughTargets).values()]
+    });
+}
+
+function extractLintRuntimeFailureLocation(errorMessage: string): LintRuntimeFailureLocation {
+    const occurredLineMatch = /^Occurred while linting ([^\n]+)$/mu.exec(errorMessage);
+    if (!occurredLineMatch) {
+        return Object.freeze({
+            filePath: null,
+            line: 1,
+            column: 1
+        });
+    }
+
+    const rawLocation = occurredLineMatch[1].trim();
+    const locationMatch = /^(.*?)(?::([0-9]+)(?::([0-9]+))?)?$/u.exec(rawLocation);
+    if (!locationMatch) {
+        return Object.freeze({
+            filePath: null,
+            line: 1,
+            column: 1
+        });
+    }
+
+    const extractedLine =
+        typeof locationMatch[2] === "string" && locationMatch[2].length > 0 ? Number.parseInt(locationMatch[2], 10) : 1;
+    const extractedColumn =
+        typeof locationMatch[3] === "string" && locationMatch[3].length > 0 ? Number.parseInt(locationMatch[3], 10) : 1;
+
+    return Object.freeze({
+        filePath: locationMatch[1]?.trim().length ? locationMatch[1].trim() : null,
+        line: Number.isFinite(extractedLine) ? extractedLine : 1,
+        column: Number.isFinite(extractedColumn) ? extractedColumn : 1
+    });
+}
+
+function isRecoverableLintRuntimeError(error: unknown): boolean {
+    if (!Core.isErrorLike(error)) {
+        return false;
+    }
+
+    return error.message.includes("Occurred while linting ");
+}
+
+function createLintRuntimeErrorResult(parameters: { error: unknown; fallbackFilePath: string }): ESLint.LintResult {
+    const rawMessage = Core.getErrorMessage(parameters.error, { fallback: "Unhandled lint runtime error." });
+    const [summaryLine] = rawMessage.split(/\r?\n/u);
+    const location = extractLintRuntimeFailureLocation(rawMessage);
+    const resolvedFilePath = location.filePath ?? parameters.fallbackFilePath;
+
+    const runtimeMessage = Object.freeze({
+        ruleId: LINT_RUNTIME_ERROR_RULE_ID,
+        severity: 2,
+        message: summaryLine && summaryLine.length > 0 ? summaryLine : "Unhandled lint runtime error.",
+        line: location.line,
+        column: location.column,
+        nodeType: null,
+        fatal: true
+    });
+
+    return Object.freeze({
+        filePath: resolvedFilePath,
+        messages: [runtimeMessage],
+        suppressedMessages: [],
+        errorCount: 1,
+        fatalErrorCount: 1,
+        warningCount: 0,
+        fixableErrorCount: 0,
+        fixableWarningCount: 0,
+        usedDeprecatedRules: []
+    });
+}
+
+function isFatalRuntimeLintResult(result: LintResultLike): boolean {
+    return (result.messages ?? []).some(
+        (message) => message.fatal === true && message.ruleId === LINT_RUNTIME_ERROR_RULE_ID
+    );
+}
+
+async function lintTargetWithRuntimeRecovery(parameters: {
+    eslint: LintFilesExecutor;
+    target: string;
+    fallbackFilePath: string;
+}): Promise<Array<ESLint.LintResult>> {
+    try {
+        return await parameters.eslint.lintFiles([parameters.target]);
+    } catch (error) {
+        if (!isRecoverableLintRuntimeError(error)) {
+            throw error;
+        }
+
+        return [
+            createLintRuntimeErrorResult({
+                error,
+                fallbackFilePath: parameters.fallbackFilePath
+            })
+        ];
+    }
+}
+
+async function lintTargetsWithRuntimeRecovery(parameters: {
+    eslint: LintFilesExecutor;
+    cwd: string;
+    targets: ReadonlyArray<string>;
+}): Promise<Array<ESLint.LintResult>> {
+    const expandedTargets = expandLintTargetsForRecovery({
+        cwd: parameters.cwd,
+        targets: parameters.targets
+    });
+    const lintResultGroups = await Promise.all([
+        ...expandedTargets.fileTargets.map((target) =>
+            lintTargetWithRuntimeRecovery({
+                eslint: parameters.eslint,
+                target,
+                fallbackFilePath: target
+            })
+        ),
+        ...expandedTargets.passthroughTargets.map((target) =>
+            lintTargetWithRuntimeRecovery({
+                eslint: parameters.eslint,
+                target,
+                fallbackFilePath: path.resolve(parameters.cwd, target)
+            })
+        )
+    ]);
+
+    return lintResultGroups.flat();
 }
 
 function hasProjectManifest(directoryPath: string): boolean {
@@ -510,26 +776,30 @@ type ConfigLookupEslintLike = {
     calculateConfigForFile(filePath: string): Promise<unknown>;
 };
 
-type LintResultFilePathLike = {
-    filePath: string;
-};
-
 async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     eslint: ConfigLookupEslintLike;
-    results: Array<LintResultFilePathLike>;
+    results: Array<LintResultLike>;
 }): Promise<Array<string>> {
     const gmlFilePaths = parameters.results
+        .filter((result) => !isFatalRuntimeLintResult(result))
         .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
 
     const configEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => ({
-            filePath,
-            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
-        }))
+        gmlFilePaths.map(async (filePath) => {
+            try {
+                return {
+                    filePath,
+                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                };
+            } catch {
+                return null;
+            }
+        })
     );
 
     return configEntries
+        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
         .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
         .map(({ filePath }) => filePath);
 }
@@ -554,25 +824,34 @@ async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
 
 async function enforceProcessorPolicyForGmlFiles(parameters: {
     eslint: ConfigLookupEslintLike;
-    results: Array<LintResultFilePathLike>;
+    results: Array<LintResultLike>;
     verbose: boolean;
 }): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
     const gmlFilePaths = parameters.results
+        .filter((result) => !isFatalRuntimeLintResult(result))
         .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(".gml"));
+        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
 
     if (gmlFilePaths.length === 0) {
         return { exitCode: 0, message: null, warning: null };
     }
 
     const resolvedEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => ({
-            filePath,
-            config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
-        }))
+        gmlFilePaths.map(async (filePath) => {
+            try {
+                return {
+                    filePath,
+                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                };
+            } catch {
+                return null;
+            }
+        })
     );
 
-    const observedEntries = resolvedEntries.filter(({ config }) => Object.hasOwn(config, "processor"));
+    const observedEntries = resolvedEntries
+        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
+        .filter(({ config }) => Object.hasOwn(config, "processor"));
     if (observedEntries.length > 0) {
         for (const entry of observedEntries) {
             const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
@@ -730,6 +1009,13 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
+    const forcedProjectValidationError = validateForcedProjectPath(options.project);
+    if (forcedProjectValidationError) {
+        console.error(forcedProjectValidationError);
+        setProcessExitCode(2);
+        return;
+    }
+
     let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
     try {
         invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
@@ -779,7 +1065,11 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     let results: Array<ESLint.LintResult>;
     try {
-        results = await eslint.lintFiles(targets);
+        results = await lintTargetsWithRuntimeRecovery({
+            eslint,
+            cwd: commandCwd,
+            targets
+        });
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
         setProcessExitCode(2);
@@ -873,6 +1163,8 @@ export const __lintCommandTest__ = Object.freeze({
     hasOverlayRuleApplied,
     formatOverlayWarning,
     discoverFlatConfig,
+    extractLintRuntimeFailureLocation,
+    lintTargetsWithRuntimeRecovery,
     resolveEslintCwd,
     shouldPreferBundledDefaultsForExternalTargets,
     normalizeFormatterName,

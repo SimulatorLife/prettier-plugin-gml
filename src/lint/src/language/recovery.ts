@@ -15,7 +15,29 @@ export type RecoveryProjection = {
 };
 
 function isIdentifierCharacter(character: string): boolean {
-    return /[A-Za-z0-9_"']/u.test(character);
+    return /[A-Za-z0-9_]/u.test(character);
+}
+
+function canTerminateArgumentExpression(character: string): boolean {
+    return (
+        isIdentifierCharacter(character) ||
+        character === '"' ||
+        character === "'" ||
+        character === ")" ||
+        character === "]" ||
+        character === "}"
+    );
+}
+
+function canStartArgumentExpression(character: string): boolean {
+    return (
+        isIdentifierCharacter(character) ||
+        character === '"' ||
+        character === "'" ||
+        character === "(" ||
+        character === "[" ||
+        character === "{"
+    );
 }
 
 function isArgumentBoundaryCharacter(character: string): boolean {
@@ -42,12 +64,147 @@ function findNextNonWhitespaceIndex(sourceText: string, fromIndex: number): numb
     return -1;
 }
 
+function maskCommentsAndStringsForRecovery(sourceText: string): string {
+    const chars = sourceText.split("");
+    let index = 0;
+
+    while (index < sourceText.length) {
+        const character = sourceText[index] ?? "";
+        const nextCharacter = sourceText[index + 1] ?? "";
+
+        if (character === "/" && nextCharacter === "/") {
+            chars[index] = " ";
+            chars[index + 1] = " ";
+            index += 2;
+            while (index < sourceText.length) {
+                const lineCharacter = sourceText[index] ?? "";
+                if (lineCharacter === "\n" || lineCharacter === "\r") {
+                    break;
+                }
+                chars[index] = " ";
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "*") {
+            chars[index] = " ";
+            chars[index + 1] = " ";
+            index += 2;
+            while (index < sourceText.length) {
+                const blockCharacter = sourceText[index] ?? "";
+                const blockNext = sourceText[index + 1] ?? "";
+                if (blockCharacter === "*" && blockNext === "/") {
+                    chars[index] = " ";
+                    chars[index + 1] = " ";
+                    index += 2;
+                    break;
+                }
+
+                if (blockCharacter !== "\n" && blockCharacter !== "\r") {
+                    chars[index] = " ";
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character === '"' || character === "'") {
+            const quoteCharacter = character;
+            chars[index] = quoteCharacter;
+            index += 1;
+            while (index < sourceText.length) {
+                const stringCharacter = sourceText[index] ?? "";
+                if (stringCharacter === "\\") {
+                    chars[index] = "_";
+                    if (index + 1 < sourceText.length) {
+                        chars[index + 1] = "_";
+                    }
+                    index += 2;
+                    continue;
+                }
+
+                if (stringCharacter === quoteCharacter) {
+                    chars[index] = quoteCharacter;
+                    index += 1;
+                    break;
+                }
+
+                if (stringCharacter !== "\n" && stringCharacter !== "\r") {
+                    chars[index] = "_";
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        index += 1;
+    }
+
+    return chars.join("");
+}
+
+type IdentifierToken = Readonly<{
+    value: string;
+    start: number;
+}>;
+
+function readIdentifierTokenEndingAt(sourceText: string, endIndex: number): IdentifierToken | null {
+    const character = sourceText[endIndex] ?? "";
+    if (!isIdentifierCharacter(character)) {
+        return null;
+    }
+
+    let startIndex = endIndex;
+    while (startIndex > 0 && isIdentifierCharacter(sourceText[startIndex - 1] ?? "")) {
+        startIndex -= 1;
+    }
+
+    return Object.freeze({
+        value: sourceText.slice(startIndex, endIndex + 1),
+        start: startIndex
+    });
+}
+
+const NON_CALL_PREFIX_KEYWORDS = new Set([
+    "if",
+    "for",
+    "while",
+    "switch",
+    "repeat",
+    "with",
+    "function",
+    "constructor",
+    "catch"
+]);
+
 function isLikelyCallArgumentGap(sourceText: string, leftIndex: number): boolean {
     let cursor = leftIndex;
     while (cursor >= 0) {
         const character = sourceText[cursor] ?? "";
         if (character === "(") {
-            return true;
+            const calleeEndIndex = findPreviousNonWhitespaceIndex(sourceText, cursor - 1);
+            if (calleeEndIndex === -1) {
+                return false;
+            }
+
+            const calleeToken = readIdentifierTokenEndingAt(sourceText, calleeEndIndex);
+            if (calleeToken) {
+                if (NON_CALL_PREFIX_KEYWORDS.has(calleeToken.value.toLowerCase())) {
+                    return false;
+                }
+
+                const beforeCalleeIndex = findPreviousNonWhitespaceIndex(sourceText, calleeToken.start - 1);
+                if (beforeCalleeIndex === -1) {
+                    return true;
+                }
+
+                const prefixToken = readIdentifierTokenEndingAt(sourceText, beforeCalleeIndex);
+                return prefixToken?.value.toLowerCase() !== "function";
+            }
+
+            const calleeCharacter = sourceText[calleeEndIndex] ?? "";
+            return calleeCharacter === ")" || calleeCharacter === "]";
         }
 
         if (isArgumentBoundaryCharacter(character) || character === "\n" || character === "\r" || character === ";") {
@@ -73,34 +230,43 @@ export function createLimitedRecoveryProjection(sourceText: string): RecoveryPro
     const insertions: Array<InsertedArgumentSeparatorRecovery> = [];
     let copiedThrough = 0;
 
-    for (let index = 0; index < sourceText.length; index += 1) {
-        const character = sourceText[index] ?? "";
+    const recoveryScanSource = maskCommentsAndStringsForRecovery(sourceText);
+    let index = 0;
+    while (index < sourceText.length) {
+        const character = recoveryScanSource[index] ?? "";
         if (!/\s/u.test(character)) {
+            index += 1;
             continue;
         }
 
-        const previousIndex = findPreviousNonWhitespaceIndex(sourceText, index - 1);
-        const nextIndex = findNextNonWhitespaceIndex(sourceText, index + 1);
+        const whitespaceRunStart = index;
+        while (index < sourceText.length && /\s/u.test(recoveryScanSource[index] ?? "")) {
+            index += 1;
+        }
+        const whitespaceRunEnd = index - 1;
+
+        const previousIndex = findPreviousNonWhitespaceIndex(recoveryScanSource, whitespaceRunStart - 1);
+        const nextIndex = findNextNonWhitespaceIndex(recoveryScanSource, whitespaceRunEnd + 1);
         if (previousIndex === -1 || nextIndex === -1) {
             continue;
         }
 
         if (
-            !isIdentifierCharacter(sourceText[previousIndex] ?? "") ||
-            !isIdentifierCharacter(sourceText[nextIndex] ?? "") ||
-            !isLikelyCallArgumentGap(sourceText, previousIndex)
+            !canTerminateArgumentExpression(recoveryScanSource[previousIndex] ?? "") ||
+            !canStartArgumentExpression(recoveryScanSource[nextIndex] ?? "") ||
+            !isLikelyCallArgumentGap(recoveryScanSource, previousIndex)
         ) {
             continue;
         }
 
-        chunks.push(sourceText.slice(copiedThrough, index), ",");
-        copiedThrough = index;
+        chunks.push(sourceText.slice(copiedThrough, whitespaceRunStart), ",");
+        copiedThrough = whitespaceRunStart;
 
-        const recoveredOffset = index + insertions.length;
+        const recoveredOffset = whitespaceRunStart + insertions.length;
         insertions.push({
             kind: INSERTED_ARGUMENT_SEPARATOR_KIND,
             recoveredOffset,
-            originalOffset: index,
+            originalOffset: whitespaceRunStart,
             insertedText: ","
         });
     }
