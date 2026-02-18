@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,28 @@ const allCapabilities = new Set([
     "LOOP_HOIST_NAME_RESOLUTION",
     "RENAME_CONFLICT_PLANNING"
 ]);
+
+function resolveLoopHoistIdentifierForTests(
+    preferredName: string,
+    localIdentifierNames: ReadonlySet<string>
+): string | null {
+    if (preferredName.length === 0) {
+        return null;
+    }
+
+    if (!localIdentifierNames.has(preferredName)) {
+        return preferredName;
+    }
+
+    for (let suffix = 1; suffix <= 1000; suffix += 1) {
+        const candidate = `${preferredName}_${suffix}`;
+        if (!localIdentifierNames.has(candidate)) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
 
 function parseProgramNode(code: string): Record<string, unknown> {
     const language = Lint.plugin.languages.gml as {
@@ -74,7 +96,22 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
         settings: {
             gml: {
                 project: {
-                    getContext: () => ({ capabilities: allCapabilities })
+                    getContext: () => ({
+                        capabilities: allCapabilities,
+                        isIdentifierNameOccupiedInProject: () => false,
+                        listIdentifierOccurrenceFiles: () => new Set<string>(),
+                        planFeatherRenames: (
+                            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
+                        ) =>
+                            requests.map((request) => ({
+                                identifierName: request.identifierName,
+                                preferredReplacementName: request.preferredReplacementName,
+                                safe: true,
+                                reason: null
+                            })),
+                        assessGlobalVarRewrite: () => ({ allowRewrite: true, reason: null }),
+                        resolveLoopHoistIdentifier: resolveLoopHoistIdentifierForTests
+                    })
                 }
             }
         },
@@ -132,41 +169,132 @@ async function readFixture(...segments: Array<string>): Promise<string> {
     return readFile(path.join(fixtureRoot, ...segments), "utf8");
 }
 
-void test("rule fixtures: diagnostics and safe fixers", async () => {
-    const nonFixRules = [
-        "prefer-loop-length-hoist",
-        "prefer-hoistable-loop-accessors"
-    ] as const;
+type FixturePair = Readonly<{
+    ruleName: string;
+    inputFilePath: string;
+    fixedFilePath: string;
+    relativeInputPath: string;
+    options: Record<string, unknown>;
+}>;
 
-    for (const ruleName of nonFixRules) {
-        const input = await readFixture(ruleName, "input.gml");
-        const result = lintWithRule(ruleName, input);
-        assert.equal(result.messages.length, 1, `${ruleName} should report exactly one diagnostic`);
+function normalizeFixtureRelativePath(absolutePath: string): string {
+    return path.relative(fixtureRoot, absolutePath).split(path.sep).join("/");
+}
+
+function deriveFixedFixturePath(inputFilePath: string): string | null {
+    const inputFileName = path.basename(inputFilePath);
+    if (inputFileName === "input.gml") {
+        return path.join(path.dirname(inputFilePath), "fixed.gml");
     }
 
-    const fixRules = [
-        "prefer-repeat-loops",
-        "prefer-struct-literal-assignments",
-        "optimize-logical-flow",
-        "no-globalvar",
-        "normalize-doc-comments",
-        "normalize-directives",
-        "require-control-flow-braces",
-        "no-assignment-in-condition",
-        "prefer-is-undefined-check",
-        "normalize-operator-aliases",
-        "prefer-string-interpolation",
-        "optimize-math-expressions",
-        "require-argument-separators",
-        "normalize-data-structure-accessors",
-        "require-trailing-optional-defaults"
-    ] as const;
+    const suffix = ".input.gml";
+    if (!inputFileName.endsWith(suffix)) {
+        return null;
+    }
 
-    for (const ruleName of fixRules) {
-        const input = await readFixture(ruleName, "input.gml");
-        const expected = await readFixture(ruleName, "fixed.gml");
-        const result = lintWithRule(ruleName, input, {});
-        assert.equal(result.output, expected, `${ruleName} should apply the local fixer`);
+    const stem = inputFileName.slice(0, -suffix.length);
+    return path.join(path.dirname(inputFilePath), `${stem}.fixed.gml`);
+}
+
+function deriveRuleNameFromFixturePath(inputFilePath: string): string {
+    const relativeDirectoryPath = path.relative(fixtureRoot, path.dirname(inputFilePath));
+    const relativeSegments = relativeDirectoryPath.split(path.sep).filter((segment) => segment.length > 0);
+    if (relativeSegments.length === 0) {
+        throw new Error(`Unable to derive rule name from fixture path: ${inputFilePath}`);
+    }
+
+    const [firstSegment, secondSegment] = relativeSegments;
+    if (firstSegment === "feather") {
+        const maybeFeatherRuleName = secondSegment ?? "";
+        const featherRuleMatch = /^gm\d{4}/u.exec(maybeFeatherRuleName);
+        if (!featherRuleMatch) {
+            throw new Error(`Unable to derive feather rule name from fixture path: ${inputFilePath}`);
+        }
+        return featherRuleMatch[0];
+    }
+
+    return firstSegment;
+}
+
+async function collectFixtureFilesRecursively(directoryPath: string): Promise<Array<string>> {
+    const entries = await readdir(directoryPath, { withFileTypes: true });
+    const files: Array<string> = [];
+    for (const entry of entries) {
+        const entryPath = path.join(directoryPath, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...(await collectFixtureFilesRecursively(entryPath)));
+            continue;
+        }
+
+        if (entry.isFile()) {
+            files.push(entryPath);
+        }
+    }
+    return files;
+}
+
+async function readFixtureOptions(fixtureDirectoryPath: string): Promise<Record<string, unknown>> {
+    const optionsPath = path.join(fixtureDirectoryPath, "options.json");
+    if (!existsSync(optionsPath)) {
+        return {};
+    }
+
+    const optionsJson = await readFile(optionsPath, "utf8");
+    const parsed = JSON.parse(optionsJson);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new TypeError(`Fixture options must be an object: ${normalizeFixtureRelativePath(optionsPath)}`);
+    }
+
+    return parsed as Record<string, unknown>;
+}
+
+async function collectFixturePairs(): Promise<Array<FixturePair>> {
+    const allFixtureFiles = await collectFixtureFilesRecursively(fixtureRoot);
+    const inputFixturePaths = allFixtureFiles.filter((filePath) => {
+        const relativePath = normalizeFixtureRelativePath(filePath);
+        if (relativePath.startsWith("feather/")) {
+            return false;
+        }
+
+        const fileName = path.basename(filePath);
+        return fileName === "input.gml" || fileName.endsWith(".input.gml");
+    });
+
+    const pairs: Array<FixturePair> = [];
+    for (const inputFilePath of inputFixturePaths) {
+        const fixedFilePath = deriveFixedFixturePath(inputFilePath);
+        if (!fixedFilePath || !existsSync(fixedFilePath)) {
+            continue;
+        }
+
+        const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
+        const options = await readFixtureOptions(path.dirname(inputFilePath));
+        pairs.push({
+            ruleName,
+            inputFilePath,
+            fixedFilePath,
+            relativeInputPath: normalizeFixtureRelativePath(inputFilePath),
+            options
+        });
+    }
+
+    return pairs.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
+}
+
+void test("all discovered fixture input/fixed pairs apply expected lint fixes", async () => {
+    const fixturePairs = await collectFixturePairs();
+    assert.equal(fixturePairs.length > 0, true, "Expected at least one fixture input/fixed pair.");
+
+    for (const fixturePair of fixturePairs) {
+        const input = await readFile(fixturePair.inputFilePath, "utf8");
+        const expected = await readFile(fixturePair.fixedFilePath, "utf8");
+        const result = lintWithRule(fixturePair.ruleName, input, fixturePair.options);
+
+        assert.equal(
+            result.output,
+            expected,
+            `${fixturePair.ruleName} should produce expected output for ${fixturePair.relativeInputPath}`
+        );
     }
 });
 
@@ -174,6 +302,20 @@ void test("prefer-struct-literal-assignments ignores non-identifier struct bases
     const input = await readFixture("prefer-struct-literal-assignments", "non-identifier-base.gml");
     const result = lintWithRule("prefer-struct-literal-assignments", input);
     assert.equal(result.messages.length, 0);
+});
+
+void test("prefer-struct-literal-assignments ignores duplicate property update clusters", () => {
+    const input = [
+        "function collide(other) {",
+        "    other.pos = other.pos.Add(step);",
+        "    other.pos = other.pos.Add(step2);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
@@ -308,8 +450,8 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
     assert.equal(result.output, expected);
 });
 
-void test("reportUnsafe=false suppresses unsafe-only diagnostics", async () => {
-    const input = 'message = "HP: " + string(random(99));\n';
+void test("reportUnsafe=false suppresses unsafe-only diagnostics", () => {
+    const input = 'message = "HP: " + string(_i++);\n';
     const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
     assert.equal(result.messages.length, 0);
 });
@@ -328,6 +470,13 @@ void test("prefer-string-interpolation rewrites string literal + string(variable
         ""
     ].join("\n");
 
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-string-interpolation rewrites string coercion calls with non-trivial expressions", () => {
+    const input = 'message = "HP: " + string(random(99));\n';
+    const expected = 'message = $"HP: {random(99)}";\n';
     const result = lintWithRule("prefer-string-interpolation", input, {});
     assert.equal(result.output, expected);
 });
@@ -374,29 +523,6 @@ void test("no-globalvar rewrites comma-separated declarations and identifier use
 
     const result = lintWithRule("no-globalvar", input, {});
     assert.equal(result.output, expected);
-});
-
-void test("migrated mixed fixture: testFlow rewrite ownership moved to lint", async () => {
-    const input = await readFixture("optimize-logical-flow", "testFlow.input.gml");
-    const expected = await readFixture("optimize-logical-flow", "testFlow.fixed.gml");
-    const result = lintWithRule("optimize-logical-flow", input, {});
-    assert.equal(result.output, expected);
-    assert.equal(result.messages.length, 1);
-});
-
-void test("migrated mixed fixture: testStructs rewrite ownership moved to lint", async () => {
-    const input = await readFixture("prefer-struct-literal-assignments", "testStructs.input.gml");
-    const expected = await readFixture("prefer-struct-literal-assignments", "testStructs.fixed.gml");
-    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("migrated mixed fixture: testIfBraces rewrite ownership moved to lint", async () => {
-    const input = await readFixture("no-globalvar", "testIfBraces.input.gml");
-    const expected = await readFixture("no-globalvar", "testIfBraces.fixed.gml");
-    const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.output, expected);
-    assert.equal(result.messages.length, 1);
 });
 
 void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {
@@ -462,15 +588,39 @@ void test("prefer-hoistable-loop-accessors reports the first matching accessor l
         "#macro STILE_PLATFORM_HEIGHT 120",
         "",
         "function demo(items) {",
-        "    var total = array_length(items);",
-        "    total += array_length(items);",
+        "    while (ready) {",
+        "        var total = array_length(items);",
+        "        total += array_length(items);",
+        "    }",
         "}",
         ""
     ].join("\n");
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input);
     assert.equal(result.messages.length, 1);
-    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 16 });
+    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 20 });
+});
+
+void test("prefer-hoistable-loop-accessors suppresses diagnostics for loops owned by prefer-loop-length-hoist", () => {
+    const input = [
+        "for (var i = 0; i < array_length(items); i++) {",
+        "    sum += array_length(items);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
+    assert.equal(result.messages.length, 0);
+});
+
+void test("prefer-loop-length-hoist reports unsafeFix when insertion requires brace synthesis", () => {
+    const input = ["if (ready)", "    for (var i = 0; i < array_length(items); i++) {", "        sum += 1;", "    }", ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("prefer-loop-length-hoist", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0]?.messageId, "unsafeFix");
 });
 
 void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
