@@ -9,17 +9,6 @@ import { Plugin } from "@gml-modules/plugin";
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
-const INTEGRATION_FIXTURE_NAMES = new Set([
-    "testComments",
-    "testFoo",
-    "testFormatting",
-    "testFunctions",
-    "testGM1012",
-    "testGM1100",
-    "testGlobalVars"
-]);
-const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>(INTEGRATION_FIXTURE_NAMES);
-const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
@@ -31,6 +20,7 @@ type IntegrationCase = {
     inputSource: string;
     expectedOutput: string;
     options: Record<string, unknown> | null;
+    expectParseError: boolean;
 };
 
 type IntegrationCaseFiles = {
@@ -87,6 +77,24 @@ async function tryLoadOptions(baseName: string): Promise<Record<string, unknown>
     return null;
 }
 
+function extractFixtureExpectations(
+    options: Record<string, unknown> | null
+): Readonly<{ options: Record<string, unknown> | null; expectParseError: boolean }> {
+    if (!options) {
+        return Object.freeze({
+            options: null,
+            expectParseError: false
+        });
+    }
+
+    const { expectParseError, ...pluginOptions } = options;
+    const hasPluginOptions = Object.keys(pluginOptions).length > 0;
+    return Object.freeze({
+        options: hasPluginOptions ? pluginOptions : null,
+        expectParseError: expectParseError === true
+    });
+}
+
 async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
     const entries = await fs.readdir(fixtureDirectory);
     const caseMap = new Map<string, IntegrationCaseFiles>();
@@ -98,10 +106,6 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
         if (entry.endsWith(`.input${fixtureExtension}`)) {
             const baseName = entry.replace(`.input${fixtureExtension}`, "");
-            if (!INTEGRATION_FIXTURE_NAMES.has(baseName)) {
-                continue;
-            }
-
             const existing = caseMap.get(baseName) ?? {};
             caseMap.set(baseName, { ...existing, inputFile: entry });
             continue;
@@ -109,10 +113,6 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
         if (entry.endsWith(`.output${fixtureExtension}`)) {
             const baseName = entry.replace(`.output${fixtureExtension}`, "");
-            if (!INTEGRATION_FIXTURE_NAMES.has(baseName)) {
-                continue;
-            }
-
             const existing = caseMap.get(baseName) ?? {};
             caseMap.set(baseName, { ...existing, outputFile: entry });
         }
@@ -132,17 +132,19 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 
             const inputPath = path.join(fixtureDirectory, inputFile);
             const outputPath = path.join(fixtureDirectory, outputFile);
-            const [inputSource, expectedOutput, options] = await Promise.all([
+            const [inputSource, expectedOutput, rawOptions] = await Promise.all([
                 fs.readFile(inputPath, fileEncoding),
                 readFixture(outputPath),
                 tryLoadOptions(baseName)
             ]);
+            const fixtureExpectations = extractFixtureExpectations(rawOptions);
 
             return {
                 baseName,
                 inputSource,
                 expectedOutput,
-                options
+                options: fixtureExpectations.options,
+                expectParseError: fixtureExpectations.expectParseError
             };
         })
     );
@@ -151,9 +153,9 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
 const integrationCases = await loadIntegrationCases();
 
 void describe("Plugin integration fixtures", () => {
-    for (const { baseName, inputSource, expectedOutput, options } of integrationCases) {
+    for (const { baseName, inputSource, expectedOutput, options, expectParseError } of integrationCases) {
         void it(`formats ${baseName}`, async () => {
-            if (EXPECTED_PARSE_ERROR_FIXTURE_NAMES.has(baseName)) {
+            if (expectParseError) {
                 await assert.rejects(
                     Plugin.format(inputSource, options ?? undefined),
                     (error: unknown) =>
@@ -167,10 +169,7 @@ void describe("Plugin integration fixtures", () => {
             const formatted = await Plugin.format(inputSource, options ?? undefined);
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
-
-            if (STRICT_EXPECTATION_FIXTURE_NAMES.has(baseName)) {
-                assert.strictEqual(canonicalizeFixtureText(formatted), canonicalizeFixtureText(expectedOutput));
-            }
+            assert.strictEqual(canonicalizeFixtureText(formatted), canonicalizeFixtureText(expectedOutput));
         });
     }
 });
