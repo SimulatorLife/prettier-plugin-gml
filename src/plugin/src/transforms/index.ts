@@ -89,4 +89,3 @@ export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
-export { CommentTracker } from "./utils/comment-tracker.js";

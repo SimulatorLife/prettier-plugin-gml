@@ -17,4 +17,5 @@ export {
     printDanglingComments,
     printDanglingCommentsAsGroup
 } from "./comment-printer.js";
+export { CommentTracker } from "./comment-tracker.js";
 export { formatDocLikeLineComment, normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
