@@ -22,7 +22,6 @@ import { tryAddSample } from "../cli-core/bounded-sample-collector.js";
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
-import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import {
     clearFormattingCache,
@@ -103,6 +102,7 @@ const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project
 const FORMAT_COMMAND_CHECK_EXAMPLE = `pnpm dlx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
+const TARGET_EXTENSIONS = Object.freeze([GML_EXTENSION]);
 
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
@@ -247,12 +247,6 @@ async function normalizeFormattedOutputWithPlugin(formatted: string, source: str
     return normalizer(formatted, source);
 }
 
-const DEFAULT_EXTENSIONS = resolveDefaultExtensions();
-
-function resolveDefaultExtensions() {
-    return normalizeExtensions(process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS, [GML_EXTENSION]);
-}
-
 // Default parse error action: abort formatting on parse errors unless the
 // environment override explicitly requests otherwise. Tests and consumers may
 // override this behaviour with PRETTIER_PLUGIN_GML_ON_PARSE_ERROR.
@@ -368,23 +362,6 @@ function configureConsoleMethods(logLevel: string): void {
 configureConsoleMethods(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL ?? DEFAULT_PRETTIER_LOG_LEVEL);
 
 export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
-    const extensionsOption = new Option(
-        "--extensions <extensions...>",
-        `File extensions to format. Supports space-separated, repeated, or comma-separated values (e.g., ${GML_EXTENSION} .yy or ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
-    )
-        .argParser((value, previous) => {
-            const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
-
-            if (previous === undefined) {
-                return normalized;
-            }
-
-            const priorValues = Array.isArray(previous) ? previous : compactArray([previous]);
-
-            return mergeUniqueValues(priorValues, normalized);
-        })
-        .default(undefined, formatExtensionListForDisplay(DEFAULT_EXTENSIONS));
-
     const { option: skippedDirectorySampleLimitOption, parseLimit: parseSkippedDirectoryLimit } =
         createConfiguredSampleLimitOption({
             flag: "--ignored-directory-sample-limit <count>",
@@ -424,7 +401,6 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")
         .option("--path <path>", "Directory or file to format (alias for positional argument).")
         .option("--check", "Check formatting without writing changes (dry-run mode)")
-        .addOption(extensionsOption)
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
         .addOption(ignoredFileSampleLimitOption)
@@ -454,8 +430,6 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         );
 }
 
-let targetExtensions = DEFAULT_EXTENSIONS;
-
 /**
  * Create a lookup set for extension comparisons while formatting.
  *
@@ -466,20 +440,8 @@ function createTargetExtensionSet(extensions) {
     return toNormalizedLowerCaseSet(extensions);
 }
 
-let targetExtensionSet = createTargetExtensionSet(targetExtensions);
-let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
-
-/**
- * Apply CLI configuration that influences which files are formatted.
- *
- * @param {readonly string[]} configuredExtensions
- */
-function configureTargetExtensionState(configuredExtensions) {
-    const fallbackExtensions = resolveDefaultExtensions();
-    targetExtensions = configuredExtensions.length > 0 ? configuredExtensions : fallbackExtensions;
-    targetExtensionSet = createTargetExtensionSet(targetExtensions);
-    placeholderExtension = targetExtensions[0] ?? fallbackExtensions[0];
-}
+const targetExtensionSet = createTargetExtensionSet(TARGET_EXTENSIONS);
+const placeholderExtension = TARGET_EXTENSIONS[0] ?? GML_EXTENSION;
 
 function shouldFormatFile(filePath) {
     const fileExtension = path.extname(filePath).toLowerCase();
@@ -1609,7 +1571,6 @@ function safeExistsSync(candidatePath) {
  * Configure global state for a formatting run based on CLI flags.
  *
  * @param {{
- *   configuredExtensions: readonly string[],
  *   prettierLogLevel: string,
  *   onParseError: string,
  *   skippedDirectorySampleLimit: number,
@@ -1618,7 +1579,6 @@ function safeExistsSync(candidatePath) {
  * }} params
  */
 async function prepareFormattingRun({
-    configuredExtensions,
     prettierLogLevel,
     onParseError,
     skippedDirectorySampleLimit,
@@ -1627,7 +1587,6 @@ async function prepareFormattingRun({
     checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
-    configureTargetExtensionState(configuredExtensions);
     skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
     ignoredFileSampleLimitAccessors.configureLimit(ignoredFileSampleLimit);
     unsupportedExtensionSampleLimitAccessors.configureLimit(unsupportedExtensionSampleLimit);
@@ -1709,7 +1668,7 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
             targetPath,
             targetIsDirectory,
             targetPathProvided,
-            extensions: targetExtensions
+            extensions: TARGET_EXTENSIONS
         });
     }
 
@@ -1746,7 +1705,6 @@ async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, or
 
 export async function runFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command, {
-        defaultExtensions: resolveDefaultExtensions(),
         defaultParseErrorAction: DEFAULT_PARSE_ERROR_ACTION,
         defaultPrettierLogLevel: DEFAULT_PRETTIER_LOG_LEVEL
     });
@@ -1778,7 +1736,6 @@ export async function runFormatCommand(command) {
     const originalInput = typeof targetPathInput === "string" ? targetPathInput : undefined;
 
     await prepareFormattingRun({
-        configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError,
         skippedDirectorySampleLimit,
@@ -1812,12 +1769,12 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
     const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
-              "Provide a directory or file containing GameMaker Language sources.",
+              `Provide a directory or file containing ${GML_EXTENSION} sources.`,
               exampleGuidance,
-              "Adjust --extensions or update your .prettierignore files if this is unexpected."
+              "Update your .prettierignore files if this is unexpected."
           ].join(" ")
         : [
-              "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
+              `Pass a ${GML_EXTENSION} file or a directory containing ${GML_EXTENSION} files, or adjust your .prettierignore files if this is unexpected.`,
               exampleGuidance
           ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
@@ -1853,7 +1810,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided,
         } else {
             console.log(
                 [
-                    `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                    `${locationDescription} does not match the supported extension ${formattedExtensions}.`,
                     nothingToFormatMessage,
                     guidance
                 ].join(" ")

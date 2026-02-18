@@ -149,6 +149,7 @@ void test("configureLintConfig defers discovered config selection to ESLint", as
     const exitCode = await __lintCommandTest__.configureLintConfig({
         eslintConstructorOptions,
         cwd: tempRoot,
+        targets: ["."],
         configPath: null,
         noDefaultConfig: false,
         quiet: true
@@ -166,14 +167,75 @@ void test("configureLintConfig applies bundled fallback when discovery finds no 
     const exitCode = await __lintCommandTest__.configureLintConfig({
         eslintConstructorOptions,
         cwd: tempRoot,
+        targets: ["."],
         configPath: null,
         noDefaultConfig: false,
         quiet: true
     });
 
     assert.equal(exitCode, 0);
-    assert.equal(eslintConstructorOptions.overrideConfigFile, undefined);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, true);
     assert.equal(Array.isArray(eslintConstructorOptions.overrideConfig), true);
+});
+
+void test("configureLintConfig disables config-file lookup when defaults are disabled and discovery finds no config", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-nodefault-"));
+    const eslintConstructorOptions: { overrideConfigFile?: string | true; overrideConfig?: unknown } = {};
+
+    const exitCode = await __lintCommandTest__.configureLintConfig({
+        eslintConstructorOptions,
+        cwd: tempRoot,
+        targets: ["."],
+        configPath: null,
+        noDefaultConfig: true,
+        quiet: true
+    });
+
+    assert.equal(exitCode, 0);
+    assert.equal(eslintConstructorOptions.overrideConfigFile, true);
+    assert.equal(eslintConstructorOptions.overrideConfig, undefined);
+});
+
+void test("external lint targets prefer bundled defaults over cwd config lookup", async () => {
+    assert.equal(
+        __lintCommandTest__.shouldPreferBundledDefaultsForExternalTargets({
+            cwd: "/Users/usr/gamemaker-language-parser",
+            targets: ["/Users/usr/GameMakerStudio2/MyGame"]
+        }),
+        true
+    );
+
+    assert.equal(
+        __lintCommandTest__.shouldPreferBundledDefaultsForExternalTargets({
+            cwd: "/Users/usr/gamemaker-language-parser",
+            targets: ["./src"]
+        }),
+        false
+    );
+});
+
+void test("resolveEslintCwd anchors external targets to their shared directory", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-resolve-cwd-"));
+    const workspaceRoot = path.join(tempRoot, "workspace");
+    const externalProjectRoot = path.join(tempRoot, "external", "MyGame");
+    await fs.mkdir(path.join(workspaceRoot, "src"), { recursive: true });
+    await fs.mkdir(externalProjectRoot, { recursive: true });
+
+    assert.equal(
+        __lintCommandTest__.resolveEslintCwd({
+            cwd: workspaceRoot,
+            targets: [externalProjectRoot]
+        }),
+        externalProjectRoot
+    );
+
+    assert.equal(
+        __lintCommandTest__.resolveEslintCwd({
+            cwd: workspaceRoot,
+            targets: ["./src"]
+        }),
+        workspaceRoot
+    );
 });
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {

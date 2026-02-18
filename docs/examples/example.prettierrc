@@ -1,0 +1,19 @@
+{
+  "plugins": ["@gml-modules/plugin"],
+  "overrides": [
+    {
+      "files": "*.gml",
+      "options": {
+        "parser": "gml-parse",
+        "printWidth": 150,
+        "tabWidth": 4,
+        "useTabs": false,
+        "semi": true,
+        "allowSingleLineIfStatements": false,
+        "logicalOperatorsStyle": "keywords",
+        "bracketSpacing": true,
+        "bracketSameLine": false
+      }
+    }
+  ]
+}

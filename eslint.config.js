@@ -547,6 +547,13 @@ export default [
             ]
         }
     },
+    {
+        // Add exception to allow our eslint config example .mjs file
+        files: ["docs/examples/example.eslint.config.mjs"],
+        rules: {
+            "no-restricted-syntax": "off"
+        }
+    },
 
     // All TS-related rules, presets, and overrides (scoped to **/*.ts)
     ...tsConfig,

@@ -1,7 +1,6 @@
 import { Core } from "@gml-modules/core";
 
 import type { CommanderCommandLike } from "./commander-types.js";
-import { normalizeExtensions } from "./extension-normalizer.js";
 
 const { getNonEmptyTrimmedString } = Core;
 
@@ -30,7 +29,6 @@ interface TargetPathResolution {
 }
 
 export interface CollectFormatCommandOptionsParameters {
-    defaultExtensions?: ReadonlyArray<string>;
     defaultParseErrorAction?: string;
     defaultPrettierLogLevel?: string;
 }
@@ -38,26 +36,11 @@ export interface CollectFormatCommandOptionsParameters {
 export interface FormatCommandOptionsResult extends FormatCommandSampleLimits, ResolvedPrettierConfiguration {
     targetPathInput: unknown;
     targetPathProvided: boolean;
-    extensions: Array<string>;
     rawTargetPathInput?: string;
     usage: string;
 }
 
 type CommandOptionsRecord = Record<string, unknown>;
-
-function resolveFormatCommandExtensions(
-    options: CommandOptionsRecord,
-    defaultExtensions: ReadonlyArray<string>
-): Array<string> {
-    const fallback = Array.from(defaultExtensions);
-    const raw = options?.extensions;
-
-    if (raw == null) {
-        return fallback;
-    }
-
-    return normalizeExtensions(raw as string | Iterable<string> | null | undefined, fallback);
-}
 
 function resolveFormatCommandSampleLimits(options: CommandOptionsRecord): FormatCommandSampleLimits {
     const source = options ?? {};
@@ -113,11 +96,7 @@ function resolveTargetPathInput(options: CommandOptionsRecord, args: Array<unkno
 
 export function collectFormatCommandOptions(
     command: CommanderCommandLike,
-    {
-        defaultExtensions = [],
-        defaultParseErrorAction,
-        defaultPrettierLogLevel
-    }: CollectFormatCommandOptionsParameters = {}
+    { defaultParseErrorAction, defaultPrettierLogLevel }: CollectFormatCommandOptionsParameters = {}
 ): FormatCommandOptionsResult {
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
     const args = Core.toMutableArray(command?.args, { clone: true });
@@ -132,12 +111,9 @@ export function collectFormatCommandOptions(
 
     const usage = typeof command?.helpInformation === "function" ? command.helpInformation() : "";
 
-    const defaultExtensionList = Array.from(defaultExtensions);
-
     return {
         targetPathInput,
         targetPathProvided,
-        extensions: resolveFormatCommandExtensions(options, defaultExtensionList),
         prettierLogLevel,
         onParseError,
         checkMode,

@@ -14,6 +14,10 @@ then return here for deeper context.
   tricky identifier examples and the legacy rollout workflow.
 - [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
   file tuned for common GameMaker metadata folders.
+- [Sample `.prettierrc`](examples/example.prettierrc) — Baseline Prettier
+  config for formatting `.gml` files in a GameMaker project.
+- [Sample `eslint.config.mjs`](examples/example.eslint.config.mjs) — Flat ESLint
+  config that composes the `@gml-modules/lint` presets (without TypeScript requirement)
 
 ## Usage & rollout
 - [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)

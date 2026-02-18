@@ -92,6 +92,73 @@ function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     return args.length > 0 ? args : ["."];
 }
 
+function isPathInsideDirectory(parameters: { directoryPath: string; candidatePath: string }): boolean {
+    const relativePath = path.relative(parameters.directoryPath, parameters.candidatePath);
+    return relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function shouldPreferBundledDefaultsForExternalTargets(parameters: {
+    cwd: string;
+    targets: ReadonlyArray<string>;
+}): boolean {
+    if (parameters.targets.length === 0) {
+        return false;
+    }
+
+    const cwdAbsolute = path.resolve(parameters.cwd);
+    return parameters.targets.every((target) => {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+        return !isPathInsideDirectory({ directoryPath: cwdAbsolute, candidatePath: absoluteTarget });
+    });
+}
+
+function findCommonAncestorDirectory(directoryPaths: ReadonlyArray<string>): string {
+    if (directoryPaths.length === 0) {
+        throw new Error("Expected at least one directory path to compute a common ancestor.");
+    }
+
+    let commonAncestor = path.resolve(directoryPaths[0]);
+    for (const directoryPath of directoryPaths.slice(1)) {
+        const candidateDirectory = path.resolve(directoryPath);
+
+        while (!isPathInsideDirectory({ directoryPath: commonAncestor, candidatePath: candidateDirectory })) {
+            const parentDirectory = path.dirname(commonAncestor);
+            if (parentDirectory === commonAncestor) {
+                return commonAncestor;
+            }
+            commonAncestor = parentDirectory;
+        }
+    }
+
+    return commonAncestor;
+}
+
+function resolveEslintCwd(parameters: { cwd: string; targets: ReadonlyArray<string> }): string {
+    if (!shouldPreferBundledDefaultsForExternalTargets(parameters)) {
+        return parameters.cwd;
+    }
+
+    const targetDirectories = parameters.targets.map((target) => {
+        const absoluteTarget = path.resolve(parameters.cwd, target);
+
+        try {
+            const stats = statSync(absoluteTarget);
+            if (stats.isDirectory()) {
+                return absoluteTarget;
+            }
+            if (stats.isFile()) {
+                return path.dirname(absoluteTarget);
+            }
+        } catch {
+            // For unmatched globs or future files, anchor at the parent directory.
+        }
+
+        return path.dirname(absoluteTarget);
+    });
+
+    return findCommonAncestorDirectory(targetDirectories);
+}
+
 function hasProjectManifest(directoryPath: string): boolean {
     try {
         const entries = readdirSync(directoryPath, { withFileTypes: true });
@@ -558,6 +625,7 @@ function createEslintConstructorOptions(cwd: string, fix: boolean): ConstructorP
 async function configureLintConfig(parameters: {
     eslintConstructorOptions: ConstructorParameters<typeof ESLint>[0];
     cwd: string;
+    targets: ReadonlyArray<string>;
     configPath: string | null;
     noDefaultConfig: boolean;
     quiet: boolean;
@@ -576,6 +644,21 @@ async function configureLintConfig(parameters: {
         return 0;
     }
 
+    const preferBundledDefaults = shouldPreferBundledDefaultsForExternalTargets({
+        cwd: parameters.cwd,
+        targets: parameters.targets
+    });
+    if (preferBundledDefaults) {
+        parameters.eslintConstructorOptions.overrideConfigFile = true;
+
+        if (parameters.noDefaultConfig) {
+            return 0;
+        }
+
+        parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
+        return 0;
+    }
+
     const discoveryResult = discoverFlatConfig(parameters.cwd);
     if (discoveryResult.selectedConfigPath) {
         // Intentionally let ESLint resolve and select the active config file natively.
@@ -585,10 +668,12 @@ async function configureLintConfig(parameters: {
     }
 
     if (parameters.noDefaultConfig) {
+        parameters.eslintConstructorOptions.overrideConfigFile = true;
         printNoConfigMessageIfNeeded({ quiet: parameters.quiet, searchedPaths: discoveryResult.searchedPaths });
         return 0;
     }
 
+    parameters.eslintConstructorOptions.overrideConfigFile = true;
     parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
     printFallbackMessageIfNeeded({
         quiet: parameters.quiet,
@@ -619,8 +704,9 @@ export function createLintCommand(): Command {
 export async function runLintCommand(command: CommanderCommandLike): Promise<void> {
     const options = resolveCommandOptions(command);
     const targets = normalizeLintTargets(command);
-    const cwd = process.cwd();
-    const eslintConstructorOptions = createEslintConstructorOptions(cwd, options.fix);
+    const commandCwd = process.cwd();
+    const eslintCwd = resolveEslintCwd({ cwd: commandCwd, targets });
+    const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.fix);
 
     if (!isSupportedFormatter(options.formatter)) {
         console.error(
@@ -632,7 +718,8 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     const configExitCode = await configureLintConfig({
         eslintConstructorOptions,
-        cwd,
+        cwd: commandCwd,
+        targets,
         configPath: options.config,
         noDefaultConfig: options.noDefaultConfig,
         quiet: options.quiet
@@ -646,7 +733,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
     try {
         invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
-            cwd,
+            cwd: commandCwd,
             targets,
             forcedProjectPath: options.project,
             indexAllowDirectories: options.indexAllow
@@ -662,7 +749,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     }
 
     const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
-        cwd,
+        cwd: commandCwd,
         forcedProjectPath: options.project,
         indexAllowDirectories: options.indexAllow,
         analysisProvider: invocationAnalysisProvider
@@ -786,6 +873,8 @@ export const __lintCommandTest__ = Object.freeze({
     hasOverlayRuleApplied,
     formatOverlayWarning,
     discoverFlatConfig,
+    resolveEslintCwd,
+    shouldPreferBundledDefaultsForExternalTargets,
     normalizeFormatterName,
     isSupportedFormatter,
     validateExplicitConfigPath,

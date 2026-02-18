@@ -1,636 +1,265 @@
-# Prettier Plugin for GameMaker Language
+# GameMaker Language Toolchain Monorepo
 
-> ⚠️ The formatter is experimental. Back up your GameMaker project or commit your work before running it across large codebases.
+This repository is the source monorepo for various GameMaker Language tools.
 
-## Formatter/Linter split (finalized)
+It contains:
+- a Prettier formatter plugin (`@gml-modules/plugin`)
+- an ESLint language plugin + rules (`@gml-modules/lint`)
+- a refactor engine (`@gml-modules/refactor`)
+- a **gml** to **js** transpiler (`@gml-modules/transpiler`)
+- HTML5-runtime live reloading (`@gml-modules/runtime-wrapper`)
+- parser, semantic analysis, and CLI workspaces
 
-- `@gml-modules/plugin` is formatter-only (layout/canonical rendering).
-- `@gml-modules/lint` owns semantic/content rewrites and syntax repair via diagnostics + optional `--fix`.
-- `@gml-modules/refactor` owns explicit rename/refactor transactions (cross-file edit planning/application).
-- Migration guidance and required before/after examples: [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md).
-- Auto-generated project-aware rule list: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md).
+## Table of contents
 
-Examples below are split by ownership domain so formatter behavior is not conflated with lint/refactor behavior.
+- [Formatter at a glance](#formatter-at-a-glance)
+- [Quick start](#quick-start)
+- [Architecture overview](#architecture-overview)
+- [Everyday commands](#everyday-commands)
+- [CLI wrapper environment knobs](#cli-wrapper-environment-knobs)
+- [Configuration reference](#configuration-reference)
+- [Development](#development)
+- [Documentation map](#documentation-map)
 
-#### Formatter example (plugin): struct layout & trailing comments
+## Formatter at a glance
 
-<table>
-<thead>
-<tr><th>Before</th><th>After</th></tr>
-</thead>
-<tbody>
-<tr>
-<td>
-
-```gml
-function trailing_comment() {
-    var stats = {};
-    stats.hp = 100; // base health
-    stats.mp = 50;
-    return stats;
-}
-```
-
-</td>
-<td>
+Formatter (`format`) does layout/canonical rendering only.
 
 ```gml
-function trailing_comment() {
+// input
+function demo(){var stats={}; stats.hp=100; stats.mp=50; return stats;}
+
+// formatted output
+function demo() {
     var stats = {
-        hp: 100, // base health
+        hp: 100,
         mp: 50
     };
     return stats;
 }
 ```
 
-</td>
-</tr>
-</tbody>
-</table>
-
-<p align="right"><sub><a href="src/plugin/test/fixtures/formatting/testStructs.input.gml">Input fixture</a> · <a href="src/plugin/test/fixtures/formatting/testStructs.output.gml">Output fixture</a></sub></p>
-
-#### Lint rewrite example (`lint --fix`): `gml/no-globalvar`
-
-<table>
-<thead>
-<tr><th>Before</th><th>After</th></tr>
-</thead>
-<tbody>
-<tr>
-<td>
+Lint (`lint --fix`) does semantic/content rewrites (rule-owned), for example `gml/no-globalvar`.
 
 ```gml
+// input
 globalvar score;
-```
 
-</td>
-<td>
-
-```gml
+// fixed output
 global.score = undefined;
 ```
 
-</td>
-</tr>
-</tbody>
-</table>
-
-<p align="right"><sub><a href="src/lint/test/fixtures/no-globalvar/input.gml">Input fixture</a> · <a href="src/lint/test/fixtures/no-globalvar/fixed.gml">Fixed fixture</a></sub></p>
-
----
-
-## Documentation map
-
-- [Documentation index](docs/README.md) &mdash; Jumping-off point for the design
-  notes, rollout guides, and metadata playbooks that live alongside the
-  formatter source. Each entry includes a short synopsis so you can scan for the
-  right level of detail.
-- [Sample `.prettierignore`](docs/examples/example.prettierignore) &mdash; Copy-
-  ready ignore rules tuned for common GameMaker metadata folders when
-  bootstrapping a project.
-- [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
-  step environment setup, validation commands, and a tour of the workspace
-  scripts for new contributors.
-- [Formatter/linter split plan](docs/formatter-linter-split-plan.md) &mdash; Canonical
-  ownership boundaries for formatter, lint, and refactor domains.
-- [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
-  scope trackers and project-index coordinator live in the dedicated
-  `gamemaker-language-semantic` workspace package.
-- [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point
-  for the GML → JavaScript emitter that will feed the live reload pipeline as
-  it matures.
-- [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
-  hooks that accept transpiler patches and swap them into the running HTML5
-  export.
-- [Refactor engine reference](src/refactor/README.md) &mdash; Domain reference for
-  semantic-safe cross-file rename/refactor transactions.
-- [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
-  rebuilding the generated parser sources with the vendored toolchain and
-  understanding where custom extensions live.
-- [Feather data plan](docs/feather-data-plan.md) &mdash; Scraper workflow for
-  keeping the generated metadata in `resources/` current, plus validation steps
-  for reviewing diffs before publishing updates. Use the
-  `generate-feather-metadata` CLI command to refresh the dataset.
-- [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
-  the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
-  during gameplay. The `watch` CLI command now integrates with the transpiler to
-  generate JavaScript patches when GML files change, providing the foundation for
-  hot-reload development. See [CLI README](src/cli/README.md) for usage details.
-- [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
-  ANTLR-based transpiler, semantic analysis, and dependency tracking that will
-  feed the live reloading pipeline.
-
----
+Project-aware rule inventory: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md)
 
 ## Quick start
 
-Confirm your runtime, then pick the install flow that matches how you plan to
-use the formatter.
+### 1) Prerequisites
 
-### 1. Verify prerequisites
+- Node.js `>=22.0.0` (workspace default in `.nvmrc` is `25.0.0`)
+- pnpm (`corepack enable pnpm`)
 
-- Node.js **25.0.0+**. Run `nvm use` against the bundled `.nvmrc` so local
-  tooling matches CI. The workspace enforces the same floor across the parser,
-  plugin, and CLI packages.
-- pnpm (install via `corepack enable pnpm` or your preferred installer). Double-check availability with `node -v` and
-  `pnpm -v`.
-
-<details>
-<summary><strong>Install Node.js with nvm</strong></summary>
+### 2) Clone and install
 
 ```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-export NVM_DIR="${XDG_CONFIG_HOME:-$HOME/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm install
+git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
+cd prettier-plugin-gml
 nvm use
-nvm alias default node
+pnpm install
 ```
 
-</details>
+### Format from a local clone
 
-### 2. Install in a GameMaker project
-
-1. Change into the directory that contains your `.yyp` file.
-2. Pick the distribution that matches your workflow and configure Prettier to
-   resolve the plugin consistently:
-
-   #### Option A — Published release (plugin only)
-
-   ```bash
-   pnpm add -D prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
-   ```
-
-   Add the plugin to your Prettier configuration so editor integrations and
-   `pnpm dlx prettier` share the same parser wiring:
-
-   ```json
-   {
-     "plugins": ["prettier-plugin-gamemaker"],
-     "overrides": [
-       {
-         "files": "*.gml",
-         "options": {
-           "parser": "gml-parse"
-         }
-       }
-     ]
-   }
-   ```
-
-   Create a convenience script when you want a single command to format a
-   project with the published package:
-
-   ```jsonc
-   {
-     "scripts": {
-       "format:gml": "prettier --plugin=prettier-plugin-gamemaker --write \"**/*.gml\""
-     }
-   }
-   ```
-
-   Run the script with `pnpm run format:gml -- --check` when you prefer dry-run
-   enforcement.
-
-   #### Option B — GitHub workspace / nightly build (includes CLI)
-
-   ```bash
-   pnpm add -D "prettier@^3" "antlr4@^4.13.2" \
-       github:SimulatorLife/prettier-plugin-gml#main
-   ```
-
-   Quote dependency specs in shells such as `zsh` so `^` is not treated as a
-   glob. Pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible CI
-   builds. The Git dependency ships the same packages as the workspace, so the
-   formatter entry point lives at `node_modules/root/src/plugin/src/plugin-entry.js` and
-   the CLI wrapper at `node_modules/root/src/cli/dist/index.js`.
-
-   ```jsonc
-   {
-     "plugins": [
-       "./node_modules/root/src/plugin/src/plugin-entry.js"
-     ]
-   }
-   ```
-
-   Wire up a wrapper script so every teammate launches the bundled CLI the same
-   way:
-
-   ```jsonc
-   {
-     "scripts": {
-       "format:gml": "node ./node_modules/root/src/cli/dist/index.js"
-     }
-   }
-   ```
-
-   Pass arguments with `pnpm run format:gml -- <flags>` so wrapper improvements
-   propagate automatically. See
-   [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for
-   overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
-   plugin into a temporary directory.
-
-   > Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
-
-3. Run the formatter. The wrapper defaults to the current working directory when
-   no path is provided. Pass `--help` to confirm which plugin entry was
-   resolved and which extensions will run.
-
-   ```bash
-   # Using the wrapper script you defined above
-   pnpm run format:gml
-   pnpm run format:gml -- --check
-   pnpm run format:gml -- --path . --extensions=.gml --extensions=.yy
-
-   # Direct access to the bundled CLI (Git installs)
-   node ./node_modules/root/src/cli/dist/index.js --help
-
-   # Direct access to Prettier (pnpm installs)
-   pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
-   ```
-
-### 3. Use a local clone
-
-1. Clone this repository and install dependencies:
-
-   ```bash
-   git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
-   cd prettier-plugin-gml
-   nvm use
-   pnpm install
-   ```
-
-2. Run the aggregated validation once to confirm your local install matches CI
-   before pointing the formatter at a project:
-
-   ```bash
-   pnpm run check
-   ```
-
-   The command runs the formatter smoke test, CI-mode lint, and the full Node.js
-   test suite so new workstations start from a known-good baseline. Consult the
-   [contributor onboarding checklist](docs/contributor-onboarding.md) for the
-   individual suite commands when you need targeted reruns.
-
-3. Format any GameMaker project without adding dependencies to that project. The
-   repository exposes a dedicated `format:gml` script that targets the CLI's
-   `format` command and defaults to the current working directory when no
-   arguments are provided. Provide the target path explicitly when formatting
-   elsewhere so the command formats the intended project:
-
-   ```bash
-   pnpm run format:gml -- /absolute/path/to/MyGame --extensions .gml --extensions .yy
-   ```
-
-   The wrapper also accepts an explicit `--path` flag when the target might be
-   mistaken for a command name or begins with a hyphen. Running
-   `pnpm run format:gml` without extra arguments formats the repository itself.
-
-   The wrapper:
-
-   - honours both repositories’ `.prettierrc` and `.prettierignore` files so
-     local overrides apply alongside project-specific ignore rules.
-   - prints skipped-file summaries with concrete examples of ignored,
-     unsupported, and symlinked paths, plus guidance when no files match the
-     configured extensions.
-   - lets you cap skip examples with
-     `--ignored-directory-sample-limit`/`--ignored-directory-samples`,
-     `--ignored-file-sample-limit`, and
-     `--unsupported-extension-sample-limit` or the matching
-     `PRETTIER_PLUGIN_GML_*_SAMPLE_LIMIT` environment variables.
-   - supports dry-run enforcement via `--check`, per-run parser recovery via
-     `--on-parse-error=skip|abort|revert`, and log-level overrides through
-     `--log-level` or their `PRETTIER_PLUGIN_GML_*` counterparts.
-   - summarizes parser failures at the end of a run so you know to inspect the
-     reported files and adjust the `--on-parse-error` strategy when needed.
-   - respects additional extension lists from repeated `--extensions` flags (for
-     example, `--extensions .gml --extensions .yy`) or the
-     `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable. Leave the
-     flag unset to target `.gml` files only.
-   - accepts either a positional path or the explicit `--path` option when you
-     need to format outside the current working directory.
-
-   Explore additional helpers with `pnpm run format:gml -- --help`,
-   `pnpm run cli -- --help`, or the dedicated
-   [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
-   include additional file types (for example, `--extensions .gml --extensions .yy`
-   to process both code and metadata files).
-
-<details>
-<summary><strong>Optional: global install</strong></summary>
+Use the repo CLI wrapper to format any GameMaker project path:
 
 ```bash
-pnpm add -g --save-exact prettier prettier-plugin-gamemaker
-prettier --plugin=prettier-plugin-gamemaker --write "**/*.gml"
+# format writes changes
+pnpm run format:gml -- /absolute/path/to/MyGame
+
+# check mode (no writes)
+pnpm run format:gml -- /absolute/path/to/MyGame --check
 ```
 
-If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale
-folders created by previous installs and retry.
+`format:gml` now targets `.gml` files only. The old `--extensions` option and
+`PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` override were removed because GameMaker
+Language source is canonical `.gml`, and extension configurability created
+unnecessary ambiguity.
 
-</details>
-
-### 4. Validate your setup
-
-Run these commands after dependency updates or when onboarding a new contributor.
-Add `--extensions` when your project stores `.yy` metadata alongside `.gml`.
-
-_Installed via pnpm_
+### Lint from a local clone
 
 ```bash
-pnpm dlx prettier --plugin=prettier-plugin-gamemaker --support-info
-pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
+# diagnostics only
+pnpm run cli -- lint /absolute/path/to/MyGame
+
+# diagnostics + autofix
+pnpm run cli -- lint /absolute/path/to/MyGame --fix
 ```
 
-_Installed from Git_
+### Refactor from a local clone
 
 ```bash
-pnpm dlx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --support-info
-pnpm dlx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --check "**/*.gml"
+# dry-run rename preview
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --dry-run
+
+# apply rename
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 ```
-
-The `--support-info` output should list `gml-parse` under "Parsers" when the
-plugin resolves correctly. Append `| grep gml-parse` on macOS or Linux, or use
-`| Select-String gml-parse` in PowerShell, to filter the output if you prefer a
-single-line confirmation.
-
-```bash
-pnpm run format:gml -- --extensions .gml --extensions .yy
-node ./node_modules/root/src/cli/dist/index.js --help
-pnpm run cli -- --help
-```
-
-Consult the archived [legacy identifier-case plan](docs/legacy-identifier-case-plan.md)
-when you need historical context for automated renames, bootstrap behaviour,
-cache hygiene, or dry-run reports. The active scope roadmap now resides in the
-[live reloading concept](docs/live-reloading-concept.md).
-
-### Contributor onboarding
-
-Ready to contribute code or documentation changes? Work through the
-[contributor onboarding checklist](docs/contributor-onboarding.md) for a guided
-environment setup, validation commands, and a tour of the most common workspace
-scripts before tackling feature work.
 
 ## Architecture overview
 
-The repository is organised as a multi-package workspace so the parser, plugin,
-and CLI can evolve together. Each package ships its own tests and CLI entry
-points while sharing utilities via the `src/shared/src/` module.
-
-| Package / folder | Location | Purpose |
+| Workspace | Path | Responsibility |
 | --- | --- | --- |
-| `@gml-modules/plugin` | `src/plugin/` | Prettier formatter surface (layout/canonical rendering only). |
-| `@gml-modules/lint` | `src/lint/` | ESLint language plugin + lint rules for diagnostics and semantic/content rewrites. |
-| `@gml-modules/refactor` | `src/refactor/` | Explicit cross-file rename/refactor transaction planning and application. |
-| `@gml-modules/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and parser tests. |
-| `@gml-modules/cli` | `src/cli/` | CLI entry points for format/lint/refactor/watch and metadata tooling. |
-| `@gml-modules/semantic` | `src/semantic/` | Analysis layer: project indexing, symbol/scope metadata, and occurrence discovery. |
-| `@gml-modules/core` | `src/core/` | Shared AST and utility primitives. |
-| `@gml-modules/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |
-| `@gml-modules/runtime-wrapper` | `src/runtime-wrapper/` | Browser runtime hooks for live reloading during HTML5 gameplay. |
-| Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
-| Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
+| `@gml-modules/plugin` | `src/plugin/` | Formatter-only Prettier plugin surface |
+| `@gml-modules/lint` | `src/lint/` | ESLint v9 language plugin + lint rules |
+| `@gml-modules/refactor` | `src/refactor/` | Cross-file refactor planning/application |
+| `@gml-modules/parser` | `src/parser/` | GML parsing (ANTLR + AST construction) |
+| `@gml-modules/semantic` | `src/semantic/` | Project indexing and semantic analysis |
+| `@gml-modules/transpiler` | `src/transpiler/` | GML -> JavaScript emission |
+| `@gml-modules/runtime-wrapper` | `src/runtime-wrapper/` | HTML5 runtime hot-reload bridge |
+| `@gml-modules/core` | `src/core/` | Shared AST/types/helpers |
+| `@gml-modules/cli` | `src/cli/` | Unified command-line entrypoints |
 
-### Lint vs Refactor ownership
+## Everyday commands
 
-- `@gml-modules/semantic` owns analysis: project indexing, symbol/scope metadata, and occurrence discovery.
-- `@gml-modules/refactor` owns change planning: semantic-safe rename validation and workspace edit plans.
-- `@gml-modules/plugin` is formatter-only (layout/canonical rendering) and does not own semantic/content rewrites.
-- `@gml-modules/lint` owns lint diagnostics plus semantic/content rewrites via rules and optional `--fix`.
-- `@gml-modules/cli` composes formatter, lint, and refactor command domains without merging ownership boundaries.
+```bash
+# full validation (format check + lint + tests)
+pnpm run check
 
-The `pnpm run format:gml` script wires the CLI wrapper to the workspace copy of
-Prettier so both local development and project integrations resolve the same
-plugin entry. Regeneration helpers such as `pnpm run build:gml-identifiers` and
-`pnpm run build:feather-metadata` refresh the datasets under `resources/` when the
-upstream GameMaker releases change. See the [Development](#development) section
-for the full suite of contributor commands.
+# full test suite
+pnpm test
 
-Each workspace keeps its implementation under a `src/` directory and colocates
-tests in a sibling `test/` directory. Generated assets stay sequestered under
-`generated/` (for example the ANTLR output in `src/parser/generated/`). When a
-package needs to publish transitional entry points, expose them via the
-package's exports map rather than introducing new top-level directories so the
-layout stays consistent.
+# targeted suites
+pnpm run test:plugin
+pnpm run test:lint
+pnpm run test:cli
 
-> **Note:** All developer-facing utilities live under `src/cli/src/commands/`.
-> When adding new helpers, expose them through the CLI instead of creating
-> stand-alone scripts so contributors have a single, discoverable entry point.
+# formatter
+pnpm run format:gml -- /path/to/project
 
----
+# lint
+pnpm run cli -- lint /path/to/project --fix
 
-## Everyday use
+# refactor
+pnpm run cli -- refactor --old-name old_name --new-name newName
 
-### Command-line snippets
+# hot-reload watch pipeline
+pnpm run cli -- watch /path/to/project --verbose
+```
 
-- Format everything in the current project:
+## CLI wrapper environment knobs
 
-  ```bash
-  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --write .
-  ```
+These are the most commonly used CLI environment overrides.
 
-- Dry-run formatting for CI or pre-commit checks:
+| Variable | Purpose |
+| --- | --- |
+| `PRETTIER_PLUGIN_GML_DEFAULT_ACTION` | Set default CLI action when no command is provided (`help` or `format`). |
+| `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` | Default parse error strategy for `format` (`abort`, `skip`, `revert`). |
+| `PRETTIER_PLUGIN_GML_LOG_LEVEL` | Default log level for formatter wrapper output. |
+| `PRETTIER_PLUGIN_GML_PLUGIN_PATH` / `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` | Override plugin entry-point resolution paths. |
+| `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` | Cap ignored-file samples in formatter summary output. |
+| `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` | Cap skipped-directory samples in formatter summary output. |
+| `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` | Cap unsupported-extension samples in formatter summary output. |
+| `WATCH_STATUS_HOST` / `WATCH_STATUS_PORT` | Defaults for `watch-status` endpoint queries. |
 
-  ```bash
-  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "rooms/**/*.gml"
-  ```
-
-- Format a single file:
-
-  ```bash
-  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --write scripts/player_attack.gml
-  ```
-
-- Use the wrapper helper (accepts the same flags as `pnpm run format:gml --`).
-  Pass the project or file you want to format explicitly:
-
-  ```bash
-  pnpm run cli path/to/project
-  ```
-
-- Preview formatting changes without writing them back:
-
-  ```bash
-  pnpm run cli --check path/to/project
-  ```
-
-- Discover supported flags or double-check defaults:
-
-  ```bash
-  pnpm run cli --help
-  ```
+Use `pnpm run cli -- <command> --help` for full option details.
 
 ## Configuration reference
 
-Keep overrides scoped to `.gml` files so other languages remain unaffected.
+### Formatter configuration
+
+The formatter is Prettier-based. Scope formatter config to `.gml` files.
 
 ```json
 {
-  "plugins": ["prettier-plugin-gamemaker"],
   "overrides": [
     {
       "files": "*.gml",
       "options": {
+        "parser": "gml-parse",
         "printWidth": 120,
         "tabWidth": 4,
-        "semi": true
+        "semi": true,
+        "allowSingleLineIfStatements": false,
+        "logicalOperatorsStyle": "keywords"
       }
     }
   ]
 }
 ```
 
-Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
+Current formatter-specific options exposed by `@gml-modules/plugin`:
+- `allowSingleLineIfStatements`
+- `logicalOperatorsStyle` (`"keywords"` or `"symbols"`)
 
-### Plugin-specific options
+### Lint configuration
 
-#### Core formatter behaviour
+Use the lint workspace presets in flat ESLint config:
 
-Optional parameters that rely on implicit `undefined` defaults are normalized: redundant `= undefined` sentinels are stripped from regular function declarations, while constructors and explicitly optional parameters keep the sentinel intact.
+```ts
+import { Lint } from "@gml-modules/lint";
 
-Template strings that never interpolate expressions automatically collapse back to regular quoted strings, stripping the `$` prefix so placeholder-free text stays concise.
-
-| Option | Default | Summary |
-| --- | --- | --- |
-| `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only `return;` and `exit;` guard statements inside functions stay collapsed; other guard statements expand across multiple lines. |
-| `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
-
-Semantic/content rewrites previously exposed as formatter options were migrated to lint rules and are now performed through `lint --fix` (for example `gml/no-globalvar`, `gml/prefer-loop-length-hoist`, `gml/prefer-string-interpolation`, `gml/normalize-doc-comments`, `gml/require-argument-separators`).
-
-Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
-
-> **Note:** The formatter intentionally enforces opinionated formatting for whitespace/line breaks. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
-
-Bare struct literals now respect Prettier's [`objectWrap`](https://prettier.io/docs/en/options.html#object-wrap) option introduced in v3.5.0. When formatting GML, the plugin maps the behaviour directly onto struct literals:
-
-- `objectWrap: "preserve"` (default) keeps the literal multi-line when the original source placed a newline immediately after `{`.
-- `objectWrap: "collapse"` inlines eligible literals onto a single line when they fit within the configured `printWidth`.
-
-```gml
-// objectWrap: "preserve"
-var enemy = {
-    name: "Slime",
-    hp: 5
-};
-
-// objectWrap: "collapse"
-var enemy = {name: "Slime", hp: 5};
+export default [...Lint.configs.recommended];
 ```
 
-Bare decimal literals always gain a leading zero, while empty or redundant
-fractional parts are dropped (for example, `.5` becomes `0.5` and `1.` or
-`1.000` becomes `1`) to mirror GameMaker's canonical numeric output and keep
-formatting stable.
+Common composition:
 
-Banner line comments that open with long runs of `/` characters are rewritten
-into concise `//` comments. The formatter strips decorative separators (for
-example `-----` or `====`) and collapses the remaining text to a single line;
-rows that contain only decoration disappear. This mirrors Prettier's handling of
-ASCII art headers so the output emphasizes the descriptive message instead of
-banner scaffolding.
+```ts
+import { Lint } from "@gml-modules/lint";
 
-#### Project discovery & cache controls
+export default [
+    ...Lint.configs.recommended,
+    ...Lint.configs.feather,
+    ...Lint.configs.performance
+];
+```
 
-The semantic subsystem coordinates project detection and cache persistence when
-identifier casing is enabled. Use these options in tandem with the
-[`src/semantic/README.md`](src/semantic/README.md) reference to keep CI and
-monorepos predictable:
-
-| Option | Default | Summary |
-| --- | --- | --- |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-
-Project index discovery, cache tuning, and concurrency controls live under
-the [semantic subsystem](src/semantic/README.md) alongside scope-tracking
-entry points.
-
----
+See [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md) for pinned lint/format ownership contracts.
 
 ## Development
 
-### Repository layout (simplified)
-
-```text
-prettier-plugin-gml/
-├─ src/parser/            # ANTLR grammar, generated parser
-├─ src/plugin/            # Prettier plugin source, printer
-├─ src/semantic/          # Scope trackers, project index coordinator
-├─ src/refactor/          # Automated GML-project refactoring utilities (renaming identifiers, etc.)
-├─ src/runtime-wrapper/   # Wraps the GML HTML5 runtime
-├─ src/core/              # Shared/core utilities and types (AST helpers, string helpers, file helpers, etc.)
-├─ src/cli/               # Command-line interface for all developer-facing utilities
-├─ src/transpiler/        # Transpiles/emits JS from GML ASTs
-├─ resources/             # Generated GML data consumed by various modules, ANTLR jar file
-├─ vendor/                # Submodules for GameMaker runtime assets and demo projects
-└─ docs/                  # Design notes and guides
-```
-
-### Set up the workspace
+### Setup
 
 ```bash
-git submodule update --init --recursive # pulls vendor/GameMaker-* runtime assets plus 3DSpider demo project
-nvm use # aligns your Node.js version with the workspace baseline
-pnpm install # installs dependencies from pnpm-lock.yaml
+git submodule update --init --recursive
+nvm use
+pnpm install
 ```
 
-If you prefer rerunning `pnpm install`, validate that `pnpm-lock.yaml` is up to date beforehand. The initial install wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `pnpm run format` and `pnpm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
-
-### Commands Overview
+### Common scripts
 
 ```bash
-# Run all tests
-pnpm test
-
-# Run tests for each package individually
-pnpm run test:plugin
-pnpm run test:parser
-# etc.
-
-# Run linting and formatting checks
-pnpm run lint:fix
-pnpm run format
+pnpm run build:ts
 pnpm run lint:ci
-
-# Generate unit test report, checkstyle report, code coverage report, etc.
-pnpm run report
-
-# Regenerate metadata snapshots
-pnpm run build:gml-identifiers
-pnpm run build:feather-metadata
-
-# Regenerate the parser grammar
-# Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run:
-pnpm run build:antlr
-
-# Audit repository formatting without writes
 pnpm run format:check
-
-# Explore CLI utilities without switching directories
+pnpm run report
 pnpm run cli -- --help
-
-# Run the benchmarking helper
-pnpm run cli -- memory
-
-# Forward options through script separators safely
-pnpm run cli -- format -- --check
-
-# Run the hot-reload watcher against the 3DSpider demo (injects wrapper into the latest HTML5 output)
-pnpm run demo:watch
 ```
 
-See [package.json](package.json) for the full list of available scripts.
+### Workspace shape
 
----
+Each workspace follows:
+- `package.json`
+- `index.ts`
+- `tsconfig.json`
+- `src/`
+- `test/`
+
+Generated artifacts live in `dist/` and are disposable.
+
+## Documentation map
+
+Start here for deeper context and plans:
+
+- [`docs/README.md`](docs/README.md) (documentation index)
+- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md)
+- [`docs/formatter-linter-split-implementation-notes.md`](docs/formatter-linter-split-implementation-notes.md)
+- [`src/cli/README.md`](src/cli/README.md)
+- [`src/semantic/README.md`](src/semantic/README.md)
+- [`src/refactor/README.md`](src/refactor/README.md)
+- [`docs/live-reloading-concept.md`](docs/live-reloading-concept.md)
 
 ## References / Tools / Docs
 
-- [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
-- [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
-- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-- [Gemini CLI Configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md)
+- [ANTLR4 Grammar Syntax Support (VS Code)](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
+- [GML Support (VS Code)](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
+- [Prettier (VS Code)](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [jscpd CLI](https://github.com/kucherenko/jscpd/tree/master/apps/jscpd)

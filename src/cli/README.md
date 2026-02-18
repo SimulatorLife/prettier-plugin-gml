@@ -43,19 +43,21 @@ Ownership summary:
 Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling.
 
 ```bash
-pnpm run cli -- format path/to/project --extensions .gml
+pnpm run cli -- format path/to/project
 ```
 
 **Options:**
-- `--extensions <ext...>` - File extensions to format (default: `.gml`)
 - `--check` - Check if files are formatted without writing changes
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
 
+`format` now targets `.gml` files only. Extension overrides were removed to keep
+the formatter aligned with GameMaker's canonical source extension and avoid
+inconsistent multi-extension formatting behavior.
+
 **Environment Variables:**
-- `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` - Default extensions when flag omitted
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
 

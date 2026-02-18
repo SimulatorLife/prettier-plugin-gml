@@ -190,72 +190,24 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
-    void it("derives default extensions from the environment when configured", async () => {
+    void it("always formats only .gml files even when extension override env vars are set", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
-            const targetFile = path.join(tempDirectory, "script.txt");
-            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
-
-            const env = {
-                ...process.env,
-                PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: ".txt"
-            };
-
-            await execFileAsync("node", [wrapperPath, tempDirectory], { env });
-
-            const formatted = await fs.readFile(targetFile, "utf8");
-            assert.strictEqual(formatted, "var a = 1;\n");
-        } finally {
-            await fs.rm(tempDirectory, { recursive: true, force: true });
-        }
-    });
-
-    void it("normalizes glob patterns in default extension environment overrides", async () => {
-        const tempDirectory = await createTemporaryDirectory();
-
-        try {
-            const gmlFile = path.join(tempDirectory, "example.GML");
-            const txtFile = path.join(tempDirectory, "extra.txt");
+            const gmlFile = path.join(tempDirectory, "script.gml");
+            const txtFile = path.join(tempDirectory, "script.txt");
             await fs.writeFile(gmlFile, "var    a=1;\n", "utf8");
             await fs.writeFile(txtFile, "var    b=2;\n", "utf8");
 
             const env = {
                 ...process.env,
-                PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: "**/*.GML,*.txt"
+                PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: ".txt,.scr"
             };
 
             await execFileAsync("node", [wrapperPath, tempDirectory], { env });
 
-            const formattedGml = await fs.readFile(gmlFile, "utf8");
-            const formattedTxt = await fs.readFile(txtFile, "utf8");
-            assert.strictEqual(formattedGml, "var a = 1;\n");
-            assert.strictEqual(formattedTxt, "var b = 2;\n");
-        } finally {
-            await fs.rm(tempDirectory, { recursive: true, force: true });
-        }
-    });
-
-    void it("recognizes whitespace-separated default extension overrides", async () => {
-        const tempDirectory = await createTemporaryDirectory();
-
-        try {
-            const gmlFile = path.join(tempDirectory, "example.gml");
-            const txtFile = path.join(tempDirectory, "extra.txt");
-            await fs.writeFile(gmlFile, "var    a=1;\n", "utf8");
-            await fs.writeFile(txtFile, "var    b=2;\n", "utf8");
-
-            const env = {
-                ...process.env,
-                PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: ".gml    .txt"
-            };
-
-            await execFileAsync("node", [wrapperPath, tempDirectory], { env });
-
-            const formattedGml = await fs.readFile(gmlFile, "utf8");
-            const formattedTxt = await fs.readFile(txtFile, "utf8");
-            assert.strictEqual(formattedGml, "var a = 1;\n");
-            assert.strictEqual(formattedTxt, "var b = 2;\n");
+            assert.strictEqual(await fs.readFile(gmlFile, "utf8"), "var a = 1;\n");
+            assert.strictEqual(await fs.readFile(txtFile, "utf8"), "var    b=2;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -322,37 +274,18 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
-    void it("formats files when a custom extension is provided", async () => {
+    void it("rejects --extensions because format always targets .gml files", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
-            const targetFile = path.join(tempDirectory, "script.txt");
-            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
-
-            await execFileAsync("node", [wrapperPath, "--extensions=.txt", tempDirectory]);
-
-            const formatted = await fs.readFile(targetFile, "utf8");
-            assert.strictEqual(formatted, "var a = 1;\n");
-        } finally {
-            await fs.rm(tempDirectory, { recursive: true, force: true });
-        }
-    });
-
-    void it("merges repeated --extensions flags", async () => {
-        const tempDirectory = await createTemporaryDirectory();
-
-        try {
-            const firstFile = path.join(tempDirectory, "alpha.txt");
-            const secondFile = path.join(tempDirectory, "beta.scr");
-            await fs.writeFile(firstFile, "var    a=1;\n", "utf8");
-            await fs.writeFile(secondFile, "var    b=2;\n", "utf8");
-
-            await execFileAsync("node", [wrapperPath, "--extensions=.txt", "--extensions=.scr", tempDirectory]);
-
-            const formattedFirst = await fs.readFile(firstFile, "utf8");
-            const formattedSecond = await fs.readFile(secondFile, "utf8");
-            assert.strictEqual(formattedFirst, "var a = 1;\n");
-            assert.strictEqual(formattedSecond, "var b = 2;\n");
+            try {
+                await execFileAsync("node", [wrapperPath, "--extensions=.txt", tempDirectory]);
+                assert.fail("Expected the wrapper to reject unknown options");
+            } catch (error) {
+                assert.ok(error, "Expected an error to be thrown");
+                assert.strictEqual(error.code, 1);
+                assert.match(error.stderr, /unknown option '--extensions=\.txt'/i);
+            }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -1135,7 +1068,7 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
-    void it("informs the user when no files match the configured extensions", async () => {
+    void it("informs the user when no .gml files are found", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
