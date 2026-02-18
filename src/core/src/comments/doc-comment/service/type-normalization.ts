@@ -130,6 +130,24 @@ export function restoreDefaultDocCommentTypeNormalizationResolver() {
     return resolveDocCommentTypeNormalization();
 }
 
+/**
+ * Replaces legacy JSDoc/GML tag aliases with their canonical tag names
+ * without mutating type annotation spellings or other metadata text.
+ */
+export function applyJsDocTagAliasReplacements(text: unknown) {
+    if (typeof text !== "string") {
+        return text;
+    }
+
+    let normalizedText: string = text;
+    for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
+        regex.lastIndex = 0;
+        normalizedText = normalizedText.replace(regex, `$1${replacement}`);
+    }
+
+    return normalizedText;
+}
+
 export function applyJsDocReplacements(text: unknown) {
     const isStringText = typeof text === STRING_TYPE;
     const shouldStripEmptyParams = isStringText && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text as string);
@@ -138,10 +156,9 @@ export function applyJsDocReplacements(text: unknown) {
 
     if (isStringText) {
         let stringText: string = shouldStripEmptyParams ? (text as string).replace(/\(\)\s*$/, "") : (text as string);
-
-        for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
-            regex.lastIndex = 0;
-            stringText = stringText.replace(regex, `$1${replacement}`);
+        const aliasReplacedText = applyJsDocTagAliasReplacements(stringText);
+        if (typeof aliasReplacedText === "string") {
+            stringText = aliasReplacedText;
         }
 
         stringText = stripTrailingFunctionParameters(stringText);

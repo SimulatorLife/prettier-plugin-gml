@@ -1241,7 +1241,7 @@ function normalizeDocCommentPrefixLine(line: string): string {
 type FunctionDocCommentTarget = Readonly<{
     indentation: string;
     functionName: string;
-    parameterNames: ReadonlyArray<string>;
+    parameters: ReadonlyArray<FunctionDocCommentParameterDefinition>;
 }>;
 
 type TrailingDocCommentBlock = Readonly<{
@@ -1249,14 +1249,34 @@ type TrailingDocCommentBlock = Readonly<{
     lines: ReadonlyArray<string>;
 }>;
 
+type FunctionDocCommentParameterDefinition = Readonly<{
+    sourceName: string;
+    defaultExpression: string | null;
+}>;
+
+type SyntheticDocCommentNodeWithSourceSpan = Readonly<{
+    _docSourceStart?: number;
+    _docSourceEnd?: number;
+}>;
+
 type SyntheticDocCommentParameterNode = Readonly<{
     type: "Identifier";
     name: string;
-}>;
+}> &
+    SyntheticDocCommentNodeWithSourceSpan;
+
+type SyntheticDocCommentDefaultParameterNode = Readonly<{
+    type: "DefaultParameter";
+    left: SyntheticDocCommentParameterNode;
+    right: SyntheticDocCommentParameterNode;
+}> &
+    SyntheticDocCommentNodeWithSourceSpan;
+
+type SyntheticDocCommentParameterLikeNode = SyntheticDocCommentParameterNode | SyntheticDocCommentDefaultParameterNode;
 
 type SyntheticDocCommentFunctionNode = Readonly<{
     type: "FunctionDeclaration";
-    params: ReadonlyArray<SyntheticDocCommentParameterNode>;
+    params: ReadonlyArray<SyntheticDocCommentParameterLikeNode>;
     body: Readonly<{
         type: "BlockStatement";
         body: ReadonlyArray<unknown>;
@@ -1267,20 +1287,54 @@ function toDocCommentParameterName(parameterName: string): string {
     return parameterName.replace(/^_+/u, "");
 }
 
-function parseFunctionParameterNames(parameterListText: string): Array<string> {
-    const parameterNames = parameterListText
-        .split(",")
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0)
-        .map((segment) => {
-            const equalsIndex = segment.indexOf("=");
-            const withoutDefault = equalsIndex === -1 ? segment : segment.slice(0, equalsIndex);
-            return withoutDefault.replace(/^\.\.\./u, "").trim();
-        })
-        .filter((parameterName) => /^[A-Za-z_][A-Za-z0-9_]*$/u.test(parameterName))
-        .map((parameterName) => toDocCommentParameterName(parameterName));
+function parseFunctionParameterDefinitions(parameterListText: string): Array<FunctionDocCommentParameterDefinition> {
+    const parameterDefinitions: Array<FunctionDocCommentParameterDefinition> = [];
+    const seenParameterNames = new Set<string>();
 
-    return [...new Set(parameterNames)];
+    for (const parameterSegment of splitTopLevelCommaSegments(parameterListText)) {
+        const trimmedSegment = parameterSegment.trim();
+        if (trimmedSegment.length === 0) {
+            continue;
+        }
+
+        const normalizedSegment = trimmedSegment.replace(/^\.\.\./u, "").trim();
+        const defaultMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/u.exec(normalizedSegment);
+        if (defaultMatch) {
+            const sourceName = defaultMatch[1];
+            const canonicalName = toDocCommentParameterName(sourceName);
+            if (seenParameterNames.has(canonicalName)) {
+                continue;
+            }
+
+            seenParameterNames.add(canonicalName);
+            parameterDefinitions.push(
+                Object.freeze({
+                    sourceName,
+                    defaultExpression: defaultMatch[2].trim()
+                })
+            );
+            continue;
+        }
+
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(normalizedSegment)) {
+            continue;
+        }
+
+        const canonicalName = toDocCommentParameterName(normalizedSegment);
+        if (seenParameterNames.has(canonicalName)) {
+            continue;
+        }
+
+        seenParameterNames.add(canonicalName);
+        parameterDefinitions.push(
+            Object.freeze({
+                sourceName: normalizedSegment,
+                defaultExpression: null
+            })
+        );
+    }
+
+    return parameterDefinitions;
 }
 
 function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget | null {
@@ -1292,7 +1346,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
         return {
             indentation: declarationMatch[1],
             functionName: declarationMatch[2],
-            parameterNames: parseFunctionParameterNames(declarationMatch[3])
+            parameters: parseFunctionParameterDefinitions(declarationMatch[3])
         };
     }
 
@@ -1307,7 +1361,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     return {
         indentation: assignmentMatch[1],
         functionName: assignmentMatch[2],
-        parameterNames: parseFunctionParameterNames(assignmentMatch[3])
+        parameters: parseFunctionParameterDefinitions(assignmentMatch[3])
     };
 }
 
@@ -1338,38 +1392,18 @@ function isFunctionNamePlaceholderDescription(line: string, functionName: string
 
 function canonicalizeDocCommentTagAliases(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
     return docLines.map((line) => {
-        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
-        if (!metadata) {
+        if (!/^\s*\/\/\//u.test(line)) {
             return line;
         }
 
-        const indentationMatch = /^(\s*)\/\/\//u.exec(line);
-        const indentation = indentationMatch?.[1] ?? "";
-
-        if (metadata.tag === "arg" || metadata.tag === "argument") {
-            if (typeof metadata.name !== "string") {
-                return line;
-            }
-
-            const typePrefix =
-                typeof metadata.type === "string" && metadata.type.trim().length > 0
-                    ? ` {${metadata.type.trim()}}`
-                    : "";
-            const descriptionText =
-                typeof metadata.description === "string" && metadata.description.trim().length > 0
-                    ? ` - ${metadata.description.trim()}`
-                    : "";
-            return `${indentation}/// @param${typePrefix} ${metadata.name.trim()}${descriptionText}`.trimEnd();
-        }
-
-        if (metadata.tag === "return") {
-            const returnsText = typeof metadata.name === "string" ? metadata.name.trim() : "";
-            const returnsSuffix = returnsText.length > 0 ? ` ${returnsText}` : "";
-            return `${indentation}/// @returns${returnsSuffix}`;
-        }
-
-        return line;
+        const normalizedLine = CoreWorkspace.Core.applyJsDocTagAliasReplacements(line);
+        return typeof normalizedLine === "string" ? normalizedLine : line;
     });
+}
+
+function isFunctionDocCommentTagLine(line: string): boolean {
+    const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
+    return metadata?.tag === "function" || metadata?.tag === "func";
 }
 
 function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -1416,57 +1450,92 @@ function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): Rea
     return alignedLines;
 }
 
-function createSyntheticDocCommentFunctionNode(target: FunctionDocCommentTarget): SyntheticDocCommentFunctionNode {
-    const params: ReadonlyArray<SyntheticDocCommentParameterNode> = target.parameterNames.map((parameterName) => ({
-        type: "Identifier",
-        name: parameterName
-    }));
-
-    return {
-        type: "FunctionDeclaration",
-        params,
-        body: {
-            type: "BlockStatement",
-            body: []
-        }
-    };
-}
-
-type ExistingDocCommentState = Readonly<{
-    paramCanonicalNames: ReadonlySet<string>;
-    hasReturnsTag: boolean;
+type SyntheticDocCommentFunctionBuildResult = Readonly<{
+    functionNode: SyntheticDocCommentFunctionNode;
+    syntheticSourceText: string;
 }>;
 
-function collectExistingDocCommentState(docLines: ReadonlyArray<string>): ExistingDocCommentState {
-    const paramCanonicalNames = new Set<string>();
-    let hasReturnsTag = false;
-
-    for (const line of docLines) {
-        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
-        if (!metadata) {
-            continue;
-        }
-
-        if (metadata.tag === "return" || metadata.tag === "returns") {
-            hasReturnsTag = true;
-            continue;
-        }
-
-        if (
-            (metadata.tag === "param" || metadata.tag === "arg" || metadata.tag === "argument") &&
-            typeof metadata.name === "string"
-        ) {
-            const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
-            if (canonicalName) {
-                paramCanonicalNames.add(canonicalName);
-            }
-        }
+function getSyntheticDocCommentNodeSourceStart(node: unknown): number {
+    if (!isObjectLike(node)) {
+        return -1;
     }
 
-    return {
-        paramCanonicalNames,
-        hasReturnsTag
-    };
+    const sourceNode = node as { _docSourceStart?: unknown };
+    return typeof sourceNode._docSourceStart === "number" ? sourceNode._docSourceStart : -1;
+}
+
+function getSyntheticDocCommentNodeSourceEnd(node: unknown): number {
+    if (!isObjectLike(node)) {
+        return -1;
+    }
+
+    const sourceNode = node as { _docSourceEnd?: unknown };
+    return typeof sourceNode._docSourceEnd === "number" ? sourceNode._docSourceEnd : -1;
+}
+
+function createSyntheticDocCommentFunctionNode(target: FunctionDocCommentTarget): SyntheticDocCommentFunctionBuildResult {
+    const params: Array<SyntheticDocCommentParameterLikeNode> = [];
+    const syntheticSourceSegments: Array<string> = [];
+    let syntheticSourceText = "";
+
+    for (const parameter of target.parameters) {
+        if (syntheticSourceText.length > 0) {
+            syntheticSourceText += ", ";
+        }
+
+        const segmentStart = syntheticSourceText.length;
+        const sourceName = parameter.sourceName;
+        if (parameter.defaultExpression === null) {
+            syntheticSourceText += sourceName;
+            params.push(
+                Object.freeze({
+                    type: "Identifier",
+                    name: sourceName
+                })
+            );
+            syntheticSourceSegments.push(sourceName);
+            continue;
+        }
+
+        const serializedParameter = `${sourceName} = ${parameter.defaultExpression}`;
+        const defaultStart = segmentStart + sourceName.length + " = ".length;
+        const defaultEnd = defaultStart + parameter.defaultExpression.length;
+        syntheticSourceText += serializedParameter;
+
+        const identifierNode = Object.freeze({
+            type: "Identifier",
+            name: sourceName
+        }) as SyntheticDocCommentParameterNode;
+        const defaultValueNode = Object.freeze({
+            type: "Identifier",
+            name: parameter.defaultExpression,
+            _docSourceStart: defaultStart,
+            _docSourceEnd: defaultEnd
+        }) as SyntheticDocCommentParameterNode;
+
+        params.push(
+            Object.freeze({
+                type: "DefaultParameter",
+                left: identifierNode,
+                right: defaultValueNode,
+                _docSourceStart: segmentStart,
+                _docSourceEnd: segmentStart + serializedParameter.length
+            })
+        );
+        syntheticSourceSegments.push(serializedParameter);
+    }
+
+    return Object.freeze({
+        functionNode: Object.freeze({
+            type: "FunctionDeclaration",
+            params,
+            body: {
+                type: "BlockStatement" as const,
+                body: [] as ReadonlyArray<unknown>
+            }
+        }),
+        syntheticSourceText: syntheticSourceSegments.join(", ")
+    });
 }
 
 function withTargetIndentation(indentation: string, line: string): string {
@@ -1484,21 +1553,47 @@ function synthesizeFunctionDocCommentBlock(
     const docLinesWithoutPlaceholders = (existingDocLines ?? []).filter(
         (line) => !isFunctionNamePlaceholderDescription(line, target.functionName)
     );
-    const canonicalizedDocLines = canonicalizeDocCommentTagAliases(docLinesWithoutPlaceholders);
+    const canonicalizedDocLines = canonicalizeDocCommentTagAliases(docLinesWithoutPlaceholders).filter(
+        (line) => !isFunctionDocCommentTagLine(line)
+    );
+    const syntheticFunctionBuild = createSyntheticDocCommentFunctionNode(target);
     const syntheticDocLines = CoreWorkspace.Core.computeSyntheticFunctionDocLines(
-        createSyntheticDocCommentFunctionNode(target),
+        syntheticFunctionBuild.functionNode,
         canonicalizedDocLines,
+        {
+            originalText: syntheticFunctionBuild.syntheticSourceText,
+            locStart: getSyntheticDocCommentNodeSourceStart,
+            locEnd: getSyntheticDocCommentNodeSourceEnd
+        },
         {}
     );
-    const existingDocCommentState = collectExistingDocCommentState(canonicalizedDocLines);
-    const existingParamCanonicalNames = new Set(existingDocCommentState.paramCanonicalNames);
-    let hasReturnsTag = existingDocCommentState.hasReturnsTag;
-    const mergedDocLines = [...canonicalizedDocLines];
+    const existingParamLineIndicesByCanonical = new Map<string, number>();
+    let hasReturnsTag = false;
+    const mergedDocLines = canonicalizedDocLines.map((line, index) => {
+        const metadata = CoreWorkspace.Core.parseDocCommentMetadata(line);
+        if (!metadata) {
+            return line;
+        }
+
+        if (metadata.tag === "return" || metadata.tag === "returns") {
+            hasReturnsTag = true;
+            return line;
+        }
+
+        if (metadata.tag === "param" && typeof metadata.name === "string") {
+            const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
+            if (canonicalName) {
+                existingParamLineIndicesByCanonical.set(canonicalName, index);
+            }
+        }
+
+        return line;
+    });
 
     for (const syntheticLine of syntheticDocLines) {
         const metadata = CoreWorkspace.Core.parseDocCommentMetadata(syntheticLine);
+        const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
         if (!metadata) {
-            const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
             if (!mergedDocLines.includes(normalizedSyntheticLine)) {
                 mergedDocLines.push(normalizedSyntheticLine);
             }
@@ -1510,25 +1605,29 @@ function synthesizeFunctionDocCommentBlock(
                 continue;
             }
 
-            mergedDocLines.push(withTargetIndentation(target.indentation, syntheticLine));
+            mergedDocLines.push(normalizedSyntheticLine);
             hasReturnsTag = true;
             continue;
         }
 
         if (metadata.tag === "param" && typeof metadata.name === "string") {
             const canonicalName = CoreWorkspace.Core.getCanonicalParamNameFromText(metadata.name);
-            if (canonicalName && existingParamCanonicalNames.has(canonicalName)) {
+            if (canonicalName) {
+                const existingIndex = existingParamLineIndicesByCanonical.get(canonicalName);
+                if (typeof existingIndex === "number") {
+                    const existingLine = mergedDocLines[existingIndex];
+                    if (existingLine !== normalizedSyntheticLine) {
+                        mergedDocLines[existingIndex] = normalizedSyntheticLine;
+                    }
+                    continue;
+                }
+
+                mergedDocLines.push(normalizedSyntheticLine);
+                existingParamLineIndicesByCanonical.set(canonicalName, mergedDocLines.length - 1);
                 continue;
             }
-
-            mergedDocLines.push(withTargetIndentation(target.indentation, syntheticLine));
-            if (canonicalName) {
-                existingParamCanonicalNames.add(canonicalName);
-            }
-            continue;
         }
 
-        const normalizedSyntheticLine = withTargetIndentation(target.indentation, syntheticLine);
         if (!mergedDocLines.includes(normalizedSyntheticLine)) {
             mergedDocLines.push(normalizedSyntheticLine);
         }
@@ -1712,13 +1811,13 @@ function normalizeLegacyDirectiveLine(line: string): string {
         return normalizeLegacyBlockKeywordLine(normalized);
     }
 
-    const legacyMacro = /^(\s*)#(macro|define)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/u.exec(line);
+    const legacyMacro = /^(\s*)#define\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$/iu.exec(line);
     if (!legacyMacro) {
         return normalizeLegacyBlockKeywordLine(line);
     }
 
     const indentation = legacyMacro[1];
-    const rawTail = legacyMacro[4];
+    const rawTail = legacyMacro[3];
     const lineCommentIndex = rawTail.indexOf("//");
     const bodyPortion = lineCommentIndex === -1 ? rawTail : rawTail.slice(0, lineCommentIndex);
     const commentPortion = lineCommentIndex === -1 ? "" : rawTail.slice(lineCommentIndex).trimEnd();
@@ -1726,10 +1825,10 @@ function normalizeLegacyDirectiveLine(line: string): string {
     const normalizedComment = commentPortion.length > 0 ? ` ${commentPortion}` : "";
 
     if (normalizedBody.length === 0) {
-        return `${indentation}#macro ${legacyMacro[3]}${normalizedComment}`;
+        return `${indentation}#macro ${legacyMacro[2]}${normalizedComment}`;
     }
 
-    return `${indentation}#macro ${legacyMacro[3]} ${normalizedBody}${normalizedComment}`;
+    return `${indentation}#macro ${legacyMacro[2]} ${normalizedBody}${normalizedComment}`;
 }
 
 type BracedSingleClause = Readonly<{
@@ -2480,6 +2579,45 @@ function isUndefinedComparisonOperator(operator: unknown): operator is "==" | "!
     );
 }
 
+function expandRewriteRangeToSingleWrappedParentheses(
+    sourceText: string,
+    rangeStart: number,
+    rangeEnd: number
+): Readonly<{ start: number; end: number }> {
+    let trimmedStart = rangeStart;
+    while (trimmedStart > 0 && /\s/u.test(sourceText[trimmedStart - 1] ?? "")) {
+        trimmedStart -= 1;
+    }
+
+    const leftParenIndex = trimmedStart - 1;
+    if (leftParenIndex < 0 || sourceText[leftParenIndex] !== "(") {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    let previousIndex = leftParenIndex - 1;
+    while (previousIndex >= 0 && /\s/u.test(sourceText[previousIndex] ?? "")) {
+        previousIndex -= 1;
+    }
+
+    if (previousIndex >= 0 && /[A-Za-z0-9_\])"']/u.test(sourceText[previousIndex] ?? "")) {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    let trimmedEnd = rangeEnd;
+    while (trimmedEnd < sourceText.length && /\s/u.test(sourceText[trimmedEnd] ?? "")) {
+        trimmedEnd += 1;
+    }
+
+    if (sourceText[trimmedEnd] !== ")") {
+        return Object.freeze({ start: rangeStart, end: rangeEnd });
+    }
+
+    return Object.freeze({
+        start: leftParenIndex,
+        end: trimmedEnd + 1
+    });
+}
+
 function createUndefinedComparisonRewrite(sourceText: string, node: unknown): UndefinedComparisonRewrite | null {
     if (!isAstNodeRecord(node) || node.type !== "BinaryExpression" || !isUndefinedComparisonOperator(node.operator)) {
         return null;
@@ -2509,21 +2647,29 @@ function createUndefinedComparisonRewrite(sourceText: string, node: unknown): Un
         return null;
     }
 
-    const fullStart = getNodeStartIndex(node);
-    const fullEnd = getNodeEndIndex(node);
+    const parentNode = isAstNodeRecord(node.parent) ? node.parent : null;
+    const replacementRangeNode =
+        parentNode && parentNode.type === "ParenthesizedExpression" && parentNode.expression === node
+            ? parentNode
+            : node;
+
+    const fullStart = getNodeStartIndex(replacementRangeNode);
+    const fullEnd = getNodeEndIndex(replacementRangeNode);
     if (typeof fullStart !== "number" || typeof fullEnd !== "number" || fullEnd <= fullStart) {
         return null;
     }
 
+    const replacementRange = expandRewriteRangeToSingleWrappedParentheses(sourceText, fullStart, fullEnd);
+
     const undefinedCheck = `is_undefined(${comparedExpressionText})`;
     const replacement = node.operator === "!=" || node.operator === "!==" ? `!${undefinedCheck}` : undefinedCheck;
-    if (sourceText.slice(fullStart, fullEnd) === replacement) {
+    if (sourceText.slice(replacementRange.start, replacementRange.end) === replacement) {
         return null;
     }
 
     return Object.freeze({
-        start: fullStart,
-        end: fullEnd,
+        start: replacementRange.start,
+        end: replacementRange.end,
         replacement
     });
 }

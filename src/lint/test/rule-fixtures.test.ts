@@ -397,6 +397,46 @@ void test("normalize-doc-comments converts legacy returns description text to @r
     assert.equal(result.output, expected);
 });
 
+void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
+    const input = [
+        "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);",
+        "#macro KEEP_MACRO_SEMICOLON value;",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-directives", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("gml semantic fix rules do not reformat canonical macro declaration spacing", () => {
+    const input =
+        "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);\n";
+    const semanticFixRuleNames = [
+        "prefer-loop-length-hoist",
+        "prefer-repeat-loops",
+        "prefer-struct-literal-assignments",
+        "optimize-logical-flow",
+        "no-globalvar",
+        "normalize-doc-comments",
+        "normalize-directives",
+        "require-control-flow-braces",
+        "no-assignment-in-condition",
+        "prefer-is-undefined-check",
+        "normalize-operator-aliases",
+        "prefer-string-interpolation",
+        "optimize-math-expressions",
+        "require-argument-separators",
+        "normalize-data-structure-accessors",
+        "require-trailing-optional-defaults"
+    ] as const;
+
+    for (const ruleName of semanticFixRuleNames) {
+        const result = lintWithRule(ruleName, input, {});
+        assert.equal(result.output, input, `${ruleName} should not apply formatter-owned macro spacing changes`);
+    }
+});
+
 void test("require-argument-separators preserves separator payload comments", async () => {
     const input = await readFixture("require-argument-separators", "separator-payload.gml");
     const result = lintWithRule("require-argument-separators", input, {});
@@ -487,6 +527,8 @@ void test("prefer-is-undefined-check rewrites undefined comparisons in either op
         "if (undefined == lives) return;",
         "if (score != undefined) return;",
         "if (undefined != lives) return;",
+        "if (!(score == undefined)) return;",
+        "if (!(undefined == lives)) return;",
         ""
     ].join("\n");
     const expected = [
@@ -494,11 +536,52 @@ void test("prefer-is-undefined-check rewrites undefined comparisons in either op
         "if (is_undefined(lives)) return;",
         "if (!is_undefined(score)) return;",
         "if (!is_undefined(lives)) return;",
+        "if (!is_undefined(score)) return;",
+        "if (!is_undefined(lives)) return;",
         ""
     ].join("\n");
 
     const result = lintWithRule("prefer-is-undefined-check", input, {});
     assert.equal(result.output, expected);
+});
+
+void test("prefer-is-undefined-check preserves grouped multiline conditions", () => {
+    const input = [
+        "if ((_index == undefined)",
+        "||  (_index < 0)",
+        "||  (_index >= array_length(_global.__gamepads)))",
+        "{",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "if (is_undefined(_index)",
+        "||  (_index < 0)",
+        "||  (_index >= array_length(_global.__gamepads)))",
+        "{",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-is-undefined-check", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("no-assignment-in-condition does not rewrite grouped multiline conditions without assignments", () => {
+    const input = [
+        "if ((_index == undefined)",
+        "||  (_index < 0)",
+        "||  (_index >= array_length(_global.__gamepads)))",
+        "{",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("no-assignment-in-condition", input, {});
+    assert.equal(result.output, input);
 });
 
 void test("no-globalvar rewrites declared globals and preserves non-matching identifiers", async () => {

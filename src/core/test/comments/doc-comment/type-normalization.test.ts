@@ -52,6 +52,21 @@ void test("normalizes GameMaker doc comment type annotations", () => {
     }
 });
 
+void test("applies JSDoc alias replacements without type normalization", () => {
+    assert.equal(Core.applyJsDocTagAliasReplacements("/// @desc Example"), "/// @description Example");
+    assert.equal(Core.applyJsDocTagAliasReplacements("/// @arg value"), "/// @param value");
+    assert.equal(Core.applyJsDocTagAliasReplacements("/// @params value"), "/// @param value");
+    assert.equal(
+        Core.applyJsDocTagAliasReplacements("/// @return {Boolean} should stay cased"),
+        "/// @returns {Boolean} should stay cased"
+    );
+});
+
+void test("JSDoc alias replacement passthrough keeps non-string inputs unchanged", () => {
+    const marker = Object.freeze({ key: "value" });
+    assert.equal(Core.applyJsDocTagAliasReplacements(marker), marker);
+});
+
 void test("doc comment type normalization resolver extends the defaults", () => {
     const guidInput = "/// @returns {Guid} value";
     assert.equal(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {Guid} value");
