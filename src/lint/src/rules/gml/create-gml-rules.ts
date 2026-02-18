@@ -580,7 +580,9 @@ function canonicalizeDocCommentTagAliases(docLines: ReadonlyArray<string>): Read
             }
 
             const typePrefix =
-                typeof metadata.type === "string" && metadata.type.trim().length > 0 ? ` {${metadata.type.trim()}}` : "";
+                typeof metadata.type === "string" && metadata.type.trim().length > 0
+                    ? ` {${metadata.type.trim()}}`
+                    : "";
             const descriptionText =
                 typeof metadata.description === "string" && metadata.description.trim().length > 0
                     ? ` - ${metadata.description.trim()}`

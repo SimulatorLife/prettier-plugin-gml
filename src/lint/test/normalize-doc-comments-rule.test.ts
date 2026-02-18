@@ -122,12 +122,7 @@ void test("normalize-doc-comments treats @arg and @argument as documented parame
 });
 
 void test("normalize-doc-comments treats @return as an existing returns tag", () => {
-    const input = [
-        "/// @return {real}",
-        "function enrich_me(alpha) {",
-        "    return alpha;",
-        "}"
-    ].join("\n");
+    const input = ["/// @return {real}", "function enrich_me(alpha) {", "    return alpha;", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
     assert.match(output, /^\/\/\/ @returns \{real\}$/m);
