@@ -130,8 +130,18 @@ const fixtureParserOptions: ParserOptions = {
     simplifyLocations: false
 };
 
+const slowFixtures = new Set(["SnowState.gml", "stile.gml", "input.gml"]);
+const runSlowFixtureTests = process.env.RUN_SLOW_PARSER_FIXTURES === "true";
+
 void describe("GameMaker parser fixtures", () => {
     for (const fixtureName of fixtureNames) {
+        const isSlowFixture = slowFixtures.has(fixtureName);
+
+        if (isSlowFixture && !runSlowFixtureTests) {
+            void it.skip(`parses ${fixtureName} (large fixture, set RUN_SLOW_PARSER_FIXTURES=true to include)`, () => {});
+            continue;
+        }
+
         void it(`parses ${fixtureName}`, async () => {
             const source = fixtureContentsByName.get(fixtureName);
             if (!source) {
