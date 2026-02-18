@@ -1218,7 +1218,9 @@ function formatDecorativeBlockComment(comment) {
     }
 
     const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
-    const textLines = significantLines.filter((line) => !decorativeSlashLinePattern.test(line)).map((line) => line.trim());
+    const textLines = significantLines
+        .filter((line) => !decorativeSlashLinePattern.test(line))
+        .map((line) => line.trim());
 
     if (textLines.length === 0) {
         return "";

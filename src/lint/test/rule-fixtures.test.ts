@@ -215,14 +215,9 @@ void test("normalize-doc-comments removes placeholder description equal to funct
 });
 
 void test("normalize-doc-comments aligns multiline description continuations", () => {
-    const input = [
-        "/// Alpha summary",
-        "/// Beta continuation",
-        "function demo() {",
-        "    return 1;",
-        "}",
-        ""
-    ].join("\n");
+    const input = ["/// Alpha summary", "/// Beta continuation", "function demo() {", "    return 1;", "}", ""].join(
+        "\n"
+    );
     const expected = [
         "/// @description Alpha summary",
         "///              Beta continuation",
@@ -268,15 +263,15 @@ void test("require-argument-separators preserves separator payload comments", as
 void test("require-trailing-optional-defaults lifts leading argument_count ternary fallbacks into params", () => {
     const input = [
         "function greet() {",
-        "    var name = argument_count > 0 ? argument[0] : \"friend\";",
-        "    var greeting = argument_count > 1 ? argument[1] : \"Hello\";",
-        "    return $\"{greeting}, {name}\";",
+        '    var name = argument_count > 0 ? argument[0] : "friend";',
+        '    var greeting = argument_count > 1 ? argument[1] : "Hello";',
+        '    return $"{greeting}, {name}";',
         "}",
         ""
     ].join("\n");
     const expected = [
-        "function greet(name = \"friend\", greeting = \"Hello\") {",
-        "    return $\"{greeting}, {name}\";",
+        'function greet(name = "friend", greeting = "Hello") {',
+        '    return $"{greeting}, {name}";',
         "}",
         ""
     ].join("\n");
@@ -327,14 +322,9 @@ void test("no-globalvar rewrites declared globals and preserves non-matching ide
 });
 
 void test("no-globalvar rewrites comma-separated declarations and identifier uses", () => {
-    const input = [
-        "globalvar score, lives;",
-        "score = 1;",
-        "if (lives > 0) {",
-        "    score += lives;",
-        "}",
-        ""
-    ].join("\n");
+    const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
+        "\n"
+    );
     const expected = [
         "global.score = 1;",
         "if (global.lives > 0) {",

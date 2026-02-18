@@ -85,15 +85,7 @@ void test("keeps indented non-decorative block comments attached to function bod
 
     assert.equal(
         formatted,
-        [
-            "function demo() {",
-            "    /*",
-            "        Example block comment",
-            "    */",
-            "    return 1;",
-            "}",
-            ""
-        ].join("\n")
+        ["function demo() {", "    /*", "        Example block comment", "    */", "    return 1;", "}", ""].join("\n")
     );
 });
 
