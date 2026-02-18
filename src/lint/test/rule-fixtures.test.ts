@@ -430,6 +430,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "require-control-flow-braces",
         "no-assignment-in-condition",
         "prefer-is-undefined-check",
+        "prefer-epsilon-comparisons",
         "normalize-operator-aliases",
         "prefer-string-interpolation",
         "optimize-math-expressions",
@@ -484,8 +485,7 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
         ""
     ].join("\n");
     const expected = [
-        "function spring(a, b, dst, force, push_out) {",
-        "    var push_out = argument_count > 4 ? argument[4] : true;",
+        "function spring(a, b, dst, force, push_out = true) {",
         "    return push_out;",
         "}",
         "",
@@ -573,6 +573,62 @@ void test("prefer-is-undefined-check preserves grouped multiline conditions", ()
     ].join("\n");
 
     const result = lintWithRule("prefer-is-undefined-check", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-epsilon-comparisons rewrites direct zero checks for preceding math assignments", () => {
+    const input = [
+        "var actual_dist = sqr(xoff) + sqr(yoff);",
+        "if (actual_dist == 0) {",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var actual_dist = sqr(xoff) + sqr(yoff);",
+        "var eps = math_get_epsilon();",
+        "if (actual_dist <= eps) {",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-epsilon-comparisons does not rewrite non-math zero checks", () => {
+    const input = [
+        "var queue_size = array_length(queue);",
+        "if (queue_size == 0) {",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
+    assert.equal(result.output, input);
+});
+
+void test("prefer-epsilon-comparisons reuses existing epsilon declarations in a block", () => {
+    const input = [
+        "var actual_dist = sqr(xoff) + sqr(yoff);",
+        "var eps = math_get_epsilon();",
+        "if (actual_dist == 0) {",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var actual_dist = sqr(xoff) + sqr(yoff);",
+        "var eps = math_get_epsilon();",
+        "if (actual_dist <= eps) {",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
     assert.equal(result.output, expected);
 });
 
@@ -692,21 +748,22 @@ void test("prefer-hoistable-loop-accessors reports the first matching accessor l
 });
 
 void test("prefer-hoistable-loop-accessors suppresses diagnostics for loops owned by prefer-loop-length-hoist", () => {
-    const input = [
-        "for (var i = 0; i < array_length(items); i++) {",
-        "    sum += array_length(items);",
-        "}",
-        ""
-    ].join("\n");
+    const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += array_length(items);", "}", ""].join(
+        "\n"
+    );
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
     assert.equal(result.messages.length, 0);
 });
 
 void test("prefer-loop-length-hoist reports unsafeFix when insertion requires brace synthesis", () => {
-    const input = ["if (ready)", "    for (var i = 0; i < array_length(items); i++) {", "        sum += 1;", "    }", ""].join(
-        "\n"
-    );
+    const input = [
+        "if (ready)",
+        "    for (var i = 0; i < array_length(items); i++) {",
+        "        sum += 1;",
+        "    }",
+        ""
+    ].join("\n");
 
     const result = lintWithRule("prefer-loop-length-hoist", input, {});
     assert.equal(result.messages.length, 1);
@@ -776,6 +833,33 @@ void test("optimize-math-expressions does not rewrite decimal literals that star
     const result = lintWithRule("optimize-math-expressions", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
+});
+
+void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
+    const input = [
+        "var s = 1.3 * size * 0.12 / 1.5;",
+        "s = s - s / 2 - lengthdir_x(s / 2, swim_rot);",
+        ""
+    ].join("\n");
+    const expected = ["var s = size * 0.052 * (1 - lengthdir_x(1, swim_rot));", ""].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
+    const input = "var config = settings ?? global.default_settings;\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1 statements", () => {
+    const input = ["var s7 = ((hp / max_hp) * 100) / 10;", "var s37b = 1 * width;", "s37b *= 1;", ""].join("\n");
+    const expected = ["var s7 = (hp / max_hp) * 10;", "var s37b = width;", ""].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {

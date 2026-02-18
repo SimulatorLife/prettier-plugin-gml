@@ -199,6 +199,16 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlPreferEpsilonComparisons",
+        shortName: "prefer-epsilon-comparisons",
+        fullId: "gml/prefer-epsilon-comparisons",
+        messageId: "preferEpsilonComparisons",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNormalizeOperatorAliases",
         shortName: "normalize-operator-aliases",
         fullId: "gml/normalize-operator-aliases",

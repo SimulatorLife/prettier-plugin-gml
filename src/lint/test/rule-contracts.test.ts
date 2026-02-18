@@ -114,6 +114,11 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "prefer-epsilon-comparisons",
+        messageId: "preferEpsilonComparisons",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "normalize-operator-aliases",
         messageId: "normalizeOperatorAliases",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
@@ -262,6 +267,7 @@ void test("non-project-aware rules do not expose gml project metadata", () => {
         "require-control-flow-braces",
         "no-assignment-in-condition",
         "prefer-is-undefined-check",
+        "prefer-epsilon-comparisons",
         "normalize-operator-aliases",
         "optimize-math-expressions",
         "require-argument-separators",

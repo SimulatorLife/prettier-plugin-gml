@@ -2,9 +2,10 @@ var test = 1;
 
 var num = 10;
 for (var i = 0; i < num; i++) {
-    show_debug_message("Hello World " + string(i + 1));
+    show_debug_message($"Hello World {i + 1}");
 }
 
+/// @returns {undefined}
 function TestStruct() constructor {
     /// @returns {undefined}
     static clearSubdiv = function () {
@@ -61,9 +62,10 @@ with (enemy) {
 
 #endregion
 
-/// @description Add 2 numbers
 /// @param {real} n1
 /// @param {real} n2
+/// @description Add 2 numbers
+/// @returns {undefined}
 function func_add(n1, n2) {
     return n1 + n2;
 }
@@ -74,6 +76,7 @@ show_debug_message(myTemplateString);
 /// @description Subtract 2 numbers
 /// @param n1
 /// @param n2
+/// @returns {undefined}
 function func_sub(n1, n2) {
     return n1 - n2;
 }

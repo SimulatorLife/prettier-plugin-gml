@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { Lint } from "@gml-modules/lint";
 import { Plugin } from "@gml-modules/plugin";
-import { ESLint } from "eslint";
+import { ESLint, type Linter } from "eslint";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
@@ -22,6 +22,7 @@ type IntegrationCase = {
     inputSource: string;
     expectedOutput: string;
     options: Record<string, unknown> | null;
+    lintRules: Readonly<Record<string, Linter.RuleEntry>> | null;
     expectParseError: boolean;
 };
 
@@ -43,6 +44,10 @@ const allGmlRuleLevels = Object.freeze(
             .map((ruleId) => [ruleId, "error" as const])
     )
 );
+const integrationDefaultLintRules: Readonly<Record<string, Linter.RuleEntry>> = Object.freeze({
+    ...allGmlRuleLevels,
+    "gml/optimize-math-expressions": "off"
+});
 const integrationProjectContext = Object.freeze({
     capabilities: allCapabilities,
     assessGlobalVarRewrite: () =>
@@ -50,28 +55,6 @@ const integrationProjectContext = Object.freeze({
             allowRewrite: true,
             reason: null
         })
-});
-
-const integrationLint = new ESLint({
-    overrideConfigFile: true,
-    fix: true,
-    overrideConfig: [
-        {
-            files: ["**/*.gml"],
-            plugins: {
-                gml: Lint.plugin
-            },
-            language: "gml/gml",
-            rules: allGmlRuleLevels,
-            settings: {
-                gml: {
-                    project: {
-                        getContext: () => integrationProjectContext
-                    }
-                }
-            }
-        }
-    ]
 });
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
@@ -125,18 +108,34 @@ async function tryLoadOptions(baseName: string): Promise<Record<string, unknown>
 
 function extractFixtureExpectations(
     options: Record<string, unknown> | null
-): Readonly<{ options: Record<string, unknown> | null; expectParseError: boolean }> {
+): Readonly<{
+    options: Record<string, unknown> | null;
+    lintRules: Readonly<Record<string, Linter.RuleEntry>> | null;
+    expectParseError: boolean;
+}> {
     if (!options) {
         return Object.freeze({
             options: null,
+            lintRules: null,
             expectParseError: false
         });
     }
 
-    const { expectParseError, ...pluginOptions } = options;
+    const { expectParseError, lintRules, ...pluginOptions } = options;
     const hasPluginOptions = Object.keys(pluginOptions).length > 0;
+    const hasLintRules =
+        lintRules !== null &&
+        typeof lintRules === "object" &&
+        !Array.isArray(lintRules) &&
+        Object.keys(lintRules as Record<string, unknown>).length > 0;
+    const lintRuleOverrides = hasLintRules
+        ? (Object.freeze({ ...(lintRules as Record<string, Linter.RuleEntry>) }) as Readonly<
+              Record<string, Linter.RuleEntry>
+          >)
+        : null;
     return Object.freeze({
         options: hasPluginOptions ? pluginOptions : null,
+        lintRules: lintRuleOverrides,
         expectParseError: expectParseError === true
     });
 }
@@ -190,13 +189,46 @@ async function loadIntegrationCases(): Promise<Array<IntegrationCase>> {
                 inputSource,
                 expectedOutput,
                 options: fixtureExpectations.options,
+                lintRules: fixtureExpectations.lintRules,
                 expectParseError: fixtureExpectations.expectParseError
             };
         })
     );
 }
 
-async function runIntegrationLintPass(sourceText: string, baseName: string): Promise<string> {
+function createIntegrationLint(ruleOverrides: Readonly<Record<string, Linter.RuleEntry>> | null): ESLint {
+    const resolvedRules =
+        ruleOverrides === null ? integrationDefaultLintRules : { ...integrationDefaultLintRules, ...ruleOverrides };
+
+    return new ESLint({
+        overrideConfigFile: true,
+        fix: true,
+        overrideConfig: [
+            {
+                files: ["**/*.gml"],
+                plugins: {
+                    gml: Lint.plugin
+                },
+                language: "gml/gml",
+                rules: resolvedRules,
+                settings: {
+                    gml: {
+                        project: {
+                            getContext: () => integrationProjectContext
+                        }
+                    }
+                }
+            }
+        ]
+    });
+}
+
+async function runIntegrationLintPass(
+    sourceText: string,
+    baseName: string,
+    ruleOverrides: Readonly<Record<string, Linter.RuleEntry>> | null
+): Promise<string> {
+    const integrationLint = createIntegrationLint(ruleOverrides);
     const [result] = await integrationLint.lintText(sourceText, {
         filePath: `${baseName}.gml`
     });
@@ -211,7 +243,7 @@ async function runIntegrationLintPass(sourceText: string, baseName: string): Pro
 const integrationCases = await loadIntegrationCases();
 
 void describe("Plugin integration fixtures", () => {
-    for (const { baseName, inputSource, expectedOutput, options, expectParseError } of integrationCases) {
+    for (const { baseName, inputSource, expectedOutput, options, lintRules, expectParseError } of integrationCases) {
         void it(`formats ${baseName}`, async () => {
             if (expectParseError) {
                 await assert.rejects(
@@ -225,7 +257,7 @@ void describe("Plugin integration fixtures", () => {
             }
 
             const formatted = await Plugin.format(inputSource, options ?? undefined);
-            const linted = await runIntegrationLintPass(formatted, baseName);
+            const linted = await runIntegrationLintPass(formatted, baseName, lintRules);
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
             assert.strictEqual(canonicalizeFixtureText(linted), canonicalizeFixtureText(expectedOutput));

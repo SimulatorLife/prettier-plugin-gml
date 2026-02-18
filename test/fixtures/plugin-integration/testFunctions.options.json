@@ -1,4 +1,7 @@
 {
   "allowSingleLineIfStatements": false,
-  "printWidth": 95
+  "printWidth": 95,
+  "lintRules": {
+    "gml/optimize-math-expressions": "error"
+  }
 }
