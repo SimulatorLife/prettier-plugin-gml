@@ -18,7 +18,7 @@ const INTEGRATION_FIXTURE_NAMES = new Set([
     "testGM1100",
     "testGlobalVars"
 ]);
-const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>();
+const STRICT_EXPECTATION_FIXTURE_NAMES = new Set<string>(INTEGRATION_FIXTURE_NAMES);
 const EXPECTED_PARSE_ERROR_FIXTURE_NAMES = new Set(["testGM1012", "testGM1100"]);
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
