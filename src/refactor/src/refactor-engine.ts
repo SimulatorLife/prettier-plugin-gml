@@ -768,9 +768,7 @@ export class RefactorEngine {
         // before modifying any files. This prevents partial application of invalid
         // edits that could leave the codebase in an inconsistent state.
         const validation = await this.validateRename(workspace);
-        if (!validation.valid) {
-            throw new Error(`Cannot apply workspace edit: ${validation.errors.join("; ")}`);
-        }
+        throwIfValidationFailed(validation, "Cannot apply workspace edit");
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
@@ -909,9 +907,7 @@ export class RefactorEngine {
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
-        if (!validation.valid) {
-            throw new Error(`Batch rename validation failed: ${validation.errors.join("; ")}`);
-        }
+        throwIfValidationFailed(validation, "Batch rename validation failed");
 
         return merged;
     }
@@ -951,9 +947,7 @@ export class RefactorEngine {
         // overlapping or otherwise invalid edits are caught early, preventing
         // partial writes that could leave the workspace in an inconsistent state.
         const validation = await this.validateRename(workspace);
-        if (!validation.valid) {
-            throw new Error(`Rename validation failed: ${validation.errors.join("; ")}`);
-        }
+        throwIfValidationFailed(validation, "Rename validation failed");
 
         // Apply the edits
         const applied = await this.applyWorkspaceEdit(workspace, {
@@ -1977,6 +1971,20 @@ export class RefactorEngine {
      */
     getSemanticCacheStats() {
         return this.semanticCache.getStats();
+    }
+}
+
+/**
+ * Throw an error if validation failed.
+ * Consolidates the pattern of checking validation.valid and formatting error messages.
+ *
+ * @param validation - The validation summary to check
+ * @param context - Context string to include in the error message (e.g., "Cannot apply workspace edit")
+ * @throws Error with formatted validation errors if validation failed
+ */
+function throwIfValidationFailed(validation: ValidationSummary, context: string): void {
+    if (!validation.valid) {
+        throw new Error(`${context}: ${validation.errors.join("; ")}`);
     }
 }
 

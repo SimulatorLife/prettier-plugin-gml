@@ -1351,7 +1351,7 @@ function parseFunctionParameterDefinitions(parameterListText: string): Array<Fun
 
 function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget | null {
     const declarationMatch =
-        /^(\s*)(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*.*\s*\}?\s*)?$/u.exec(
+        /^(\s*)(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*(?:(?:\S.*)\s*)?\}?\s*)?$/u.exec(
             line
         );
     if (declarationMatch) {
@@ -1363,7 +1363,7 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     }
 
     const assignmentMatch =
-        /^(\s*)(?:var\s+|static\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*function(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*.*\s*\}?\s*)?$/u.exec(
+        /^(\s*)(?:var\s+|static\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*function(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\(([^)]*)\)\s*(?:constructor\s*)?(?:\{\s*(?:(?:\S.*)\s*)?\}?\s*)?$/u.exec(
             line
         );
     if (!assignmentMatch) {
@@ -1794,13 +1794,13 @@ function normalizeLegacyBlockKeywordLine(line: string): string {
         return line;
     }
 
-    const standaloneEnd = /^(\s*)end\s*;?\s*$/iu.exec(codePortion);
+    const standaloneEnd = /^(\s*)end\s*(?:;\s*)?$/iu.exec(codePortion);
     if (standaloneEnd) {
         return `${standaloneEnd[1]}}${commentPortion}`;
     }
 
-    if (/\bbegin\s*;?\s*$/iu.test(codePortion)) {
-        return `${codePortion.replace(/\bbegin\s*;?\s*$/iu, "{")}${commentPortion}`;
+    if (/\bbegin\s*(?:;\s*)?$/iu.test(codePortion)) {
+        return `${codePortion.replace(/\bbegin\s*(?:;\s*)?$/iu, "{")}${commentPortion}`;
     }
 
     return line;
@@ -2189,7 +2189,7 @@ function toBracedDoUntilClause(indentation: string, statement: string, untilCond
 }
 
 function parseInlineDoUntilClause(line: string): DoUntilClause | null {
-    const inlineDoUntil = /^(\s*)do\s+(?!\{)([^;{}].*;\s*)until\s*\((.+)\)\s*;?\s*$/u.exec(line);
+    const inlineDoUntil = /^(\s*)do\s+(?!\{)([^;{}].*;\s*)until\s*\((.+)\)\s*(?:;\s*)?$/u.exec(line);
     if (!inlineDoUntil) {
         return null;
     }
@@ -2211,7 +2211,7 @@ function lineUsesMacroContinuation(line: string): boolean {
 }
 
 function parseLineOnlyUntilFooter(line: string): string | null {
-    const untilFooterMatch = /^\s*until\s*\((.+)\)\s*;?\s*$/u.exec(line);
+    const untilFooterMatch = /^\s*until\s*\((.+)\)\s*(?:;\s*)?$/u.exec(line);
     return untilFooterMatch ? untilFooterMatch[1].trim() : null;
 }
 
@@ -2441,7 +2441,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                             continue;
                         }
 
-                        const bracedConditionedClause = parseSingleLineBracedConditionedClause(line);
+                        const bracedConditionedClause = parseInlineControlFlowClause(line);
                         if (bracedConditionedClause) {
                             rewrittenLines.push(
                                 ...toBracedSingleClause(
@@ -2453,7 +2453,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                             continue;
                         }
 
-                        const bracedElseClause = parseSingleLineBracedElseClause(line);
+                        const bracedElseClause = parseInlineElseClause(line);
                         if (bracedElseClause) {
                             rewrittenLines.push(
                                 ...toBracedSingleClause(
@@ -3112,7 +3112,10 @@ function tryEvaluateNumericExpression(node: any): number | null {
 
     if (
         unwrapped.type !== "BinaryExpression" ||
-        (unwrapped.operator !== "+" && unwrapped.operator !== "-" && unwrapped.operator !== "*" && unwrapped.operator !== "/")
+        (unwrapped.operator !== "+" &&
+            unwrapped.operator !== "-" &&
+            unwrapped.operator !== "*" &&
+            unwrapped.operator !== "/")
     ) {
         return null;
     }
@@ -3381,7 +3384,8 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
         return `${sign}${coefficientText}`;
     }
 
-    const includeCoefficientInNumerator = denominatorFactors.length === 0 || coefficient === 1 || numeratorFactors.length === 0;
+    const includeCoefficientInNumerator =
+        denominatorFactors.length === 0 || coefficient === 1 || numeratorFactors.length === 0;
     if (includeCoefficientInNumerator && (coefficient !== 1 || numeratorFactors.length === 0)) {
         if (numeratorFactors.length === 0) {
             numeratorFactors.push(coefficientText);
@@ -3576,7 +3580,11 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
     return rewritten;
 }
 
-function extractHalfLengthdirRotationExpression(assignmentRight: any, variableName: string, sourceText: string): string | null {
+function extractHalfLengthdirRotationExpression(
+    assignmentRight: any,
+    variableName: string,
+    sourceText: string
+): string | null {
     const expression = unwrapParenthesized(assignmentRight);
     if (!expression || expression.type !== "BinaryExpression" || expression.operator !== "-") {
         return null;
@@ -3818,7 +3826,9 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                     });
 
                     const deduplicated: SourceTextEdit[] = [];
-                    for (const edit of edits.toSorted((left, right) => left.start - right.start || left.end - right.end)) {
+                    for (const edit of edits.toSorted(
+                        (left, right) => left.start - right.start || left.end - right.end
+                    )) {
                         if (hasOverlappingRange(edit.start, edit.end, deduplicated)) {
                             continue;
                         }
@@ -4551,7 +4561,8 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
         const existingParameterName = getIdentifierNameFromParameterSegment(existingSegment);
         if (existingParameterName && existingParameterName === parameterName) {
             if (!existingSegment.includes("=")) {
-                rewrittenSegments[fallbackRecord.argumentIndex] = `${parameterName} = ${fallbackRecord.defaultExpression}`;
+                rewrittenSegments[fallbackRecord.argumentIndex] =
+                    `${parameterName} = ${fallbackRecord.defaultExpression}`;
             }
             fallbackRecordsToRemove.add(fallbackRecord.statementStart);
             continue;
@@ -4648,7 +4659,11 @@ function tryGetAssignedIdentifierAndValue(statementNode: any): { identifierName:
     }
 
     const assignmentExpression = CoreWorkspace.Core.unwrapExpressionStatement(statementNode);
-    if (!assignmentExpression || assignmentExpression.type !== "AssignmentExpression" || assignmentExpression.operator !== "=") {
+    if (
+        !assignmentExpression ||
+        assignmentExpression.type !== "AssignmentExpression" ||
+        assignmentExpression.operator !== "="
+    ) {
         return null;
     }
 
