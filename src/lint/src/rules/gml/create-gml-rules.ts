@@ -259,7 +259,9 @@ function getLineIndexForOffset(lineStartOffsets: ReadonlyArray<number>, offset: 
         const middle = Math.floor((low + high) / 2);
         const lineStart = lineStartOffsets[middle] ?? 0;
         const nextLineStart =
-            middle + 1 < lineStartOffsets.length ? (lineStartOffsets[middle + 1] ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+            middle + 1 < lineStartOffsets.length
+                ? (lineStartOffsets[middle + 1] ?? Number.MAX_SAFE_INTEGER)
+                : Number.MAX_SAFE_INTEGER;
         if (offset < lineStart) {
             high = middle - 1;
             continue;
@@ -1129,9 +1131,7 @@ function normalizeLogicalExpressionText(expressionText: string): string {
 }
 
 function convertLogicalSymbolsToKeywords(expressionText: string): string {
-    return normalizeLogicalExpressionText(expressionText)
-        .replaceAll("&&", "and")
-        .replaceAll("||", "or");
+    return normalizeLogicalExpressionText(expressionText).replaceAll("&&", "and").replaceAll("||", "or");
 }
 
 function wrapNegatedLogicalCondition(conditionText: string): string {
@@ -1169,17 +1169,14 @@ function simplifyLogicalConditionExpression(conditionText: string): string {
     }
 
     const sharedOrMatch =
-        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(
-            normalized
-        );
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(normalized);
     if (sharedOrMatch) {
         return sharedOrMatch[2];
     }
 
-    const xorMatch =
-        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+!([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(
-            normalized
-        );
+    const xorMatch = /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+!([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(
+        normalized
+    );
     if (xorMatch) {
         return `(${xorMatch[1]} || ${xorMatch[2]}) && !(${xorMatch[1]} && ${xorMatch[2]})`;
     }
@@ -1707,9 +1704,16 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     };
 }
 
-const DOC_COMMENT_FUNCTION_NODE_TYPES = new Set(["FunctionDeclaration", "StructFunctionDeclaration", "ConstructorDeclaration"]);
+const DOC_COMMENT_FUNCTION_NODE_TYPES = new Set([
+    "FunctionDeclaration",
+    "StructFunctionDeclaration",
+    "ConstructorDeclaration"
+]);
 
-function collectFunctionNodesByStartLine(programNode: unknown, lineStartOffsets: ReadonlyArray<number>): Map<number, Array<AstNodeWithType>> {
+function collectFunctionNodesByStartLine(
+    programNode: unknown,
+    lineStartOffsets: ReadonlyArray<number>
+): Map<number, Array<AstNodeWithType>> {
     const functionNodesByLine = new Map<number, Array<AstNodeWithType>>();
 
     walkAstNodes(programNode, (node) => {
@@ -4183,7 +4187,7 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     );
 
     rewritten = rewritten.replaceAll(
-        /sin\(\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*\)?\s*\)/g,
+        /sin\(\s*(?:\(\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*(?:\)\s*)?\)/g,
         (_fullMatch, value: string) => `dsin(${value})`
     );
     rewritten = rewritten.replaceAll(
@@ -4191,7 +4195,7 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         (_fullMatch, value: string) => `dcos(${value})`
     );
     rewritten = rewritten.replaceAll(
-        /tan\(\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*\)?\s*\)/g,
+        /tan\(\s*(?:\(\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*(?:\)\s*)?\)/g,
         (_fullMatch, value: string) => `dtan(${value})`
     );
 
@@ -4236,6 +4240,8 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         /sqr\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\*\s*([0-9]+(?:\.[0-9]+)?)/g,
         (_fullMatch, value: string, scalar: string) => `(${scalar} * sqr(${value}))`
     );
+
+    rewritten = rewritten.replaceAll(/\((dot_product(?:_3d)?\([^)]+\))\)/g, (_fullMatch, call: string) => call);
 
     return rewritten;
 }
