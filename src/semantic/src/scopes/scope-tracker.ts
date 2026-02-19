@@ -1540,6 +1540,46 @@ export class ScopeTracker {
         return scopes;
     }
 
+    /**
+     * Returns the set of file paths where the named symbol has at least one
+     * reference occurrence.
+     *
+     * This enables hot-reload dependency tracking: when a symbol's declaration
+     * changes (e.g., a script signature is modified), callers can determine
+     * which source files reference that symbol and schedule them for
+     * re-analysis without scanning the entire project.
+     *
+     * Only scopes with a `path` in their metadata are included. Scopes
+     * without a path (e.g., anonymous blocks) are skipped.
+     *
+     * @param name - Symbol name to query
+     * @returns Set of file paths containing at least one reference to the symbol
+     */
+    public getFilePathsReferencingSymbol(name: string | null | undefined): Set<string> {
+        if (!name || !this.enabled) {
+            return new Set();
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return new Set();
+        }
+
+        const paths = new Set<string>();
+        for (const [scopeId, summary] of scopeSummaryMap) {
+            if (!summary.hasReference) {
+                continue;
+            }
+            const scope = this.scopesById.get(scopeId);
+            const path = scope?.metadata.path;
+            if (path) {
+                paths.add(path);
+            }
+        }
+
+        return paths;
+    }
+
     public getScopeModificationMetadata(scopeId: string | null | undefined): ScopeModificationMetadata | null {
         if (!scopeId) {
             return null;
@@ -1626,6 +1666,41 @@ export class ScopeTracker {
         }
 
         return modifiedScopes;
+    }
+
+    /**
+     * Returns the set of file paths associated with scopes modified after
+     * the given timestamp.
+     *
+     * This is the primary entry point for hot-reload change detection: after
+     * parsing or analysis, call this with the timestamp from before the
+     * operation to find which files were touched during the analysis pass.
+     *
+     * Only scopes with a `path` in their metadata contribute a file path.
+     * Scopes without a path (e.g., anonymous blocks or synthetic scopes)
+     * are silently skipped.
+     *
+     * @param sinceTimestamp - Return paths for scopes with a lastModified
+     *                         timestamp strictly greater than this value.
+     *                         Pass 0 to return all paths for any modified scope.
+     * @returns Set of file paths for scopes modified after the timestamp
+     */
+    public getChangedFilePaths(sinceTimestamp: number): Set<string> {
+        if (!this.enabled) {
+            return new Set();
+        }
+
+        const paths = new Set<string>();
+        for (const scope of this.scopesById.values()) {
+            if (scope.lastModifiedTimestamp > sinceTimestamp) {
+                const path = scope.metadata.path;
+                if (path) {
+                    paths.add(path);
+                }
+            }
+        }
+
+        return paths;
     }
 
     public getMostRecentlyModifiedScope(): ScopeModificationMetadata | null {
