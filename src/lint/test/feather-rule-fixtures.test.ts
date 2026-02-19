@@ -56,7 +56,7 @@ void test("feather migrated fixture rules apply local fixes", async () => {
     );
 
     for (const entry of cases) {
-        const result = lintWithFeatherRule(LintWorkspace.Lint.plugin, entry.ruleName, entry.input);
+        const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, entry.ruleName, entry.input);
         assert.equal(result.messages.length > 0, true, `${entry.ruleName} should report diagnostics`);
         assert.equal(result.output, entry.expected, `${entry.ruleName} should apply the expected fixer`);
     }

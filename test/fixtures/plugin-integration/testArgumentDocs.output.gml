@@ -1,0 +1,141 @@
+/// @description Create collectible particles and inherit
+
+/// @param x1
+/// @param y1
+/// @param x2
+/// @param y2
+/// @param x3
+/// @param y3
+/// @param x4
+/// @param y4
+/// @param width
+/// @param steps
+/// @param color
+/// @returns {undefined}
+function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
+    var w = width;
+    var step_size = 1 / steps;
+    var xnet = -1;
+    var ynet = -1;
+
+    for (var i = 0; i <= 1; i += step_size) {
+        var x12 = lerp(x1, x2, i);
+        var y12 = lerp(y1, y2, i);
+        var x23 = lerp(x2, x3, i);
+        var y23 = lerp(y2, y3, i);
+        var x34 = lerp(x3, x4, i);
+        var y34 = lerp(y3, y4, i);
+    
+        var x123 = lerp(x12, x23, i);
+        var y123 = lerp(y12, y23, i);
+        var x234 = lerp(x23, x34, i);
+        var y234 = lerp(y23, y34, i);
+    
+        var xx = lerp(x123, x234, i);
+        var yy = lerp(y123, y234, i);
+    
+        if (i > 0 and i < 1) {
+            draw_circle_color(xx, yy, w - (i * 2), color, color, false);
+        }
+        if (i > 0) {
+            draw_set_color(color);
+            draw_line_width(xnet, ynet, xx, yy, (2 * w) - (i * 4));
+        }
+        xnet = xx;
+        ynet = yy;
+    }
+}
+
+/// @description Create an effect
+/// @param sprite
+/// @param {real} fx_x
+/// @param {real} [fx_y]
+/// @param {real} [fx_z=0]
+/// @param {function} [func_fx_callback] A function to call after the animation has completed
+/// @param {Constant.Color} [color=c_white]
+/// @returns {Id.Instance} instance
+function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, color = c_white) {
+    gml_pragma("forceinline");
+
+    if (!RELEASE) {
+        if (!sprite_exists(sprite)) {
+            throw "ERROR scr_create_fx: Sprite is required";
+        }
+    }
+
+    return instance_create_layer(
+        fx_x,
+        fx_y,
+        "instances",
+        obj_fx,
+        {
+            z             : fx_z,
+            sprite_index  : sprite,
+            func_callback : func_fx_callback,
+            image_blend   : color
+        }
+    );
+}
+
+/// @param {struct} structure
+/// @param key
+/// @param default_value
+/// @returns {any}
+function scr_struct_get(structure, key, default_value) {
+    if (is_undefined(structure)) {
+        return default_value;
+    }
+    return struct_get(structure, key) ?? default_value;
+}
+
+// Note: Multiple data types can also be listed, separated by a comma ,
+// For example String,Array<String>, Id.Instance,Asset.GMObject, etc.
+
+/// @param {Id.Buffer} buffer
+/// @param {Id.DsMap} list
+/// @param {Id.DsMap} map
+/// @param {real,array} count
+/// @param {Asset.GMScript,Asset.GMObject} asset
+/// @param {function} callback
+/// @param {Any} [extra]
+/// @param {Id.DsList<array<real>>} list
+/// @returns {string}
+function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
+    return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
+}
+
+/// @description An anonymous function that greets
+/// @param {string} [greeting="Hello, World!"]
+/// @returns {string}
+var func_greet = function (greeting = "Hello, World!") {
+    show_debug_message(greeting);
+    return greeting;
+};
+
+/// @description Adds a custom function that can be called by expressions
+///
+///              Custom functions can return values, but they should be numbers or strings.
+///
+///                  GML:    ChatterboxLoadFromFile("example.json");
+///                          ChatterboxAddFunction("AmIDead", am_i_dead);
+///
+///                  Yarn:   Am I dead?
+///                          <<if AmIDead("player")>>
+///                              Yup. Definitely dead.
+///                          <<else>>
+///                              No, not yet!
+///                          <<endif>>
+///
+///              This example shows how the script am_i_dead() is called by Chatterbox in an if statement. The value
+///              returned from am_i_dead() determines which text is displayed.
+///
+///              Parameters for custom functions executed by Yarn script should be separated by spaces. The parameters
+///              are passed into the given function as an array of values as argument0.
+///
+///              Custom functions can be added at any point but should be added before loading in any source files.
+///
+/// @param name Script name; as a string
+/// @param in_function Function to call
+function ChatterboxAddFunction(_name, _in_function) {
+    // Implementation here
+}

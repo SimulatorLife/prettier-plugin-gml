@@ -238,6 +238,32 @@ function computeLineStartOffsets(sourceText: string): Array<number> {
     return offsets;
 }
 
+function getLineIndexForOffset(lineStartOffsets: ReadonlyArray<number>, offset: number): number {
+    if (lineStartOffsets.length === 0 || offset <= 0) {
+        return 0;
+    }
+
+    let low = 0;
+    let high = lineStartOffsets.length - 1;
+    while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        const lineStart = lineStartOffsets[middle] ?? 0;
+        const nextLineStart =
+            middle + 1 < lineStartOffsets.length ? (lineStartOffsets[middle + 1] ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+        if (offset < lineStart) {
+            high = middle - 1;
+            continue;
+        }
+        if (offset >= nextLineStart) {
+            low = middle + 1;
+            continue;
+        }
+        return middle;
+    }
+
+    return Math.max(0, Math.min(lineStartOffsets.length - 1, low));
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let braceDepth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -1377,6 +1403,68 @@ function parseFunctionDocCommentTarget(line: string): FunctionDocCommentTarget |
     };
 }
 
+const DOC_COMMENT_FUNCTION_NODE_TYPES = new Set(["FunctionDeclaration", "StructFunctionDeclaration", "ConstructorDeclaration"]);
+
+function collectFunctionNodesByStartLine(programNode: unknown, lineStartOffsets: ReadonlyArray<number>): Map<number, Array<AstNodeWithType>> {
+    const functionNodesByLine = new Map<number, Array<AstNodeWithType>>();
+
+    walkAstNodes(programNode, (node) => {
+        if (!isAstNodeWithType(node) || !DOC_COMMENT_FUNCTION_NODE_TYPES.has(node.type)) {
+            return;
+        }
+
+        const startOffset = getNodeStartIndex(node);
+        if (typeof startOffset !== "number" || startOffset < 0) {
+            return;
+        }
+
+        const lineIndex = getLineIndexForOffset(lineStartOffsets, startOffset);
+        const bucket = functionNodesByLine.get(lineIndex) ?? [];
+        bucket.push(node);
+        functionNodesByLine.set(lineIndex, bucket);
+    });
+
+    return functionNodesByLine;
+}
+
+function getFunctionNodeName(node: AstNodeWithType): string | null {
+    if (!isAstNodeRecord(node.id)) {
+        return null;
+    }
+
+    return node.id.type === "Identifier" && typeof node.id.name === "string" ? node.id.name : null;
+}
+
+function resolveFunctionNodeForDocCommentTarget(
+    target: FunctionDocCommentTarget,
+    functionNodesOnLine: ReadonlyArray<AstNodeWithType>
+): AstNodeWithType | null {
+    if (functionNodesOnLine.length === 0) {
+        return null;
+    }
+
+    const targetParamCount = target.parameters.length;
+    for (const functionNode of functionNodesOnLine) {
+        if (getFunctionNodeName(functionNode) !== target.functionName) {
+            continue;
+        }
+
+        const paramCount = Array.isArray(functionNode.params) ? functionNode.params.length : 0;
+        if (paramCount === targetParamCount) {
+            return functionNode;
+        }
+    }
+
+    for (const functionNode of functionNodesOnLine) {
+        const paramCount = Array.isArray(functionNode.params) ? functionNode.params.length : 0;
+        if (paramCount === targetParamCount) {
+            return functionNode;
+        }
+    }
+
+    return functionNodesOnLine[0] ?? null;
+}
+
 function readTrailingDocCommentBlock(lines: ReadonlyArray<string>): TrailingDocCommentBlock | null {
     let index = lines.length - 1;
     if (index < 0 || !/^\s*\/\/\//u.test(lines[index])) {
@@ -1562,7 +1650,9 @@ function withTargetIndentation(indentation: string, line: string): string {
 
 function synthesizeFunctionDocCommentBlock(
     target: FunctionDocCommentTarget,
-    existingDocLines: ReadonlyArray<string> | null
+    existingDocLines: ReadonlyArray<string> | null,
+    sourceText: string,
+    functionNodeForSynthesis: AstNodeWithType | null
 ): ReadonlyArray<string> | null {
     const docLinesWithoutPlaceholders = (existingDocLines ?? []).filter(
         (line) => !isFunctionNamePlaceholderDescription(line, target.functionName)
@@ -1570,14 +1660,19 @@ function synthesizeFunctionDocCommentBlock(
     const canonicalizedDocLines = canonicalizeDocCommentTagAliases(docLinesWithoutPlaceholders).filter(
         (line) => !isFunctionDocCommentTagLine(line)
     );
-    const syntheticFunctionBuild = createSyntheticDocCommentFunctionNode(target);
+    const syntheticFunctionBuild =
+        functionNodeForSynthesis === null ? createSyntheticDocCommentFunctionNode(target) : null;
+    const functionNode = functionNodeForSynthesis ?? syntheticFunctionBuild?.functionNode;
+    if (!functionNode) {
+        return null;
+    }
     const syntheticDocLines = CoreWorkspace.Core.computeSyntheticFunctionDocLines(
-        syntheticFunctionBuild.functionNode,
+        functionNode,
         canonicalizedDocLines,
         {
-            originalText: syntheticFunctionBuild.syntheticSourceText,
-            locStart: getSyntheticDocCommentNodeSourceStart,
-            locEnd: getSyntheticDocCommentNodeSourceEnd
+            originalText: functionNodeForSynthesis ? sourceText : (syntheticFunctionBuild?.syntheticSourceText ?? ""),
+            locStart: functionNodeForSynthesis ? getNodeStartIndex : getSyntheticDocCommentNodeSourceStart,
+            locEnd: functionNodeForSynthesis ? getNodeEndIndex : getSyntheticDocCommentNodeSourceEnd
         },
         {}
     );
@@ -1662,10 +1757,12 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
-                Program() {
+                Program(programNode) {
                     const text = context.sourceCode.text;
                     const lineEnding = dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
+                    const lineStartOffsets = computeLineStartOffsets(text);
+                    const functionNodesByLineIndex = collectFunctionNodesByStartLine(programNode, lineStartOffsets);
                     const rewrittenLines: Array<string> = [];
 
                     const flushDocBlock = (blockLines: Array<string>): void => {
@@ -1689,7 +1786,7 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                     };
 
                     let pendingDocBlock: Array<string> = [];
-                    for (const line of lines) {
+                    for (const [lineIndex, line] of lines.entries()) {
                         if (
                             /^\s*\/\/\//u.test(line) ||
                             /^\s*\/\/\s*@/u.test(line) ||
@@ -1704,10 +1801,16 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                         const normalizedLine = normalizeDocCommentPrefixLine(line);
                         const docCommentTarget = parseFunctionDocCommentTarget(normalizedLine);
                         if (docCommentTarget) {
+                            const functionNode = resolveFunctionNodeForDocCommentTarget(
+                                docCommentTarget,
+                                functionNodesByLineIndex.get(lineIndex) ?? []
+                            );
                             const trailingDocCommentBlock = readTrailingDocCommentBlock(rewrittenLines);
                             const synthesizedDocCommentBlock = synthesizeFunctionDocCommentBlock(
                                 docCommentTarget,
-                                trailingDocCommentBlock?.lines ?? null
+                                trailingDocCommentBlock?.lines ?? null,
+                                text,
+                                functionNode
                             );
 
                             if (synthesizedDocCommentBlock) {

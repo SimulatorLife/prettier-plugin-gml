@@ -1,0 +1,6 @@
+{
+  "printWidth": 120,
+  "lintRules": {
+    "gml/prefer-struct-literal-assignments": "error"
+  }
+}
