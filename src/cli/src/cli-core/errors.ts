@@ -213,7 +213,7 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
     }
 
     if (Core.isObjectLike(value)) {
-        return formatPlainObject(value, seen);
+        return formatPlainObject(value as object, seen);
     }
 
     if (typeof value === "symbol") {

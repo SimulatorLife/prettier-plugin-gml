@@ -2857,7 +2857,10 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine = nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : syntheticDocComment == null && nextCharacter !== null;
+            shouldPreserveTrailingBlankLine =
+                nextCharacter === "}"
+                    ? constructorContainsOnlyStaticFunctions
+                    : syntheticDocComment == null && nextCharacter !== null;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
