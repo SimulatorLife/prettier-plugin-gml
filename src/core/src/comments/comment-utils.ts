@@ -152,6 +152,40 @@ export function getCommentValue(comment: unknown, { trim = false }: { trim?: boo
     return trim ? value.trim() : value;
 }
 
+function normalizeCommentBoundaryIndex(boundary: unknown): number | null {
+    if (typeof boundary === "number") {
+        return Number.isFinite(boundary) ? boundary : null;
+    }
+
+    if (!isObjectLike(boundary)) {
+        return null;
+    }
+
+    const index = (boundary as { index?: unknown }).index;
+    return typeof index === "number" && Number.isFinite(index) ? index : null;
+}
+
+/**
+ * Resolves a numeric comment boundary index from parser comment nodes.
+ *
+ * Parser outputs can represent comment boundaries as either numbers
+ * (`comment.start = 12`) or objects (`comment.start = { index: 12 }`).
+ * This helper centralizes that shape normalization so comment-processing
+ * code can compare stable numeric ranges without duplicating guards.
+ *
+ * @param comment Candidate comment-like node.
+ * @param boundaryName Boundary to resolve (`"start"` or `"end"`).
+ * @returns Numeric boundary index when available, otherwise `null`.
+ */
+export function getCommentBoundaryIndex(comment: unknown, boundaryName: "start" | "end"): number | null {
+    if (!isObjectLike(comment)) {
+        return null;
+    }
+
+    const boundary = (comment as { start?: unknown; end?: unknown })[boundaryName];
+    return normalizeCommentBoundaryIndex(boundary);
+}
+
 /**
  * Resolves the starting line number for a line comment.
  *

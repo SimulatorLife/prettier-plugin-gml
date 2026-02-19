@@ -1,6 +1,7 @@
 import { resolveDocCommentTraversalService } from "../manager.js";
 import {
     asArray,
+    getCommentBoundaryIndex,
     getNodeStartIndex,
     isFunctionLikeNode,
     isLineComment,
@@ -15,20 +16,10 @@ type DocCommentTraversalService = {
 const PARAM_TAG_PATTERN = /@param\s+(?:\{[^}]+\}\s*)?(\S+)/i;
 const FUNCTION_TAG_PATTERN = /@function\s+\w+\(([^)]*)\)/i;
 
-function normalizeBoundaryIndex(index: unknown): number | null {
-    return typeof index === "number" ? index : null;
-}
-
 function getCommentPositions(comment: unknown) {
-    if (!comment || typeof comment !== "object") {
-        return { start: null, end: null };
-    }
-
-    const { start, end } = comment as { start?: unknown; end?: unknown };
-
     return {
-        start: normalizeBoundaryIndex((start as { index?: unknown })?.index ?? start),
-        end: normalizeBoundaryIndex((end as { index?: unknown })?.index ?? end)
+        start: getCommentBoundaryIndex(comment, "start"),
+        end: getCommentBoundaryIndex(comment, "end")
     };
 }
 

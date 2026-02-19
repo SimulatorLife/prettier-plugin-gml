@@ -5,6 +5,7 @@ import { Core } from "@gml-modules/core";
 
 const {
     collectCommentNodes,
+    getCommentBoundaryIndex,
     getCommentArray,
     getCommentValue,
     hasComment,
@@ -65,6 +66,13 @@ void test("getCommentValue normalizes raw and node inputs", () => {
 
     assert.equal(getCommentValue(null), "");
     assert.equal(getCommentValue({ type: "CommentLine" }), "");
+});
+
+void test("getCommentBoundaryIndex normalizes numeric and object boundaries", () => {
+    assert.equal(getCommentBoundaryIndex({ start: 10, end: 14 }, "start"), 10);
+    assert.equal(getCommentBoundaryIndex({ start: { index: 25 }, end: { index: 32 } }, "end"), 32);
+    assert.equal(getCommentBoundaryIndex({ start: { line: 5 } }, "start"), null);
+    assert.equal(getCommentBoundaryIndex(null, "end"), null);
 });
 
 void test("collectCommentNodes finds nested comment nodes", () => {

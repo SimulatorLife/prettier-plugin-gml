@@ -2,6 +2,7 @@ import {
     asArray,
     formatLineComment,
     getCommentArray,
+    getCommentBoundaryIndex,
     getLineCommentRawText,
     isNonEmptyArray,
     resolveLineCommentOptions,
@@ -131,12 +132,7 @@ function collectNodeDocCommentLines(
                 continue;
             }
 
-            const commentStartIndex =
-                comment && typeof comment.start === NUMBER_TYPE
-                    ? comment.start
-                    : comment && comment.start && typeof comment.start.index === NUMBER_TYPE
-                      ? comment.start.index
-                      : null;
+            const commentStartIndex = getCommentBoundaryIndex(comment, "start");
 
             const isBeforeNode =
                 Number.isInteger(commentStartIndex) &&
@@ -241,8 +237,8 @@ function tryCollectDocLinesFromProgramComments(
         if (!pc || pc.type !== "CommentLine" || pc.printed) {
             continue;
         }
-        let pcEndIndex = typeof pc.end === NUMBER_TYPE ? pc.end : (pc?.end?.index ?? null);
-        const pcStartIndex = typeof pc.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
+        let pcEndIndex = getCommentBoundaryIndex(pc, "end");
+        const pcStartIndex = getCommentBoundaryIndex(pc, "start");
         if (!Number.isInteger(pcEndIndex)) {
             pcEndIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : null;
         }
@@ -330,7 +326,7 @@ function tryCollectDocLinesFromSourceText(
     const fallbackOptions = resolveLineCommentOptions(options);
     const formatted = candidates.map((c) => {
         const matchNode = programCommentArray.find((pc) => {
-            const startIndex = typeof pc?.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
+            const startIndex = getCommentBoundaryIndex(pc, "start");
             return Number.isInteger(startIndex) && startIndex === c.start;
         });
         if (matchNode) {
