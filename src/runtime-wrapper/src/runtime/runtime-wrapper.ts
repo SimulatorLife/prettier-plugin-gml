@@ -8,6 +8,7 @@ import {
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
+    validateBatchPatchDependencies,
     validatePatch,
     validatePatchDependencies
 } from "./patch-utils.js";
@@ -192,19 +193,19 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             validatedPatches.push(candidate);
         }
 
-        // Validate dependencies for each patch in the batch
-        for (const [index, patch] of validatedPatches.entries()) {
-            const depValidation = validatePatchDependencies(patch, state.registry);
-            if (!depValidation.satisfied) {
-                const missingDeps = depValidation.missingDependencies.join(", ");
-                const errorMessage = `Patch ${patch.id} has unsatisfied dependencies: ${missingDeps}`;
-                recordError(patch, "validation", errorMessage);
+        const batchDependencyValidation = validateBatchPatchDependencies(validatedPatches, state.registry);
+        if (batchDependencyValidation.satisfied === false) {
+            const failedPatch = validatedPatches[batchDependencyValidation.failedIndex];
+            if (failedPatch) {
+                const missingDeps = batchDependencyValidation.missingDependencies.join(", ");
+                const errorMessage = `Patch ${failedPatch.id} has unsatisfied dependencies: ${missingDeps}`;
+                recordError(failedPatch, "validation", errorMessage);
                 return {
                     success: false,
                     appliedCount: 0,
-                    failedIndex: index,
+                    failedIndex: batchDependencyValidation.failedIndex,
                     error: "dependency_validation_failed",
-                    message: `Batch dependency validation failed at patch ${index} (${patch.id}): ${errorMessage}`,
+                    message: `Batch dependency validation failed at patch ${batchDependencyValidation.failedIndex} (${failedPatch.id}): ${errorMessage}`,
                     rolledBack: false
                 };
             }

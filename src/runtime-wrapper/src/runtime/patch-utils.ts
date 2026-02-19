@@ -444,6 +444,45 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
     };
 }
 
+export type BatchDependencyValidationResult =
+    | { satisfied: true }
+    | {
+          satisfied: false;
+          failedIndex: number;
+          missingDependencies: Array<string>;
+      };
+
+/**
+ * Validates patch dependencies in the order a batch will be applied.
+ *
+ * Dependencies can be satisfied either by the current registry state or by
+ * patches that appear earlier in the same batch.
+ */
+export function validateBatchPatchDependencies(
+    patches: ReadonlyArray<Patch>,
+    registry: RuntimeRegistry
+): BatchDependencyValidationResult {
+    const dependencyLookup = new Set(createDependencyLookup(registry));
+
+    for (const [index, patch] of patches.entries()) {
+        const dependencies = patch.metadata?.dependencies;
+        if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
+            const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
+            if (missingDependencies.length > 0) {
+                return {
+                    satisfied: false,
+                    failedIndex: index,
+                    missingDependencies
+                };
+            }
+        }
+
+        dependencyLookup.add(patch.id);
+    }
+
+    return { satisfied: true };
+}
+
 export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
     const handler = resolvePatchKindHandler(patch.kind);
     return handler.apply(registry, patch);

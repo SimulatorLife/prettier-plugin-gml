@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
 
-import { validatePatchDependencies } from "../src/runtime/patch-utils.js";
+import { validateBatchPatchDependencies, validatePatchDependencies } from "../src/runtime/patch-utils.js";
 import { createRuntimeWrapper } from "../src/runtime/runtime-wrapper.js";
 import type { Patch, RuntimeRegistry } from "../src/runtime/types.js";
 
@@ -391,11 +391,66 @@ void describe("Dependency Validation", () => {
             }
         ];
 
-        // This should fail because batch validation checks all dependencies against
-        // the current registry state BEFORE applying any patches in the batch
         const result = wrapper.applyPatchBatch(patches);
-        assert.strictEqual(result.success, false);
-        assert.strictEqual(result.appliedCount, 0);
+        assert.strictEqual(result.success, true);
+        assert.strictEqual(result.appliedCount, 2);
+        assert.strictEqual(wrapper.hasScript("script:dependent"), true);
+    });
+
+    void test("validateBatchPatchDependencies fails when dependency is declared later in the batch", () => {
+        const registry: RuntimeRegistry = {
+            version: 0,
+            scripts: {},
+            events: {},
+            closures: {}
+        };
+
+        const patches: Array<Patch> = [
+            {
+                kind: "script",
+                id: "script:dependent",
+                js_body: "return 2;",
+                metadata: { dependencies: ["script:base"] }
+            },
+            {
+                kind: "script",
+                id: "script:base",
+                js_body: "return 1;"
+            }
+        ];
+
+        const result = validateBatchPatchDependencies(patches, registry);
+        assert.strictEqual(result.satisfied, false);
+        if (!result.satisfied) {
+            assert.strictEqual(result.failedIndex, 0);
+            assert.deepStrictEqual(result.missingDependencies, ["script:base"]);
+        }
+    });
+
+    void test("validateBatchPatchDependencies accepts dependencies satisfied by earlier batch patches", () => {
+        const registry: RuntimeRegistry = {
+            version: 0,
+            scripts: {},
+            events: {},
+            closures: {}
+        };
+
+        const patches: Array<Patch> = [
+            {
+                kind: "script",
+                id: "script:base",
+                js_body: "return 1;"
+            },
+            {
+                kind: "script",
+                id: "script:dependent",
+                js_body: "return 2;",
+                metadata: { dependencies: ["script:base"] }
+            }
+        ];
+
+        const result = validateBatchPatchDependencies(patches, registry);
+        assert.strictEqual(result.satisfied, true);
     });
 
     void test("cross-kind dependencies are validated", () => {
