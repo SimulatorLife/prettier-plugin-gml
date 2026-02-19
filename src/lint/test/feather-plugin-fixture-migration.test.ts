@@ -557,7 +557,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
 void test("legacy plugin GM fixtures are now lint-owned feather rule tests", async () => {
     for (const migrationCase of migrationCases) {
         const input = await readMigratedFeatherFixture(migrationCase.fixtureDirectory);
-        const result = lintWithFeatherRule(LintWorkspace.Lint.plugin, migrationCase.ruleName, input);
+        const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, migrationCase.ruleName, input);
         assert.equal(result.messages.length > 0, true, `${migrationCase.ruleName} should report diagnostics`);
         migrationCase.assertOutput(result.output);
     }
@@ -578,7 +578,7 @@ runner = function () constructor {
 }
 `;
 
-    const { output } = lintWithFeatherRule(LintWorkspace.Lint.plugin, "gm1013", input);
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1013", input);
 
     assert.equal(output.includes("/// @param [speed=12]"), true);
     assert.equal(output.includes("function DamageHandler(speed = 12) constructor {"), true);

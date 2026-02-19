@@ -14,6 +14,7 @@ function assertIsFrozenObject(value: unknown, message: string) {
 void test("Lint namespace exports plugin/configs/ruleIds/services and is deeply frozen at top level", () => {
     assertIsFrozenObject(Lint, "Lint");
     assertIsFrozenObject(Lint.plugin, "Lint.plugin");
+    assertIsFrozenObject(Lint.featherPlugin, "Lint.featherPlugin");
     assertIsFrozenObject(Lint.configs, "Lint.configs");
     assertIsFrozenObject(Lint.ruleIds, "Lint.ruleIds");
     assertIsFrozenObject(Lint.services, "Lint.services");
@@ -49,6 +50,9 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     const [recommended] = Lint.configs.recommended;
     assert.equal(recommended.language, "gml/gml");
     assert.equal(recommended.rules["gml/require-argument-separators"], "error");
+
+    const [featherOverlay] = Lint.configs.feather;
+    assert.equal(featherOverlay.plugins?.feather, Lint.featherPlugin);
 });
 
 void test("semver-sensitive lint constants are pinned", () => {

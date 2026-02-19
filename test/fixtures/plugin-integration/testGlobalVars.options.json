@@ -1,1 +1,7 @@
-{}
+{
+  "printWidth": 120,
+  "allowSingleLineIfStatements": false,
+  "lintRules": {
+    "gml/no-globalvar": "error"
+  }
+}

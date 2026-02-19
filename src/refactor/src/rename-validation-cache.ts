@@ -91,6 +91,7 @@ export interface ValidationCacheStats {
  */
 export class RenameValidationCache {
     private readonly cache: Map<string, CacheEntry>;
+    private readonly inFlight: Map<string, Promise<CachedValidationResult>>;
     private readonly maxSize: number;
     private readonly ttlMs: number;
     private readonly enabled: boolean;
@@ -98,6 +99,7 @@ export class RenameValidationCache {
 
     constructor(config: RenameValidationCacheConfig = {}) {
         this.cache = new Map();
+        this.inFlight = new Map();
         this.maxSize = config.maxSize ?? 50;
         this.ttlMs = config.ttlMs ?? 30_000;
         this.enabled = config.enabled ?? true;
@@ -178,34 +180,49 @@ export class RenameValidationCache {
             this.evictEntry(key);
         }
 
+        const inFlightValidation = this.inFlight.get(key);
+        if (inFlightValidation !== undefined) {
+            this.stats.hits++;
+            return inFlightValidation;
+        }
+
         // Cache miss - compute and store
         this.stats.misses++;
 
-        // Remove stale entry if it exists
-        const result = await compute();
+        const validationPromise = (async (): Promise<CachedValidationResult> => {
+            const result = await compute();
 
-        // Store in cache with current timestamp
-        const entry: CacheEntry = {
-            result,
-            timestamp: Date.now()
-        };
+            // Store in cache with current timestamp
+            const entry: CacheEntry = {
+                result,
+                timestamp: Date.now()
+            };
 
-        // Evict oldest if at capacity (check before adding)
-        if (this.cache.size >= this.maxSize) {
-            this.evictOldest();
+            // Evict oldest if at capacity (check before adding)
+            if (this.cache.size >= this.maxSize) {
+                this.evictOldest();
+            }
+
+            // Only add if there's room (maxSize > 0)
+            if (this.maxSize > 0) {
+                this.cache.set(key, entry);
+            } else {
+                // maxSize is 0, so we evict immediately
+                this.stats.evictions++;
+            }
+
+            this.stats.size = this.cache.size;
+
+            return result;
+        })();
+
+        this.inFlight.set(key, validationPromise);
+
+        try {
+            return await validationPromise;
+        } finally {
+            this.inFlight.delete(key);
         }
-
-        // Only add if there's room (maxSize > 0)
-        if (this.maxSize > 0) {
-            this.cache.set(key, entry);
-        } else {
-            // maxSize is 0, so we evict immediately
-            this.stats.evictions++;
-        }
-
-        this.stats.size = this.cache.size;
-
-        return result;
     }
 
     /**
@@ -217,6 +234,7 @@ export class RenameValidationCache {
     invalidate(symbolId: string, newName: string): void {
         const key = this.getCacheKey(symbolId, newName);
         this.cache.delete(key);
+        this.inFlight.delete(key);
         this.stats.size = this.cache.size;
     }
 
@@ -238,6 +256,7 @@ export class RenameValidationCache {
 
         for (const key of keysToDelete) {
             this.cache.delete(key);
+            this.inFlight.delete(key);
         }
 
         this.stats.size = this.cache.size;
@@ -249,6 +268,7 @@ export class RenameValidationCache {
      */
     invalidateAll(): void {
         this.cache.clear();
+        this.inFlight.clear();
         this.stats.size = 0;
     }
 

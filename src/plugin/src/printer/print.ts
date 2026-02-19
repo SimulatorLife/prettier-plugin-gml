@@ -19,6 +19,13 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
+import {
+    applyIdentifierCaseSnapshotForProgram,
+    cacheProgramNodeOnPrinterOptions,
+    emitIdentifierCaseDryRunReport,
+    resolveIdentifierCaseRenameForNode,
+    teardownIdentifierCaseServices
+} from "../identifier-case/index.js";
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
@@ -30,13 +37,6 @@ import {
     type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import {
-    applyIdentifierCaseSnapshotForProgram,
-    cacheProgramNodeOnPrinterOptions,
-    emitIdentifierCaseDryRunReport,
-    resolveIdentifierCaseRenameForNode,
-    teardownIdentifierCaseServices
-} from "./identifier-case-services.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -1236,7 +1236,7 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 }
             }
 
-            return concat(stripTrailingLineTerminators(textToPrint));
+            return concat(stripTrailingLineTerminators(normalizeMacroNameSeparatorSpacing(textToPrint)));
         }
         case "RegionStatement": {
             return concat(["#region", print("name")]);
@@ -1282,6 +1282,19 @@ function tryPrintDeclarationNode(node, path, options, print) {
             return concat("");
         }
     }
+}
+
+function normalizeMacroNameSeparatorSpacing(macroText) {
+    const newlineMatch = /\r?\n/u.exec(macroText);
+    const firstLineEnd = newlineMatch ? newlineMatch.index : macroText.length;
+    const firstLine = macroText.slice(0, firstLineEnd);
+    const remainder = macroText.slice(firstLineEnd);
+
+    const normalizedFirstLine = firstLine.replace(
+        /^(\s*#macro\s+[A-Za-z_][A-Za-z0-9_]*)(?:[ \t]{2,})(\S.*)$/u,
+        "$1 $2"
+    );
+    return `${normalizedFirstLine}${remainder}`;
 }
 
 function tryPrintLiteralNode(node, path, options, print) {
@@ -2844,11 +2857,10 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            if (nextCharacter === "}") {
-                shouldPreserveTrailingBlankLine = constructorContainsOnlyStaticFunctions;
-            } else {
-                shouldPreserveTrailingBlankLine = syntheticDocComment == null && nextCharacter !== null;
-            }
+            shouldPreserveTrailingBlankLine =
+                nextCharacter === "}"
+                    ? constructorContainsOnlyStaticFunctions
+                    : syntheticDocComment == null && nextCharacter !== null;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
@@ -5332,15 +5344,15 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (Core.hasComment(bodyNode)) {
+    // Only allow inline guard for void returns (no value) when the body is a naked
+    // (brace-less) return statement — e.g. `if (!ok) return;`.
+    // Returns with values such as `if (x) return false;` should expand normally.
+    // Block-wrapped return guards (e.g. `if (x == 0) { return 0; }`) are not affected.
+    if (bodyNode?.type === "ReturnStatement" && bodyNode.argument != null) {
         return false;
     }
 
-    if (
-        inlineCandidate?.type === "ReturnStatement" &&
-        inlineCandidate.argument !== undefined &&
-        inlineCandidate.argument !== null
-    ) {
+    if (Core.hasComment(bodyNode)) {
         return false;
     }
 
@@ -5349,7 +5361,31 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (!findEnclosingFunctionForPath(path)) {
+    let enclosingFunction = null;
+    let enclosingFunctionDepth = null;
+    for (let depth = 0; ; depth += 1) {
+        const ancestor = safeGetParentNode(path, depth);
+        if (!ancestor) {
+            break;
+        }
+
+        if (Core.isFunctionLikeNode(ancestor)) {
+            enclosingFunction = ancestor;
+            enclosingFunctionDepth = depth;
+            break;
+        }
+    }
+
+    if (!enclosingFunction || enclosingFunctionDepth === null) {
+        return false;
+    }
+
+    if (enclosingFunction.type !== "FunctionDeclaration" && enclosingFunction.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    const enclosingFunctionParent = safeGetParentNode(path, enclosingFunctionDepth + 1);
+    if (!enclosingFunctionParent || enclosingFunctionParent.type !== "Program") {
         return false;
     }
 

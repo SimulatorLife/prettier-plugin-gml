@@ -1,3 +1,8 @@
 {
-  "allowSingleLineIfStatements": false
+  "allowSingleLineIfStatements": false,
+  "printWidth": 120,
+  "lintRules": {
+    "gml/normalize-doc-comments": "error",
+    "gml/prefer-string-interpolation": "error"
+  }
 }

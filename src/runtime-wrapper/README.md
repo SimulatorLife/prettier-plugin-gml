@@ -113,11 +113,12 @@ Applies multiple patches atomically as a single operation. Either all patches su
 
 **Dependency Validation in Batches:**
 
-Dependencies are validated against the current registry state before the batch begins. This means that patches in a batch cannot depend on other patches within the same batch - all dependencies must already exist in the registry before the batch starts.
+Dependencies are validated in the same order patches are applied. A dependency can be satisfied by the current registry or by a patch that appears earlier in the same batch. Forward references (dependencies declared later in the same batch) still fail validation.
 
-If you need to apply interdependent patches, either:
-- Apply them in separate calls in dependency order
-- Ensure all dependencies exist in the registry before calling `applyPatchBatch()`
+For interdependent batches:
+- Order patches from foundational dependencies to dependent patches
+- Keep dependency metadata explicit and minimal
+- Use separate `applyPatch()` calls only when batch order cannot be guaranteed
 
 **Returns:**
 

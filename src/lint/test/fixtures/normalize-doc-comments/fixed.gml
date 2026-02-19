@@ -5,7 +5,7 @@
 /// @returns {undefined}
 function test(x) {}
 /// @param a
-/// @param b
+/// @param [b=1]
 /// @returns {undefined}
 function synth_me(_a, b = 1) {
     return _a + b;
@@ -23,7 +23,7 @@ var build_struct = function (value) {
     return { value: value };
 };
 /// @param kind
-/// @param amount
+/// @param [amount=1]
 /// @returns {undefined}
 static step_once = function (_kind, amount = 1) {
     return amount;

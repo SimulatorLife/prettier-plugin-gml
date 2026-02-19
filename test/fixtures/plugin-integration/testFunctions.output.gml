@@ -1,5 +1,7 @@
 some(
     thisArgumentIsQuiteLong,
+    /// @param cool
+    /// @param [f=function () {ez();}]
     function foo(cool, f = function () { ez(); }) : bar() constructor {
         return cool;
     }
@@ -55,8 +57,7 @@ function Shape(color = undefined) constructor {
         ds_list_destroy(shapeList);
     };
 
-    /// @param solid
-    /// @param {bool} solid Whether the shape is solid or not
+    /// @param {bool} solid - Whether the shape is solid or not
     /// @returns {undefined}
     static setSolid = function (solid) {
         if (solid) {
@@ -67,7 +68,7 @@ function Shape(color = undefined) constructor {
     };
 }
 
-/// @param {real} r The radius of the circle
+/// @param {real} r -  The radius of the circle
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
@@ -77,8 +78,7 @@ var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
-/// @param {real} [r1=1] The horizontal radius of the oval
-/// @param [r2=1]
+/// @param {real} r1 - The horizontal radius of the oval
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
     self.r1 = r1;
     self.r2 = r2;
@@ -132,8 +132,11 @@ function __ChatterboxBufferBatch() constructor {
     __outBuffer = undefined;
     __commands = [];
 
+    /// @returns {undefined}
     static __Destroy = function () {
-        if (__destroyed) { return; }
+        if (__destroyed) {
+            return;
+        }
         __destroyed = true;
 
         if (!is_undefined(__inBuffer)) {
@@ -147,6 +150,8 @@ function __ChatterboxBufferBatch() constructor {
     };
 }
 
+/// @param argument0
+/// @param argument1
 /// @param [name="friend"]
 /// @param [greeting="Hello"]
 function greet(name = "friend", greeting = "Hello") {
@@ -159,8 +164,8 @@ var message3 = greet("Bob", "Howdy");
 var message4 = greet("Chaz");
 var message5 = greet(undefined, "Welcome");
 
-/// @param {real} [multiplier] The multiplier to apply to the light direction
-/// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
+/// @param {real} [multiplier] - The multiplier to apply to the light direction
+/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
@@ -177,39 +182,39 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 
 /// @param {Id.Instance} a
 /// @param {Id.Instance} b
-/// @param {real} dst
+/// @param {real} distance
 /// @param {real} force
-/// @param {bool} push_out
-/// @param {bool} pull_in
-function scr_spring(a, b, dst, force, push_out, pull_in) {
+/// @param {bool} [push_out=true]
+/// @param {bool} [pull_in=true]
+/// @param {real} dst
+function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
     if (!instance_exists(a) or !instance_exists(b)) {
         return false;
     }
 
-    var push_out = argument_count > 4 ? argument[4] : true;
-    var pull_in = argument_count > 5 ? argument[5] : true;
 
     var xoff = a.x - b.x;
     var yoff = a.y - b.y;
 
-    var actual_dist = xoff * xoff + yoff * yoff;
-    if (actual_dist == 0) {
+    var actual_dist = sqr(xoff) + sqr(yoff);
+    var eps = math_get_epsilon();
+    if (actual_dist <= eps) {
         return false;
     }
-    if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
+    if ((actual_dist < sqr(dst) and push_out) or (actual_dist > sqr(dst) and pull_in)){
         actual_dist = sqrt(actual_dist);
         var diff = actual_dist - dst;
 
         // normalize and multiply with diff and amount
-        var norm = (force * diff) / actual_dist;
+        var norm = force * diff / actual_dist;
         xoff *= norm;
         yoff *= norm;
 
         // calculate mass
         var m1, r1, r2;
         m1 = 1 / (b.mass + a.mass);
-        r1 = (b.mass * m1) / 2;
-        r2 = (a.mass * m1) / 2;
+        r1 = (b.mass) * m1 * 0.5;
+        r2 = (a.mass) * m1 * 0.5;
 
         // add speeds
         a.velocity.x -= xoff * r1;
