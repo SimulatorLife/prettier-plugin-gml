@@ -1218,11 +1218,11 @@ function simplifyIfReturnExpression(conditionText: string, truthyText: string, f
     const normalizedCondition = convertLogicalSymbolsToKeywords(trimOuterParentheses(conditionText));
 
     if (truthy === "true" && falsy === "false") {
-        return simplifiedCondition;
+        return null;
     }
 
     if (truthy === "false" && falsy === "true") {
-        return wrapNegatedLogicalCondition(simplifiedCondition);
+        return null;
     }
 
     if (falsy === "true") {
