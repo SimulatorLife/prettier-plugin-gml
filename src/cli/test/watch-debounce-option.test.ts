@@ -9,7 +9,7 @@ void describe("watch command debounce option", () => {
         const debounceOption = command.options.find((opt) => opt.long === "--debounce-delay");
 
         assert.ok(debounceOption, "Should have --debounce-delay option");
-        assert.equal(debounceOption.defaultValue, 200, "Default debounce delay should be 200ms");
+        assert.equal(debounceOption.defaultValue, 100, "Default debounce delay should be 100ms");
     });
 
     void it("should have debounce-delay with correct description", () => {
