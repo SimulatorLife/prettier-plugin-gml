@@ -19,6 +19,13 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
+import {
+    applyIdentifierCaseSnapshotForProgram,
+    cacheProgramNodeOnPrinterOptions,
+    emitIdentifierCaseDryRunReport,
+    resolveIdentifierCaseRenameForNode,
+    teardownIdentifierCaseServices
+} from "../identifier-case/index.js";
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
@@ -30,13 +37,6 @@ import {
     type SyntheticDocCommentPayload
 } from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import {
-    applyIdentifierCaseSnapshotForProgram,
-    cacheProgramNodeOnPrinterOptions,
-    emitIdentifierCaseDryRunReport,
-    resolveIdentifierCaseRenameForNode,
-    teardownIdentifierCaseServices
-} from "./identifier-case-services.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -2857,11 +2857,7 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            if (nextCharacter === "}") {
-                shouldPreserveTrailingBlankLine = constructorContainsOnlyStaticFunctions;
-            } else {
-                shouldPreserveTrailingBlankLine = syntheticDocComment == null && nextCharacter !== null;
-            }
+            shouldPreserveTrailingBlankLine = nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : syntheticDocComment == null && nextCharacter !== null;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
