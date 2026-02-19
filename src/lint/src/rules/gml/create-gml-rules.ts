@@ -549,6 +549,7 @@ function createLoopLengthHoistRewrite(parameters: {
     if (typeof forStart !== "number") {
         return null;
     }
+    const loopLineStart = getLineStartOffset(parameters.sourceText, forStart);
 
     const accessorCalls = collectLoopLengthAccessorCallsFromTestExpression({
         sourceText: parameters.sourceText,
@@ -624,7 +625,7 @@ function createLoopLengthHoistRewrite(parameters: {
     }
 
     return Object.freeze({
-        insertionOffset: forStart,
+        insertionOffset: loopLineStart,
         insertionText: `${hoistLines.join(parameters.lineEnding)}${parameters.lineEnding}`,
         callRewrites,
         reportOffset

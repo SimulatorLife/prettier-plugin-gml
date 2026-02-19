@@ -5345,25 +5345,36 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (
-        inlineCandidate?.type === "ReturnStatement" &&
-        inlineCandidate.argument !== undefined &&
-        inlineCandidate.argument !== null
-    ) {
-        return false;
-    }
-
     const parentNode = safeGetParentNode(path);
     if (!parentNode || parentNode.type === "Program") {
         return false;
     }
 
-    const enclosingFunction = findEnclosingFunctionForPath(path);
-    if (!enclosingFunction) {
+    let enclosingFunction = null;
+    let enclosingFunctionDepth = null;
+    for (let depth = 0; ; depth += 1) {
+        const ancestor = safeGetParentNode(path, depth);
+        if (!ancestor) {
+            break;
+        }
+
+        if (Core.isFunctionLikeNode(ancestor)) {
+            enclosingFunction = ancestor;
+            enclosingFunctionDepth = depth;
+            break;
+        }
+    }
+
+    if (!enclosingFunction || enclosingFunctionDepth === null) {
         return false;
     }
 
     if (enclosingFunction.type !== "FunctionDeclaration" && enclosingFunction.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    const enclosingFunctionParent = safeGetParentNode(path, enclosingFunctionDepth + 1);
+    if (!enclosingFunctionParent || enclosingFunctionParent.type !== "Program") {
         return false;
     }
 
