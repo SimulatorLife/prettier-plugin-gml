@@ -23,7 +23,6 @@ import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
-import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -50,6 +49,7 @@ import {
     transpileFile,
     type TranspilerProvider
 } from "../modules/transpilation/coordinator.js";
+import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
@@ -246,6 +246,35 @@ interface RuntimeContext
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
     fileStats?: Stats | null;
+}
+
+const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
+const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
+
+function delayFileReadRetry(durationMs: number): Promise<void> {
+    return new Promise((resolve) => {
+        setTimeout(resolve, durationMs);
+    });
+}
+
+/**
+ * Filesystem watch events can fire while an editor is still writing.
+ * Retry briefly when the file is observed as empty so we do not treat
+ * transient truncation windows as a permanent transpilation failure.
+ */
+async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<string> {
+    const readAttempt = async (attempt: number): Promise<string> => {
+        const content = await readFile(filePath, "utf8");
+        const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
+        if (content.length > 0 || isFinalAttempt) {
+            return content;
+        }
+
+        await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS);
+        return readAttempt(attempt + 1);
+    };
+
+    return await readAttempt(0);
 }
 
 async function runAutoInjectHotReload(
@@ -1140,7 +1169,7 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readFile(filePath, "utf8");
+            const content = await readSourceFileWithTransientEmptyRetry(filePath);
             const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {

@@ -1,5 +1,6 @@
+import { Core } from "@gml-modules/core";
+
 import { resolveBuiltinConstants } from "./builtin-constants.js";
-import { areNumbersApproximatelyEqual, isErrorLike, isNonEmptyString } from "./runtime-core-helpers.js";
 import type {
     ApplyPatchResult,
     ClosurePatch,
@@ -70,7 +71,7 @@ function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string
 
 function resolveRuntimeId(patch: ScriptPatch): string {
     const candidate = (patch as { runtimeId?: unknown }).runtimeId;
-    if (isNonEmptyString(candidate)) {
+    if (Core.isNonEmptyString(candidate)) {
         return candidate;
     }
 
@@ -443,6 +444,45 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
     };
 }
 
+export type BatchDependencyValidationResult =
+    | { satisfied: true }
+    | {
+          satisfied: false;
+          failedIndex: number;
+          missingDependencies: Array<string>;
+      };
+
+/**
+ * Validates patch dependencies in the order a batch will be applied.
+ *
+ * Dependencies can be satisfied either by the current registry state or by
+ * patches that appear earlier in the same batch.
+ */
+export function validateBatchPatchDependencies(
+    patches: ReadonlyArray<Patch>,
+    registry: RuntimeRegistry
+): BatchDependencyValidationResult {
+    const dependencyLookup = new Set(createDependencyLookup(registry));
+
+    for (const [index, patch] of patches.entries()) {
+        const dependencies = patch.metadata?.dependencies;
+        if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
+            const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
+            if (missingDependencies.length > 0) {
+                return {
+                    satisfied: false,
+                    failedIndex: index,
+                    missingDependencies
+                };
+            }
+        }
+
+        dependencyLookup.add(patch.id);
+    }
+
+    return { satisfied: true };
+}
+
 export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
     const handler = resolvePatchKindHandler(patch.kind);
     return handler.apply(registry, patch);
@@ -476,7 +516,7 @@ export function testPatchInShadow(patch: Patch): ShadowTestResult {
     } catch (error) {
         return {
             valid: false,
-            error: isErrorLike(error) ? error.message : String(error ?? "Unknown error")
+            error: Core.isErrorLike(error) ? error.message : String(error ?? "Unknown error")
         };
     }
 }
@@ -829,7 +869,7 @@ function calculatePercentile(sorted: Array<number>, percentile: number): number 
     // 8.999999999999998 instead of an exact 9, so we compare the raw index to
     // its rounded integer rather than comparing floor/ceil directly.
     const nearest = Math.round(index);
-    if (areNumbersApproximatelyEqual(index, nearest)) {
+    if (Core.areNumbersApproximatelyEqual(index, nearest)) {
         return sorted[nearest];
     }
 

@@ -1,1 +1,4 @@
-value = array_length(items) + array_length(items);
+while (ready) {
+    value += array_length(items);
+    value += array_length(items);
+}

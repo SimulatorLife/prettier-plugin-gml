@@ -1,20 +1,28 @@
-import { createLintConfigs } from "./configs/index.js";
+import { createLintConfigsWithPlugins } from "./configs/index.js";
 import { gmlLanguage } from "./language/index.js";
-import { lintRules } from "./rules/index.js";
+import { featherLintRules, gmlLintRules } from "./rules/index.js";
 
 export type LintPluginShape = {
     rules: Record<string, unknown>;
-    languages: Record<string, unknown>;
+    languages?: Record<string, unknown>;
 };
 
-const pluginObject = Object.freeze({
-    rules: lintRules,
+const gmlPluginObject = Object.freeze({
+    rules: gmlLintRules,
     languages: Object.freeze({
         gml: gmlLanguage
     })
 });
 
-const lintConfigs = createLintConfigs(pluginObject);
+const featherPluginObject = Object.freeze({
+    rules: featherLintRules
+});
 
-export const plugin = pluginObject;
+const lintConfigs = createLintConfigsWithPlugins({
+    gmlPlugin: gmlPluginObject,
+    featherPlugin: featherPluginObject
+});
+
+export const plugin = gmlPluginObject;
+export const featherPlugin = featherPluginObject;
 export const configs = lintConfigs;

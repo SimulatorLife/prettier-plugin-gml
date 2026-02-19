@@ -189,6 +189,26 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlPreferIsUndefinedCheck",
+        shortName: "prefer-is-undefined-check",
+        fullId: "gml/prefer-is-undefined-check",
+        messageId: "preferIsUndefinedCheck",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlPreferEpsilonComparisons",
+        shortName: "prefer-epsilon-comparisons",
+        fullId: "gml/prefer-epsilon-comparisons",
+        messageId: "preferEpsilonComparisons",
+        requiresProjectContext: false,
+        requiredCapabilities: NO_CAPABILITIES,
+        unsafeReasonCodes: NO_REASON_CODES,
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNormalizeOperatorAliases",
         shortName: "normalize-operator-aliases",
         fullId: "gml/normalize-operator-aliases",
@@ -279,11 +299,16 @@ function createRuleIdMap(): Record<`Gml${string}` | `FeatherGM${string}`, `gml/$
     return map;
 }
 
-function createPluginRuleMap(): Record<string, Rule.RuleModule> {
+function createGmlPluginRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
     for (const definition of gmlRuleDefinitions) {
         map[definition.shortName] = createGmlRule(definition);
     }
+    return map;
+}
+
+function createFeatherPluginRuleMap(): Record<string, Rule.RuleModule> {
+    const map: Record<string, Rule.RuleModule> = {};
     for (const entry of featherManifest.entries) {
         const shortName = entry.ruleId.replace("feather/", "");
         map[shortName] = createFeatherRule(entry);
@@ -292,4 +317,9 @@ function createPluginRuleMap(): Record<string, Rule.RuleModule> {
 }
 
 export const ruleIds = Object.freeze(createRuleIdMap());
-export const lintRuleMap = Object.freeze(createPluginRuleMap());
+export const gmlLintRuleMap = Object.freeze(createGmlPluginRuleMap());
+export const featherLintRuleMap = Object.freeze(createFeatherPluginRuleMap());
+export const lintRuleMap = Object.freeze({
+    ...gmlLintRuleMap,
+    ...featherLintRuleMap
+});

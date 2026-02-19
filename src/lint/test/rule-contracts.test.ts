@@ -109,6 +109,16 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "prefer-is-undefined-check",
+        messageId: "preferIsUndefinedCheck",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "prefer-epsilon-comparisons",
+        messageId: "preferEpsilonComparisons",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "normalize-operator-aliases",
         messageId: "normalizeOperatorAliases",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
@@ -197,7 +207,7 @@ void test("feather rules declare fixable metadata for autofix reports", () => {
         }
 
         const shortName = ruleId.replace("feather/", "");
-        const rule = LintWorkspace.Lint.plugin.rules[shortName] as { meta?: { fixable?: string } };
+        const rule = LintWorkspace.Lint.featherPlugin.rules[shortName] as { meta?: { fixable?: string } };
         assert.equal(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
     }
 });
@@ -256,6 +266,8 @@ void test("non-project-aware rules do not expose gml project metadata", () => {
         "normalize-directives",
         "require-control-flow-braces",
         "no-assignment-in-condition",
+        "prefer-is-undefined-check",
+        "prefer-epsilon-comparisons",
         "normalize-operator-aliases",
         "optimize-math-expressions",
         "require-argument-separators",
@@ -301,7 +313,12 @@ void test("all registered lint rules return non-empty listeners (no silent place
         "RENAME_CONFLICT_PLANNING"
     ]);
 
-    for (const [ruleShortName, ruleModule] of Object.entries(LintWorkspace.Lint.plugin.rules)) {
+    const allRuleModules = {
+        ...LintWorkspace.Lint.plugin.rules,
+        ...LintWorkspace.Lint.featherPlugin.rules
+    };
+
+    for (const [ruleShortName, ruleModule] of Object.entries(allRuleModules)) {
         const listeners = ruleModule.create({
             options: [{}],
             settings: {
