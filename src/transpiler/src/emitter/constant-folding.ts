@@ -29,6 +29,26 @@ function toBooleanLiteral(value: string | number | boolean): boolean | null {
     return null;
 }
 
+function isNullishValue(value: unknown): value is null | undefined {
+    return value === null || value === undefined;
+}
+
+function evaluateEqualityOperator(operator: string, left: number | boolean, right: number | boolean): boolean | null {
+    switch (operator) {
+        case "==":
+        case "===": {
+            return left === right;
+        }
+        case "!=":
+        case "!==": {
+            return left !== right;
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
 /**
  * Attempt to fold a constant binary expression at compile time.
  *
@@ -59,7 +79,7 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
     const right = ast.right.value;
 
     // Handle null/undefined operands conservatively
-    if (left === null || left === undefined || right === null || right === undefined) {
+    if (isNullishValue(left) || isNullishValue(right)) {
         return null;
     }
 
@@ -109,14 +129,6 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
             case ">=": {
                 return leftNumber >= rightNumber;
             }
-            case "==":
-            case "===": {
-                return leftNumber === rightNumber;
-            }
-            case "!=":
-            case "!==": {
-                return leftNumber !== rightNumber;
-            }
             case "&": {
                 return leftNumber & rightNumber;
             }
@@ -132,6 +144,9 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
             }
             case ">>": {
                 return leftNumber >> rightNumber;
+            }
+            default: {
+                return evaluateEqualityOperator(op, leftNumber, rightNumber);
             }
         }
     }
@@ -154,13 +169,8 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
             case "or": {
                 return leftBoolean || rightBoolean;
             }
-            case "==":
-            case "===": {
-                return leftBoolean === rightBoolean;
-            }
-            case "!=":
-            case "!==": {
-                return leftBoolean !== rightBoolean;
+            default: {
+                return evaluateEqualityOperator(op, leftBoolean, rightBoolean);
             }
         }
     }
@@ -195,7 +205,7 @@ export function tryFoldConstantUnaryExpression(ast: UnaryExpressionNode): number
     const operand = ast.argument.value;
 
     // Handle null/undefined operands conservatively
-    if (operand === null || operand === undefined) {
+    if (isNullishValue(operand)) {
         return null;
     }
 

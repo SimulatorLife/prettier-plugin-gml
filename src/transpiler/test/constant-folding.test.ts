@@ -204,6 +204,27 @@ void test("constant folding: comparison equal", () => {
     assert.strictEqual(result, true, "Should fold 5 == 5 to true");
 });
 
+void test("constant folding: strict comparison equal", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: true },
+        right: { type: "Literal" as const, value: "true" },
+        operator: "==="
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, true, "Should fold true === true to true");
+});
+
+void test("constant folding: strict comparison not equal", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: 5 },
+        right: { type: "Literal" as const, value: 3 },
+        operator: "!=="
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, true, "Should fold 5 !== 3 to true");
+});
 void test("constant folding: comparison not equal", () => {
     const ast = {
         type: "BinaryExpression" as const,
