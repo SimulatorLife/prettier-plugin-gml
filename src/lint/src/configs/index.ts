@@ -69,13 +69,26 @@ export type LintConfigSets = Readonly<{
 }>;
 
 /**
- * Creates the immutable lint config sets for the provided plugin object.
+ * Legacy helper that builds all config sets from a single plugin object.
+ * Prefer `createLintConfigsWithPlugins` when gml/feather plugins differ.
  */
 export function createLintConfigs(plugin: LintPluginShape): LintConfigSets {
+    return createLintConfigsWithPlugins({
+        gmlPlugin: plugin,
+        featherPlugin: plugin
+    });
+}
+
+type LintConfigPluginSet = Readonly<{
+    gmlPlugin: LintPluginShape;
+    featherPlugin: LintPluginShape;
+}>;
+
+export function createLintConfigsWithPlugins(plugins: LintConfigPluginSet): LintConfigSets {
     const recommended: ReadonlyArray<FlatConfig> = Object.freeze([
         Object.freeze({
             files: GML_LINT_FILES_GLOB,
-            plugins: Object.freeze({ gml: plugin }),
+            plugins: Object.freeze({ gml: plugins.gmlPlugin }),
             language: "gml/gml",
             rules: RECOMMENDED_RULES
         })
@@ -84,6 +97,7 @@ export function createLintConfigs(plugin: LintPluginShape): LintConfigSets {
     const feather: ReadonlyArray<FlatConfig> = Object.freeze([
         Object.freeze({
             files: GML_LINT_FILES_GLOB,
+            plugins: Object.freeze({ feather: plugins.featherPlugin }),
             rules: FEATHER_RULES
         })
     ]);

@@ -126,21 +126,51 @@ function applyOrdinalImplicitDocEntryOverrides(
     }
 }
 
-function hasReturnStatement(node: any): boolean {
+type ReturnSummary = Readonly<{
+    hasReturnStatement: boolean;
+    hasNonUndefinedReturnValue: boolean;
+}>;
+
+function summarizeReturnStatements(node: any): ReturnSummary {
     if (!node) {
-        return false;
+        return {
+            hasReturnStatement: false,
+            hasNonUndefinedReturnValue: false
+        };
     }
 
     if (node.type === "ReturnStatement") {
-        return true;
+        const argument = "argument" in node ? node.argument : null;
+        const hasNonUndefinedReturnValue = argument != null && !isUndefinedSentinel(argument);
+        return {
+            hasReturnStatement: true,
+            hasNonUndefinedReturnValue
+        };
     }
 
     if (node.type === "BlockStatement" && Array.isArray(node.body)) {
-        return node.body.some(hasReturnStatement);
+        let hasReturnStatement = false;
+        let hasNonUndefinedReturnValue = false;
+        for (const statement of node.body) {
+            const statementSummary = summarizeReturnStatements(statement);
+            hasReturnStatement = hasReturnStatement || statementSummary.hasReturnStatement;
+            hasNonUndefinedReturnValue = hasNonUndefinedReturnValue || statementSummary.hasNonUndefinedReturnValue;
+        }
+
+        return {
+            hasReturnStatement,
+            hasNonUndefinedReturnValue
+        };
     }
 
     if (node.type === "IfStatement") {
-        return hasReturnStatement(node.consequent) || hasReturnStatement(node.alternate);
+        const consequentSummary = summarizeReturnStatements(node.consequent);
+        const alternateSummary = summarizeReturnStatements(node.alternate);
+        return {
+            hasReturnStatement: consequentSummary.hasReturnStatement || alternateSummary.hasReturnStatement,
+            hasNonUndefinedReturnValue:
+                consequentSummary.hasNonUndefinedReturnValue || alternateSummary.hasNonUndefinedReturnValue
+        };
     }
 
     if (
@@ -150,26 +180,58 @@ function hasReturnStatement(node: any): boolean {
         node.type === "RepeatStatement" ||
         node.type === "WithStatement"
     ) {
-        return hasReturnStatement(node.body);
+        return summarizeReturnStatements(node.body);
     }
 
     if (node.type === "SwitchStatement" && Array.isArray(node.cases)) {
-        return node.cases.some((c: any) => Array.isArray(c.consequent) && c.consequent.some(hasReturnStatement));
+        let hasReturnStatement = false;
+        let hasNonUndefinedReturnValue = false;
+        for (const switchCase of node.cases) {
+            if (!Array.isArray(switchCase?.consequent)) {
+                continue;
+            }
+
+            for (const consequentNode of switchCase.consequent) {
+                const nodeSummary = summarizeReturnStatements(consequentNode);
+                hasReturnStatement = hasReturnStatement || nodeSummary.hasReturnStatement;
+                hasNonUndefinedReturnValue = hasNonUndefinedReturnValue || nodeSummary.hasNonUndefinedReturnValue;
+            }
+        }
+
+        return {
+            hasReturnStatement,
+            hasNonUndefinedReturnValue
+        };
     }
 
     if (node.type === "TryStatement") {
-        return hasReturnStatement(node.block) || hasReturnStatement(node.handler) || hasReturnStatement(node.finalizer);
+        const blockSummary = summarizeReturnStatements(node.block);
+        const handlerSummary = summarizeReturnStatements(node.handler);
+        const finalizerSummary = summarizeReturnStatements(node.finalizer);
+        return {
+            hasReturnStatement:
+                blockSummary.hasReturnStatement ||
+                handlerSummary.hasReturnStatement ||
+                finalizerSummary.hasReturnStatement,
+            hasNonUndefinedReturnValue:
+                blockSummary.hasNonUndefinedReturnValue ||
+                handlerSummary.hasNonUndefinedReturnValue ||
+                finalizerSummary.hasNonUndefinedReturnValue
+        };
     }
 
     if (node.type === "CatchClause") {
-        return hasReturnStatement(node.body);
+        return summarizeReturnStatements(node.body);
     }
 
     if (node.type === "Finalizer") {
-        return hasReturnStatement(node.body);
+        return summarizeReturnStatements(node.body);
     }
 
-    return false;
+    return {
+        hasReturnStatement: false,
+        hasNonUndefinedReturnValue: false
+    };
 }
 
 function maybeAppendReturnsDoc(lines: string[], functionNode: any, hasReturnsTag: boolean, overrides: any = {}) {
@@ -196,8 +258,8 @@ function maybeAppendReturnsDoc(lines: string[], functionNode: any, hasReturnsTag
         return lines;
     }
 
-    const hasReturn = hasReturnStatement(body);
-    if (!hasReturn) {
+    const returnSummary = summarizeReturnStatements(body);
+    if (!returnSummary.hasNonUndefinedReturnValue) {
         lines.push("/// @returns {undefined}");
     }
 

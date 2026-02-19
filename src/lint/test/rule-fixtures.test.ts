@@ -404,6 +404,48 @@ void test("normalize-doc-comments converts legacy returns description text to @r
     assert.equal(result.output, expected);
 });
 
+void test("normalize-doc-comments only synthesizes @returns {undefined} for functions without concrete return values", () => {
+    const input = [
+        "function no_return() {",
+        "    var x = 1;",
+        "}",
+        "",
+        "function returns_value() {",
+        "    return 123;",
+        "}",
+        "",
+        "function returns_undefined_only() {",
+        "    if (keyboard_check(vk_space)) {",
+        "        return undefined;",
+        "    }",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @returns {undefined}",
+        "function no_return() {",
+        "    var x = 1;",
+        "}",
+        "",
+        "function returns_value() {",
+        "    return 123;",
+        "}",
+        "",
+        "/// @returns {undefined}",
+        "function returns_undefined_only() {",
+        "    if (keyboard_check(vk_space)) {",
+        "        return undefined;",
+        "    }",
+        "    return;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
 void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
     const input = [
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);",

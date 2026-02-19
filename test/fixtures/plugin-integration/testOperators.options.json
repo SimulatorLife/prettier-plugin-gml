@@ -1,0 +1,9 @@
+{
+  "printWidth": 120,
+  "allowSingleLineIfStatements": false,
+  "lintRules": {
+    "gml/normalize-operator-aliases": "error",
+    "gml/prefer-is-undefined-check": "error",
+    "gml/optimize-logical-flow": "error"
+  }
+}

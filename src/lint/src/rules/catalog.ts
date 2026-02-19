@@ -299,11 +299,16 @@ function createRuleIdMap(): Record<`Gml${string}` | `FeatherGM${string}`, `gml/$
     return map;
 }
 
-function createPluginRuleMap(): Record<string, Rule.RuleModule> {
+function createGmlPluginRuleMap(): Record<string, Rule.RuleModule> {
     const map: Record<string, Rule.RuleModule> = {};
     for (const definition of gmlRuleDefinitions) {
         map[definition.shortName] = createGmlRule(definition);
     }
+    return map;
+}
+
+function createFeatherPluginRuleMap(): Record<string, Rule.RuleModule> {
+    const map: Record<string, Rule.RuleModule> = {};
     for (const entry of featherManifest.entries) {
         const shortName = entry.ruleId.replace("feather/", "");
         map[shortName] = createFeatherRule(entry);
@@ -312,4 +317,9 @@ function createPluginRuleMap(): Record<string, Rule.RuleModule> {
 }
 
 export const ruleIds = Object.freeze(createRuleIdMap());
-export const lintRuleMap = Object.freeze(createPluginRuleMap());
+export const gmlLintRuleMap = Object.freeze(createGmlPluginRuleMap());
+export const featherLintRuleMap = Object.freeze(createFeatherPluginRuleMap());
+export const lintRuleMap = Object.freeze({
+    ...gmlLintRuleMap,
+    ...featherLintRuleMap
+});

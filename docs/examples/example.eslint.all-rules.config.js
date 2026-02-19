@@ -28,7 +28,7 @@ export default [
         files: ["**/*.gml"],
         plugins: {
             gml: Lint.plugin,
-            feather: Lint.plugin
+            feather: Lint.featherPlugin
         },
         language: "gml/gml",
         rules: allRuleLevels,
