@@ -1203,6 +1203,39 @@ void test("WebSocket client tracks connection errors in metrics", async () => {
     }
 });
 
+void test("WebSocket client falls back to a generic message for non-Error error events", async () => {
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
+    let capturedMessage = "";
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient({
+            autoConnect: true,
+            reconnectDelay: 0,
+            onError: (error) => {
+                capturedMessage = error.message;
+            }
+        });
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        assert.ok(ws);
+        const mockSocket = ws as unknown as {
+            simulateError(error: unknown): void;
+        };
+
+        mockSocket.simulateError({ source: "network" });
+        await wait(10);
+
+        assert.strictEqual(capturedMessage, "Unknown WebSocket error");
+    } finally {
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client returns frozen metrics snapshot", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 

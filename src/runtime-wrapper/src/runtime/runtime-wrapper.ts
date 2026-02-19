@@ -1,3 +1,5 @@
+import { Core } from "@gml-modules/core";
+
 import {
     applyPatchInternal,
     calculateTimingMetrics,
@@ -9,7 +11,6 @@ import {
     validatePatch,
     validatePatchDependencies
 } from "./patch-utils.js";
-import { cloneObjectEntries, isErrorLike } from "./runtime-core-helpers.js";
 import { getHighResolutionTime, getWallClockTime } from "./timing-utils.js";
 import type {
     ApplyPatchResult,
@@ -58,7 +59,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
     function recordError(patch: Patch, category: PatchErrorCategory, error: unknown): void {
         let errorMessage: string;
-        if (isErrorLike(error)) {
+        if (Core.isErrorLike(error)) {
             errorMessage = error.message;
         } else if (error === null || error === undefined) {
             errorMessage = UNKNOWN_ERROR_MESSAGE;
@@ -69,7 +70,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         } else {
             errorMessage = "Non-Error object thrown";
         }
-        const stackTrace = isErrorLike(error) && error.stack ? error.stack : undefined;
+        const stackTrace = Core.isErrorLike(error) && error.stack ? error.stack : undefined;
 
         state.errorHistory.push({
             patchId: patch.id,
@@ -172,7 +173,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             return result;
         } catch (error) {
             recordError(patch, "application", error);
-            const message = isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -301,7 +302,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
 
-            const message = isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: {
@@ -384,7 +385,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 }
             } catch (error) {
                 recordError(patch, "validation", error);
-                const message = isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+                const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -422,7 +423,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 state.undoStack.pop();
             }
 
-            const message = isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
@@ -743,7 +744,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
         const mostProblematicPatches = sortedEntries.slice(0, 10);
 
-        const recentErrors = cloneObjectEntries(state.errorHistory.slice(-20));
+        const recentErrors = Core.cloneObjectEntries(state.errorHistory.slice(-20));
 
         const totalPatches = state.patchHistory.filter((entry) => entry.action === "apply").length;
         const errorRate = totalPatches > 0 ? totalErrors / totalPatches : 0;
