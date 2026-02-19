@@ -227,6 +227,36 @@ function findFirstChangedCharacterOffset(originalText: string, rewrittenText: st
     return 0;
 }
 
+/**
+ * Reports a full-source-text rewrite as a fixable ESLint diagnostic.
+ * If {@link rewrittenText} is identical to {@link originalText}, no
+ * diagnostic is emitted. Otherwise the report is located at the first
+ * character that differs between the two texts, and the suggested fix
+ * replaces the entire source text atomically.
+ *
+ * @param context - The ESLint rule context for the current file.
+ * @param messageId - The diagnostic message ID to use for the report.
+ * @param originalText - The source text before the rewrite.
+ * @param rewrittenText - The source text after the rewrite.
+ */
+function reportFullTextRewrite(
+    context: Rule.RuleContext,
+    messageId: string,
+    originalText: string,
+    rewrittenText: string
+): void {
+    if (rewrittenText === originalText) {
+        return;
+    }
+
+    const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
+    context.report({
+        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+        messageId,
+        fix: (fixer) => fixer.replaceTextRange([0, originalText.length], rewrittenText)
+    });
+}
+
 function isCommentOnlyLine(line: string): boolean {
     const trimmedLine = line.trimStart();
     return (
@@ -1309,16 +1339,7 @@ function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.Rule
                 Program() {
                     const sourceText = context.sourceCode.text;
                     const rewrittenText = rewriteLogicalFlowSource(sourceText);
-                    if (rewrittenText === sourceText) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(sourceText, rewrittenText);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewrittenText)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
@@ -2147,16 +2168,7 @@ function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.Rul
                     flushDocBlock(pendingDocBlock);
 
                     const rewritten = rewrittenLines.join(lineEnding);
-                    if (rewritten === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }
@@ -2817,16 +2829,7 @@ function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.Rule
                     const rewrittenLines = lines.map((line) => normalizeLegacyDirectiveLine(line));
 
                     const rewritten = rewrittenLines.join(lineEnding);
-                    if (rewritten === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }
@@ -2963,16 +2966,7 @@ function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule
                     }
 
                     const rewritten = rewrittenLines.join(lineEnding);
-                    if (rewritten === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }
@@ -3007,16 +3001,7 @@ function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.
                         }
                     );
 
-                    if (rewritten === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }
@@ -3187,17 +3172,7 @@ function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule
                 Program() {
                     const text = context.sourceCode.text;
                     const rewritten = normalizeLogicalOperatorAliases(text);
-
-                    if (rewritten === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewritten);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }
@@ -4442,16 +4417,7 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
 
                     const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
                     const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
-                    if (rewrittenText === sourceText) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(sourceText, rewrittenText);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewrittenText)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
@@ -5563,16 +5529,7 @@ function createRequireTrailingOptionalDefaultsRule(definition: GmlRuleDefinition
                 Program(node) {
                     const sourceText = context.sourceCode.text;
                     const rewrittenText = rewriteTrailingOptionalDefaultsProgram(sourceText, node);
-                    if (rewrittenText === sourceText) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(sourceText, rewrittenText);
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewrittenText)
-                    });
+                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
