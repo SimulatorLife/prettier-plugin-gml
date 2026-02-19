@@ -8,7 +8,6 @@ import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } 
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
-import { validateSourceText } from "./utils/input-validation.js";
 
 const PredictionMode =
     (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn?.PredictionMode ??
@@ -136,7 +135,7 @@ export class GMLParser {
      * restored post-parse if needed.
      */
     constructor(text: string, options: Partial<ParserOptions> = {}) {
-        const validatedText = validateSourceText(text);
+        const validatedText = Core.validateSourceText(text);
         this.originalText = validatedText;
         this.text = Core.normalizeSimpleEscapeCase(validatedText);
         this.whitespaces = [];
