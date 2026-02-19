@@ -4167,7 +4167,7 @@ function insertNodeBefore(root, target, statement) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4207,7 +4207,7 @@ function markPreviousSiblingForBlankLine(root, target, context) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4370,7 +4370,7 @@ function findAssignmentExpressionForRight(root, target) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4407,7 +4407,7 @@ function findVariableDeclaratorForInit(root, target) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4449,7 +4449,7 @@ function findVariableDeclarationByName(root, identifierName) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4488,7 +4488,7 @@ function removeNodeFromAst(root, target) {
         }
 
         for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -4498,7 +4498,7 @@ function removeNodeFromAst(root, target) {
 }
 
 function normalizeTraversalContext(ast, context) {
-    if (context && typeof context === "object") {
+    if (isObjectLike(context)) {
         if (context.astRoot && typeof context.astRoot === "object") {
             return context;
         }
@@ -4547,7 +4547,7 @@ function traverseZeroDivisionNumerators(node, context) {
     }
 
     for (const value of Object.values(node)) {
-        if (value && typeof value === "object") {
+        if (isObjectLike(value)) {
             traverseZeroDivisionNumerators(value, context);
         }
     }

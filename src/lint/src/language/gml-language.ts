@@ -234,7 +234,7 @@ function readRecoveryMode(parseContext: { languageOptions?: unknown }): Recovery
 }
 
 function toIndexedLocation(value: unknown): IndexedLocation | null {
-    return value && typeof value === "object" ? (value as IndexedLocation) : null;
+    return Core.isObjectLike(value) ? (value as IndexedLocation) : null;
 }
 
 function mapIndexToLoc(sourceText: string, index: number): { line: number; column: number } {

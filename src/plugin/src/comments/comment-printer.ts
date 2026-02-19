@@ -867,10 +867,10 @@ function findFollowingNodeForComment(ast, comment) {
 }
 
 function pushChildrenToStack(stack, value) {
-    if (value && typeof value === "object") {
+    if (isObjectLike(value)) {
         if (Array.isArray(value)) {
             for (const entry of value) {
-                if (entry && typeof entry === "object") {
+                if (isObjectLike(entry)) {
                     stack.push(entry);
                 }
             }

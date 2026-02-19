@@ -57,7 +57,7 @@ function visitNode(node, visitedNodes, minDeclarationRunLength) {
     }
 
     for (const value of Object.values(node)) {
-        if (value && typeof value === "object") {
+        if (Core.isObjectLike(value)) {
             visitNode(value, visitedNodes, minDeclarationRunLength);
         }
     }

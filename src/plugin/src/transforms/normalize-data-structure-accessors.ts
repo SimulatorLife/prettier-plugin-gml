@@ -122,7 +122,7 @@ function visitAndNormalize(node: unknown): void {
     }
 
     for (const value of Object.values(typedNode)) {
-        if (value && typeof value === "object") {
+        if (isObjectLike(value)) {
             visitAndNormalize(value);
         }
     }

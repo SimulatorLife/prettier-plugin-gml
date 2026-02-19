@@ -212,7 +212,7 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
         return formatErrorObject(errorLike as ErrorWithMetadata, seen);
     }
 
-    if (value && typeof value === "object") {
+    if (Core.isObjectLike(value)) {
         return formatPlainObject(value, seen);
     }
 
