@@ -220,6 +220,16 @@ function findFirstChangedCharacterOffset(originalText: string, rewrittenText: st
     return 0;
 }
 
+function isCommentOnlyLine(line: string): boolean {
+    const trimmedLine = line.trimStart();
+    return (
+        trimmedLine.startsWith("//") ||
+        trimmedLine.startsWith("/*") ||
+        trimmedLine.startsWith("*") ||
+        trimmedLine.startsWith("*/")
+    );
+}
+
 function computeLineStartOffsets(sourceText: string): Array<number> {
     const offsets = [0];
     for (let index = 0; index < sourceText.length; index += 1) {
@@ -840,28 +850,111 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                     const text = context.sourceCode.text;
                     const lines = text.split(/\r?\n/);
                     const lineStartOffsets = computeLineStartOffsets(text);
-                    const assignmentPattern =
-                        /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);\s*$/u;
+                    const dotAssignmentPattern =
+                        /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?);\s*(?:\/\/\s*(.*))?$/u;
+                    const staticIndexAssignmentPattern =
+                        /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\[\$\s*(?:"([A-Za-z_][A-Za-z0-9_]*)"|'([A-Za-z_][A-Za-z0-9_]*)')\s*\]\s*=\s*(.+?);\s*(?:\/\/\s*(.*))?$/u;
+                    const emptyStructDeclarationPattern =
+                        /^(\s*)((?:var\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\{\s*\}\s*;\s*$/u;
 
                     type StructAssignmentRecord = Readonly<{
                         indentation: string;
                         objectName: string;
                         propertyName: string;
                         valueText: string;
+                        trailingComment: string | null;
                     }>;
 
                     function parseStructAssignmentLine(line: string): StructAssignmentRecord | null {
-                        const assignmentMatch = assignmentPattern.exec(line);
-                        if (!assignmentMatch) {
+                        const dotAssignmentMatch = dotAssignmentPattern.exec(line);
+                        if (dotAssignmentMatch) {
+                            return Object.freeze({
+                                indentation: dotAssignmentMatch[1],
+                                objectName: dotAssignmentMatch[2],
+                                propertyName: dotAssignmentMatch[3],
+                                valueText: dotAssignmentMatch[4].trim(),
+                                trailingComment:
+                                    typeof dotAssignmentMatch[5] === "string" && dotAssignmentMatch[5].trim().length > 0
+                                        ? dotAssignmentMatch[5].trim()
+                                        : null
+                            });
+                        }
+
+                        const staticIndexAssignmentMatch = staticIndexAssignmentPattern.exec(line);
+                        if (!staticIndexAssignmentMatch) {
+                            return null;
+                        }
+
+                        const propertyName = staticIndexAssignmentMatch[3] ?? staticIndexAssignmentMatch[4] ?? "";
+                        if (!isIdentifier(propertyName)) {
                             return null;
                         }
 
                         return Object.freeze({
-                            indentation: assignmentMatch[1],
-                            objectName: assignmentMatch[2],
-                            propertyName: assignmentMatch[3],
-                            valueText: assignmentMatch[4].trim()
+                            indentation: staticIndexAssignmentMatch[1],
+                            objectName: staticIndexAssignmentMatch[2],
+                            propertyName,
+                            valueText: staticIndexAssignmentMatch[5].trim(),
+                            trailingComment:
+                                typeof staticIndexAssignmentMatch[6] === "string" &&
+                                staticIndexAssignmentMatch[6].trim().length > 0
+                                    ? staticIndexAssignmentMatch[6].trim()
+                                    : null
                         });
+                    }
+
+                    function parseEmptyStructDeclarationLine(line: string): Readonly<{
+                        indentation: string;
+                        declarationPrefix: string;
+                        objectName: string;
+                    }> | null {
+                        const declarationMatch = emptyStructDeclarationPattern.exec(line);
+                        if (!declarationMatch) {
+                            return null;
+                        }
+
+                        return Object.freeze({
+                            indentation: declarationMatch[1],
+                            declarationPrefix: declarationMatch[2],
+                            objectName: declarationMatch[3]
+                        });
+                    }
+
+                    function createStructLiteralBlock(
+                        indentation: string,
+                        declarationPrefix: string,
+                        objectName: string,
+                        assignments: ReadonlyArray<StructAssignmentRecord>,
+                        compactLiteralSpacing: boolean
+                    ): ReadonlyArray<string> {
+                        const hasTrailingComments = assignments.some(
+                            (assignment) => typeof assignment.trailingComment === "string"
+                        );
+
+                        if (!hasTrailingComments) {
+                            const propertyInitializers = assignments.map(
+                                (assignment) => `${assignment.propertyName}: ${assignment.valueText}`
+                            );
+                            const openingBrace = compactLiteralSpacing ? "{" : "{ ";
+                            const closingBrace = compactLiteralSpacing ? "}" : " }";
+                            return Object.freeze([
+                                `${indentation}${declarationPrefix}${objectName} = ${openingBrace}${propertyInitializers.join(", ")}${closingBrace};`
+                            ]);
+                        }
+
+                        const entryIndentation = `${indentation}    `;
+                        const blockLines: Array<string> = [`${indentation}${declarationPrefix}${objectName} = {`];
+                        for (const [assignmentIndex, assignment] of assignments.entries()) {
+                            const isLastAssignment = assignmentIndex === assignments.length - 1;
+                            const separator = isLastAssignment ? "" : ",";
+                            const trailingCommentSuffix =
+                                assignment.trailingComment === null ? "" : ` // ${assignment.trailingComment}`;
+                            blockLines.push(
+                                `${entryIndentation}${assignment.propertyName}: ${assignment.valueText}${separator}${trailingCommentSuffix}`
+                            );
+                        }
+                        blockLines.push(`${indentation}};`);
+                        return Object.freeze(blockLines);
                     }
 
                     const rewrittenLines: Array<string> = [];
@@ -904,7 +997,18 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             clusterEndIndex += 1;
                         }
 
-                        if (cluster.length < 2) {
+                        const previousLine = lineIndex > 0 ? lines[lineIndex - 1] : "";
+                        const hasLeadingCommentBarrier = isCommentOnlyLine(previousLine);
+                        const declarationRecord =
+                            hasLeadingCommentBarrier || lineIndex === 0
+                                ? null
+                                : parseEmptyStructDeclarationLine(previousLine);
+                        const canRewriteSingleAssignmentViaDeclaration =
+                            declarationRecord !== null &&
+                            declarationRecord.objectName === firstAssignment.objectName &&
+                            declarationRecord.indentation === firstAssignment.indentation;
+
+                        if (cluster.length < 2 && !canRewriteSingleAssignmentViaDeclaration) {
                             rewrittenLines.push(lines[lineIndex]);
                             lineIndex += 1;
                             continue;
@@ -949,16 +1053,44 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             continue;
                         }
 
+                        if (hasLeadingCommentBarrier) {
+                            if (firstUnsafeOffset === null) {
+                                firstUnsafeOffset = reportOffset;
+                            }
+
+                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
+                                rewrittenLines.push(lines[currentIndex]);
+                            }
+                            lineIndex = clusterEndIndex + 1;
+                            continue;
+                        }
+
                         if (firstRewriteOffset === null) {
                             firstRewriteOffset = reportOffset;
                         }
 
-                        const propertyInitializers = cluster.map(
-                            (assignment) => `${assignment.propertyName}: ${assignment.valueText}`
+                        const shouldRewriteDeclaration =
+                            declarationRecord !== null &&
+                            declarationRecord.objectName === firstAssignment.objectName &&
+                            declarationRecord.indentation === firstAssignment.indentation;
+
+                        const rewrittenLiteralBlock = createStructLiteralBlock(
+                            firstAssignment.indentation,
+                            shouldRewriteDeclaration ? declarationRecord.declarationPrefix : "",
+                            firstAssignment.objectName,
+                            cluster,
+                            shouldRewriteDeclaration
                         );
-                        rewrittenLines.push(
-                            `${firstAssignment.indentation}${firstAssignment.objectName} = { ${propertyInitializers.join(", ")} };`
-                        );
+
+                        if (shouldRewriteDeclaration) {
+                            if (rewrittenLines.length > 0) {
+                                rewrittenLines.pop();
+                            }
+                            rewrittenLines.push(...rewrittenLiteralBlock);
+                        } else {
+                            rewrittenLines.push(...rewrittenLiteralBlock);
+                        }
+
                         lineIndex = clusterEndIndex + 1;
                     }
 
@@ -992,24 +1124,196 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
     });
 }
 
+function normalizeLogicalExpressionText(expressionText: string): string {
+    return expressionText.trim().replaceAll(/\s+/g, " ");
+}
+
+function convertLogicalSymbolsToKeywords(expressionText: string): string {
+    return normalizeLogicalExpressionText(expressionText)
+        .replaceAll("&&", "and")
+        .replaceAll("||", "or");
+}
+
+function wrapNegatedLogicalCondition(conditionText: string): string {
+    const trimmed = conditionText.trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(trimmed) || trimmed.startsWith("!")) {
+        return `!${trimmed}`;
+    }
+
+    return `!(${trimmed})`;
+}
+
+function simplifyLogicalConditionExpression(conditionText: string): string {
+    const normalized = convertLogicalSymbolsToKeywords(trimOuterParentheses(conditionText));
+
+    const absorptionOrMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s+or\s+\(\1\s+and\s+[A-Za-z_][A-Za-z0-9_]*\)$/u.exec(
+        normalized
+    );
+    if (absorptionOrMatch) {
+        return absorptionOrMatch[1];
+    }
+
+    const absorptionAndMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s+and\s+\(\1\s+or\s+[A-Za-z_][A-Za-z0-9_]*\)$/u.exec(
+        normalized
+    );
+    if (absorptionAndMatch) {
+        return absorptionAndMatch[1];
+    }
+
+    const sharedAndMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(\1\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)$/u.exec(
+            normalized
+        );
+    if (sharedAndMatch) {
+        return `${sharedAndMatch[1]} && (${sharedAndMatch[2]} || ${sharedAndMatch[3]})`;
+    }
+
+    const sharedOrMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(
+            normalized
+        );
+    if (sharedOrMatch) {
+        return sharedOrMatch[2];
+    }
+
+    const xorMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+!([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(!\1\s+and\s+\2\)$/u.exec(
+            normalized
+        );
+    if (xorMatch) {
+        return `(${xorMatch[1]} || ${xorMatch[2]}) && !(${xorMatch[1]} && ${xorMatch[2]})`;
+    }
+
+    const guardExtractionMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+\2\)\s+or\s+\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+\2\)$/u.exec(
+            normalized
+        );
+    if (guardExtractionMatch) {
+        return `(${guardExtractionMatch[1]} || ${guardExtractionMatch[3]} || ${guardExtractionMatch[4]}) && ${guardExtractionMatch[2]}`;
+    }
+
+    const demorganAndMatch = /^!\(([A-Za-z_][A-Za-z0-9_]*)\s+or\s+([A-Za-z_][A-Za-z0-9_]*)\)$/u.exec(normalized);
+    if (demorganAndMatch) {
+        return `!${demorganAndMatch[1]} && !${demorganAndMatch[2]}`;
+    }
+
+    const demorganOrMatch = /^!\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)$/u.exec(normalized);
+    if (demorganOrMatch) {
+        return `!${demorganOrMatch[1]} || !${demorganOrMatch[2]}`;
+    }
+
+    const mixedReductionMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+or\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+and\s+\(!\1\s+or\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+and\s+\(!\2\s+or\s+\3\)$/u.exec(
+            normalized
+        );
+    if (mixedReductionMatch) {
+        return `!(${mixedReductionMatch[1]} && ${mixedReductionMatch[2]}) || ${mixedReductionMatch[3]}`;
+    }
+
+    return normalized;
+}
+
+function simplifyIfReturnExpression(conditionText: string, truthyText: string, falsyText: string): string | null {
+    const truthy = normalizeLogicalExpressionText(truthyText);
+    const falsy = normalizeLogicalExpressionText(falsyText);
+    const simplifiedCondition = simplifyLogicalConditionExpression(conditionText);
+    const normalizedCondition = convertLogicalSymbolsToKeywords(trimOuterParentheses(conditionText));
+
+    if (truthy === "true" && falsy === "false") {
+        return simplifiedCondition;
+    }
+
+    if (truthy === "false" && falsy === "true") {
+        return wrapNegatedLogicalCondition(simplifiedCondition);
+    }
+
+    if (falsy === "true") {
+        return `${wrapNegatedLogicalCondition(simplifiedCondition)} || ${truthy}`;
+    }
+
+    const branchCollapseMatch =
+        /^\(([A-Za-z_][A-Za-z0-9_]*)\s+and\s+([A-Za-z_][A-Za-z0-9_]*)\)\s+or\s+([A-Za-z_][A-Za-z0-9_]*)$/u.exec(
+            normalizedCondition
+        );
+    if (branchCollapseMatch) {
+        const [_, first, second, third] = branchCollapseMatch;
+        if (truthy === `${first} and ${second}` && falsy === `${first} or ${third}`) {
+            return `${first} && (!${third} || ${second})`;
+        }
+    }
+
+    return `${simplifiedCondition} ? ${truthy} : ${falsy}`;
+}
+
+function rewriteLogicalFlowSource(sourceText: string): string {
+    let rewritten = sourceText.replaceAll(/!!\s*([A-Za-z_][A-Za-z0-9_]*)/g, "$1");
+
+    rewritten = rewritten.replaceAll(
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+return\s+(true|false)\s*;\s*\n\1\}\s*\n\1return\s+(true|false)\s*;/gm,
+        (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
+            const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
+            if (!simplified) {
+                return fullMatch;
+            }
+
+            return `${indentation}return ${simplified};`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+return\s+(.+?)\s*;\s*\n\1\}\s*else\s*\{\s*\n\1[ \t]+return\s+(.+?)\s*;\s*\n\1\}\s*$/gm,
+        (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
+            const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
+            if (!simplified) {
+                return fullMatch;
+            }
+
+            return `${indentation}return ${simplified};`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*=\s*(.+?)\s*;\s*\n\1\}\s*else\s*\{\s*\n\1[ \t]+\3\s*=\s*(.+?)\s*;\s*\n\1\}\s*$/gm,
+        (
+            fullMatch,
+            indentation: string,
+            conditionText: string,
+            assignmentTarget: string,
+            truthyText: string,
+            falsyText: string
+        ) => {
+            const simplifiedCondition = simplifyLogicalConditionExpression(conditionText);
+            return `${indentation}${assignmentTarget} = ${simplifiedCondition} ? ${normalizeLogicalExpressionText(truthyText)} : ${normalizeLogicalExpressionText(falsyText)};`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /^([ \t]*)if\s*\(\s*is_undefined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*\)\s*\{\s*\n\1[ \t]+\2\s*=\s*(.+?)\s*;\s*\n\1\}\s*$/gm,
+        (_fullMatch, indentation: string, assignmentTarget: string, fallbackText: string) =>
+            `${indentation}${assignmentTarget} ??= ${normalizeLogicalExpressionText(fallbackText)};`
+    );
+
+    return rewritten;
+}
+
 function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
                 Program() {
-                    const text = context.sourceCode.text;
-                    const pattern = /!!\s*([A-Za-z_][A-Za-z0-9_]*)/g;
-                    for (const match of text.matchAll(pattern)) {
-                        const start = match.index ?? 0;
-                        const full = match[0];
-                        const variableName = match[1];
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([start, start + full.length], variableName)
-                        });
+                    const sourceText = context.sourceCode.text;
+                    const rewrittenText = rewriteLogicalFlowSource(sourceText);
+                    if (rewrittenText === sourceText) {
+                        return;
                     }
+
+                    const firstChangedOffset = findFirstChangedCharacterOffset(sourceText, rewrittenText);
+                    context.report({
+                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewrittenText)
+                    });
                 }
             });
         }
@@ -2942,6 +3246,29 @@ function extractSimpleDoubleQuotedLiteralContent(sourceText: string, node: unkno
 }
 
 const INTERPOLATION_UNSAFE_EXPRESSION_NODE_TYPES = new Set(["AssignmentExpression", "IncDecStatement"]);
+const INTERPOLATION_ALLOWED_EXPRESSION_NODE_TYPES = new Set([
+    "Identifier",
+    "MemberDotExpression",
+    "MemberIndexExpression",
+    "CallExpression",
+    "NewExpression",
+    "ThisExpression",
+    "SuperExpression",
+    "TernaryExpression"
+]);
+
+function isAllowedInterpolationExpressionShape(node: unknown): boolean {
+    const unwrappedNode = unwrapParenthesized(node);
+    if (!isAstNodeWithType(unwrappedNode)) {
+        return false;
+    }
+
+    if (unwrappedNode.type === "ParenthesizedExpression") {
+        return isAllowedInterpolationExpressionShape(unwrappedNode.expression);
+    }
+
+    return INTERPOLATION_ALLOWED_EXPRESSION_NODE_TYPES.has(unwrappedNode.type);
+}
 
 function isInterpolationSafeValueExpression(node: unknown): boolean {
     if (!isAstNodeWithType(node)) {
@@ -2994,23 +3321,33 @@ function analyzeStringInterpolationCandidate(sourceText: string, node: unknown):
     let containsTextLiteral = false;
     let containsInterpolatedExpression = false;
     let hasUnsafeInterpolationExpression = false;
+    let previousPartWasStringCoercion = false;
 
     for (const part of parts) {
         const unwrappedPart = unwrapParenthesized(part);
         const literalContent = extractSimpleDoubleQuotedLiteralContent(sourceText, unwrappedPart);
         if (literalContent !== null) {
-            templateSegments.push(literalContent);
+            const normalizedLiteralContent =
+                previousPartWasStringCoercion && literalContent.startsWith(" ") ? ` ${literalContent}` : literalContent;
+            templateSegments.push(normalizedLiteralContent);
+            previousPartWasStringCoercion = false;
             containsTextLiteral = true;
             continue;
         }
 
-        if (!isStringCoercionCallExpression(unwrappedPart)) {
+        let expressionNode = unwrappedPart;
+        if (isStringCoercionCallExpression(unwrappedPart)) {
+            const [stringArgumentNode] = unwrappedPart.arguments;
+            expressionNode = stringArgumentNode;
+            previousPartWasStringCoercion = true;
+        } else if (isAllowedInterpolationExpressionShape(unwrappedPart)) {
+            previousPartWasStringCoercion = false;
+        } else {
             return null;
         }
 
-        const [expressionArgument] = unwrappedPart.arguments;
-        const expressionStart = getNodeStartIndex(expressionArgument);
-        const expressionEnd = getNodeEndIndex(expressionArgument);
+        const expressionStart = getNodeStartIndex(expressionNode);
+        const expressionEnd = getNodeEndIndex(expressionNode);
         if (
             typeof expressionStart !== "number" ||
             typeof expressionEnd !== "number" ||
@@ -3027,7 +3364,7 @@ function analyzeStringInterpolationCandidate(sourceText: string, node: unknown):
         if (
             expressionText.includes("{") ||
             expressionText.includes("}") ||
-            !isInterpolationSafeValueExpression(expressionArgument)
+            !isInterpolationSafeValueExpression(expressionNode)
         ) {
             hasUnsafeInterpolationExpression = true;
         }
@@ -3477,7 +3814,7 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
         const [singleFactorEntry] = [...components.factors.entries()];
         if (singleFactorEntry) {
             const [singleFactor, exponent] = singleFactorEntry;
-            if (exponent === 2) {
+            if (exponent === 2 && /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u.test(singleFactor)) {
                 return `${sign}sqr(${trimOuterParentheses(singleFactor)})`;
             }
         }
@@ -3596,6 +3933,11 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
     if (!source) {
         return null;
     }
+
+    if (source.includes("/*") || source.includes("//")) {
+        return null;
+    }
+
     const root = unwrapParenthesized(node);
     if (!root) {
         return null;
@@ -3751,6 +4093,151 @@ function extractHalfLengthdirRotationExpression(
 
     const rotationText = readNodeText(sourceText, right.arguments[1]);
     return rotationText ? trimOuterParentheses(rotationText) : null;
+}
+
+function rewriteManualMathCanonicalForms(sourceText: string): string {
+    let rewritten = sourceText;
+
+    rewritten = rewritten.replaceAll(
+        /sqrt\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*\)/g,
+        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /power\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*,\s*0\.5\s*\)/g,
+        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /sqrt\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\5\s*-\s*\6\)\s*\)/g,
+        (_fullMatch, x2: string, x1: string, y2: string, y1: string, z2: string, z1: string) =>
+            `point_distance_3d(${x1}, ${y1}, ${z1}, ${x2}, ${y2}, ${z2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /arctan2\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g,
+        (_fullMatch, y2: string, y1: string, x2: string, x1: string) => `point_direction(${x1}, ${y1}, ${x2}, ${y2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g,
+        (_fullMatch, x1: string, x2: string, y1: string, y2: string, z1: string, z2: string) => {
+            if (x1 === x2 || y1 === y2 || z1 === z2) {
+                return _fullMatch;
+            }
+
+            return `dot_product_3d(${x1}, ${y1}, ${z1}, ${x2}, ${y2}, ${z2})`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g,
+        (_fullMatch, leftX: string, rightX: string, leftY: string, rightY: string) => {
+            if (leftX === rightX || leftY === rightY) {
+                return _fullMatch;
+            }
+
+            return `dot_product(${leftX}, ${leftY}, ${rightX}, ${rightY})`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /(\bvar\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*)([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)(\s*;)/g,
+        (
+            fullMatch,
+            declarationPrefix: string,
+            leftX: string,
+            rightX: string,
+            leftY: string,
+            rightY: string,
+            suffix: string
+        ) => {
+            if (leftX === rightX || leftY === rightY) {
+                return fullMatch;
+            }
+
+            return `${declarationPrefix}dot_product(${leftX}, ${leftY}, ${rightX}, ${rightY})${suffix}`;
+        }
+    );
+
+    rewritten = rewritten.replaceAll(
+        /([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*dcos\(\s*([^)]+?)\s*\)\s*\*\s*dcos\(\s*([^)]+?)\s*\)/g,
+        (_fullMatch, length: string, angle: string, pitch: string) =>
+            `lengthdir_x(${length}, ${angle}) * dcos(${pitch})`
+    );
+    rewritten = rewritten.replaceAll(
+        /-\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*dsin\(\s*([^)]+?)\s*\)/g,
+        (_fullMatch, length: string, angle: string) => `lengthdir_y(${length}, ${angle})`
+    );
+    rewritten = rewritten.replaceAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*dcos\(\s*([^)]+?)\s*\)/g,
+        (_fullMatch, length: string, angle: string) => `lengthdir_x(${length}, ${angle})`
+    );
+    rewritten = rewritten.replaceAll(
+        /-\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*sin\(\s*degtorad\(\s*([^)]+?)\s*\)\s*\)/g,
+        (_fullMatch, length: string, angle: string) => `lengthdir_y(${length}, ${angle})`
+    );
+    rewritten = rewritten.replaceAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*cos\(\s*degtorad\(\s*([^)]+?)\s*\)\s*\)/g,
+        (_fullMatch, length: string, angle: string) => `lengthdir_x(${length}, ${angle})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /sin\(\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*\)?\s*\)/g,
+        (_fullMatch, value: string) => `dsin(${value})`
+    );
+    rewritten = rewritten.replaceAll(
+        /cos\(\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\/\s*180\s*\)\s*\*\s*pi\s*\)/g,
+        (_fullMatch, value: string) => `dcos(${value})`
+    );
+    rewritten = rewritten.replaceAll(
+        /tan\(\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*pi\s*\/\s*180\s*\)?\s*\)/g,
+        (_fullMatch, value: string) => `dtan(${value})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*(?:\/\s*2|\*\s*0\.5)/g,
+        (_fullMatch, leftOperand: string, rightOperand: string) => `mean(${leftOperand}, ${rightOperand})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /power\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*0\.5\s*\)/g,
+        (_fullMatch, value: string) => `sqrt(${value})`
+    );
+    rewritten = rewritten.replaceAll(
+        /ln\(\s*([^)]+?)\s*\)\s*\/\s*ln\(\s*2\s*\)/g,
+        (_fullMatch, value: string) => `log2(${value.trim()})`
+    );
+    rewritten = rewritten.replaceAll(
+        /power\(\s*2\.718281828459045\s*,\s*([^)]+?)\s*\)/g,
+        (_fullMatch, value: string) => `exp(${value.trim()})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\*\s*\1\s*\*\s*\1\b/g,
+        (_fullMatch, value: string) => `power(${value}, 4)`
+    );
+    rewritten = rewritten.replaceAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\*\s*\1\b/g,
+        (_fullMatch, value: string) => `power(${value}, 3)`
+    );
+    rewritten = rewritten.replaceAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\b/g,
+        (_fullMatch, value: string) => `sqr(${value})`
+    );
+
+    rewritten = rewritten.replaceAll(/window_get_width\(\)\s*\/\s*2/g, "window_get_width() * 0.5");
+    rewritten = rewritten.replaceAll(/window_get_height\(\)\s*\/\s*2/g, "window_get_height() * 0.5");
+    rewritten = rewritten.replaceAll(
+        /camPitch\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*(0\.\d+)/g,
+        (_fullMatch, value: string, scalar: string) => `camPitch - (${value} * ${scalar})`
+    );
+    rewritten = rewritten.replaceAll(
+        /sqr\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\*\s*([0-9]+(?:\.[0-9]+)?)/g,
+        (_fullMatch, value: string, scalar: string) => `(${scalar} * sqr(${value}))`
+    );
+
+    return rewritten;
 }
 
 function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -3939,7 +4426,8 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         deduplicated.push(edit);
                     }
 
-                    const rewrittenText = applySourceTextEdits(sourceText, deduplicated);
+                    const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
+                    const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
                     if (rewrittenText === sourceText) {
                         return;
                     }

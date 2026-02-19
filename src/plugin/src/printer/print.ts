@@ -5358,7 +5358,12 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (!findEnclosingFunctionForPath(path)) {
+    const enclosingFunction = findEnclosingFunctionForPath(path);
+    if (!enclosingFunction) {
+        return false;
+    }
+
+    if (enclosingFunction.type !== "FunctionDeclaration" && enclosingFunction.type !== "ConstructorDeclaration") {
         return false;
     }
 

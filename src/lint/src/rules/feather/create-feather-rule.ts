@@ -981,7 +981,11 @@ function createGm2053Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return sourceText;
         }
 
-        return appendLineIfMissing(sourceText, "gpu_set_alphatestenable(false);");
+        const appendedReset = appendLineIfMissing(sourceText, "gpu_set_alphatestenable(false);");
+        return appendedReset.replaceAll(
+            /(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)\s*\n\s*\n(\s*[^\s])/g,
+            "$1\n$2"
+        );
     });
 }
 
@@ -1011,13 +1015,21 @@ function createGm2056Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm2061Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) =>
-        sourceText.replaceAll(
-            /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;\s*\n\s*if\s*\(\s*\1\s*==\s*undefined\s*\)\s*\1\s*=\s*(.+?)\s*;\s*$/gm,
-            (_fullMatch, target: string, expression: string, fallback: string) =>
-                `${target} = ${expression} ?? ${fallback};`
-        )
-    );
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        let rewritten = sourceText.replaceAll(
+            /^([ \t]*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;\s*\n\1if\s*\(\s*\2\s*==\s*undefined\s*\)\s*\2\s*=\s*(.+?)\s*;\s*$/gm,
+            (_fullMatch, indentation: string, target: string, expression: string, fallback: string) =>
+                `${indentation}${target} = ${expression} ?? ${fallback};`
+        );
+
+        rewritten = rewritten.replaceAll(
+            /^([ \t]*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*;\s*\n\1if\s*\(\s*(?:\2\s*==\s*undefined|is_undefined\s*\(\s*\2\s*\))\s*\)\s*\{\s*\n\1[ \t]+\2\s*=\s*(.+?)\s*;\s*\n\1\}\s*$/gm,
+            (_fullMatch, indentation: string, target: string, expression: string, fallback: string) =>
+                `${indentation}${target} = ${expression} ?? ${fallback};`
+        );
+
+        return rewritten;
+    });
 }
 
 function createGm2064Rule(entry: FeatherManifestEntry): Rule.RuleModule {

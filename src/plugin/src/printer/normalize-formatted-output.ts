@@ -126,6 +126,51 @@ function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
+function normalizeSingleCommentBlockIndentation(formatted: string): string {
+    const lines = formatted.split("\n");
+
+    for (let index = 1; index < lines.length - 1; index += 1) {
+        const previousLine = lines[index - 1] ?? "";
+        const currentLine = lines[index] ?? "";
+        const nextLine = lines[index + 1] ?? "";
+
+        if (!previousLine.trimEnd().endsWith("{")) {
+            continue;
+        }
+
+        const currentTrimmed = currentLine.trimStart();
+        if (!currentTrimmed.startsWith("//")) {
+            continue;
+        }
+
+        if (nextLine.trim() !== "}") {
+            continue;
+        }
+
+        const currentIndent = currentLine.slice(0, currentLine.length - currentTrimmed.length);
+        const closingIndent = nextLine.slice(0, nextLine.length - nextLine.trimStart().length);
+        if (!currentIndent.startsWith(closingIndent)) {
+            continue;
+        }
+
+        const extraIndent = currentIndent.slice(closingIndent.length);
+        let normalizedExtraIndent: string | null = null;
+        if (extraIndent === "        ") {
+            normalizedExtraIndent = "    ";
+        } else if (extraIndent === "\t\t") {
+            normalizedExtraIndent = "\t";
+        }
+
+        if (normalizedExtraIndent === null) {
+            continue;
+        }
+
+        lines[index] = `${closingIndent}${normalizedExtraIndent}${currentTrimmed}`;
+    }
+
+    return lines.join("\n");
+}
+
 function extractLineCommentPayload(trimmedStart: string): string | null {
     if (trimmedStart.startsWith("///")) {
         return trimmedStart.slice(3).trim();
@@ -445,6 +490,7 @@ export function normalizeFormattedOutput(formatted: string, source: string): str
         collapseVertexFormatBeginSpacing,
         removeDuplicateDocLikeLineComments,
         normalizeInlineTrailingCommentSpacing,
+        normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,
         trimDecorativeCommentBlankLines,
         collapseDuplicateBlankLines,
