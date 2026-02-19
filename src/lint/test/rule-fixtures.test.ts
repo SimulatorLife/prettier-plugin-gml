@@ -640,13 +640,9 @@ void test("prefer-epsilon-comparisons rewrites direct zero checks for preceding 
 });
 
 void test("prefer-epsilon-comparisons does not rewrite non-math zero checks", () => {
-    const input = [
-        "var queue_size = array_length(queue);",
-        "if (queue_size == 0) {",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
+    const input = ["var queue_size = array_length(queue);", "if (queue_size == 0) {", "    return;", "}", ""].join(
+        "\n"
+    );
 
     const result = lintWithRule("prefer-epsilon-comparisons", input, {});
     assert.equal(result.output, input);
@@ -878,11 +874,7 @@ void test("optimize-math-expressions does not rewrite decimal literals that star
 });
 
 void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
-    const input = [
-        "var s = 1.3 * size * 0.12 / 1.5;",
-        "s = s - s / 2 - lengthdir_x(s / 2, swim_rot);",
-        ""
-    ].join("\n");
+    const input = ["var s = 1.3 * size * 0.12 / 1.5;", "s = s - s / 2 - lengthdir_x(s / 2, swim_rot);", ""].join("\n");
     const expected = ["var s = size * 0.052 * (1 - lengthdir_x(1, swim_rot));", ""].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
