@@ -383,7 +383,7 @@ export function createWatchCommand(): Command {
                 "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
                 .argParser(createMinimumValueValidator(0, "Debounce delay must be non-negative"))
-                .default(200)
+                .default(100)
         )
         .addOption(
             new Option(
