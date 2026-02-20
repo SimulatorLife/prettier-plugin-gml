@@ -943,7 +943,7 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             valueText: staticIndexAssignmentMatch[5].trim(),
                             trailingComment:
                                 typeof staticIndexAssignmentMatch[6] === "string" &&
-                                    staticIndexAssignmentMatch[6].trim().length > 0
+                                staticIndexAssignmentMatch[6].trim().length > 0
                                     ? staticIndexAssignmentMatch[6].trim()
                                     : null
                         });
@@ -3193,13 +3193,13 @@ type InterpolationSafeRewrite = Readonly<{
 
 type InterpolationCandidateAnalysis =
     | Readonly<{
-        kind: "safe";
-        rewrite: InterpolationSafeRewrite;
-    }>
+          kind: "safe";
+          rewrite: InterpolationSafeRewrite;
+      }>
     | Readonly<{
-        kind: "unsafe";
-        offset: number;
-    }>;
+          kind: "unsafe";
+          offset: number;
+      }>;
 
 function isStringCoercionCallExpression(node: unknown): node is {
     type: "CallExpression";
@@ -3667,18 +3667,16 @@ function tryEvaluateExpression(node: any): any {
             }
             case "point_distance": {
                 if (evaluatedArgs.length === 4) {
-                    return Math.hypot(
-                        (evaluatedArgs[2] - evaluatedArgs[0]), (evaluatedArgs[3] - evaluatedArgs[1])
-                    );
+                    return Math.hypot(evaluatedArgs[2] - evaluatedArgs[0], evaluatedArgs[3] - evaluatedArgs[1]);
                 }
                 break;
             }
             case "point_distance_3d": {
                 if (evaluatedArgs.length === 6) {
                     return Math.hypot(
-                        (evaluatedArgs[3] - evaluatedArgs[0]),
-                        (evaluatedArgs[4] - evaluatedArgs[1]),
-                        (evaluatedArgs[5] - evaluatedArgs[2])
+                        evaluatedArgs[3] - evaluatedArgs[0],
+                        evaluatedArgs[4] - evaluatedArgs[1],
+                        evaluatedArgs[5] - evaluatedArgs[2]
                     );
                 }
                 break;
@@ -3992,9 +3990,8 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
     }
 
     const numeratorJoined = numeratorFactors.join(" * ");
-    const numerator = numeratorFactors.length > 1 && denominatorFactors.length > 0
-        ? `(${numeratorJoined})`
-        : numeratorJoined;
+    const numerator =
+        numeratorFactors.length > 1 && denominatorFactors.length > 0 ? `(${numeratorJoined})` : numeratorJoined;
     if (denominatorFactors.length === 0) {
         return `${sign}${numerator}`;
     }
@@ -4095,22 +4092,25 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
     }
 
     const evaluation = tryEvaluateExpression(node);
-    if (evaluation !== undefined && // If it's a constant, we only replace it if there are no internal comments,
+    if (
+        evaluation !== undefined && // If it's a constant, we only replace it if there are no internal comments,
         // unless it's a very simple wrap.
-        !source.includes("/*") && !source.includes("//")) {
-            if (typeof evaluation === "number") {
-                const formatted = formatMathNumber(evaluation);
-                return formatted === trimOuterParentheses(source) ? null : formatted;
-            }
-            if (typeof evaluation === "boolean") {
-                const formatted = String(evaluation);
-                return formatted === trimOuterParentheses(source) ? null : formatted;
-            }
-            if (typeof evaluation === "string") {
-                const formatted = evaluation.startsWith('"') || evaluation.startsWith("'") ? evaluation : `"${evaluation}"`;
-                return formatted === trimOuterParentheses(source) ? null : formatted;
-            }
+        !source.includes("/*") &&
+        !source.includes("//")
+    ) {
+        if (typeof evaluation === "number") {
+            const formatted = formatMathNumber(evaluation);
+            return formatted === trimOuterParentheses(source) ? null : formatted;
         }
+        if (typeof evaluation === "boolean") {
+            const formatted = String(evaluation);
+            return formatted === trimOuterParentheses(source) ? null : formatted;
+        }
+        if (typeof evaluation === "string") {
+            const formatted = evaluation.startsWith('"') || evaluation.startsWith("'") ? evaluation : `"${evaluation}"`;
+            return formatted === trimOuterParentheses(source) ? null : formatted;
+        }
+    }
 
     const root = unwrapParenthesized(node);
     if (!root) {
@@ -4165,12 +4165,22 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
         let leftPart = readNodeText(sourceText, root.left);
         let rightPart = readNodeText(sourceText, root.right);
 
-        if (left?.type === "BinaryExpression" && (left.operator === "*" || left.operator === "/") && leftPart && !leftPart.startsWith("(")) {
-                leftPart = `(${leftPart})`;
-            }
-        if (right?.type === "BinaryExpression" && (right.operator === "*" || right.operator === "/") && rightPart && !rightPart.startsWith("(")) {
-                rightPart = `(${rightPart})`;
-            }
+        if (
+            left?.type === "BinaryExpression" &&
+            (left.operator === "*" || left.operator === "/") &&
+            leftPart &&
+            !leftPart.startsWith("(")
+        ) {
+            leftPart = `(${leftPart})`;
+        }
+        if (
+            right?.type === "BinaryExpression" &&
+            (right.operator === "*" || right.operator === "/") &&
+            rightPart &&
+            !rightPart.startsWith("(")
+        ) {
+            rightPart = `(${rightPart})`;
+        }
 
         if (leftPart && rightPart) {
             const result = `${leftPart} ${root.operator} ${rightPart}`;
