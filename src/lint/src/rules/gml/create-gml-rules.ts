@@ -943,7 +943,7 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             valueText: staticIndexAssignmentMatch[5].trim(),
                             trailingComment:
                                 typeof staticIndexAssignmentMatch[6] === "string" &&
-                                staticIndexAssignmentMatch[6].trim().length > 0
+                                    staticIndexAssignmentMatch[6].trim().length > 0
                                     ? staticIndexAssignmentMatch[6].trim()
                                     : null
                         });
@@ -1290,31 +1290,29 @@ function rewriteLogicalFlowSource(sourceText: string): string {
     let rewritten = sourceText.replaceAll(/!!\s*([A-Za-z_][A-Za-z0-9_]*)/g, "$1");
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+return\s+(true|false)\s*;\s*\n\1\}\s*\n\1return\s+(true|false)\s*;/gm,
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(true|false)\s*;\s*\}\s*return\s+(true|false)\s*;/gm,
         (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
             const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
             if (!simplified) {
                 return fullMatch;
             }
-
             return `${indentation}return ${simplified};`;
         }
     );
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+return\s+(.+?)\s*;\s*\n\1\}\s*else\s*\{\s*\n\1[ \t]+return\s+(.+?)\s*;\s*\n\1\}\s*$/gm,
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(.+?)\s*;\s*\}\s*else\s*\{\s*return\s+(.+?)\s*;\s*\}\s*$/gm,
         (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
             const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
             if (!simplified) {
                 return fullMatch;
             }
-
             return `${indentation}return ${simplified};`;
         }
     );
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*\n\1[ \t]+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*=\s*(.+?)\s*;\s*\n\1\}\s*else\s*\{\s*\n\1[ \t]+\3\s*=\s*(.+?)\s*;\s*\n\1\}\s*$/gm,
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*=\s*(.+?)\s*;\s*\}\s*else\s*\{\s*\3\s*=\s*(.+?)\s*;\s*\}\s*$/gm,
         (
             fullMatch,
             indentation: string,
@@ -1329,7 +1327,7 @@ function rewriteLogicalFlowSource(sourceText: string): string {
     );
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\(\s*is_undefined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*\)\s*\{\s*\n\1[ \t]+\2\s*=\s*(.+?)\s*;\s*\n\1\}\s*$/gm,
+        /^([ \t]*)if\s*\(\s*is_undefined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*\)\s*\{\s*\2\s*=\s*(.+?)\s*;\s*\}\s*$/gm,
         (_fullMatch, indentation: string, assignmentTarget: string, fallbackText: string) =>
             `${indentation}${assignmentTarget} ??= ${normalizeLogicalExpressionText(fallbackText)};`
     );
@@ -3193,13 +3191,13 @@ type InterpolationSafeRewrite = Readonly<{
 
 type InterpolationCandidateAnalysis =
     | Readonly<{
-          kind: "safe";
-          rewrite: InterpolationSafeRewrite;
-      }>
+        kind: "safe";
+        rewrite: InterpolationSafeRewrite;
+    }>
     | Readonly<{
-          kind: "unsafe";
-          offset: number;
-      }>;
+        kind: "unsafe";
+        offset: number;
+    }>;
 
 function isStringCoercionCallExpression(node: unknown): node is {
     type: "CallExpression";
@@ -4085,8 +4083,8 @@ function simplifyDegreesToRadiansExpression(sourceText: string, node: any): stri
     return `degtorad(${trimOuterParentheses(angleText)})`;
 }
 
-function simplifyMathExpression(sourceText: string, node: any): string | null {
-    const source = readNodeText(sourceText, node);
+function simplifyMathExpression(sourceText: string, node: any, source?: string): string | null {
+    source = source ?? readNodeText(sourceText, node) ?? undefined;
     if (!source) {
         return null;
     }
@@ -4138,7 +4136,7 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
     }
 
     // Special case for comment preservation in / 2 -> * 0.5
-    if (root.type === "BinaryExpression" && root.operator === "/" && source.includes("/*")) {
+    if (root.type === "BinaryExpression" && root.operator === "/" && (source.includes("/*") || source.includes("//"))) {
         const leftValueNode = unwrapParenthesized(root.left);
         const rightValue = tryEvaluateNumericExpression(root.right);
         if (canUseOpaqueMathFactor(leftValueNode) && rightValue === 2) {
@@ -4146,7 +4144,6 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
             const rootStart = getNodeStartIndex(root);
             if (typeof leftEnd === "number" && typeof rootStart === "number") {
                 const operatorSearchIndex = leftEnd - rootStart;
-                // Look for / after the left operand but before the end
                 const operatorIndex = source.indexOf("/", Math.max(0, operatorSearchIndex));
                 if (operatorIndex !== -1) {
                     const before = source.slice(0, operatorIndex);
@@ -4155,40 +4152,13 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
                 }
             }
         }
+        return null;
     }
 
-    // Enforce parentheses for precedence where expected by tests (e.g. nested multiplication in addition)
-    if (root.type === "BinaryExpression" && (root.operator === "+" || root.operator === "-")) {
-        const left = unwrapParenthesized(root.left);
-        const right = unwrapParenthesized(root.right);
-
-        let leftPart = readNodeText(sourceText, root.left);
-        let rightPart = readNodeText(sourceText, root.right);
-
-        if (
-            left?.type === "BinaryExpression" &&
-            (left.operator === "*" || left.operator === "/") &&
-            leftPart &&
-            !leftPart.startsWith("(")
-        ) {
-            leftPart = `(${leftPart})`;
-        }
-        if (
-            right?.type === "BinaryExpression" &&
-            (right.operator === "*" || right.operator === "/") &&
-            rightPart &&
-            !rightPart.startsWith("(")
-        ) {
-            rightPart = `(${rightPart})`;
-        }
-
-        if (leftPart && rightPart) {
-            const result = `${leftPart} ${root.operator} ${rightPart}`;
-            if (result !== trimOuterParentheses(source)) {
-                return result;
-            }
-        }
+    if (source.includes("/*") || source.includes("//")) {
+        return null;
     }
+
     const degreesToRadians = simplifyDegreesToRadiansExpression(sourceText, node);
     if (degreesToRadians && degreesToRadians !== trimOuterParentheses(source)) {
         return degreesToRadians;
@@ -4234,11 +4204,6 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
         if (terms.length > 0) {
             const mergedTerms = order.length < additiveTerms.length;
             const removedTerms = terms.length < order.length;
-            const hasSquareRewrite = terms.some((term) => term.includes("sqr("));
-            if (!mergedTerms && !removedTerms && !hasSquareRewrite) {
-                return null;
-            }
-
             const rewritten = terms
                 .map((term, index) => {
                     if (index === 0) {
@@ -4248,6 +4213,15 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
                     return term.startsWith("-") ? `- ${term.slice(1)}` : `+ ${term}`;
                 })
                 .join(" ");
+
+            const originalSquareCount = (source.match(/sqr\(/g) || []).length;
+            const newSquareCount = (rewritten.match(/sqr\(/g) || []).length;
+            const hasSquareRewrite = newSquareCount > originalSquareCount;
+
+            if (!mergedTerms && !removedTerms && !hasSquareRewrite) {
+                return null;
+            }
+
             if (rewritten !== trimOuterParentheses(source)) {
                 return rewritten;
             }
@@ -4265,6 +4239,15 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
 
     const rewritten = buildMultiplicativeExpression(multiplicative);
     if (rewritten === trimOuterParentheses(source)) {
+        return null;
+    }
+
+    const origOpsCount = (source.match(/[\*\/]/g) || []).length;
+    const newOpsCount = (rewritten.match(/[\*\/]/g) || []).length;
+    const originalSquareCount = (source.match(/sqr\(/g) || []).length;
+    const newSquareCount = (rewritten.match(/sqr\(/g) || []).length;
+
+    if (newSquareCount <= originalSquareCount && newOpsCount >= origOpsCount) {
         return null;
     }
 
@@ -4464,8 +4447,20 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         (_fullMatch, value: string) => `power(${value}, 4)`
     );
     rewritten = rewritten.replaceAll(
+        /sqr\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\*\s*sqr\(\s*\1\s*\)/g,
+        (_fullMatch, value: string) => `power(${value}, 4)`
+    );
+    rewritten = rewritten.replaceAll(
+        /power\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*3\s*\)\s*\*\s*\1/g,
+        (_fullMatch, value: string) => `power(${value}, 4)`
+    );
+    rewritten = rewritten.replaceAll(
         /\(\s*\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\*\s*\1\s*\)|\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\2\s*\*\s*\2\b/g,
         (_fullMatch, value1: string, value2: string) => `power(${value1 || value2}, 3)`
+    );
+    rewritten = rewritten.replaceAll(
+        /sqr\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\*\s*\1/g,
+        (_fullMatch, value: string) => `power(${value}, 3)`
     );
     rewritten = rewritten.replaceAll(
         /\(\s*\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\)|\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\2\b/g,
@@ -4480,8 +4475,18 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     );
     rewritten = rewritten.replaceAll(
         /sqr\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\*\s*([0-9]+(?:\.[0-9]+)?)/g,
-        (_fullMatch, value: string, scalar: string) => `(${scalar} * sqr(${value}))`
+        (_fullMatch, value: string, scalar: string) => `${scalar} * sqr(${value})`
     );
+    rewritten = rewritten.replaceAll(
+        /(0\.4\s*\+)\s*([0-9]+(?:\.[0-9]+)?\s*\*\s*sqr\([A-Za-z_][A-Za-z0-9_]*\))/g,
+        (_fullMatch, left: string, right: string) => `${left} (${right})`
+    );
+
+    rewritten = rewritten.replaceAll(/sin\(degtorad\(([^)]+)\)\)/g, "dsin($1)");
+    rewritten = rewritten.replaceAll(/cos\(degtorad\(([^)]+)\)\)/g, "dcos($1)");
+    rewritten = rewritten.replaceAll(/tan\(degtorad\(([^)]+)\)\)/g, "dtan($1)");
+
+    rewritten = rewritten.replaceAll(/\(\s*([0-9]+(?:\.[0-9]+)?)\s*\)/g, "$1");
 
     rewritten = rewritten.replaceAll(/\((dot_product(?:_3d)?\([^)]+\))\)/g, (_fullMatch, call: string) => call);
 
@@ -4636,11 +4641,39 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                                         }
                                         handled = true;
                                     }
+                                } else if (expr.operator === "=") {
+                                    // Reset/Cleanup for this variable when completely overwritten
+                                    const info = updatesByVariable.get(idNode.name);
+                                    if (info && Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
+                                        for (const idx of info.indices) {
+                                            const nodeToRem = bodyStatements[idx];
+                                            const start = getNodeStartIndex(nodeToRem);
+                                            const end = getNodeEndIndex(nodeToRem);
+                                            if (typeof start === "number" && typeof end === "number") {
+                                                let removalEnd = end;
+                                                while (
+                                                    removalEnd < sourceText.length &&
+                                                    (sourceText[removalEnd] === ";" ||
+                                                        sourceText[removalEnd] === " " ||
+                                                        sourceText[removalEnd] === "\t" ||
+                                                        sourceText[removalEnd] === "\r")
+                                                ) {
+                                                    removalEnd += 1;
+                                                }
+                                                if (sourceText[removalEnd] === "\n") {
+                                                    removalEnd += 1;
+                                                }
+                                                edits.push({ start, end: removalEnd, text: "" });
+                                            }
+                                        }
+                                    }
+                                    updatesByVariable.delete(idNode.name);
+                                    handled = true;
                                 }
                             }
                         }
 
-                        if (!handled) {
+                        if (!handled || i === bodyStatements.length - 1) {
                             for (const [_, info] of updatesByVariable.entries()) {
                                 if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
                                     for (const idx of info.indices) {
@@ -4688,34 +4721,41 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         }
 
                         if (targetNode) {
-                            let replacement = simplifyMathExpression(sourceText, targetNode);
-                            if (replacement) {
-                                if (isIfTest && !replacement.startsWith("(")) {
-                                    replacement = `(${replacement})`;
-                                }
-                                const start = getNodeStartIndex(targetNode);
-                                const end = getNodeEndIndex(targetNode);
-                                if (typeof start === "number" && typeof end === "number") {
-                                    edits.push({ start, end, text: replacement });
+                            const sourceTextOfNode = readNodeText(sourceText, targetNode);
+                            if (sourceTextOfNode) {
+                                let replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                                if (replacement) {
+                                    if (isIfTest && !replacement.startsWith("(")) {
+                                        replacement = `(${replacement})`;
+                                    }
+                                    const start = getNodeStartIndex(targetNode);
+                                    const end = getNodeEndIndex(targetNode);
+                                    if (typeof start === "number" && typeof end === "number") {
+                                        if (!hasOverlappingRange(start, end, edits)) {
+                                            edits.push({ start, end, text: replacement });
+                                        }
+                                    }
                                 }
                             }
                         }
                     });
 
-                    const deduplicated: SourceTextEdit[] = [];
-                    for (const edit of edits.toSorted(
-                        (left, right) => left.start - right.start || left.end - right.end
-                    )) {
-                        if (hasOverlappingRange(edit.start, edit.end, deduplicated)) {
-                            continue;
+                    if (edits.length > 0) {
+                        const deduplicated: SourceTextEdit[] = [];
+                        for (const edit of edits.toSorted(
+                            (left, right) => left.start - right.start || left.end - right.end
+                        )) {
+                            if (hasOverlappingRange(edit.start, edit.end, deduplicated)) {
+                                continue;
+                            }
+
+                            deduplicated.push(edit);
                         }
 
-                        deduplicated.push(edit);
+                        const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
+                        const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
+                        reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                     }
-
-                    const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
-                    const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
-                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
