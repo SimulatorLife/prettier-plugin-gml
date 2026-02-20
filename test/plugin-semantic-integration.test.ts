@@ -165,8 +165,8 @@ function extractFixtureExpectations(
         Object.keys(lintRules as Record<string, unknown>).length > 0;
     const lintRuleOverrides = hasLintRules
         ? (Object.freeze({ ...(lintRules as Record<string, Linter.RuleEntry>) }) as Readonly<
-              Record<string, Linter.RuleEntry>
-          >)
+            Record<string, Linter.RuleEntry>
+        >)
         : null;
     return Object.freeze({
         options: hasPluginOptions ? pluginOptions : null,
@@ -294,6 +294,10 @@ void describe("Plugin integration fixtures", () => {
 
             const formatted = await Plugin.format(inputSource, options ?? undefined);
             const linted = await runIntegrationLintPass(formatted, baseName, lintRules);
+            if (baseName === "testOptimizeMathExpression") {
+                console.log("FORMATTED:", formatted);
+                console.log("LINTED:", linted);
+            }
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
             assert.strictEqual(canonicalizeFixtureText(linted), canonicalizeFixtureText(expectedOutput));

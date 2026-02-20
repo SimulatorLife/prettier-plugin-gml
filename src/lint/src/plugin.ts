@@ -15,7 +15,10 @@ const gmlPluginObject = Object.freeze({
 });
 
 const featherPluginObject = Object.freeze({
-    rules: featherLintRules
+    rules: featherLintRules,
+    languages: Object.freeze({
+        gml: gmlLanguage
+    })
 });
 
 const lintConfigs = createLintConfigsWithPlugins({
