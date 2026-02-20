@@ -1,6 +1,5 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "../functional-transform.js";
 import { applyLogicalExpressionCondensation, type OptimizeLogicalExpressionsOptions } from "./condensation.js";
 
 type StatementList = Array<MutableGameMakerAstNode | null | undefined>;
@@ -687,7 +686,7 @@ function walkNode(
 }
 
 /** Pre-instantiated transform exposed for parser-normalization pipelines. */
-export const optimizeLogicalExpressionsTransform = createParserTransform<OptimizeLogicalExpressionsOptions>(
+export const optimizeLogicalExpressionsTransform = Core.createParserTransform<OptimizeLogicalExpressionsOptions>(
     "optimize-logical-expressions",
     {},
     execute
