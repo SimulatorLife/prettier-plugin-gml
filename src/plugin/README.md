@@ -4,15 +4,14 @@ This directory contains the source code for the [gml-modules/plugin](https://git
 
 ## Ownership Boundaries
 
-The plugin workspace owns formatting and parser-to-printer orchestration only.
+The plugin workspace owns formatting and parser-to-printer orchestration *only* (semicolons, whitespaces, line breaks, indentation, etc.).
 
-- The plugin **must not** depend directly on `@gml-modules/semantic` or `@gml-modules/refactor`.
-- The plugin exposes identifier-case integration only via `setIdentifierCaseRuntime(...)`.
-- Semantic/content rewrites and project-aware transformations are lint-only responsibilities in `@gml-modules/lint`.
+- The plugin **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
+- Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
 
 ## Test Tiering
 
-- Plugin fixture/unit tests validate formatter-owned layout behavior and strict parse-failure behavior.
+- Plugin fixture/unit tests validate formatter-owned layout behavior.
 - Project-aware behavior is validated in lint/CLI test suites; plugin tests do not validate semantic rewrite behavior.
 
 ## Plugin Architecture

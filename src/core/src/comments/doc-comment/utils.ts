@@ -59,7 +59,10 @@ export {
 } from "../../ast/index.js";
 
 // AST location helpers
-export { getNodeEndIndex, getNodeStartIndex } from "../../ast/index.js";
+export { getNodeEndIndex, getNodeStartIndex, shouldSkipTraversal } from "../../ast/index.js";
+
+// Capability Probes
+export { isSetLike } from "../../utils/index.js";
 
 // AST types
 export type { MutableGameMakerAstNode } from "../../ast/index.js";
