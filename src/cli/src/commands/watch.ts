@@ -1304,7 +1304,11 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    await Core.runSequentially(dependentFiles, async (dependentFile) => {
+    // Process dependent files concurrently to minimise hot-reload latency.
+    // Each callback has an independent try/catch so a single failure does not
+    // abort sibling retranspilations. Node.js single-threaded execution keeps
+    // dependency-tracker mutations safe without explicit locking.
+    await Core.runInParallel(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {

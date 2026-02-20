@@ -997,7 +997,7 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             valueText: staticIndexAssignmentMatch[5].trim(),
                             trailingComment:
                                 typeof staticIndexAssignmentMatch[6] === "string" &&
-                                    staticIndexAssignmentMatch[6].trim().length > 0
+                                staticIndexAssignmentMatch[6].trim().length > 0
                                     ? staticIndexAssignmentMatch[6].trim()
                                     : null
                         });
@@ -3251,13 +3251,13 @@ type InterpolationSafeRewrite = Readonly<{
 
 type InterpolationCandidateAnalysis =
     | Readonly<{
-        kind: "safe";
-        rewrite: InterpolationSafeRewrite;
-    }>
+          kind: "safe";
+          rewrite: InterpolationSafeRewrite;
+      }>
     | Readonly<{
-        kind: "unsafe";
-        offset: number;
-    }>;
+          kind: "unsafe";
+          offset: number;
+      }>;
 
 function isStringCoercionCallExpression(node: unknown): node is {
     type: "CallExpression";
@@ -4668,69 +4668,82 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         } else if (expr && expr.type === "AssignmentExpression") {
                             const idNode = unwrapParenthesized(expr.left);
                             if (idNode?.type === "Identifier") {
-                                if (expr.operator === "+=" || expr.operator === "-=") {
-                                    const val = tryEvaluateNumericExpression(expr.right);
-                                    if (val !== null) {
-                                        const name = idNode.name;
-                                        const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
-                                        current.delta += expr.operator === "+=" ? val : -val;
-                                        current.indices.push(i);
-                                        updatesByVariable.set(name, current);
-                                        handled = true;
-                                    }
-                                } else if (expr.operator === "*=" || expr.operator === "/=") {
-                                    const val = tryEvaluateNumericExpression(expr.right);
-                                    if (val === 1) {
-                                        const start = getNodeStartIndex(stmt);
-                                        const end = getNodeEndIndex(stmt);
-                                        if (typeof start === "number" && typeof end === "number") {
-                                            let removalEnd = end;
-                                            while (
-                                                removalEnd < sourceText.length &&
-                                                (sourceText[removalEnd] === ";" ||
-                                                    sourceText[removalEnd] === " " ||
-                                                    sourceText[removalEnd] === "\t" ||
-                                                    sourceText[removalEnd] === "\r")
-                                            ) {
-                                                removalEnd += 1;
-                                            }
-                                            if (sourceText[removalEnd] === "\n") {
-                                                removalEnd += 1;
-                                            }
-                                            edits.push({ start, end: removalEnd, text: "" });
+                                switch (expr.operator) {
+                                    case "+=":
+                                    case "-=": {
+                                        const val = tryEvaluateNumericExpression(expr.right);
+                                        if (val !== null) {
+                                            const name = idNode.name;
+                                            const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
+                                            current.delta += expr.operator === "+=" ? val : -val;
+                                            current.indices.push(i);
+                                            updatesByVariable.set(name, current);
+                                            handled = true;
                                         }
-                                        handled = true;
+
+                                        break;
                                     }
-                                } else if (expr.operator === "=") {
-                                    // Reset/Cleanup for this variable when completely overwritten
-                                    const info = updatesByVariable.get(idNode.name);
-                                    if (info) {
-                                        if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
-                                            for (const idx of info.indices) {
-                                                const nodeToRem = bodyStatements[idx];
-                                                const start = getNodeStartIndex(nodeToRem);
-                                                const end = getNodeEndIndex(nodeToRem);
-                                                if (typeof start === "number" && typeof end === "number") {
-                                                    let removalEnd = end;
-                                                    while (
-                                                        removalEnd < sourceText.length &&
-                                                        (sourceText[removalEnd] === ";" ||
-                                                            sourceText[removalEnd] === " " ||
-                                                            sourceText[removalEnd] === "\t" ||
-                                                            sourceText[removalEnd] === "\r")
-                                                    ) {
-                                                        removalEnd += 1;
+                                    case "*=":
+                                    case "/=": {
+                                        const val = tryEvaluateNumericExpression(expr.right);
+                                        if (val === 1) {
+                                            const start = getNodeStartIndex(stmt);
+                                            const end = getNodeEndIndex(stmt);
+                                            if (typeof start === "number" && typeof end === "number") {
+                                                let removalEnd = end;
+                                                while (
+                                                    removalEnd < sourceText.length &&
+                                                    (sourceText[removalEnd] === ";" ||
+                                                        sourceText[removalEnd] === " " ||
+                                                        sourceText[removalEnd] === "\t" ||
+                                                        sourceText[removalEnd] === "\r")
+                                                ) {
+                                                    removalEnd += 1;
+                                                }
+                                                if (sourceText[removalEnd] === "\n") {
+                                                    removalEnd += 1;
+                                                }
+                                                edits.push({ start, end: removalEnd, text: "" });
+                                            }
+                                            handled = true;
+                                        }
+
+                                        break;
+                                    }
+                                    case "=": {
+                                        // Reset/Cleanup for this variable when completely overwritten
+                                        const info = updatesByVariable.get(idNode.name);
+                                        if (info) {
+                                            if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
+                                                for (const idx of info.indices) {
+                                                    const nodeToRem = bodyStatements[idx];
+                                                    const start = getNodeStartIndex(nodeToRem);
+                                                    const end = getNodeEndIndex(nodeToRem);
+                                                    if (typeof start === "number" && typeof end === "number") {
+                                                        let removalEnd = end;
+                                                        while (
+                                                            removalEnd < sourceText.length &&
+                                                            (sourceText[removalEnd] === ";" ||
+                                                                sourceText[removalEnd] === " " ||
+                                                                sourceText[removalEnd] === "\t" ||
+                                                                sourceText[removalEnd] === "\r")
+                                                        ) {
+                                                            removalEnd += 1;
+                                                        }
+                                                        if (sourceText[removalEnd] === "\n") {
+                                                            removalEnd += 1;
+                                                        }
+                                                        edits.push({ start, end: removalEnd, text: "" });
                                                     }
-                                                    if (sourceText[removalEnd] === "\n") {
-                                                        removalEnd += 1;
-                                                    }
-                                                    edits.push({ start, end: removalEnd, text: "" });
                                                 }
                                             }
+                                            updatesByVariable.delete(idNode.name);
+                                            handled = true;
                                         }
-                                        updatesByVariable.delete(idNode.name);
-                                        handled = true;
+
+                                        break;
                                     }
+                                    // No default
                                 }
                             }
                         }
@@ -4773,14 +4786,26 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         let isIfTest = false;
                         if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
                             targetNode = visitedNode.init;
-                        } else if (visitedNode.type === "AssignmentExpression") {
-                            targetNode = visitedNode.right;
-                        } else if (visitedNode.type === "IfStatement") {
-                            targetNode = visitedNode.test;
-                            isIfTest = true;
-                        } else if (visitedNode.type === "BinaryExpression") {
-                            targetNode = visitedNode;
-                        }
+                        } else
+                            switch (visitedNode.type) {
+                                case "AssignmentExpression": {
+                                    targetNode = visitedNode.right;
+
+                                    break;
+                                }
+                                case "IfStatement": {
+                                    targetNode = visitedNode.test;
+                                    isIfTest = true;
+
+                                    break;
+                                }
+                                case "BinaryExpression": {
+                                    targetNode = visitedNode;
+
+                                    break;
+                                }
+                                // No default
+                            }
 
                         if (targetNode) {
                             const sourceTextOfNode = readNodeText(sourceText, targetNode);
@@ -4792,10 +4817,12 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                                     }
                                     const start = getNodeStartIndex(targetNode);
                                     const end = getNodeEndIndex(targetNode);
-                                    if (typeof start === "number" && typeof end === "number") {
-                                        if (!hasOverlappingRange(start, end, edits)) {
-                                            edits.push({ start, end, text: replacement });
-                                        }
+                                    if (
+                                        typeof start === "number" &&
+                                        typeof end === "number" &&
+                                        !hasOverlappingRange(start, end, edits)
+                                    ) {
+                                        edits.push({ start, end, text: replacement });
                                     }
                                 }
                             }
