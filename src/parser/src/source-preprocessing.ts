@@ -1,10 +1,11 @@
 /**
- * Source text preprocessing utilities for the GML formatter.
+ * Source text preprocessing utilities for the GML parser.
  *
- * These functions perform source-level transformations before parsing to handle
- * common formatting issues and error recovery scenarios. They operate on raw
- * text rather than AST nodes, making them distinct from the parser's core
- * responsibility of GML → AST conversion.
+ * These functions perform source-level transformations before or during
+ * parsing to handle common formatting issues and error recovery scenarios.
+ * They operate on raw text rather than AST nodes, making them distinct from
+ * the parser's core responsibility of GML → AST conversion, but they are
+ * closely coupled to the parser's needs (comment normalization, brace recovery).
  */
 
 import { Core } from "@gml-modules/core";
