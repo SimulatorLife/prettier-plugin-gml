@@ -1,7 +1,7 @@
 import { type MutableDocCommentLines } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
-import { DescriptionUtils } from "./index.js";
+import { DescriptionUtils } from "../transforms/doc-comment/index.js";
 import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
