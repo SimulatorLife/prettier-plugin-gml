@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
+import { Runtime } from "../src/index.js";
 
 type GlobalSnapshot = {
     make_colour_rgb?: (red: number, green: number, blue: number) => number;
@@ -221,5 +222,45 @@ await test("scripts can read builtin properties even without getters", () => {
         assert.strictEqual(result, 555);
     } finally {
         restoreBuiltins(snapshot);
+    }
+});
+
+await test("resolveBuiltinConstants returns the same object when the color function has not changed", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot & Record<string, unknown>;
+        globals.make_colour_rgb = (r, g, b) => (r & 0xff) | ((g & 0xff) << 8) | ((b & 0xff) << 16);
+
+        const first = Runtime.resolveBuiltinConstants(globals as Record<string, unknown>);
+        const second = Runtime.resolveBuiltinConstants(globals as Record<string, unknown>);
+
+        // Identical reference confirms the cached object is returned rather
+        // than a freshly allocated one on every call.
+        assert.strictEqual(first, second);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("resolveBuiltinConstants returns a new object when the color function changes", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot & Record<string, unknown>;
+        globals.make_colour_rgb = (r, g, b) => (r & 0xff) | ((g & 0xff) << 8) | ((b & 0xff) << 16);
+
+        const first = Runtime.resolveBuiltinConstants(globals as Record<string, unknown>);
+
+        // Replace with a new function object to simulate a runtime re-initialisation.
+        globals.make_colour_rgb = (r, g, b) => (r & 0xff) | ((g & 0xff) << 8) | ((b & 0xff) << 16);
+
+        const second = Runtime.resolveBuiltinConstants(globals as Record<string, unknown>);
+
+        // Different reference confirms the cache was invalidated when the
+        // function identity changed.
+        assert.notStrictEqual(first, second);
+    } finally {
+        restoreGlobals(snapshot);
     }
 });
