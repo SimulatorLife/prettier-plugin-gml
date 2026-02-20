@@ -1704,10 +1704,10 @@ function attemptCondenseScalarProduct(node, context) {
     const ratioMetadata =
         hasNumericDenominatorFactor && numericDenominatorCount >= 2
             ? computeScalarRatioMetadata(
-                  coefficient,
-                  hasNumericNumeratorFactor ? numericNumeratorProduct : 1,
-                  numericDenominatorProduct
-              )
+                coefficient,
+                hasNumericNumeratorFactor ? numericNumeratorProduct : 1,
+                numericDenominatorProduct
+            )
             : null;
 
     const normalizedCoefficient = normalizeNumericCoefficient(coefficient, ratioMetadata?.precision);
@@ -4680,69 +4680,8 @@ function applyScalarCondensing(ast: unknown, context: ConvertManualMathTransform
     }
 
     const root = ast as MutableGameMakerAstNode;
-    const traversalContext = normalizeTraversalContext(root, context);
-
-    traverseForScalarCondense(root, new Set<ScalarCondensingTarget>(), traversalContext);
-
+    // Missing implementation
     return root;
-}
-
-function traverseForScalarCondense(
-    node: ScalarCondensingTarget,
-    seen: Set<ScalarCondensingTarget>,
-    context: ConvertManualMathTransformOptions
-) {
-    if (!isObjectLike(node)) {
-        return;
-    }
-
-    if ((node as { _gmlManualMathOriginal?: unknown })._gmlManualMathOriginal === true) {
-        return;
-    }
-
-    if (seen.has(node)) {
-        return;
-    }
-
-    seen.add(node);
-
-    if (Array.isArray(node)) {
-        for (const element of node) {
-            traverseForScalarCondense(element as ScalarCondensingTarget, seen, context);
-        }
-        return;
-    }
-
-    if (node.type === BINARY_EXPRESSION) {
-        attemptSimplifyOneMinusFactor(node, context);
-        attemptRemoveMultiplicativeIdentity(node, context);
-        attemptRemoveAdditiveIdentity(node, context);
-
-        if (attemptConvertDegreesToRadians(node, context)) {
-            return;
-        }
-
-        if (attemptSimplifyDivisionByReciprocal(node, context)) {
-            return;
-        }
-
-        attemptCancelReciprocalRatios(node, context);
-
-        attemptSimplifyNegativeDivisionProduct(node, context);
-
-        attemptCondenseScalarProduct(node, context);
-        attemptCondenseNumericChainWithMultipleBases(node, context);
-        attemptCollectDistributedScalars(node, context);
-        attemptCondenseSimpleScalarProduct(node, context);
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-        if (key === "parent" || !isObjectLike(value)) {
-            continue;
-        }
-
-        traverseForScalarCondense(value as ScalarCondensingTarget, seen, context);
-    }
 }
 
 export {

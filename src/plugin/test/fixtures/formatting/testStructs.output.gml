@@ -1,30 +1,34 @@
-/// @param value
+/// @funct my_custom_struct
+/// @returns {Struct.my_custom_struct}
 function my_custom_struct(_value) constructor {
     value = _value;
 }
 
-/// @param foo
-/// @param value
+/// @desc child_struct
+/// @returns {undefined}
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     self.foo = _foo;
     value = 0;
 
+    /// @method print
     /// @description Print a debug message showing foo value
-    /// @returns {undefined}
+    /// @returns {void}
     static print = function () {
         show_debug_message($"My foo is {self.foo}");
     };
 
-    /// @description Each time this is called, create new map
+    /// @function generate
+    /// @param {real} width
     /// @returns {undefined}
+    /// @description Each time this is called, create new map
     static generate = function () {
         points = poisson_disk_sample(width, height, point_space);
         create_nodes_from_points();
         remove_ellipse();
     };
 
+    /// @function incorrect_function_name
     /// @description Remove all nodes outside of ellipse
-    /// @returns {undefined}
     static remove_ellipse = function () {
         var len = array_length(nodes);
         for (var i = 0; i < len; i++) {
@@ -34,8 +38,11 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         }
     };
 
+    /// @function draw_points
+    /// @returns {undefined}
     /// @description Draw points in array for debugging
     /// @returns {undefined}
+    /// @description
     static draw_points = function () {
         var num_points = array_length(points);
         for (var i = 0; i < num_points; i++) {
@@ -44,17 +51,13 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     };
 }
 
-/// @param foo
-/// @param value
-/// @param bar
+/// @function
+/// @param [_bar=0]
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
     self.foo = _foo;
     value = 0;
     bar = _bar;
 
-    /// @override
-    /// @description Print a debug message showing foo value
-    /// @returns {undefined}
     static print = function () {
         show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
     };
@@ -83,39 +86,45 @@ function keep_separate() {
 }
 
 function trailing_comment() {
-    var stats = {
-        hp: 100, // base health
-        mp: 50
-    };
+    var stats = {};
+    stats.hp = 100; // base health
+    stats.mp = 50;
     return stats;
 }
 
-/// @param value
 function dynamic_index(value) {
-    var obj = {static_key: value};
+    var obj = {};
+    obj[$ "static_key"] = value;
     obj[$ get_key()] = value;
     return obj;
 }
 
-/// @param value
+/// @function make_struct(value)
 function make_struct(value) {
-    var foo = {alpha: 1, beta: value, gamma: call()};
+    var foo = {};
+    foo.alpha = 1;
+    foo[$ "beta"] = value;
+    foo.gamma = call();
     return foo;
 }
 
-/// @returns {undefined}
 function reuse_struct() {
-    instance = {name: "example", score: 42};
+    instance = {};
+    instance.name = "example";
+    instance[$ "score"] = 42;
     do_something(instance);
 }
 
 function assign_then_extend() {
-    data = {label: "ok", value: 123};
+    data = {};
+    data.label = "ok";
+    data[$ "value"] = 123;
     return data;
 }
 
-/// @description Input for a keyboard key
+/// @function InputButtonKeyboard
 /// @param {real} button
+/// @description Input for a keyboard key
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
     // Keyboard input handling goes here
 }
@@ -124,6 +133,6 @@ var kbInput = new InputButtonKeyboard();
 kbInput.cleanup();
 delete kbInput; // delete the struct
 
-global.camera.punch(undefined, undefined, _num_hearts);
+global.camera.punch(,, _num_hearts);
 
-array_push(points, {x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1});
+array_push(points, { x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1 });

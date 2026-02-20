@@ -1,4 +1,3 @@
-/// @param value
 function build_struct(value) {
     var foo = {};
     foo.alpha = 1;

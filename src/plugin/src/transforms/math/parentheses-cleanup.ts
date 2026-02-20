@@ -1,5 +1,5 @@
 /**
- * Removes redundant parentheses around multiplicative identities introduced during manual math formatting.
+ * Removes redundant parentheses around multiplicative identities when formatting math expressions.
  * This cleanup keeps expressions concise for the printer while respecting structural safety rules.
  */
 import { Core } from "@gml-modules/core";

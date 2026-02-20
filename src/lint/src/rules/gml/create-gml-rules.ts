@@ -1315,11 +1315,11 @@ function simplifyIfReturnExpression(conditionText: string, truthyText: string, f
     const normalizedCondition = convertLogicalSymbolsToKeywords(trimOuterParentheses(conditionText));
 
     if (truthy === "true" && falsy === "false") {
-        return null;
+        return simplifiedCondition;
     }
 
     if (truthy === "false" && falsy === "true") {
-        return null;
+        return wrapNegatedLogicalCondition(simplifiedCondition);
     }
 
     if (falsy === "true") {
@@ -1344,7 +1344,7 @@ function rewriteLogicalFlowSource(sourceText: string): string {
     let rewritten = sourceText.replaceAll(/!!\s*([A-Za-z_][A-Za-z0-9_]*)/g, "$1");
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(true|false)\s*;\s*\}\s*return\s+(true|false)\s*;/gm,
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(.+?)\s*;[^}]*?\}\s*return\s+(.+?)\s*;/gm,
         (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
             const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
             if (!simplified) {
@@ -1355,7 +1355,7 @@ function rewriteLogicalFlowSource(sourceText: string): string {
     );
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(.+?)\s*;\s*\}\s*else\s*\{\s*return\s+(.+?)\s*;\s*\}\s*$/gm,
+        /^([ \t]*)if\s*\((.+?)\)\s*\{\s*return\s+(.+?)\s*;[^}]*?\}\s*else\s*\{\s*return\s+(.+?)\s*;[^}]*?\}\s*$/gm,
         (fullMatch, indentation: string, conditionText: string, truthyText: string, falsyText: string) => {
             const simplified = simplifyIfReturnExpression(conditionText, truthyText, falsyText);
             if (!simplified) {

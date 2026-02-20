@@ -1,6 +1,6 @@
 /// @funct my_custom_struct
 /// @returns {Struct.my_custom_struct}
-function my_custom_struct(_value) constructor
+function my_custom_struct(_value)constructor
 {
 	value = _value;
 }
@@ -89,18 +89,18 @@ function keep_separate() {
     return foo;
 }
 
-function trailing_comment() {
-    var stats = {};
-    stats.hp = 100; // base health
-    stats.mp = 50;
-    return stats;
-}
+function trailing_comment(){
+   var stats = {};
+     stats.hp = 100; // base health
+    stats.mp  =  50;
+    return  stats;}
 
 function dynamic_index(value) {
     var obj = {};
     obj[$ "static_key"] = value;
     obj[$ get_key()] = value;
     return obj;
+    
 }
 
 
