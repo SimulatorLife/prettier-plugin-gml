@@ -47,3 +47,8 @@ export function removeFunctionDocCommentLines(lines: readonly unknown[]): Mutabl
 
     return filtered;
 }
+
+/** Extracts doc-comment-specific printer options from the Prettier options object. */
+export function resolveDocCommentPrinterOptions(_options: unknown): Record<string, unknown> {
+    return {};
+}

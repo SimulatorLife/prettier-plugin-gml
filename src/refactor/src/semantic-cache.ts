@@ -11,7 +11,6 @@
  */
 
 import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "./types.js";
-import { hasMethod } from "./validation-utils.js";
 
 /**
  * Cache entry with TTL tracking.
@@ -105,87 +104,35 @@ export class SemanticQueryCache {
     /**
      * Get all occurrences of a symbol, using cached results if available.
      */
-    async getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        if (!this.config.enabled) {
-            return this.fetchSymbolOccurrences(symbolName);
-        }
-
-        const cached = this.getCached(this.occurrenceCache, symbolName);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchSymbolOccurrences(symbolName);
-        this.setCached(this.occurrenceCache, symbolName, result);
-        return result;
+    getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+        return this.queryWithCache(this.occurrenceCache, symbolName, (name) => this.fetchSymbolOccurrences(name));
     }
 
     /**
      * Get symbols defined in a file, using cached results if available.
      */
-    async getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
-        if (!this.config.enabled) {
-            return this.fetchFileSymbols(filePath);
-        }
-
-        const cached = this.getCached(this.fileSymbolsCache, filePath);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchFileSymbols(filePath);
-        this.setCached(this.fileSymbolsCache, filePath, result);
-        return result;
+    getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
+        return this.queryWithCache(this.fileSymbolsCache, filePath, (path) => this.fetchFileSymbols(path));
     }
 
     /**
      * Get symbols that depend on the given symbols, using cached results if available.
      */
-    async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
+    getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
         if (symbolIds.length === 0) {
-            return [];
+            return Promise.resolve<Array<DependentSymbol>>([]);
         }
 
-        if (!this.config.enabled) {
-            return this.fetchDependents(symbolIds);
-        }
-
-        // Use sorted, joined symbolIds as cache key to ensure consistent lookup
+        // Use sorted, joined symbolIds as cache key to ensure consistent lookup regardless of input order.
         const cacheKey = [...symbolIds].toSorted().join(",");
-        const cached = this.getCached(this.dependentsCache, cacheKey);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchDependents(symbolIds);
-        this.setCached(this.dependentsCache, cacheKey, result);
-        return result;
+        return this.queryWithCache(this.dependentsCache, cacheKey, () => this.fetchDependents(symbolIds));
     }
 
     /**
      * Check if a symbol exists, using cached results if available.
      */
-    async hasSymbol(symbolId: string): Promise<boolean> {
-        if (!this.config.enabled) {
-            return this.fetchHasSymbol(symbolId);
-        }
-
-        const cached = this.getCached(this.existenceCache, symbolId);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchHasSymbol(symbolId);
-        this.setCached(this.existenceCache, symbolId, result);
-        return result;
+    hasSymbol(symbolId: string): Promise<boolean> {
+        return this.queryWithCache(this.existenceCache, symbolId, (id) => this.fetchHasSymbol(id));
     }
 
     /**
@@ -309,6 +256,36 @@ export class SemanticQueryCache {
     }
 
     /**
+     * Core cache-lookup/miss/store routine shared by all single-key query methods.
+     *
+     * When caching is disabled the fetch function is called directly.
+     * When enabled, a cache hit increments `hits` and returns the stored value;
+     * a miss increments `misses`, calls `fetch`, and stores the result.
+     *
+     * @private
+     */
+    private async queryWithCache<T>(
+        cache: Map<string, CacheEntry<T>>,
+        key: string,
+        fetch: (key: string) => Promise<T>
+    ): Promise<T> {
+        if (!this.config.enabled) {
+            return fetch(key);
+        }
+
+        const cached = this.getCached(cache, key);
+        if (cached !== null) {
+            this.stats.hits++;
+            return cached;
+        }
+
+        this.stats.misses++;
+        const result = await fetch(key);
+        this.setCached(cache, key, result);
+        return result;
+    }
+
+    /**
      * Get a cached value if it exists and hasn't expired.
      * @private
      */
@@ -352,7 +329,7 @@ export class SemanticQueryCache {
      * @private
      */
     private fetchSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getSymbolOccurrences")) {
+        if (!this.semantic?.getSymbolOccurrences) {
             return Promise.resolve([]);
         }
 
@@ -364,7 +341,7 @@ export class SemanticQueryCache {
      * @private
      */
     private async fetchFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getFileSymbols")) {
+        if (!this.semantic?.getFileSymbols) {
             return [];
         }
         return (await this.semantic.getFileSymbols(filePath)) ?? [];
@@ -375,7 +352,7 @@ export class SemanticQueryCache {
      * @private
      */
     private async fetchDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getDependents")) {
+        if (!this.semantic?.getDependents) {
             return [];
         }
         return (await this.semantic.getDependents(symbolIds)) ?? [];
@@ -386,7 +363,7 @@ export class SemanticQueryCache {
      * @private
      */
     private fetchHasSymbol(symbolId: string): Promise<boolean> {
-        if (!this.semantic || !hasMethod(this.semantic, "hasSymbol")) {
+        if (!this.semantic?.hasSymbol) {
             return Promise.resolve(true);
         }
         return Promise.resolve(this.semantic.hasSymbol(symbolId));

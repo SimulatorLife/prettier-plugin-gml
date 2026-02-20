@@ -1,11 +1,23 @@
 // Expose the Core namespace as the sole public surface
 export { Core } from "./src/index.js";
 
+// Re-export description utility functions for direct named import access
+export {
+    applyDescriptionContinuations,
+    classifyDescriptionContinuationLine,
+    collectDescriptionContinuations,
+    DESCRIPTION_TAG_PATTERN,
+    ensureDescriptionContinuations,
+    resolveDescriptionIndentation
+} from "./src/index.js";
+
 // Re-export key types for consumer usage
 export type {
     AbortSignalLike,
     DebouncedFunction,
+    DescriptionContinuationLineClassification,
     DocCommentLines,
+    EmptyTransformOptions,
     FeatherDiagnostic,
     FeatherMetadata,
     GameMakerAstLocation,
@@ -15,6 +27,7 @@ export type {
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
+    ParserTransform,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
