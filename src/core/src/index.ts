@@ -53,6 +53,7 @@ export const Core: CoreNamespace = Object.freeze({
 // Publicly export key AST types at the package root for other packages to
 // import without deep imports. This is the preferred path for type imports
 // across the monorepo.
+export type { EmptyTransformOptions, ParserTransform } from "./ast/parser-transform.js";
 export type {
     GlobalIdentifierTracker,
     IdentifierRoleManager,
@@ -62,6 +63,15 @@ export type {
 } from "./ast/scope-tracker.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
+export type { DescriptionContinuationLineClassification } from "./comments/doc-comment/description-utils.js";
+export {
+    applyDescriptionContinuations,
+    classifyDescriptionContinuationLine,
+    collectDescriptionContinuations,
+    DESCRIPTION_TAG_PATTERN,
+    ensureDescriptionContinuations,
+    resolveDescriptionIndentation
+} from "./comments/doc-comment/description-utils.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
