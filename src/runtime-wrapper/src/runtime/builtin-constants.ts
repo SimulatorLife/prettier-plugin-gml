@@ -103,10 +103,36 @@ function buildColorConstants(globalScope: Record<string, unknown>): ConstantMap 
     );
 }
 
+// Cached result of resolveBuiltinConstants, keyed on the color function reference.
+// The color conversion function (make_colour_rgb / make_color_rgb) is set exactly
+// once during GameMaker runtime initialization and never changes after that.
+// Caching on the function reference eliminates repeated object allocations on
+// every patched-script invocation, reducing GC pressure in a 60fps game loop.
+let _cachedConstants: ConstantMap | null = null;
+let _cachedColorFnRef: unknown = null;
+
+/**
+ * Returns the resolved builtin constants for the current game session.
+ *
+ * The result is memoized by the identity of the color resolution function
+ * (`make_colour_rgb` / `make_color_rgb`). Because that function is installed
+ * once by the GameMaker HTML5 runtime at startup, the cache is effectively a
+ * permanent hit after the first call, avoiding per-frame object allocation in
+ * hot script paths.
+ */
 export function resolveBuiltinConstants(globalScope: Record<string, unknown>): ConstantMap {
-    return {
+    const colorFnRef = globalScope.make_colour_rgb ?? globalScope.make_color_rgb ?? null;
+
+    if (_cachedConstants !== null && colorFnRef === _cachedColorFnRef) {
+        return _cachedConstants;
+    }
+
+    _cachedColorFnRef = colorFnRef;
+    _cachedConstants = {
         ...KEYBOARD_CONSTANTS,
         ...buildColorConstants(globalScope),
         ...MATH_CONSTANTS
     };
+
+    return _cachedConstants;
 }
