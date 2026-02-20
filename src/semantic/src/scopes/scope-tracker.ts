@@ -964,6 +964,86 @@ export class ScopeTracker {
         return null;
     }
 
+    /**
+     * Returns only the declaring scope ID for a symbol, without allocating a
+     * metadata clone.
+     *
+     * This is the lean alternative to {@link resolveIdentifier} for hot-reload
+     * invalidation paths where only the declaring scope's identity is needed,
+     * not a full snapshot of its metadata. Eliminating the clone reduces heap
+     * allocations in {@link collectScopeDependents}, which is called once per
+     * (symbol, referencing-scope) pair during every invalidation set computation.
+     *
+     * The result is populated into the same {@link IdentifierCacheManager} used
+     * by {@link resolveIdentifier}, so subsequent calls to either method share
+     * the same cached entry.
+     *
+     * @param name - Symbol name to resolve
+     * @param scopeId - Optional starting scope ID; defaults to the current scope
+     * @returns The declaring scope ID, or null if not found
+     */
+    public resolveIdentifierScopeId(name: string | null | undefined, scopeId?: string | null): string | null {
+        if (!name) {
+            return null;
+        }
+
+        let startScope: Scope | null | undefined;
+        if (scopeId) {
+            startScope = this.scopesById.get(scopeId);
+            if (!startScope) {
+                return null;
+            }
+        } else {
+            startScope = this.currentScope();
+        }
+
+        if (!startScope) {
+            return null;
+        }
+
+        const cacheScopeId = startScope.id;
+        const cachedDeclaration = this.identifierCache.read(name, cacheScopeId);
+
+        if (cachedDeclaration !== undefined) {
+            return cachedDeclaration?.scopeId ?? null;
+        }
+
+        const storedIndex = startScope.stackIndex;
+        const startIndex: number | undefined =
+            typeof storedIndex === "number" &&
+            storedIndex >= 0 &&
+            storedIndex < this.scopeStack.length &&
+            this.scopeStack[storedIndex] === startScope
+                ? storedIndex
+                : undefined;
+
+        if (startIndex === undefined) {
+            let current: Scope | null = startScope;
+            while (current) {
+                const declaration = current.symbolMetadata.get(name);
+                if (declaration) {
+                    this.identifierCache.write(name, cacheScopeId, declaration);
+                    return declaration.scopeId;
+                }
+                current = current.parent;
+            }
+            this.identifierCache.write(name, cacheScopeId, null);
+            return null;
+        }
+
+        for (let i = startIndex; i >= 0; i -= 1) {
+            const scope = this.scopeStack[i];
+            const declaration = scope.symbolMetadata.get(name);
+            if (declaration) {
+                this.identifierCache.write(name, cacheScopeId, declaration);
+                return declaration.scopeId;
+            }
+        }
+
+        this.identifierCache.write(name, cacheScopeId, null);
+        return null;
+    }
+
     public getScopeChain(scopeId: string | null | undefined): Array<{ id: string; kind: string }> {
         if (!scopeId) {
             return [];
@@ -1153,8 +1233,8 @@ export class ScopeTracker {
                     continue;
                 }
 
-                const resolved = this.resolveIdentifier(symbol, refScopeId);
-                if (resolved?.scopeId !== scopeId) {
+                const resolvedScopeId = this.resolveIdentifierScopeId(symbol, refScopeId);
+                if (resolvedScopeId !== scopeId) {
                     continue;
                 }
 
