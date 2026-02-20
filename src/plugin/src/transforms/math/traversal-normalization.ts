@@ -4677,7 +4677,8 @@ function applyScalarCondensing(ast: unknown, _context: ConvertManualMathTransfor
         return ast;
     }
 
-    // Missing implementation
+    // Missing implementation: should condense scalar products within binary expression trees.
+    // See lint workspace's traversal-normalization.ts for the full implementation.
     return ast as MutableGameMakerAstNode;
 }
 

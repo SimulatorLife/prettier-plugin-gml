@@ -19,6 +19,9 @@ export type SyntheticDocCommentPayload = {
 /**
  * Attempt to generate a synthetic doc comment for a function assignment statement.
  * Returns null if the statement is not a function assignment or has no synthesizable doc.
+ *
+ * @todo Implement: inspect the statement for a function-valued variable assignment and
+ *   collect/generate doc-comment lines from surrounding comments and node metadata.
  */
 export function getSyntheticDocCommentForFunctionAssignment(
     _statement: unknown,
