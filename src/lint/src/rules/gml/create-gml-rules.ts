@@ -581,6 +581,48 @@ function buildLoopLengthHoistPreferredName(
     return `${argumentIdentifierName}_${functionSuffix}`;
 }
 
+function extractForInitIdentifierName(initNode: unknown): string | null {
+    if (!isAstNodeRecord(initNode)) {
+        return null;
+    }
+
+    if (initNode.type === "VariableDeclaration") {
+        const declarations = CoreWorkspace.Core.asArray<Record<string, unknown>>(initNode.declarations);
+        if (declarations.length === 1) {
+            const declarator = declarations[0];
+            if (declarator?.type === "VariableDeclarator" && isAstNodeRecord(declarator.id)) {
+                const idNode = declarator.id;
+                return idNode.type === "Identifier" && typeof idNode.name === "string" ? idNode.name : null;
+            }
+        }
+    }
+
+    if (initNode.type === "AssignmentExpression" && initNode.operator === "=") {
+        const left = unwrapParenthesized(initNode.left);
+        return left?.type === "Identifier" && typeof left.name === "string" ? left.name : null;
+    }
+
+    return null;
+}
+
+function extractForUpdateIdentifierName(updateNode: unknown): string | null {
+    if (!isAstNodeRecord(updateNode)) {
+        return null;
+    }
+
+    if (updateNode.type === "UpdateExpression") {
+        const argument = unwrapParenthesized(updateNode.argument);
+        return argument?.type === "Identifier" && typeof argument.name === "string" ? argument.name : null;
+    }
+
+    if (updateNode.type === "AssignmentExpression") {
+        const left = unwrapParenthesized(updateNode.left);
+        return left?.type === "Identifier" && typeof left.name === "string" ? left.name : null;
+    }
+
+    return null;
+}
+
 function createLoopLengthHoistRewrite(parameters: {
     sourceText: string;
     loopContext: ForStatementContainerContext;
@@ -606,6 +648,18 @@ function createLoopLengthHoistRewrite(parameters: {
     }
 
     if (!parameters.loopContext.canInsertHoistBeforeLoop) {
+        return null;
+    }
+
+    // Safety: skip hoisting when the update expression modifies a different
+    // variable than the loop initializer.  For example:
+    //   for (var unsafe = 0; unsafe < ds_list_size(list); other++)
+    // Hoisting the condition would be semantically wrong because the
+    // iteration variable ("other") diverges from the condition variable
+    // ("unsafe"), signalling the programmer intends dynamic evaluation.
+    const initName = extractForInitIdentifierName(forNode.init);
+    const updateName = extractForUpdateIdentifierName(forNode.update);
+    if (initName !== null && updateName !== null && initName !== updateName) {
         return null;
     }
 
@@ -4650,31 +4704,33 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                                 } else if (expr.operator === "=") {
                                     // Reset/Cleanup for this variable when completely overwritten
                                     const info = updatesByVariable.get(idNode.name);
-                                    if (info && Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
-                                        for (const idx of info.indices) {
-                                            const nodeToRem = bodyStatements[idx];
-                                            const start = getNodeStartIndex(nodeToRem);
-                                            const end = getNodeEndIndex(nodeToRem);
-                                            if (typeof start === "number" && typeof end === "number") {
-                                                let removalEnd = end;
-                                                while (
-                                                    removalEnd < sourceText.length &&
-                                                    (sourceText[removalEnd] === ";" ||
-                                                        sourceText[removalEnd] === " " ||
-                                                        sourceText[removalEnd] === "\t" ||
-                                                        sourceText[removalEnd] === "\r")
-                                                ) {
-                                                    removalEnd += 1;
+                                    if (info) {
+                                        if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
+                                            for (const idx of info.indices) {
+                                                const nodeToRem = bodyStatements[idx];
+                                                const start = getNodeStartIndex(nodeToRem);
+                                                const end = getNodeEndIndex(nodeToRem);
+                                                if (typeof start === "number" && typeof end === "number") {
+                                                    let removalEnd = end;
+                                                    while (
+                                                        removalEnd < sourceText.length &&
+                                                        (sourceText[removalEnd] === ";" ||
+                                                            sourceText[removalEnd] === " " ||
+                                                            sourceText[removalEnd] === "\t" ||
+                                                            sourceText[removalEnd] === "\r")
+                                                    ) {
+                                                        removalEnd += 1;
+                                                    }
+                                                    if (sourceText[removalEnd] === "\n") {
+                                                        removalEnd += 1;
+                                                    }
+                                                    edits.push({ start, end: removalEnd, text: "" });
                                                 }
-                                                if (sourceText[removalEnd] === "\n") {
-                                                    removalEnd += 1;
-                                                }
-                                                edits.push({ start, end: removalEnd, text: "" });
                                             }
                                         }
+                                        updatesByVariable.delete(idNode.name);
+                                        handled = true;
                                     }
-                                    updatesByVariable.delete(idNode.name);
-                                    handled = true;
                                 }
                             }
                         }

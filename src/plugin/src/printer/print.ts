@@ -1671,7 +1671,7 @@ function buildTemplateStringParts(atoms, path, print) {
         // printer's expression loop, so skipping the extra array and iterator
         // bookkeeping removes two allocations for mixed templates while keeping
         // the doc emission identical.
-        parts.push(concat(["{", indent(concat([softline, path.call(print, "atoms", index)])), softline, "}"]));
+        parts.push(group(concat(["{", indent(concat([softline, path.call(print, "atoms", index)])), softline, "}"])));
     }
 
     parts.push('"');
@@ -4702,15 +4702,14 @@ function shouldOmitSyntheticParens(path, _options) {
         return false;
     }
 
-    if (!isSyntheticParenFlatteningEnabled(path)) {
-        return false;
-    }
-
-    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    // Same-precedence binary chains (e.g. a + b + c, a && b && c) and
+    // comparisons inside logical tests (e.g. a >= 1 or b < 70) are always
+    // flattened regardless of the _flattenSyntheticNumericParens flag.
     if (expression?.type === "BinaryExpression" && shouldFlattenSyntheticBinary(parent, expression, path)) {
         return true;
     }
 
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
     if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
@@ -4718,7 +4717,18 @@ function shouldOmitSyntheticParens(path, _options) {
             if (shouldFlattenComparisonLogicalTest(parent, expression, path)) {
                 return true;
             }
+        }
+    }
 
+    // Numeric parenthesization (e.g. a + (b * c)) requires explicit opt-in
+    if (!isSyntheticParenFlatteningEnabled(path)) {
+        return false;
+    }
+
+    if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
+        const childInfo = getBinaryOperatorInfo(expression.operator);
+
+        if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
             const numericDecision = evaluateNumericBinaryFlattening(parent, expression, path);
             if (numericDecision === "allow") {
                 return true;
