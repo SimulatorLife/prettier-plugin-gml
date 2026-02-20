@@ -3,8 +3,6 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
-
 const { isObjectLike } = Core;
 
 type StripCommentsTransformOptions = {
@@ -67,7 +65,7 @@ function execute(ast: any, options: StripCommentsTransformOptions): MutableGameM
     return ast;
 }
 
-export const stripCommentsTransform = createParserTransform<StripCommentsTransformOptions>(
+export const stripCommentsTransform = Core.createParserTransform<StripCommentsTransformOptions>(
     "strip-comments",
     {
         stripComments: true,
