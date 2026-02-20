@@ -610,7 +610,7 @@ function extractForUpdateIdentifierName(updateNode: unknown): string | null {
         return null;
     }
 
-    if (updateNode.type === "UpdateExpression") {
+    if (updateNode.type === "UpdateExpression" || updateNode.type === "IncDecStatement") {
         const argument = unwrapParenthesized(updateNode.argument);
         return argument?.type === "Identifier" && typeof argument.name === "string" ? argument.name : null;
     }

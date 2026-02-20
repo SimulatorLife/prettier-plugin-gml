@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
  * then uses that to resolve resource files. This is fragile and breaks if the build
  * structure changes or if new packages are added with different nesting levels.
  *
- * BETTER APPROACH: Compute the resource directory at build time or installation time
+ * TODO: BETTER APPROACH: Compute the resource directory at build time or installation time
  * using one of these strategies:
  *   1. Define an environment variable (e.g., GML_RESOURCES_DIR) and read it at runtime.
  *   2. Use a build step to generate a config file with the absolute path to resources/.

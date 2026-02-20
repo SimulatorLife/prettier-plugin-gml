@@ -29,13 +29,13 @@ import {
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
-import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
+import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
+import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "../comments/function-docs.js";
 import {
     getSyntheticDocCommentForFunctionAssignment,
     getSyntheticDocCommentForStaticVariable,
     type SyntheticDocCommentPayload
-} from "./doc-comment/synthetic-doc-comment-builder.js";
+} from "../comments/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {

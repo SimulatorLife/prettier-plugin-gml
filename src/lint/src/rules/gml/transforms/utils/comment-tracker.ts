@@ -1,3 +1,4 @@
+// TODO: This should NOT be owned by the Prettier-plugin and should be moved to the 'lint' workspace as part of an auto-fix rule or into 'core' as/if applicable
 /**
  * Tracks comment ranges so transforms can temporarily re-order or remove statements without losing annotations.
  */

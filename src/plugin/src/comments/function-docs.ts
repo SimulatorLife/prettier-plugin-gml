@@ -1,9 +1,9 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
-import { formatDocLikeLineComment } from "../../comments/index.js";
-import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "../../doc-comment/index.js";
+import { formatDocLikeLineComment } from "./index.js";
+import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "./index.js";
 import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
-import { safeGetParentNode } from "../path-utils.js";
+import { safeGetParentNode } from "../printer/path-utils.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;

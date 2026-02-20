@@ -4,7 +4,7 @@ import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
-import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
+import { isFunctionDocCommentLine } from "./function-tag-filter.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
 import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
