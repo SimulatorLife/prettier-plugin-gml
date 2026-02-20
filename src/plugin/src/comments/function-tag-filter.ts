@@ -47,3 +47,11 @@ export function removeFunctionDocCommentLines(lines: readonly unknown[]): Mutabl
 
     return filtered;
 }
+
+/**
+ * Placeholder — the return value is currently voided at every call site.
+ * Returns `null` until a concrete implementation is required.
+ */
+export function resolveDocCommentPrinterOptions(_options: unknown): null {
+    return null;
+}
