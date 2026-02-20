@@ -88,4 +88,4 @@ if (enemyPos.x  - x <= 0) {
 
 if (myState == undefined) {
 	myState = "unknown";
-}
+};

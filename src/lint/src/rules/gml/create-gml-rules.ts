@@ -1327,8 +1327,14 @@ function rewriteLogicalFlowSource(sourceText: string): string {
     );
 
     rewritten = rewritten.replaceAll(
-        /^([ \t]*)if\s*\(\s*is_undefined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*\)\s*\{\s*\2\s*=\s*(.+?)\s*;\s*\}\s*$/gm,
-        (_fullMatch, indentation: string, assignmentTarget: string, fallbackText: string) =>
+        /^([ \t]*)if\s*\(\s*is_undefined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*\)([\s\S]*?)\{\s*\2\s*=\s*(.+?)\s*;\s*\}/gm,
+        (_fullMatch, indentation: string, assignmentTarget: string, _spacing: string, fallbackText: string) =>
+            `${indentation}${assignmentTarget} ??= ${normalizeLogicalExpressionText(fallbackText)};`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /^([ \t]*)if\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*==\s*undefined\s*\)([\s\S]*?)\{\s*\2\s*=\s*(.+?)\s*;\s*\}/gm,
+        (_fullMatch, indentation: string, assignmentTarget: string, _spacing: string, fallbackText: string) =>
             `${indentation}${assignmentTarget} ??= ${normalizeLogicalExpressionText(fallbackText)};`
     );
 

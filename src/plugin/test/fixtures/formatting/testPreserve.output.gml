@@ -1,8 +1,8 @@
+/// @description States and drawing code examples to be preserved
 
 // Whether chatterboxes should default to singleton mode. This is useful to most RPGs where lines
 // of dialogue arrive one at a time. More modern narrative games tend to deliver larger chunks of
 
-/// @description States and drawing code examples to be preserved
 var my_val = (2 + 3) * 4;
 var b = ((x > y) ? (a + b) : (a - b));
 
@@ -146,8 +146,8 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     self.skyformat = -1;
     self.cullmode = cull_clockwise;
 
-    /// @description Draw the zmodel
     /// @override
+    /// @description Draw the zmodel
     /// @param {bool} [reset_matrix=true] Reset the world matrix after drawing?
     /// @returns {undefined}
     static draw = function (reset_matrix = true) {
