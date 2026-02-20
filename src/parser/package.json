@@ -12,8 +12,7 @@
     "dist"
   ],
   "dependencies": {
-    "antlr4": "^4.13.2",
-    "@gml-modules/core": "workspace:*"
+    "antlr4": "^4.13.2"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -11,11 +11,7 @@
   "files": [
     "dist"
   ],
-  "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*",
-    "@gml-modules/semantic": "workspace:*"
-  },
+  "dependencies": {},
   "scripts": {
     "build:types": "tsc -p tsconfig.json",
     "clean:types": "rm -rf dist",
