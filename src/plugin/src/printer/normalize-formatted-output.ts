@@ -213,22 +213,40 @@ function isDocLikeLine(line: string): boolean {
     return DOC_LIKE_LINE_PATTERN.test(trimmed);
 }
 
+/**
+ * Scan `line` and compute whether the block-comment state is open or closed at
+ * the end of the line.
+ *
+ * The previous implementation used a single `indexOf` for each delimiter, which
+ * caused it to incorrectly report "inside block comment" for fully-closed
+ * single-line comments (e.g. a comment opened and closed on one line). This
+ * version iterates through all open/close delimiter pairs on the line so that
+ * self-contained comments are handled correctly while nested or multi-segment
+ * sequences still produce the right result.
+ */
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
-    const startIndex = line.indexOf("/*");
-    const endIndex = line.indexOf("*/");
+    let state = isInside;
+    let searchFrom = 0;
 
-    if (!isInside) {
-        if (startIndex !== -1 && (endIndex === -1 || startIndex < endIndex)) {
-            return true;
+    while (searchFrom < line.length) {
+        if (state) {
+            const closeIndex = line.indexOf("*/", searchFrom);
+            if (closeIndex === -1) {
+                break;
+            }
+            state = false;
+            searchFrom = closeIndex + 2;
+        } else {
+            const openIndex = line.indexOf("/*", searchFrom);
+            if (openIndex === -1) {
+                break;
+            }
+            state = true;
+            searchFrom = openIndex + 2;
         }
-        return false;
     }
 
-    if (endIndex !== -1 && (startIndex === -1 || endIndex > startIndex)) {
-        return false;
-    }
-
-    return true;
+    return state;
 }
 
 function hasRepeatedBlock(trimmedLines: string[], segmentLength: number): boolean {
