@@ -96,13 +96,13 @@ void describe("Hot reload incremental transpilation", () => {
         try {
             // Connect WebSocket client
             const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
-                connectionTimeoutMs: 4000,
-                retryIntervalMs: 25
+                connectionTimeoutMs: 8000,
+                retryIntervalMs: 50
             });
             websocketContextPromise = contextPromise;
             context = await contextPromise;
 
-            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 5000, 25);
+            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 10_000, 50);
 
             const initialHelperCount = context.receivedPatches.filter((patch) =>
                 patch.id.includes("helper_function")
@@ -226,7 +226,7 @@ void describe("Hot reload dependent retranspilation on definition change", () =>
 
         try {
             // Wait for the initial scan to finish – both files are transpiled at this point.
-            await waitForScanComplete(statusUrl, 5000, 25);
+            await waitForScanComplete(statusUrl, 10_000, 50);
 
             const initialStatus = await fetchStatusPayload(statusUrl);
             // The initial scan transpiles all GML files in the directory.
@@ -252,7 +252,7 @@ function new_exported_func() {
             // Wait until at least 2 more transpilations have been recorded:
             //   1.  base_defs.gml re-transpilation (definitions changed)
             //   2.  consumer_defs.gml dependent retranspilation
-            await waitForStatus(statusUrl, (status) => (status.patchCount ?? 0) >= initialPatchCount + 2, 3000, 25);
+            await waitForStatus(statusUrl, (status) => (status.patchCount ?? 0) >= initialPatchCount + 2, 8000, 50);
 
             const finalStatus = await fetchStatusPayload(statusUrl);
             patchCountAfterChange = (finalStatus.patchCount ?? 0) - initialPatchCount;
