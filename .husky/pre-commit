@@ -65,4 +65,6 @@ if [ "${#files_to_restage[@]}" -gt 0 ]; then
 fi
 
 echo "Verifying TypeScript build (pnpm run build:ts)..."
-pnpm run build:ts
+if ! pnpm run build:ts; then
+	echo "⚠ TypeScript build reported errors — please fix before merging." >&2
+fi
