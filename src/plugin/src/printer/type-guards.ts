@@ -776,9 +776,7 @@ function checkSyntheticParenFlattening(path: any, requireExplicit = false): bool
                 return true;
             }
         } else if (ancestor.type === "Program") {
-            return requireExplicit
-                ? ancestor._flattenSyntheticNumericParens === true
-                : ancestor._flattenSyntheticNumericParens !== false;
+            return ancestor._flattenSyntheticNumericParens === true;
         }
 
         depth += 1;

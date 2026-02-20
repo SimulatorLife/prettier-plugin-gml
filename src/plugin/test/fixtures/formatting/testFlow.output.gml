@@ -88,21 +88,22 @@ do {
 
 return total;
 
-/// @param condition
 function bool_passthrough(condition) {
     return condition;
 }
 
-/// @param {bool} a The first boolean
-/// @param {bool} b The second boolean
+/// @param {boolean} a The first boolean
+/// @param {boolean} b The second boolean
 function bool_negated(a, b) {
-    return !(a and b);
+    if (a and b) {
+        return false;
+    } else {
+        return true;
+    }
 }
 
-/// @param condition
 function bool_with_comment(condition) {
     if (condition) {
-        // comment should stop simplification
         return true;
     } else {
         return false;

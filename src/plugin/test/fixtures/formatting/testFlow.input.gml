@@ -93,13 +93,15 @@ function bool_negated(a, b) {
 
 function bool_with_comment(condition) {
     if (condition) {
-        // comment should stop simplification
         return true;
     } else {
         return false;
     }
 }
-
+/// @param list
+/// @param map
+/// @param grid
+/// @returns {undefined}
 function iterate_structures(list, map, grid) {
 for(var i=0;i<ds_list_size(list);i++){show_debug_message(list[|i]);}
 for(var key=0;key<=ds_map_size(map);key+=1){show_debug_message(ds_map_find_value(map,key));}
@@ -117,3 +119,4 @@ case 2:
 default:
     break;
 }
+

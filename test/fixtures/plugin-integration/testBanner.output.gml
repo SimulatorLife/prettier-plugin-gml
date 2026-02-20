@@ -17,7 +17,7 @@ if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1
     camPitch = clamp(camPitch - (mousedy * 0.1), -80, -2);
 }
 
-// Orthogonalize the P2 direction to the vector from P1 to P3
+/* Orthogonalize the P2 direction to the vector from P1 to P3 */
 
 /* 
  * The idea behind the algorithm is to imagine a sphere placed at P1 with radius of the first bone, and
