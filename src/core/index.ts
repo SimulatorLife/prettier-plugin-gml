@@ -6,6 +6,7 @@ export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    EmptyTransformOptions,
     FeatherDiagnostic,
     FeatherMetadata,
     GameMakerAstLocation,
@@ -15,8 +16,18 @@ export type {
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
+    ParserTransform,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
     StringCommentScanState
 } from "./src/index.js";
+
+// Re-export description utilities for use by printer and other consumers
+export {
+    applyDescriptionContinuations,
+    classifyDescriptionContinuationLine,
+    collectDescriptionContinuations,
+    ensureDescriptionContinuations,
+    resolveDescriptionIndentation
+} from "./src/comments/doc-comment/description-utils.js";
