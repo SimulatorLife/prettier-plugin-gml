@@ -997,7 +997,7 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             valueText: staticIndexAssignmentMatch[5].trim(),
                             trailingComment:
                                 typeof staticIndexAssignmentMatch[6] === "string" &&
-                                    staticIndexAssignmentMatch[6].trim().length > 0
+                                staticIndexAssignmentMatch[6].trim().length > 0
                                     ? staticIndexAssignmentMatch[6].trim()
                                     : null
                         });
@@ -3251,13 +3251,13 @@ type InterpolationSafeRewrite = Readonly<{
 
 type InterpolationCandidateAnalysis =
     | Readonly<{
-        kind: "safe";
-        rewrite: InterpolationSafeRewrite;
-    }>
+          kind: "safe";
+          rewrite: InterpolationSafeRewrite;
+      }>
     | Readonly<{
-        kind: "unsafe";
-        offset: number;
-    }>;
+          kind: "unsafe";
+          offset: number;
+      }>;
 
 function isStringCoercionCallExpression(node: unknown): node is {
     type: "CallExpression";

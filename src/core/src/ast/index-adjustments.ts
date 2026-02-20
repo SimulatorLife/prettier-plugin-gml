@@ -3,18 +3,18 @@
  * The helper applies index adjustments to both the AST nodes and any cached metadata so callers do not need to duplicate logic.
  */
 export function applyIndexAdjustmentsIfPresent(
-	target: unknown,
-	adjustments: unknown[],
-	applyAdjustments: (target: unknown, adjustments: unknown[]) => void,
-	metadata: unknown | null | undefined
+    target: unknown,
+    adjustments: unknown[],
+    applyAdjustments: (target: unknown, adjustments: unknown[]) => void,
+    metadata: unknown | null | undefined
 ): void {
-	if (!Array.isArray(adjustments) || adjustments.length === 0) {
-		return;
-	}
+    if (!Array.isArray(adjustments) || adjustments.length === 0) {
+        return;
+    }
 
-	applyAdjustments(target, adjustments);
+    applyAdjustments(target, adjustments);
 
-	if (metadata !== null && metadata !== undefined) {
-		applyAdjustments(metadata, adjustments);
-	}
+    if (metadata !== null && metadata !== undefined) {
+        applyAdjustments(metadata, adjustments);
+    }
 }

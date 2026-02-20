@@ -25,95 +25,95 @@ const MIN_DECLARATIONS = DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS;
  * Entry point that walks the AST once to add the `_gmlForceFollowingEmptyLine` hint.
  */
 function execute(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
-	if (Core.shouldSkipTraversal(ast)) {
-		return ast;
-	}
+    if (Core.shouldSkipTraversal(ast)) {
+        return ast;
+    }
 
-	const visitedNodes = new WeakSet();
+    const visitedNodes = new WeakSet();
 
-	visitNode(ast, visitedNodes, MIN_DECLARATIONS);
-	return ast;
+    visitNode(ast, visitedNodes, MIN_DECLARATIONS);
+    return ast;
 }
 
 /**
  * Depth-first walker that tracks declaration runs inside block statements.
  */
 function visitNode(node, visitedNodes, minDeclarationRunLength) {
-	if (Core.shouldSkipTraversal(node, visitedNodes)) {
-		return;
-	}
+    if (Core.shouldSkipTraversal(node, visitedNodes)) {
+        return;
+    }
 
-	visitedNodes.add(node);
+    visitedNodes.add(node);
 
-	if (Array.isArray(node)) {
-		for (const entry of node) {
-			visitNode(entry, visitedNodes, minDeclarationRunLength);
-		}
-		return;
-	}
+    if (Array.isArray(node)) {
+        for (const entry of node) {
+            visitNode(entry, visitedNodes, minDeclarationRunLength);
+        }
+        return;
+    }
 
-	if (node.type === "BlockStatement" && Core.isNonEmptyArray(node.body)) {
-		enforceSpacingInBlock(node.body, minDeclarationRunLength);
-	}
+    if (node.type === "BlockStatement" && Core.isNonEmptyArray(node.body)) {
+        enforceSpacingInBlock(node.body, minDeclarationRunLength);
+    }
 
-	for (const value of Object.values(node)) {
-		if (value && typeof value === "object") {
-			visitNode(value, visitedNodes, minDeclarationRunLength);
-		}
-	}
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            visitNode(value, visitedNodes, minDeclarationRunLength);
+        }
+    }
 }
 
 /**
  * Mark the final declaration of a long run so the printer will insert an empty line after it.
  */
 function enforceSpacingInBlock(statements, minDeclarationRunLength) {
-	let runLength = 0;
+    let runLength = 0;
 
-	for (let index = 0; index < statements.length; index += 1) {
-		const statement = statements[index];
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
 
-		if (isVarDeclaration(statement)) {
-			runLength += 1;
-			continue;
-		}
+        if (isVarDeclaration(statement)) {
+            runLength += 1;
+            continue;
+        }
 
-		if (runLength >= minDeclarationRunLength && shouldForceBlankLineAfter(statement)) {
-			const lastDeclaration = statements[index - 1];
-			if (
-				lastDeclaration &&
-				typeof lastDeclaration === "object" &&
-				lastDeclaration._gmlForceFollowingEmptyLine !== true &&
-				lastDeclaration._featherForceFollowingEmptyLine !== true
-			) {
-				lastDeclaration._gmlForceFollowingEmptyLine = true;
-			}
-		}
+        if (runLength >= minDeclarationRunLength && shouldForceBlankLineAfter(statement)) {
+            const lastDeclaration = statements[index - 1];
+            if (
+                lastDeclaration &&
+                typeof lastDeclaration === "object" &&
+                lastDeclaration._gmlForceFollowingEmptyLine !== true &&
+                lastDeclaration._featherForceFollowingEmptyLine !== true
+            ) {
+                lastDeclaration._gmlForceFollowingEmptyLine = true;
+            }
+        }
 
-		runLength = 0;
-	}
+        runLength = 0;
+    }
 }
 
 /**
  * Identify `var`/`let` declarations that contribute to the run length.
  */
 function isVarDeclaration(node) {
-	if (Core.getNodeType(node) !== "VariableDeclaration") {
-		return false;
-	}
+    if (Core.getNodeType(node) !== "VariableDeclaration") {
+        return false;
+    }
 
-	const { kind } = node;
-	return kind === "var" || kind === "let";
+    const { kind } = node;
+    return kind === "var" || kind === "let";
 }
 
 /**
  * Only force spacing when the following statement is a `for` loop so spacing stays predictable.
  */
 function shouldForceBlankLineAfter(nextNode) {
-	return Core.getNodeType(nextNode) === "ForStatement";
+    return Core.getNodeType(nextNode) === "ForStatement";
 }
 
 export const enforceVariableBlockSpacingTransform = createParserTransform<EmptyTransformOptions>(
-	"enforce-variable-block-spacing",
-	{},
-	execute
+    "enforce-variable-block-spacing",
+    {},
+    execute
 );

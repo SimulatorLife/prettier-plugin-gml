@@ -1704,10 +1704,10 @@ function attemptCondenseScalarProduct(node, context) {
     const ratioMetadata =
         hasNumericDenominatorFactor && numericDenominatorCount >= 2
             ? computeScalarRatioMetadata(
-                coefficient,
-                hasNumericNumeratorFactor ? numericNumeratorProduct : 1,
-                numericDenominatorProduct
-            )
+                  coefficient,
+                  hasNumericNumeratorFactor ? numericNumeratorProduct : 1,
+                  numericDenominatorProduct
+              )
             : null;
 
     const normalizedCoefficient = normalizeNumericCoefficient(coefficient, ratioMetadata?.precision);
