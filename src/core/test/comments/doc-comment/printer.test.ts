@@ -91,3 +91,19 @@ void test("collectAdjacentLeadingSourceLineComments gathers contiguous source li
 
     assert.deepStrictEqual(lines, ["// first", "// second"]);
 });
+
+void test("collectSyntheticDocCommentLines omits empty doc comments from the result", () => {
+    // An empty comment (value with no text) causes formatLineComment to return null.
+    // flattenDocEntries must filter those out, leaving only the non-null lines.
+    const node = {
+        comments: [
+            createLineComment("/// @function player_move", 0, 25),
+            { type: "CommentLine", value: "", start: { index: 26 }, end: { index: 27 } }
+        ],
+        start: { index: 30 }
+    };
+
+    const result = Core.collectSyntheticDocCommentLines(node, {}, null, null);
+
+    assert.deepStrictEqual(result.existingDocLines, ["/// @function player_move"]);
+});

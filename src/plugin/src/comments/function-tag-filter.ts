@@ -47,3 +47,15 @@ export function removeFunctionDocCommentLines(lines: readonly unknown[]): Mutabl
 
     return filtered;
 }
+
+/**
+ * Resolves doc-comment printer options from the plugin options object.
+ * Returns a normalized options record for use during doc-comment printing.
+ */
+export function resolveDocCommentPrinterOptions(options: unknown): Record<string, unknown> {
+    if (options !== null && typeof options === "object") {
+        return options as Record<string, unknown>;
+    }
+
+    return {};
+}
