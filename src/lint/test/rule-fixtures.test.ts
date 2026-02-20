@@ -952,3 +952,35 @@ void test("require-control-flow-braces does not reinterpret already braced heade
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
 });
+
+void test("optimize-logical-flow removes double negation without collapsing if/return patterns", () => {
+    const input = [
+        "function bool_passthrough(condition) {",
+        "    if (!!condition) {",
+        "        return true;",
+        "    }",
+        "",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = [
+        "function bool_passthrough(condition) {",
+        "    if (condition) {",
+        "        return true;",
+        "    }",
+        "",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(result.messages.length, 1, "optimize-logical-flow should report one diagnostic");
+    assert.equal(
+        result.output,
+        expected,
+        "optimize-logical-flow should remove !! but not collapse the if/return pattern"
+    );
+});
