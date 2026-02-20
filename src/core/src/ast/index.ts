@@ -10,6 +10,7 @@ export * from "./scope-tracker.js";
 export * from "./type-guards.js";
 export * from "./parser-transform.js";
 export * from "./index-adjustments.js";
+export * from "./strip-comments-transform.js";
 export type {
     FeatherFixDetail,
     FeatherFixRange,
