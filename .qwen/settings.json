@@ -1,9 +1,10 @@
 {
-  "sessionTokenLimit": 128000,
-  "general": {
-    "checkpointing": {
-      "enabled": true
-    }
+  "model": {
+    "skipLoopDetection": true,
+    "chatCompression": {
+      "contextPercentageThreshold": 0.8
+    },
+    "sessionTokenLimit": 128000
   },
   "tools": {
     "approvalMode": "yolo",
@@ -13,6 +14,11 @@
       "web_fetch"
     ]
   },
+  "general": {
+    "checkpointing": {
+      "enabled": true
+    }
+  },
   "experimental": {
     "vlmSwitchMode": "persist",
     "visionModelPreview": false
@@ -21,7 +27,10 @@
     "usageStatisticsEnabled": false
   },
   "context": {
-    "fileName": ["AGENTS.md", "docs/README.md"]
+    "fileName": [
+      "AGENTS.md",
+      "docs/README.md"
+    ]
   },
   "shell": {
     "enableInteractiveShell": true
@@ -31,14 +40,7 @@
       "disableLoadingPhrases": true
     }
   },
-  "$version": 2,
-  "approvalMode": "yolo",
-  "model": {
-    "skipLoopDetection": true,
-    "chatCompression": {
-      "contextPercentageThreshold": 0.8
-    }
-  },
+  "$version": 3,
   "advanced": {
     "excludedEnvVars": []
   }

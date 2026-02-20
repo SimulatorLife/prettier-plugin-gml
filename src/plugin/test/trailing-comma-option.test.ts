@@ -16,7 +16,7 @@ void describe("trailing comma option helpers", () => {
     void it("rejects non-string values with a descriptive type error", () => {
         assert.throws(() => assertTrailingCommaValue(5), {
             name: "TypeError",
-            message: /Trailing comma override must be a string/i
+            message: /Trailing comma override must be provided as a string/i
         });
     });
 

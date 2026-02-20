@@ -5338,6 +5338,11 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
+    if (inlineCandidate?.type === "ReturnStatement" && inlineCandidate.argument) {
+        return false;
+    }
+
+
     const parentNode = safeGetParentNode(path);
     if (!parentNode || parentNode.type === "Program") {
         return false;
