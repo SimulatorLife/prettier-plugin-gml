@@ -34,7 +34,9 @@ interface AstNode {
     init?: AstNode | null;
     left?: AstNode | null;
     right?: AstNode | null;
-    body?: Array<unknown> | null;
+    // body may be a statement array (Program, BlockStatement) or a nested BlockStatement node
+    // (FunctionDeclaration.body) — handle both shapes during traversal.
+    body?: Array<unknown> | AstNode | null;
     declarations?: Array<AstNode> | null;
 }
 
@@ -154,11 +156,14 @@ function walkNode(node: unknown, filePath: string, symbols: Array<string>): void
         symbols.push(...extractFromAssignment(astNode, filePath));
     }
 
-    // Recursively walk body array (for Program, BlockStatement, etc.)
+    // Recursively walk body — as a statement array (Program, BlockStatement.body)
+    // or as a nested BlockStatement node (FunctionDeclaration.body).
     if (Array.isArray(astNode.body)) {
         for (const child of astNode.body) {
             walkNode(child, filePath, symbols);
         }
+    } else if (astNode.body !== null && astNode.body !== undefined) {
+        walkNode(astNode.body, filePath, symbols);
     }
 
     // Recursively walk declarations array (for VariableDeclaration, etc.)
@@ -227,11 +232,14 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
         }
     }
 
-    // Recursively walk body array
+    // Recursively walk body — as a statement array (Program, BlockStatement.body)
+    // or as a nested BlockStatement node (FunctionDeclaration.body).
     if (Array.isArray(astNode.body)) {
         for (const child of astNode.body) {
             walkNodeForReferences(child, references);
         }
+    } else if (astNode.body !== null && astNode.body !== undefined) {
+        walkNodeForReferences(astNode.body, references);
     }
 
     // Recursively walk declarations array
