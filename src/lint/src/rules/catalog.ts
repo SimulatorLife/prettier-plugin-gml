@@ -8,7 +8,7 @@ import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 export type GmlRuleDefinition = Readonly<{
     mapKey: `Gml${string}`;
     shortName: string;
-    fullId: `gml/${string}`;
+    fullId: `feather/${string}`;
     messageId: string;
     schema: ReadonlyArray<unknown>;
     requiresProjectContext: boolean;
@@ -23,7 +23,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferLoopLengthHoist",
         shortName: "prefer-loop-length-hoist",
-        fullId: "gml/prefer-loop-length-hoist",
+        fullId: "feather/prefer-loop-length-hoist",
         messageId: "preferLoopLengthHoist",
         requiresProjectContext: true,
         requiredCapabilities: Object.freeze([
@@ -54,7 +54,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferHoistableLoopAccessors",
         shortName: "prefer-hoistable-loop-accessors",
-        fullId: "gml/prefer-hoistable-loop-accessors",
+        fullId: "feather/prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -73,7 +73,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferRepeatLoops",
         shortName: "prefer-repeat-loops",
-        fullId: "gml/prefer-repeat-loops",
+        fullId: "feather/prefer-repeat-loops",
         messageId: "preferRepeatLoops",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -83,7 +83,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferStructLiteralAssignments",
         shortName: "prefer-struct-literal-assignments",
-        fullId: "gml/prefer-struct-literal-assignments",
+        fullId: "feather/prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
         requiresProjectContext: true,
         requiredCapabilities: Object.freeze([
@@ -107,7 +107,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
-        fullId: "gml/optimize-logical-flow",
+        fullId: "feather/optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -125,7 +125,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNoGlobalvar",
         shortName: "no-globalvar",
-        fullId: "gml/no-globalvar",
+        fullId: "feather/no-globalvar",
         messageId: "noGlobalvar",
         requiresProjectContext: true,
         requiredCapabilities: Object.freeze([
@@ -151,7 +151,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNormalizeDocComments",
         shortName: "normalize-doc-comments",
-        fullId: "gml/normalize-doc-comments",
+        fullId: "feather/normalize-doc-comments",
         messageId: "normalizeDocComments",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -161,7 +161,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNormalizeDirectives",
         shortName: "normalize-directives",
-        fullId: "gml/normalize-directives",
+        fullId: "feather/normalize-directives",
         messageId: "normalizeDirectives",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -171,7 +171,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlRequireControlFlowBraces",
         shortName: "require-control-flow-braces",
-        fullId: "gml/require-control-flow-braces",
+        fullId: "feather/require-control-flow-braces",
         messageId: "requireControlFlowBraces",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -181,7 +181,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNoAssignmentInCondition",
         shortName: "no-assignment-in-condition",
-        fullId: "gml/no-assignment-in-condition",
+        fullId: "feather/no-assignment-in-condition",
         messageId: "noAssignmentInCondition",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -191,7 +191,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferIsUndefinedCheck",
         shortName: "prefer-is-undefined-check",
-        fullId: "gml/prefer-is-undefined-check",
+        fullId: "feather/prefer-is-undefined-check",
         messageId: "preferIsUndefinedCheck",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -201,7 +201,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferEpsilonComparisons",
         shortName: "prefer-epsilon-comparisons",
-        fullId: "gml/prefer-epsilon-comparisons",
+        fullId: "feather/prefer-epsilon-comparisons",
         messageId: "preferEpsilonComparisons",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -211,7 +211,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNormalizeOperatorAliases",
         shortName: "normalize-operator-aliases",
-        fullId: "gml/normalize-operator-aliases",
+        fullId: "feather/normalize-operator-aliases",
         messageId: "normalizeOperatorAliases",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -221,7 +221,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlPreferStringInterpolation",
         shortName: "prefer-string-interpolation",
-        fullId: "gml/prefer-string-interpolation",
+        fullId: "feather/prefer-string-interpolation",
         messageId: "preferStringInterpolation",
         requiresProjectContext: true,
         requiredCapabilities: Object.freeze(["IDENTIFIER_OCCURRENCES"]) as ReadonlyArray<ProjectCapability>,
@@ -242,7 +242,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlOptimizeMathExpressions",
         shortName: "optimize-math-expressions",
-        fullId: "gml/optimize-math-expressions",
+        fullId: "feather/optimize-math-expressions",
         messageId: "optimizeMathExpressions",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -252,7 +252,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlRequireArgumentSeparators",
         shortName: "require-argument-separators",
-        fullId: "gml/require-argument-separators",
+        fullId: "feather/require-argument-separators",
         messageId: "requireArgumentSeparators",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -264,7 +264,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNormalizeDataStructureAccessors",
         shortName: "normalize-data-structure-accessors",
-        fullId: "gml/normalize-data-structure-accessors",
+        fullId: "feather/normalize-data-structure-accessors",
         messageId: "normalizeDataStructureAccessors",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,
@@ -274,7 +274,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlRequireTrailingOptionalDefaults",
         shortName: "require-trailing-optional-defaults",
-        fullId: "gml/require-trailing-optional-defaults",
+        fullId: "feather/require-trailing-optional-defaults",
         messageId: "requireTrailingOptionalDefaults",
         requiresProjectContext: false,
         requiredCapabilities: NO_CAPABILITIES,

@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
   "lintRules": {
-    "feather/gm2061": "error"
+   "feather/gm2061": "error"
   }
 }

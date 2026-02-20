@@ -221,8 +221,8 @@ function printComment(commentPath, options) {
                             comment.end !== null &&
                             "index" in comment.end &&
                             typeof comment.end.index === "number"
-                          ? comment.end.index
-                          : comment.end;
+                            ? comment.end.index
+                            : comment.end;
                 const endIndex = typeof endIndexRaw === "number" ? endIndexRaw : 0;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
                 const isAttachedLeadingComment =
@@ -1227,7 +1227,7 @@ function formatDecorativeBlockComment(comment) {
     }
 
     if (textLines.length === 1) {
-        return `/* ${textLines[0]} */`;
+        return `// ${textLines[0]}`;
     }
 
     return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");

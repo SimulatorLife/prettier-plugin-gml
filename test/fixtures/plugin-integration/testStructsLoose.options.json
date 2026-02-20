@@ -2,6 +2,6 @@
   "printWidth": 120,
   "allowSingleLineIfStatements": false,
   "lintRules": {
-    "gml/normalize-doc-comments": "error"
+    "feather/normalize-doc-comments": "error"
   }
 }

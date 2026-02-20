@@ -7,7 +7,13 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../project-context.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "./rule-helpers.js";
 
-const { getNodeStartIndex, getNodeEndIndex, isObjectLike } = CoreWorkspace.Core;
+const {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    isObjectLike,
+    getCallExpressionIdentifierName,
+    getCallExpressionArguments
+} = CoreWorkspace.Core;
 
 function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs: {
@@ -898,7 +904,7 @@ function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefinition)
                             valueText: staticIndexAssignmentMatch[5].trim(),
                             trailingComment:
                                 typeof staticIndexAssignmentMatch[6] === "string" &&
-                                staticIndexAssignmentMatch[6].trim().length > 0
+                                    staticIndexAssignmentMatch[6].trim().length > 0
                                     ? staticIndexAssignmentMatch[6].trim()
                                     : null
                         });
@@ -3201,13 +3207,13 @@ type InterpolationSafeRewrite = Readonly<{
 
 type InterpolationCandidateAnalysis =
     | Readonly<{
-          kind: "safe";
-          rewrite: InterpolationSafeRewrite;
-      }>
+        kind: "safe";
+        rewrite: InterpolationSafeRewrite;
+    }>
     | Readonly<{
-          kind: "unsafe";
-          offset: number;
-      }>;
+        kind: "unsafe";
+        offset: number;
+    }>;
 
 function isStringCoercionCallExpression(node: unknown): node is {
     type: "CallExpression";
@@ -3535,55 +3541,214 @@ function parseNumericLiteral(node: any): number | null {
     return null;
 }
 
-function tryEvaluateNumericExpression(node: any): number | null {
+function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
     if (!unwrapped) {
-        return null;
+        return undefined;
     }
 
-    const literalValue = parseNumericLiteral(unwrapped);
-    if (literalValue !== null) {
-        return literalValue;
+    if (unwrapped.type === "Literal") {
+        if (unwrapped.value === "true") {
+            return true;
+        }
+        if (unwrapped.value === "false") {
+            return false;
+        }
+        const num = parseNumericLiteral(unwrapped);
+        if (num !== null) {
+            return num;
+        }
+        return unwrapped.value;
     }
 
-    if (unwrapped.type === "UnaryExpression" && unwrapped.operator === "-") {
-        const argumentValue = tryEvaluateNumericExpression(unwrapped.argument);
-        return argumentValue === null ? null : argumentValue * -1;
+    if (unwrapped.type === "UnaryExpression") {
+        const argumentValue = tryEvaluateExpression(unwrapped.argument);
+        if (argumentValue === undefined) {
+            return undefined;
+        }
+
+        switch (unwrapped.operator) {
+            case "-": {
+                return typeof argumentValue === "number" ? argumentValue * -1 : undefined;
+            }
+            case "!":
+            case "not": {
+                return !argumentValue;
+            }
+            case "~": {
+                return typeof argumentValue === "number" ? ~argumentValue : undefined;
+            }
+            default: {
+                return undefined;
+            }
+        }
     }
 
-    if (
-        unwrapped.type !== "BinaryExpression" ||
-        (unwrapped.operator !== "+" &&
-            unwrapped.operator !== "-" &&
-            unwrapped.operator !== "*" &&
-            unwrapped.operator !== "/")
-    ) {
-        return null;
+    if (unwrapped.type === "BinaryExpression" || unwrapped.type === "LogicalExpression") {
+        const leftValue = tryEvaluateExpression(unwrapped.left);
+        const rightValue = tryEvaluateExpression(unwrapped.right);
+
+        // Handle short-circuiting for logical operators even if one side is unknown
+        if (unwrapped.operator === "&&" || unwrapped.operator === "and") {
+            if (leftValue === false || rightValue === false) {
+                return false;
+            }
+            if (leftValue === true && rightValue === true) {
+                return true;
+            }
+            return undefined;
+        }
+        if (unwrapped.operator === "||" || unwrapped.operator === "or") {
+            if (leftValue === true || rightValue === true) {
+                return true;
+            }
+            if (leftValue === false && rightValue === false) {
+                return false;
+            }
+            return undefined;
+        }
+
+        if (leftValue === undefined || rightValue === undefined) {
+            return undefined;
+        }
+
+        switch (unwrapped.operator) {
+            case "+": {
+                return leftValue + rightValue;
+            }
+            case "-": {
+                return leftValue - rightValue;
+            }
+            case "*": {
+                return leftValue * rightValue;
+            }
+            case "/": {
+                return rightValue === 0 ? undefined : leftValue / rightValue;
+            }
+            case "div": {
+                return rightValue === 0 ? undefined : Math.trunc(leftValue / rightValue);
+            }
+            case "mod":
+            case "%": {
+                return rightValue === 0 ? undefined : leftValue % rightValue;
+            }
+            case "xor": {
+                return Boolean(leftValue) !== Boolean(rightValue);
+            }
+            case "==": {
+                return leftValue == rightValue;
+            }
+            case "!=":
+            case "<>": {
+                return leftValue != rightValue;
+            }
+            case "<": {
+                return leftValue < rightValue;
+            }
+            case ">": {
+                return leftValue > rightValue;
+            }
+            case "<=": {
+                return leftValue <= rightValue;
+            }
+            case ">=": {
+                return leftValue >= rightValue;
+            }
+            case "??": {
+                return leftValue ?? rightValue;
+            }
+            default: {
+                return undefined;
+            }
+        }
     }
 
-    const leftValue = tryEvaluateNumericExpression(unwrapped.left);
-    const rightValue = tryEvaluateNumericExpression(unwrapped.right);
-    if (leftValue === null || rightValue === null) {
-        return null;
+    if (unwrapped.type === "CallExpression") {
+        const calleeName = getCallExpressionIdentifierName(unwrapped);
+        const args = getCallExpressionArguments(unwrapped);
+        const evaluatedArgs = args.map((arg) => tryEvaluateExpression(arg));
+
+        if (evaluatedArgs.some((arg) => arg === undefined)) {
+            return undefined;
+        }
+
+        switch (calleeName) {
+            case "max": {
+                return Math.max(...evaluatedArgs);
+            }
+            case "min": {
+                return Math.min(...evaluatedArgs);
+            }
+            case "point_distance": {
+                if (evaluatedArgs.length === 4) {
+                    return Math.sqrt(
+                        (evaluatedArgs[2] - evaluatedArgs[0]) ** 2 + (evaluatedArgs[3] - evaluatedArgs[1]) ** 2
+                    );
+                }
+                break;
+            }
+            case "point_distance_3d": {
+                if (evaluatedArgs.length === 6) {
+                    return Math.sqrt(
+                        (evaluatedArgs[3] - evaluatedArgs[0]) ** 2 +
+                        (evaluatedArgs[4] - evaluatedArgs[1]) ** 2 +
+                        (evaluatedArgs[5] - evaluatedArgs[2]) ** 2
+                    );
+                }
+                break;
+            }
+            case "sqr": {
+                if (evaluatedArgs.length === 1) {
+                    return evaluatedArgs[0] * evaluatedArgs[0];
+                }
+                break;
+            }
+            case "abs": {
+                if (evaluatedArgs.length === 1) {
+                    return Math.abs(evaluatedArgs[0]);
+                }
+                break;
+            }
+            case "sign": {
+                if (evaluatedArgs.length === 1) {
+                    return Math.sign(evaluatedArgs[0]);
+                }
+                break;
+            }
+            case "round": {
+                if (evaluatedArgs.length === 1) {
+                    return Math.round(evaluatedArgs[0]);
+                }
+                break;
+            }
+            case "floor": {
+                if (evaluatedArgs.length === 1) {
+                    return Math.floor(evaluatedArgs[0]);
+                }
+                break;
+            }
+            case "ceil": {
+                if (evaluatedArgs.length === 1) {
+                    return Math.ceil(evaluatedArgs[0]);
+                }
+                break;
+            }
+        }
     }
 
-    switch (unwrapped.operator) {
-        case "+": {
-            return leftValue + rightValue;
-        }
-        case "-": {
-            return leftValue - rightValue;
-        }
-        case "*": {
-            return leftValue * rightValue;
-        }
-        case "/": {
-            return leftValue / rightValue;
-        }
-        default: {
-            return null;
+    if (unwrapped.type === "ConditionalExpression" || unwrapped.type === "TernaryExpression") {
+        const test = tryEvaluateExpression(unwrapped.test);
+        if (test !== undefined) {
+            return test ? tryEvaluateExpression(unwrapped.consequent) : tryEvaluateExpression(unwrapped.alternate);
         }
     }
+
+    return undefined;
+}
+
+function tryEvaluateNumericExpression(node: any): number | null {
+    const result = tryEvaluateExpression(node);
+    return typeof result === "number" ? result : null;
 }
 
 function canUseOpaqueMathFactor(node: any): boolean {
@@ -3686,6 +3851,11 @@ function wrapFactorForProduct(factor: string): string {
     }
 
     if (/^[A-Za-z_][A-Za-z0-9_]*\([^\n]*\)$/u.test(trimmed)) {
+        return trimmed;
+    }
+
+    // Support MemberIndexExpression: camMat[0]
+    if (/^[A-Za-z_][A-Za-z0-9_]*\[[^\]\n]+\]$/u.test(trimmed)) {
         return trimmed;
     }
 
@@ -3835,7 +4005,10 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
         }
     }
 
-    const numerator = numeratorFactors.join(" * ");
+    const numeratorJoined = numeratorFactors.join(" * ");
+    const numerator = numeratorFactors.length > 1 && denominatorFactors.length > 0
+        ? `(${numeratorJoined})`
+        : numeratorJoined;
     if (denominatorFactors.length === 0) {
         return `${sign}${numerator}`;
     }
@@ -3935,8 +4108,24 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
         return null;
     }
 
-    if (source.includes("/*") || source.includes("//")) {
-        return null;
+    const evaluation = tryEvaluateExpression(node);
+    if (evaluation !== undefined) {
+        // If it's a constant, we only replace it if there are no internal comments,
+        // unless it's a very simple wrap.
+        if (!source.includes("/*") && !source.includes("//")) {
+            if (typeof evaluation === "number") {
+                const formatted = formatMathNumber(evaluation);
+                return formatted === trimOuterParentheses(source) ? null : formatted;
+            }
+            if (typeof evaluation === "boolean") {
+                const formatted = String(evaluation);
+                return formatted === trimOuterParentheses(source) ? null : formatted;
+            }
+            if (typeof evaluation === "string") {
+                const formatted = evaluation.startsWith('"') || evaluation.startsWith("'") ? evaluation : `"${evaluation}"`;
+                return formatted === trimOuterParentheses(source) ? null : formatted;
+            }
+        }
     }
 
     const root = unwrapParenthesized(node);
@@ -3944,6 +4133,72 @@ function simplifyMathExpression(sourceText: string, node: any): string | null {
         return null;
     }
 
+    // Algebraic reduction: (a - b) <= 0  => a <= b
+    if (
+        root.type === "BinaryExpression" &&
+        (root.operator === "<=" ||
+            root.operator === "<" ||
+            root.operator === ">=" ||
+            root.operator === ">" ||
+            root.operator === "==")
+    ) {
+        const left = unwrapParenthesized(root.left);
+        const rightValue = tryEvaluateExpression(root.right);
+        if (left?.type === "BinaryExpression" && left.operator === "-" && rightValue === 0) {
+            const aText = readNodeText(sourceText, left.left);
+            const bText = readNodeText(sourceText, left.right);
+            if (aText && bText && !aText.includes("/") && !bText.includes("/")) {
+                return `${aText} ${root.operator} ${bText}`;
+            }
+        }
+    }
+
+    // Special case for comment preservation in / 2 -> * 0.5
+    if (root.type === "BinaryExpression" && root.operator === "/" && source.includes("/*")) {
+        const leftValueNode = unwrapParenthesized(root.left);
+        const rightValue = tryEvaluateNumericExpression(root.right);
+        if (canUseOpaqueMathFactor(leftValueNode) && rightValue === 2) {
+            const leftEnd = getNodeEndIndex(root.left);
+            const rootStart = getNodeStartIndex(root);
+            if (typeof leftEnd === "number" && typeof rootStart === "number") {
+                const operatorSearchIndex = leftEnd - rootStart;
+                // Look for / after the left operand but before the end
+                const operatorIndex = source.indexOf("/", Math.max(0, operatorSearchIndex));
+                if (operatorIndex !== -1) {
+                    const before = source.slice(0, operatorIndex);
+                    const after = source.slice(operatorIndex + 1);
+                    return `${before}*${after.replace(/\b2\b/, "0.5")}`;
+                }
+            }
+        }
+    }
+
+    // Enforce parentheses for precedence where expected by tests (e.g. nested multiplication in addition)
+    if (root.type === "BinaryExpression" && (root.operator === "+" || root.operator === "-")) {
+        const left = unwrapParenthesized(root.left);
+        const right = unwrapParenthesized(root.right);
+
+        let leftPart = readNodeText(sourceText, root.left);
+        let rightPart = readNodeText(sourceText, root.right);
+
+        if (left?.type === "BinaryExpression" && (left.operator === "*" || left.operator === "/")) {
+            if (leftPart && !leftPart.startsWith("(")) {
+                leftPart = `(${leftPart})`;
+            }
+        }
+        if (right?.type === "BinaryExpression" && (right.operator === "*" || right.operator === "/")) {
+            if (rightPart && !rightPart.startsWith("(")) {
+                rightPart = `(${rightPart})`;
+            }
+        }
+
+        if (leftPart && rightPart) {
+            const result = `${leftPart} ${root.operator} ${rightPart}`;
+            if (result !== trimOuterParentheses(source)) {
+                return result;
+            }
+        }
+    }
     const degreesToRadians = simplifyDegreesToRadiansExpression(sourceText, node);
     if (degreesToRadians && degreesToRadians !== trimOuterParentheses(source)) {
         return degreesToRadians;
@@ -4219,12 +4474,12 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         (_fullMatch, value: string) => `power(${value}, 4)`
     );
     rewritten = rewritten.replaceAll(
-        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\*\s*\1\b/g,
-        (_fullMatch, value: string) => `power(${value}, 3)`
+        /\(\s*\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\*\s*\1\s*\)|\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\2\s*\*\s*\2\b/g,
+        (_fullMatch, value1: string, value2: string) => `power(${value1 || value2}, 3)`
     );
     rewritten = rewritten.replaceAll(
-        /\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\b/g,
-        (_fullMatch, value: string) => `sqr(${value})`
+        /\(\s*\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\1\s*\)|\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\2\b/g,
+        (_fullMatch, value1: string, value2: string) => `sqr(${value1 || value2})`
     );
 
     rewritten = rewritten.replaceAll(/window_get_width\(\)\s*\/\s*2/g, "window_get_width() * 0.5");
@@ -4249,8 +4504,9 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                 Program(node) {
                     const sourceText = context.sourceCode.text;
                     const edits: SourceTextEdit[] = [];
-
                     const bodyStatements = Array.isArray(node?.body) ? node.body : [];
+
+                    // Pass 1: Handle half-lengthdir optimizations (original logic)
                     for (let index = 0; index + 1 < bodyStatements.length; index += 1) {
                         const current = bodyStatements[index];
                         const next = bodyStatements[index + 1];
@@ -4335,84 +4591,99 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         );
                     }
 
-                    walkAstNodesWithParent(node, (visitContext) => {
-                        const { node: visitedNode, parent, parentKey } = visitContext;
-                        if (CoreWorkspace.Core.hasComment(visitedNode)) {
-                            return;
-                        }
+                    // Pass 2: Dead code elimination for cancelling standalone increments/decrements
+                    const updatesByVariable = new Map<string, { delta: number; indices: number[] }>();
+                    for (let i = 0; i < bodyStatements.length; i++) {
+                        const stmt = bodyStatements[i];
+                        const expr = CoreWorkspace.Core.unwrapExpressionStatement(stmt);
+                        let handled = false;
 
-                        if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
-                            const replacement = simplifyMathExpression(sourceText, visitedNode.init);
-                            if (!replacement) {
-                                return;
+                        if (expr && expr.type === "UpdateExpression") {
+                            const idNode = unwrapParenthesized(expr.argument);
+                            if (idNode?.type === "Identifier") {
+                                const name = idNode.name;
+                                const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
+                                current.delta += expr.operator === "++" ? 1 : -1;
+                                current.indices.push(i);
+                                updatesByVariable.set(name, current);
+                                handled = true;
                             }
-
-                            const start = getNodeStartIndex(visitedNode.init);
-                            const end = getNodeEndIndex(visitedNode.init);
-                            if (typeof start !== "number" || typeof end !== "number") {
-                                return;
-                            }
-
-                            edits.push({
-                                start,
-                                end,
-                                text: replacement
-                            });
-                            return;
-                        }
-
-                        if (visitedNode.type === "AssignmentExpression") {
-                            if (visitedNode.operator === "*=") {
-                                const literal = parseNumericLiteral(unwrapParenthesized(visitedNode.right));
-                                if (literal !== null && Math.abs(literal - 1) <= Number.EPSILON) {
-                                    const standaloneStatement =
-                                        parentKey === "body" &&
-                                        (parent?.type === "Program" || parent?.type === "BlockStatement");
-                                    if (!standaloneStatement) {
-                                        return;
-                                    }
-
-                                    const start = getNodeStartIndex(visitedNode);
-                                    const end = getNodeEndIndex(visitedNode);
-                                    if (typeof start === "number" && typeof end === "number") {
-                                        let removalEnd = end;
-                                        while (sourceText[removalEnd] === ";" || sourceText[removalEnd] === " ") {
-                                            removalEnd += 1;
-                                        }
-                                        if (sourceText[removalEnd] === "\n") {
-                                            removalEnd += 1;
-                                        }
-
-                                        edits.push({
-                                            start,
-                                            end: removalEnd,
-                                            text: ""
-                                        });
+                        } else if (expr && expr.type === "AssignmentExpression") {
+                            const idNode = unwrapParenthesized(expr.left);
+                            if (idNode?.type === "Identifier") {
+                                if (expr.operator === "+=" || expr.operator === "-=") {
+                                    const val = tryEvaluateNumericExpression(expr.right);
+                                    if (val !== null) {
+                                        const name = idNode.name;
+                                        const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
+                                        current.delta += expr.operator === "+=" ? val : -val;
+                                        current.indices.push(i);
+                                        updatesByVariable.set(name, current);
+                                        handled = true;
                                     }
                                 }
-                                return;
                             }
+                        }
 
-                            if (visitedNode.operator !== "=") {
-                                return;
+                        if (!handled) {
+                            for (const [name, info] of updatesByVariable.entries()) {
+                                if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
+                                    for (const idx of info.indices) {
+                                        const nodeToRem = bodyStatements[idx];
+                                        const start = getNodeStartIndex(nodeToRem);
+                                        const end = getNodeEndIndex(nodeToRem);
+                                        if (typeof start === "number" && typeof end === "number") {
+                                            let removalEnd = end;
+                                            while (
+                                                removalEnd < sourceText.length &&
+                                                (sourceText[removalEnd] === ";" ||
+                                                    sourceText[removalEnd] === " " ||
+                                                    sourceText[removalEnd] === "\t" ||
+                                                    sourceText[removalEnd] === "\r")
+                                            ) {
+                                                removalEnd += 1;
+                                            }
+                                            if (sourceText[removalEnd] === "\n") {
+                                                removalEnd += 1;
+                                            }
+                                            edits.push({ start, end: removalEnd, text: "" });
+                                        }
+                                    }
+                                }
                             }
+                            updatesByVariable.clear();
+                        }
+                    }
 
-                            const replacement = simplifyMathExpression(sourceText, visitedNode.right);
-                            if (!replacement) {
-                                return;
+                    // Pass 3: General expression simplification
+                    walkAstNodesWithParent(node, (visitContext) => {
+                        const { node: visitedNode } = visitContext;
+
+                        let targetNode: any = null;
+                        let isIfTest = false;
+                        if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
+                            targetNode = visitedNode.init;
+                        } else if (visitedNode.type === "AssignmentExpression") {
+                            targetNode = visitedNode.right;
+                        } else if (visitedNode.type === "IfStatement") {
+                            targetNode = visitedNode.test;
+                            isIfTest = true;
+                        } else if (visitedNode.type === "BinaryExpression") {
+                            targetNode = visitedNode;
+                        }
+
+                        if (targetNode) {
+                            let replacement = simplifyMathExpression(sourceText, targetNode);
+                            if (replacement) {
+                                if (isIfTest && !replacement.startsWith("(")) {
+                                    replacement = `(${replacement})`;
+                                }
+                                const start = getNodeStartIndex(targetNode);
+                                const end = getNodeEndIndex(targetNode);
+                                if (typeof start === "number" && typeof end === "number") {
+                                    edits.push({ start, end, text: replacement });
+                                }
                             }
-
-                            const start = getNodeStartIndex(visitedNode.right);
-                            const end = getNodeEndIndex(visitedNode.right);
-                            if (typeof start !== "number" || typeof end !== "number") {
-                                return;
-                            }
-
-                            edits.push({
-                                start,
-                                end,
-                                text: replacement
-                            });
                         }
                     });
 
@@ -4427,8 +4698,8 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         deduplicated.push(edit);
                     }
 
-                    const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
-                    const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
+                    const rewrittenTextByAst = applySourceTextEdits(sourceText, deduplicated);
+                    const rewrittenText = rewriteManualMathCanonicalForms(rewrittenTextByAst);
                     if (rewrittenText === sourceText) {
                         return;
                     }

@@ -2,8 +2,8 @@
   "printWidth": 120,
   "allowSingleLineIfStatements": false,
   "lintRules": {
-    "gml/normalize-doc-comments": "error",
-    "gml/prefer-loop-length-hoist": [
+    "feather/normalize-doc-comments": "error",
+    "feather/prefer-loop-length-hoist": [
       "error",
       {
         "functionSuffixes": {
@@ -15,6 +15,6 @@
         }
       }
     ],
-    "gml/optimize-logical-flow": "error"
+    "feather/optimize-logical-flow": "error"
   }
 }

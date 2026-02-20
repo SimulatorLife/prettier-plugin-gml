@@ -2,7 +2,7 @@
   "printWidth": 200,
   "allowSingleLineIfStatements": false,
   "lintRules": {
-    "gml/normalize-doc-comments": "error",
-    "gml/normalize-operator-aliases": "error"
+    "feather/normalize-doc-comments": "error",
+    "feather/normalize-operator-aliases": "error"
   }
 }

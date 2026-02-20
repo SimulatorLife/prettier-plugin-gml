@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
   "lintRules": {
-    "gml/optimize-math-expressions": "error"
+    "feather/optimize-math-expressions": "error"
   }
 }
