@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
-  "allowSingleLineIfStatements": false,
+  "allowSingleLineIfStatements": true,
   "lintRules": {
     "feather/normalize-doc-comments": "error",
     "feather/optimize-logical-flow": "error"

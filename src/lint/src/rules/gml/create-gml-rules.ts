@@ -4388,19 +4388,29 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     let rewritten = sourceText;
 
     rewritten = rewritten.replaceAll(
-        /sqrt\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*\)/g,
-        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
-    );
-
-    rewritten = rewritten.replaceAll(
-        /power\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*,\s*0\.5\s*\)/g,
-        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
-    );
-
-    rewritten = rewritten.replaceAll(
-        /sqrt\(\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)\s*\+\s*\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\5\s*-\s*\6\)\s*\)/g,
+        /sqrt\(\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)(?:\s*\))?\s*\+\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)(?:\s*\))?\s*\+\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\5\s*-\s*\6\)(?:\s*\))?\s*\)/g,
         (_fullMatch, x2: string, x1: string, y2: string, y1: string, z2: string, z1: string) =>
             `point_distance_3d(${x1}, ${y1}, ${z1}, ${x2}, ${y2}, ${z2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /sqrt\(\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)(?:\s*\))?\s*\+\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)(?:\s*\))?\s*\)/g,
+        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /power\(\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\1\s*-\s*\2\)(?:\s*\))?\s*\+\s*(?:\(\s*)?\(([A-Za-z_][A-Za-z0-9_]*)\s*-\s*([A-Za-z_][A-Za-z0-9_]*)\)\s*\*\s*\(\3\s*-\s*\4\)(?:\s*\))?\s*,\s*0\.5\s*\)/g,
+        (_fullMatch, x2: string, x1: string, y2: string, y1: string) => `point_distance(${x1}, ${y1}, ${x2}, ${y2})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /power\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([0-9]+)\s*\)\s*\*\s*\1/g,
+        (_fullMatch, param: string, exponent: string) => `power(${param}, ${parseInt(exponent, 10) + 1})`
+    );
+
+    rewritten = rewritten.replaceAll(
+        /([A-Za-z_][A-Za-z0-9_]*)\s*\*\s*power\(\s*\1\s*,\s*([0-9]+)\s*\)/g,
+        (_fullMatch, param: string, exponent: string) => `power(${param}, ${parseInt(exponent, 10) + 1})`
     );
 
     rewritten = rewritten.replaceAll(
@@ -4802,6 +4812,7 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                         }
                     });
 
+                    let rewrittenByAstEdits = sourceText;
                     if (edits.length > 0) {
                         const deduplicated: SourceTextEdit[] = [];
                         for (const edit of edits.toSorted(
@@ -4814,10 +4825,11 @@ function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition): Rule.
                             deduplicated.push(edit);
                         }
 
-                        const rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
-                        const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
-                        reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
+                        rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
                     }
+
+                    const rewrittenText = rewriteManualMathCanonicalForms(rewrittenByAstEdits);
+                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
