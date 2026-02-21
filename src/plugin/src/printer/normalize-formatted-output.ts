@@ -295,7 +295,7 @@ function dedupeDocBlock(lines: string[]): string[] {
 }
 
 function removeDuplicateDocLikeLineComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
+    const lines = Core.splitLines(formatted);
     const result: string[] = [];
     let docBlockLines: string[] = [];
     let insideBlockComment = false;
@@ -334,7 +334,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
 }
 
 function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
+    const lines = Core.splitLines(formatted);
     const result: string[] = [];
     let previousLine: string | undefined;
     let insideBlockComment = false;
@@ -387,7 +387,7 @@ function isGuardCommentSequence(lines: string[], commentIndex: number): boolean 
 }
 
 function removeBlankLinesBeforeGuardComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
+    const lines = Core.splitLines(formatted);
     const normalized: string[] = [];
     const length = lines.length;
     let previousNonBlankTrimmed: string | null = null;
@@ -417,7 +417,7 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
 }
 
 function collectLineCommentTrailingWhitespace(source: string): Map<string, string[]> {
-    const lines = source.split(/\r?\n/);
+    const lines = Core.splitLines(source);
     const map = new Map<string, string[]>();
 
     for (const line of lines) {
@@ -446,7 +446,7 @@ function reapplyLineCommentTrailingWhitespace(formatted: string, source: string)
         return formatted;
     }
 
-    const lines = formatted.split(/\r?\n/);
+    const lines = Core.splitLines(formatted);
 
     for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index];
