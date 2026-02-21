@@ -18,6 +18,7 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
+import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
 import {
     applyIdentifierCaseSnapshotForProgram,
@@ -29,7 +30,6 @@ import {
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -377,7 +377,7 @@ function printNodeDocComments(node, path, options) {
         node[DOC_COMMENT_OUTPUT_FLAG] = true;
         const suppressLeadingBlank = (docCommentDocs as any)?._suppressLeadingBlank === true;
 
-        const needsLeadingBlankLine = (node as any)?._gmlNeedsLeadingBlankLine === true;
+        const needsLeadingBlankLine = node?._gmlNeedsLeadingBlankLine === true;
 
         const hasLeadingNonDocComment =
             !Core.isNonEmptyArray(node.docComments) &&
@@ -507,16 +507,16 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             const hasParameters = Core.isNonEmptyArray(node.params);
             const params = hasParameters
                 ? printCommaSeparatedList(path, print, "params", "(", ")", options, {
-                    // Constructor parent clauses participate in the
-                    // surrounding function signature. Breaking the
-                    // argument list across multiple lines changes
-                    // the shape of the signature and regresses
-                    // existing fixtures that rely on the entire
-                    // clause remaining inline.
-                    leadingNewline: false,
-                    trailingNewline: false,
-                    forceInline: true
-                })
+                      // Constructor parent clauses participate in the
+                      // surrounding function signature. Breaking the
+                      // argument list across multiple lines changes
+                      // the shape of the signature and regresses
+                      // existing fixtures that rely on the entire
+                      // clause remaining inline.
+                      leadingNewline: false,
+                      trailingNewline: false,
+                      forceInline: true
+                  })
                 : printEmptyParens(path, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
@@ -558,10 +558,10 @@ function tryPrintVariableNode(node, path, options, print) {
                     const decls =
                         keptDeclarators.length > 1
                             ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                leadingNewline: false,
-                                trailingNewline: false,
-                                addIndent: keptDeclarators.length > 1
-                            })
+                                  leadingNewline: false,
+                                  trailingNewline: false,
+                                  addIndent: keptDeclarators.length > 1
+                              })
                             : path.map(print, "declarations");
                     return concat([node.kind, " ", decls]);
                 } finally {
@@ -1172,12 +1172,12 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof node._featherMacroText === STRING_TYPE
                     ? node._featherMacroText
                     : (() => {
-                        const { start: startIndex, end: endIndex } = Core.getNodeRangeIndices(node);
-                        if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE) {
-                            return options.originalText.slice(startIndex, endIndex);
-                        }
-                        return "";
-                    })();
+                          const { start: startIndex, end: endIndex } = Core.getNodeRangeIndices(node);
+                          if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE) {
+                              return options.originalText.slice(startIndex, endIndex);
+                          }
+                          return "";
+                      })();
 
             if (typeof node._featherMacroText === STRING_TYPE) {
                 return concat(stripTrailingLineTerminators(macroText));
@@ -1468,8 +1468,7 @@ function printBlockStatementNode(node, path, options, print) {
         // If so, the doc comment provides visual separation, so we don't need
         // to preserve a blank line from the source.
         const firstStatementHasDocComment =
-            Core.isNonEmptyArray(firstStatement.docComments) ||
-            Core.isNonEmptyArray((firstStatement as any)._syntheticDocLines);
+            Core.isNonEmptyArray(firstStatement.docComments) || Core.isNonEmptyArray(firstStatement._syntheticDocLines);
 
         // For constructors, preserve blank lines between header and first statement,
         // unless the first statement has a doc comment (which provides
@@ -1704,12 +1703,12 @@ function buildCallArgumentsDocs(
     if (simplePrefixLength > 1 && hasTrailingArguments && hasCallbackArguments && maxElementsPerLine === Infinity) {
         const inlineDoc = includeInlineVariant
             ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-                addIndent: false,
-                forceInline: true,
-                leadingNewline: false,
-                trailingNewline: false,
-                maxElementsPerLine
-            })
+                  addIndent: false,
+                  forceInline: true,
+                  leadingNewline: false,
+                  trailingNewline: false,
+                  maxElementsPerLine
+              })
             : null;
 
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
@@ -1744,12 +1743,12 @@ function buildCallArgumentsDocs(
 
     const inlineDoc = includeInlineVariant
         ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-            addIndent: false,
-            forceInline: true,
-            leadingNewline: false,
-            trailingNewline: false,
-            maxElementsPerLine
-        })
+              addIndent: false,
+              forceInline: true,
+              leadingNewline: false,
+              trailingNewline: false,
+              maxElementsPerLine
+          })
         : null;
 
     return { inlineDoc, multilineDoc };
@@ -1769,8 +1768,8 @@ function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
     const multilineDoc = forceInline
         ? inlineDoc
         : printCommaSeparatedList(path, print, "params", "(", ")", options, {
-            allowTrailingDelimiter: false
-        });
+              allowTrailingDelimiter: false
+          });
 
     return { inlineDoc, multilineDoc };
 }
@@ -2168,37 +2167,6 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
     const parentNode = path.getValue();
-    // Determine the top-level Program node for robust program-scoped
-    // comment access. `parentNode` may be a block or other container; we
-    // prefer to pass the true Program root to helpers that scan the
-    // program-level `comments` bag.
-    let programNode = null;
-    try {
-        for (let depth = 0; ; depth += 1) {
-            const p = safeGetParentNode(path, depth);
-            if (!p) break;
-            programNode = p.type === PROGRAM ? p : programNode;
-        }
-    } catch {
-        // If the path doesn't expose getParentNode with a depth signature
-        // (defensive), fall back to the parentNode value so callers still
-        // receive a usable object.
-        programNode = parentNode;
-    }
-    if (!programNode && parentNode?.type === PROGRAM) {
-        programNode = parentNode;
-    }
-    if (
-        (!programNode || programNode?.type !== PROGRAM) &&
-        options &&
-        typeof options === "object" &&
-        (options as { _gmlProgramNode?: unknown })._gmlProgramNode
-    ) {
-        const cachedProgram = (options as { _gmlProgramNode?: { type?: string } })._gmlProgramNode;
-        if (cachedProgram?.type === PROGRAM) {
-            programNode = cachedProgram;
-        }
-    }
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
@@ -2411,8 +2379,6 @@ function addLeadingStatementSpacing({
     }
 }
 
-const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
-
 function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemicolon, isStaticDeclaration }) {
     if (semi !== ";") {
         return semi;
@@ -2443,8 +2409,8 @@ function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemi
         node.type === ASSIGNMENT_EXPRESSION
             ? node
             : node.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
-                ? node.expression
-                : null;
+              ? node.expression
+              : null;
 
     const isFunctionAssignmentExpression =
         assignmentExpressionForSemicolonCheck?.operator === "=" &&
@@ -2682,7 +2648,7 @@ function handleTerminalTrailingSpacing({
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
         Core.isNonEmptyArray(node?.docComments) ||
-        Core.isNonEmptyArray((node as any)?._syntheticDocLines);
+        Core.isNonEmptyArray(node?._syntheticDocLines);
     const requiresTrailingPadding =
         enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
 
@@ -3013,8 +2979,8 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
     const docComments = Array.isArray(functionNode.docComments)
         ? functionNode.docComments
         : Array.isArray(functionNode.comments)
-            ? functionNode.comments
-            : null;
+          ? functionNode.comments
+          : null;
     if (!Core.isNonEmptyArray(docComments)) {
         return null;
     }
@@ -3218,9 +3184,9 @@ function printGlobalVarStatementAsKeyword(node, path, print, options) {
     const decls =
         node.declarations.length > 1
             ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                leadingNewline: false,
-                trailingNewline: false
-            })
+                  leadingNewline: false,
+                  trailingNewline: false
+              })
             : path.map(print, "declarations");
 
     const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
@@ -3944,8 +3910,8 @@ function collectDocLinesFromFunctionComments(functionNode, options) {
     const docComments = Array.isArray(functionNode.docComments)
         ? functionNode.docComments
         : Array.isArray(functionNode.comments)
-            ? functionNode.comments
-            : null;
+          ? functionNode.comments
+          : null;
     if (!Core.isNonEmptyArray(docComments)) {
         return [];
     }
