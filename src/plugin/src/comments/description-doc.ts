@@ -65,7 +65,13 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
     while (index < docCommentDocs.length) {
         const entry = docCommentDocs[index];
         if (typeof entry !== "string") {
-            result.push(entry as Doc);
+            // Convert AST comment nodes to their raw text representation before processing.
+            // Leaving them as objects causes Prettier's printer to crash.
+            const rawText = Core.getLineCommentRawText(entry, {});
+            if (rawText !== null) {
+                docCommentDocs[index] = rawText;
+                continue;
+            }
             index += 1;
             continue;
         }

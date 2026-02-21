@@ -354,7 +354,7 @@ function printNodeDocComments(node, path, options) {
     const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
     const docCommentDocs: MutableDocCommentLines = Array.isArray(node.docComments)
-        ? Core.toMutableArray(node.docComments as string[])
+        ? Core.toMutableArray(node.docComments as string[], { clone: true })
         : [];
     const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
@@ -503,16 +503,16 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             const hasParameters = Core.isNonEmptyArray(node.params);
             const params = hasParameters
                 ? printCommaSeparatedList(path, print, "params", "(", ")", options, {
-                      // Constructor parent clauses participate in the
-                      // surrounding function signature. Breaking the
-                      // argument list across multiple lines changes
-                      // the shape of the signature and regresses
-                      // existing fixtures that rely on the entire
-                      // clause remaining inline.
-                      leadingNewline: false,
-                      trailingNewline: false,
-                      forceInline: true
-                  })
+                    // Constructor parent clauses participate in the
+                    // surrounding function signature. Breaking the
+                    // argument list across multiple lines changes
+                    // the shape of the signature and regresses
+                    // existing fixtures that rely on the entire
+                    // clause remaining inline.
+                    leadingNewline: false,
+                    trailingNewline: false,
+                    forceInline: true
+                })
                 : printEmptyParens(path, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
@@ -554,10 +554,10 @@ function tryPrintVariableNode(node, path, options, print) {
                     const decls =
                         keptDeclarators.length > 1
                             ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                  leadingNewline: false,
-                                  trailingNewline: false,
-                                  addIndent: keptDeclarators.length > 1
-                              })
+                                leadingNewline: false,
+                                trailingNewline: false,
+                                addIndent: keptDeclarators.length > 1
+                            })
                             : path.map(print, "declarations");
                     return concat([node.kind, " ", decls]);
                 } finally {
@@ -1168,12 +1168,12 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof node._featherMacroText === STRING_TYPE
                     ? node._featherMacroText
                     : (() => {
-                          const { start: startIndex, end: endIndex } = Core.getNodeRangeIndices(node);
-                          if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE) {
-                              return options.originalText.slice(startIndex, endIndex);
-                          }
-                          return "";
-                      })();
+                        const { start: startIndex, end: endIndex } = Core.getNodeRangeIndices(node);
+                        if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE) {
+                            return options.originalText.slice(startIndex, endIndex);
+                        }
+                        return "";
+                    })();
 
             if (typeof node._featherMacroText === STRING_TYPE) {
                 return concat(stripTrailingLineTerminators(macroText));
@@ -1684,12 +1684,12 @@ function buildCallArgumentsDocs(
     if (simplePrefixLength > 1 && hasTrailingArguments && hasCallbackArguments && maxElementsPerLine === Infinity) {
         const inlineDoc = includeInlineVariant
             ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-                  addIndent: false,
-                  forceInline: true,
-                  leadingNewline: false,
-                  trailingNewline: false,
-                  maxElementsPerLine
-              })
+                addIndent: false,
+                forceInline: true,
+                leadingNewline: false,
+                trailingNewline: false,
+                maxElementsPerLine
+            })
             : null;
 
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
@@ -1724,12 +1724,12 @@ function buildCallArgumentsDocs(
 
     const inlineDoc = includeInlineVariant
         ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-              addIndent: false,
-              forceInline: true,
-              leadingNewline: false,
-              trailingNewline: false,
-              maxElementsPerLine
-          })
+            addIndent: false,
+            forceInline: true,
+            leadingNewline: false,
+            trailingNewline: false,
+            maxElementsPerLine
+        })
         : null;
 
     return { inlineDoc, multilineDoc };
@@ -1749,8 +1749,8 @@ function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
     const multilineDoc = forceInline
         ? inlineDoc
         : printCommaSeparatedList(path, print, "params", "(", ")", options, {
-              allowTrailingDelimiter: false
-          });
+            allowTrailingDelimiter: false
+        });
 
     return { inlineDoc, multilineDoc };
 }
@@ -2423,8 +2423,8 @@ function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemi
         node.type === ASSIGNMENT_EXPRESSION
             ? node
             : node.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
-              ? node.expression
-              : null;
+                ? node.expression
+                : null;
 
     const isFunctionAssignmentExpression =
         assignmentExpressionForSemicolonCheck?.operator === "=" &&
@@ -2993,8 +2993,8 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
     const docComments = Array.isArray(functionNode.docComments)
         ? functionNode.docComments
         : Array.isArray(functionNode.comments)
-          ? functionNode.comments
-          : null;
+            ? functionNode.comments
+            : null;
     if (!Core.isNonEmptyArray(docComments)) {
         return null;
     }
@@ -3198,9 +3198,9 @@ function printGlobalVarStatementAsKeyword(node, path, print, options) {
     const decls =
         node.declarations.length > 1
             ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                  leadingNewline: false,
-                  trailingNewline: false
-              })
+                leadingNewline: false,
+                trailingNewline: false
+            })
             : path.map(print, "declarations");
 
     const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
@@ -3924,8 +3924,8 @@ function collectDocLinesFromFunctionComments(functionNode, options) {
     const docComments = Array.isArray(functionNode.docComments)
         ? functionNode.docComments
         : Array.isArray(functionNode.comments)
-          ? functionNode.comments
-          : null;
+            ? functionNode.comments
+            : null;
     if (!Core.isNonEmptyArray(docComments)) {
         return [];
     }
