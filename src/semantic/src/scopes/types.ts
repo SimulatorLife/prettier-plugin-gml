@@ -219,3 +219,21 @@ export type AllSymbolsSummaryItem = {
     referenceCount: number;
     scopes: SymbolScopeSummary[];
 };
+
+/**
+ * Result of removing scopes associated with a file path.
+ * Used by hot-reload workflows to coordinate scope invalidation.
+ */
+export type ScopeRemovalResult = {
+    /**
+     * Sorted list of scope IDs that were removed, including all descendants
+     * of the path-associated scopes.
+     */
+    removedScopeIds: string[];
+    /**
+     * Set of symbol names that were declared or referenced in the removed
+     * scopes. Dependent scopes referencing these symbols may have stale
+     * resolution caches and should be re-analyzed.
+     */
+    affectedSymbols: Set<string>;
+};
