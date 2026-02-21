@@ -1,15 +1,14 @@
-import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
+    type AstNodeWithType,
     createMeta,
-    getNodeStartIndex,
     getNodeEndIndex,
+    getNodeStartIndex,
     isAstNodeRecord,
     isAstNodeWithType,
-    walkAstNodes,
-    type AstNodeWithType,
-} from "../rule-base-helpers.js";
+    walkAstNodes} from "../rule-base-helpers.js";
 import { readObjectOption } from "../rule-helpers.js";
 
 type LoopLengthAccessorCall = Readonly<{

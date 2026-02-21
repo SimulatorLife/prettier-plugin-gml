@@ -1144,7 +1144,6 @@ function printNewExpressionNode(node, path, options, print) {
     return group(concat(["new ", calleeDoc, ...printedArgs]));
 }
 
-
 function tryPrintDeclarationNode(node, path, options, print) {
     switch (node.type) {
         case "EnumDeclaration": {
@@ -3917,7 +3916,6 @@ function normalizeDocParamNameFromRaw(raw) {
     }
     return name.trim();
 }
-
 
 function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
     if (!functionNode || !functionNode.type) {

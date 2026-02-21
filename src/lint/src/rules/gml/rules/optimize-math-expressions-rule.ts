@@ -7,9 +7,18 @@ import {
     createMeta,
     isAstNodeRecord,
     reportFullTextRewrite,
-    walkAstNodesWithParent,
-    type SourceTextEdit
-} from "../rule-base-helpers.js";
+    type SourceTextEdit,
+    walkAstNodesWithParent} from "../rule-base-helpers.js";
+import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
+// manual-transforms provide a comprehensive suite of normalization helpers that
+// the linter rule previously replicated only incompletely. We now invoke them
+// directly and print the resulting AST fragment ourselves so the rule can keep
+// its existing text-edit infrastructure and remain synchronous.
+import {
+    applyManualMathNormalization,
+    applyScalarCondensing,
+    simplifyZeroDivisionNumerators
+} from "../transforms/math/traversal-normalization.js";
 
 const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement } = CoreWorkspace.Core;
 
@@ -276,7 +285,10 @@ function collectMultiplicativeComponents(sourceText: string, node: any): Multipl
         }
 
         return {
-            coefficient: unwrapped.operator === "*" ? left.coefficient * right.coefficient : left.coefficient / right.coefficient,
+            coefficient:
+                unwrapped.operator === "*"
+                    ? left.coefficient * right.coefficient
+                    : left.coefficient / right.coefficient,
             factors: combinedFactors
         };
     }
@@ -300,8 +312,7 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
     // append small positive coefficients at the end, preserving the ordering of
     // the remaining factors.
     const shouldPrefixCoefficient =
-        coefficient !== 1 &&
-        (factors.size === 0 || coefficient <= -1 || coefficient >= 1 || coefficient < 0);
+        coefficient !== 1 && (factors.size === 0 || coefficient <= -1 || coefficient >= 1 || coefficient < 0);
     if (shouldPrefixCoefficient) {
         terms.push(coefficient.toString());
     }
@@ -358,14 +369,23 @@ function extractHalfLengthdirRotationExpression(node: any, variableName: string,
     const left = unwrapParenthesized(unwrapped.left);
     const right = unwrapParenthesized(unwrapped.right);
 
-    if (left?.type === "Identifier" && left.name === variableName && right?.type === "BinaryExpression" && right.operator === "-") {
+    if (
+        left?.type === "Identifier" &&
+        left.name === variableName &&
+        right?.type === "BinaryExpression" &&
+        right.operator === "-"
+    ) {
         const rleft = unwrapParenthesized(right.left);
         const rright = unwrapParenthesized(right.right);
         if (rleft?.type === "Literal" && rleft.value === 1 && rright?.type === "CallExpression") {
             const callee = rright.object;
             if (callee?.type === "Identifier" && callee.name === "lengthdir_x") {
                 const args = rright.arguments;
-                if (args.length === 2 && unwrapParenthesized(args[0])?.type === "Literal" && unwrapParenthesized(args[0])?.value === 1) {
+                if (
+                    args.length === 2 &&
+                    unwrapParenthesized(args[0])?.type === "Literal" &&
+                    unwrapParenthesized(args[0])?.value === 1
+                ) {
                     return readNodeText(sourceText, args[1]);
                 }
             }
@@ -384,9 +404,7 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     // guarded against digits and dots, which meant a name like `length1 * xyz`
     // would be incorrectly rewritten to `lengthxyz` (see testBanner). We now
     // treat word characters as boundaries when appropriate.
-    rewritten = rewritten
-        .replaceAll(/\* 1(?![\w.])/g, "")
-        .replaceAll(/(?<![\w.])1 \* /g, "");
+    rewritten = rewritten.replaceAll(/\* 1(?![\w.])/g, "").replaceAll(/(?<![\w.])1 \* /g, "");
 
     // Convert `sqrt(a*a + b*b + c*c)` patterns to the faster
     // `point_distance_3d(0, 0, 0, a, b, c)` call. This is a heuristic but it
@@ -407,10 +425,7 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     // Replace zero-checks with epsilon comparisons so floating point logic is more
     // robust. This corresponds to the transformation exercised by
     // `testFunctions`.
-    rewritten = rewritten.replaceAll(
-        /if\s*\(\s*([A-Za-z0-9_\.]+)\s*!=\s*0\s*\)/g,
-        "if (abs($1) > math_get_epsilon())"
-    );
+    rewritten = rewritten.replaceAll(/if\s*\(\s*([A-Za-z0-9_\.]+)\s*!=\s*0\s*\)/g, "if (abs($1) > math_get_epsilon())");
 
     return rewritten;
 }
@@ -427,7 +442,7 @@ function getVariableDeclarator(statement: unknown): any | null {
 }
 
 function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<SourceTextEdit>): boolean {
-    return edits.some((edit) => (start < edit.end && end > edit.start));
+    return edits.some((edit) => start < edit.end && end > edit.start);
 }
 
 function performHalfLengthdirOptimizations(bodyStatements: any[], sourceText: string, edits: SourceTextEdit[]) {
@@ -519,7 +534,7 @@ function performHalfLengthdirOptimizations(bodyStatements: any[], sourceText: st
 
 function performDeadCodeElimination(bodyStatements: any[], sourceText: string, edits: SourceTextEdit[]) {
     const updatesByVariable = new Map<string, { delta: number; indices: number[] }>();
-    
+
     const applyRemovals = (info: { delta: number; indices: number[] }) => {
         if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
             for (const idx of info.indices) {
@@ -632,13 +647,113 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
     }
 }
 
+/**
+ * Print an arbitrary expression AST back to source text using a very small
+ * subset of the printer logic. The goal is not to be feature complete (Prettier
+ * handles full-program formatting upstream) but rather to produce a syntactically
+ * valid representation with conventional spacing so that the surrounding context
+ * does not look jarring when the linter applies the edit.
+ */
+function printExpression(node: any, sourceText: string): string {
+    if (!node || typeof node !== "object") {
+        return "";
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            return String(node.value);
+        }
+        case "Identifier": {
+            return node.name;
+        }
+        case "ParenthesizedExpression": {
+            const inner = node.expression ? printExpression(node.expression, sourceText) : "";
+            return `(${inner})`;
+        }
+        case "BinaryExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "LogicalExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "UnaryExpression": {
+            const arg = printExpression(node.argument, sourceText);
+            if (node.prefix) {
+                return `${node.operator}${arg}`;
+            }
+            return `${arg}${node.operator}`;
+        }
+        case "CallExpression": {
+            const callee = printExpression(node.object || node.callee, sourceText);
+            const args = Array.isArray(node.arguments)
+                ? node.arguments.map((a: any) => printExpression(a, sourceText)).join(", ")
+                : "";
+            return `${callee}(${args})`;
+        }
+        case "MemberDotExpression": {
+            const object = printExpression(node.object, sourceText);
+            const property = printExpression(node.property, sourceText);
+            return `${object}.${property}`;
+        }
+        case "MemberIndexExpression": {
+            const object = printExpression(node.object, sourceText);
+            const index = printExpression(node.index, sourceText);
+            return `${object}[${index}]`;
+        }
+        default: {
+            // fall back to the original source slice if we don't know how to emit
+            const text = readNodeText(sourceText, node);
+            return text || "";
+        }
+    }
+}
+
+/**
+ * Attempt to run the full manual-math normalization pipeline on a single
+ * expression node and return the resulting source text if it changed.
+ */
+function attemptManualNormalization(sourceText: string, node: any): string | null {
+    const clone = CoreWorkspace.Core.cloneAstNode(node);
+    if (!clone) {
+        return null;
+    }
+
+    // run the full math normalization pipeline on the clone
+    const context = { sourceText };
+    applyManualMathNormalization(clone, context as any);
+    applyScalarCondensing(clone, context as any);
+    simplifyZeroDivisionNumerators(clone, context as any);
+    cleanupMultiplicativeIdentityParentheses(clone, context as any);
+
+    const printed = printExpression(clone, sourceText);
+    if (!printed) {
+        return null;
+    }
+
+    const original = readNodeText(sourceText, node) || "";
+    // debug output for every check so we see what the transform is seeing
+    console.log("[opt-math] manualNorm check", JSON.stringify(original), "->", JSON.stringify(printed));
+
+    if (trimOuterParentheses(original) === trimOuterParentheses(printed)) {
+        // nothing changed
+        return null;
+    }
+
+    console.log("[opt-math] manualNorm applied", JSON.stringify(original), "->", JSON.stringify(printed));
+    return printed;
+}
+
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode } = visitContext;
 
         let targetNode: any = null;
         let isIfTest = false;
-        
+
         if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
             targetNode = visitedNode.init;
         } else if (visitedNode.type === "AssignmentExpression") {
@@ -653,11 +768,26 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
-                let replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                // manual normalization has the broadest coverage; try it first.
+                let replacement = attemptManualNormalization(sourceText, targetNode);
+
+                if (!replacement) {
+                    replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                }
+
                 if (replacement) {
                     // debug: log problematic multiplications involving mousedx or small coefficients
-                    if (sourceTextOfNode.includes("mousedx") || replacement.includes("mousedx") || replacement.includes("0.1")) {
-                        console.log("[opt-math] simplify", JSON.stringify(sourceTextOfNode), "->", JSON.stringify(replacement));
+                    if (
+                        sourceTextOfNode.includes("mousedx") ||
+                        replacement.includes("mousedx") ||
+                        replacement.includes("0.1")
+                    ) {
+                        console.log(
+                            "[opt-math] simplify",
+                            JSON.stringify(sourceTextOfNode),
+                            "->",
+                            JSON.stringify(replacement)
+                        );
                     }
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;

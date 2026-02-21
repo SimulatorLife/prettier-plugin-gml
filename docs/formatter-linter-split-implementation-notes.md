@@ -75,7 +75,7 @@
 - Plugin runtime adapter module was removed entirely (`src/plugin/src/runtime`), and remaining dormant transform helpers were decoupled from formatter runtime adapter APIs.
 - Core synthetic doc helper fallback no longer keys behavior off legacy formatter migration options.
 - Plugin formatter test fixtures no longer pass removed migrated options (`applyFeatherFixes`, `optimize*`, `condenseStructAssignments`, `loopLengthHoist*`, etc.); option JSON inputs now contain only current formatter-surface fields.
-- Root integration plugin fixture option files under `test/fixtures/plugin-integration/*.options.json` were also scrubbed of removed migrated formatter keys.
+- Root integration plugin fixture option files under `test/fixtures/integration/*.options.json` were also scrubbed of removed migrated formatter keys.
 - Migrated-transform regression tests now validate current formatter behavior without supplying removed/deprecated formatter options.
 - Lint project context registry now consumes a dedicated project-analysis provider contract (`src/lint/src/services/project-analysis-provider.ts`) instead of embedding analysis logic directly in registry orchestration.
 - Lint registry/provider delegation now has explicit coverage ensuring provider-backed snapshot construction is used and cached per resolved root.

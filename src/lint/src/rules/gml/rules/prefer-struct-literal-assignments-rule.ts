@@ -1,13 +1,14 @@
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
+import { reportMissingProjectContextOncePerFile,resolveProjectContextForRule } from "../../project-context.js";
 import {
-    createMeta,
     computeLineStartOffsets,
+    createMeta,
     findFirstChangedCharacterOffset,
-    isCommentOnlyLine,
+    isCommentOnlyLine
 } from "../rule-base-helpers.js";
-import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
-import { resolveProjectContextForRule, reportMissingProjectContextOncePerFile } from "../../project-context.js";
+import { dominantLineEnding, isIdentifier, shouldReportUnsafe } from "../rule-helpers.js";
 
 type StructAssignmentRecord = Readonly<{
     indentation: string;
@@ -57,8 +58,7 @@ function parseStructAssignmentLine(line: string): StructAssignmentRecord | null 
         propertyName,
         valueText: staticIndexAssignmentMatch[5].trim(),
         trailingComment:
-            typeof staticIndexAssignmentMatch[6] === "string" &&
-            staticIndexAssignmentMatch[6].trim().length > 0
+            typeof staticIndexAssignmentMatch[6] === "string" && staticIndexAssignmentMatch[6].trim().length > 0
                 ? staticIndexAssignmentMatch[6].trim()
                 : null
     });
@@ -69,8 +69,7 @@ function parseEmptyStructDeclarationLine(line: string): Readonly<{
     declarationPrefix: string;
     objectName: string;
 }> | null {
-    const emptyStructDeclarationPattern =
-        /^(\s*)((?:var\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\{\s*\}\s*;\s*$/u;
+    const emptyStructDeclarationPattern = /^(\s*)((?:var\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\{\s*\}\s*;\s*$/u;
     const declarationMatch = emptyStructDeclarationPattern.exec(line);
     if (!declarationMatch) {
         return null;
@@ -90,9 +89,7 @@ function createStructLiteralBlock(
     assignments: ReadonlyArray<StructAssignmentRecord>,
     compactLiteralSpacing: boolean
 ): ReadonlyArray<string> {
-    const hasTrailingComments = assignments.some(
-        (assignment) => typeof assignment.trailingComment === "string"
-    );
+    const hasTrailingComments = assignments.some((assignment) => typeof assignment.trailingComment === "string");
 
     if (!hasTrailingComments) {
         const propertyInitializers = assignments.map(
@@ -110,8 +107,7 @@ function createStructLiteralBlock(
     for (const [assignmentIndex, assignment] of assignments.entries()) {
         const isLastAssignment = assignmentIndex === assignments.length - 1;
         const separator = isLastAssignment ? "" : ",";
-        const trailingCommentSuffix =
-            assignment.trailingComment === null ? "" : ` // ${assignment.trailingComment}`;
+        const trailingCommentSuffix = assignment.trailingComment === null ? "" : ` // ${assignment.trailingComment}`;
         blockLines.push(
             `${entryIndentation}${assignment.propertyName}: ${assignment.valueText}${separator}${trailingCommentSuffix}`
         );

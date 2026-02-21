@@ -3,13 +3,12 @@ import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
+    type AstNodeWithType,
     computeLineStartOffsets,
     createMeta,
     getLineIndexForOffset,
     reportFullTextRewrite,
-    walkAstNodes,
-    type AstNodeWithType
-} from "../rule-base-helpers.js";
+    walkAstNodes} from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
 const { getNodeStartIndex } = CoreWorkspace.Core;
@@ -152,7 +151,7 @@ function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): Rea
         const descMatch = /^(\s*)\/\/\/\s*@description\s+(.*)$/u.exec(line);
         if (descMatch) {
             inDescription = true;
-            descriptionIndentation = descMatch[1] + "/// ";
+            descriptionIndentation = `${descMatch[1]  }/// `;
             aligned.push(line);
             continue;
         }
@@ -212,14 +211,9 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         .filter((line) => !emptyDescriptionPattern.test(line))
         .map((line) => normalizeDocCommentPrefixLine(line));
 
-    const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(
-        normalizedBlock,
-        [],
-        true
-    );
+    const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
 
-    const returnsNormalizedBlock =
-        CoreWorkspace.Core.convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
+    const returnsNormalizedBlock = CoreWorkspace.Core.convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
 
     return Array.from(alignDescriptionContinuationLines(returnsNormalizedBlock));
 }

@@ -36,7 +36,11 @@ void test("stripCommentsTransform removes JSDoc properties when stripJsDoc is tr
         jsdoc: { params: [] }
     };
 
-    stripCommentsTransform.transform(ast as any, { stripComments: false, stripJsDoc: true, dropCommentedOutCode: false });
+    stripCommentsTransform.transform(ast as any, {
+        stripComments: false,
+        stripJsDoc: true,
+        dropCommentedOutCode: false
+    });
 
     assert.ok(!Object.hasOwn(ast, "doc"));
     assert.ok(!Object.hasOwn(ast, "docComment"));
@@ -50,7 +54,11 @@ void test("stripCommentsTransform preserves non-comment nodes when stripComments
         body: []
     };
 
-    stripCommentsTransform.transform(ast as any, { stripComments: false, stripJsDoc: false, dropCommentedOutCode: false });
+    stripCommentsTransform.transform(ast as any, {
+        stripComments: false,
+        stripJsDoc: false,
+        dropCommentedOutCode: false
+    });
 
     // Comments are left intact when stripComments is disabled
     assert.equal((ast as any).comments.length, 1);

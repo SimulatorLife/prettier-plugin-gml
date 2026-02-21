@@ -12,12 +12,7 @@ const {
     getCallExpressionArguments
 } = CoreWorkspace.Core;
 
-export {
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getCallExpressionIdentifierName,
-    getCallExpressionArguments
-};
+export { getCallExpressionArguments,getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 
 export function getLineStartOffset(sourceText: string, offset: number): number {
     return sourceText.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
@@ -26,7 +21,11 @@ export function getLineStartOffset(sourceText: string, offset: number): number {
 export function getLineIndentationAtOffset(sourceText: string, offset: number): string {
     const lineStart = getLineStartOffset(sourceText, offset);
     let cursor = lineStart;
-    while (cursor < sourceText.length && (cursor < sourceText.length && (sourceText[cursor] === " " || sourceText[cursor] === "\t"))) {
+    while (
+        cursor < sourceText.length &&
+        cursor < sourceText.length &&
+        (sourceText[cursor] === " " || sourceText[cursor] === "\t")
+    ) {
         cursor += 1;
     }
 

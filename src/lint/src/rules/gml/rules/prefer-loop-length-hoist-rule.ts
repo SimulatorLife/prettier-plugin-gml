@@ -4,18 +4,15 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { resolveProjectContextForRule } from "../../project-context.js";
 import {
+    type AstNodeWithType,
     collectIdentifierNamesInProgram,
     createMeta,
     getLineIndentationAtOffset,
     getNodeStartIndex,
-    getNodeEndIndex,
     isAstNodeRecord,
-    isAstNodeWithType,
+    type SourceTextEdit,
     walkAstNodes,
-    walkAstNodesWithParent,
-    type AstNodeWithType,
-    type SourceTextEdit
-} from "../rule-base-helpers.js";
+    walkAstNodesWithParent} from "../rule-base-helpers.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
 
 const DEFAULT_HOIST_ACCESSORS = Object.freeze({
@@ -214,7 +211,7 @@ export function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): 
                         preferredName: string,
                         inScopeIdentifierNames: ReadonlySet<string>
                     ): string | null =>
-                        projectContextResolution.context!.resolveLoopHoistIdentifier(
+                        projectContextResolution.context.resolveLoopHoistIdentifier(
                             preferredName,
                             inScopeIdentifierNames
                         );

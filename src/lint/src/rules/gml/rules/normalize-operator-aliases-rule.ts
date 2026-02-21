@@ -1,6 +1,7 @@
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, getNodeStartIndex, getNodeEndIndex } from "../rule-base-helpers.js";
+import { createMeta, getNodeEndIndex,getNodeStartIndex } from "../rule-base-helpers.js";
 
 const OPERATOR_ALIASES: ReadonlyMap<string, string> = new Map([
     ["and", "&&"],
@@ -22,9 +23,9 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                         const end = getNodeEndIndex(node);
                         if (typeof start === "number" && typeof end === "number") {
                             context.report({
-                                node: node as any,
+                                node,
                                 messageId: definition.messageId,
-                                fix: (fixer) => fixer.replaceText(node as any, normalized)
+                                fix: (fixer) => fixer.replaceText(node, normalized)
                             });
                         }
                     }
@@ -33,9 +34,9 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                     const normalized = OPERATOR_ALIASES.get(node.operator);
                     if (normalized) {
                         context.report({
-                            node: node as any,
+                            node,
                             messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceText(node as any, normalized)
+                            fix: (fixer) => fixer.replaceText(node, normalized)
                         });
                     }
                 }

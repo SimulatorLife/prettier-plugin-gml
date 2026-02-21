@@ -1,4 +1,5 @@
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
@@ -21,11 +22,7 @@ type BracedDoUntilClause = Readonly<{
 }>;
 
 function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
-    return [
-        `${indentation}${header} {`,
-        `    ${indentation}${statement}`,
-        `${indentation}}`
-    ];
+    return [`${indentation}${header} {`, `    ${indentation}${statement}`, `${indentation}}`];
 }
 
 function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
@@ -104,11 +101,7 @@ function parseInlineElseClause(line: string): BracedSingleClause | null {
 }
 
 function toBracedDoUntilClause(indentation: string, statement: string, untilCondition: string): Array<string> {
-    return [
-        `${indentation}do {`,
-        `    ${indentation}${statement}`,
-        `${indentation}} until ${untilCondition}`
-    ];
+    return [`${indentation}do {`, `    ${indentation}${statement}`, `${indentation}} until ${untilCondition}`];
 }
 
 function parseLineOnlyDoHeader(line: string): string | null {
@@ -203,8 +196,7 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                         }
 
                         const controlFlowHeader = parseLineOnlyControlFlowHeader(line);
-                        if (controlFlowHeader) {
-                            if (isSafeSingleLineControlFlowStatement(nextLine)) {
+                        if (controlFlowHeader && isSafeSingleLineControlFlowStatement(nextLine)) {
                                 rewrittenLines.push(
                                     ...toBracedSingleClause(
                                         controlFlowHeader.indentation,
@@ -215,7 +207,6 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                                 index += 1;
                                 continue;
                             }
-                        }
 
                         rewrittenLines.push(line);
                     }

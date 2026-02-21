@@ -243,9 +243,7 @@ function printComment(commentPath, options) {
                     comment.trailingWS = "\n";
                 }
 
-                const shouldPrependBlankLine =
-                    comment._gmlForceLeadingBlankLine === true ||
-                    alreadyHasLeadingBlankLine;
+                const shouldPrependBlankLine = comment._gmlForceLeadingBlankLine === true || alreadyHasLeadingBlankLine;
                 const parts = [];
                 if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);

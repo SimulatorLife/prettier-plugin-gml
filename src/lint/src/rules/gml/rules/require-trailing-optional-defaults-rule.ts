@@ -7,9 +7,8 @@ import {
     createMeta,
     isAstNodeRecord,
     reportFullTextRewrite,
-    walkAstNodes,
-    type SourceTextEdit
-} from "../rule-base-helpers.js";
+    type SourceTextEdit,
+    walkAstNodes} from "../rule-base-helpers.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = CoreWorkspace.Core;
 
@@ -100,7 +99,7 @@ function getSingleAssignmentFromIfConsequent(ifNode: unknown): any | null {
     }
 
     if (consequent.type === "BlockStatement") {
-        const body = (consequent.body as any[]);
+        const body = consequent.body as any[];
         if (body.length === 1 && body[0].type === "ExpressionStatement") {
             return body[0].expression;
         }
@@ -192,8 +191,7 @@ function splitTopLevelCommaSegments(text: string): string[] {
     let bracketDepth = 0;
     let braceDepth = 0;
 
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
+    for (const char of text) {
         if (char === "(") parenDepth++;
         else if (char === ")") parenDepth--;
         else if (char === "[") bracketDepth++;
@@ -211,11 +209,7 @@ function splitTopLevelCommaSegments(text: string): string[] {
     return segments.filter(Boolean);
 }
 
-function expandEditRangeToWholeLines(
-    sourceText: string,
-    start: number,
-    end: number
-): { start: number; end: number } {
+function expandEditRangeToWholeLines(sourceText: string, start: number, end: number): { start: number; end: number } {
     let lineStart = sourceText.lastIndexOf("\n", start);
     if (lineStart < 0) lineStart = 0;
     else lineStart += 1;
@@ -412,7 +406,11 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
 
     for (const fallbackRecord of sortedFallbackRecords) {
         if (fallbackRecordsToRemove.has(fallbackRecord.statementStart)) {
-            const range = expandEditRangeToWholeLines(sourceText, fallbackRecord.statementStart, fallbackRecord.statementEnd);
+            const range = expandEditRangeToWholeLines(
+                sourceText,
+                fallbackRecord.statementStart,
+                fallbackRecord.statementEnd
+            );
             localEdits.push({
                 start: range.start - functionStart,
                 end: range.end - functionStart,

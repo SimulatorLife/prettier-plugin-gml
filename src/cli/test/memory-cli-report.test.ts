@@ -43,7 +43,7 @@ async function primeMemorySuiteSampleCache() {
         "..",
         "test",
         "fixtures",
-        "plugin-integration",
+        "integration",
         "testFoo.input.gml"
     );
     const formatterSampleContents = await readFile(formatterSamplePath, "utf8");

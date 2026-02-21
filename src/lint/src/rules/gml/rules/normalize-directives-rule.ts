@@ -1,4 +1,5 @@
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
