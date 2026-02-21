@@ -11,7 +11,7 @@ It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fi
   - Lint rules and autofix behavior
   - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
 - Does not own:
-  - Prettier formatting behavior
+  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/plugin` or its internal APIs.
   - Parser internals/grammar ownership
   - Refactor transaction planning/execution
 
@@ -204,3 +204,6 @@ Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.fe
 pnpm --filter @gml-modules/lint run build:types
 pnpm --filter @gml-modules/lint run test
 ```
+
+## TODO
+* When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.

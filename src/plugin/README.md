@@ -6,7 +6,7 @@ This directory contains the source code for the [gml-modules/plugin](https://git
 
 The plugin workspace owns formatting and parser-to-printer orchestration *only* (semicolons, whitespaces, line breaks, indentation, etc.).
 
-- The plugin **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
+- This Prettier-plugin workspace **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
 - Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
 
 ## Test Tiering
@@ -55,3 +55,6 @@ Migration quick map:
 - indentation/wrapping/layout => plugin formatter
 
 See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).
+
+## TODO
+* Rename this workspace to `@gml-modules/formatter` to reflect the split and clarify ownership boundaries.

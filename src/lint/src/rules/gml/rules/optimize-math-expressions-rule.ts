@@ -11,6 +11,17 @@ import {
     type SourceTextEdit
 } from "../rule-base-helpers.js";
 
+// manual-transforms provide a comprehensive suite of normalization helpers that
+// the linter rule previously replicated only incompletely. We now invoke them
+// directly and print the resulting AST fragment ourselves so the rule can keep
+// its existing text-edit infrastructure and remain synchronous.
+import {
+    applyManualMathNormalization,
+    applyScalarCondensing,
+    simplifyZeroDivisionNumerators
+} from "../transforms/math/traversal-normalization.js";
+import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
+
 const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement } = CoreWorkspace.Core;
 
 type MultiplicativeComponents = Readonly<{
@@ -632,6 +643,105 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
     }
 }
 
+
+/**
+ * Print an arbitrary expression AST back to source text using a very small
+ * subset of the printer logic. The goal is not to be feature complete (Prettier
+ * handles full-program formatting upstream) but rather to produce a syntactically
+ * valid representation with conventional spacing so that the surrounding context
+ * does not look jarring when the linter applies the edit.
+ */
+function printExpression(node: any, sourceText: string): string {
+    if (!node || typeof node !== "object") {
+        return "";
+    }
+
+    switch (node.type) {
+        case "Literal":
+            return String(node.value);
+        case "Identifier":
+            return node.name;
+        case "ParenthesizedExpression": {
+            const inner = node.expression ? printExpression(node.expression, sourceText) : "";
+            return `(${inner})`;
+        }
+        case "BinaryExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "LogicalExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "UnaryExpression": {
+            const arg = printExpression(node.argument, sourceText);
+            if (node.prefix) {
+                return `${node.operator}${arg}`;
+            }
+            return `${arg}${node.operator}`;
+        }
+        case "CallExpression": {
+            const callee = printExpression(node.object || node.callee, sourceText);
+            const args = Array.isArray(node.arguments)
+                ? node.arguments.map((a: any) => printExpression(a, sourceText)).join(", ")
+                : "";
+            return `${callee}(${args})`;
+        }
+        case "MemberDotExpression": {
+            const object = printExpression(node.object, sourceText);
+            const property = printExpression(node.property, sourceText);
+            return `${object}.${property}`;
+        }
+        case "MemberIndexExpression": {
+            const object = printExpression(node.object, sourceText);
+            const index = printExpression(node.index, sourceText);
+            return `${object}[${index}]`;
+        }
+        default: {
+            // fall back to the original source slice if we don't know how to emit
+            const text = readNodeText(sourceText, node);
+            return text || "";
+        }
+    }
+}
+
+/**
+ * Attempt to run the full manual-math normalization pipeline on a single
+ * expression node and return the resulting source text if it changed.
+ */
+function attemptManualNormalization(sourceText: string, node: any): string | null {
+    const clone = CoreWorkspace.Core.cloneAstNode(node);
+    if (!clone) {
+        return null;
+    }
+
+    // run the full math normalization pipeline on the clone
+    const context = { sourceText };
+    applyManualMathNormalization(clone, context as any);
+    applyScalarCondensing(clone, context as any);
+    simplifyZeroDivisionNumerators(clone, context as any);
+    cleanupMultiplicativeIdentityParentheses(clone, context as any);
+
+    const printed = printExpression(clone, sourceText);
+    if (!printed) {
+        return null;
+    }
+
+    const original = readNodeText(sourceText, node) || "";
+    // debug output for every check so we see what the transform is seeing
+    console.log("[opt-math] manualNorm check", JSON.stringify(original), "->", JSON.stringify(printed));
+
+    if (trimOuterParentheses(original) === trimOuterParentheses(printed)) {
+        // nothing changed
+        return null;
+    }
+
+    console.log("[opt-math] manualNorm applied", JSON.stringify(original), "->", JSON.stringify(printed));
+    return printed;
+}
+
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode } = visitContext;
@@ -653,7 +763,13 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
-                let replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                // manual normalization has the broadest coverage; try it first.
+                let replacement = attemptManualNormalization(sourceText, targetNode);
+
+                if (!replacement) {
+                    replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                }
+
                 if (replacement) {
                     // debug: log problematic multiplications involving mousedx or small coefficients
                     if (sourceTextOfNode.includes("mousedx") || replacement.includes("mousedx") || replacement.includes("0.1")) {

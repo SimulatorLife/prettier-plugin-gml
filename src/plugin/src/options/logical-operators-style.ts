@@ -1,3 +1,8 @@
+/*
+ * This module defines the logical operators style option for the Prettier plugin, which controls whether the formatter 
+ * outputs logical operators as keywords (e.g. `and`, `or`) or symbols (e.g. `&&`, `||`). The module provides an 
+ * enumerated set of supported styles.
+ */
 import { Core } from "@gml-modules/core";
 
 const { createEnumeratedOptionHelpers } = Core;

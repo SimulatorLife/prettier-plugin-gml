@@ -14,8 +14,8 @@ const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
-    ? path.resolve(rawDirectory, "..", "fixtures", "plugin-integration")
-    : path.resolve(rawDirectory, "fixtures", "plugin-integration");
+    ? path.resolve(rawDirectory, "..", "fixtures", "integration")
+    : path.resolve(rawDirectory, "fixtures", "integration");
 
 type IntegrationCase = {
     baseName: string;
