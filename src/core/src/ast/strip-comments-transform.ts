@@ -30,13 +30,19 @@ function execute(ast: MutableGameMakerAstNode, options: StripCommentsTransformOp
             }
 
             if (options.stripComments) {
-                const comments = value.comments;
-                if (Array.isArray(comments)) {
-                    const filtered = comments.filter((c) => !isCommentNode(c));
-                    if (filtered.length === 0) {
-                        delete value.comments;
-                    } else {
-                        value.comments = filtered;
+                // Skip root-level comments here; they are handled explicitly
+                // after the walk so we can guarantee the array exists (even if
+                // empty) in the final AST—tests and downstream consumers rely
+                // on `ast.comments` always being a defined array.
+                if (value !== ast) {
+                    const comments = value.comments;
+                    if (Array.isArray(comments)) {
+                        const filtered = comments.filter((c) => !isCommentNode(c));
+                        if (filtered.length === 0) {
+                            delete value.comments;
+                        } else {
+                            value.comments = filtered;
+                        }
                     }
                 }
 
@@ -61,8 +67,11 @@ function execute(ast: MutableGameMakerAstNode, options: StripCommentsTransformOp
         }
     });
 
+    // Process root-level comments last. Filter out comment nodes but preserve
+    // any non-comment entries (e.g., annotations). Always assign back to
+    // `ast.comments` so downstream code finds a defined array.
     if (options.stripComments && Array.isArray(ast.comments)) {
-        ast.comments = [];
+        ast.comments = (ast.comments as unknown[]).filter((c) => !isCommentNode(c));
     }
 
     return ast;

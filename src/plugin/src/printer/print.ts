@@ -417,7 +417,9 @@ function printNodeDocComments(node, path, options) {
 function markDocCommentsAsPrinted(node, path) {
     if (node.docComments) {
         node.docComments.forEach((comment: any) => {
-            comment.printed = true;
+            if (comment && typeof comment === "object") {
+                comment.printed = true;
+            }
         });
     } else {
         const parentNode = safeGetParentNode(path);
@@ -425,7 +427,9 @@ function markDocCommentsAsPrinted(node, path) {
             const grandParentNode = safeGetParentNode(path, 1);
             if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
-                    comment.printed = true;
+                    if (comment && typeof comment === "object") {
+                        comment.printed = true;
+                    }
                 });
             }
         }
@@ -1596,12 +1600,28 @@ function buildTemplateStringParts(atoms, path, print) {
             continue;
         }
 
-        // Lazily print non-text atoms on demand so pure-text templates avoid
-        // allocating the `printedAtoms` array. This helper runs inside the
-        // printer's expression loop, so skipping the extra array and iterator
-        // bookkeeping removes two allocations for mixed templates while keeping
-        // the doc emission identical.
-        parts.push(group(concat(["{", indent(concat([softline, path.call(print, "atoms", index)])), softline, "}"])));
+        const printedAtom = path.call(print, "atoms", index);
+
+        // Complex expressions (ternary, binary, logical) use conditionalGroup:
+        // try the inline form first; if the current line position plus the
+        // expression exceeds printWidth, fall back to the broken form with
+        // the expression indented on the next line.
+        const isComplexAtom =
+            atom?.type === "TernaryExpression" ||
+            atom?.type === "BinaryExpression" ||
+            atom?.type === "LogicalExpression";
+
+        if (isComplexAtom) {
+            const inlineDoc = concat(["{", printedAtom, "}"]);
+            const brokenDoc = concat(["{", indent(concat([softline, printedAtom, softline, "}"]))]);
+            parts.push(conditionalGroup([inlineDoc, brokenDoc]));
+        } else {
+            // Simple atoms (identifiers, literals, member expressions, short
+            // calls) stay inline regardless of line position. Template
+            // strings are inherently long and breaking `{fps}` across lines
+            // hurts readability.
+            parts.push(concat(["{", printedAtom, "}"]));
+        }
     }
 
     parts.push('"');
