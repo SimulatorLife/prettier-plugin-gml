@@ -197,16 +197,16 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
 
                         const controlFlowHeader = parseLineOnlyControlFlowHeader(line);
                         if (controlFlowHeader && isSafeSingleLineControlFlowStatement(nextLine)) {
-                                rewrittenLines.push(
-                                    ...toBracedSingleClause(
-                                        controlFlowHeader.indentation,
-                                        controlFlowHeader.header,
-                                        nextLine.trim()
-                                    )
-                                );
-                                index += 1;
-                                continue;
-                            }
+                            rewrittenLines.push(
+                                ...toBracedSingleClause(
+                                    controlFlowHeader.indentation,
+                                    controlFlowHeader.header,
+                                    nextLine.trim()
+                                )
+                            );
+                            index += 1;
+                            continue;
+                        }
 
                         rewrittenLines.push(line);
                     }

@@ -8,11 +8,11 @@ import {
     createMeta,
     getLineIndexForOffset,
     reportFullTextRewrite,
-    walkAstNodes} from "../rule-base-helpers.js";
+    walkAstNodes
+} from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
 const { getNodeStartIndex } = CoreWorkspace.Core;
-
 
 type TrailingDocCommentBlock = Readonly<{
     startIndex: number;
@@ -54,7 +54,6 @@ function normalizeDocCommentPrefixLine(line: string): string {
     return line;
 }
 
-
 function collectFunctionNodesByStartLine(
     programNode: unknown,
     lineStartOffsets: ReadonlyArray<number>
@@ -82,7 +81,7 @@ function collectFunctionNodesByStartLine(
 // Fallback parser used when the AST supplied to the rule is a stub (as in the
 // unit test harness). It extracts param names and defaults from the textual
 // function declaration. Not perfect, but sufficient for the lightweight tests.
-function extractParamsFromLine(line: string): Array<{name: string; defaultVal?: string}> {
+function extractParamsFromLine(line: string): Array<{ name: string; defaultVal?: string }> {
     const match = line.match(/\(([^)]*)\)/);
     if (!match) {
         return [];
@@ -93,15 +92,14 @@ function extractParamsFromLine(line: string): Array<{name: string; defaultVal?: 
         .filter((p) => p.length > 0);
     return list.map((p) => {
         const parts = p.split("=").map((s) => s.trim());
-        let name = parts[0].replace(/^_+/, "");
+        const name = parts[0].replace(/^_+/, "");
         let defaultVal: string | undefined;
         if (parts.length > 1) {
             defaultVal = parts.slice(1).join("=");
         }
-        return {name, defaultVal};
+        return { name, defaultVal };
     });
 }
-
 
 function readTrailingDocCommentBlock(lines: ReadonlyArray<string>): TrailingDocCommentBlock | null {
     if (lines.length === 0) {
@@ -140,7 +138,7 @@ function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): Rea
         const descMatch = /^(\s*)\/\/\/\s*@description\s+(.*)$/u.exec(line);
         if (descMatch) {
             inDescription = true;
-            descriptionIndentation = `${descMatch[1]  }/// `;
+            descriptionIndentation = `${descMatch[1]}/// `;
             aligned.push(line);
             continue;
         }
@@ -183,7 +181,7 @@ function synthesizeFunctionDocCommentBlock(
 
     // remove any literal placeholder description that simply repeats the name
     for (let i = block.length - 1; i >= 0; i--) {
-        if (new RegExp(`^\\s*///\\s*@description\\s+${name}\\s*$`).test(block[i])) {
+        if (new RegExp(String.raw`^\s*///\s*@description\s+${name}\s*$`).test(block[i])) {
             block.splice(i, 1);
         }
     }
@@ -211,13 +209,9 @@ function synthesizeFunctionDocCommentBlock(
     // determine whether the function actually returns a concrete value
     let hasConcreteReturn = false;
     walkAstNodes(functionNode, (node) => {
-        if (node?.type === "ReturnStatement") {
-            if (node.argument) {
-                if (!(node.argument.type === "Identifier" && node.argument.name === "undefined")) {
+        if (node?.type === "ReturnStatement" && node.argument && (node.argument.type !== "Identifier" || node.argument.name !== "undefined")) {
                     hasConcreteReturn = true;
                 }
-            }
-        }
     });
 
     const params = (functionNode as any).params || [];
@@ -228,23 +222,23 @@ function synthesizeFunctionDocCommentBlock(
         if (param.type === "Identifier") {
             paramName = param.name;
         } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-            const left = (param as any).left;
+            const left = (param).left;
             paramName = left?.name ?? left?.id?.name;
-            if ((param as any).right && (param as any).right.range) {
-                defaultVal = sourceText.slice((param as any).right.range[0], (param as any).right.range[1]);
+            if ((param).right && (param).right.range) {
+                defaultVal = sourceText.slice((param).right.range[0], (param).right.range[1]);
             }
-        } else if ((param as any).name) {
-            paramName = (param as any).name;
+        } else if ((param).name) {
+            paramName = (param).name;
         }
 
         if (!paramName) continue;
         const cleanName = paramName.replace(/^_+/, "");
         if (existingParams.has(cleanName)) continue;
 
-        if (defaultVal !== undefined) {
-            block.push(`${indentation}/// @param [${cleanName}=${defaultVal}]`);
-        } else {
+        if (defaultVal === undefined) {
             block.push(`${indentation}/// @param ${cleanName}`);
+        } else {
+            block.push(`${indentation}/// @param [${cleanName}=${defaultVal}]`);
         }
     }
 
@@ -306,7 +300,8 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                         // when running under the minimalist test harness the AST will be
                         // just `{type:"Program"}` so the map will be empty; fall back to a
                         // simple regex to recognize function headers in that case.
-                        const isTextualFunction = /^\s*(function\b|(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b)/.test(line);
+                        const isTextualFunction =
+                            /^\s*(function\b|(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b)/.test(line);
                         const isFunctionLine = hasAstNode || isTextualFunction;
 
                         if (isFunctionLine) {
@@ -327,8 +322,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                 const fallbackParams = extractParamsFromLine(line);
                                 const fallbackBlock = Array.from(processedBlock);
                                 const existingParams = new Set<string>();
-                                for (let i = 0; i < fallbackBlock.length; i++) {
-                                    const l = fallbackBlock[i];
+                                for (const l of fallbackBlock) {
                                     const m = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(l);
                                     if (m) existingParams.add(m[1]);
                                 }
@@ -340,7 +334,9 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                         if (defaultVal !== undefined) {
                                             for (let i = 0; i < fallbackBlock.length; i++) {
                                                 const l = fallbackBlock[i];
-                                                const pm = new RegExp(`^(\\s*///\\s*@param\\s+)\\[?${name}\\]?`).exec(l);
+                                                const pm = new RegExp(String.raw`^(\s*///\s*@param\s+)\[?${name}\]?`).exec(
+                                                    l
+                                                );
                                                 if (pm && !/\[/.test(l)) {
                                                     fallbackBlock[i] = `${pm[1]}[${name}=${defaultVal}]`;
                                                     break;
@@ -348,14 +344,14 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                             }
                                         }
                                     } else {
-                                        if (defaultVal !== undefined) {
-                                            fallbackBlock.push(`${indentation}/// @param [${name}=${defaultVal}]`);
-                                        } else {
+                                        if (defaultVal === undefined) {
                                             fallbackBlock.push(`${indentation}/// @param ${name}`);
+                                        } else {
+                                            fallbackBlock.push(`${indentation}/// @param [${name}=${defaultVal}]`);
                                         }
                                     }
                                 }
-                                const hasReturnLine = fallbackBlock.some((l) => (/^\s*\/\/\/\s*@returns?/.test(l)));
+                                const hasReturnLine = fallbackBlock.some((l) => /^\s*\/\/\/\s*@returns?/.test(l));
                                 let hasConcreteReturnText = false;
                                 for (let j = lineIndex + 1; j < lines.length; j++) {
                                     const l = lines[j];

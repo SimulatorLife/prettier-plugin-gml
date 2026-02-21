@@ -52,13 +52,7 @@ export const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
     "CallExpression"
 ]);
 
-export const MULTIPLICATIVE_BINARY_OPERATORS = new Set([
-    "*",
-    "/",
-    "div", 
-    "%",
-    "mod"
-]);
+export const MULTIPLICATIVE_BINARY_OPERATORS = new Set(["*", "/", "div", "%", "mod"]);
 
 // String constants to avoid duplication warnings
 export const STRING_TYPE = "string";

@@ -8,7 +8,8 @@ import {
     getNodeStartIndex,
     isAstNodeRecord,
     isAstNodeWithType,
-    walkAstNodes} from "../rule-base-helpers.js";
+    walkAstNodes
+} from "../rule-base-helpers.js";
 import { readObjectOption } from "../rule-helpers.js";
 
 type LoopLengthAccessorCall = Readonly<{

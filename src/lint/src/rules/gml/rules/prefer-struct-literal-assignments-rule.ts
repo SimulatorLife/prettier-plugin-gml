@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { reportMissingProjectContextOncePerFile,resolveProjectContextForRule } from "../../project-context.js";
+import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../../project-context.js";
 import {
     computeLineStartOffsets,
     createMeta,

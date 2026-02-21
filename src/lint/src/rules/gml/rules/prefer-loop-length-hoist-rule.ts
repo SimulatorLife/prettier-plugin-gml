@@ -12,7 +12,8 @@ import {
     isAstNodeRecord,
     type SourceTextEdit,
     walkAstNodes,
-    walkAstNodesWithParent} from "../rule-base-helpers.js";
+    walkAstNodesWithParent
+} from "../rule-base-helpers.js";
 import { dominantLineEnding, isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
 
 const DEFAULT_HOIST_ACCESSORS = Object.freeze({

@@ -11,7 +11,10 @@ void describe("define directive normalization", () => {
         const expected = "#macro LEGACY_MACRO 123456789\n";
 
         const rule = Lint.plugin.rules["normalize-directives"];
-        const messages: Array<{ messageId: string; fix?: Array<{ kind: string; range: [number, number]; text: string }> }> = [];
+        const messages: Array<{
+            messageId: string;
+            fix?: Array<{ kind: string; range: [number, number]; text: string }>;
+        }> = [];
 
         const context = {
             options: [{}],
@@ -24,7 +27,10 @@ void describe("define directive normalization", () => {
                     }
                 };
                 const fix = descriptor.fix?.(fixer);
-                messages.push({ messageId: descriptor.messageId, fix: fix ? (Array.isArray(fix) ? fix : [fix]) : undefined });
+                messages.push({
+                    messageId: descriptor.messageId,
+                    fix: fix ? (Array.isArray(fix) ? fix : [fix]) : undefined
+                });
             }
         };
 

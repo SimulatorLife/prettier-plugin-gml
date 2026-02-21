@@ -2,14 +2,15 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { reportMissingProjectContextOncePerFile,resolveProjectContextForRule } from "../../project-context.js";
+import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../../project-context.js";
 import {
     type AstNodeRecord,
     createMeta,
     findFirstChangedCharacterOffset,
     getNodeEndIndex,
     getNodeStartIndex,
-    isAstNodeRecord} from "../rule-base-helpers.js";
+    isAstNodeRecord
+} from "../rule-base-helpers.js";
 import { isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
 
 type TextEdit = Readonly<{

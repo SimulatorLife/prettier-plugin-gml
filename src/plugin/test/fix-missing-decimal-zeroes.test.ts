@@ -155,13 +155,7 @@ void test("pads bare decimals in array literals and function calls", async () =>
 });
 
 void test("does not rewrite numeric literals embedded in strings", async () => {
-    const source = [
-        "function coefficients() {",
-        "    var s = \".5 5. 0.\";",
-        "    return s;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function coefficients() {", '    var s = ".5 5. 0.";', "    return s;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
 
@@ -209,13 +203,6 @@ void test("pads bare decimals after unary operators", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "function coefficients() {",
-            "    var a = -0.5;",
-            "    var b = +0.5;",
-            "    return a + b;",
-            "}",
-            ""
-        ].join("\n")
+        ["function coefficients() {", "    var a = -0.5;", "    var b = +0.5;", "    return a + b;", "}", ""].join("\n")
     );
 });

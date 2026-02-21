@@ -1,8 +1,8 @@
-import type { Rule } from "eslint";
 import { Core } from "@gml-modules/core";
+import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, getNodeEndIndex,getNodeStartIndex } from "../rule-base-helpers.js";
+import { createMeta, getNodeEndIndex, getNodeStartIndex } from "../rule-base-helpers.js";
 
 export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({

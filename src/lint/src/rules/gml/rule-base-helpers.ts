@@ -12,7 +12,7 @@ const {
     getCallExpressionArguments
 } = CoreWorkspace.Core;
 
-export { getCallExpressionArguments,getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
+export { getCallExpressionArguments, getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 
 export function getLineStartOffset(sourceText: string, offset: number): number {
     return sourceText.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;

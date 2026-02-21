@@ -28,11 +28,7 @@ type NodeRange = {
  * @param {"index" | "line"} field Specific numeric field to extract.
  * @returns {number | null} Normalized numeric location or `null`.
  */
-function getLocationNumber(
-    node: unknown,
-    key: LocationKey,
-    field: LocationField
-): number | null {
+function getLocationNumber(node: unknown, key: LocationKey, field: LocationField): number | null {
     return withObjectLike(
         node,
         (nodeObject) => {
@@ -65,9 +61,7 @@ function getLocationNumber(
  * @param {unknown} node Potential AST node.
  * @returns {boolean} Whether the node is a supported member expression.
  */
-function isMemberExpressionNode(
-    node: unknown
-): node is { type?: string; object?: unknown } {
+function isMemberExpressionNode(node: unknown): node is { type?: string; object?: unknown } {
     if (!isObjectLike(node)) {
         return false;
     }
@@ -75,11 +69,7 @@ function isMemberExpressionNode(
     const nodeObject = node as { type?: unknown };
     const type = nodeObject.type;
 
-    return (
-        typeof type === "string" &&
-        (type === "MemberDotExpression" ||
-            type === "MemberIndexExpression")
-    );
+    return typeof type === "string" && (type === "MemberDotExpression" || type === "MemberIndexExpression");
 }
 
 /**
@@ -103,14 +93,10 @@ function getNodeStartIndex(node: unknown): number | null {
         object?: unknown;
     };
 
-    const isMemberAccess =
-        isMemberExpressionNode(nodeWithType) &&
-        nodeWithType.object;
+    const isMemberAccess = isMemberExpressionNode(nodeWithType) && nodeWithType.object;
 
     if (isMemberAccess) {
-        const objectStart = getNodeStartIndex(
-            nodeWithType.object
-        );
+        const objectStart = getNodeStartIndex(nodeWithType.object);
 
         if (typeof objectStart === "number") {
             return objectStart;
@@ -138,9 +124,7 @@ function getNodeEndIndex(node: unknown): number | null {
 
     const fallbackStart = getNodeStartIndex(node);
 
-    return typeof fallbackStart === "number"
-        ? fallbackStart
-        : null;
+    return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
 /**
@@ -179,9 +163,7 @@ function getNodeRangeIndices(node: unknown): NodeRange {
  * @param {TLocation | undefined} location Location object or primitive.
  * @returns {TLocation | undefined} Cloned location.
  */
-function cloneLocation<TLocation = unknown>(
-    location?: TLocation
-): TLocation | undefined {
+function cloneLocation<TLocation = unknown>(location?: TLocation): TLocation | undefined {
     if (isObjectLike(location)) {
         return structuredClone(location);
     }
@@ -221,22 +203,17 @@ function assignClonedLocation<TTarget extends AstNode>(
                     } = {};
 
                     if (Object.hasOwn(templateNode, "start")) {
-                        clonedLocations.start =
-                            cloneLocation(templateNode.start);
+                        clonedLocations.start = cloneLocation(templateNode.start);
                         shouldAssign = true;
                     }
 
                     if (Object.hasOwn(templateNode, "end")) {
-                        clonedLocations.end =
-                            cloneLocation(templateNode.end);
+                        clonedLocations.end = cloneLocation(templateNode.end);
                         shouldAssign = true;
                     }
 
                     if (shouldAssign) {
-                        Object.assign(
-                            mutableTarget,
-                            clonedLocations
-                        );
+                        Object.assign(mutableTarget, clonedLocations);
                     }
 
                     return mutableTarget;
@@ -256,11 +233,7 @@ function assignClonedLocation<TTarget extends AstNode>(
  * @param {...(object|number|null|undefined)} candidates
  * @returns {object | null}
  */
-function getPreferredLocation(
-    ...candidates: Array<
-        LocationObject | number | null | undefined
-    >
-): LocationObject | null {
+function getPreferredLocation(...candidates: Array<LocationObject | number | null | undefined>): LocationObject | null {
     for (const candidate of candidates) {
         if (candidate == null) {
             continue;
@@ -297,10 +270,7 @@ function getNodeStartLine(node: unknown): number | null {
  * @returns {number | null} Line index or `null`.
  */
 function getNodeEndLine(node: unknown): number | null {
-    return (
-        getLocationNumber(node, "end", "line") ??
-        getLocationNumber(node, "start", "line")
-    );
+    return getLocationNumber(node, "end", "line") ?? getLocationNumber(node, "start", "line");
 }
 
 export {

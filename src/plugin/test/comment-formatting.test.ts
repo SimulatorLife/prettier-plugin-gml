@@ -154,31 +154,13 @@ void test("preserves adjacent non-decorative block comment blocks as separate bl
 });
 
 void test("preserves adjacent non-decorative block comment blocks at top level as separate blocks", async () => {
-    const source = [
-        "/*",
-        "Block docs",
-        "*/",
-        "/*",
-        "Return an array",
-        "*/",
-        "function demo() {}",
-        ""
-    ].join("\n");
+    const source = ["/*", "Block docs", "*/", "/*", "Return an array", "*/", "function demo() {}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
 
     assert.equal(
         formatted,
-        [
-            "/*",
-            "    Block docs",
-            "*/",
-            "/*",
-            "    Return an array",
-            "*/",
-            "function demo() {}",
-            ""
-        ].join("\n")
+        ["/*", "    Block docs", "*/", "/*", "    Return an array", "*/", "function demo() {}", ""].join("\n")
     );
 });
 

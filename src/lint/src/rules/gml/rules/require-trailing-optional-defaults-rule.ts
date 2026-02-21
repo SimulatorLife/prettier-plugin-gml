@@ -8,7 +8,8 @@ import {
     isAstNodeRecord,
     reportFullTextRewrite,
     type SourceTextEdit,
-    walkAstNodes} from "../rule-base-helpers.js";
+    walkAstNodes
+} from "../rule-base-helpers.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = CoreWorkspace.Core;
 

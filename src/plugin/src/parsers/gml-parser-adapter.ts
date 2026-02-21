@@ -16,7 +16,7 @@ function parse(text: string): MutableGameMakerAstNode {
     const ast = Parser.GMLParser.parse(text, PARSER_OPTIONS) as MutableGameMakerAstNode;
 
     if (!Core.isObjectLike(ast)) {
-        throw new Error("GameMaker parser returned no AST for the provided source.");
+        throw new TypeError("GameMaker parser returned no AST for the provided source.");
     }
 
     return ast;
@@ -39,4 +39,4 @@ export const gmlParserAdapter = {
     astFormat: "gml-ast" as const,
     locStart,
     locEnd
-}
+};

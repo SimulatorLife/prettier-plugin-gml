@@ -733,25 +733,26 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
 
         if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
             targetNode = visitedNode.init;
-        } else switch (visitedNode.type) {
- case "AssignmentExpression": {
-            targetNode = visitedNode.right;
-        
- break;
- }
- case "IfStatement": {
-            targetNode = visitedNode.test;
-            isIfTest = true;
-        
- break;
- }
- case "BinaryExpression": {
-            targetNode = visitedNode;
-        
- break;
- }
- // No default
- }
+        } else
+            switch (visitedNode.type) {
+                case "AssignmentExpression": {
+                    targetNode = visitedNode.right;
+
+                    break;
+                }
+                case "IfStatement": {
+                    targetNode = visitedNode.test;
+                    isIfTest = true;
+
+                    break;
+                }
+                case "BinaryExpression": {
+                    targetNode = visitedNode;
+
+                    break;
+                }
+                // No default
+            }
 
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);

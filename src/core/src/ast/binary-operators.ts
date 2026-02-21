@@ -42,43 +42,43 @@ export const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
     "*": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
     "/": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
-    "div": { prec: 13, assoc: "left", type: "arithmetic", style: "keyword" }, // Note: `div` is integer division in GML; it is not an alias for `/`
+    div: { prec: 13, assoc: "left", type: "arithmetic", style: "keyword" }, // Note: `div` is integer division in GML; it is not an alias for `/`
     "%": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
-    "mod": { prec: 13, assoc: "left", type: "arithmetic", style: "keyword", canonical: "%" }, // `mod` is an alias for `%` in GML
+    mod: { prec: 13, assoc: "left", type: "arithmetic", style: "keyword", canonical: "%" }, // `mod` is an alias for `%` in GML
     "+": { prec: 12, assoc: "left", type: "arithmetic", style: "symbol" }, // Addition
     "-": { prec: 12, assoc: "left", type: "arithmetic", style: "symbol" }, // Subtraction
     "<<": { prec: 12, assoc: "left", type: "bitwise", style: "symbol" },
     ">>": { prec: 12, assoc: "left", type: "bitwise", style: "symbol" },
     "&": { prec: 11, assoc: "left", type: "bitwise", style: "symbol" },
-    "^": { prec: 10, assoc: "left", type: "bitwise", style:"symbol" },
-    "|": { prec: 9, assoc:"left", type:"bitwise", style:"symbol" },
+    "^": { prec: 10, assoc: "left", type: "bitwise", style: "symbol" },
+    "|": { prec: 9, assoc: "left", type: "bitwise", style: "symbol" },
     "<": { prec: 8, assoc: "left", type: "comparison", style: "symbol" },
     "<=": { prec: 8, assoc: "left", type: "comparison", style: "symbol" },
     ">": { prec: 8, assoc: "left", type: "comparison", style: "symbol" },
     ">=": { prec: 8, assoc: "left", type: "comparison", style: "symbol" },
     "==": { prec: 7, assoc: "left", type: "comparison", style: "symbol" },
-    "!=": { prec: 7, assoc: "left", type: "comparison", style:"symbol" },
+    "!=": { prec: 7, assoc: "left", type: "comparison", style: "symbol" },
     "<>": { prec: 7, assoc: "left", type: "comparison", style: "symbol" },
     "&&": { prec: 6, assoc: "left", type: "logical", style: "symbol" },
-    "and": { prec: 6, assoc: "left", type: "logical", style: "keyword", canonical: "&&" },
-    "^^": { prec: 5, assoc: "left", type: "logical", style:"symbol" },
-    "xor": { prec: 5, assoc: "left", type: "logical", style:"keyword", canonical: "^^" },
-    "||": { prec: 4, assoc: "left", type: "logical", style:"symbol" },
-    "or": { prec: 4, assoc: "left", type: "logical", style:"keyword", canonical: "||" },
-    "??": { prec: 4, assoc: "right", type: "logical", style:"symbol" }, // Nullish coalescing
-    "*=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    ":=": { prec: 1, assoc: "right", type: "assign", style:"symbol" }, // Equivalent to "=" in GML
-    "=": { prec: 1, assoc: "right", type: "assign", style:"symbol" }, // Also handles single-equals comparisons (normalized to "==")
-    "/=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "%=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "+=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "-=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "<<=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    ">>=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "&=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "^=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "|=": { prec: 1, assoc: "right", type: "assign", style:"symbol" },
-    "??=": { prec: 1, assoc: "right", type: "assign", style:"symbol" } // Nullish coalescing assignment
+    and: { prec: 6, assoc: "left", type: "logical", style: "keyword", canonical: "&&" },
+    "^^": { prec: 5, assoc: "left", type: "logical", style: "symbol" },
+    xor: { prec: 5, assoc: "left", type: "logical", style: "keyword", canonical: "^^" },
+    "||": { prec: 4, assoc: "left", type: "logical", style: "symbol" },
+    or: { prec: 4, assoc: "left", type: "logical", style: "keyword", canonical: "||" },
+    "??": { prec: 4, assoc: "right", type: "logical", style: "symbol" }, // Nullish coalescing
+    "*=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    ":=": { prec: 1, assoc: "right", type: "assign", style: "symbol" }, // Equivalent to "=" in GML
+    "=": { prec: 1, assoc: "right", type: "assign", style: "symbol" }, // Also handles single-equals comparisons (normalized to "==")
+    "/=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "%=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "+=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "-=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "<<=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    ">>=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "&=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "^=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "|=": { prec: 1, assoc: "right", type: "assign", style: "symbol" },
+    "??=": { prec: 1, assoc: "right", type: "assign", style: "symbol" } // Nullish coalescing assignment
 };
 
 // Cached reverse index derived once at module init.

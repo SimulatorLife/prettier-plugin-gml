@@ -30,11 +30,7 @@ void describe("normalization spacing", () => {
     });
 
     void it("does not add newlines in an empty region", async () => {
-        const source = [
-            "#region Utility Scripts",
-            "#endregion Utility Scripts",
-            ""
-        ].join("\n");
+        const source = ["#region Utility Scripts", "#endregion Utility Scripts", ""].join("\n");
 
         const formatted = await Plugin.format(source);
         assert.strictEqual(source, formatted, "Expected the formatter to not add newlines in an empty region.");
@@ -43,7 +39,11 @@ void describe("normalization spacing", () => {
     void it("normalizes canonical #macro name separator spacing to a single space (1)", async () => {
         const input = "#macro    MY_CONSTANT    42\n";
         const output = await Plugin.format(input, {});
-        assert.strictEqual(output, "#macro MY_CONSTANT 42\n", "Expected the formatter to trim extra whitespace from the #macro directive.");
+        assert.strictEqual(
+            output,
+            "#macro MY_CONSTANT 42\n",
+            "Expected the formatter to trim extra whitespace from the #macro directive."
+        );
     });
 
     void it("normalizes canonical #macro name separator spacing to a single space (2)", async () => {

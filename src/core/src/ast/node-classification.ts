@@ -48,11 +48,7 @@ function normalizeDefineReplacementDirectiveValue(rawDirective: unknown): Define
 
     const normalizedDirective = trimmedDirective.toLowerCase();
     if (!Object.hasOwn(DEFINE_REPLACEMENT_DIRECTIVE_MAP, normalizedDirective)) {
-        throw new RangeError(
-            `Invalid define-replacement directive. Received: ${JSON.stringify(
-                trimmedDirective
-            )}.`
-        );
+        throw new RangeError(`Invalid define-replacement directive. Received: ${JSON.stringify(trimmedDirective)}.`);
     }
 
     return normalizedDirective as DefineReplacementDirective;

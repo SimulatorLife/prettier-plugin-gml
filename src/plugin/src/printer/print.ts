@@ -18,8 +18,25 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
-import { printComment, printDanglingComments, printDanglingCommentsAsGroup, buildPrintableDocCommentLines } from "../comments/index.js";
-import { TRAILING_COMMA, LogicalOperatorsStyle, normalizeLogicalOperatorsStyle, ObjectWrapOption, resolveObjectWrapOption } from "../options/index.js";
+import {
+    buildPrintableDocCommentLines,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup} from "../comments/index.js";
+import {
+    LogicalOperatorsStyle,
+    normalizeLogicalOperatorsStyle,
+    ObjectWrapOption,
+    resolveObjectWrapOption,
+    TRAILING_COMMA} from "../options/index.js";
+import {
+    INLINEABLE_SINGLE_STATEMENT_TYPES,
+    MULTIPLICATIVE_BINARY_OPERATORS,
+    NUMBER_TYPE,
+    OBJECT_TYPE,
+    PRESERVED_GLOBAL_VAR_NAMES,
+    STRING_TYPE,
+    UNDEFINED_TYPE} from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -47,7 +64,6 @@ import {
 } from "./semicolons.js";
 import {
     getOriginalTextFromOptions,
-    hasBlankLineAfterOpeningBrace,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
@@ -66,31 +82,16 @@ import {
     hasLineBreak,
     isArgumentAssignment,
     isCallbackArgument,
-    isCallExpressionSanitized,
     isComplexArgumentNode,
-    isControlFlowLogicalTest,
-    isDecorativeBlockComment,
     isInlineEmptyBlockComment,
     isInLValueChain,
     isInsideConstructorFunction,
     isLogicalComparisonClause,
-    isNumericCallExpression,
     isNumericComputationNode,
-    isSelfMultiplicationExpression,
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled,
     isValidIdentifierName
 } from "./type-guards.js";
-
-import {
-    MULTIPLICATIVE_BINARY_OPERATORS,
-    INLINEABLE_SINGLE_STATEMENT_TYPES,
-    STRING_TYPE,
-    OBJECT_TYPE,
-    NUMBER_TYPE,
-    UNDEFINED_TYPE,
-    PRESERVED_GLOBAL_VAR_NAMES
-} from "./constants.js";
 
 // TODO: Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -150,9 +151,7 @@ function applyLogicalOperatorsStyle(operator, style) {
     const entry = Core.OPERATOR_ALIAS_MAP[operator];
     if (!entry) return operator;
 
-    return style === LogicalOperatorsStyle.KEYWORDS
-        ? entry.keyword
-        : entry.symbol;
+    return style === LogicalOperatorsStyle.KEYWORDS ? entry.keyword : entry.symbol;
 }
 
 function _printImpl(path, options, print) {
@@ -370,7 +369,7 @@ function printFunctionSignature(node, path, options, print) {
 }
 
 function printFunctionId(node, _path, _options, print) {
-    return (node.id ? print("id") : null);
+    return node.id ? print("id") : null;
 }
 
 function printFunctionParameters(node, path, options, print) {
@@ -590,7 +589,7 @@ function printParenthesizedExpressionNode(node, path, options, print) {
 
 function printBinaryExpressionNode(node, path, options, print) {
     const left = print("left");
-    let operator = node.operator;
+    const operator = node.operator;
     let right;
 
     const logicalOperatorsStyle = normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
@@ -640,7 +639,13 @@ function printCallExpressionNode(node, path, options, print) {
         const startIndex = Core.getNodeStartIndex(node);
         const endIndex = Core.getNodeEndIndex(node);
 
-        if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE && endIndex > startIndex && node.preserveOriginalCallText && !hasNestedPreservedArguments) {
+        if (
+            typeof startIndex === NUMBER_TYPE &&
+            typeof endIndex === NUMBER_TYPE &&
+            endIndex > startIndex &&
+            node.preserveOriginalCallText &&
+            !hasNestedPreservedArguments
+        ) {
             return normalizeCallTextNewlines(options.originalText.slice(startIndex, endIndex), options.endOfLine);
         }
     }
@@ -979,17 +984,12 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof nameEnd === NUMBER_TYPE &&
                 nameStart >= macroStart &&
                 nameEnd >= nameStart
-            ) {
-                if (Core.isNonEmptyString(node.name)) {
+             && Core.isNonEmptyString(node.name)) {
                     const relativeStart = nameStart - macroStart;
                     const relativeEnd = nameEnd - macroStart;
 
-                    text =
-                        text.slice(0, relativeStart) +
-                        node.name +
-                        text.slice(relativeEnd);
+                    text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
                 }
-            }
 
             return concat(stripTrailingLineTerminators(text));
         }
@@ -2003,7 +2003,12 @@ function addLeadingStatementSpacing({
 
     const hasLeadingComment = isTopLevel ? Core.hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex) : false;
 
-    if (isTopLevel && index > 0 && !util.isPreviousLineEmpty(options.originalText, nodeStartIndex) && !hasLeadingComment) {
+    if (
+        isTopLevel &&
+        index > 0 &&
+        !util.isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
+        !hasLeadingComment
+    ) {
         parts.push(hardline);
     }
 }
@@ -2166,10 +2171,9 @@ function handleIntermediateTrailingSpacing({
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
 
-    const nextLineEmpty =
-        suppressFollowingEmptyLine
-            ? false
-            : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
+    const nextLineEmpty = suppressFollowingEmptyLine
+        ? false
+        : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
@@ -3656,7 +3660,7 @@ function needsParensForNegation(node) {
         return needsParensForNegation(node.expression);
     }
 
-    return [ BINARY_EXPRESSION, ASSIGNMENT_EXPRESSION, TERNARY_EXPRESSION, LOGICAL_EXPRESSION].includes(node.type);
+    return [BINARY_EXPRESSION, ASSIGNMENT_EXPRESSION, TERNARY_EXPRESSION, LOGICAL_EXPRESSION].includes(node.type);
 }
 
 function ensurePreservedGlobalVarNames(options, statements) {

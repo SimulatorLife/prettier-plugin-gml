@@ -6,11 +6,7 @@ import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 
-const REQUIRED_KEYS = [
-    "gmlParserAdapter",
-    "print",
-    "LogicalOperatorsStyle"
-];
+const REQUIRED_KEYS = ["gmlParserAdapter", "print", "LogicalOperatorsStyle"];
 
 void test("default dependency bundle exposes canonical components", () => {
     const resolved = defaultGmlPluginComponentImplementations;

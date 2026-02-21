@@ -1,3 +1,4 @@
+export * from "./binary-operators.js";
 export * from "./estree-converter.js";
 export * from "./index-adjustments.js";
 export * from "./location-keys.js";
@@ -11,7 +12,6 @@ export * from "./parser-transform.js";
 export * from "./scope-tracker.js";
 export * from "./strip-comments-transform.js";
 export * from "./type-guards.js";
-export * from "./binary-operators.js";
 export type {
     FeatherFixDetail,
     FeatherFixRange,

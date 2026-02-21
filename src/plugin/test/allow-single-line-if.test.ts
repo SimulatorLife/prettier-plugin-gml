@@ -70,7 +70,7 @@ void test("preserves blank line after expanding single-line if statement", async
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, {allowSingleLineIfStatements: false});
+    const formatted = await Plugin.format(source, { allowSingleLineIfStatements: false });
 
     assert.strictEqual(
         formatted.trim(),
