@@ -27,8 +27,10 @@ Key constants include:
 These constants are used throughout the plugin to ensure consistent behavior. Users can override formatting defaults through Prettier's standard options (e.g., `printWidth`, `tabWidth`).
 
 ## Formatting Conventions
-- Prettier always formats functions with a space before the parameter list `function (o) {}`, but never for function calls `fn(o)`. This behavior is fixed and not configurable. For a function name and its parameter list (e.g. `function foo(x) {}`) Prettier does NOT add a space. We should use the same style/convention in this plugin.
+- Prettier always formats functions with a space before the parameter list `function (o) {}`, but never for function calls `fn(o)`. This behavior is fixed and not configurable. For a function name and its parameter list (e.g. `function foo(x) {}`) Prettier does NOT add a space. This plugin uses the same style convention.
 - Comments are never broken up or reflowed to fit the `printWidth` setting. This aligns with Prettier's default behavior for comments, preserving the developer's original line structure and preventing unintended corruption of commented-out code or manual formatting.
+- The plugin does not introduce additional line breaks or blank lines beyond what Prettier's core engine generates based on the document shape and `printWidth`. This means that struct literals, argument lists, and other constructs will wrap according to Prettier's standard rules without custom thresholds for the number of properties or parameters per line.
+- Like Prettier, this plugin *does* remove redundant parentheses, but it does not add new ones for readability. For example, expressions like `a + (b * c)` are formatted as `a + b * c`. Prettier is opinionated about layout and minimal syntax, but it avoids adding new structural elements like parentheses because that crosses from formatting into rewriting the code’s AST.
 
 ## Deprecated And Removed Options
 - `maxStructPropertiesPerLine` was removed on February 7, 2026.

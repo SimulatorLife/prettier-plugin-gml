@@ -1860,9 +1860,6 @@ function buildStatementPartsForPrinter({
 }) {
     const parts: any[] = [];
     const node = childPath.getValue();
-    // Defensive: some transforms may leave holes or null entries in the
-    // statements array. Skip nullish nodes rather than attempting to
-    // dereference their type (which previously caused a TypeError).
     if (!node) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
@@ -3834,7 +3831,7 @@ function shouldOmitSyntheticParens(path, _options) {
 
         if (
             childInfo !== undefined &&
-            childInfo.precedence > parentInfo.precedence &&
+            childInfo.prec > parentInfo.prec &&
             shouldFlattenComparisonLogicalTest(parent, expression, path)
         ) {
             return true;
@@ -3849,7 +3846,7 @@ function shouldOmitSyntheticParens(path, _options) {
     if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
-        if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
+        if (childInfo !== undefined && childInfo.prec > parentInfo.prec) {
             const numericDecision = evaluateNumericBinaryFlattening(parent, expression, path);
             if (numericDecision === "allow") {
                 return true;

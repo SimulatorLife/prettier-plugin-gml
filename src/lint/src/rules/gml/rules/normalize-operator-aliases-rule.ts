@@ -10,7 +10,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
         create(context) {
             return Object.freeze({
                 BinaryExpression(node) {
-                    const normalized = Core.OPERATOR_ALIAS_PAIRS.get(node.operator);
+                    const normalized = Core.OPERATOR_ALIAS_MAP.get(node.operator);
                     if (normalized) {
                         const start = getNodeStartIndex(node);
                         const end = getNodeEndIndex(node);
@@ -24,7 +24,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                     }
                 },
                 UnaryExpression(node) {
-                    const normalized = OPERATOR_ALIASES.get(node.operator);
+                    const normalized = Core.OPERATOR_OPERATORS.get(node.operator);
                     if (normalized) {
                         context.report({
                             node,
