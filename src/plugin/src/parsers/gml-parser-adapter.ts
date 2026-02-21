@@ -226,17 +226,13 @@ function applyFinalTransforms(
     ast: MutableGameMakerAstNode,
     _context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined,
-    originalSource: string
+    _originalSource: string
 ): void {
     if (options?.stripComments) {
         Transforms.stripCommentsTransform.transform(ast);
     }
 
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
-
-    Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
-        originalText: options?.originalText ?? originalSource
-    });
 }
 
 function getParserLocStart(node: MutableGameMakerAstNode): number {
