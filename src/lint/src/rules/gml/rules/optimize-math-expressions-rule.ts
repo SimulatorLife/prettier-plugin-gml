@@ -8,7 +8,8 @@ import {
     isAstNodeRecord,
     reportFullTextRewrite,
     type SourceTextEdit,
-    walkAstNodesWithParent} from "../rule-base-helpers.js";
+    walkAstNodesWithParent
+} from "../rule-base-helpers.js";
 import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
 // manual-transforms provide a comprehensive suite of normalization helpers that
 // the linter rule previously replicated only incompletely. We now invoke them
@@ -42,23 +43,6 @@ function unwrapParenthesized(node: any): any {
     return current;
 }
 
-function parseNumericLiteral(node: any): number | null {
-    if (!node || node.type !== "Literal") {
-        return null;
-    }
-
-    if (typeof node.value === "number" && Number.isFinite(node.value)) {
-        return node.value;
-    }
-
-    if (typeof node.value === "string") {
-        const parsed = Number(node.value);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    return null;
-}
-
 function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
     if (!unwrapped) {
@@ -72,7 +56,7 @@ function tryEvaluateExpression(node: any): any {
         if (unwrapped.value === "false") {
             return false;
         }
-        const num = parseNumericLiteral(unwrapped);
+        const num = CoreWorkspace.Core.getLiteralNumberValue(unwrapped);
         if (num !== null) {
             return num;
         }
@@ -249,7 +233,7 @@ function collectMultiplicativeComponents(sourceText: string, node: any): Multipl
         return null;
     }
 
-    const num = parseNumericLiteral(unwrapped);
+    const num = CoreWorkspace.Core.getLiteralNumberValue(unwrapped);
     if (num !== null) {
         return { coefficient: num, factors: new Map() };
     }
@@ -411,26 +395,26 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     // matches the majority of realistic use cases; the integration tests depend
     // on it.
     rewritten = rewritten.replaceAll(
-        /sqrt\(\s*([A-Za-z0-9_\.\[\]]+)\s*\*\s*\1\s*\+\s*([A-Za-z0-9_\.\[\]]+)\s*\*\s*\2\s*\+\s*([A-Za-z0-9_\.\[\]]+)\s*\*\s*\3\s*\)/g,
+        /sqrt\(\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\1\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\2\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\3\s*\)/g,
         "point_distance_3d(0, 0, 0, $1, $2, $3)"
     );
 
     // Collapse explicit undefined guard multiplication into the nullish-coalescing
     // shorthand.
     rewritten = rewritten.replaceAll(
-        /if\s*\(\s*!is_undefined\(\s*([A-Za-z0-9_\.]+)\s*\)\s*\)\s*\{\s*([A-Za-z0-9_\.]+)\s*\*\=\s*\1\s*;\s*\}/g,
+        /if\s*\(\s*!is_undefined\(\s*([A-Za-z0-9_.]+)\s*\)\s*\)\s*\{\s*([A-Za-z0-9_.]+)\s*\*=\s*\1\s*;\s*\}/g,
         "$2 *= $1 ?? 1;"
     );
 
     // Replace zero-checks with epsilon comparisons so floating point logic is more
     // robust. This corresponds to the transformation exercised by
     // `testFunctions`.
-    rewritten = rewritten.replaceAll(/if\s*\(\s*([A-Za-z0-9_\.]+)\s*!=\s*0\s*\)/g, "if (abs($1) > math_get_epsilon())");
+    rewritten = rewritten.replaceAll(/if\s*\(\s*([A-Za-z0-9_.]+)\s*!=\s*0\s*\)/g, "if (abs($1) > math_get_epsilon())");
 
     return rewritten;
 }
 
-function getVariableDeclarator(statement: unknown): any | null {
+function getVariableDeclarator(statement: unknown): any {
     if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
         return null;
     }
@@ -532,31 +516,41 @@ function performHalfLengthdirOptimizations(bodyStatements: any[], sourceText: st
     }
 }
 
+/**
+ * Schedule a source-text removal for {@link node} by pushing an edit that blanks the
+ * node's text span, including any trailing semicolons, horizontal whitespace, and the
+ * immediately following newline so the output stays clean.
+ */
+function scheduleNodeRemoval(node: unknown, sourceText: string, edits: SourceTextEdit[]): boolean {
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
+    if (typeof start !== "number" || typeof end !== "number") {
+        return false;
+    }
+    let removalEnd = end;
+    while (
+        removalEnd < sourceText.length &&
+        (sourceText[removalEnd] === ";" ||
+            sourceText[removalEnd] === " " ||
+            sourceText[removalEnd] === "\t" ||
+            sourceText[removalEnd] === "\r")
+    ) {
+        removalEnd += 1;
+    }
+    if (sourceText[removalEnd] === "\n") {
+        removalEnd += 1;
+    }
+    edits.push({ start, end: removalEnd, text: "" });
+    return true;
+}
+
 function performDeadCodeElimination(bodyStatements: any[], sourceText: string, edits: SourceTextEdit[]) {
     const updatesByVariable = new Map<string, { delta: number; indices: number[] }>();
 
     const applyRemovals = (info: { delta: number; indices: number[] }) => {
         if (Math.abs(info.delta) < 1e-10 && info.indices.length > 0) {
             for (const idx of info.indices) {
-                const nodeToRem = bodyStatements[idx];
-                const start = getNodeStartIndex(nodeToRem);
-                const end = getNodeEndIndex(nodeToRem);
-                if (typeof start === "number" && typeof end === "number") {
-                    let removalEnd = end;
-                    while (
-                        removalEnd < sourceText.length &&
-                        (sourceText[removalEnd] === ";" ||
-                            sourceText[removalEnd] === " " ||
-                            sourceText[removalEnd] === "\t" ||
-                            sourceText[removalEnd] === "\r")
-                    ) {
-                        removalEnd += 1;
-                    }
-                    if (sourceText[removalEnd] === "\n") {
-                        removalEnd += 1;
-                    }
-                    edits.push({ start, end: removalEnd, text: "" });
-                }
+                scheduleNodeRemoval(bodyStatements[idx], sourceText, edits);
             }
         }
     };
@@ -572,7 +566,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
         let handled = false;
 
         if (expr && (expr.type === "UpdateExpression" || expr.type === "IncDecStatement")) {
-            const arg = expr.argument || expr.argument;
+            const arg = expr.argument;
             const idNode = unwrapParenthesized(arg);
             if (idNode?.type === "Identifier") {
                 const name = idNode.name;
@@ -603,24 +597,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
                     case "/=": {
                         const val = tryEvaluateNumericExpression(expr.right);
                         if (val === 1) {
-                            const start = getNodeStartIndex(stmt);
-                            const end = getNodeEndIndex(stmt);
-                            if (typeof start === "number" && typeof end === "number") {
-                                let removalEnd = end;
-                                while (
-                                    removalEnd < sourceText.length &&
-                                    (sourceText[removalEnd] === ";" ||
-                                        sourceText[removalEnd] === " " ||
-                                        sourceText[removalEnd] === "\t" ||
-                                        sourceText[removalEnd] === "\r")
-                                ) {
-                                    removalEnd += 1;
-                                }
-                                if (sourceText[removalEnd] === "\n") {
-                                    removalEnd += 1;
-                                }
-                                edits.push({ start, end: removalEnd, text: "" });
-                            }
+                            scheduleNodeRemoval(stmt, sourceText, edits);
                             handled = true;
                         }
                         break;
@@ -756,14 +733,25 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
 
         if (visitedNode.type === "VariableDeclarator" && visitedNode.init) {
             targetNode = visitedNode.init;
-        } else if (visitedNode.type === "AssignmentExpression") {
+        } else switch (visitedNode.type) {
+ case "AssignmentExpression": {
             targetNode = visitedNode.right;
-        } else if (visitedNode.type === "IfStatement") {
+        
+ break;
+ }
+ case "IfStatement": {
             targetNode = visitedNode.test;
             isIfTest = true;
-        } else if (visitedNode.type === "BinaryExpression") {
+        
+ break;
+ }
+ case "BinaryExpression": {
             targetNode = visitedNode;
-        }
+        
+ break;
+ }
+ // No default
+ }
 
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
