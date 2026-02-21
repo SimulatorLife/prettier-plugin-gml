@@ -277,7 +277,7 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -604,7 +604,7 @@ function scaleNumericLiteralCoefficient(node, factor) {
         return false;
     }
 
-    const literalValue = parseNumericLiteral(literal);
+    const literalValue = Core.getLiteralNumberValue(literal);
     if (literalValue === null) {
         return false;
     }
@@ -625,7 +625,7 @@ function findFirstNumericLiteral(node) {
     }
 
     if (node.type === LITERAL) {
-        return parseNumericLiteral(node) === null ? null : node;
+        return Core.getLiteralNumberValue(node) === null ? null : node;
     }
 
     for (const value of Object.values(node)) {
@@ -974,7 +974,7 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -1027,7 +1027,7 @@ function isMultiplicationAnnihilatedByZero(node, context) {
 }
 
 function isNumericZeroLiteral(node) {
-    const literalValue = parseNumericLiteral(node);
+    const literalValue = Core.getLiteralNumberValue(node);
     if (literalValue === null) {
         return false;
     }
@@ -1072,7 +1072,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    let value = parseNumericLiteral(expression);
+    let value = Core.getLiteralNumberValue(expression);
 
     if (value === null && isMultiplicationAnnihilatedByZero(expression, context)) {
         value = 0;
@@ -1125,7 +1125,7 @@ function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
         return false;
     }
 
-    const numericValue = parseNumericLiteral(rightExpression);
+    const numericValue = Core.getLiteralNumberValue(rightExpression);
     if (numericValue === null || !Number.isFinite(numericValue)) {
         return false;
     }
@@ -1198,7 +1198,7 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    const numericValue = parseNumericLiteral(numerator);
+    const numericValue = Core.getLiteralNumberValue(numerator);
     if (numericValue === null) {
         return false;
     }
@@ -3440,7 +3440,7 @@ function isLiteralReciprocalOf180(node) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -3552,7 +3552,7 @@ function areLiteralNumbersApproximatelyEqual(left, right) {
 }
 
 function isLiteralNumber(node, expected, tolerance?) {
-    const value = parseNumericLiteral(node);
+    const value = Core.getLiteralNumberValue(node);
     if (value == null) {
         return false;
     }
@@ -3578,30 +3578,12 @@ function isHalfExponentLiteral(node) {
 }
 
 function isEulerLiteral(node) {
-    const value = parseNumericLiteral(node);
+    const value = Core.getLiteralNumberValue(node);
     if (value == undefined) {
         return false;
     }
 
     return Math.abs(value - Math.E) <= 1e-9;
-}
-
-function parseNumericLiteral(node) {
-    if (!node || node.type !== LITERAL) {
-        return null;
-    }
-
-    const raw = node.value;
-    if (typeof raw === "number") {
-        return Number.isFinite(raw) ? raw : null;
-    }
-
-    if (typeof raw === "string") {
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    return null;
 }
 
 function evaluateNumericExpression(node) {
@@ -3611,7 +3593,7 @@ function evaluateNumericExpression(node) {
     }
 
     if (expression.type === LITERAL) {
-        return parseNumericLiteral(expression);
+        return Core.getLiteralNumberValue(expression);
     }
 
     if (expression.type === UNARY_EXPRESSION) {
@@ -3753,7 +3735,7 @@ function parseNumericFactor(node) {
         return null;
     }
 
-    const literalValue = parseNumericLiteral(expression);
+    const literalValue = Core.getLiteralNumberValue(expression);
     return literalValue ?? null;
 }
 
@@ -3784,8 +3766,8 @@ function areNodesApproximatelyEquivalent(a, b) {
             return left.name === right.name;
         }
         case LITERAL: {
-            const leftNumber = parseNumericLiteral(left);
-            const rightNumber = parseNumericLiteral(right);
+            const leftNumber = Core.getLiteralNumberValue(left);
+            const rightNumber = Core.getLiteralNumberValue(right);
 
             if (typeof leftNumber === "number" && typeof rightNumber === "number") {
                 return areLiteralNumbersApproximatelyEqual(leftNumber, rightNumber);
