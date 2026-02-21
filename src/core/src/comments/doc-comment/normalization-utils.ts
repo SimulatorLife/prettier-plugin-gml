@@ -1,6 +1,4 @@
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-
-const { isObjectLike } = Core;
+import { isObjectLike, type MutableDocCommentLines, shouldSkipTraversal } from "./utils.js";
 
 export type DocCommentNormalizationPayload = {
     docCommentDocs: MutableDocCommentLines;
@@ -12,7 +10,7 @@ export type DocCommentNormalizationPayload = {
 const DOC_COMMENT_NORMALIZATION_KEY = Symbol("gmlDocCommentNormalization");
 
 export function getDocCommentNormalization(node: unknown): DocCommentNormalizationPayload | null {
-    if (Core.shouldSkipTraversal(node)) {
+    if (shouldSkipTraversal(node)) {
         return null;
     }
 
@@ -43,7 +41,7 @@ export function getDocCommentNormalization(node: unknown): DocCommentNormalizati
 }
 
 export function setDocCommentNormalization(node: unknown, payload: DocCommentNormalizationPayload | null) {
-    if (Core.shouldSkipTraversal(node)) {
+    if (shouldSkipTraversal(node)) {
         return;
     }
 
