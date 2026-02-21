@@ -1,8 +1,9 @@
 import type { Rule } from "eslint";
+
+import { createLimitedRecoveryProjection } from "../../../language/recovery.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { readObjectOption } from "../rule-helpers.js";
-import { createLimitedRecoveryProjection } from "../../../language/recovery.js";
 
 type ArgumentSeparatorInsertion = Readonly<{
     originalOffset: number;

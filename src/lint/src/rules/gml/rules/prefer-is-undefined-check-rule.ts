@@ -1,7 +1,11 @@
-import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, isAstNodeRecord, isAstNodeWithType, getNodeStartIndex, getNodeEndIndex, type AstNodeRecord } from "../rule-base-helpers.js";
+import {
+    createMeta,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    isAstNodeRecord} from "../rule-base-helpers.js";
 
 export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
@@ -32,12 +36,13 @@ export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition):
                             typeof otherEnd === "number"
                         ) {
                             const otherExprText = context.sourceCode.text.slice(otherStart, otherEnd);
-                            const replacement = node.operator === "=="
-                                ? `is_undefined(${otherExprText})`
-                                : `!is_undefined(${otherExprText})`;
+                            const replacement =
+                                node.operator === "=="
+                                    ? `is_undefined(${otherExprText})`
+                                    : `!is_undefined(${otherExprText})`;
 
                             context.report({
-                                node: node as any,
+                                node,
                                 messageId: definition.messageId,
                                 fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                             });

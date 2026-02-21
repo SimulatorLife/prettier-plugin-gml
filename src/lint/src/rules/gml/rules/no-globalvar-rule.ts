@@ -1,17 +1,16 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
+import { reportMissingProjectContextOncePerFile,resolveProjectContextForRule } from "../../project-context.js";
 import {
-    createMeta,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    isAstNodeRecord,
-    isAstNodeWithType,
-    findFirstChangedCharacterOffset,
     type AstNodeRecord,
-} from "../rule-base-helpers.js";
+    createMeta,
+    findFirstChangedCharacterOffset,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    isAstNodeRecord} from "../rule-base-helpers.js";
 import { isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
-import { resolveProjectContextForRule, reportMissingProjectContextOncePerFile } from "../../project-context.js";
 
 type TextEdit = Readonly<{
     start: number;
@@ -142,7 +141,7 @@ function collectGlobalIdentifierReplacementEdits(
             if (
                 typeof start === "number" &&
                 typeof endExclusive === "number" &&
-                shouldRewriteGlobalvarIdentifierNode(node as AstNodeRecord, parentNode as AstNodeRecord) &&
+                shouldRewriteGlobalvarIdentifierNode(node, parentNode as AstNodeRecord) &&
                 !isWithinGlobalVarDeclaration(start, endExclusive)
             ) {
                 edits.push(
@@ -212,8 +211,7 @@ function applyTextEdits(sourceText: string, edits: ReadonlyArray<TextEdit>): str
 
     let rewrittenText = sourceText;
     for (const edit of nonOverlappingEdits.toReversed()) {
-        rewrittenText =
-            rewrittenText.slice(0, edit.start) + edit.replacement + rewrittenText.slice(edit.end);
+        rewrittenText = rewrittenText.slice(0, edit.start) + edit.replacement + rewrittenText.slice(edit.end);
     }
 
     return rewrittenText;

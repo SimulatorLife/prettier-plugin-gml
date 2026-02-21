@@ -161,10 +161,7 @@ void describe("Prettier wrapper CLI", () => {
     void it("applies plugin newline normalization when run through the wrapper CLI", async () => {
         const repoRootDirectory = await findRepoRoot(currentDirectory);
         const fixturePath = path.join(repoRootDirectory, "test/fixtures/integration/testPreserveNewlines.gml");
-        const optionsPath = path.join(
-            repoRootDirectory,
-            "test/fixtures/integration/testPreserveNewlines.options.json"
-        );
+        const optionsPath = path.join(repoRootDirectory, "test/fixtures/integration/testPreserveNewlines.options.json");
 
         const [source, optionsContent] = await Promise.all([
             fs.readFile(fixturePath, "utf8"),

@@ -1,4 +1,5 @@
 import type { Rule } from "eslint";
+
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 
@@ -17,7 +18,8 @@ export function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDef
                         const lowerName = (variableName ?? "").toLowerCase();
 
                         if (
-                            (accessor === "[?" && (lowerName === "ds_map_find_value" || lowerName === "ds_map_find_next")) ||
+                            (accessor === "[?" &&
+                                (lowerName === "ds_map_find_value" || lowerName === "ds_map_find_next")) ||
                             (accessor === "[|" && lowerName === "ds_list_find_value") ||
                             (accessor === "[#" && lowerName === "ds_grid_get")
                         ) {

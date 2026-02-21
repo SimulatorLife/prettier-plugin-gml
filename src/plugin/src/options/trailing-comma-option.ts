@@ -1,6 +1,6 @@
 /**
  * GML does not support true trailing commas.
- * 
+ *
  * A comma inside a call expression always represents a positional argument.
  * Writing `fn(a, b,)` does not mean “trailing comma” — it means there is an
  * additional argument after `b`. In GML, omitted arguments are represented

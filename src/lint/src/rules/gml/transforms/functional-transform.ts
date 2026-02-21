@@ -8,4 +8,3 @@ export type ParserTransform<
 export type EmptyTransformOptions = Core.EmptyTransformOptions;
 
 export const createParserTransform = Core.Core.createParserTransform;
-
