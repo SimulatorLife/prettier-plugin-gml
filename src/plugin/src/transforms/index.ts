@@ -1,7 +1,6 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { MutableGameMakerAstNode, ParserTransform } from "@gml-modules/core";
 
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import type { ParserTransform } from "./functional-transform.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
 /**

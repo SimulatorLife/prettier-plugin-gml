@@ -2,10 +2,9 @@
  * Enforces blank lines after long runs of variable declarations so the printer emits consistently spaced blocks.
  * The rule triggers after a minimum number of declarations and only inserts spacing before `for` loops.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS } from "../printer/constants.js";
-import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 // Enforce consistent spacing after variable blocks without exposing user
 // configuration. GameMaker projects commonly group multiple variable declarations
@@ -112,7 +111,7 @@ function shouldForceBlankLineAfter(nextNode) {
     return Core.getNodeType(nextNode) === "ForStatement";
 }
 
-export const enforceVariableBlockSpacingTransform = createParserTransform<EmptyTransformOptions>(
+export const enforceVariableBlockSpacingTransform = Core.createParserTransform<EmptyTransformOptions>(
     "enforce-variable-block-spacing",
     {},
     execute

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { ParserTransform } from "../../src/transforms/functional-transform.js";
+import type { ParserTransform } from "@gml-modules/core";
 import * as Transforms from "../../src/transforms/index.js";
 import { availableTransforms, getParserTransform } from "../../src/transforms/index.js";
 
