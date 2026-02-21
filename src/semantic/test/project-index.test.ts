@@ -216,6 +216,43 @@ void test("deriveCacheKey is stable across manifest ordering", async () => {
     assert.equal(firstKey, secondKey);
 });
 
+void test("deriveCacheKey is stable across manifest ordering with three manifests in every permutation", async () => {
+    const projectRoot = path.resolve("/workspace/project");
+    const manifestA = `alpha${PROJECT_MANIFEST_EXTENSION}`;
+    const manifestB = `beta${PROJECT_MANIFEST_EXTENSION}`;
+    const manifestC = `gamma${PROJECT_MANIFEST_EXTENSION}`;
+
+    const mtimes: Record<string, number> = {
+        [path.join(projectRoot, manifestA)]: 10,
+        [path.join(projectRoot, manifestB)]: 20,
+        [path.join(projectRoot, manifestC)]: 30
+    };
+
+    const permutations = [
+        [manifestA, manifestB, manifestC],
+        [manifestA, manifestC, manifestB],
+        [manifestB, manifestA, manifestC],
+        [manifestB, manifestC, manifestA],
+        [manifestC, manifestA, manifestB],
+        [manifestC, manifestB, manifestA]
+    ];
+
+    const keys = await Promise.all(
+        permutations.map((ordering) => {
+            const mockFs = createMockFs({
+                [projectRoot]: { type: "dir", entries: ordering },
+                ...Object.fromEntries(Object.entries(mtimes).map(([p, ms]) => [p, { type: "file", mtimeMs: ms }]))
+            });
+            return deriveCacheKey({ projectRoot, formatterVersion: "1.0.0" }, mockFs);
+        })
+    );
+
+    const [referenceKey, ...remainingKeys] = keys;
+    for (const key of remainingKeys) {
+        assert.equal(key, referenceKey);
+    }
+});
+
 void test("loadBuiltInIdentifiers respects abort guard", async () => {
     const controller = new AbortController();
     controller.abort(null);

@@ -426,12 +426,8 @@ export async function deriveCacheKey(
 
     if (resolvedRoot) {
         const entries = await Core.listDirectory(fsFacade, resolvedRoot);
-        const manifestNames = entries.filter(isProjectManifestPath).reduce<string[]>((acc, item) => {
-            const insertIndex = acc.findIndex((existing) => existing.localeCompare(item) > 0);
-            return insertIndex === -1
-                ? [...acc, item]
-                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-        }, []);
+        // Sort alphabetically so the hash is stable regardless of directory read order.
+        const manifestNames = entries.filter(isProjectManifestPath).sort((a, b) => a.localeCompare(b));
 
         await Core.runSequentially(manifestNames, async (manifestName) => {
             const manifestPath = path.join(resolvedRoot, manifestName);
