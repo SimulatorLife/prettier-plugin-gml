@@ -23,7 +23,7 @@ It contains:
 
 ## Formatter at a glance
 
-Formatter (`format`) does layout/canonical rendering only.
+Formatter (`format`) does layout/canonical rendering only (whitespace, semicolons, etc). It does not rewrite code or change semantics.
 
 ```gml
 // input

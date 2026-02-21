@@ -11,6 +11,7 @@ export * from "./parser-transform.js";
 export * from "./scope-tracker.js";
 export * from "./strip-comments-transform.js";
 export * from "./type-guards.js";
+export * from "./binary-operators.js";
 export type {
     FeatherFixDetail,
     FeatherFixRange,

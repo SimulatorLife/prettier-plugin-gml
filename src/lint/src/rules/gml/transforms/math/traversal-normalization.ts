@@ -1722,11 +1722,6 @@ function attemptCondenseScalarProduct(node, context) {
         return false;
     }
 
-    if (ratioMetadata?.text) {
-        literal._gmlManualMathRatio = ratioMetadata.text;
-        node._gmlManualMathRatio = ratioMetadata.text;
-    }
-
     node.operator = "*";
     node.left = clonedOperand;
     node.right = literal;

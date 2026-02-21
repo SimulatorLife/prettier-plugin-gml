@@ -1,5 +1,5 @@
 /**
- * Centralized constants for the GML prettier plugin.
+ * Centralized constants for the GML prettier plugin's printer(s).
  *
  * This module consolidates configuration defaults and magic numbers used across
  * the plugin implementation. By centralizing these values, we:
@@ -38,16 +38,31 @@ export const DEFAULT_PRINT_WIDTH = 120;
 export const DEFAULT_TAB_WIDTH = 4;
 
 /**
- * Minimum number of consecutive variable declarations required before the
- * formatter enforces blank line spacing after the declaration block.
- *
- * This threshold helps visually separate initialization blocks from control
- * flow statements, improving code readability without fragmenting small
- * variable groups.
- */
-export const DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS = 4;
-
-/**
  * Pattern for validating numeric literal strings, including optional sign and exponent parts.
  */
 export const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+/**
+ * Set of AST node types that can be safely inlined when they are the sole statement in a block.
+ */
+export const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
+    "ReturnStatement",
+    "ExitStatement",
+    "ExpressionStatement",
+    "CallExpression"
+]);
+
+export const MULTIPLICATIVE_BINARY_OPERATORS = new Set([
+    "*",
+    "/",
+    "div", 
+    "%",
+    "mod"
+]);
+
+// String constants to avoid duplication warnings
+export const STRING_TYPE = "string";
+export const OBJECT_TYPE = "object";
+export const NUMBER_TYPE = "number";
+export const UNDEFINED_TYPE = "undefined";
+export const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");

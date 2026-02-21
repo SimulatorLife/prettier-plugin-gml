@@ -4,7 +4,7 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS } from "../constants.js";
+import { DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS } from "../printer/constants.js";
 import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 // Enforce consistent spacing after variable blocks without exposing user

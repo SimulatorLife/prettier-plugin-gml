@@ -23,7 +23,6 @@ The plugin uses a centralized constants file to define formatting defaults and t
 Key constants include:
 - `DEFAULT_PRINT_WIDTH` (120): The default line width for code
 - `DEFAULT_TAB_WIDTH` (4): The default indentation width
-- `DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS` (4): Minimum declarations to trigger spacing
 
 These constants are used throughout the plugin to ensure consistent behavior. Users can override formatting defaults through Prettier's standard options (e.g., `printWidth`, `tabWidth`).
 

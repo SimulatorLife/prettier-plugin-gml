@@ -207,3 +207,10 @@ pnpm --filter @gml-modules/lint run test
 
 ## TODO
 * When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
+* Add a rule for empty regions (`@gml/no-empty-regions`). Also add an auto-fix to remove empty regions. For example:
+    ```gml
+    #region Empty region
+    #endregion
+    ```
+* Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
+* **Codemods** (AST-based rewrite tools): We're currently doing large, project-aware rewrites in the lint workspace. But, common pattern is to use codemods / migration transforms: standalone programs that parse code, apply structured changes, and rewrite files—run explicitly (often once) rather than on every save. Codemods are used for large, mechanical refactors across many files. For JavaScript/TypeScript, common ones are jscodeshift, Babel transforms, recast, and ts-morph. Other ecosystems have equivalents (e.g., clang-tidy for C/C++, gofmt/go fixers, etc.) Can rename APIs, change call signatures, rewrite imports, reorder args, etc. Usually run via CLI in CI or as one-off migrations. Characteristics: `Parse → transform AST → print`

@@ -1,15 +1,8 @@
 import type { Rule } from "eslint";
+import { Core } from "@gml-modules/core";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex,getNodeStartIndex } from "../rule-base-helpers.js";
-
-const OPERATOR_ALIASES: ReadonlyMap<string, string> = new Map([
-    ["and", "&&"],
-    ["or", "||"],
-    ["xor", "^^"],
-    ["not", "!"],
-    ["mod", "%"]
-]);
 
 export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
@@ -17,7 +10,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
         create(context) {
             return Object.freeze({
                 BinaryExpression(node) {
-                    const normalized = OPERATOR_ALIASES.get(node.operator);
+                    const normalized = Core.OPERATOR_ALIAS_PAIRS.get(node.operator);
                     if (normalized) {
                         const start = getNodeStartIndex(node);
                         const end = getNodeEndIndex(node);
