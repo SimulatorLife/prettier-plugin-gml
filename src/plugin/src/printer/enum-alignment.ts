@@ -1,5 +1,3 @@
-// TODO: Printing/formatting functionality should live in 'plugin'. The parser should just handle AST manipulation.
-
 import { Core } from "@gml-modules/core";
 
 const { isObjectLike } = Core;
