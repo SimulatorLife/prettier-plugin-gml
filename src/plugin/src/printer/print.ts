@@ -358,12 +358,6 @@ function printNodeDocComments(node, path, options) {
         : [];
     const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
-    try {
-        materializeParamDefaultsFromParamDefault(node);
-    } catch {
-        /* ignore */
-    }
-
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
     const parts: any[] = [];
@@ -1142,8 +1136,14 @@ function printNewExpressionNode(node, path, options, print) {
         printedArgs = shouldForceBreakArguments ? [concat([breakParent, multilineDoc])] : [multilineDoc];
     }
 
-    return concat(["new ", print("expression"), ...printedArgs]);
+    const calleeDoc = print("expression");
+    // Use the computed `printedArgs` variant rather than always falling back to
+    // `multilineDoc`. The earlier implementation accidentally ignored all of the
+    // argument-layout work above which led to removals of the surrounding
+    // parentheses (producing `new Circle10` in the `testFunctions` fixture).
+    return group(concat(["new ", calleeDoc, ...printedArgs]));
 }
+
 
 function tryPrintDeclarationNode(node, path, options, print) {
     switch (node.type) {
@@ -1268,6 +1268,14 @@ function normalizeMacroNameSeparatorSpacing(macroText) {
 function tryPrintLiteralNode(node, path, options, print) {
     switch (node.type) {
         case "Literal": {
+            // Always print real `undefined` values as the identifier rather than a
+            // quoted string. The parser represents the keyword as a Literal node with
+            // `value` equal to either the string "undefined" or the primitive
+            // `undefined`, so we normalize both here.
+            if (Core.isUndefinedSentinel(node)) {
+                return concat(UNDEFINED_TYPE);
+            }
+
             let value = node.value;
 
             if (!value.startsWith('"')) {
@@ -3388,110 +3396,13 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
-// Convert parser-side `param.default` assignments into explicit
-// DefaultParameter nodes so downstream printing and doc-synthesis logic
-// sees the parameter as defaulted. The parser transform `preprocessFunctionArgumentDefaults`
-// sets `param.default` on Identifier params; materialize those here.
+// (historical) default-parameter materialization logic removed from the
+// printer during the formatter/linter split. All of this behaviour now lives
+// upstream in the parser or in dedicated lint auto-fix rules; the printer
+// should be purely layout-focused. Leave an empty stub in case a downstream
+// consumer still references the symbol, but performing no work.
 function materializeParamDefaultsFromParamDefault(functionNode) {
-    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
-        return;
-    }
-
-    if (!Core.isNonEmptyArray(functionNode.params)) {
-        return;
-    }
-
-    for (let i = 0; i < functionNode.params.length; i += 1) {
-        const param = functionNode.params[i];
-        if (!param || typeof param !== OBJECT_TYPE) {
-            continue;
-        }
-
-        // If the parser stored a `.default` on an Identifier param, convert
-        // it into a DefaultParameter node that the printer already knows how
-        // to consume. Avoid touching nodes that are already DefaultParameter.
-        if (param.type === "Identifier" && param.default !== null) {
-            materializeParserProvidedDefaultParameter(functionNode, param, i);
-        }
-
-        // Fallback: if the parser did not provide a `.default` but a prior
-        // parameter to the left contains an explicit non-`undefined` default
-        // (AssignmentPattern or DefaultParameter with non-undefined RHS),
-        // treat this identifier as implicitly optional and materialize an
-        // explicit `= undefined` DefaultParameter node. This mirrors the
-        // conservative parser transform behaviour but acts as a local
-        // safeguard when the parser pipeline didn't materialize the node.
-        if (param.type === "Identifier" && param.default == null && hasExplicitDefaultToLeft(functionNode, i)) {
-            const defaultNode = {
-                type: "DefaultParameter",
-                left: { type: "Identifier", name: param.name },
-                // Use a Literal sentinel here so the printed shape
-                // and downstream checks observe `value: "undefined"`.
-                right: { type: "Literal", value: "undefined" }
-            };
-            // Do not mark synthesized trailing `= undefined` defaults as optional here.
-            // REASON: Optionality markers should originate from the parser's transform
-            // pipeline or from explicit JSDoc @param annotations, not from the printer's
-            // fallback logic. Keeping the optionality decision upstream ensures that
-            // downstream heuristics (doc comment generation, Feather fixes, etc.) observe
-            // a consistent model of which parameters are truly optional versus which are
-            // merely receiving fallback defaults.
-            // WHAT WOULD BREAK: If the printer were to unilaterally mark these as optional,
-            // it would bypass the parser's intent and conflict with doc-comment-driven
-            // optionality decisions, leading to inconsistent function signatures and
-            // incorrect documentation generation across formatting passes.
-            functionNode.params[i] = defaultNode;
-        }
-
-        // Backfill missing default expressions by extracting in-body fallback logic.
-        // The parser sometimes creates a DefaultParameter node with a null `right`
-        // when the function uses an `if (argument_count < n)` guard to provide a
-        // default value inside the body rather than in the signature. We walk the
-        // function body to find these guards, extract the fallback expression, and
-        // materialize it as the DefaultParameter's `right` so the printer and
-        // doc comment synthesizer can observe the default value. This keeps the
-        // printed signature consistent with the function's actual behavior and
-        // allows downstream tools (e.g., hover hints, signature help) to surface
-        // accurate parameter metadata.
-        if (param.type === "DefaultParameter" && param.right == null) {
-            try {
-                const paramName = param.left && param.left.type === "Identifier" ? param.left.name : null;
-                if (!paramName) continue;
-
-                const body = functionNode.body;
-                if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
-                    continue;
-                }
-
-                const fallback = locateDefaultParameterFallback(body.body, paramName);
-                if (!fallback) {
-                    continue;
-                }
-
-                // Fill in the missing right side of the DefaultParameter
-                param.right = fallback.fallback;
-                if (fallback.fallback && fallback.fallback.end !== null) {
-                    param.end = fallback.fallback.end;
-                }
-                // Do NOT set the _featherOptionalParameter marker here.
-                // REASON: The parser-transform is the authoritative source for optional
-                // parameter intent. If the parser produced the marker it will already be
-                // present on the param (and copied when materialized above). Setting it
-                // in the printer would create a second source of truth and lead to
-                // inconsistencies when the parser's optionality logic changes.
-                // WHAT WOULD BREAK: Adding the marker here would cause parameters to be
-                // marked as optional even when the parser's analysis determined they
-                // weren't, resulting in incorrect JSDoc generation and type mismatches.
-                // Remove the matched statement from the body
-                const idx = body.body.indexOf(fallback.statement);
-                if (idx !== -1) {
-                    body.body.splice(idx, 1);
-                }
-            } catch {
-                // Non-fatal — leave the param as-is.
-            }
-        }
-    }
+    // intentionally no-op
 }
 
 function locateDefaultParameterFallback(
@@ -4041,35 +3952,6 @@ function normalizeDocParamNameFromRaw(raw) {
     return name.trim();
 }
 
-function hasExplicitDefaultToLeft(functionNode, paramIndex) {
-    if (!functionNode || !Array.isArray(functionNode.params) || !Number.isInteger(paramIndex) || paramIndex <= 0) {
-        return false;
-    }
-
-    for (let index = 0; index < paramIndex; index += 1) {
-        const candidate = functionNode.params[index];
-        if (!candidate) {
-            continue;
-        }
-
-        if (candidate.type === "DefaultParameter") {
-            const isUndefined =
-                typeof Core.isUndefinedSentinel === "function" ? Core.isUndefinedSentinel(candidate.right) : false;
-
-            if (!isUndefined) {
-                return true;
-            }
-
-            continue;
-        }
-
-        if (candidate.type === "AssignmentPattern") {
-            return true;
-        }
-    }
-
-    return false;
-}
 
 function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
     if (!functionNode || !functionNode.type) {
