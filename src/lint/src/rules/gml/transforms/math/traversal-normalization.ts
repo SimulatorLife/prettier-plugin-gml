@@ -4674,14 +4674,16 @@ function hasOriginalComment(node, context) {
 
 type ScalarCondensingTarget = MutableGameMakerAstNode | Array<unknown>;
 
-function applyScalarCondensing(ast: unknown, context: ConvertManualMathTransformOptions | null = null) {
+function applyScalarCondensing(
+    ast: unknown,
+    _context: ConvertManualMathTransformOptions | null = null
+): ScalarCondensingTarget {
     if (!Core.isNode(ast)) {
-        return ast;
+        return ast as ScalarCondensingTarget;
     }
 
-    const root = ast as MutableGameMakerAstNode;
     // Missing implementation
-    return root;
+    return ast as MutableGameMakerAstNode;
 }
 
 export {

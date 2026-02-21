@@ -18,6 +18,7 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
+import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
 import {
     applyIdentifierCaseSnapshotForProgram,
@@ -29,13 +30,6 @@ import {
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
-import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "../comments/function-docs.js";
-import {
-    getSyntheticDocCommentForFunctionAssignment,
-    getSyntheticDocCommentForStaticVariable,
-    type SyntheticDocCommentPayload
-} from "../comments/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -359,53 +353,15 @@ function printNodeDocComments(node, path, options) {
     const { originalText } = sourceMetadata;
     const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-    const {
-        docCommentDocs: collectedDocCommentDocs,
-        existingDocLines,
-        needsLeadingBlankLine: collectedNeedsLeadingBlankLine,
-        plainLeadingLines
-    } = collectFunctionDocCommentDocs({
-        node,
-        options,
-        path,
-        nodeStartIndex,
-        originalText
-    });
+    const docCommentDocs: MutableDocCommentLines = Array.isArray(node.docComments)
+        ? Core.toMutableArray(node.docComments as string[], { clone: true })
+        : [];
+    const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
-    let docCommentDocs: MutableDocCommentLines = collectedDocCommentDocs;
-    let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
-
-    try {
-        materializeParamDefaultsFromParamDefault(node);
-    } catch {
-        /* ignore */
-    }
-
-    let includeOverrideTag = false;
-    const parentNode = safeGetParentNode(path);
-    if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-        const grandParentNode = safeGetParentNode(path, 1);
-        if (
-            grandParentNode &&
-            grandParentNode.type === VARIABLE_DECLARATION &&
-            grandParentNode._overridesStaticFunction
-        ) {
-            includeOverrideTag = true;
-        }
-    }
-
-    ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
-        docCommentDocs,
-        needsLeadingBlankLine,
-        node,
-        options,
-        path,
-        overrides: { includeOverrideTag }
-    }));
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
     const parts: any[] = [];
-    const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0 && existingDocLines.length === 0;
+    const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0;
 
     if (shouldEmitPlainLeadingLines) {
         parts.push(join(hardline, plainLeadingLines), hardline, hardline);
@@ -413,7 +369,9 @@ function printNodeDocComments(node, path, options) {
 
     if (docCommentDocs.length > 0) {
         node[DOC_COMMENT_OUTPUT_FLAG] = true;
-        const suppressLeadingBlank = docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
+        const suppressLeadingBlank = (docCommentDocs as any)?._suppressLeadingBlank === true;
+
+        const needsLeadingBlankLine = node?._gmlNeedsLeadingBlankLine === true;
 
         const hasLeadingNonDocComment =
             !Core.isNonEmptyArray(node.docComments) &&
@@ -453,7 +411,9 @@ function printNodeDocComments(node, path, options) {
 function markDocCommentsAsPrinted(node, path) {
     if (node.docComments) {
         node.docComments.forEach((comment: any) => {
-            comment.printed = true;
+            if (comment && typeof comment === "object") {
+                comment.printed = true;
+            }
         });
     } else {
         const parentNode = safeGetParentNode(path);
@@ -461,7 +421,9 @@ function markDocCommentsAsPrinted(node, path) {
             const grandParentNode = safeGetParentNode(path, 1);
             if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
-                    comment.printed = true;
+                    if (comment && typeof comment === "object") {
+                        comment.printed = true;
+                    }
                 });
             }
         }
@@ -1174,7 +1136,12 @@ function printNewExpressionNode(node, path, options, print) {
         printedArgs = shouldForceBreakArguments ? [concat([breakParent, multilineDoc])] : [multilineDoc];
     }
 
-    return concat(["new ", print("expression"), ...printedArgs]);
+    const calleeDoc = print("expression");
+    // Use the computed `printedArgs` variant rather than always falling back to
+    // `multilineDoc`. The earlier implementation accidentally ignored all of the
+    // argument-layout work above which led to removals of the surrounding
+    // parentheses (producing `new Circle10` in the `testFunctions` fixture).
+    return group(concat(["new ", calleeDoc, ...printedArgs]));
 }
 
 function tryPrintDeclarationNode(node, path, options, print) {
@@ -1300,6 +1267,14 @@ function normalizeMacroNameSeparatorSpacing(macroText) {
 function tryPrintLiteralNode(node, path, options, print) {
     switch (node.type) {
         case "Literal": {
+            // Always print real `undefined` values as the identifier rather than a
+            // quoted string. The parser represents the keyword as a Literal node with
+            // `value` equal to either the string "undefined" or the primitive
+            // `undefined`, so we normalize both here.
+            if (Core.isUndefinedSentinel(node)) {
+                return concat(UNDEFINED_TYPE);
+            }
+
             let value = node.value;
 
             if (!value.startsWith('"')) {
@@ -1496,54 +1471,19 @@ function printBlockStatementNode(node, path, options, print) {
             }
         }
 
-        // Check if the first statement will have a synthetic doc comment.
-        // If so, the synthetic doc provides visual separation, so we don't need
+        // Check if the first statement has a doc comment.
+        // If so, the doc comment provides visual separation, so we don't need
         // to preserve a blank line from the source.
-        let firstStatementHasSyntheticDoc = false;
-        if (isConstructor) {
-            // We need to get the program node to check for synthetic docs
-            let programNode = null;
-            try {
-                let depth = 0;
-                while (depth < 20) {
-                    const ancestor = safeGetParentNode(path, depth);
-                    if (!ancestor) break;
-                    if (ancestor.type === "Program") {
-                        programNode = ancestor;
-                        break;
-                    }
-                    depth += 1;
-                }
-            } catch {
-                // Fallback: try without depth parameter
-                const ancestor = safeGetParentNode(path);
-                if (ancestor?.type === "Program") {
-                    programNode = ancestor;
-                }
-            }
-
-            const syntheticDocForStatic = getSyntheticDocCommentForStaticVariable(
-                firstStatement,
-                options,
-                programNode,
-                originalText
-            );
-            const syntheticDocForFunction = getSyntheticDocCommentForFunctionAssignment(
-                firstStatement,
-                options,
-                programNode,
-                originalText
-            );
-            firstStatementHasSyntheticDoc = syntheticDocForStatic !== null || syntheticDocForFunction !== null;
-        }
+        const firstStatementHasDocComment =
+            Core.isNonEmptyArray(firstStatement.docComments) || Core.isNonEmptyArray(firstStatement._syntheticDocLines);
 
         // For constructors, preserve blank lines between header and first statement,
-        // unless the first statement will have a synthetic doc comment (which provides
+        // unless the first statement has a doc comment (which provides
         // visual separation already)
         shouldPreserveInitialBlankLine =
-            (shouldPreserveInitialBlankLine && !firstStatementHasSyntheticDoc) ||
-            (preserveForConstructorText && !firstStatementHasSyntheticDoc) ||
-            (preserveForInitialSpacing && !firstStatementHasSyntheticDoc);
+            (shouldPreserveInitialBlankLine && !firstStatementHasDocComment) ||
+            (preserveForConstructorText && !firstStatementHasDocComment) ||
+            (preserveForInitialSpacing && !firstStatementHasDocComment);
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -1666,12 +1606,28 @@ function buildTemplateStringParts(atoms, path, print) {
             continue;
         }
 
-        // Lazily print non-text atoms on demand so pure-text templates avoid
-        // allocating the `printedAtoms` array. This helper runs inside the
-        // printer's expression loop, so skipping the extra array and iterator
-        // bookkeeping removes two allocations for mixed templates while keeping
-        // the doc emission identical.
-        parts.push(group(concat(["{", indent(concat([softline, path.call(print, "atoms", index)])), softline, "}"])));
+        const printedAtom = path.call(print, "atoms", index);
+
+        // Complex expressions (ternary, binary, logical) use conditionalGroup:
+        // try the inline form first; if the current line position plus the
+        // expression exceeds printWidth, fall back to the broken form with
+        // the expression indented on the next line.
+        const isComplexAtom =
+            atom?.type === "TernaryExpression" ||
+            atom?.type === "BinaryExpression" ||
+            atom?.type === "LogicalExpression";
+
+        if (isComplexAtom) {
+            const inlineDoc = concat(["{", printedAtom, "}"]);
+            const brokenDoc = concat(["{", indent(concat([softline, printedAtom, softline, "}"]))]);
+            parts.push(conditionalGroup([inlineDoc, brokenDoc]));
+        } else {
+            // Simple atoms (identifiers, literals, member expressions, short
+            // calls) stay inline regardless of line position. Template
+            // strings are inherently long and breaking `{fps}` across lines
+            // hurts readability.
+            parts.push(concat(["{", printedAtom, "}"]));
+        }
     }
 
     parts.push('"');
@@ -2218,37 +2174,6 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
     const parentNode = path.getValue();
-    // Determine the top-level Program node for robust program-scoped
-    // comment access. `parentNode` may be a block or other container; we
-    // prefer to pass the true Program root to helpers that scan the
-    // program-level `comments` bag.
-    let programNode = null;
-    try {
-        for (let depth = 0; ; depth += 1) {
-            const p = safeGetParentNode(path, depth);
-            if (!p) break;
-            programNode = p.type === PROGRAM ? p : programNode;
-        }
-    } catch {
-        // If the path doesn't expose getParentNode with a depth signature
-        // (defensive), fall back to the parentNode value so callers still
-        // receive a usable object.
-        programNode = parentNode;
-    }
-    if (!programNode && parentNode?.type === PROGRAM) {
-        programNode = parentNode;
-    }
-    if (
-        (!programNode || programNode?.type !== PROGRAM) &&
-        options &&
-        typeof options === "object" &&
-        (options as { _gmlProgramNode?: unknown })._gmlProgramNode
-    ) {
-        const cachedProgram = (options as { _gmlProgramNode?: { type?: string } })._gmlProgramNode;
-        if (cachedProgram?.type === PROGRAM) {
-            programNode = cachedProgram;
-        }
-    }
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
@@ -2259,20 +2184,6 @@ function printStatements(path, options, print, childrenAttribute) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const originalTextCache = sourceMetadata.originalText ?? options?.originalText ?? null;
 
-    let syntheticDocByNode = new Map();
-
-    syntheticDocByNode = new Map();
-    if (statements) {
-        for (const statement of statements) {
-            const docComment =
-                getSyntheticDocCommentForStaticVariable(statement, options, programNode, originalTextCache) ??
-                getSyntheticDocCommentForFunctionAssignment(statement, options, programNode, originalTextCache);
-            if (docComment) {
-                syntheticDocByNode.set(statement, docComment);
-            }
-        }
-    }
-
     return path.map((childPath, index) => {
         const result = buildStatementPartsForPrinter({
             childPath,
@@ -2280,7 +2191,6 @@ function printStatements(path, options, print, childrenAttribute) {
             print,
             options,
             originalTextCache,
-            syntheticDocByNode,
             sourceMetadata,
             statements,
             containerNode,
@@ -2297,7 +2207,6 @@ function buildStatementPartsForPrinter({
     print,
     options,
     originalTextCache,
-    syntheticDocByNode,
     sourceMetadata,
     statements,
     containerNode,
@@ -2341,16 +2250,7 @@ function buildStatementPartsForPrinter({
         nodeStartIndex
     });
 
-    const syntheticDocRecord = syntheticDocByNode.get(node);
-    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
-
     const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
-
-    appendSyntheticDocCommentParts({
-        parts,
-        syntheticDocRecord,
-        isFirstStatementInBlock
-    });
 
     const textForSemicolons = originalTextCache || "";
     let hasTerminatingSemicolon = false;
@@ -2378,7 +2278,7 @@ function buildStatementPartsForPrinter({
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
 
-    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment) {
+    if (isFirstStatementInBlock && isStaticDeclaration) {
         const hasExplicitBlankLineBeforeStatic =
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -2398,8 +2298,6 @@ function buildStatementPartsForPrinter({
         semi,
         childPath,
         hasTerminatingSemicolon,
-        syntheticDocRecord,
-        syntheticDocComment,
         isStaticDeclaration
     });
 
@@ -2452,12 +2350,10 @@ function buildStatementPartsForPrinter({
         node,
         isTopLevel,
         options,
-        syntheticDocByNode,
         hardline,
         currentNodeRequiresNewline,
         nodeEndIndex,
         suppressFollowingEmptyLine,
-        syntheticDocComment,
         isStaticDeclaration,
         hasFunctionInitializer,
         containerNode
@@ -2490,57 +2386,7 @@ function addLeadingStatementSpacing({
     }
 }
 
-const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
-
-function hasDocCommentTags(docLines: string[] | null | undefined) {
-    if (!Core.isNonEmptyArray(docLines)) {
-        return false;
-    }
-
-    return docLines.some((docLine) => typeof docLine === "string" && DOC_COMMENT_TAG_PATTERN.test(docLine.trim()));
-}
-
-function appendSyntheticDocCommentParts({
-    parts,
-    syntheticDocRecord,
-    isFirstStatementInBlock = false
-}: {
-    parts: any[];
-    syntheticDocRecord: SyntheticDocCommentPayload | undefined;
-    isFirstStatementInBlock?: boolean;
-}) {
-    const syntheticPlainLeadingLines = syntheticDocRecord?.plainLeadingLines ?? [];
-    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
-    const syntheticDocLines = syntheticDocRecord?.docLines ?? null;
-    const shouldPrintDocComment = syntheticDocComment !== null && hasDocCommentTags(syntheticDocLines);
-
-    if (syntheticPlainLeadingLines.length > 0) {
-        parts.push(join(hardline, syntheticPlainLeadingLines));
-        if (!shouldPrintDocComment) {
-            parts.push(hardline);
-        }
-    }
-
-    if (shouldPrintDocComment && syntheticDocComment) {
-        // Always add a leading hardline before the synthetic doc comment to ensure
-        // proper indentation. For first statements in blocks, the block already
-        // contributes the leading hardline, so avoid inserting an extra blank line.
-        if (!isFirstStatementInBlock) {
-            parts.push(hardline);
-        }
-        parts.push(syntheticDocComment, hardline);
-    }
-}
-
-function normalizeStatementSemicolon({
-    node,
-    semi,
-    childPath,
-    hasTerminatingSemicolon,
-    syntheticDocRecord,
-    syntheticDocComment,
-    isStaticDeclaration
-}) {
+function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemicolon, isStaticDeclaration }) {
     if (semi !== ";") {
         return semi;
     }
@@ -2602,12 +2448,7 @@ function normalizeStatementSemicolon({
         }
     }
 
-    const shouldOmitSemicolon =
-        !hasTerminatingSemicolon &&
-        syntheticDocComment &&
-        !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
-        isLastStatement(childPath) &&
-        !isStaticDeclaration;
+    const shouldOmitSemicolon = false;
 
     if (shouldOmitSemicolon) {
         return "";
@@ -2624,12 +2465,10 @@ function applyTrailingSpacing({
     node,
     isTopLevel,
     options,
-    syntheticDocByNode,
     hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
     suppressFollowingEmptyLine,
-    syntheticDocComment,
     isStaticDeclaration,
     hasFunctionInitializer,
     containerNode
@@ -2642,7 +2481,6 @@ function applyTrailingSpacing({
             node,
             containerNode,
             options,
-            syntheticDocByNode,
             hardline: hardlineDoc,
             currentNodeRequiresNewline,
             nodeEndIndex,
@@ -2663,7 +2501,6 @@ function applyTrailingSpacing({
         hardline: hardlineDoc,
         nodeEndIndex,
         suppressFollowingEmptyLine,
-        syntheticDocComment,
         isStaticDeclaration,
         hasFunctionInitializer,
         containerNode
@@ -2698,7 +2535,6 @@ function handleIntermediateTrailingSpacing({
     node,
     containerNode,
     options,
-    syntheticDocByNode,
     hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
@@ -2715,7 +2551,6 @@ function handleIntermediateTrailingSpacing({
         parts.push(hardlineDoc);
     }
 
-    const nextHasSyntheticDoc = nextNode ? syntheticDocByNode.has(nextNode) : false;
     const nextLineProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
@@ -2780,12 +2615,7 @@ function handleIntermediateTrailingSpacing({
     if (shouldAddPaddingWithNewline) {
         parts.push(hardlineDoc);
         previousNodeHadNewlineAddedAfter = true;
-    } else if (
-        nextLineEmpty &&
-        !nextHasSyntheticDoc &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine
-    ) {
+    } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine) {
         parts.push(hardlineDoc);
     }
 
@@ -2800,7 +2630,6 @@ function handleTerminalTrailingSpacing({
     hardline: hardlineDoc,
     nodeEndIndex,
     suppressFollowingEmptyLine,
-    syntheticDocComment,
     isStaticDeclaration,
     hasFunctionInitializer,
     containerNode
@@ -2826,7 +2655,7 @@ function handleTerminalTrailingSpacing({
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
         Core.isNonEmptyArray(node?.docComments) ||
-        Boolean(syntheticDocComment);
+        Core.isNonEmptyArray(node?._syntheticDocLines);
     const requiresTrailingPadding =
         enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
 
@@ -2848,9 +2677,7 @@ function handleTerminalTrailingSpacing({
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
             shouldPreserveTrailingBlankLine =
-                nextCharacter === "}"
-                    ? constructorContainsOnlyStaticFunctions
-                    : syntheticDocComment == null && nextCharacter !== null;
+                nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : nextCharacter !== null;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
@@ -3534,110 +3361,13 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
-// Convert parser-side `param.default` assignments into explicit
-// DefaultParameter nodes so downstream printing and doc-synthesis logic
-// sees the parameter as defaulted. The parser transform `preprocessFunctionArgumentDefaults`
-// sets `param.default` on Identifier params; materialize those here.
+// (historical) default-parameter materialization logic removed from the
+// printer during the formatter/linter split. All of this behaviour now lives
+// upstream in the parser or in dedicated lint auto-fix rules; the printer
+// should be purely layout-focused. Leave an empty stub in case a downstream
+// consumer still references the symbol, but performing no work.
 function materializeParamDefaultsFromParamDefault(functionNode) {
-    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
-        return;
-    }
-
-    if (!Core.isNonEmptyArray(functionNode.params)) {
-        return;
-    }
-
-    for (let i = 0; i < functionNode.params.length; i += 1) {
-        const param = functionNode.params[i];
-        if (!param || typeof param !== OBJECT_TYPE) {
-            continue;
-        }
-
-        // If the parser stored a `.default` on an Identifier param, convert
-        // it into a DefaultParameter node that the printer already knows how
-        // to consume. Avoid touching nodes that are already DefaultParameter.
-        if (param.type === "Identifier" && param.default !== null) {
-            materializeParserProvidedDefaultParameter(functionNode, param, i);
-        }
-
-        // Fallback: if the parser did not provide a `.default` but a prior
-        // parameter to the left contains an explicit non-`undefined` default
-        // (AssignmentPattern or DefaultParameter with non-undefined RHS),
-        // treat this identifier as implicitly optional and materialize an
-        // explicit `= undefined` DefaultParameter node. This mirrors the
-        // conservative parser transform behaviour but acts as a local
-        // safeguard when the parser pipeline didn't materialize the node.
-        if (param.type === "Identifier" && param.default == null && hasExplicitDefaultToLeft(functionNode, i)) {
-            const defaultNode = {
-                type: "DefaultParameter",
-                left: { type: "Identifier", name: param.name },
-                // Use a Literal sentinel here so the printed shape
-                // and downstream checks observe `value: "undefined"`.
-                right: { type: "Literal", value: "undefined" }
-            };
-            // Do not mark synthesized trailing `= undefined` defaults as optional here.
-            // REASON: Optionality markers should originate from the parser's transform
-            // pipeline or from explicit JSDoc @param annotations, not from the printer's
-            // fallback logic. Keeping the optionality decision upstream ensures that
-            // downstream heuristics (doc comment generation, Feather fixes, etc.) observe
-            // a consistent model of which parameters are truly optional versus which are
-            // merely receiving fallback defaults.
-            // WHAT WOULD BREAK: If the printer were to unilaterally mark these as optional,
-            // it would bypass the parser's intent and conflict with doc-comment-driven
-            // optionality decisions, leading to inconsistent function signatures and
-            // incorrect documentation generation across formatting passes.
-            functionNode.params[i] = defaultNode;
-        }
-
-        // Backfill missing default expressions by extracting in-body fallback logic.
-        // The parser sometimes creates a DefaultParameter node with a null `right`
-        // when the function uses an `if (argument_count < n)` guard to provide a
-        // default value inside the body rather than in the signature. We walk the
-        // function body to find these guards, extract the fallback expression, and
-        // materialize it as the DefaultParameter's `right` so the printer and
-        // doc comment synthesizer can observe the default value. This keeps the
-        // printed signature consistent with the function's actual behavior and
-        // allows downstream tools (e.g., hover hints, signature help) to surface
-        // accurate parameter metadata.
-        if (param.type === "DefaultParameter" && param.right == null) {
-            try {
-                const paramName = param.left && param.left.type === "Identifier" ? param.left.name : null;
-                if (!paramName) continue;
-
-                const body = functionNode.body;
-                if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
-                    continue;
-                }
-
-                const fallback = locateDefaultParameterFallback(body.body, paramName);
-                if (!fallback) {
-                    continue;
-                }
-
-                // Fill in the missing right side of the DefaultParameter
-                param.right = fallback.fallback;
-                if (fallback.fallback && fallback.fallback.end !== null) {
-                    param.end = fallback.fallback.end;
-                }
-                // Do NOT set the _featherOptionalParameter marker here.
-                // REASON: The parser-transform is the authoritative source for optional
-                // parameter intent. If the parser produced the marker it will already be
-                // present on the param (and copied when materialized above). Setting it
-                // in the printer would create a second source of truth and lead to
-                // inconsistencies when the parser's optionality logic changes.
-                // WHAT WOULD BREAK: Adding the marker here would cause parameters to be
-                // marked as optional even when the parser's analysis determined they
-                // weren't, resulting in incorrect JSDoc generation and type mismatches.
-                // Remove the matched statement from the body
-                const idx = body.body.indexOf(fallback.statement);
-                if (idx !== -1) {
-                    body.body.splice(idx, 1);
-                }
-            } catch {
-                // Non-fatal — leave the param as-is.
-            }
-        }
-    }
+    // intentionally no-op
 }
 
 function locateDefaultParameterFallback(
@@ -4187,36 +3917,6 @@ function normalizeDocParamNameFromRaw(raw) {
     return name.trim();
 }
 
-function hasExplicitDefaultToLeft(functionNode, paramIndex) {
-    if (!functionNode || !Array.isArray(functionNode.params) || !Number.isInteger(paramIndex) || paramIndex <= 0) {
-        return false;
-    }
-
-    for (let index = 0; index < paramIndex; index += 1) {
-        const candidate = functionNode.params[index];
-        if (!candidate) {
-            continue;
-        }
-
-        if (candidate.type === "DefaultParameter") {
-            const isUndefined =
-                typeof Core.isUndefinedSentinel === "function" ? Core.isUndefinedSentinel(candidate.right) : false;
-
-            if (!isUndefined) {
-                return true;
-            }
-
-            continue;
-        }
-
-        if (candidate.type === "AssignmentPattern") {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
     if (!functionNode || !functionNode.type) {
         return false;
@@ -4713,10 +4413,12 @@ function shouldOmitSyntheticParens(path, _options) {
     if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
-        if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
-            if (shouldFlattenComparisonLogicalTest(parent, expression, path)) {
-                return true;
-            }
+        if (
+            childInfo !== undefined &&
+            childInfo.precedence > parentInfo.precedence &&
+            shouldFlattenComparisonLogicalTest(parent, expression, path)
+        ) {
+            return true;
         }
     }
 

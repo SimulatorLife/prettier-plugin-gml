@@ -1,6 +1,9 @@
 /**
- * Shared constants for GML lint transform rules.
+ * Centralized constants for the GML linting rules.
  */
 
-/** After this many consecutive declarations, enforce a blank line before the next statement. */
+/**
+ * Minimum number of consecutive variable declarations required before the
+ * formatter enforces blank line spacing after the declaration block.
+ */
 export const DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS = 4;

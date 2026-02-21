@@ -344,6 +344,15 @@ export function formatWithIndefiniteArticle(label) {
     return "a";
 }
 
+/**
+ * Determine whether a character is a valid identifier word character in
+ * GameMaker Language (GML). Accepted characters are ASCII letters (a–z, A–Z),
+ * decimal digits (0–9), and the underscore (`_`). Non-string inputs, empty
+ * strings, and characters outside this set all return `false`.
+ *
+ * @param {unknown} character Candidate single-character string to evaluate.
+ * @returns {boolean} `true` when {@link character} is a word character.
+ */
 export function isWordChar(character) {
     if (typeof character !== "string" || character.length === 0) {
         return false;
@@ -473,6 +482,16 @@ export function toNormalizedLowerCaseString(value?: unknown) {
     return toSafeString(value).trim().toLowerCase();
 }
 
+/**
+ * Upper-case the first character of {@link value} while leaving the remainder
+ * unchanged. Non-string inputs are coerced to a string via the internal
+ * `toSafeString` helper before the transformation is applied. Returns an empty
+ * string for `null`, `undefined`, or empty input.
+ *
+ * @param {unknown} value Value whose first character should be upper-cased.
+ * @returns {string} The input string with its first character capitalized, or
+ *                   an empty string when the input is nullish or empty.
+ */
 export function capitalize(value?: unknown): string {
     if (value == null) {
         return "";
