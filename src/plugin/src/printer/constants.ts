@@ -60,6 +60,16 @@ export const MULTIPLICATIVE_BINARY_OPERATORS = new Set([
     "mod"
 ]);
 
+/**
+ * Minimum number of consecutive variable declarations required before the
+ * formatter enforces blank line spacing after the declaration block.
+ *
+ * After this many consecutive `var`/`let` declarations, the printer inserts
+ * a blank line before the next `for` loop statement so the initialization
+ * block is visually separated from control flow.
+ */
+export const DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS = 4;
+
 // String constants to avoid duplication warnings
 export const STRING_TYPE = "string";
 export const OBJECT_TYPE = "object";
