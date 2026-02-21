@@ -3,11 +3,11 @@ export * from "./deprecated.js";
 export * from "./documented-params.js";
 export * from "./legacy.js";
 export {
-	isDocCommentTagLine,
-	isDocLikeLeadingLine,
-	isFunctionDocCommentLine,
-	parseDocCommentMetadata,
-	hasCommentImmediatelyBefore
+    hasCommentImmediatelyBefore,
+    isDocCommentTagLine,
+    isDocLikeLeadingLine,
+    isFunctionDocCommentLine,
+    parseDocCommentMetadata
 } from "./metadata.js";
 export * from "./params.js";
 export * from "./string-coercions.js";
