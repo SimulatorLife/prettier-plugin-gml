@@ -186,12 +186,7 @@ function normalizeOperation(rawOperation) {
             );
 
             const referenceCandidates = Core.compactArray(Core.toArray(operation.references).map(normalizeReference));
-            const references = referenceCandidates.reduce((acc, item) => {
-                const insertIndex = acc.findIndex((existing) => existing.filePath.localeCompare(item.filePath) > 0);
-                return insertIndex === -1
-                    ? [...acc, item]
-                    : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-            }, []);
+            const references = referenceCandidates.slice().sort((a, b) => a.filePath.localeCompare(b.filePath));
 
             const occurrenceCount = references.reduce((total, reference) => total + (reference.occurrences ?? 0), 0);
 
@@ -244,23 +239,15 @@ function normalizeConflict(rawConflict) {
 }
 
 function sortOperations(operations) {
-    return operations.reduce((acc, item) => {
-        const insertIndex = acc.findIndex((existing) => {
-            const scopeCompare = (existing.scopeName ?? "").localeCompare(item.scopeName ?? "");
-            if (scopeCompare !== 0) {
-                return scopeCompare > 0;
-            }
+    return operations.slice().sort((a, b) => {
+        const scopeCompare = (a.scopeName ?? "").localeCompare(b.scopeName ?? "");
+        if (scopeCompare !== 0) return scopeCompare;
 
-            const fromCompare = (existing.fromName ?? "").localeCompare(item.fromName ?? "");
-            if (fromCompare !== 0) {
-                return fromCompare > 0;
-            }
+        const fromCompare = (a.fromName ?? "").localeCompare(b.fromName ?? "");
+        if (fromCompare !== 0) return fromCompare;
 
-            return (existing.toName ?? "").localeCompare(item.toName ?? "") > 0;
-        });
-
-        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-    }, []);
+        return (a.toName ?? "").localeCompare(b.toName ?? "");
+    });
 }
 
 function sortConflicts(conflicts) {
@@ -270,24 +257,15 @@ function sortConflicts(conflicts) {
         [ConflictSeverity.INFO, 2]
     ]);
 
-    return conflicts.reduce((acc, item) => {
-        const itemSeverity = severityOrder.get(item.severity) ?? 99;
-        const insertIndex = acc.findIndex((existing) => {
-            const existingSeverity = severityOrder.get(existing.severity) ?? 99;
-            if (existingSeverity !== itemSeverity) {
-                return existingSeverity > itemSeverity;
-            }
+    return conflicts.slice().sort((a, b) => {
+        const severityDiff = (severityOrder.get(a.severity) ?? 99) - (severityOrder.get(b.severity) ?? 99);
+        if (severityDiff !== 0) return severityDiff;
 
-            const scopeCompare = (existing.scope.displayName ?? "").localeCompare(item.scope.displayName ?? "");
-            if (scopeCompare !== 0) {
-                return scopeCompare > 0;
-            }
+        const scopeCompare = (a.scope.displayName ?? "").localeCompare(b.scope.displayName ?? "");
+        if (scopeCompare !== 0) return scopeCompare;
 
-            return existing.message.localeCompare(item.message) > 0;
-        });
-
-        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-    }, []);
+        return a.message.localeCompare(b.message);
+    });
 }
 
 function pluralize(value, suffix = "s") {
