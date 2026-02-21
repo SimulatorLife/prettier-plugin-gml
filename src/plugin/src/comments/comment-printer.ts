@@ -4,11 +4,10 @@ import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
-import { isFunctionDocCommentLine } from "./function-tag-filter.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
 import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
-const { isObjectLike } = Core;
+const { isObjectLike, isFunctionDocCommentLine } = Core;
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -221,8 +220,8 @@ function printComment(commentPath, options) {
                             comment.end !== null &&
                             "index" in comment.end &&
                             typeof comment.end.index === "number"
-                          ? comment.end.index
-                          : comment.end;
+                            ? comment.end.index
+                            : comment.end;
                 const endIndex = typeof endIndexRaw === "number" ? endIndexRaw : 0;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
                 const isAttachedLeadingComment =

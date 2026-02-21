@@ -60,6 +60,7 @@ export type {
     ScopeTracker,
     ScopeTrackerOptions
 } from "./ast/scope-tracker.js";
+export type { ParserTransform, EmptyTransformOptions } from "./ast/parser-transform.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";

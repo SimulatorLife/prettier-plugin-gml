@@ -15,6 +15,8 @@ export type {
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
+    ParserTransform,
+    EmptyTransformOptions,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,

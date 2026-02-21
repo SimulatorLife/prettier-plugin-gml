@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     cleanupMultiplicativeIdentityParentheses,
     normalizeTraversalContext
-} from "../../../src/transforms/math/index.js";
+} from "../../../../../src/rules/gml/transforms/math/index.js";
 
 void describe("cleanupMultiplicativeIdentityParentheses", () => {
     void it("unwraps safe multiplicative identity replacements", () => {
