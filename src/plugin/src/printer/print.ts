@@ -22,13 +22,15 @@ import {
     buildPrintableDocCommentLines,
     printComment,
     printDanglingComments,
-    printDanglingCommentsAsGroup} from "../comments/index.js";
+    printDanglingCommentsAsGroup
+} from "../comments/index.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle,
     ObjectWrapOption,
     resolveObjectWrapOption,
-    TRAILING_COMMA} from "../options/index.js";
+    TRAILING_COMMA
+} from "../options/index.js";
 import {
     INLINEABLE_SINGLE_STATEMENT_TYPES,
     MULTIPLICATIVE_BINARY_OPERATORS,
@@ -36,7 +38,8 @@ import {
     OBJECT_TYPE,
     PRESERVED_GLOBAL_VAR_NAMES,
     STRING_TYPE,
-    UNDEFINED_TYPE} from "./constants.js";
+    UNDEFINED_TYPE
+} from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -148,10 +151,10 @@ function callPathMethod(path: any, methodName: any, { args, defaultValue }: { ar
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function applyLogicalOperatorsStyle(operator, style) {
-    const entry = Core.OPERATOR_ALIAS_MAP[operator];
-    if (!entry) return operator;
+    const info = Core.getOperatorInfo(operator);
+    if (!info) return operator;
 
-    return style === LogicalOperatorsStyle.KEYWORDS ? entry.keyword : entry.symbol;
+    return Core.getOperatorVariant(operator, style === LogicalOperatorsStyle.KEYWORDS ? "keyword" : "symbol");
 }
 
 function _printImpl(path, options, print) {
@@ -590,14 +593,12 @@ function printParenthesizedExpressionNode(node, path, options, print) {
 function printBinaryExpressionNode(node, path, options, print) {
     const left = print("left");
     const operator = node.operator;
-    let right;
-
     const logicalOperatorsStyle = normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 
-    right = print("right");
+    const right = print("right");
     const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
-    const parts = [left, " ", operator, line, right];
+    const parts = [left, " ", styledOperator, line, right];
 
     let parent = safeGetParentNode(path);
     let depth = 0;
@@ -983,13 +984,14 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof nameStart === NUMBER_TYPE &&
                 typeof nameEnd === NUMBER_TYPE &&
                 nameStart >= macroStart &&
-                nameEnd >= nameStart
-             && Core.isNonEmptyString(node.name)) {
-                    const relativeStart = nameStart - macroStart;
-                    const relativeEnd = nameEnd - macroStart;
+                nameEnd >= nameStart &&
+                Core.isNonEmptyString(node.name)
+            ) {
+                const relativeStart = nameStart - macroStart;
+                const relativeEnd = nameEnd - macroStart;
 
-                    text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
-                }
+                text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
+            }
 
             return concat(stripTrailingLineTerminators(text));
         }
@@ -2363,7 +2365,7 @@ function findNextTerminalCharacter(
  * @param endIndex Exclusive end index of {@link node} within {@link originalText}.
  * @returns {string | null} The restored call text with injected separators when a numeric gap was detected, or `null` if nothing needed to change.
  */
-function synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
+function _synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
     // TODO: This should NOT be part of the formatter; this needs to be moved to the linting layer/workspace, 'lint'
     if (
         !node ||
@@ -2979,11 +2981,11 @@ function getSourceTextForNode(node, options) {
 // upstream in the parser or in dedicated lint auto-fix rules; the printer
 // should be purely layout-focused. Leave an empty stub in case a downstream
 // consumer still references the symbol, but performing no work.
-function materializeParamDefaultsFromParamDefault(functionNode) {
+function _materializeParamDefaultsFromParamDefault(_functionNode) {
     // intentionally no-op
 }
 
-function locateDefaultParameterFallback(
+function _locateDefaultParameterFallback(
     statements: Array<any>,
     paramName: string
 ): {
@@ -3081,7 +3083,7 @@ function deriveArgumentIndex(test: any) {
     }
 }
 
-function materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
+function _materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
     try {
         const defaultExpr = param.default;
         const defaultNode = {
@@ -3764,7 +3766,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 
 function getBinaryOperatorInfo(operator) {
     if (operator === undefined) {
-        return undefined;
+        return;
     }
     return Core.BINARY_OPERATORS[operator];
 }
@@ -3908,6 +3910,94 @@ function shouldFlattenTernaryTest(parentKey, expression) {
         expressionType === "MemberDotExpression" ||
         expressionType === "MemberIndexExpression"
     );
+}
+
+/**
+ * Returns true when a synthetic binary expression nested inside a parent
+ * binary expression can have its parentheses removed (i.e., the child
+ * operator binds at the same or tighter precedence and the operators are
+ * compatible for associative flattening).
+ */
+function shouldFlattenSyntheticBinary(parent, expression, _path) {
+    if (!parent || !expression) {
+        return false;
+    }
+
+    const parentOp = parent.operator;
+    const childOp = expression.operator;
+    if (!parentOp || !childOp) {
+        return false;
+    }
+
+    const parentInfo = getBinaryOperatorInfo(parentOp);
+    const childInfo = getBinaryOperatorInfo(childOp);
+    if (!parentInfo || !childInfo) {
+        return false;
+    }
+
+    // Flatten when both operators have the same precedence and the parent is
+    // left-associative (e.g., `a + b + c` needs no parens around `b + c`).
+    return childInfo.prec === parentInfo.prec && parentInfo.assoc === "left" && parentOp === childOp;
+}
+
+/**
+ * Returns true when a multiplication / division chain can be flattened.
+ * Conservative implementation: only flattens identical adjacent operators.
+ */
+function shouldFlattenMultiplicationChain(parent, expression, _path) {
+    if (!parent || !expression) {
+        return false;
+    }
+
+    const parentOp = parent.operator;
+    const childOp = expression.operator;
+    if (!parentOp || !childOp) {
+        return false;
+    }
+
+    const MULTIPLICATIVE = new Set(["*", "/"]);
+    return MULTIPLICATIVE.has(parentOp) && MULTIPLICATIVE.has(childOp) && parentOp === childOp;
+}
+
+/**
+ * Returns true when a synthetic parenthesisation wrapping a call expression
+ * argument can be removed.
+ */
+function shouldFlattenSyntheticCall(_parent, expression, _path) {
+    if (!expression) {
+        return false;
+    }
+
+    // Only flatten simple identifier or member expressions inside call args.
+    return (
+        expression.type === "Identifier" ||
+        expression.type === "MemberDotExpression" ||
+        expression.type === "MemberIndexExpression"
+    );
+}
+
+/**
+ * Returns true when a comparison or logical test inside a larger logical
+ * expression can have redundant parentheses removed.
+ */
+function shouldFlattenComparisonLogicalTest(parent, expression, _path) {
+    if (!parent || !expression) {
+        return false;
+    }
+
+    const LOGICAL_OPS = new Set(["&&", "||", "^^", "and", "or", "xor"]);
+    const COMPARISON_OPS = new Set(["==", "!=", "<>", "<", "<=", ">", ">="]);
+
+    return LOGICAL_OPS.has(parent.operator) && COMPARISON_OPS.has(expression.operator);
+}
+
+/**
+ * Evaluates whether numeric binary parentheses should be flattened.
+ * Returns `"allow"` if parentheses can be safely removed, `"deny"` to keep
+ * them, or `"undecided"` to let the caller apply the default heuristic.
+ */
+function evaluateNumericBinaryFlattening(_parent, _expression, _path): "allow" | "deny" | "undecided" {
+    return "undecided";
 }
 
 function shouldWrapTernaryExpression(path) {

@@ -4,13 +4,16 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex } from "../rule-base-helpers.js";
 
+/** GML unary operator aliases that should be normalized to their symbol equivalents. */
+const UNARY_OPERATOR_ALIASES: Readonly<Record<string, string>> = Object.freeze({ not: "!" });
+
 export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
                 BinaryExpression(node) {
-                    const normalized = Core.OPERATOR_ALIAS_MAP.get(node.operator);
+                    const normalized = Core.getOperatorInfo(node.operator)?.canonical;
                     if (normalized) {
                         const start = getNodeStartIndex(node);
                         const end = getNodeEndIndex(node);
@@ -24,7 +27,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                     }
                 },
                 UnaryExpression(node) {
-                    const normalized = Core.OPERATOR_OPERATORS.get(node.operator);
+                    const normalized = UNARY_OPERATOR_ALIASES[node.operator];
                     if (normalized) {
                         context.report({
                             node,
