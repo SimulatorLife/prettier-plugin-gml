@@ -63,6 +63,7 @@ export type {
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
+export type { StripCommentsTransformOptions } from "./ast/strip-comments-transform.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
 export type { StringCommentScanState } from "./utils/text-scan.js";
