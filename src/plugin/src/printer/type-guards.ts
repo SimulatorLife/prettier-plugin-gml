@@ -759,7 +759,7 @@ export function isLogicalAndOperator(operator: string): boolean {
  *
  * @internal
  */
-function checkSyntheticParenFlattening(path: any, requireExplicit = false): boolean {
+function checkSyntheticParenFlattening(path: any, _requireExplicit = false): boolean {
     let depth = 1;
     while (true) {
         const ancestor = callPathMethod(path, "getParentNode", {

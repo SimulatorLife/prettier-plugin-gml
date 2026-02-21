@@ -366,18 +366,16 @@ function replaceMemberAccessPathInternal(
     targetPath: string,
     replacementIdentifier: string
 ): number {
-    let currentValue: unknown;
-    if (Array.isArray(parentContainer)) {
-        if (typeof property !== "number") {
-            return 0;
-        }
-        currentValue = parentContainer[property];
-    } else {
-        if (typeof property !== "string") {
-            return 0;
-        }
-        currentValue = parentContainer[property];
+    if (Array.isArray(parentContainer) && typeof property !== "number") {
+        return 0;
     }
+    if (!Array.isArray(parentContainer) && typeof property !== "string") {
+        return 0;
+    }
+
+    const currentValue: unknown = Array.isArray(parentContainer)
+        ? parentContainer[property as number]
+        : parentContainer[property as string];
 
     if (!Core.isObjectLike(currentValue)) {
         return 0;
@@ -389,7 +387,7 @@ function replaceMemberAccessPathInternal(
         getMemberAccessPath(currentValue) === targetPath
     ) {
         const replacement = createIdentifierNode(replacementIdentifier, currentValue);
-        parentContainer[property] = Array.isArray(parentContainer) ? replacement : replacement;
+        (parentContainer as Record<number | string, unknown>)[property] = replacement;
         return 1;
     }
 
@@ -618,15 +616,25 @@ function collectAssignedIdentifiersFromTarget(target: unknown, assignedIdentifie
 }
 
 function containsCallExpression(node: unknown): boolean {
-    let hasCallExpression = false;
+    if (!Core.isObjectLike(node)) {
+        return false;
+    }
 
-    walkNode(node, null, null, (child) => {
-        if (child.type === "CallExpression") {
-            hasCallExpression = true;
+    if (Array.isArray(node)) {
+        return node.some((element) => containsCallExpression(element));
+    }
+
+    const astNode = node as MutableGameMakerAstNode;
+    if (astNode.type === "CallExpression") {
+        return true;
+    }
+
+    return Object.entries(node).some(([key, value]) => {
+        if (IGNORED_CHILD_KEYS.has(key) || !Core.isObjectLike(value)) {
+            return false;
         }
+        return containsCallExpression(value);
     });
-
-    return hasCallExpression;
 }
 
 function getLoopConditionExpression(loopNode: MutableGameMakerAstNode): MutableGameMakerAstNode | null {

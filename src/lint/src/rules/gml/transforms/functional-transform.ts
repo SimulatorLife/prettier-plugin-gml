@@ -1,15 +1,10 @@
-import {
-    Core,
-    type EmptyTransformOptions as CoreEmptyTransformOptions,
-    type MutableGameMakerAstNode,
-    type ParserTransform as CoreParserTransform
-} from "@gml-modules/core";
+import * as Core from "@gml-modules/core";
 
 export type ParserTransform<
-    AstType extends MutableGameMakerAstNode = MutableGameMakerAstNode,
+    AstType extends Core.MutableGameMakerAstNode = Core.MutableGameMakerAstNode,
     Options extends Record<string, unknown> = Record<string, unknown>
-> = CoreParserTransform<AstType, Options>;
+> = Core.ParserTransform<AstType, Options>;
 
-export type EmptyTransformOptions = CoreEmptyTransformOptions;
+export type EmptyTransformOptions = Core.EmptyTransformOptions;
 
-export const createParserTransform = Core.createParserTransform;
+export const createParserTransform = Core.Core.createParserTransform;
