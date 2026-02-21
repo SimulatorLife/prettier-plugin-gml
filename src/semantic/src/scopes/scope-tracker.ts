@@ -24,6 +24,7 @@ import type {
     ScopeModificationDetails,
     ScopeModificationMetadata,
     ScopeOccurrencesSummary,
+    ScopeRemovalResult,
     ScopeRole,
     ScopeScipOccurrences,
     ScopeSummary,
@@ -2348,6 +2349,118 @@ export class ScopeTracker {
         }
 
         return entry.declarations.length > 0 || entry.references.length > 0;
+    }
+
+    /**
+     * Removes all scopes associated with a file path, along with their descendants.
+     * Cleans up all internal indexes (`symbolToScopesIndex`, `scopesById`,
+     * `scopeChildrenIndex`, `pathToScopesIndex`) and invalidates the identifier
+     * resolution cache for every symbol touched by the removed scopes.
+     *
+     * This is the primary entry point for hot-reload scope invalidation: after
+     * detecting that a file has changed on disk, call this method to purge stale
+     * scope data before re-parsing and re-analysing that file. The returned
+     * `affectedSymbols` set tells the caller which symbol names were declared or
+     * referenced in the removed scopes—dependent scopes that reference those
+     * symbols may have stale resolution results and should be re-evaluated.
+     *
+     * **Important**: Do not call this method while a parse traversal is in
+     * progress (i.e., while scopes are on the active scope stack). It is safe
+     * to call only between complete, standalone parse operations.
+     *
+     * @param path - File path whose associated scopes should be removed.
+     * @returns `removedScopeIds` – sorted list of scope IDs that were removed,
+     *          including all descendants of the path-associated root scopes;
+     *          `affectedSymbols` – every symbol name declared or referenced in
+     *          the removed scopes.
+     */
+    public removeScopesByPath(path: string | null | undefined): ScopeRemovalResult {
+        const empty: ScopeRemovalResult = { removedScopeIds: [], affectedSymbols: new Set<string>() };
+
+        if (!path || !this.enabled) {
+            return empty;
+        }
+
+        const trackedPath = this.normalizeTrackedPath(path);
+        const scopeIds = this.pathToScopesIndex.get(trackedPath);
+
+        if (!scopeIds || scopeIds.size === 0) {
+            return empty;
+        }
+
+        // Collect all scopes to remove: path-associated scopes + all descendants.
+        const toRemove = new Set<string>();
+        for (const scopeId of scopeIds) {
+            toRemove.add(scopeId);
+            const descendants = this.getDescendantScopeIds(scopeId);
+            for (const descId of descendants) {
+                toRemove.add(descId);
+            }
+        }
+
+        const affectedSymbols = new Set<string>();
+
+        for (const scopeId of toRemove) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            // Track every symbol name involved in this scope (declarations + references).
+            for (const name of scope.occurrences.keys()) {
+                affectedSymbols.add(name);
+            }
+
+            // Detach from parent's children set only when the parent itself is
+            // not also being removed (to avoid double-editing the same set).
+            if (scope.parent && !toRemove.has(scope.parent.id)) {
+                const parentChildren = this.scopeChildrenIndex.get(scope.parent.id);
+                if (parentChildren) {
+                    parentChildren.delete(scopeId);
+                    if (parentChildren.size === 0) {
+                        this.scopeChildrenIndex.delete(scope.parent.id);
+                    }
+                }
+            }
+
+            // Remove this scope's own children index entry.
+            this.scopeChildrenIndex.delete(scopeId);
+
+            // Remove this scope from every symbol's entry in symbolToScopesIndex.
+            for (const name of scope.occurrences.keys()) {
+                const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+                if (scopeSummaryMap) {
+                    scopeSummaryMap.delete(scopeId);
+                    if (scopeSummaryMap.size === 0) {
+                        this.symbolToScopesIndex.delete(name);
+                    }
+                }
+            }
+
+            this.scopesById.delete(scopeId);
+        }
+
+        // Remove the path entry now that all its scopes are gone.
+        this.pathToScopesIndex.delete(trackedPath);
+
+        // Reset rootScope if it was one of the removed scopes.
+        if (this.rootScope && toRemove.has(this.rootScope.id)) {
+            this.rootScope = null;
+        }
+
+        // Invalidate identifier resolution caches for every affected symbol.
+        for (const name of affectedSymbols) {
+            this.identifierCache.invalidate(name);
+        }
+
+        // Clear the lookup cache; reset depth so the next enterScope/exitScope
+        // does not redundantly clear an already-empty cache.
+        this.lookupCache.clear();
+        this.lookupCacheDepth = this.scopeStack.length;
+
+        const removedScopeIds = [...toRemove];
+        removedScopeIds.sort();
+        return { removedScopeIds, affectedSymbols };
     }
 }
 

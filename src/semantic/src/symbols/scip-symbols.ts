@@ -1,14 +1,11 @@
 /**
- * @typedef {"script"|"event"|"object"|"macro"|"enum"|"var"} GmlSymbolKind
+ * Discriminated union of all GML symbol kinds used in SCIP symbol strings.
  */
+export type GmlSymbolKind = "script" | "event" | "object" | "macro" | "enum" | "var";
 
 /**
  * Create a stable SCIP symbol string for a GML symbol.
- * @param {GmlSymbolKind} kind
- * @param {string} name
  */
-export function sym(kind, name) {
+export function sym(kind: GmlSymbolKind, name: string): string {
     return `gml/${kind}/${name}`;
 }
-
-export default { sym };
