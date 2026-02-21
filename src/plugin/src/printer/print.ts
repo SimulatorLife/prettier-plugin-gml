@@ -4547,10 +4547,12 @@ function shouldOmitSyntheticParens(path, _options) {
     if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
-        if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
-            if (shouldFlattenComparisonLogicalTest(parent, expression, path)) {
-                return true;
-            }
+        if (
+            childInfo !== undefined &&
+            childInfo.precedence > parentInfo.precedence &&
+            shouldFlattenComparisonLogicalTest(parent, expression, path)
+        ) {
+            return true;
         }
     }
 
