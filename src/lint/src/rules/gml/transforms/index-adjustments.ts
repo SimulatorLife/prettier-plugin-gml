@@ -1,15 +1,13 @@
+import { Core } from "@gml-modules/core";
+
 /**
- * Shared helper for re-mapping AST location metadata after sanitized text insertions (e.g., guard characters).
- * The helper applies index adjustments to both the AST nodes and any cached metadata so callers do not need to duplicate logic.
+ * Re-maps AST location metadata after sanitized text insertions to maintain consistency.
+ *
+ * Delegates to the canonical Core implementation so the lint workspace does not
+ * maintain a separate untyped copy. The function applies index adjustments to
+ * both the AST nodes and any cached metadata so callers do not need to
+ * duplicate logic.
+ *
+ * Canonical implementation: `src/core/src/ast/index-adjustments.ts`
  */
-export function applyIndexAdjustmentsIfPresent(target, adjustments, applyAdjustments, metadata) {
-    if (!Array.isArray(adjustments) || adjustments.length === 0) {
-        return;
-    }
-
-    applyAdjustments(target, adjustments);
-
-    if (metadata !== null && metadata !== undefined) {
-        applyAdjustments(metadata, adjustments);
-    }
-}
+export const applyIndexAdjustmentsIfPresent = Core.applyIndexAdjustmentsIfPresent;

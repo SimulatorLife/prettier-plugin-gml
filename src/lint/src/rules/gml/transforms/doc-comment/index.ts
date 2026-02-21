@@ -22,4 +22,3 @@ export {
     setDeprecatedDocCommentFunctionSet,
     setDocCommentMetadata
 } from "./doc-comment-metadata.js";
-export * as NormalizationUtils from "./normalization-utils.js";

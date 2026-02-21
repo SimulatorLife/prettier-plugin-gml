@@ -47,3 +47,12 @@ export function removeFunctionDocCommentLines(lines: readonly unknown[]): Mutabl
 
     return filtered;
 }
+
+/**
+ * Returns printer-specific doc-comment options resolved from the given options object.
+ * The result is informational only and not consumed by the current implementation.
+ * TODO: implement proper option resolution when printer-specific doc-comment behavior is needed.
+ */
+export function resolveDocCommentPrinterOptions(options: unknown): unknown {
+    return options;
+}
