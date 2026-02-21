@@ -1,11 +1,9 @@
 export {
-    configureIdentifierCaseIntegration,
     defaultOptions,
     languages,
     normalizeFormattedOutput,
     pluginOptions as options,
     parsers,
     Plugin,
-    printers,
-    setIdentifierCaseRuntime
+    printers
 } from "./plugin-entry.js";
