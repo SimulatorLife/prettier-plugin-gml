@@ -41,20 +41,6 @@ type BinaryExpressionNode = GameMakerAstNode & {
     right?: GameMakerAstNode | null;
 };
 
-function extractLiteralNumber(literal: GameMakerAstNode): number | null {
-    const rawValue = literal.value;
-    if (typeof rawValue === "number") {
-        return rawValue;
-    }
-
-    if (typeof rawValue === "string") {
-        const numeric = Number(rawValue);
-        return Number.isFinite(numeric) ? numeric : null;
-    }
-
-    return null;
-}
-
 function extractReciprocalScalar(node: GameMakerAstNode | null | undefined): number | null {
     const expression = Core.unwrapParenthesizedExpression(node) ?? null;
     if (!expression || expression.type !== BINARY_EXPRESSION || expression.operator !== "/") {
@@ -69,8 +55,8 @@ function extractReciprocalScalar(node: GameMakerAstNode | null | undefined): num
         return null;
     }
 
-    const numeratorValue = extractLiteralNumber(numerator);
-    const denominatorValue = extractLiteralNumber(denominator);
+    const numeratorValue = Core.getLiteralNumberValue(numerator);
+    const denominatorValue = Core.getLiteralNumberValue(denominator);
 
     if (
         numeratorValue === null ||
@@ -93,7 +79,7 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
         return null;
     }
 
-    const literalValue = extractLiteralNumber(node);
+    const literalValue = Core.getLiteralNumberValue(node);
     if (literalValue !== null && Number.isFinite(literalValue)) {
         // Use tolerance-aware comparison to detect values extremely close to zero
         // that might arise from floating-point rounding errors
