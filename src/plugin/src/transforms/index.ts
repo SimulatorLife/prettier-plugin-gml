@@ -2,18 +2,13 @@ import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import type { ParserTransform } from "./functional-transform.js";
-import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
  * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
  */
-const TRANSFORM_REGISTRY_ENTRIES = [
-    stripCommentsTransform,
-    enforceVariableBlockSpacingTransform,
-    markCallsMissingArgumentSeparatorsTransform
-] as const;
+const TRANSFORM_REGISTRY_ENTRIES = [stripCommentsTransform, enforceVariableBlockSpacingTransform] as const;
 
 type RegisteredTransform = (typeof TRANSFORM_REGISTRY_ENTRIES)[number];
 export type ParserTransformName = RegisteredTransform["name"];
@@ -80,5 +75,4 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
 
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
-export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { stripCommentsTransform } from "./strip-comments.js";

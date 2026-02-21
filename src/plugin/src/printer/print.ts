@@ -30,12 +30,6 @@ import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../option
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
-import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "../comments/function-docs.js";
-import {
-    getSyntheticDocCommentForFunctionAssignment,
-    getSyntheticDocCommentForStaticVariable,
-    type SyntheticDocCommentPayload
-} from "../comments/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -359,21 +353,10 @@ function printNodeDocComments(node, path, options) {
     const { originalText } = sourceMetadata;
     const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-    const {
-        docCommentDocs: collectedDocCommentDocs,
-        existingDocLines,
-        needsLeadingBlankLine: collectedNeedsLeadingBlankLine,
-        plainLeadingLines
-    } = collectFunctionDocCommentDocs({
-        node,
-        options,
-        path,
-        nodeStartIndex,
-        originalText
-    });
-
-    let docCommentDocs: MutableDocCommentLines = collectedDocCommentDocs;
-    let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
+    const docCommentDocs: MutableDocCommentLines = Array.isArray(node.docComments)
+        ? Core.toMutableArray(node.docComments as string[])
+        : [];
+    const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
     try {
         materializeParamDefaultsFromParamDefault(node);
@@ -381,31 +364,10 @@ function printNodeDocComments(node, path, options) {
         /* ignore */
     }
 
-    let includeOverrideTag = false;
-    const parentNode = safeGetParentNode(path);
-    if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
-        const grandParentNode = safeGetParentNode(path, 1);
-        if (
-            grandParentNode &&
-            grandParentNode.type === VARIABLE_DECLARATION &&
-            grandParentNode._overridesStaticFunction
-        ) {
-            includeOverrideTag = true;
-        }
-    }
-
-    ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
-        docCommentDocs,
-        needsLeadingBlankLine,
-        node,
-        options,
-        path,
-        overrides: { includeOverrideTag }
-    }));
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
     const parts: any[] = [];
-    const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0 && existingDocLines.length === 0;
+    const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0;
 
     if (shouldEmitPlainLeadingLines) {
         parts.push(join(hardline, plainLeadingLines), hardline, hardline);
@@ -413,7 +375,9 @@ function printNodeDocComments(node, path, options) {
 
     if (docCommentDocs.length > 0) {
         node[DOC_COMMENT_OUTPUT_FLAG] = true;
-        const suppressLeadingBlank = docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
+        const suppressLeadingBlank = (docCommentDocs as any)?._suppressLeadingBlank === true;
+
+        const needsLeadingBlankLine = (node as any)?._gmlNeedsLeadingBlankLine === true;
 
         const hasLeadingNonDocComment =
             !Core.isNonEmptyArray(node.docComments) &&
@@ -1496,54 +1460,20 @@ function printBlockStatementNode(node, path, options, print) {
             }
         }
 
-        // Check if the first statement will have a synthetic doc comment.
-        // If so, the synthetic doc provides visual separation, so we don't need
+        // Check if the first statement has a doc comment.
+        // If so, the doc comment provides visual separation, so we don't need
         // to preserve a blank line from the source.
-        let firstStatementHasSyntheticDoc = false;
-        if (isConstructor) {
-            // We need to get the program node to check for synthetic docs
-            let programNode = null;
-            try {
-                let depth = 0;
-                while (depth < 20) {
-                    const ancestor = safeGetParentNode(path, depth);
-                    if (!ancestor) break;
-                    if (ancestor.type === "Program") {
-                        programNode = ancestor;
-                        break;
-                    }
-                    depth += 1;
-                }
-            } catch {
-                // Fallback: try without depth parameter
-                const ancestor = safeGetParentNode(path);
-                if (ancestor?.type === "Program") {
-                    programNode = ancestor;
-                }
-            }
-
-            const syntheticDocForStatic = getSyntheticDocCommentForStaticVariable(
-                firstStatement,
-                options,
-                programNode,
-                originalText
-            );
-            const syntheticDocForFunction = getSyntheticDocCommentForFunctionAssignment(
-                firstStatement,
-                options,
-                programNode,
-                originalText
-            );
-            firstStatementHasSyntheticDoc = syntheticDocForStatic !== null || syntheticDocForFunction !== null;
-        }
+        const firstStatementHasDocComment =
+            Core.isNonEmptyArray(firstStatement.docComments) ||
+            Core.isNonEmptyArray((firstStatement as any)._syntheticDocLines);
 
         // For constructors, preserve blank lines between header and first statement,
-        // unless the first statement will have a synthetic doc comment (which provides
+        // unless the first statement has a doc comment (which provides
         // visual separation already)
         shouldPreserveInitialBlankLine =
-            (shouldPreserveInitialBlankLine && !firstStatementHasSyntheticDoc) ||
-            (preserveForConstructorText && !firstStatementHasSyntheticDoc) ||
-            (preserveForInitialSpacing && !firstStatementHasSyntheticDoc);
+            (shouldPreserveInitialBlankLine && !firstStatementHasDocComment) ||
+            (preserveForConstructorText && !firstStatementHasDocComment) ||
+            (preserveForInitialSpacing && !firstStatementHasDocComment);
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -2259,20 +2189,6 @@ function printStatements(path, options, print, childrenAttribute) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const originalTextCache = sourceMetadata.originalText ?? options?.originalText ?? null;
 
-    let syntheticDocByNode = new Map();
-
-    syntheticDocByNode = new Map();
-    if (statements) {
-        for (const statement of statements) {
-            const docComment =
-                getSyntheticDocCommentForStaticVariable(statement, options, programNode, originalTextCache) ??
-                getSyntheticDocCommentForFunctionAssignment(statement, options, programNode, originalTextCache);
-            if (docComment) {
-                syntheticDocByNode.set(statement, docComment);
-            }
-        }
-    }
-
     return path.map((childPath, index) => {
         const result = buildStatementPartsForPrinter({
             childPath,
@@ -2280,7 +2196,6 @@ function printStatements(path, options, print, childrenAttribute) {
             print,
             options,
             originalTextCache,
-            syntheticDocByNode,
             sourceMetadata,
             statements,
             containerNode,
@@ -2297,7 +2212,6 @@ function buildStatementPartsForPrinter({
     print,
     options,
     originalTextCache,
-    syntheticDocByNode,
     sourceMetadata,
     statements,
     containerNode,
@@ -2341,16 +2255,7 @@ function buildStatementPartsForPrinter({
         nodeStartIndex
     });
 
-    const syntheticDocRecord = syntheticDocByNode.get(node);
-    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
-
     const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
-
-    appendSyntheticDocCommentParts({
-        parts,
-        syntheticDocRecord,
-        isFirstStatementInBlock
-    });
 
     const textForSemicolons = originalTextCache || "";
     let hasTerminatingSemicolon = false;
@@ -2378,7 +2283,7 @@ function buildStatementPartsForPrinter({
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
 
-    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment) {
+    if (isFirstStatementInBlock && isStaticDeclaration) {
         const hasExplicitBlankLineBeforeStatic =
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -2398,8 +2303,6 @@ function buildStatementPartsForPrinter({
         semi,
         childPath,
         hasTerminatingSemicolon,
-        syntheticDocRecord,
-        syntheticDocComment,
         isStaticDeclaration
     });
 
@@ -2452,12 +2355,10 @@ function buildStatementPartsForPrinter({
         node,
         isTopLevel,
         options,
-        syntheticDocByNode,
         hardline,
         currentNodeRequiresNewline,
         nodeEndIndex,
         suppressFollowingEmptyLine,
-        syntheticDocComment,
         isStaticDeclaration,
         hasFunctionInitializer,
         containerNode
@@ -2492,55 +2393,7 @@ function addLeadingStatementSpacing({
 
 const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
 
-function hasDocCommentTags(docLines: string[] | null | undefined) {
-    if (!Core.isNonEmptyArray(docLines)) {
-        return false;
-    }
-
-    return docLines.some((docLine) => typeof docLine === "string" && DOC_COMMENT_TAG_PATTERN.test(docLine.trim()));
-}
-
-function appendSyntheticDocCommentParts({
-    parts,
-    syntheticDocRecord,
-    isFirstStatementInBlock = false
-}: {
-    parts: any[];
-    syntheticDocRecord: SyntheticDocCommentPayload | undefined;
-    isFirstStatementInBlock?: boolean;
-}) {
-    const syntheticPlainLeadingLines = syntheticDocRecord?.plainLeadingLines ?? [];
-    const syntheticDocComment = syntheticDocRecord?.doc ?? null;
-    const syntheticDocLines = syntheticDocRecord?.docLines ?? null;
-    const shouldPrintDocComment = syntheticDocComment !== null && hasDocCommentTags(syntheticDocLines);
-
-    if (syntheticPlainLeadingLines.length > 0) {
-        parts.push(join(hardline, syntheticPlainLeadingLines));
-        if (!shouldPrintDocComment) {
-            parts.push(hardline);
-        }
-    }
-
-    if (shouldPrintDocComment && syntheticDocComment) {
-        // Always add a leading hardline before the synthetic doc comment to ensure
-        // proper indentation. For first statements in blocks, the block already
-        // contributes the leading hardline, so avoid inserting an extra blank line.
-        if (!isFirstStatementInBlock) {
-            parts.push(hardline);
-        }
-        parts.push(syntheticDocComment, hardline);
-    }
-}
-
-function normalizeStatementSemicolon({
-    node,
-    semi,
-    childPath,
-    hasTerminatingSemicolon,
-    syntheticDocRecord,
-    syntheticDocComment,
-    isStaticDeclaration
-}) {
+function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemicolon, isStaticDeclaration }) {
     if (semi !== ";") {
         return semi;
     }
@@ -2602,12 +2455,7 @@ function normalizeStatementSemicolon({
         }
     }
 
-    const shouldOmitSemicolon =
-        !hasTerminatingSemicolon &&
-        syntheticDocComment &&
-        !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
-        isLastStatement(childPath) &&
-        !isStaticDeclaration;
+    const shouldOmitSemicolon = false;
 
     if (shouldOmitSemicolon) {
         return "";
@@ -2624,12 +2472,10 @@ function applyTrailingSpacing({
     node,
     isTopLevel,
     options,
-    syntheticDocByNode,
     hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
     suppressFollowingEmptyLine,
-    syntheticDocComment,
     isStaticDeclaration,
     hasFunctionInitializer,
     containerNode
@@ -2642,7 +2488,6 @@ function applyTrailingSpacing({
             node,
             containerNode,
             options,
-            syntheticDocByNode,
             hardline: hardlineDoc,
             currentNodeRequiresNewline,
             nodeEndIndex,
@@ -2663,7 +2508,6 @@ function applyTrailingSpacing({
         hardline: hardlineDoc,
         nodeEndIndex,
         suppressFollowingEmptyLine,
-        syntheticDocComment,
         isStaticDeclaration,
         hasFunctionInitializer,
         containerNode
@@ -2698,7 +2542,6 @@ function handleIntermediateTrailingSpacing({
     node,
     containerNode,
     options,
-    syntheticDocByNode,
     hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
@@ -2715,7 +2558,6 @@ function handleIntermediateTrailingSpacing({
         parts.push(hardlineDoc);
     }
 
-    const nextHasSyntheticDoc = nextNode ? syntheticDocByNode.has(nextNode) : false;
     const nextLineProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
@@ -2780,12 +2622,7 @@ function handleIntermediateTrailingSpacing({
     if (shouldAddPaddingWithNewline) {
         parts.push(hardlineDoc);
         previousNodeHadNewlineAddedAfter = true;
-    } else if (
-        nextLineEmpty &&
-        !nextHasSyntheticDoc &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine
-    ) {
+    } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine) {
         parts.push(hardlineDoc);
     }
 
@@ -2800,7 +2637,6 @@ function handleTerminalTrailingSpacing({
     hardline: hardlineDoc,
     nodeEndIndex,
     suppressFollowingEmptyLine,
-    syntheticDocComment,
     isStaticDeclaration,
     hasFunctionInitializer,
     containerNode
@@ -2826,7 +2662,7 @@ function handleTerminalTrailingSpacing({
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
         Core.isNonEmptyArray(node?.docComments) ||
-        Boolean(syntheticDocComment);
+        Core.isNonEmptyArray((node as any)?._syntheticDocLines);
     const requiresTrailingPadding =
         enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
 
@@ -2848,9 +2684,7 @@ function handleTerminalTrailingSpacing({
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
             shouldPreserveTrailingBlankLine =
-                nextCharacter === "}"
-                    ? constructorContainsOnlyStaticFunctions
-                    : syntheticDocComment == null && nextCharacter !== null;
+                nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : nextCharacter !== null;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
