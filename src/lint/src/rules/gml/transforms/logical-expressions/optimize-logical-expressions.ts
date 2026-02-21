@@ -374,8 +374,8 @@ function replaceMemberAccessPathInternal(
     }
 
     const currentValue: unknown = Array.isArray(parentContainer)
-        ? (parentContainer)[property as number]
-        : (parentContainer)[property as string];
+        ? parentContainer[property as number]
+        : parentContainer[property as string];
 
     if (!Core.isObjectLike(currentValue)) {
         return 0;
@@ -387,11 +387,7 @@ function replaceMemberAccessPathInternal(
         getMemberAccessPath(currentValue) === targetPath
     ) {
         const replacement = createIdentifierNode(replacementIdentifier, currentValue);
-        if (Array.isArray(parentContainer)) {
-            (parentContainer)[property as number] = replacement;
-        } else {
-            (parentContainer)[property as string] = replacement;
-        }
+        (parentContainer as Record<number | string, unknown>)[property] = replacement;
         return 1;
     }
 
@@ -625,7 +621,7 @@ function containsCallExpression(node: unknown): boolean {
     }
 
     if (Array.isArray(node)) {
-        return node.some(containsCallExpression);
+        return node.some((element) => containsCallExpression(element));
     }
 
     const astNode = node as MutableGameMakerAstNode;
