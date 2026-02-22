@@ -72,7 +72,7 @@ implementation details:
 - [Formatter/linter split plan](formatter-linter-split-plan.md) &mdash; Canonical
   ownership contract for formatter vs lint vs refactor responsibilities,
   including the two-tier malformed GML strategy and the native codemod model.
-- [Live reloading concept](live-reloading-concept.md) &mdash; Exploration of the
+- [Hot reload architecture](hot-reload.md) &mdash; Concepts, architecture, and integration
   HTML5 runtime fork, watcher pipeline, and runtime integration seams required
   for hot-reload tooling.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the

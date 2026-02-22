@@ -198,5 +198,5 @@ The module is currently in **active development**. It provides basic expression 
 ## References
 
 - [Semantic Scope Plan](../../docs/semantic-scope-plan.md) - Detailed transpiler architecture
-- [Live Reloading Concept](../../docs/live-reloading-concept.md) - Hot-reload workflow
+- [Hot Reload Architecture](../../docs/hot-reload.md) - Hot-reload workflow
 - [Runtime Wrapper](../runtime-wrapper/) - JavaScript runtime integration

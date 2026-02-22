@@ -747,7 +747,7 @@ Provides ANTLR-based GML parsing used by the transpiler.
 
 ## References
 
-- [Live Reloading Concept](../../docs/live-reloading-concept.md) - Overall hot-reload architecture
+- [Hot Reload Architecture](../../docs/hot-reload.md) - Overall hot-reload architecture
 - [Semantic Scope Plan](../../docs/semantic-scope-plan.md) - Semantic analysis integration
 - [Transpiler README](../transpiler/README.md) - GML → JavaScript transpilation details
 - [Runtime Wrapper README](../runtime-wrapper/README.md) - Patch application and hot-swapping

@@ -257,7 +257,7 @@ Start here for deeper context and plans:
 - [`src/cli/README.md`](src/cli/README.md)
 - [`src/semantic/README.md`](src/semantic/README.md)
 - [`src/refactor/README.md`](src/refactor/README.md)
-- [`docs/live-reloading-concept.md`](docs/live-reloading-concept.md)
+- [`docs/hot-reload.md`](docs/hot-reload.md)
 
 ## References / Tools / Docs
 
