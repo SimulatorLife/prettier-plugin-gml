@@ -1,7 +1,6 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import type { ParserTransform } from "./functional-transform.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { stripCommentsTransform } from "./strip-comments.js";
 
@@ -84,7 +83,6 @@ export {
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { stripCommentsTransform } from "./strip-comments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";
