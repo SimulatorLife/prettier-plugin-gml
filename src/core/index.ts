@@ -23,3 +23,12 @@ export type {
     StringCommentScanState,
     StripCommentsTransformOptions
 } from "./src/index.js";
+
+// Re-export description utilities for use by printer and other consumers
+export {
+    applyDescriptionContinuations,
+    classifyDescriptionContinuationLine,
+    collectDescriptionContinuations,
+    ensureDescriptionContinuations,
+    resolveDescriptionIndentation
+} from "./src/comments/doc-comment/description-utils.js";

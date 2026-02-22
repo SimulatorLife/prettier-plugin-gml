@@ -2323,6 +2323,108 @@ export class ScopeTracker {
     }
 
     /**
+     * Removes all scopes (including their descendants) associated with the given
+     * file path and cleans up all supporting indexes atomically.
+     *
+     * This is the primary entry point for hot-reload file invalidation. When a
+     * file is modified, call this before re-analyzing it so that stale scope data
+     * does not accumulate and subsequent symbol lookups remain correct.
+     *
+     * Descendant scopes are removed even when they carry no path metadata, because
+     * they always belong to the same file as their nearest path-indexed ancestor.
+     *
+     * All of the following are updated in a single pass:
+     * - `scopesById` – scope objects are deleted
+     * - `symbolToScopesIndex` – scope entries pruned per symbol
+     * - `scopeChildrenIndex` – parent's child set updated for top-level removed scopes
+     * - `pathToScopesIndex` – path entries removed
+     * - `identifierCache` – targeted per-symbol invalidation
+     * - `lookupCache` / `lookupCacheDepth` – fully cleared
+     *
+     * @param path - File path whose scopes should be removed (normalized automatically)
+     * @returns Number of scopes removed (0 if the path was not indexed)
+     */
+    public removeScopesByPath(path: string | null | undefined): number {
+        if (!path || typeof path !== "string" || path.length === 0) {
+            return 0;
+        }
+
+        const trackedPath = this.normalizeTrackedPath(path);
+        const directScopeIds = this.pathToScopesIndex.get(trackedPath);
+        if (!directScopeIds || directScopeIds.size === 0) {
+            return 0;
+        }
+
+        // Collect direct scopes and all their descendants to remove in one pass.
+        const scopeIdsToRemove = new Set<string>(directScopeIds);
+        for (const scopeId of directScopeIds) {
+            for (const descendantId of this.getDescendantScopeIds(scopeId)) {
+                scopeIdsToRemove.add(descendantId);
+            }
+        }
+
+        for (const scopeId of scopeIdsToRemove) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            // Clean up symbol-to-scopes index and targeted identifier cache entries.
+            for (const name of scope.occurrences.keys()) {
+                const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+                if (scopeSummaryMap) {
+                    scopeSummaryMap.delete(scopeId);
+                    if (scopeSummaryMap.size === 0) {
+                        this.symbolToScopesIndex.delete(name);
+                    }
+                }
+                this.identifierCache.invalidate(name, [scopeId]);
+            }
+
+            // Remove this scope from its parent's children set only when the parent
+            // is NOT itself being removed (avoids redundant work for nested scopes).
+            if (scope.parent !== null && !scopeIdsToRemove.has(scope.parent.id)) {
+                const siblings = this.scopeChildrenIndex.get(scope.parent.id);
+                if (siblings) {
+                    siblings.delete(scopeId);
+                    if (siblings.size === 0) {
+                        this.scopeChildrenIndex.delete(scope.parent.id);
+                    }
+                }
+            }
+
+            // Remove this scope's own children index entry.
+            this.scopeChildrenIndex.delete(scopeId);
+
+            // Remove path index entries for this scope (handles scopes with their
+            // own path metadata that may differ from the target path).
+            if (scope.metadata.path) {
+                const scopePathKey = this.normalizeTrackedPath(scope.metadata.path);
+                const pathScopeSet = this.pathToScopesIndex.get(scopePathKey);
+                if (pathScopeSet) {
+                    pathScopeSet.delete(scopeId);
+                    if (pathScopeSet.size === 0) {
+                        this.pathToScopesIndex.delete(scopePathKey);
+                    }
+                }
+            }
+
+            if (this.rootScope === scope) {
+                this.rootScope = null;
+            }
+
+            this.scopesById.delete(scopeId);
+        }
+
+        // Fully clear the lookup cache: removed declarations may have been shadowing
+        // others, so targeted invalidation is not safe here.
+        this.lookupCache.clear();
+        this.lookupCacheDepth = -1;
+
+        return scopeIdsToRemove.size;
+    }
+
+    /**
      * Checks if a specific scope contains any declarations or references for the given symbol.
      *
      * This is a lightweight check that avoids allocating occurrence arrays, making it
