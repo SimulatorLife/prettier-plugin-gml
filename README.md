@@ -23,7 +23,7 @@ It contains:
 
 ## Formatter at a glance
 
-Formatter (`format`) does layout/canonical rendering only.
+Formatter (`format`) does layout/canonical rendering only (whitespace, semicolons, etc). It does not rewrite code or change semantics.
 
 ```gml
 // input
@@ -44,9 +44,10 @@ Lint (`lint --fix`) does semantic/content rewrites (rule-owned), for example `gm
 ```gml
 // input
 globalvar score;
+score = 0;
 
 // fixed output
-global.score = undefined;
+global.score = 0;
 ```
 
 Project-aware rule inventory: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md)
@@ -95,6 +96,8 @@ pnpm run cli -- lint /absolute/path/to/MyGame --fix
 ```
 
 ### Refactor from a local clone
+
+The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
 
 ```bash
 # dry-run rename preview
@@ -250,12 +253,11 @@ Generated artifacts live in `dist/` and are disposable.
 Start here for deeper context and plans:
 
 - [`docs/README.md`](docs/README.md) (documentation index)
-- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md)
-- [`docs/formatter-linter-split-implementation-notes.md`](docs/formatter-linter-split-implementation-notes.md)
+- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md) (core split architecture and malformed code strategy)
 - [`src/cli/README.md`](src/cli/README.md)
 - [`src/semantic/README.md`](src/semantic/README.md)
 - [`src/refactor/README.md`](src/refactor/README.md)
-- [`docs/live-reloading-concept.md`](docs/live-reloading-concept.md)
+- [`docs/hot-reload.md`](docs/hot-reload.md)
 
 ## References / Tools / Docs
 

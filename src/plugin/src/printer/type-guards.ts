@@ -45,24 +45,6 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
     "UndefinedLiteral"
 ]);
 
-/**
- * Helper function to call a method on a path object safely.
- */
-function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
-    if (!path) {
-        return defaultValue;
-    }
-
-    const method = path[methodName];
-    if (typeof method !== "function") {
-        return defaultValue;
-    }
-
-    const normalizedArgs = Core.toArray(args);
-
-    return method.apply(path, normalizedArgs);
-}
-
 // ============================================================================
 // Comment Type Guards
 // ============================================================================
@@ -479,24 +461,14 @@ export function isSyntheticParenFlatteningEnabled(path: any): boolean {
 }
 
 /**
- * Checks if synthetic parenthesis flattening is explicitly forced in the current context.
- */
-export function isSyntheticParenFlatteningForced(path: any): boolean {
-    return checkSyntheticParenFlattening(path, true);
-}
-
-/**
  * Determines if the current node is within a numeric call argument context.
  */
 export function isWithinNumericCallArgument(path: any): boolean {
     let depth = 1;
-    let currentNode = callPathMethod(path, "getValue", { defaultValue: null });
+    let currentNode: unknown = path?.getValue?.() ?? null;
 
     while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;
@@ -759,13 +731,10 @@ export function isLogicalAndOperator(operator: string): boolean {
  *
  * @internal
  */
-function checkSyntheticParenFlattening(path: any, requireExplicit = false): boolean {
+function checkSyntheticParenFlattening(path: any): boolean {
     let depth = 1;
     while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
+        const ancestor = safeGetParentNode(path, depth - 1);
 
         if (!ancestor) {
             return false;

@@ -1,3 +1,8 @@
+/**
+ * This test suite verifies that the workspace ownership and dependency policies are correctly enforced across the monorepo workspaces.
+ * The tests ensure that the plugin workspace remains decoupled from the semantic and refactor packages, while the refactor workspace 
+ * owns the semantic-backed refactor behavior.
+ */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { describe, it } from "node:test";

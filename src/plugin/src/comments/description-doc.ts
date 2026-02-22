@@ -1,7 +1,6 @@
-import { type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
-import { DescriptionUtils } from "../transforms/doc-comment/index.js";
 import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
@@ -21,7 +20,7 @@ function collectDescriptionContinuations(lines: MutableDocCommentLines, startInd
 
     while (lookahead < lines.length) {
         const candidate = lines[lookahead];
-        const classification = DescriptionUtils.classifyDescriptionContinuationLine(candidate);
+        const classification = Core.classifyDescriptionContinuationLine(candidate);
         if (classification.kind === "stop") {
             break;
         }
@@ -49,7 +48,7 @@ function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
     const trimmedLine = lineText.trim();
     const descriptionText = trimmedLine.replace(DESCRIPTION_TAG_PATTERN, "").trim();
 
-    const { prefix } = DescriptionUtils.resolveDescriptionIndentation(lineText);
+    const { prefix } = Core.resolveDescriptionIndentation(lineText);
     const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
 
     const lines = [descriptionText, ...continuations];
@@ -67,7 +66,13 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
     while (index < docCommentDocs.length) {
         const entry = docCommentDocs[index];
         if (typeof entry !== "string") {
-            result.push(entry as Doc);
+            // Convert AST comment nodes to their raw text representation before processing.
+            // Leaving them as objects causes Prettier's printer to crash.
+            const rawText = Core.getLineCommentRawText(entry, {});
+            if (rawText !== null) {
+                docCommentDocs[index] = rawText;
+                continue;
+            }
             index += 1;
             continue;
         }
@@ -79,7 +84,7 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
             continue;
         }
 
-        const { prefix } = DescriptionUtils.resolveDescriptionIndentation(entry);
+        const { prefix } = Core.resolveDescriptionIndentation(entry);
         const baseIndentSpaces = Math.max(prefix.length - 3, 0);
         const { continuations, linesConsumed } = collectDescriptionContinuations(
             docCommentDocs,

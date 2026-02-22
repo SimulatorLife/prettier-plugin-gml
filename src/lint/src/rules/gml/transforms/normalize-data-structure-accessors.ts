@@ -20,9 +20,7 @@
  * - Variables containing "grid" are assumed to be ds_grid and should use [#
  */
 
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-
-import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
+import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 const { isObjectLike } = Core;
 
@@ -146,7 +144,7 @@ function normalizeAccessors(ast: MutableGameMakerAstNode): void {
  * the formatter. The heuristics are opinionated and not exposed as a user-facing
  * toggle because they are part of the formatter's canonical normalization step.
  */
-export const normalizeDataStructureAccessorsTransform = createParserTransform<EmptyTransformOptions>(
+export const normalizeDataStructureAccessorsTransform = Core.createParserTransform<EmptyTransformOptions>(
     "normalize-data-structure-accessors",
     {},
     (ast: MutableGameMakerAstNode) => {

@@ -4,11 +4,10 @@ import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
-import { isFunctionDocCommentLine } from "./function-tag-filter.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
 import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
-const { isObjectLike } = Core;
+const { isObjectLike, isFunctionDocCommentLine } = Core;
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -228,6 +227,12 @@ function printComment(commentPath, options) {
                 const isAttachedLeadingComment =
                     comment.trailing !== true && (comment as PrinterComment).followingNode != null;
 
+                // capture blank-line status *before* we potentially clear leadingWS for
+                // attached comments; the old implementation erased this information and
+                // prevented us from preserving blank lines that genuinely existed in the
+                // source text (see failing `testBanner` fixture).
+                const alreadyHasLeadingBlankLine = hasLeadingBlankLine(comment);
+
                 if (isAttachedLeadingComment) {
                     comment.leadingWS = "";
                     comment.trailingWS = "\n";
@@ -238,10 +243,7 @@ function printComment(commentPath, options) {
                     comment.trailingWS = "\n";
                 }
 
-                const alreadyHasLeadingBlankLine = hasLeadingBlankLine(comment);
-                const shouldPrependBlankLine =
-                    comment._gmlForceLeadingBlankLine === true ||
-                    (!isAttachedLeadingComment && alreadyHasLeadingBlankLine);
+                const shouldPrependBlankLine = comment._gmlForceLeadingBlankLine === true || alreadyHasLeadingBlankLine;
                 const parts = [];
                 if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);
@@ -282,10 +284,14 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            const normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
+            let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }
+            // Strip any leading whitespace characters from the comment text itself since
+            // Prettier will supply the correct indentation for us. This prevents
+            // situations like `    \t// TODO` when the source already included a tab.
+            normalized = normalized.replace(/^[ \t]+/, "");
             const shouldPrependBlankLine =
                 comment._gmlForceLeadingBlankLine === true ||
                 hasLeadingBlankLine(comment) ||
