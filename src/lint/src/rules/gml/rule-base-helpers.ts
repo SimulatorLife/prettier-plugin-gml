@@ -419,9 +419,15 @@ export function readLineIndentationBeforeOffset(sourceText: string, offset: numb
     return indentationMatch?.[0] ?? "";
 }
 
-export function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
+/**
+ * Collect all identifier names reachable from any AST subtree or statement
+ * list. Works for a single node, an array of statements, or any object-like
+ * root since the underlying {@link walkAstNodes} expands arrays encountered
+ * during traversal.
+ */
+export function collectIdentifierNamesInSubtree(root: unknown): ReadonlySet<string> {
     const identifierNames = new Set<string>();
-    walkAstNodes(programNode, (node) => {
+    walkAstNodes(root, (node) => {
         if (!isAstNodeRecord(node) || node.type !== "Identifier" || typeof node.name !== "string") {
             return;
         }

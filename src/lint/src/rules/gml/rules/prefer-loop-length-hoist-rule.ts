@@ -5,7 +5,7 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import { resolveProjectContextForRule } from "../../project-context.js";
 import {
     type AstNodeWithType,
-    collectIdentifierNamesInProgram,
+    collectIdentifierNamesInSubtree,
     createMeta,
     getLineIndentationAtOffset,
     getNodeStartIndex,
@@ -205,7 +205,7 @@ export function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): 
                         return;
                     }
 
-                    const localIdentifierNames = collectIdentifierNamesInProgram(programNode);
+                    const localIdentifierNames = collectIdentifierNamesInSubtree(programNode);
                     const loopContexts = collectForStatementContainerContexts(programNode);
 
                     const resolveHoistName = (
