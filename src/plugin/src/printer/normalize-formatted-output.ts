@@ -218,7 +218,7 @@ function updateBlockCommentState(line: string, isInside: boolean): boolean {
     const endIndex = line.indexOf("*/");
 
     if (!isInside) {
-        if (startIndex !== -1 && (endIndex === -1 || startIndex < endIndex)) {
+        if (startIndex !== -1 && (endIndex === -1 || endIndex < startIndex)) {
             return true;
         }
         return false;
