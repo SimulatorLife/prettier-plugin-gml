@@ -1,5 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { collectIdentifierNamesInSubtree } from "../../rule-base-helpers.js";
 import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes } from "./helpers.js";
 
 const { isObjectLike } = Core;
@@ -112,7 +113,7 @@ function maybeHoistLoopLength(
     );
     const cachedLengthName = resolveLoopHoistIdentifierName(
         preferredCachedLengthName,
-        collectIdentifierNamesFromStatementList(statements)
+        collectIdentifierNamesInSubtree(statements)
     );
 
     if (!Core.isNonEmptyString(cachedLengthName)) {
@@ -155,35 +156,6 @@ function resolveLoopHoistIdentifierName(
     }
 
     return null;
-}
-
-function collectIdentifierNamesFromStatementList(
-    statements: Array<MutableGameMakerAstNode | null | undefined>
-): ReadonlySet<string> {
-    const identifierNames = new Set<string>();
-
-    for (const statement of statements) {
-        collectIdentifierNamesFromNode(statement, identifierNames);
-    }
-
-    return identifierNames;
-}
-
-function collectIdentifierNamesFromNode(
-    node: MutableGameMakerAstNode | null | undefined,
-    identifierNames: Set<string>
-): void {
-    if (!isObjectLike(node)) {
-        return;
-    }
-
-    if (node.type === "Identifier" && Core.isNonEmptyString(node.name)) {
-        identifierNames.add(node.name);
-    }
-
-    Core.forEachNodeChild(node, (child) =>
-        collectIdentifierNamesFromNode(child as MutableGameMakerAstNode | null | undefined, identifierNames)
-    );
 }
 
 function createLengthDeclaration(name: string, initializer: MutableGameMakerAstNode) {
