@@ -75,14 +75,17 @@ export function isObjectLike(value?: unknown) {
  * across transforms that support caller-provided helpers so each site no
  * longer hand-rolls `typeof` checks for every property.
  *
- * @template {Function} THelper
- * @param {unknown} helpers Candidate helper bag supplied by the caller.
- * @param {string | number | symbol} key Property name housing the override.
- * @param {THelper} fallback Default helper used when no override is supplied.
- * @returns {THelper}
+ * @param helpers Candidate helper bag supplied by the caller.
+ * @param key Property name housing the override.
+ * @param fallback Default helper used when no override is supplied.
+ * @returns The override function when present, otherwise {@link fallback}.
  */
-export function resolveHelperOverride(helpers, key, fallback) {
-    const normalizedFallback = assertFunction(
+export function resolveHelperOverride<THelper extends Callable>(
+    helpers: unknown,
+    key: string | number | symbol,
+    fallback: THelper
+): THelper {
+    const normalizedFallback = assertFunction<THelper>(
         fallback,
         isNonEmptyString(key) ? `${key.toString()} helper` : "helper override"
     );
@@ -93,13 +96,13 @@ export function resolveHelperOverride(helpers, key, fallback) {
         return normalizedFallback;
     }
 
-    const candidate = /** @type {Record<string | number | symbol, unknown>} */ helpers[key];
+    const candidate = (helpers as Record<string | number | symbol, unknown>)[key];
 
     if (typeof candidate !== "function") {
         return normalizedFallback;
     }
 
-    return /** @type {THelper} */ candidate;
+    return candidate as THelper;
 }
 
 const getObjectPrototypeToString = (value: unknown) => Object.prototype.toString.call(value);
@@ -245,19 +248,17 @@ export function assertFunctionProperties(
     const requiredMethods = toArray(methodNames);
 
     if (requiredMethods.length === 0) {
-        return /** @type {TObject} */ value;
+        return value;
     }
 
-    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ isObjectOrFunction(value)
-        ? value
-        : undefined;
+    const target = isObjectOrFunction(value) ? (value as Record<PropertyKey, unknown>) : undefined;
 
     const missingMethods = requiredMethods
         .filter((methodName) => typeof target?.[methodName] !== "function")
         .map(String);
 
     if (missingMethods.length === 0) {
-        return /** @type {TObject} */ value;
+        return value;
     }
 
     if (errorMessage) {

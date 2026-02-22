@@ -522,8 +522,7 @@ export function capitalize(value?: unknown): string {
  *          use with `String#split`.
  */
 export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
-    /** @type {Array<{ pattern: string, length: number, order: number }>} */
-    const entries = [];
+    const entries: Array<{ pattern: string; length: number; order: number }> = [];
     const seenPatterns = new Set();
 
     const addEntry = (pattern, length) => {
