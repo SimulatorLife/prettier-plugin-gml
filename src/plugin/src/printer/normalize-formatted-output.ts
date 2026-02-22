@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const { isNonEmptyString, isNonEmptyTrimmedString } = Core;
+const { isNonEmptyTrimmedString } = Core;
 
 const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
     "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";
@@ -126,6 +126,51 @@ function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
+function normalizeSingleCommentBlockIndentation(formatted: string): string {
+    const lines = Core.splitLines(formatted);
+
+    for (let index = 1; index < lines.length - 1; index += 1) {
+        const previousLine = lines[index - 1] ?? "";
+        const currentLine = lines[index] ?? "";
+        const nextLine = lines[index + 1] ?? "";
+
+        if (!previousLine.trimEnd().endsWith("{")) {
+            continue;
+        }
+
+        const currentTrimmed = currentLine.trimStart();
+        if (!currentTrimmed.startsWith("//")) {
+            continue;
+        }
+
+        if (nextLine.trim() !== "}") {
+            continue;
+        }
+
+        const currentIndent = currentLine.slice(0, currentLine.length - currentTrimmed.length);
+        const closingIndent = nextLine.slice(0, nextLine.length - nextLine.trimStart().length);
+        if (!currentIndent.startsWith(closingIndent)) {
+            continue;
+        }
+
+        const extraIndent = currentIndent.slice(closingIndent.length);
+        let normalizedExtraIndent: string | null = null;
+        if (extraIndent === "        ") {
+            normalizedExtraIndent = "    ";
+        } else if (extraIndent === "\t\t") {
+            normalizedExtraIndent = "\t";
+        }
+
+        if (normalizedExtraIndent === null) {
+            continue;
+        }
+
+        lines[index] = `${closingIndent}${normalizedExtraIndent}${currentTrimmed}`;
+    }
+
+    return lines.join("\n");
+}
+
 function extractLineCommentPayload(trimmedStart: string): string | null {
     if (trimmedStart.startsWith("///")) {
         return trimmedStart.slice(3).trim();
@@ -168,12 +213,30 @@ function isDocLikeLine(line: string): boolean {
     return DOC_LIKE_LINE_PATTERN.test(trimmed);
 }
 
-function hasRepeatedBlock(lines: string[], segmentLength: number): boolean {
-    const baseSegment = lines.slice(0, segmentLength).map((line) => line.trim());
+function updateBlockCommentState(line: string, isInside: boolean): boolean {
+    const startIndex = line.indexOf("/*");
+    const endIndex = line.indexOf("*/");
 
-    for (let offset = segmentLength; offset < lines.length; offset += segmentLength) {
+    if (!isInside) {
+        if (startIndex !== -1 && (endIndex === -1 || startIndex < endIndex)) {
+            return true;
+        }
+        return false;
+    }
+
+    if (endIndex !== -1 && (startIndex === -1 || endIndex > startIndex)) {
+        return false;
+    }
+
+    return true;
+}
+
+function hasRepeatedBlock(trimmedLines: string[], segmentLength: number): boolean {
+    const baseSegment = trimmedLines.slice(0, segmentLength);
+
+    for (let offset = segmentLength; offset < trimmedLines.length; offset += segmentLength) {
         for (let index = 0; index < segmentLength; index += 1) {
-            if (baseSegment[index] !== lines[offset + index].trim()) {
+            if (baseSegment[index] !== trimmedLines[offset + index]) {
                 return false;
             }
         }
@@ -183,12 +246,15 @@ function hasRepeatedBlock(lines: string[], segmentLength: number): boolean {
 }
 
 function findRepeatedSegmentLength(lines: string[]): number {
-    for (let segmentLength = 1; segmentLength <= Math.floor(lines.length / 2); segmentLength += 1) {
-        if (lines.length % segmentLength !== 0) {
+    // Trim once to avoid repeated string allocations during segment checks.
+    const trimmedLines = lines.map((line) => line.trim());
+
+    for (let segmentLength = 1; segmentLength <= Math.floor(trimmedLines.length / 2); segmentLength += 1) {
+        if (trimmedLines.length % segmentLength !== 0) {
             continue;
         }
 
-        if (hasRepeatedBlock(lines, segmentLength)) {
+        if (hasRepeatedBlock(trimmedLines, segmentLength)) {
             return segmentLength;
         }
     }
@@ -232,6 +298,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
     const lines = Core.splitLines(formatted);
     const result: string[] = [];
     let docBlockLines: string[] = [];
+    let insideBlockComment = false;
 
     const flushDocBlock = () => {
         if (docBlockLines.length === 0) {
@@ -244,13 +311,22 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
     };
 
     for (const line of lines) {
+        if (insideBlockComment) {
+            flushDocBlock();
+            result.push(line);
+            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
+            continue;
+        }
+
         if (isDocLikeLine(line)) {
             docBlockLines.push(line);
+            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
             continue;
         }
 
         flushDocBlock();
         result.push(line);
+        insideBlockComment = updateBlockCommentState(line, insideBlockComment);
     }
 
     flushDocBlock();
@@ -261,14 +337,20 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const lines = Core.splitLines(formatted);
     const result: string[] = [];
     let previousLine: string | undefined;
+    let insideBlockComment = false;
 
     for (const line of lines) {
-        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(previousLine)) {
+        if (
+            !insideBlockComment &&
+            isTopLevelPlainLineComment(line) &&
+            shouldInsertBlankLineBeforeTopLevelComment(previousLine)
+        ) {
             result.push("");
         }
 
         result.push(line);
         previousLine = line;
+        insideBlockComment = updateBlockCommentState(line, insideBlockComment);
     }
 
     return result.join("\n");
@@ -334,81 +416,35 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     return normalized.join("\n");
 }
 
-function trimWhitespaceAfterBlockComments(formatted: string): string {
-    return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
+type NormalizationStep = (formatted: string) => string;
+
+function applyNormalizationSteps(formatted: string, steps: readonly NormalizationStep[]): string {
+    return steps.reduce((current, step) => step(current), formatted);
 }
 
-function collectLineCommentTrailingWhitespace(source: string): Map<string, string[]> {
-    const lines = Core.splitLines(source);
-    const map = new Map<string, string[]>();
-
-    for (const line of lines) {
-        const info = getPlainLineCommentInfo(line);
-        if (!info?.isTopLevel) {
-            continue;
-        }
-
-        const withoutTrailing = line.replace(/[ \t]+$/, "");
-        const trailingWhitespace = line.slice(withoutTrailing.length);
-        if (trailingWhitespace.length === 0) {
-            continue;
-        }
-
-        const queue = map.get(info.normalized) ?? [];
-        queue.push(trailingWhitespace);
-        map.set(info.normalized, queue);
-    }
-
-    return map;
+function ensureTrailingNewline(formatted: string): string {
+    return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
 
-function reapplyLineCommentTrailingWhitespace(formatted: string, source: string): string {
-    const whitespaceMap = collectLineCommentTrailingWhitespace(source);
-    if (whitespaceMap.size === 0) {
-        return formatted;
-    }
+export function normalizeFormattedOutput(formatted: string): string {
+    const normalized = applyNormalizationSteps(formatted, [
+        ensureBlankLineBetweenVertexFormatComments,
+        collapseDuplicateBlankLines,
+        collapseBlockOpeningBlankLines,
+        ensureTrailingNewline,
+        stripFunctionTagComments,
+        collapseDuplicateBlankLines,
+        collapseVertexFormatBeginSpacing,
+        removeDuplicateDocLikeLineComments,
+        normalizeInlineTrailingCommentSpacing,
+        normalizeSingleCommentBlockIndentation,
+        ensureBlankLineBeforeTopLevelLineComments,
+        trimDecorativeCommentBlankLines,
+        collapseDuplicateBlankLines,
+        collapseWhitespaceOnlyBlankLines,
+        collapseLineCommentToBlockCommentBlankLines,
+        removeBlankLinesBeforeGuardComments
+    ]);
 
-    const lines = Core.splitLines(formatted);
-
-    for (let index = 0; index < lines.length; index += 1) {
-        const line = lines[index];
-        const info = getPlainLineCommentInfo(line);
-        if (!info?.isTopLevel) {
-            continue;
-        }
-
-        const queue = whitespaceMap.get(info.normalized);
-        if (!queue || queue.length === 0) {
-            continue;
-        }
-
-        const trailing = queue.shift();
-        if (isNonEmptyString(trailing) && !line.endsWith(trailing)) {
-            lines[index] = `${line}${trailing}`;
-        }
-    }
-
-    return lines.join("\n");
-}
-
-export function normalizeFormattedOutput(formatted: string, source: string): string {
-    const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
-    const singleBlankLines = collapseDuplicateBlankLines(normalized);
-    const collapsedBlockOpenings = collapseBlockOpeningBlankLines(singleBlankLines);
-    const normalizedCleaned = collapsedBlockOpenings.endsWith("\n")
-        ? collapsedBlockOpenings
-        : `${collapsedBlockOpenings}\n`;
-    const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
-    const dedupedComments = removeDuplicateDocLikeLineComments(collapseVertexFormatBeginSpacing(collapsedAfterStrip));
-    const normalizedCommentSpacing = normalizeInlineTrailingCommentSpacing(dedupedComments);
-    const spacedComments = ensureBlankLineBeforeTopLevelLineComments(normalizedCommentSpacing);
-    const trimmedDecorativeBlanks = trimDecorativeCommentBlankLines(spacedComments);
-    const collapsedAfterDecorativeTrim = collapseDuplicateBlankLines(trimmedDecorativeBlanks);
-    const trimmedAfterBlockComments = trimWhitespaceAfterBlockComments(collapsedAfterDecorativeTrim);
-    const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(trimmedAfterBlockComments);
-    const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(collapsedWhitespaceOnlyLines);
-    const cleanedGuardComments = removeBlankLinesBeforeGuardComments(normalizedLineCommentBlockSpacing);
-    const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(cleanedGuardComments, source);
-    return collapseWhitespaceOnlyBlankLines(afterTrailingWhitespace);
+    return collapseWhitespaceOnlyBlankLines(normalized);
 }

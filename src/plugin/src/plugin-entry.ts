@@ -10,11 +10,11 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 import { gmlPluginComponents } from "./components/plugin-components.js";
 import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
-import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
+import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
 
-const parsers = gmlPluginComponents.parsers;
-const printers = gmlPluginComponents.printers;
-const pluginOptions = gmlPluginComponents.options;
+export const parsers = gmlPluginComponents.parsers;
+export const printers = gmlPluginComponents.printers;
+export const pluginOptions = gmlPluginComponents.options;
 
 export const languages: SupportLanguage[] = [
     {
@@ -26,10 +26,10 @@ export const languages: SupportLanguage[] = [
 ];
 
 const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
-    tabWidth: 4,
+    tabWidth: DEFAULT_TAB_WIDTH,
     semi: true,
-    printWidth: 120,
-    bracketSpacing: false, // Changed to false to maintain backward compatibility with existing GML code
+    printWidth: DEFAULT_PRINT_WIDTH,
+    bracketSpacing: false, // Keep false to match existing GML formatting expectations.
     singleQuote: false
 };
 
@@ -57,15 +57,14 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
-const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
+export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 /**
- * Utility function & entry-point to format GML source code using the plugin.
+ * Utility function and entry point to format GML source code using the plugin.
  */
 async function format(source: string, options: SupportOptions = {}) {
-    const resolvedOptions = { ...defaultOptions, ...options };
     const formatted = await prettier.format(source, {
-        ...resolvedOptions,
+        ...options,
         parser: "gml-parse",
         plugins: [Plugin]
     });
@@ -73,11 +72,9 @@ async function format(source: string, options: SupportOptions = {}) {
     if (typeof formatted !== "string") {
         throw new TypeError("Expected Prettier to return a string result.");
     }
-    return normalizeFormattedOutput(formatted, source);
-}
 
-export { defaultOptions, parsers, pluginOptions, printers };
-export { pluginOptions as options };
+    return formatted;
+}
 
 export const Plugin: GmlPlugin = {
     languages,
