@@ -58,7 +58,8 @@ var s3 = angle * pi / 180;
 
 
 // 5) Divide by a reciprocal
-  var s5 = (x - x0) / (1 / 60);
+var s5 = (x - x0) / (1 / 60);
+  // var s5 = (x - x0) / (1 / 60);
 
    // 6) Sequential quarter then half
   var s6 = width / 4 / 2;
