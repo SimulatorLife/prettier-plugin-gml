@@ -215,6 +215,77 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
     }
 }
 
+/**
+ * Performs a depth-first search over an AST rooted at `root`, returning the
+ * first non-array node for which `predicate` returns `true`, or `null` if no
+ * match is found.
+ *
+ * This helper consolidates the boilerplate DFS traversal that was previously
+ * duplicated across several near-identical `find*` functions (e.g.
+ * `findAssignmentExpressionForRight`, `findVariableDeclaratorForInit`,
+ * `findVariableDeclarationByName`) in the math transform helpers. Each caller
+ * only needs to supply the match condition; the traversal mechanics are handled
+ * here once.
+ *
+ * Traversal notes:
+ * - `parent` keys are skipped to avoid re-visiting ancestors.
+ * - Cycles are guarded with a `WeakSet`.
+ * - Arrays are expanded in-place; elements are visited in source order.
+ */
+export function findFirstAstNodeBy(root: unknown, predicate: (node: any) => boolean): AstNodeRecord | null {
+    if (!root || typeof root !== "object") {
+        return null;
+    }
+
+    const visited = new WeakSet<object>();
+    const stack: unknown[] = [root];
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (Array.isArray(current)) {
+            // Push elements in reverse so that index 0 lands on top of the stack
+            // and is therefore visited first, preserving source order.
+            for (let index = current.length - 1; index >= 0; index -= 1) {
+                stack.push(current[index]);
+            }
+            continue;
+        }
+
+        if (visited.has(current)) {
+            continue;
+        }
+
+        visited.add(current);
+
+        if (!isAstNodeRecord(current)) {
+            continue;
+        }
+
+        if (predicate(current)) {
+            return current;
+        }
+
+        for (const key of Object.keys(current)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            const value = current[key];
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            stack.push(value);
+        }
+    }
+
+    return null;
+}
+
 export function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
     const minLength = Math.min(originalText.length, rewrittenText.length);
     for (let index = 0; index < minLength; index += 1) {
