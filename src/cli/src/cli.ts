@@ -1599,7 +1599,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
             formatted = await prettier.format(data, formattingOptions);
             storeFormattingCacheEntry(cacheKey, formatted);
         }
-        const normalizedOutput = normalizeFormattedOutput(formatted, data);
+        const normalizedOutput = normalizeFormattedOutput(formatted);
 
         if (normalizedOutput === data) {
             return;
