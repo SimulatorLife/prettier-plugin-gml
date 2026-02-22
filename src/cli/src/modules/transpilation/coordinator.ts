@@ -252,6 +252,12 @@ export interface TranspilationContext
 export interface TranspilationOptions {
     verbose: boolean;
     quiet: boolean;
+    /**
+     * Pre-parsed AST to reuse instead of parsing the source again.
+     * When provided, the file is not re-parsed, eliminating redundant work during
+     * the initial scan where the AST was already produced while collecting script names.
+     */
+    cachedAst?: unknown;
 }
 
 export interface TranspilationResult {
@@ -283,11 +289,22 @@ function addToBoundedCollection<T>(collection: Array<T>, item: T, maxSize: numbe
 
 /**
  * Parses GML content and extracts symbols/references when parsing succeeds.
+ * Accepts an optional pre-parsed AST to skip the parse step when the caller
+ * has already produced the AST (e.g., during the initial file cache build).
  */
-function parseAstAndExtractMetadata(content: string, filePath: string): ParsedAstExtractionResult {
+function parseAstAndExtractMetadata(
+    content: string,
+    filePath: string,
+    preParseAst?: unknown
+): ParsedAstExtractionResult {
     try {
-        const parser = new Parser.GMLParser(content, {});
-        const ast = parser.parse();
+        let ast: unknown;
+        if (preParseAst === undefined) {
+            const parser = new Parser.GMLParser(content, {});
+            ast = parser.parse();
+        } else {
+            ast = preParseAst;
+        }
         return {
             ast,
             parseError: null,
@@ -398,13 +415,17 @@ export function transpileFile(
     lines: number,
     options: TranspilationOptions
 ): TranspilationResult {
-    const { verbose, quiet } = options;
+    const { verbose, quiet, cachedAst } = options;
     const startTime = performance.now();
 
     try {
         const fileName = path.basename(filePath, path.extname(filePath));
         const defaultSymbolId = `gml/script/${fileName}`;
-        const { ast, parseError, parsedSymbols, parsedReferences } = parseAstAndExtractMetadata(content, filePath);
+        const { ast, parseError, parsedSymbols, parsedReferences } = parseAstAndExtractMetadata(
+            content,
+            filePath,
+            cachedAst
+        );
 
         const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
         const symbolId = scriptSymbolId ?? defaultSymbolId;
