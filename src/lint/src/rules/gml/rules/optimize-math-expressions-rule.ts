@@ -10,6 +10,7 @@ import {
     type SourceTextEdit,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import { applyDivisionToMultiplication } from "../transforms/math/division-to-multiplication.js";
 import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
 // manual-transforms provide a comprehensive suite of normalization helpers that
 // the linter rule previously replicated only incompletely. We now invoke them
@@ -701,6 +702,9 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
 
     // run the full math normalization pipeline on the clone
     const context = { sourceText };
+    // Apply division to multiplication optimization
+    applyDivisionToMultiplication(clone as any);
+
     applyManualMathNormalization(clone, context as any);
     applyScalarCondensing(clone, context as any);
     simplifyZeroDivisionNumerators(clone, context as any);

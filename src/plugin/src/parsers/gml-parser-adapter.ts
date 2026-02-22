@@ -19,6 +19,10 @@ function parse(text: string): MutableGameMakerAstNode {
         throw new TypeError("GameMaker parser returned no AST for the provided source.");
     }
 
+    // Default to flattening synthetic numeric parentheses to match standard Prettier behavior
+    // and pass existing tests.
+    (ast as any)._flattenSyntheticNumericParens = true;
+
     return ast;
 }
 

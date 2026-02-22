@@ -24,7 +24,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                     }
                 },
                 UnaryExpression(node) {
-                    const normalized = Core.OPERATOR_OPERATORS.get(node.operator);
+                    const normalized = Core.OPERATOR_ALIAS_MAP.get(node.operator);
                     if (normalized) {
                         context.report({
                             node,

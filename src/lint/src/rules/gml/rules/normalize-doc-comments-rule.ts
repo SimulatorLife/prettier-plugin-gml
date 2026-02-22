@@ -14,11 +14,6 @@ import { dominantLineEnding } from "../rule-helpers.js";
 
 const { getNodeStartIndex } = CoreWorkspace.Core;
 
-type TrailingDocCommentBlock = Readonly<{
-    startIndex: number;
-    lines: ReadonlyArray<string>;
-}>;
-
 function normalizeDocCommentPrefixLine(line: string): string {
     // support the legacy "// /" notation used by some fixtures/legacy code
     // but avoid matching "// //" which is just a normal comment starting with two
@@ -101,34 +96,6 @@ function extractParamsFromLine(line: string): Array<{ name: string; defaultVal?:
     });
 }
 
-function readTrailingDocCommentBlock(lines: ReadonlyArray<string>): TrailingDocCommentBlock | null {
-    if (lines.length === 0) {
-        return null;
-    }
-
-    const blockLines: Array<string> = [];
-    let startIndex = -1;
-
-    for (let i = lines.length - 1; i >= 0; i--) {
-        const line = lines[i];
-        if (/^\s*\/\/\//u.test(line)) {
-            blockLines.unshift(line);
-            startIndex = i;
-        } else {
-            break;
-        }
-    }
-
-    if (blockLines.length === 0) {
-        return null;
-    }
-
-    return {
-        startIndex,
-        lines: blockLines
-    };
-}
-
 function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
     const aligned: Array<string> = [];
     let inDescription = false;
@@ -189,7 +156,6 @@ function synthesizeFunctionDocCommentBlock(
     // examine what we currently have, so we only add missing lines
     const existingParams = new Set<string>();
     let hasReturns = false;
-    let hasDescription = false;
 
     for (const line of block) {
         const paramMatch = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(line);
@@ -199,9 +165,6 @@ function synthesizeFunctionDocCommentBlock(
         if (/^\s*\/\/\/\s*@returns?/.test(line)) {
             hasReturns = true;
         }
-        if (/^\s*\/\/\/\s*@description\b/.test(line)) {
-            hasDescription = true;
-        }
     }
 
     const indentation = /^((?:\s*)?)\S?/.exec(block[0] || "")?.[1] || "";
@@ -209,9 +172,13 @@ function synthesizeFunctionDocCommentBlock(
     // determine whether the function actually returns a concrete value
     let hasConcreteReturn = false;
     walkAstNodes(functionNode, (node) => {
-        if (node?.type === "ReturnStatement" && node.argument && (node.argument.type !== "Identifier" || node.argument.name !== "undefined")) {
-                    hasConcreteReturn = true;
-                }
+        if (
+            node?.type === "ReturnStatement" &&
+            node.argument &&
+            (node.argument.type !== "Identifier" || node.argument.name !== "undefined")
+        ) {
+            hasConcreteReturn = true;
+        }
     });
 
     const params = (functionNode as any).params || [];
@@ -222,13 +189,13 @@ function synthesizeFunctionDocCommentBlock(
         if (param.type === "Identifier") {
             paramName = param.name;
         } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-            const left = (param).left;
+            const left = param.left;
             paramName = left?.name ?? left?.id?.name;
-            if ((param).right && (param).right.range) {
-                defaultVal = sourceText.slice((param).right.range[0], (param).right.range[1]);
+            if (param.right && param.right.range) {
+                defaultVal = sourceText.slice(param.right.range[0], param.right.range[1]);
             }
-        } else if ((param).name) {
-            paramName = (param).name;
+        } else if (param.name) {
+            paramName = param.name;
         }
 
         if (!paramName) continue;
@@ -334,9 +301,9 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                         if (defaultVal !== undefined) {
                                             for (let i = 0; i < fallbackBlock.length; i++) {
                                                 const l = fallbackBlock[i];
-                                                const pm = new RegExp(String.raw`^(\s*///\s*@param\s+)\[?${name}\]?`).exec(
-                                                    l
-                                                );
+                                                const pm = new RegExp(
+                                                    String.raw`^(\s*///\s*@param\s+)\[?${name}\]?`
+                                                ).exec(l);
                                                 if (pm && !/\[/.test(l)) {
                                                     fallbackBlock[i] = `${pm[1]}[${name}=${defaultVal}]`;
                                                     break;

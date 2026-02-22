@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const { isNonEmptyString, isNonEmptyTrimmedString } = Core;
+const { isNonEmptyTrimmedString } = Core;
 
 const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
     "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";

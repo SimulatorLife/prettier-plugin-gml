@@ -39,6 +39,7 @@ export const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "--": { prec: 15, assoc: "right", type: "unary", style: "symbol" },
     "~": { prec: 14, assoc: "right", type: "unary", style: "symbol" },
     "!": { prec: 14, assoc: "right", type: "unary", style: "symbol" },
+    not: { prec: 14, assoc: "right", type: "unary", style: "keyword", canonical: "!" },
     // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
     "*": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
     "/": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
@@ -111,4 +112,16 @@ export function getOperatorVariant(operator: string, style: BinaryOperatorStyle)
     }
 
     return CANONICAL_TO_KEYWORD[canonical] ?? operator;
+}
+
+/**
+ * Map of operator aliases (e.g., "mod", "and", "xor") to their canonical symbol forms (e.g., "%", "&&", "^^").
+ * Used for normalization by the linter and formatter.
+ */
+export const OPERATOR_ALIAS_MAP: Map<string, string> = new Map();
+
+for (const [token, info] of Object.entries(BINARY_OPERATORS)) {
+    if (info.canonical) {
+        OPERATOR_ALIAS_MAP.set(token, info.canonical);
+    }
 }

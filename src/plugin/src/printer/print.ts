@@ -22,13 +22,15 @@ import {
     buildPrintableDocCommentLines,
     printComment,
     printDanglingComments,
-    printDanglingCommentsAsGroup} from "../comments/index.js";
+    printDanglingCommentsAsGroup
+} from "../comments/index.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle,
     ObjectWrapOption,
     resolveObjectWrapOption,
-    TRAILING_COMMA} from "../options/index.js";
+    TRAILING_COMMA
+} from "../options/index.js";
 import {
     INLINEABLE_SINGLE_STATEMENT_TYPES,
     MULTIPLICATIVE_BINARY_OPERATORS,
@@ -36,7 +38,8 @@ import {
     OBJECT_TYPE,
     PRESERVED_GLOBAL_VAR_NAMES,
     STRING_TYPE,
-    UNDEFINED_TYPE} from "./constants.js";
+    UNDEFINED_TYPE
+} from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -148,10 +151,8 @@ function callPathMethod(path: any, methodName: any, { args, defaultValue }: { ar
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function applyLogicalOperatorsStyle(operator, style) {
-    const entry = Core.OPERATOR_ALIAS_MAP[operator];
-    if (!entry) return operator;
-
-    return style === LogicalOperatorsStyle.KEYWORDS ? entry.keyword : entry.symbol;
+    const coreStyle = style === LogicalOperatorsStyle.KEYWORDS ? "keyword" : "symbol";
+    return Core.getOperatorVariant(operator, coreStyle);
 }
 
 function _printImpl(path, options, print) {
@@ -590,14 +591,13 @@ function printParenthesizedExpressionNode(node, path, options, print) {
 function printBinaryExpressionNode(node, path, options, print) {
     const left = print("left");
     const operator = node.operator;
-    let right;
 
     const logicalOperatorsStyle = normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 
-    right = print("right");
+    const right = print("right");
     const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
-    const parts = [left, " ", operator, line, right];
+    const parts = [left, " ", styledOperator, line, right];
 
     let parent = safeGetParentNode(path);
     let depth = 0;
@@ -983,13 +983,14 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof nameStart === NUMBER_TYPE &&
                 typeof nameEnd === NUMBER_TYPE &&
                 nameStart >= macroStart &&
-                nameEnd >= nameStart
-             && Core.isNonEmptyString(node.name)) {
-                    const relativeStart = nameStart - macroStart;
-                    const relativeEnd = nameEnd - macroStart;
+                nameEnd >= nameStart &&
+                Core.isNonEmptyString(node.name)
+            ) {
+                const relativeStart = nameStart - macroStart;
+                const relativeEnd = nameEnd - macroStart;
 
-                    text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
-                }
+                text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
+            }
 
             return concat(stripTrailingLineTerminators(text));
         }
@@ -1975,7 +1976,7 @@ function buildStatementPartsForPrinter({
         hardline,
         currentNodeRequiresNewline,
         nodeEndIndex,
-        suppressFollowingEmptyLine: isFirstStatementInBlock, // TODO: note sure if this is correct
+        suppressFollowingEmptyLine: false, // Don't suppress blank lines after the first statement
         isStaticDeclaration,
         hasFunctionInitializer,
         containerNode
@@ -2099,7 +2100,8 @@ function applyTrailingSpacing({
             hardline: hardlineDoc,
             currentNodeRequiresNewline,
             nodeEndIndex,
-            suppressFollowingEmptyLine
+            suppressFollowingEmptyLine,
+            isTopLevel
         });
     }
 
@@ -2153,7 +2155,8 @@ function handleIntermediateTrailingSpacing({
     hardline: hardlineDoc,
     currentNodeRequiresNewline,
     nodeEndIndex,
-    suppressFollowingEmptyLine
+    suppressFollowingEmptyLine,
+    isTopLevel
 }) {
     let previousNodeHadNewlineAddedAfter = false;
     const nextNode = statements ? statements[index + 1] : null;
@@ -2226,9 +2229,21 @@ function handleIntermediateTrailingSpacing({
 
     if (shouldAddPaddingWithNewline) {
         parts.push(hardlineDoc);
+        // Inside blocks, a single hardline is not enough to create a blank line
+        // separation; we need double grouping or an explicit second hardline.
+        // Top-level statements get additional spacing from the *leading* logic
+        // of the *next* statement, but block statements do not.
+        if (!isTopLevel && !suppressFollowingEmptyLine) {
+            parts.push(hardlineDoc);
+        }
         previousNodeHadNewlineAddedAfter = true;
     } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine) {
         parts.push(hardlineDoc);
+        // Preserve source blank lines inside blocks by doubling the hardline,
+        // since blocks don't get leading-statement spacing.
+        if (!isTopLevel) {
+            parts.push(hardlineDoc);
+        }
     }
 
     return previousNodeHadNewlineAddedAfter;
@@ -2363,7 +2378,7 @@ function findNextTerminalCharacter(
  * @param endIndex Exclusive end index of {@link node} within {@link originalText}.
  * @returns {string | null} The restored call text with injected separators when a numeric gap was detected, or `null` if nothing needed to change.
  */
-function synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
+function _synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
     // TODO: This should NOT be part of the formatter; this needs to be moved to the linting layer/workspace, 'lint'
     if (
         !node ||
@@ -2979,223 +2994,8 @@ function getSourceTextForNode(node, options) {
 // upstream in the parser or in dedicated lint auto-fix rules; the printer
 // should be purely layout-focused. Leave an empty stub in case a downstream
 // consumer still references the symbol, but performing no work.
-function materializeParamDefaultsFromParamDefault(functionNode) {
+function _materializeParamDefaultsFromParamDefault(_functionNode) {
     // intentionally no-op
-}
-
-function locateDefaultParameterFallback(
-    statements: Array<any>,
-    paramName: string
-): {
-    fallback: any;
-    statement: any;
-} | null {
-    for (const stmt of statements) {
-        const guard = describeArgumentGuard(stmt);
-        if (!guard) {
-            continue;
-        }
-
-        if (!hasArgumentAssignment(guard.consequent, paramName, guard.argIndex)) {
-            continue;
-        }
-
-        const fallback = findFallbackAssignment(guard.alternate, paramName);
-        if (!fallback) {
-            continue;
-        }
-
-        return { fallback, statement: stmt };
-    }
-
-    return null;
-}
-
-function describeArgumentGuard(stmt: any) {
-    if (!stmt || stmt.type !== "IfStatement") {
-        return null;
-    }
-
-    const test = getGuardBinaryExpression(stmt.test);
-    if (!test) {
-        return null;
-    }
-
-    const argIndex = deriveArgumentIndex(test);
-    if (!Number.isInteger(argIndex) || argIndex < 0) {
-        return null;
-    }
-
-    return {
-        argIndex,
-        consequent: flattenStatementList(stmt.consequent),
-        alternate: flattenStatementList(stmt.alternate)
-    };
-}
-
-function getGuardBinaryExpression(test: any) {
-    if (!test) {
-        return null;
-    }
-
-    if (test.type === "BinaryExpression") {
-        return test;
-    }
-
-    if (test.type === "ParenthesizedExpression" && test.expression && test.expression.type === "BinaryExpression") {
-        return test.expression;
-    }
-
-    return null;
-}
-
-function deriveArgumentIndex(test: any) {
-    if (!test || test.type !== "BinaryExpression") {
-        return null;
-    }
-
-    const right = test.right;
-    if (!right || right.type !== "Literal") {
-        return null;
-    }
-
-    const rightNumber = Number(String(right.value));
-    if (!Number.isInteger(rightNumber)) {
-        return null;
-    }
-
-    switch (test.operator) {
-        case ">": {
-            return rightNumber;
-        }
-        case "<": {
-            return rightNumber - 1;
-        }
-        case "==":
-        case "===": {
-            return rightNumber;
-        }
-        default: {
-            return null;
-        }
-    }
-}
-
-function materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
-    try {
-        const defaultExpr = param.default;
-        const defaultNode = {
-            type: "DefaultParameter",
-            left: param,
-            right: defaultExpr
-        };
-
-        if (param.leadingComments) {
-            (defaultNode as any).leadingComments = param.leadingComments;
-        }
-        if (param.trailingComments) {
-            (defaultNode as any).trailingComments = param.trailingComments;
-        }
-
-        // Preserve parser/transforms-provided marker if present. Also
-        // explicitly mark parameters whose default expression is an
-        // `undefined` sentinel as optional so downstream omission
-        // heuristics prefer to preserve the explicit `= undefined`
-        // form in printed signatures.
-        try {
-            // Preserve the parser-provided optional-parameter marker when present.
-            // The parser transform pass is the authoritative source for determining
-            // which parameters are optional. We do not automatically mark a parameter
-            // optional just because its default expression is `undefined`—that would
-            // bypass the parser's intent and conflict with doc-comment-driven
-            // optionality decisions. Instead, we propagate an existing
-            // `_featherOptionalParameter` flag from the original param node to the
-            // new DefaultParameter wrapper, preserving the parser's decision across
-            // AST transformations. If the marker is absent, we leave the parameter
-            // unmarked, allowing downstream heuristics (e.g., doc comment reconciliation)
-            // to determine optionality based on authoritative metadata.
-            if (param._featherOptionalParameter === true) {
-                (defaultNode as any)._featherOptionalParameter = true;
-            }
-        } catch {
-            // Tolerate missing or inaccessible optional-parameter markers without
-            // crashing. If the `_featherOptionalParameter` property is absent or
-            // throws when accessed (e.g., due to Object.freeze or exotic proxies),
-            // we proceed without marking the parameter as optional. This defensive
-            // posture keeps the printer resilient across varied AST shapes while
-            // still propagating the marker when it legitimately exists, avoiding
-            // the need for explicit presence checks or optional chaining at every
-            // call site.
-        }
-
-        functionNode.params[index] = defaultNode;
-    } catch {
-        // Tolerate conversion failures gracefully by leaving the parameter unchanged.
-        // Converting an Identifier to a DefaultParameter may fail if the param
-        // node is frozen, lacks expected properties, or encounters unexpected
-        // AST structure. Rather than aborting the entire printing pass, we
-        // catch the error and skip this parameter, allowing the printer to
-        // continue with the remaining parameters. The unconverted parameter
-        // will be printed in its original form, which is acceptable—this
-        // conversion is an enhancement, not a correctness requirement.
-    }
-}
-
-function flattenStatementList(node: any) {
-    if (!node) {
-        return [];
-    }
-
-    if (node.type === "BlockStatement") {
-        return Core.asArray<any>(node.body);
-    }
-
-    return [node];
-}
-
-function hasArgumentAssignment(statements: Array<any>, paramName: string, argIndex: number) {
-    for (const statement of statements) {
-        const assign = getAssignmentExpression(statement);
-        if (!assign) {
-            continue;
-        }
-
-        if (isArgumentAssignment(assign, paramName, argIndex)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function findFallbackAssignment(statements: Array<any>, paramName: string) {
-    for (const statement of statements) {
-        const assign = getAssignmentExpression(statement);
-        if (!assign) {
-            continue;
-        }
-
-        if (
-            assign.left &&
-            assign.left.type === "Identifier" &&
-            assign.left.name === paramName &&
-            (!assign.right || assign.right.type !== "MemberIndexExpression")
-        ) {
-            return assign.right ?? null;
-        }
-    }
-
-    return null;
-}
-
-function getAssignmentExpression(node: any) {
-    const unwrapped = Core.unwrapExpressionStatement(node);
-
-    if (unwrapped?.type === "AssignmentExpression") {
-        return unwrapped;
-    }
-
-    return null;
 }
 
 function structLiteralHasLeadingLineBreak(node, options) {
@@ -3801,14 +3601,68 @@ function shouldOmitSyntheticParens(path, _options) {
         return shouldFlattenTernaryTest(parentKey, expression);
     }
 
+    // Always strip redundant parentheses around simple identifiers and literals
+    if (
+        expression &&
+        (expression.type === "Identifier" ||
+            expression.type === "Literal" ||
+            expression.type === "CurrentArgsExpression" ||
+            expression.type === "TemplateLiteral" ||
+            expression.type === "UnaryExpression")
+    ) {
+        // Exception: new (Foo) vs new Foo? No, GML doesn't have `new` operator syntax quirks like that usually.
+        // Exception: (1).toString()? GML doesn't have method calls on literals like JS.
+        // For UnaryExpression, only dangerous if parent is MemberExpression accessing result
+        if (expression.type === "UnaryExpression" && parent.type === "MemberExpression" && parent.object === node) {
+            return false;
+        }
+
+        return true;
+    }
+
     // For non-ternary cases, only process synthetic parentheses
     if (!isSynthetic) {
-        if (
-            parent.type === "BinaryExpression" &&
-            expression?.type === "BinaryExpression" &&
-            shouldFlattenSyntheticBinary(parent, expression, path)
-        ) {
-            return true;
+        if (parent.type === "BinaryExpression" && expression?.type === "BinaryExpression") {
+            const parentInfo = getBinaryOperatorInfo(parent.operator);
+            const childInfo = getBinaryOperatorInfo(expression.operator);
+
+            // If child precedence is strictly higher, parens are redundant
+            // e.g. (a * b) + c -> * > +
+            if (childInfo && parentInfo && childInfo.prec > parentInfo.prec) {
+                // Aggressively strip non-synthetic parentheses for arithmetic operations.
+                if (childInfo.type === "arithmetic") {
+                    return true;
+                }
+
+                // For comparison operations inside logical expressions, check for consistent grouping style.
+                // If only one operand is parenthesized (e.g. `(a > b) && c`), strip it as noise.
+                // If both operands are parenthesized (e.g. `(a > b) || (c < d)`), preserve the intent.
+                if (
+                    childInfo.type === "comparison" &&
+                    parentInfo.type === "logical" &&
+                    expression === node.expression // verifying we are checking the content
+                ) {
+                    // Check if sibling is parenthesized
+                    const otherOperand = parent.left === node ? parent.right : parent.left;
+                    // We check the raw node in AST to see if it's ParenthesizedExpression
+                    // But print.ts receives the path... wait.
+                    // The `node` variable in `shouldOmitSyntheticParens` is the ParenthesizedExpression itself.
+                    // `parent` is the LogicalExpression.
+
+                    // If parent.left === node, sibling is parent.right.
+                    // But we need to use path-based access to be safe?
+                    // Or just raw node access since we have `parent`.
+                    // Prettier ensures AST nodes are stable.
+
+                    if (otherOperand.type !== "ParenthesizedExpression" || otherOperand.synthetic === true) {
+                        return true;
+                    }
+                }
+            }
+
+            if (shouldFlattenSyntheticBinary(parent, expression, path)) {
+                return true;
+            }
         }
 
         return shouldFlattenMultiplicationChain(parent, expression, path);
@@ -4495,4 +4349,78 @@ function getInlineBlockCommentSpacing(text, fallback) {
     }
 
     return hasLineBreak(text) ? fallback : text;
+}
+
+function shouldFlattenSyntheticBinary(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    return parent.operator === expression.operator;
+}
+
+function shouldFlattenMultiplicationChain(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    // Multiplication associativity
+    return (
+        (parent.operator === "*" || parent.operator === "/") &&
+        (expression.operator === "*" || expression.operator === "/")
+    );
+}
+
+function shouldFlattenSyntheticCall(_parent, _expression, _path) {
+    return false;
+}
+
+function shouldFlattenComparisonLogicalTest(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    // Flatten logic inside logic (e.g. `(a && b) || c`) if precedence allows
+    if (parentInfo.type === "logical" && (expressionInfo.type === "comparison" || expressionInfo.type === "logical")) {
+        return true;
+    }
+
+    // Flatten arithmetic inside comparison (e.g. `a < (b * c)`) if precedence allows
+    if (parentInfo.type === "comparison" && expressionInfo.type === "arithmetic") {
+        return true;
+    }
+
+    return false;
+}
+
+function evaluateNumericBinaryFlattening(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return undefined;
+    }
+
+    // Always flatten standard arithmetic chains if safe (e.g. `a + b * c` where precedence allows)
+    // The caller ensures childInfo.prec > parentInfo.prec before checking "allow"
+    if (parentInfo.type === "arithmetic" && expressionInfo.type === "arithmetic") {
+        // Exception: modulo? No, precedence handles it.
+        return "allow";
+    }
+
+    // Flatten bitwise inside comparison/arithmetic if safe
+    if (parentInfo.type === "bitwise" || expressionInfo.type === "bitwise") {
+        return "allow";
+    }
+
+    return undefined;
 }
