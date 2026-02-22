@@ -20,7 +20,8 @@ export type {
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
-    StringCommentScanState
+    StringCommentScanState,
+    StripCommentsTransformOptions
 } from "./src/index.js";
 
 // Re-export description utilities for use by printer and other consumers

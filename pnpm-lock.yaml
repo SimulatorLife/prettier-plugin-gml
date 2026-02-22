@@ -179,7 +179,7 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@gml-modules/parser':
-        specifier: workspace:*
+        specifier: workspace:*)
         version: link:../parser
     devDependencies:
       eslint:
