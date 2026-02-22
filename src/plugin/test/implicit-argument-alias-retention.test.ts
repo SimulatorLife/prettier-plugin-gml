@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-void test("retains argument aliases when no parameters are declared", async () => {
+void test("retains numbered arguments", async () => {
     const source = [
         "/// @param first",
         "function sample() {",

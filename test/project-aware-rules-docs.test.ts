@@ -1,3 +1,9 @@
+/**
+ * This test suite verifies that the project-aware lint rule documentation is correctly generated from the rule metadata,
+ * that the rendered markdown is stable, and that the checked-in generated documentation is up to date. The tests ensure
+ * that any changes to the project-aware rules are reflected in the documentation and that the documentation remains
+ * consistent and accurate.
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

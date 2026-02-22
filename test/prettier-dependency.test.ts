@@ -1,3 +1,4 @@
+// This test suite verifies that the workspaces in the monorepo adhere to the intended dependency structure regarding Prettier and related formatting packages
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { describe, it } from "node:test";

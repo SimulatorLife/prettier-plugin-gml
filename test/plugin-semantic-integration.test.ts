@@ -14,8 +14,8 @@ const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
-    ? path.resolve(rawDirectory, "..", "fixtures", "plugin-integration")
-    : path.resolve(rawDirectory, "fixtures", "plugin-integration");
+    ? path.resolve(rawDirectory, "..", "fixtures", "integration")
+    : path.resolve(rawDirectory, "fixtures", "integration");
 
 type IntegrationCase = {
     baseName: string;
@@ -75,9 +75,7 @@ const integrationProjectContext = Object.freeze({
     capabilities: allCapabilities,
     isIdentifierNameOccupiedInProject: () => false,
     listIdentifierOccurrenceFiles: () => new Set<string>(),
-    planFeatherRenames: (
-        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-    ) =>
+    planFeatherRenames: (requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>) =>
         requests.map((request) => ({
             identifierName: request.identifierName,
             preferredReplacementName: request.preferredReplacementName,
@@ -141,9 +139,7 @@ async function tryLoadOptions(baseName: string): Promise<Record<string, unknown>
     return null;
 }
 
-function extractFixtureExpectations(
-    options: Record<string, unknown> | null
-): Readonly<{
+function extractFixtureExpectations(options: Record<string, unknown> | null): Readonly<{
     options: Record<string, unknown> | null;
     lintRules: Readonly<Record<string, Linter.RuleEntry>> | null;
     expectParseError: boolean;
@@ -165,8 +161,8 @@ function extractFixtureExpectations(
         Object.keys(lintRules as Record<string, unknown>).length > 0;
     const lintRuleOverrides = hasLintRules
         ? (Object.freeze({ ...(lintRules as Record<string, Linter.RuleEntry>) }) as Readonly<
-            Record<string, Linter.RuleEntry>
-        >)
+              Record<string, Linter.RuleEntry>
+          >)
         : null;
     return Object.freeze({
         options: hasPluginOptions ? pluginOptions : null,
