@@ -4,6 +4,8 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
+
 const {
     ASSIGNMENT_EXPRESSION,
     BINARY_EXPRESSION,
@@ -4325,126 +4327,35 @@ function findStatementAncestor(node) {
     return null;
 }
 
-function findAssignmentExpressionForRight(root, target) {
+function findAssignmentExpressionForRight(root: any, target: any): any {
     if (!isObjectLike(root) || !target) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "AssignmentExpression" && node.right === target) {
-            return node;
-        }
-
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+    return findFirstAstNodeBy(root, (node) => node.type === ASSIGNMENT_EXPRESSION && node.right === target);
 }
 
-function findVariableDeclaratorForInit(root, target) {
+function findVariableDeclaratorForInit(root: any, target: any): any {
     if (!isObjectLike(root) || !target) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "VariableDeclarator" && node.init === target) {
-            return node;
-        }
-
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+    return findFirstAstNodeBy(root, (node) => node.type === "VariableDeclarator" && node.init === target);
 }
 
-function findVariableDeclarationByName(root, identifierName) {
+function findVariableDeclarationByName(root: any, identifierName: string): any {
     if (!isObjectLike(root) || typeof identifierName !== "string") {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
+    return findFirstAstNodeBy(root, (node) => {
+        if (node.type !== VARIABLE_DECLARATION || !Array.isArray(node.declarations) || node.declarations.length !== 1) {
+            return false;
         }
 
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "VariableDeclaration" && Array.isArray(node.declarations) && node.declarations.length === 1) {
-            const [declarator] = node.declarations;
-            const name = getUnwrappedIdentifierName(declarator?.id);
-
-            if (name === identifierName) {
-                return node;
-            }
-        }
-
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+        const [declarator] = node.declarations;
+        return getUnwrappedIdentifierName(declarator?.id) === identifierName;
+    });
 }
 
 function removeNodeFromAst(root, target) {
