@@ -797,6 +797,43 @@ export function getLiteralStringValue(node: GameMakerAstNode | null | undefined)
     return value.toLowerCase();
 }
 
+/**
+ * Extract a finite numeric value from a literal node.
+ *
+ * GML represents numeric constants as either JavaScript `number` primitives or
+ * as string-encoded values depending on the parser pass. This helper normalises
+ * both representations into a single `number | null` result and rejects any
+ * non-finite values (`Infinity`, `NaN`) that would produce incorrect arithmetic
+ * downstream.
+ *
+ * Three independent copies of this logic previously existed across the
+ * `traversal-normalization`, `optimize-math-expressions`, and
+ * `optimize-math-expressions-rule` modules. This canonical implementation
+ * replaces all three.
+ *
+ * @param node Potential literal node.
+ * @returns Finite numeric value when the node is a numeric literal, otherwise
+ *     `null`.
+ */
+export function getLiteralNumberValue(node: GameMakerAstNode | null | undefined): number | null {
+    if (!isLiteralNode(node)) {
+        return null;
+    }
+
+    const { value } = node;
+
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
 type BooleanLiteralOptions =
     | boolean
     | {

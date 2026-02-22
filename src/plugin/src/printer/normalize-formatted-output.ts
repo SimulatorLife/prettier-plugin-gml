@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const { isNonEmptyString, isNonEmptyTrimmedString } = Core;
+const { isNonEmptyTrimmedString } = Core;
 
 const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
     "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";
@@ -218,7 +218,7 @@ function updateBlockCommentState(line: string, isInside: boolean): boolean {
     const endIndex = line.indexOf("*/");
 
     if (!isInside) {
-        if (startIndex !== -1 && (endIndex === -1 || startIndex < endIndex)) {
+        if (startIndex !== -1 && (endIndex === -1 || endIndex < startIndex)) {
             return true;
         }
         return false;
@@ -416,59 +416,6 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     return normalized.join("\n");
 }
 
-function collectLineCommentTrailingWhitespace(source: string): Map<string, string[]> {
-    const lines = source.split(/\r?\n/);
-    const map = new Map<string, string[]>();
-
-    for (const line of lines) {
-        const info = getPlainLineCommentInfo(line);
-        if (!info?.isTopLevel) {
-            continue;
-        }
-
-        const withoutTrailing = line.replace(/[ \t]+$/, "");
-        const trailingWhitespace = line.slice(withoutTrailing.length);
-        if (trailingWhitespace.length === 0) {
-            continue;
-        }
-
-        const queue = map.get(info.normalized) ?? [];
-        queue.push(trailingWhitespace);
-        map.set(info.normalized, queue);
-    }
-
-    return map;
-}
-
-function reapplyLineCommentTrailingWhitespace(formatted: string, source: string): string {
-    const whitespaceMap = collectLineCommentTrailingWhitespace(source);
-    if (whitespaceMap.size === 0) {
-        return formatted;
-    }
-
-    const lines = formatted.split(/\r?\n/);
-
-    for (let index = 0; index < lines.length; index += 1) {
-        const line = lines[index];
-        const info = getPlainLineCommentInfo(line);
-        if (!info?.isTopLevel) {
-            continue;
-        }
-
-        const queue = whitespaceMap.get(info.normalized);
-        if (!queue || queue.length === 0) {
-            continue;
-        }
-
-        const trailing = queue.shift();
-        if (isNonEmptyString(trailing) && !line.endsWith(trailing)) {
-            lines[index] = `${line}${trailing}`;
-        }
-    }
-
-    return lines.join("\n");
-}
-
 type NormalizationStep = (formatted: string) => string;
 
 function applyNormalizationSteps(formatted: string, steps: readonly NormalizationStep[]): string {
@@ -479,8 +426,8 @@ function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
 
-export function normalizeFormattedOutput(formatted: string, source: string): string {
-    const normalizedWithoutSource = applyNormalizationSteps(formatted, [
+export function normalizeFormattedOutput(formatted: string): string {
+    const normalized = applyNormalizationSteps(formatted, [
         ensureBlankLineBetweenVertexFormatComments,
         collapseDuplicateBlankLines,
         collapseBlockOpeningBlankLines,
@@ -499,6 +446,5 @@ export function normalizeFormattedOutput(formatted: string, source: string): str
         removeBlankLinesBeforeGuardComments
     ]);
 
-    const withTrailingWhitespace = reapplyLineCommentTrailingWhitespace(normalizedWithoutSource, source);
-    return collapseWhitespaceOnlyBlankLines(withTrailingWhitespace);
+    return collapseWhitespaceOnlyBlankLines(normalized);
 }

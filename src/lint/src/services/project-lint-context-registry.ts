@@ -1,6 +1,8 @@
+import { Core } from "@gml-modules/core";
+
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
-import { isPathWithinBoundary } from "./path-boundary.js";
+import { isDirectoryExcludedBySegments } from "./path-boundary.js";
 import type { ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
 
@@ -12,27 +14,6 @@ type RegistryOptions = Readonly<{
     indexAllowDirectories: ReadonlyArray<string>;
     analysisProvider: ProjectAnalysisProvider;
 }>;
-
-function splitPathSegments(pathValue: string): Array<string> {
-    return pathValue
-        .split(/[\\/]+/u)
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
-}
-
-function isHardExcludedPath(
-    filePath: string,
-    excludedDirectories: ReadonlySet<string>,
-    allowedDirectories: ReadonlyArray<string>
-): boolean {
-    const isAllowedOverride = allowedDirectories.some((directory) => isPathWithinBoundary(filePath, directory));
-    if (isAllowedOverride) {
-        return false;
-    }
-
-    const segments = splitPathSegments(filePath);
-    return segments.some((segment) => excludedDirectories.has(segment.toLowerCase()));
-}
 
 export type ProjectLintContextRegistry = Readonly<{
     getContext(filePath: string): GmlProjectContext | null;
@@ -90,11 +71,11 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
         getContext(filePath: string): GmlProjectContext | null {
             const normalizedFilePath = normalizeLintFilePath(filePath);
 
-            if (forcedRoot && !isPathWithinBoundary(normalizedFilePath, forcedRoot)) {
+            if (forcedRoot && !Core.isPathWithinBoundary(normalizedFilePath, forcedRoot)) {
                 return null;
             }
 
-            if (isHardExcludedPath(normalizedFilePath, excludedDirectories, normalizedAllowedDirectories)) {
+            if (isDirectoryExcludedBySegments(normalizedFilePath, excludedDirectories, normalizedAllowedDirectories)) {
                 return null;
             }
 
@@ -129,7 +110,7 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
                 return false;
             }
 
-            return !isPathWithinBoundary(normalizeLintFilePath(filePath), forcedRoot);
+            return !Core.isPathWithinBoundary(normalizeLintFilePath(filePath), forcedRoot);
         }
     });
 }
