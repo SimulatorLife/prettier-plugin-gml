@@ -3,7 +3,6 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
 import { applyDivisionToMultiplication } from "./math/division-to-multiplication.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
@@ -35,7 +34,7 @@ function execute(ast: MutableGameMakerAstNode, options: ConvertManualMathTransfo
     return ast;
 }
 
-export const optimizeMathExpressionsTransform = createParserTransform<ConvertManualMathTransformOptions>(
+export const optimizeMathExpressionsTransform = Core.createParserTransform<ConvertManualMathTransformOptions>(
     "optimize-math-expressions",
     {},
     execute
