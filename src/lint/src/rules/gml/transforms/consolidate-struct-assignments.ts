@@ -6,7 +6,6 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { AssignmentCommentHandler } from "./consolidate-struct-assignment-comment-handler.js";
 import { type AssignmentDetails, StructAssignmentMatcher } from "./consolidate-struct-assignment-matcher.js";
-import { createParserTransform } from "./functional-transform.js";
 import { CommentTracker } from "./utils/comment-tracker.js";
 
 type CommentTools = {
@@ -434,7 +433,7 @@ function collectPropertyAssignments({
 }
 
 export const consolidateStructAssignmentsTransform =
-    createParserTransform<ConsolidateStructAssignmentsTransformOptions>(
+    Core.createParserTransform<ConsolidateStructAssignmentsTransformOptions>(
         "consolidate-struct-assignments",
         {} as ConsolidateStructAssignmentsTransformOptions,
         (
