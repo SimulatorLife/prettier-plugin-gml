@@ -6,6 +6,7 @@ export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    EmptyTransformOptions,
     FeatherDiagnostic,
     FeatherMetadata,
     GameMakerAstLocation,
@@ -15,8 +16,10 @@ export type {
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
+    ParserTransform,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
-    StringCommentScanState
+    StringCommentScanState,
+    StripCommentsTransformOptions
 } from "./src/index.js";

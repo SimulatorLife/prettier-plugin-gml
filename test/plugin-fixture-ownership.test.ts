@@ -1,3 +1,5 @@
+// TODO: Once lint-formatter integration is complete, these tests should be expanded to cover the formatting fixtures more comprehensively, and to verify that the lint plugin does not depend on any of the removed formatter options or fixture shapes. For now, these tests serve as a basic sanity check to ensure that the fixture files are organized correctly and that the required integration fixtures are present. These tests are primarily intended to prevent regressions in fixture organization and ownership as the lint plugin and formatter are developed in parallel. Once the lint plugin is fully implemented and integrated with the formatter, these tests should be revisited and expanded to provide more comprehensive coverage of the plugin's behavior and its interaction with the formatter.
+
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -5,7 +7,7 @@ import { test } from "node:test";
 
 const pluginTestRoot = path.resolve(process.cwd(), "src", "plugin", "test");
 const pluginFormattingFixtureRoot = path.resolve(pluginTestRoot, "fixtures", "formatting");
-const pluginIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "plugin-integration");
+const pluginIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "integration");
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "applyFeatherFixes",
     "preserveGlobalVarStatements",

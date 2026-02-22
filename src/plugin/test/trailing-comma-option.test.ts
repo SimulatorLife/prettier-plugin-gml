@@ -1,3 +1,10 @@
+/**
+ * This test suite verifies the behavior of the trailing comma option helpers,
+ * including validation and membership checks. GML itself does not allow
+ * trailing commas, so we should not generate/support them. The only valid
+ * option value is "none", and we want to provide clear warning messages for
+ * all other, invalid cases and then ignore them.
+ */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

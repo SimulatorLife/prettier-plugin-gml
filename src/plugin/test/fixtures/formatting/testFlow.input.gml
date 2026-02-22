@@ -29,7 +29,7 @@ var matrix2 = scr_matrix_build(
     image_xscale, image_yscale, image_zscale + 90
 );
 
-#define  SQUARE(_value)    ((_value)*(_value))
+#macro  SQUARE(_value)    ((_value)*(_value))
 
 var total=0;
 var limit   = 99;
@@ -60,7 +60,7 @@ var i =0;repeat(array_length(arr2)) {
 	show_debug_message(arr2[i++]);
 }
 
-#define INCREMENT(_v) ((_v)+1)
+#macro INCREMENT(_v) ((_v)+1)
 
 do{
 value = INCREMENT(value);

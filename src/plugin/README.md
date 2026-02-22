@@ -6,7 +6,7 @@ This directory contains the source code for the [gml-modules/plugin](https://git
 
 The plugin workspace owns formatting and parser-to-printer orchestration *only* (semicolons, whitespaces, line breaks, indentation, etc.).
 
-- The plugin **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
+- This Prettier-plugin workspace **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
 - Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
 
 ## Test Tiering
@@ -23,13 +23,15 @@ The plugin uses a centralized constants file to define formatting defaults and t
 Key constants include:
 - `DEFAULT_PRINT_WIDTH` (120): The default line width for code
 - `DEFAULT_TAB_WIDTH` (4): The default indentation width
-- `DEFAULT_VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS` (4): Minimum declarations to trigger spacing
 
 These constants are used throughout the plugin to ensure consistent behavior. Users can override formatting defaults through Prettier's standard options (e.g., `printWidth`, `tabWidth`).
 
 ## Formatting Conventions
-- Prettier always formats functions with a space before the parameter list `function (o) {}`, but never for function calls `fn(o)`. This behavior is fixed and not configurable. For a function name and its parameter list (e.g. `function foo(x) {}`) Prettier does NOT add a space. We should use the same style/convention in this plugin.
+- Prettier always formats functions with a space before the parameter list `function (o) {}`, but never for function calls `fn(o)`. This behavior is fixed and not configurable. For a function name and its parameter list (e.g. `function foo(x) {}`) Prettier does NOT add a space. This plugin uses the same style convention.
 - Comments are never broken up or reflowed to fit the `printWidth` setting. This aligns with Prettier's default behavior for comments, preserving the developer's original line structure and preventing unintended corruption of commented-out code or manual formatting.
+- The plugin does not introduce additional line breaks or blank lines beyond what Prettier's core engine generates based on the document shape and `printWidth`. This means that struct literals, argument lists, and other constructs will wrap according to Prettier's standard rules without custom thresholds for the number of properties or parameters per line.
+- Like Prettier, this plugin *does* remove redundant parentheses, but it does not add new ones for readability. For example, expressions like `a + (b * c)` are formatted as `a + b * c`. Prettier is opinionated about layout and minimal syntax, but it avoids adding new structural elements like parentheses because that crosses from formatting into rewriting the code’s AST.
+- The formatter requires a valid parse; if parse fails, it should error and **not** change files. It should never produce partial or best-effort output on an invalid parse, and it should not attempt to salvage or reformat code when the input is syntactically incorrect
 
 ## Deprecated And Removed Options
 - `maxStructPropertiesPerLine` was removed on February 7, 2026.
@@ -55,3 +57,6 @@ Migration quick map:
 - indentation/wrapping/layout => plugin formatter
 
 See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).
+
+## TODO
+* Rename this workspace to `@gml-modules/formatter` to reflect the split and clarify ownership boundaries.
