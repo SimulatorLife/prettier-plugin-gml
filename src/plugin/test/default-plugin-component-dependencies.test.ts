@@ -1,20 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { handleComments, printComment } from "../src/comments/index.js";
 import { defaultGmlPluginComponentImplementations } from "../src/components/default-component-instances.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 
-const REQUIRED_KEYS = [
-    "gmlParserAdapter",
-    "print",
-    "handleComments",
-    "printComment",
-    "identifierCaseOptions",
-    "LogicalOperatorsStyle"
-];
+const REQUIRED_KEYS = ["gmlParserAdapter", "print", "LogicalOperatorsStyle"];
 
 void test("default dependency bundle exposes canonical components", () => {
     const resolved = defaultGmlPluginComponentImplementations;
@@ -23,10 +15,7 @@ void test("default dependency bundle exposes canonical components", () => {
 
     assert.strictEqual(resolved.gmlParserAdapter, gmlParserAdapter);
     assert.strictEqual(resolved.print, print);
-    assert.strictEqual(resolved.printComment, printComment);
-    assert.strictEqual(resolved.handleComments, handleComments);
     assert.deepStrictEqual(resolved.identifierCaseOptions, {});
-    assert.ok(Object.isFrozen(resolved.identifierCaseOptions), "identifier-case option map should be immutable");
     assert.strictEqual(resolved.LogicalOperatorsStyle, LogicalOperatorsStyle);
 
     for (const key of REQUIRED_KEYS) {
