@@ -1,5 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { collectIdentifierNamesInSubtree } from "../../rule-base-helpers.js";
 import { applyLogicalExpressionCondensation, type OptimizeLogicalExpressionsOptions } from "./condensation.js";
 
 type StatementList = Array<MutableGameMakerAstNode | null | undefined>;
@@ -238,7 +239,7 @@ function maybeCacheRepeatedMemberAccessForIfStatement(
         return 0;
     }
 
-    const usedNames = collectIdentifierNamesInStatements(statements);
+    const usedNames = new Set(collectIdentifierNamesInSubtree(statements));
     const cachedVariableName = createUniqueTemporaryName("__gml_cached_member", usedNames);
 
     const conditionRoot = { test: statement.test };
@@ -306,7 +307,7 @@ function maybeHoistInvariantLoopCondition(
         return 0;
     }
 
-    const usedNames = collectIdentifierNamesInStatements(statements);
+    const usedNames = new Set(collectIdentifierNamesInSubtree(statements));
     const cachedVariableName = createUniqueTemporaryName("__gml_invariant_condition", usedNames);
 
     const conditionRecord = statement as MutableAstRecord;
@@ -385,7 +386,10 @@ function replaceMemberAccessPathInternal(
         isCollectibleMemberAccessNode(currentValue, parentContainer, property) &&
         getMemberAccessPath(currentValue) === targetPath
     ) {
-        const replacement = createIdentifierNode(replacementIdentifier, currentValue);
+        const replacement = Core.createIdentifierNode(replacementIdentifier, currentValue);
+        if (!replacement) {
+            return 0;
+        }
         (parentContainer as Record<number | string, unknown>)[property] = replacement;
         return 1;
     }
@@ -524,15 +528,6 @@ function createCachedVariableDeclaration(
     } as MutableGameMakerAstNode;
 }
 
-function createIdentifierNode(identifierName: string, sourceNode: MutableGameMakerAstNode): MutableGameMakerAstNode {
-    return {
-        type: "Identifier",
-        name: identifierName,
-        start: Core.cloneLocation(sourceNode.start),
-        end: Core.cloneLocation(sourceNode.end)
-    } as MutableGameMakerAstNode;
-}
-
 function createUniqueTemporaryName(baseName: string, takenNames: Set<string>): string {
     if (!takenNames.has(baseName)) {
         takenNames.add(baseName);
@@ -547,29 +542,6 @@ function createUniqueTemporaryName(baseName: string, takenNames: Set<string>): s
     const resolvedName = `${baseName}_${suffix}`;
     takenNames.add(resolvedName);
     return resolvedName;
-}
-
-function collectIdentifierNamesInStatements(statements: StatementList): Set<string> {
-    const names = new Set<string>();
-
-    for (const statement of statements) {
-        collectIdentifierNamesInNode(statement, names);
-    }
-
-    return names;
-}
-
-function collectIdentifierNamesInNode(node: unknown, names: Set<string>): void {
-    walkNode(node, null, null, (child) => {
-        if (child.type !== "Identifier") {
-            return;
-        }
-
-        const identifierName = Core.getIdentifierText(child);
-        if (identifierName) {
-            names.add(identifierName);
-        }
-    });
 }
 
 function collectAssignedIdentifiersFromNode(node: unknown, assignedIdentifiers: Set<string>): void {
@@ -610,7 +582,9 @@ function collectAssignedIdentifiersFromTarget(target: unknown, assignedIdentifie
 
     if ((target as MutableGameMakerAstNode).type === "MemberIndexExpression") {
         collectAssignedIdentifiersFromTarget((target as MutableAstRecord).object, assignedIdentifiers);
-        collectIdentifierNamesInNode((target as MutableAstRecord).property, assignedIdentifiers);
+        for (const name of collectIdentifierNamesInSubtree((target as MutableAstRecord).property)) {
+            assignedIdentifiers.add(name);
+        }
     }
 }
 
