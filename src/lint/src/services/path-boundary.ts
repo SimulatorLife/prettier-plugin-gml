@@ -1,3 +1,5 @@
+// TODO: This should be moved into the Core workspace's path utilities
+
 import { realpathSync } from "node:fs";
 
 import { Core } from "@gml-modules/core";

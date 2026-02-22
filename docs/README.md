@@ -71,26 +71,10 @@ implementation details:
 
 - [Formatter/linter split plan](formatter-linter-split-plan.md) &mdash; Canonical
   ownership contract for formatter vs lint vs refactor responsibilities,
-  including target-state lint/refactor boundary rules.
-- [Formatter/linter implementation notes](formatter-linter-split-implementation-notes.md)
-  &mdash; Current migration status, remaining overlap items, and verification
-  notes for the split contract.
-- [Architecture audit log](architecture-audit-log.md) &mdash; Daily architecture
-  snapshots collected in a single document. The GitHub Action appends a fresh
-  section to this file for each run. Start with the most recent entry for the
-  current layout, then review earlier sections to see how the workspace evolved.
-- [Shared module layout refresh](shared-module-layout.md) — Summary of the
-  repository-wide audit that reorganised the `src/shared` helpers into
-  focused barrels.
-- [Interface segregation investigation](interface-segregation-investigation.md)
-  — Research notes that detail why the CLI and plugin expose separate entry
-  points, how shared utilities are packaged, and where the CLI wrapper inserts
-  additional behaviour such as `.prettierignore` discovery.
+  including the two-tier malformed GML strategy and the native codemod model.
 - [Live reloading concept](live-reloading-concept.md) &mdash; Exploration of the
   HTML5 runtime fork, watcher pipeline, and runtime integration seams required
-  for hot-reload tooling. Start here when scoping runtime experimentation work
-  or cross-referencing the architecture audits. Use the `watch` CLI command to
-  monitor file changes during development.
+  for hot-reload tooling.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
   ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
   dependency-aware reloads and editor integrations.

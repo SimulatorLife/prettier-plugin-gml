@@ -31,6 +31,7 @@ These constants are used throughout the plugin to ensure consistent behavior. Us
 - Comments are never broken up or reflowed to fit the `printWidth` setting. This aligns with Prettier's default behavior for comments, preserving the developer's original line structure and preventing unintended corruption of commented-out code or manual formatting.
 - The plugin does not introduce additional line breaks or blank lines beyond what Prettier's core engine generates based on the document shape and `printWidth`. This means that struct literals, argument lists, and other constructs will wrap according to Prettier's standard rules without custom thresholds for the number of properties or parameters per line.
 - Like Prettier, this plugin *does* remove redundant parentheses, but it does not add new ones for readability. For example, expressions like `a + (b * c)` are formatted as `a + b * c`. Prettier is opinionated about layout and minimal syntax, but it avoids adding new structural elements like parentheses because that crosses from formatting into rewriting the code’s AST.
+- The formatter requires a valid parse; if parse fails, it should error and **not** change files. It should never produce partial or best-effort output on an invalid parse, and it should not attempt to salvage or reformat code when the input is syntactically incorrect
 
 ## Deprecated And Removed Options
 - `maxStructPropertiesPerLine` was removed on February 7, 2026.

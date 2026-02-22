@@ -1,7 +1,8 @@
 /**
- * Refactor engine for semantic-safe code transformations.
+ * Refactor engine for GML-native codemod transactions and semantic-safe code transformations.
  * Coordinates rename operations, batch renames, hot reload validation, and
- * workspace edits across the project while preventing scope capture and shadowing.
+ * workspace edits (via a Collection API) across the project while preventing 
+ * scope capture and shadowing.
  */
 
 import path from "node:path";
@@ -122,7 +123,8 @@ export class RefactorEngine {
 
     /**
      * Check if an identifier name is already occupied in the project.
-     * This is used by the plugin to determing if a proposed variable name is safe to use.
+     * This is used by @gml-modules/lint and @gml-modules/refactor to 
+     * determine if a proposed variable name or identifier is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
         return await this.projectAnalysisProvider.isIdentifierOccupied(identifierName, {
@@ -133,7 +135,8 @@ export class RefactorEngine {
 
     /**
      * List all files where an identifier occurs.
-     * This is used by the plugin to determine if a rename would affect multiple files.
+     * This is used by @gml-modules/lint and @gml-modules/refactor to 
+     * determine if a rename or refactor would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
         return await this.projectAnalysisProvider.listIdentifierOccurrences(identifierName, {

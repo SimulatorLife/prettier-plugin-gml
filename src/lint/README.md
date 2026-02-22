@@ -4,7 +4,14 @@
 
 It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/plugin`.
 
-## Ownership Boundaries
+## Two-Tier Workflow for Malformed GML
+
+As outlined in the [split plan](../../docs/formatter-linter-split-plan.md), the linter implements a two-phase workflow to handle malformed code:
+
+- **Phase A (Token-based)**: Runs on a tokenizer/tolerant scanner to apply local, unambiguous repairs (e.g., operator normalization) even when the file contains syntax errors.
+- **Phase B (AST-based)**: Runs standard semantic rules and fixes that require a successful parse.
+
+This allows the linter to provide productive auto-fixes even when the formatter cannot run due to parse errors.
 
 - Owns:
   - ESLint language wiring for GML (`language: "gml/gml"`)

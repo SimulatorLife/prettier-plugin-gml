@@ -1,3 +1,4 @@
+// TODO: Formatter (Prettier-like): requires a valid parse; if parse fails, it should error and not change files
 /**
  * Source text preprocessing utilities for the GML formatter.
  *
