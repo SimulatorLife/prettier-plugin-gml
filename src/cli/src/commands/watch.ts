@@ -1494,12 +1494,29 @@ function getSymbolIdFromFilePath(filePath: string): string {
     return `gml/script/${fileName}`;
 }
 
+function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: string): number {
+    const symbolId = getSymbolIdFromFilePath(filePath);
+    let removedCount = runtimeContext.lastSuccessfulPatches.delete(symbolId) ? 1 : 0;
+
+    for (const [patchId, cachedPatch] of runtimeContext.lastSuccessfulPatches.entries()) {
+        const metadata = Core.isObjectLike(cachedPatch.metadata) ? cachedPatch.metadata : null;
+        const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : null;
+
+        if (sourcePath !== filePath) {
+            continue;
+        }
+
+        runtimeContext.lastSuccessfulPatches.delete(patchId);
+        removedCount += 1;
+    }
+
+    return removedCount;
+}
+
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
-
-    const symbolId = getSymbolIdFromFilePath(filePath);
-    const removedPatch = runtimeContext.lastSuccessfulPatches.delete(symbolId);
+    const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
     const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
     if (debouncedHandler) {
@@ -1508,7 +1525,8 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     }
 
     if (verbose && !quiet) {
-        const patchMessage = removedPatch ? "cleared cached patch" : "no cached patch found";
+        const patchMessage =
+            removedPatchCount > 0 ? `cleared ${removedPatchCount} cached patch(es)` : "no cached patch found";
         console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
     }
 }
