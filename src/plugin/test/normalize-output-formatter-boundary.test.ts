@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeFormattedOutput } from "../src/index.js";
+import { normalizeFormattedOutput } from "../src/printer/normalize-formatted-output.js";
 
 void test("normalizeFormattedOutput preserves @function tags (content rewrites belong in lint)", () => {
     const input = [

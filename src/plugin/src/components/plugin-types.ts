@@ -36,6 +36,14 @@ export type GmlPlugin = Omit<Plugin<GmlAst>, "defaultOptions"> & {
     defaultOptions?: GmlPluginDefaultOptions;
     pluginOptions?: SupportOptions;
     format: (source: string, options?: Record<string, unknown>) => Promise<string>;
+    /**
+     * Layout-only post-processing pass applied after Prettier formats the GML
+     * source. Owned by the plugin (formatter) workspace because all of its
+     * transforms are purely layout-level (blank-line collapsing, whitespace
+     * normalization, etc.). Content/semantic rewrites are never applied here;
+     * those belong in the `@gml-modules/lint` workspace.
+     */
+    normalizeFormattedOutput: (formatted: string) => string;
 };
 
 export type GmlParserOptions = ParserOptions<GmlAst>;
