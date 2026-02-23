@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
 function isValidMacroIdentifier(name: string): boolean {
@@ -116,13 +116,7 @@ export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Ru
                     });
 
                     const rewritten = rewrittenLines.join(lineEnding);
-                    if (rewritten !== text) {
-                        context.report({
-                            loc: { line: 1, column: 0 },
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                        });
-                    }
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }

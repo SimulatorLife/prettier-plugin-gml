@@ -14,12 +14,14 @@
  * clean, discoverable APIs for consumers while keeping implementation details private.
  */
 
-export * as DescriptionUtils from "./description-utils.js";
-export type { DocCommentMetadata } from "./doc-comment-metadata.js";
-export {
-    getDeprecatedDocCommentFunctionSet,
-    getDocCommentMetadata,
-    setDeprecatedDocCommentFunctionSet,
-    setDocCommentMetadata
-} from "./doc-comment-metadata.js";
+import { Core } from "@gml-modules/core";
+
 export * as NormalizationUtils from "./normalization-utils.js";
+export type { DocCommentNodeMetadata as DocCommentMetadata } from "@gml-modules/core";
+export { Core as DescriptionUtils } from "@gml-modules/core";
+export const {
+    getDeprecatedDocCommentFunctionSet,
+    getDocCommentNodeMetadata: getDocCommentMetadata,
+    setDeprecatedDocCommentFunctionSet,
+    setDocCommentNodeMetadata: setDocCommentMetadata
+} = Core;

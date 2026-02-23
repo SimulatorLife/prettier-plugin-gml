@@ -2,7 +2,7 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, isAstNodeRecord } from "../rule-base-helpers.js";
+import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
 
 export function createNoAssignmentInConditionRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
@@ -14,9 +14,18 @@ export function createNoAssignmentInConditionRule(definition: GmlRuleDefinition)
                 }
 
                 if (node.type === "AssignmentExpression") {
+                    const start = getNodeStartIndex(node);
+                    const end = getNodeEndIndex(node);
                     context.report({
                         node: node as any,
-                        messageId: definition.messageId
+                        messageId: definition.messageId,
+                        fix:
+                            typeof start === "number" && typeof end === "number" && node.operator === "="
+                                ? (fixer) => {
+                                      const text = context.sourceCode.text.slice(start, end);
+                                      return fixer.replaceTextRange([start, end], text.replace("=", "=="));
+                                  }
+                                : undefined
                     });
                 }
 

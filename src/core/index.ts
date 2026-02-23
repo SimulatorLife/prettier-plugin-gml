@@ -6,6 +6,7 @@ export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    DocCommentNodeMetadata,
     EmptyTransformOptions,
     FeatherDiagnostic,
     FeatherMetadata,
