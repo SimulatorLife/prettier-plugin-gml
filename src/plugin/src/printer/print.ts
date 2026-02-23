@@ -41,7 +41,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { safeGetParentNode } from "./path-utils.js";
+import { findAncestorNode, safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -2685,22 +2685,7 @@ function getFunctionTagParamFromOriginalText(
 }
 
 function findEnclosingFunctionNode(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (Core.isFunctionLikeDeclaration(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => Core.isFunctionLikeDeclaration(node));
 }
 
 function findFunctionParameterContext(path) {
@@ -2903,22 +2888,7 @@ function joinDeclaratorPartsWithCommas(parts) {
 }
 
 function findEnclosingFunctionDeclaration(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (parent.type === "FunctionDeclaration") {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => node.type === "FunctionDeclaration");
 }
 
 function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
@@ -4171,22 +4141,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 }
 
 function findEnclosingFunctionForPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (Core.isFunctionLikeNode(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => Core.isFunctionLikeNode(node));
 }
 
 function getFunctionParameterNameByIndex(functionNode, index) {
