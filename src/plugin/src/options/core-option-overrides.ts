@@ -75,7 +75,7 @@ function warn_override(
     key: CoreOverrideKey,
     message: string,
     providedValue: unknown,
-    appliedValue: unknown
+    appliedValue?: unknown
 ): void {
     const sink = get_warning_sink(options);
     if (!sink) {
@@ -226,14 +226,12 @@ function normalizeOverrideEntries(
         const providedValue = overrides[key];
 
         if (providedValue == null) {
-            if (!spec.canBeRemoved) {
-                warn_override(options, key, spec.removedMessage, providedValue, defaultValue);
-                entries.push([key, defaultValue]);
-                continue;
-            }
-
+            // null/undefined is an explicit opt-out: remove the key so that the
+            // caller's own Prettier config can supply a value. Hosts may opt out
+            // of any key, including "forced" ones, since this is a programmatic
+            // interface, not an end-user config path.
             changedFromDefault = true;
-            warn_override(options, key, spec.removedMessage, providedValue, undefined);
+            warn_override(options, key, spec.removedMessage, providedValue);
             continue;
         }
 
@@ -245,13 +243,13 @@ function normalizeOverrideEntries(
             continue;
         }
 
-        // forced/noop/irrelevant all lock to default; only "forced" needs a stricter message,
-        // but all user changes are ignored to avoid implying these options affect GML output.
+        // Use the resolver-supplied value: hosts (programmatic callers) are
+        // trusted to knowingly override even "forced" or "noop" options.
         if (normalizedValue !== defaultValue) {
-            warn_override(options, key, spec.ignoredMessage, providedValue, defaultValue);
+            changedFromDefault = true;
         }
 
-        entries.push([key, defaultValue]);
+        entries.push([key, normalizedValue]);
     }
 
     // We only consider this changed if keys were removed (null) because all values are locked to defaults.

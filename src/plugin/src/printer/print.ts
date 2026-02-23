@@ -41,7 +41,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { safeGetParentNode } from "./path-utils.js";
+import { findAncestorNode, safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -624,6 +624,14 @@ function printUnaryLikeExpressionNode(node, path, _options, print) {
             return print("argument");
         }
 
+        // Normalize `-0` to `0`: when a unary minus is applied to a literal zero
+        // (including normalized forms like `0.` → `0`), the result is numerically
+        // identical to positive zero in GML. Keeping `-0` would generate incorrect
+        // output after decimal normalization strips the fractional part.
+        if (node.operator === "-" && node.argument?.type === "Literal" && Number(node.argument.value) === 0) {
+            return concat(["0"]);
+        }
+
         return concat([node.operator, print("argument")]);
     }
 
@@ -968,27 +976,47 @@ function tryPrintDeclarationNode(node, path, options, print) {
         }
         case "DefineStatement": // TODO: The parser should not emit a different node type for 'DefineStatement'. For now, just let it fall-through. See docs/define-directive-fixing.md
         case "MacroDeclaration": {
+            const macroName = typeof node.name === "string" ? node.name : (node.name?.name ?? null);
             const { start: macroStart, end: macroEnd } = Core.getNodeRangeIndices(node);
+            const { start: nameStart, end: nameEnd } = Core.getNodeRangeIndices(node.name);
 
+            // Normalize whitespace: rebuild `#macro NAME value` with single spaces.
+            // The original text may contain multiple spaces between `#macro`, the
+            // name identifier, and the macro value body, which we trim here to keep
+            // output canonical and idempotent.
+            if (
+                Core.isNonEmptyString(macroName) &&
+                typeof macroStart === NUMBER_TYPE &&
+                typeof nameEnd === NUMBER_TYPE &&
+                typeof macroEnd === NUMBER_TYPE &&
+                nameEnd >= macroStart &&
+                macroEnd >= nameEnd
+            ) {
+                const valueBody = options.originalText.slice(nameEnd, macroEnd).trimStart();
+                const normalized = Core.isNonEmptyString(valueBody)
+                    ? `#macro ${macroName} ${valueBody}`
+                    : `#macro ${macroName}`;
+                return concat(stripTrailingLineTerminators(normalized));
+            }
+
+            // Fallback: use original text with name substitution when indices are
+            // unavailable (e.g. synthetic nodes produced during normalization).
             let text =
                 typeof macroStart === NUMBER_TYPE && typeof macroEnd === NUMBER_TYPE
                     ? options.originalText.slice(macroStart, macroEnd)
                     : "";
 
-            const { start: nameStart, end: nameEnd } = Core.getNodeRangeIndices(node.name);
-
             if (
+                Core.isNonEmptyString(macroName) &&
                 typeof macroStart === NUMBER_TYPE &&
                 typeof nameStart === NUMBER_TYPE &&
                 typeof nameEnd === NUMBER_TYPE &&
                 nameStart >= macroStart &&
-                nameEnd >= nameStart &&
-                Core.isNonEmptyString(node.name)
+                nameEnd >= nameStart
             ) {
                 const relativeStart = nameStart - macroStart;
                 const relativeEnd = nameEnd - macroStart;
-
-                text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
+                text = text.slice(0, relativeStart) + macroName + text.slice(relativeEnd);
             }
 
             return concat(stripTrailingLineTerminators(text));
@@ -1054,8 +1082,9 @@ function tryPrintLiteralNode(node, path, options, print) {
                         // segment would come back as a pure integer the moment the project
                         // is re-saved in the IDE, invalidating the doc snapshots and
                         // numeric literal regression tests that assert we emit the same
-                        // text on every pass.
-                        value = integerPart;
+                        // text on every pass. Normalize `-0` to `0` since negative zero
+                        // is numerically identical to zero in GML.
+                        value = integerPart === "-0" ? "0" : integerPart;
                     }
                 }
             }
@@ -1923,12 +1952,8 @@ function buildStatementPartsForPrinter({
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             util.isPreviousLineEmpty(originalTextCache, nodeStartIndex);
-        const blockAncestor = safeGetParentNode(childPath) ?? childPath.parent ?? null;
-        const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockAncestor?.parent ?? null;
-        const shouldForceConstructorPadding =
-            blockAncestor?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
 
-        if (hasExplicitBlankLineBeforeStatic || shouldForceConstructorPadding) {
+        if (hasExplicitBlankLineBeforeStatic) {
             parts.push(hardline);
         }
     }
@@ -2224,23 +2249,41 @@ function handleIntermediateTrailingSpacing({
             !shouldSuppressExtraEmptyLine &&
             !sanitizedMacroHasExplicitBlankLine);
 
-    const shouldAddPaddingWithNewline = shouldAddForcedPadding || (currentNodeRequiresNewline && !nextLineEmpty);
+    // Suppress the blank line between a #region and an immediately following
+    // #endregion (an empty region). Adding a blank line inside an empty region
+    // would change the source round-trip and create unnecessary noise.
+    const isEmptyRegionPair =
+        (node?.type === "RegionStatement" ||
+            Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.REGION) &&
+        (nextNode?.type === "EndRegionStatement" ||
+            Core.getNormalizedDefineReplacementDirective(nextNode) === Core.DefineReplacementDirective.END_REGION);
+
+    const shouldAddPaddingWithNewline =
+        !isEmptyRegionPair && (shouldAddForcedPadding || (currentNodeRequiresNewline && !nextLineEmpty));
 
     if (shouldAddPaddingWithNewline) {
         parts.push(hardlineDoc);
-        // Inside blocks, a single hardline is not enough to create a blank line
-        // separation; we need double grouping or an explicit second hardline.
-        // Top-level statements get additional spacing from the *leading* logic
-        // of the *next* statement, but block statements do not.
-        if (!isTopLevel && !suppressFollowingEmptyLine) {
-            parts.push(hardlineDoc);
-        }
+        previousNodeHadNewlineAddedAfter = true;
+    } else if (isEmptyRegionPair) {
+        // Set the flag even though we didn't emit a blank line: this prevents
+        // addLeadingStatementSpacing from inserting one before the #endregion
+        // on the next iteration, preserving the source round-trip.
         previousNodeHadNewlineAddedAfter = true;
     } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine) {
-        parts.push(hardlineDoc);
-        // Preserve source blank lines inside blocks by doubling the hardline,
-        // since blocks don't get leading-statement spacing.
-        if (!isTopLevel) {
+        // When the next statement has a leading comment immediately preceding it
+        // and a blank line separates the current statement from that comment,
+        // Prettier's built-in comment printing already emits a hardline before
+        // the comment. Emitting one here too would produce a double blank line.
+        // Detect this by checking whether the original source has a comment
+        // immediately before the next node; if so, let Prettier handle spacing.
+        const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+        const nextNodeStartIndex = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
+        const nextNodeHasLeadingComment =
+            isTopLevel &&
+            typeof nextNodeStartIndex === NUMBER_TYPE &&
+            Core.hasCommentImmediatelyBefore(originalText, nextNodeStartIndex);
+
+        if (!nextNodeHasLeadingComment) {
             parts.push(hardlineDoc);
         }
     }
@@ -2685,22 +2728,7 @@ function getFunctionTagParamFromOriginalText(
 }
 
 function findEnclosingFunctionNode(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (Core.isFunctionLikeDeclaration(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => Core.isFunctionLikeDeclaration(node));
 }
 
 function findFunctionParameterContext(path) {
@@ -2903,22 +2931,7 @@ function joinDeclaratorPartsWithCommas(parts) {
 }
 
 function findEnclosingFunctionDeclaration(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (parent.type === "FunctionDeclaration") {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => node.type === "FunctionDeclaration");
 }
 
 function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
@@ -3563,7 +3576,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 
 function getBinaryOperatorInfo(operator) {
     if (operator === undefined) {
-        return undefined;
+        return;
     }
     return Core.BINARY_OPERATORS[operator];
 }
@@ -4171,22 +4184,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 }
 
 function findEnclosingFunctionForPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent = safeGetParentNode(path, depth);
-        if (!parent) {
-            break;
-        }
-
-        if (Core.isFunctionLikeNode(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, (node) => Core.isFunctionLikeNode(node));
 }
 
 function getFunctionParameterNameByIndex(functionNode, index) {
@@ -4406,7 +4404,7 @@ function evaluateNumericBinaryFlattening(parent, expression, _path) {
     const expressionInfo = getBinaryOperatorInfo(expression.operator);
 
     if (!parentInfo || !expressionInfo) {
-        return undefined;
+        return;
     }
 
     // Always flatten standard arithmetic chains if safe (e.g. `a + b * c` where precedence allows)
@@ -4420,6 +4418,4 @@ function evaluateNumericBinaryFlattening(parent, expression, _path) {
     if (parentInfo.type === "bitwise" || expressionInfo.type === "bitwise") {
         return "allow";
     }
-
-    return undefined;
 }
