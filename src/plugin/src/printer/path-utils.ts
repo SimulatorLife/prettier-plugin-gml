@@ -31,3 +31,37 @@ export function safeGetParentNode(path: AstPath<any>, level: number = 0): any {
 
     return null;
 }
+
+/**
+ * Walks up the Prettier AST path and returns the first ancestor node for
+ * which the given predicate returns `true`.
+ *
+ * This helper eliminates repeated ancestor-traversal boilerplate shared by
+ * functions that search for a specific enclosing node kind (e.g.,
+ * the nearest enclosing function declaration or constructor).
+ *
+ * @param path - The Prettier AST path object.
+ * @param predicate - A function that returns `true` when the desired ancestor is found.
+ * @returns The first matching ancestor node, or `null` if none is found.
+ *
+ * @example
+ * ```ts
+ * const enclosingFn = findAncestorNode(path, (node) => node.type === "FunctionDeclaration");
+ * ```
+ */
+export function findAncestorNode(path: AstPath<any>, predicate: (node: any) => boolean): any {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent = safeGetParentNode(path, depth);
+        if (!parent) {
+            return null;
+        }
+
+        if (predicate(parent)) {
+            return parent;
+        }
+    }
+}

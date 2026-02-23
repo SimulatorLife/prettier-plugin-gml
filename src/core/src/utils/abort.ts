@@ -161,7 +161,7 @@ export function isAbortError(value: unknown): boolean {
         return true;
     }
 
-    const name = getNonEmptyString(/** @type {{ name?: unknown }} */ (candidate as { name?: unknown }).name);
+    const name = getNonEmptyString((candidate as { name?: unknown }).name);
     if (name?.toLowerCase() === ABORT_ERROR_NAME) {
         return true;
     }
@@ -280,7 +280,7 @@ export function resolveAbortSignalFromOptions(
         return null;
     }
 
-    const candidate = /** @type {Record<PropertyKey, unknown>} */ options[key] ?? null;
+    const candidate = (options as Record<PropertyKey, unknown>)[key] ?? null;
     if (!isAbortSignalLike(candidate)) {
         return null;
     }
