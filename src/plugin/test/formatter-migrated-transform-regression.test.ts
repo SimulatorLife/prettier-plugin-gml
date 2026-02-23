@@ -74,4 +74,26 @@ void describe("formatter migrated-transform regression coverage", () => {
 
         assert.strictEqual(malformedCommentSource, "/ @description not-valid-comment\nvar value = 1;");
     });
+
+    void it("does not remove duplicate doc-comment lines (deduplication belongs in lint)", async () => {
+        // Formatter must not perform content rewrites. Removing duplicate doc
+        // comment lines is a semantic operation owned by `@gml-modules/lint`
+        // (target-state.md §2.2, §3.2).
+        const source = [
+            "/// @description Updates the ground distance",
+            "/// @description Updates the ground distance",
+            "function update_ground_dist() {",
+            "    return 1;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Plugin.format(source);
+        const docLineCount = (formatted.match(/\/\/\/ @description Updates the ground distance/g) ?? []).length;
+
+        assert.strictEqual(
+            docLineCount,
+            2,
+            "Formatter must not strip duplicate doc-comment lines — that is a lint-workspace responsibility"
+        );
+    });
 });

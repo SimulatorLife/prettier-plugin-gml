@@ -166,20 +166,6 @@ function normalizeSingleCommentBlockIndentation(formatted: string): string {
     return lines.join("\n");
 }
 
-function extractLineCommentPayload(trimmedStart: string): string | null {
-    if (trimmedStart.startsWith("///")) {
-        return trimmedStart.slice(3).trim();
-    }
-
-    if (trimmedStart.startsWith("//")) {
-        return trimmedStart.slice(2).trim();
-    }
-
-    return null;
-}
-
-const DOC_LIKE_LINE_PATTERN = /^\/\/\/|^\/\/\s*\/(\s|$)|^\/\/\s*@/;
-
 type PlainLineCommentInfo = {
     trimmedStart: string;
     normalized: string;
@@ -203,11 +189,6 @@ function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo
     };
 }
 
-function isDocLikeLine(line: string): boolean {
-    const trimmed = line.trimStart();
-    return DOC_LIKE_LINE_PATTERN.test(trimmed);
-}
-
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
     const startIndex = line.indexOf("/*");
     const endIndex = line.indexOf("*/");
@@ -224,108 +205,6 @@ function updateBlockCommentState(line: string, isInside: boolean): boolean {
     }
 
     return true;
-}
-
-function hasRepeatedBlock(trimmedLines: string[], segmentLength: number): boolean {
-    const baseSegment = trimmedLines.slice(0, segmentLength);
-
-    for (let offset = segmentLength; offset < trimmedLines.length; offset += segmentLength) {
-        for (let index = 0; index < segmentLength; index += 1) {
-            if (baseSegment[index] !== trimmedLines[offset + index]) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-function findRepeatedSegmentLength(lines: string[]): number {
-    // Trim once to avoid repeated string allocations during segment checks.
-    const trimmedLines = lines.map((line) => line.trim());
-
-    for (let segmentLength = 1; segmentLength <= Math.floor(trimmedLines.length / 2); segmentLength += 1) {
-        if (trimmedLines.length % segmentLength !== 0) {
-            continue;
-        }
-
-        if (hasRepeatedBlock(trimmedLines, segmentLength)) {
-            return segmentLength;
-        }
-    }
-
-    return 0;
-}
-
-function dedupeDocBlock(lines: string[]): string[] {
-    if (lines.length === 0) {
-        return lines;
-    }
-
-    const segmentLength = findRepeatedSegmentLength(lines);
-    if (segmentLength > 0) {
-        return dedupeDocBlock(lines.slice(0, segmentLength));
-    }
-
-    const filtered: string[] = [];
-    let previousDocPayload: string | null = null;
-
-    for (const line of lines) {
-        const trimmedStart = line.trimStart();
-        const docPayload = extractLineCommentPayload(trimmedStart);
-
-        if (docPayload === null) {
-            previousDocPayload = null;
-        } else {
-            if (docPayload === previousDocPayload) {
-                continue;
-            }
-            previousDocPayload = docPayload;
-        }
-
-        filtered.push(line);
-    }
-
-    return filtered;
-}
-
-function removeDuplicateDocLikeLineComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
-    const result: string[] = [];
-    let docBlockLines: string[] = [];
-    let insideBlockComment = false;
-
-    const flushDocBlock = () => {
-        if (docBlockLines.length === 0) {
-            return;
-        }
-
-        const deduped = dedupeDocBlock(docBlockLines);
-        result.push(...deduped);
-        docBlockLines = [];
-    };
-
-    for (const line of lines) {
-        if (insideBlockComment) {
-            flushDocBlock();
-            result.push(line);
-            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
-            continue;
-        }
-
-        if (isDocLikeLine(line)) {
-            docBlockLines.push(line);
-            insideBlockComment = updateBlockCommentState(line, insideBlockComment);
-            continue;
-        }
-
-        flushDocBlock();
-        result.push(line);
-        insideBlockComment = updateBlockCommentState(line, insideBlockComment);
-    }
-
-    flushDocBlock();
-    return result.join("\n");
 }
 
 function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
@@ -429,7 +308,6 @@ export function normalizeFormattedOutput(formatted: string): string {
         ensureTrailingNewline,
         collapseDuplicateBlankLines,
         collapseVertexFormatBeginSpacing,
-        removeDuplicateDocLikeLineComments,
         normalizeInlineTrailingCommentSpacing,
         normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,
