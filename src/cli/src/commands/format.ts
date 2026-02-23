@@ -226,7 +226,10 @@ async function resolvePluginOutputNormalizer(): Promise<null | ((formatted: stri
     if (pluginOutputNormalizerPromise === null) {
         pluginOutputNormalizerPromise = importPluginModule()
             .then((moduleValue) => {
-                const normalizer = (moduleValue as { normalizeFormattedOutput?: unknown }).normalizeFormattedOutput;
+                // `normalizeFormattedOutput` is part of the `Plugin` namespace per the
+                // workspace-root single-namespace contract (target-state.md §2.1).
+                const plugin = (moduleValue as { Plugin?: { normalizeFormattedOutput?: unknown } }).Plugin;
+                const normalizer = plugin?.normalizeFormattedOutput;
                 return typeof normalizer === "function"
                     ? (normalizer as (formatted: string, source: string) => string)
                     : null;

@@ -11,6 +11,7 @@ import { gmlPluginComponents } from "./components/plugin-components.js";
 import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
+import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 
 export const parsers = gmlPluginComponents.parsers;
 export const printers = gmlPluginComponents.printers;
@@ -82,6 +83,7 @@ export const Plugin: GmlPlugin = {
     printers,
     options: pluginOptions,
     defaultOptions,
-    format
+    format,
+    normalizeFormattedOutput
 };
 export default Plugin;

@@ -1,7 +1,8 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import { normalizeFormattedOutput, Plugin } from "../src/index.js";
+import { Plugin } from "../src/index.js";
+import { normalizeFormattedOutput } from "../src/printer/normalize-formatted-output.js";
 
 void describe("multi-line block comment formatting", () => {
     void it("formats multi-line block comments with * prefix on each line", async () => {
