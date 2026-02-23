@@ -77,10 +77,10 @@ var x = 1;
         );
     });
 
-    void it("deduplicates doc-comment lines following a single-line block comment", () => {
-        // Regression: updateBlockCommentState incorrectly treated /* ... */ as
-        // opening a block comment, preventing doc-line deduplication for lines
-        // that immediately follow.
+    void it("does not remove duplicate doc-comment lines (deduplication is a lint-only operation)", () => {
+        // The formatter must not strip or rewrite doc-comment content — that is a
+        // semantic/content rewrite owned exclusively by the `@gml-modules/lint`
+        // `normalize-doc-comments` rule (target-state.md §2.2, §3.2).
         const input = "/* helper */\n/// @description Foo\n/// @description Foo\nfunction foo() {}\n";
 
         const normalized = normalizeFormattedOutput(input);
@@ -88,8 +88,8 @@ var x = 1;
 
         assert.strictEqual(
             docLineCount,
-            1,
-            `Expected duplicate doc line to be deduplicated.\nActual output:\n${normalized}`
+            2,
+            `normalizeFormattedOutput must not remove duplicate doc lines — that is a lint-workspace responsibility.\nActual output:\n${normalized}`
         );
     });
 });
