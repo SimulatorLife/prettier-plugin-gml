@@ -5,93 +5,6 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
 
-function readNodeText(sourceText: string, node: any): string | null {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
-    // Assume start/end compatible with Core helpers if needed, but simple slice works if props exist
-    const start = node.start;
-    const end = node.end;
-    if (typeof start === "number" && typeof end === "number") {
-        return sourceText.slice(start, end);
-    }
-    // Fallback?
-    return null;
-}
-
-function printExpression(node: any, sourceText: string): string {
-    if (!node || typeof node !== "object") {
-        return "";
-    }
-
-    switch (node.type) {
-        case "Literal": {
-            return String(node.value);
-        }
-        case "Identifier": {
-            return node.name;
-        }
-        case "ParenthesizedExpression": {
-            const inner = node.expression ? printExpression(node.expression, sourceText) : "";
-            return `(${inner})`;
-        }
-        case "BinaryExpression": {
-            const left = printExpression(node.left, sourceText);
-            const right = printExpression(node.right, sourceText);
-            return `${left} ${node.operator} ${right}`;
-        }
-        case "LogicalExpression": {
-            const left = printExpression(node.left, sourceText);
-            const right = printExpression(node.right, sourceText);
-            return `${left} ${node.operator} ${right}`;
-        }
-        case "UnaryExpression": {
-            const arg = printExpression(node.argument, sourceText);
-            if (node.prefix) {
-                return `${node.operator}${arg}`;
-            }
-            return `${arg}${node.operator}`;
-        }
-        case "CallExpression": {
-            // For simplifyIfStatement, we might generate function calls?
-            // Actually simplifyIfStatement generates ReturnStatement, ExpressionStatement (Assignment).
-            // printExpression handles Expression nodes.
-            // If we replace IfStatement with ExpressionStatement, we need to print the ExpressionStatement's expression.
-
-            const callee = printExpression(node.object || node.callee, sourceText);
-            const args = Array.isArray(node.arguments)
-                ? node.arguments.map((a: any) => printExpression(a, sourceText)).join(", ")
-                : "";
-            return `${callee}(${args})`;
-        }
-        case "MemberDotExpression": {
-            const object = printExpression(node.object, sourceText);
-            const property = printExpression(node.property, sourceText);
-            return `${object}.${property}`;
-        }
-        case "MemberIndexExpression": {
-            const object = printExpression(node.object, sourceText);
-            const index = printExpression(node.index, sourceText);
-            return `${object}[${index}]`;
-        }
-        case "ConditionalExpression": {
-            const test = printExpression(node.test, sourceText);
-            const consequent = printExpression(node.consequent, sourceText);
-            const alternate = printExpression(node.alternate, sourceText);
-            return `${test} ? ${consequent} : ${alternate}`;
-        }
-        case "AssignmentExpression": {
-            const left = printExpression(node.left, sourceText);
-            const right = printExpression(node.right, sourceText);
-            return `${left} ${node.operator} ${right}`;
-        }
-        default: {
-            const text = readNodeText(sourceText, node);
-            return text || "";
-        }
-    }
-}
-
 /**
  * Replaces the regex-based optimization with an AST traversal approach.
  */
@@ -163,7 +76,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // Compare printed version of original vs cloned.
                     const sourceText =
                         context.sourceCode.getLoc(originalNode).source || context.sourceCode.getText(originalNode);
-                    const newText = printExpression(cloned, context.sourceCode.text);
+                    const newText = Core.printExpression(cloned, context.sourceCode.text);
 
                     // Check if changed.
                     // Note: `printExpression` might output different whitespace than source even if AST is same.
