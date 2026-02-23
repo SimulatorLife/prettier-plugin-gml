@@ -367,24 +367,12 @@ function hasTooManyBlankLinesBetween(sourceText: string | null, start: number | 
 }
 
 function flattenDocEntries(entries: unknown[]): string[] {
-    const flattened: string[] = [];
-    for (const entry of entries) {
-        appendFlattenedEntry(flattened, entry);
-    }
-    return flattened;
-}
-
-function appendFlattenedEntry(target: string[], entry: unknown): void {
-    if (typeof entry !== "string") {
-        return;
-    }
-
-    if (entry.includes("\n")) {
-        target.push(...entry.split(/\r?\n/));
-        return;
-    }
-
-    target.push(entry);
+    return entries.flatMap((entry) => {
+        if (typeof entry !== "string") {
+            return [];
+        }
+        return entry.includes("\n") ? entry.split(/\r?\n/) : [entry];
+    });
 }
 
 function getCommentIndexValue(comment: unknown, field: "start" | "end"): number | null {
