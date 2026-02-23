@@ -88,13 +88,18 @@ void test("pads bare decimals in expressions and preserves operator spacing", as
 
     const formatted = await Plugin.format(source);
 
+    // Redundant parentheses around multiplicative expressions inside additive
+    // expressions are removed (multiplication binds tighter than addition, so
+    // the grouping is unchanged). This is consistent with the behaviour tested
+    // in `parentheses.test.ts` ("omits redundant multiplicative parentheses
+    // inside additive expressions").
     assert.strictEqual(
         formatted,
         [
             "function coefficients() {",
             "    var a = 0.5 + 0.25;",
             "    var b = 5 + 0;",
-            "    var c = (0.5 * 2) + (1 * 0.5);",
+            "    var c = 0.5 * 2 + 1 * 0.5;",
             "    return a + b + c;",
             "}",
             ""
