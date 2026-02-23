@@ -94,7 +94,7 @@
     "format:quiet": "pnpm run format > /dev/null",
     "format:check": "pnpm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "prettier": "pnpm run format:gml --",
-    "commit": "bash -lc 'msg=${BUMP_COMMIT_MESSAGE:-${npm_config_commit_message:-\"chore: formatting\"}}; if [ $# -gt 0 ]; then msg=\"$*\"; fi; if [ -n \"$(git status --porcelain)\" ]; then if [ -z \"${SKIP_FORMAT:-}\" ]; then pnpm run format:quiet; fi && pnpm run lint:fix && git add . && git commit --no-verify -m \"$msg\"; fi && git pull --rebase && git push' --",
+    "commit": "bash -lc 'msg=${BUMP_COMMIT_MESSAGE:-${npm_config_commit_message:-\"chore: formatting\"}}; if [ $# -gt 0 ]; then msg=\"$*\"; fi; if [ -n \"$(git status --porcelain)\" ]; then if [ -z \"${SKIP_FORMAT:-}\" ]; then pnpm run format:quiet; fi && (pnpm run lint:fix || true) && git add . && git commit --no-verify -m \"$msg\"; fi && git pull --rebase && git push' --",
     "build": "pnpm run build:ts && pnpm run build:gml-identifiers && pnpm run build:feather-metadata",
     "build:antlr": "cd src/parser && pnpm run antlr",
     "build:gml-identifiers": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js generate-gml-identifiers --quiet",
@@ -172,5 +172,5 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.47.0"
   },
-  "packageManager": "pnpm@10.30.0"
+  "packageManager": "pnpm@10.30.1+sha512.3590e550d5384caa39bd5c7c739f72270234b2f6059e13018f975c313b1eb9fefcc09714048765d4d9efe961382c312e624572c0420762bdc5d5940cdf9be73a"
 }

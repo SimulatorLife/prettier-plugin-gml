@@ -33,7 +33,7 @@ Ownership summary:
 
 - `@gml-modules/plugin`: formatter-only AST normalization + printing
 - `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gml-modules/refactor`: explicit cross-file rename/refactor transactions
+- `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
 - Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
 
 ## Commands
@@ -747,7 +747,7 @@ Provides ANTLR-based GML parsing used by the transpiler.
 
 ## References
 
-- [Live Reloading Concept](../../docs/live-reloading-concept.md) - Overall hot-reload architecture
+- [Hot Reload Architecture](../../docs/hot-reload.md) - Overall hot-reload architecture
 - [Semantic Scope Plan](../../docs/semantic-scope-plan.md) - Semantic analysis integration
 - [Transpiler README](../transpiler/README.md) - GML → JavaScript transpilation details
 - [Runtime Wrapper README](../runtime-wrapper/README.md) - Patch application and hot-swapping

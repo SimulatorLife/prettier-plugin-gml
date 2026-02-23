@@ -61,6 +61,7 @@ export type {
     ScopeTracker,
     ScopeTrackerOptions
 } from "./ast/scope-tracker.js";
+export type { StripCommentsTransformOptions } from "./ast/strip-comments-transform.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export * as DescriptionUtils from "./comments/doc-comment/description-utils.js";
