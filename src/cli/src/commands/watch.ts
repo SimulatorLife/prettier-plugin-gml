@@ -691,7 +691,11 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const extensionMatcher = createExtensionMatcher(extensions);
     const extensionSet = extensionMatcher.extensions;
 
-    const { scriptNames, fileDataCache } = await collectScriptNames(normalizedPath, extensionMatcher);
+    const { scriptNames, fileDataCache } = await collectScriptNames(
+        normalizedPath,
+        extensionMatcher,
+        maxConcurrentDirs
+    );
 
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
@@ -1543,7 +1547,8 @@ interface InitialFileScanResult {
 
 async function collectScriptNames(
     rootPath: string,
-    extensionMatcher: ExtensionMatcher
+    extensionMatcher: ExtensionMatcher,
+    maxConcurrentDirs: number
 ): Promise<InitialFileScanResult> {
     const scriptNames = new Set<string>();
     const fileDataCache = new Map<string, InitialFileData>();
@@ -1569,10 +1574,15 @@ async function collectScriptNames(
             await addScriptNamesFromFile(filePath, scriptNames, fileDataCache);
         });
 
-        // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
-        await Core.runSequentially(directories, async (subDirPath) => {
-            await scan(subDirPath);
-        });
+        // Traverse subdirectories with bounded parallelism to balance throughput
+        // and resource usage, consistent with performInitialScan.
+        await Core.runInParallelWithLimit(
+            directories,
+            async (subDirPath) => {
+                await scan(subDirPath);
+            },
+            maxConcurrentDirs
+        );
     }
 
     try {
@@ -1589,13 +1599,21 @@ async function addScriptNamesFromFile(
     scriptNames: Set<string>,
     fileDataCache: Map<string, InitialFileData>
 ): Promise<void> {
-    const beforeSize = scriptNames.size;
+    // Track whether this file contributed at least one symbol via AST extraction.
+    // This flag is set inside the synchronous section that follows the last await,
+    // so it is not affected by other files being processed concurrently.
+    let registeredFromAst = false;
 
     try {
         const content = await readFile(filePath, "utf8");
         const parser = new Parser.GMLParser(content, {});
         const ast = parser.parse();
+        // Capture size after resuming from the await so the delta only reflects
+        // symbols added synchronously by this file — not those added concurrently
+        // by other files while this one was suspended at the readFile call.
+        const sizeBeforeRegister = scriptNames.size;
         registerScriptNamesFromSymbols(extractSymbolsFromAst(ast, filePath), scriptNames);
+        registeredFromAst = scriptNames.size > sizeBeforeRegister;
         // Cache the content and AST so performInitialScan can reuse them without
         // re-reading from disk or re-parsing the GML source.
         fileDataCache.set(filePath, { content, ast });
@@ -1603,7 +1621,7 @@ async function addScriptNamesFromFile(
         // Ignore parse errors; fallback to file-name based script
     }
 
-    if (scriptNames.size === beforeSize) {
+    if (!registeredFromAst) {
         const scriptName = getScriptNameFromPath(filePath);
         if (scriptName) {
             scriptNames.add(scriptName);
