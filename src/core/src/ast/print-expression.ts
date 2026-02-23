@@ -1,9 +1,11 @@
+import { getNodeEndIndex, getNodeStartIndex } from "./locations.js";
+
 export function readNodeText(sourceText: string, node: any): string | null {
     if (!node || typeof node !== "object") {
         return null;
     }
-    const start = node.start;
-    const end = node.end;
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
     if (typeof start === "number" && typeof end === "number") {
         return sourceText.slice(start, end);
     }
