@@ -280,6 +280,15 @@ function isUndefinedCheck(condition: any, target: any): boolean {
     return false;
 }
 
+/**
+ * Structural equality check for GML AST nodes.
+ *
+ * Handles Identifier, Literal, MemberDotExpression, and MemberIndexExpression
+ * by recursing into their sub-nodes. All other node types compare as unequal.
+ * This is intentionally incomplete but sufficient for the boolean absorption
+ * and distributive law patterns that operate on variable expressions and
+ * member-access chains.
+ */
 function nodesRecursiveEqual(a: any, b: any): boolean {
     if (a === b) return true;
     if (!a || !b) return false;
@@ -295,7 +304,6 @@ function nodesRecursiveEqual(a: any, b: any): boolean {
         return nodesRecursiveEqual(a.object, b.object) && nodesRecursiveEqual(a.index, b.index);
     }
 
-    // Incomplete, but sufficient for variable/member matching
     return false;
 }
 
@@ -465,7 +473,7 @@ function simplifyLogical(node: any): boolean {
         node.operator === "||" &&
         right.type === "LogicalExpression" &&
         right.operator === "&&" &&
-        nodesAreEqual(left, right.left)
+        nodesRecursiveEqual(left, right.left)
     ) {
         // A || (A && B) -> A
         replaceNode(node, left);
@@ -476,7 +484,7 @@ function simplifyLogical(node: any): boolean {
         node.operator === "&&" &&
         right.type === "LogicalExpression" &&
         right.operator === "||" &&
-        nodesAreEqual(left, right.left)
+        nodesRecursiveEqual(left, right.left)
     ) {
         // A && (A || B) -> A
         replaceNode(node, left);
@@ -492,7 +500,7 @@ function simplifyLogical(node: any): boolean {
         right.operator === "&&"
     ) {
         // (A && B) || (A && C) -> A && (B || C)
-        if (nodesAreEqual(left.left, right.left)) {
+        if (nodesRecursiveEqual(left.left, right.left)) {
             const newRight = {
                 type: "LogicalExpression",
                 operator: "||",
@@ -514,7 +522,7 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (B && A) || (C && A) -> (B || C) && A
-        if (nodesAreEqual(left.right, right.right)) {
+        if (nodesRecursiveEqual(left.right, right.right)) {
             const newLeft = {
                 type: "LogicalExpression",
                 operator: "||",
@@ -536,13 +544,13 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (A && B) || (A && !B) -> A (Complement/Redundancy)
-        if (nodesAreEqual(left.left, right.left) && areNegations(left.right, right.right)) {
+        if (nodesRecursiveEqual(left.left, right.left) && areNegations(left.right, right.right)) {
             replaceNode(node, left.left);
             return true;
         }
 
         // (B && A) || (!B && A) -> A
-        if (nodesAreEqual(left.right, right.right) && areNegations(left.left, right.left)) {
+        if (nodesRecursiveEqual(left.right, right.right) && areNegations(left.left, right.left)) {
             replaceNode(node, left.right);
             return true;
         }
@@ -573,7 +581,7 @@ function simplifyLogical(node: any): boolean {
             }
         }
 
-        if (A && B && notA && notB && nodesAreEqual(A, notA.argument) && nodesAreEqual(B, notB.argument)) {
+        if (A && B && notA && notB && nodesRecursiveEqual(A, notA.argument) && nodesRecursiveEqual(B, notB.argument)) {
             // Construct (A || B) && !(A && B)
             const orPart = {
                 type: "BinaryExpression", // LogicalExpression in some usages, but GML printer handles both
@@ -619,11 +627,11 @@ function simplifyLogical(node: any): boolean {
 function areNegations(node1: any, node2: any): boolean {
     if (!node1 || !node2) return false;
     // Check if node1 is !node2
-    if (node1.type === "UnaryExpression" && node1.operator === "!" && nodesAreEqual(node1.argument, node2)) {
+    if (node1.type === "UnaryExpression" && node1.operator === "!" && nodesRecursiveEqual(node1.argument, node2)) {
         return true;
     }
     // Check if node2 is !node1
-    if (node2.type === "UnaryExpression" && node2.operator === "!" && nodesAreEqual(node2.argument, node1)) {
+    if (node2.type === "UnaryExpression" && node2.operator === "!" && nodesRecursiveEqual(node2.argument, node1)) {
         return true;
     }
     return false;
@@ -634,22 +642,6 @@ function getBooleanValue(node: any): boolean | undefined {
         return node.value;
     }
     return undefined;
-}
-
-function nodesAreEqual(a: any, b: any): boolean {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.type !== b.type) return false;
-
-    if (a.type === "Identifier") {
-        return a.name === b.name;
-    }
-    if (a.type === "Literal") {
-        return a.value === b.value;
-    }
-    // Deep comparison for simple structural equality, avoiding cyclic issues
-    // Just handling simple Identifiers and Literals for now for Absorption laws.
-    return false;
 }
 
 /**
