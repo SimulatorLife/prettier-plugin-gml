@@ -24,7 +24,7 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectRenameConflicts } from "./validation.js";
-import { assertValidIdentifierName, extractSymbolName, hasMethod, parseSymbolIdParts } from "./validation-utils.js";
+import { assertValidIdentifierName, extractSymbolName, parseSymbolIdParts } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -53,7 +53,7 @@ export async function prepareHotReloadUpdates(
             // Determine which symbols are defined in this file
             let affectedSymbols = [];
 
-            if (hasMethod(semantic, "getFileSymbols")) {
+            if (Core.hasMethods(semantic, "getFileSymbols")) {
                 affectedSymbols = await semantic.getFileSymbols(filePath);
             }
 
@@ -213,7 +213,7 @@ export async function computeHotReloadCascade(
 
         try {
             // Query semantic analyzer for symbols that depend on this one
-            if (hasMethod(semantic, "getDependents")) {
+            if (Core.hasMethods(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
 
                 // Process dependents in parallel since they don't interfere with each other.
@@ -630,7 +630,7 @@ export async function generateTranspilerPatches(
                 // Transpile the updated script into a hot-reload patch if a transpiler
                 // is available. The patch contains executable JavaScript code that the
                 // GameMaker runtime can inject without restarting the game.
-                if (hasMethod(formatter, "transpileScript")) {
+                if (Core.hasMethods(formatter, "transpileScript")) {
                     const patch = await formatter.transpileScript({
                         sourceText,
                         symbolId: update.symbolId

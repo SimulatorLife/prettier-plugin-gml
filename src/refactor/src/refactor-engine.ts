@@ -45,7 +45,7 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
-import { assertRenameRequest, assertValidIdentifierName, extractSymbolName, hasMethod } from "./validation-utils.js";
+import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
 import { getWorkspaceArrays, type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -616,7 +616,7 @@ export class RefactorEngine {
 
         // Add additional edits (like file renames) if the semantic analyzer provides them.
         const semantic = this.semantic;
-        if (hasMethod(semantic, "getAdditionalSymbolEdits")) {
+        if (Core.hasMethods(semantic, "getAdditionalSymbolEdits")) {
             const additionalEdits = await semantic.getAdditionalSymbolEdits(symbolId, normalizedNewName);
             if (additionalEdits && Array.isArray(additionalEdits.edits)) {
                 for (const edit of additionalEdits.edits) {
@@ -721,7 +721,7 @@ export class RefactorEngine {
 
         // If semantic analyzer is available, perform deeper validation
         const semantic = this.semantic;
-        if (hasMethod(semantic, "validateEdits")) {
+        if (Core.hasMethods(semantic, "validateEdits")) {
             try {
                 const semanticValidation = (await semantic.validateEdits(workspace)) ?? {};
                 errors.push(...(semanticValidation.errors || []));
@@ -1361,7 +1361,7 @@ export class RefactorEngine {
         }
 
         // If transpiler check is requested, validate transpilation will work
-        if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
+        if (checkTranspiler && Core.hasMethods(this.formatter, "transpileScript")) {
             const transpilerValidation = await this.validateTranspilerCompatibility(workspace, readFile);
             errors.push(...transpilerValidation.errors);
             warnings.push(...transpilerValidation.warnings);
@@ -1389,7 +1389,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!hasMethod(this.formatter, "transpileScript")) {
+        if (!Core.hasMethods(this.formatter, "transpileScript")) {
             warnings.push("No transpiler available - cannot validate transpilation compatibility");
             return { errors, warnings };
         }
@@ -1406,7 +1406,7 @@ export class RefactorEngine {
 
             // Get symbols defined in this file
             let symbolsInFile: Array<{ id: string }> = [];
-            if (hasMethod(this.semantic, "getFileSymbols")) {
+            if (Core.hasMethods(this.semantic, "getFileSymbols")) {
                 try {
                     symbolsInFile = await this.semantic.getFileSymbols(filePath);
                 } catch (error) {
@@ -1596,7 +1596,7 @@ export class RefactorEngine {
             if (totalOccurrences > 0) {
                 hotReloadRequired = true;
 
-                if (hasMethod(this.semantic, "getDependents")) {
+                if (Core.hasMethods(this.semantic, "getDependents")) {
                     const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
@@ -1808,7 +1808,7 @@ export class RefactorEngine {
         });
 
         // Use semantic analyzer to check for new conflicts or shadowing
-        if (hasMethod(this.semantic, "getSymbolOccurrences")) {
+        if (Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
                 const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
@@ -1828,7 +1828,7 @@ export class RefactorEngine {
         }
 
         // Use semantic analyzer to check for reserved keyword violations
-        if (hasMethod(this.semantic, "getReservedKeywords")) {
+        if (Core.hasMethods(this.semantic, "getReservedKeywords")) {
             try {
                 const keywords = await this.semantic.getReservedKeywords();
                 if (keywords.includes(newName.toLowerCase())) {
@@ -1841,7 +1841,7 @@ export class RefactorEngine {
 
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
-        if (hasMethod(this.parser, "parse")) {
+        if (Core.hasMethods(this.parser, "parse")) {
             await Core.runSequentially(affectedFiles, async (filePath) => {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid
