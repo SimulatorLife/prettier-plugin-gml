@@ -3001,15 +3001,6 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
-// (historical) default-parameter materialization logic removed from the
-// printer during the formatter/linter split. All of this behaviour now lives
-// upstream in the parser or in dedicated lint auto-fix rules; the printer
-// should be purely layout-focused. Leave an empty stub in case a downstream
-// consumer still references the symbol, but performing no work.
-function _materializeParamDefaultsFromParamDefault(_functionNode) {
-    // intentionally no-op
-}
-
 function structLiteralHasLeadingLineBreak(node, options) {
     if (!node) {
         return false;
