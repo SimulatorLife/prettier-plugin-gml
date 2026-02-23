@@ -83,7 +83,6 @@ import {
 import {
     expressionIsStringLike,
     hasLineBreak,
-    isArgumentAssignment,
     isCallbackArgument,
     isComplexArgumentNode,
     isInlineEmptyBlockComment,
