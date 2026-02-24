@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
+import type { Readable } from "node:stream";
 
 import { Core } from "@gml-modules/core";
 
@@ -37,6 +38,15 @@ export interface RuntimeStaticServerOptions {
     host?: string;
     port?: number;
     verbose?: boolean;
+    /**
+     * Factory used to open a file as a readable stream. Defaults to
+     * `fs.createReadStream`. Exposed for testing so tests can inject a
+     * mock stream that errors after writing some bytes, which exercises
+     * the mid-stream error path without manipulating real files.
+     *
+     * @internal
+     */
+    createStream?: (path: string) => Readable;
 }
 
 /**
@@ -131,7 +141,24 @@ function resolveRuntimeFilePath(root, requestPath) {
     return target;
 }
 
-async function sendFileResponse(res, filePath, { method }) {
+/**
+ * Default stream factory wrapping `fs.createReadStream`.
+ *
+ * A thin adapter is required because `createReadStream` has multiple overloads
+ * that accept `PathLike | number`, whereas the injection point only needs a
+ * `(path: string) => Readable` contract. The wrapper narrows the signature
+ * without leaking the overload complexity to callers.
+ */
+const defaultCreateStream = (filePath: string): Readable => createReadStream(filePath);
+
+async function sendFileResponse(
+    res: http.ServerResponse,
+    filePath: string,
+    {
+        method,
+        createStream = defaultCreateStream
+    }: { method: string; createStream?: (path: string) => Readable }
+) {
     const stats = await fs.stat(filePath);
     let servingPath = filePath;
 
@@ -163,7 +190,7 @@ async function sendFileResponse(res, filePath, { method }) {
     }
 
     await new Promise<void>((resolve, reject) => {
-        const stream = createReadStream(servingPath);
+        const stream = createStream(servingPath);
         let errorHandled = false;
 
         const cleanup = (error?: unknown) => {
@@ -232,7 +259,8 @@ export async function startRuntimeStaticServer({
     runtimeRoot,
     host = DEFAULT_HOST,
     port = DEFAULT_PORT,
-    verbose = false
+    verbose = false,
+    createStream = defaultCreateStream
 }: RuntimeStaticServerOptions = {}): Promise<RuntimeStaticServerInstance> {
     if (!runtimeRoot || typeof runtimeRoot !== "string") {
         throw new TypeError("startRuntimeStaticServer requires a runtimeRoot string.");
@@ -279,7 +307,7 @@ export async function startRuntimeStaticServer({
             targetPath = targetPath.slice(0, -1);
         }
 
-        sendFileResponse(res, targetPath, { method }).catch((error) => {
+        sendFileResponse(res, targetPath, { method, createStream }).catch((error) => {
             const statusCode = getRuntimeHttpErrorStatus(error) ?? (isFsErrorCode(error, "ENOENT") ? 404 : 500);
             const fallbackMessage =
                 statusCode === 404
@@ -288,6 +316,19 @@ export async function startRuntimeStaticServer({
             const message = formatRuntimeHttpErrorMessage(error, statusCode, fallbackMessage);
             if (statusCode >= 500) {
                 console.error("Runtime static server failed to read asset:", error);
+            }
+            // Guard against the case where the error occurred mid-stream, after
+            // HTTP response headers were already written to the client. At that
+            // point res.setHeader() would throw ERR_HTTP_HEADERS_SENT, which
+            // would propagate out of this .catch() handler uncaught and leave
+            // the response socket open until the client eventually times out.
+            // Note: res.destroy() alone does NOT close the TCP connection —
+            // OutgoingMessage inherits a no-op _destroy() from Writable and
+            // never tears down the underlying socket. We must go through
+            // res.socket to release the connection promptly.
+            if (res.headersSent) {
+                res.socket?.destroy();
+                return;
             }
             writeError(res, statusCode, message);
         });

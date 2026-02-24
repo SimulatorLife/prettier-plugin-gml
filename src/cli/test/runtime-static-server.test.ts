@@ -3,6 +3,7 @@ import { chmod, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
 import { describe, it } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -264,6 +265,111 @@ void describe("runtime static server", () => {
             assert.ok(
                 finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,
                 `File descriptors leaked: ${finalFdCount - initialFdCount} descriptors`
+            );
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    void it("destroys the response socket when a stream read error occurs after headers have been sent", async () => {
+        // Reproducer for: when a file read stream errors mid-transfer (after HTTP
+        // response headers have already been written to the client), the .catch()
+        // handler must NOT call res.setHeader() — that throws ERR_HTTP_HEADERS_SENT
+        // and leaves the socket open. Instead it must call res.destroy() so the
+        // underlying TCP socket is released immediately.
+        //
+        // The mock stream uses two nested process.nextTick calls to guarantee that
+        // the data push and the error fire outside the Readable._read() synchronous
+        // context (state.sync = true), which is the only way to ensure the stream
+        // emits 'data' synchronously so res.write() — and therefore
+        // res.headersSent = true — is set before the error event fires.
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-midstream-"));
+        const testFile = path.join(tempDir, "test.txt");
+        await writeFile(testFile, "placeholder");
+
+        let server: Awaited<ReturnType<typeof startRuntimeStaticServer>> | null = null;
+        try {
+            let mockStreamCreated = false;
+
+            // Inject a stream factory that emits some bytes to force headers out,
+            // then destroys itself with an error — simulating a mid-stream disk
+            // read failure (e.g., hardware error, file unlinked between stat and
+            // read, or transient I/O error).
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                createStream: (_filePath) => {
+                    mockStreamCreated = true;
+                    // Push data and error outside of _read() so state.sync = false
+                    // when push() is called. In flowing mode, Readable emits 'data'
+                    // synchronously only when state.sync = false; pushing from within
+                    // _read() (state.sync = true) defers 'data' emission to a later
+                    // tick, which can race with the scheduled destroy.
+                    const stream = new Readable({ read() {} });
+                    process.nextTick(() => {
+                        stream.push(Buffer.alloc(64, 0x78));
+                        process.nextTick(() => {
+                            stream.destroy(new Error("Simulated mid-stream disk error"));
+                        });
+                    });
+                    return stream;
+                }
+            });
+
+            // Use Connection: close so a complete response (from writeError) also
+            // closes the socket. This way the observable difference between the
+            // buggy path and the fixed path is clear:
+            //   - Fixed  (headersSent=true):  res.destroy() → socket closes promptly.
+            //   - Buggy  (headersSent=true):  writeError throws ERR_HTTP_HEADERS_SENT,
+            //                                 res.end() is never called → socket hangs.
+            let socketClosed = false;
+            let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+            await new Promise<void>((resolve) => {
+                const socket = net.createConnection({ host: server!.host, port: server!.port }, () => {
+                    socket.write(
+                        `GET /test.txt HTTP/1.1\r\nHost: ${server!.host}:${server!.port}\r\nConnection: close\r\n\r\n`
+                    );
+                });
+
+                // Put the socket in flowing mode so Node.js actively reads data
+                // from the kernel receive buffer. Without this, the socket stays
+                // paused: unread bytes cause the OS to delay delivering the RST
+                // (from res.socket.destroy()) until the buffer is drained, which
+                // prevents the "error"/"close" events from firing promptly.
+                socket.resume();
+
+                const onSocketEnded = () => {
+                    socketClosed = true;
+                    if (timeoutHandle !== null) {
+                        clearTimeout(timeoutHandle);
+                        timeoutHandle = null;
+                    }
+                    resolve();
+                };
+
+                socket.once("close", onSocketEnded);
+                // ECONNRESET is equally valid — the server forcefully closed the conn
+                socket.once("error", onSocketEnded);
+
+                // Safety timeout: if the socket does NOT close within 2 s the fix
+                // is missing and the connection leaked.
+                timeoutHandle = setTimeout(() => {
+                    timeoutHandle = null;
+                    socket.destroy();
+                    resolve();
+                }, 2000);
+            });
+
+            assert.equal(mockStreamCreated, true, "Mock stream factory should have been invoked");
+            assert.equal(
+                socketClosed,
+                true,
+                "Server must destroy the socket after a mid-stream error so the connection is not leaked"
             );
         } finally {
             if (server) {
