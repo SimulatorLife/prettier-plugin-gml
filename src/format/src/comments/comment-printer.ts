@@ -269,6 +269,14 @@ function printComment(commentPath, options) {
             return formatNonDecorativeBlockComment(comment);
         }
         case "CommentLine": {
+            const isOwnLineComment =
+                comment.trailing !== true &&
+                comment.placement !== "endOfLine" &&
+                !hasInlineContentBeforeComment(comment, options);
+            if (isOwnLineComment) {
+                comment.inlinePadding = 0;
+            }
+
             const lineCommentOptions = Core.resolveLineCommentOptions(options);
             const formattingOptions = {
                 ...lineCommentOptions,
@@ -673,7 +681,7 @@ function appendDanglingCommentGroupEntry(parts, entry, index, finalIndex) {
     const { comment, printed } = entry;
 
     if (index === 0) {
-        parts.push(whitespaceToDoc(comment.leadingWS));
+        parts.push(whitespaceToDoc(normalizeDanglingGroupLeadingWhitespace(comment.leadingWS)));
     }
 
     parts.push([printed]);
@@ -681,6 +689,14 @@ function appendDanglingCommentGroupEntry(parts, entry, index, finalIndex) {
     if (index !== finalIndex) {
         parts.push(resolveDanglingCommentSeparator(comment));
     }
+}
+
+function normalizeDanglingGroupLeadingWhitespace(text: unknown): string {
+    if (typeof text !== "string") {
+        return "";
+    }
+
+    return text.replace(/(\r?\n)[ \t]+$/, "$1");
 }
 
 function resolveDanglingCommentSeparator(comment) {
