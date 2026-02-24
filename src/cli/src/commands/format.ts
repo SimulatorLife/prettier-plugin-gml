@@ -23,6 +23,7 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
+import { importFormatModule, resolveFormatEntryPoint as resolveCliFormatEntryPoint } from "../format-runtime/index.js";
 import {
     clearFormattingCache,
     createFormattingCacheKey,
@@ -32,7 +33,6 @@ import {
     storeFormattingCacheEntry,
     trimFormattingCache
 } from "../modules/formatting/index.js";
-import { importPluginModule, resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/index.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -73,7 +73,7 @@ const {
 } = Core;
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const PLUGIN_PATH = resolveCliPluginEntryPoint();
+const FORMAT_PATH = resolveCliFormatEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 
 const GML_EXTENSION = ".gml";
@@ -194,7 +194,7 @@ function isMissingPrettierDependency(error) {
 }
 
 let prettierModulePromise = null;
-let pluginOutputNormalizerPromise: Promise<null | ((formatted: string, source: string) => string)> | null = null;
+let formatOutputNormalizerPromise: Promise<null | ((formatted: string, source: string) => string)> | null = null;
 
 function resolvePrettier() {
     if (!prettierModulePromise) {
@@ -218,14 +218,14 @@ function resolvePrettier() {
     return prettierModulePromise;
 }
 
-async function resolvePluginOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
-    if (pluginOutputNormalizerPromise === null) {
-        pluginOutputNormalizerPromise = importPluginModule()
+async function resolveFormatOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
+    if (formatOutputNormalizerPromise === null) {
+        formatOutputNormalizerPromise = importFormatModule()
             .then((moduleValue) => {
-                // `normalizeFormattedOutput` is part of the `Plugin` namespace per the
+                // `normalizeFormattedOutput` is part of the `Format` namespace per the
                 // workspace-root single-namespace contract (target-state.md §2.1).
-                const plugin = (moduleValue as { Plugin?: { normalizeFormattedOutput?: unknown } }).Plugin;
-                const normalizer = plugin?.normalizeFormattedOutput;
+                const formatNamespace = (moduleValue as { Format?: { normalizeFormattedOutput?: unknown } }).Format;
+                const normalizer = formatNamespace?.normalizeFormattedOutput;
                 return typeof normalizer === "function"
                     ? (normalizer as (formatted: string, source: string) => string)
                     : null;
@@ -233,11 +233,11 @@ async function resolvePluginOutputNormalizer(): Promise<null | ((formatted: stri
             .catch(() => null);
     }
 
-    return await pluginOutputNormalizerPromise;
+    return await formatOutputNormalizerPromise;
 }
 
-async function normalizeFormattedOutputWithPlugin(formatted: string, source: string): Promise<string> {
-    const normalizer = await resolvePluginOutputNormalizer();
+async function normalizeFormattedOutputWithFormat(formatted: string, source: string): Promise<string> {
+    const normalizer = await resolveFormatOutputNormalizer();
 
     if (typeof normalizer !== "function") {
         return formatted;
@@ -452,7 +452,7 @@ function shouldFormatFile(filePath) {
  */
 const options = {
     parser: "gml-parse",
-    plugins: [PLUGIN_PATH],
+    plugins: [FORMAT_PATH],
     logLevel: DEFAULT_PRETTIER_LOG_LEVEL,
     ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
@@ -1419,7 +1419,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
             formatted = await prettier.format(data, formattingOptions);
             storeFormattingCacheEntry(cacheKey, formatted);
         }
-        const normalizedOutput = await normalizeFormattedOutputWithPlugin(formatted, data);
+        const normalizedOutput = await normalizeFormattedOutputWithFormat(formatted, data);
 
         if (normalizedOutput === data) {
             return;

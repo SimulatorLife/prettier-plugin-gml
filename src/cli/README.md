@@ -31,7 +31,7 @@ The CLI wires formatter-only runtime integration and lint project-context settin
 
 Ownership summary:
 
-- `@gml-modules/plugin`: formatter-only AST normalization + printing
+- `@gml-modules/format`: formatter-only AST normalization + printing
 - `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
 - `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
 - Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.

@@ -10,7 +10,7 @@ import { promisify } from "node:util";
 
 import { CLI } from "@gml-modules/cli";
 import { Core } from "@gml-modules/core";
-import { Plugin } from "@gml-modules/plugin";
+import { Format } from "@gml-modules/format";
 
 import { findRepoRoot } from "../src/shared/repo-root.js";
 
@@ -179,7 +179,7 @@ void describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const actual = await fs.readFile(targetFile, "utf8");
-            const expected = await Plugin.format(source, pluginOptions);
+            const expected = await Format.format(source, pluginOptions);
 
             assert.strictEqual(actual, expected);
         } finally {

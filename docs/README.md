@@ -29,7 +29,7 @@ then return here for deeper context.
   can copy into your GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) &mdash; Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
-  by the plugin.
+  by the formatter workspace.
 - [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) &mdash; Quick
   lookup for environment variables and wrapper behaviour when scripting formatter
   runs in CI or editor tooling.
@@ -46,7 +46,7 @@ then return here for deeper context.
 
 ## Extension hooks & overrides
 
-The plugin exposes several extension hooks that let integrators run controlled
+The format workspace exposes several extension hooks that let integrators run controlled
 experiments without permanently widening the public option surface. Comprehensive
 documentation for these hooks is pending; consult the source files for
 implementation details:
@@ -55,14 +55,14 @@ implementation details:
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when hosts
   provide partial data.
-- **Doc comment type normalization** (`src/plugin/src/comments/`)
+- **Doc comment type normalization** (`src/format/src/comments/`)
   — Extend the doc-comment type synonym tables or resource prefixes without
   patching the formatter's defaults. Resolver helpers expose guardrails and a
   restore helper when experiments end.
 - **Statement newline padding extension** — Register additional AST node
   types that should inherit blank-line padding around statements while keeping
   the opinionated defaults intact for other consumers.
-- **Core option overrides** (`src/plugin/src/options/core-option-overrides.js`)
+- **Core option overrides** (`src/format/src/options/core-option-overrides.js`)
   — Swap or remove the hard-coded Prettier clamps (such as
   `trailingComma: "none"`) when a host needs different defaults, all while
   keeping the formatter opinionated by default.
@@ -83,7 +83,7 @@ implementation details:
   bootstrap behaviour predictable.
 - [Legacy identifier-case plan — Archived project-index roadmap](legacy-identifier-case-plan.md#archived-project-index-roadmap)
   — Tracks the historical follow-up work that shipped alongside cache
-  persistence and discovery in the plugin.
+  persistence and discovery in the formatter workspace.
 
 ## Metadata tooling
 

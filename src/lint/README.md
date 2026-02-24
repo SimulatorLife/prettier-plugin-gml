@@ -2,7 +2,7 @@
 
 `@gml-modules/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
 
-It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/plugin`.
+It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
 
 ## Two-Tier Workflow for Malformed GML
 
@@ -18,7 +18,7 @@ This allows the linter to provide productive auto-fixes even when the formatter 
   - Lint rules and autofix behavior
   - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
 - Does not own:
-  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/plugin` or its internal APIs.
+  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
   - Parser internals/grammar ownership
   - Refactor transaction planning/execution
 
@@ -201,7 +201,7 @@ Built-in `gml/*` rule short names:
 - `require-trailing-optional-defaults`
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
-Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/plugin`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
+Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`.
 

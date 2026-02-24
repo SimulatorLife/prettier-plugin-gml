@@ -24,7 +24,7 @@ jobs:
         Review the architectural guidelines defined in `docs/target-state.md` and identify
         a single, targeted area of the codebase that currently violates these boundaries
         or contracts. This could involve migrating a semantic rewrite out of the formatter
-        (`@gml-modules/plugin`) and into the linter (`@gml-modules/lint`), moving
+        (`@gml-modules/format`) and into the linter (`@gml-modules/lint`), moving
         project-aware functionality into the refactor workspace (`@gml-modules/refactor`),
         or enforcing the two-tier malformed code strategy. Make a precise, well-tested
         change to align the code with the target state. Keep the diff minimal and focused

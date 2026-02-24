@@ -4,7 +4,7 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 ## 1. Summary & Objectives
 
-1. **Strict Separation of Concerns**: Split responsibilities into a formatter-only workspace (`@gml-modules/plugin`), an ESLint v9 language+rules workspace (`@gml-modules/lint`), a refactor workspace (`@gml-modules/refactor`), and shared core utilities (`@gml-modules/core`).
+1. **Strict Separation of Concerns**: Split responsibilities into a formatter-only workspace (`@gml-modules/format`), an ESLint v9 language+rules workspace (`@gml-modules/lint`), a refactor workspace (`@gml-modules/refactor`), and shared core utilities (`@gml-modules/core`).
 2. **Deterministic Formatting**: Keep the formatter deterministic and non-semantic; move all non-layout rewrites to the linter's (`@gml-modules/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (e.g., operator aliases, numeric literal formatting) is permitted in the formatter, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 3. **Robust Semantic Analysis**: Implement a semantic layer that annotates the parse tree to power linting, refactoring, and transpilation, using the Sourcegraph Code Intelligence Protocol (SCIP) as the canonical symbol index.
 4. **Live Hot-Reloading**: Enable true hot-loading of GML code, assets, and shaders without restarting the game by transpiling GML to JavaScript on demand and injecting it via a runtime wrapper.
@@ -12,7 +12,7 @@ This document synthesizes the target state for the GameMaker Language parser pro
 ## 2. Workspace Ownership Boundaries
 
 ### 2.1 General Ownership
-- **Formatter (`@gml-modules/plugin`)**: Layout-only printing, indentation, wrapping, spacing, semicolon layout, print-width wrapping, logical operator style rendering. Must not synthesize or normalize content. Lexical canonicalization is permitted, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
+- **Formatter (`@gml-modules/format`)**: Layout-only printing, indentation, wrapping, spacing, semicolon layout, print-width wrapping, logical operator style rendering. Must not synthesize or normalize content. Lexical canonicalization is permitted, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 - **Linter (`@gml-modules/lint`)**: Semantic/content rewrites, synthetic tag generation, legacy prefix/tag normalization, and local single-file diagnostics and autofix rewrites.
 - **Refactor (`@gml-modules/refactor`)**: Codemod / migration transforms, explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation), and all project-aware functionality.
 - **Core (`@gml-modules/core`)**: Shared doc-comment helpers, AST metadata utilities, and normalization primitives.
@@ -22,10 +22,10 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 ### 2.2 Doc-Comment Ownership
 - **Lint (`gml/normalize-doc-comments`)** owns legacy prefix/tag normalization, `@description` promotion/cleanup, and function-doc tag synthesis.
-- **Plugin** owns rendering and spacing of already-existing/normalized doc comments, and comment placement/layout that does not change text content.
-- **Core** owns shared doc-comment helpers used by lint/plugin.
+- **Format** owns rendering and spacing of already-existing/normalized doc comments, and comment placement/layout that does not change text content.
+- **Core** owns shared doc-comment helpers used by lint/format.
 
-*Migration Rules:* Do not add new doc-comment content mutation logic in plugin printer/transforms. Any new doc-comment synthesis or tag/content rewrite must be implemented as lint rule behavior.
+*Migration Rules:* Do not add new doc-comment content mutation logic in format printer/transforms. Any new doc-comment synthesis or tag/content rewrite must be implemented as lint rule behavior.
 
 ### 2.3 Lint/Refactor Overlap Resolution
 1. `@gml-modules/lint` is the owner of **Diagnostic Reporting** and **Local Repairs**. It uses a single-file `fix` model for changes that are safe within the local scope.
@@ -75,7 +75,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 ### 3.5 Implementation Status & Audit Findings (Snapshot 2026-02-17)
 - Formatter/linter split migration is largely complete on runtime behavior.
 - Remaining work includes implementing a semantic-backed `ProjectAnalysisProvider`, adding shared-provider parity contract tests, and isolating dormant migrated semantic transform modules from formatter workspace exports.
-- Any existing/left-over functionality in the `plugin` workspace that goes beyond pure layout formatting should be identified and migrated into the `lint` and/or `core` workspaces.
+- Any existing/left-over functionality in the `format` workspace that goes beyond pure layout formatting should be identified and migrated into the `lint` and/or `core` workspaces.
 
 ## 4. Semantic Analysis & Symbol Indexing
 

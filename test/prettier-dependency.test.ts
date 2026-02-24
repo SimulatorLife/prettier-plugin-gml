@@ -20,7 +20,7 @@ const TARGET_WORKSPACES: Array<WorkspacePolicy> = [
     { name: "@gml-modules/runtime-wrapper", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/refactor", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
     { name: "@gml-modules/cli", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/plugin", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
+    { name: "@gml-modules/format", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
 ];
 
 const NO_PRETTIER_SECTIONS = ["dependencies", "devDependencies", "optionalDependencies"] as const;
@@ -57,7 +57,7 @@ void describe("prettier workspace dependencies", () => {
         });
     }
 
-    void it("only plugin workspace can depend on formatting packages", () => {
+    void it("only format workspace can depend on formatting packages", () => {
         for (const { name } of TARGET_WORKSPACES) {
             const packageJson = require(`${name}/package.json`) as PackageJsonShape;
             const allSections = [
@@ -69,14 +69,14 @@ void describe("prettier workspace dependencies", () => {
 
             for (const dependencyName of FORMATTING_DEPENDENCIES) {
                 const isDeclared = allSections.some((section) => section[dependencyName] !== undefined);
-                if (name === "@gml-modules/plugin") {
+                if (name === "@gml-modules/format") {
                     continue;
                 }
 
                 assert.equal(
                     isDeclared,
                     false,
-                    `${name} must not depend on formatter packages like ${dependencyName}; keep formatting dependencies plugin-only`
+                    `${name} must not depend on formatter packages like ${dependencyName}; keep formatting dependencies format-only`
                 );
             }
         }

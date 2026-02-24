@@ -9,7 +9,7 @@ const { toArray, pushUnique } = Core;
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
-    path.resolve(REPO_ROOT, "src", "plugin", "test")
+    path.resolve(REPO_ROOT, "src", "format", "test")
 ]);
 
 export function normalizeFixtureRoots(

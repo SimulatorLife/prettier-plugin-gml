@@ -148,7 +148,7 @@ const tsConfig = defineConfig({
             { type: "parser-generated", pattern: "src/parser/generated/**" },
             { type: "transpiler", pattern: "src/transpiler/**" },
             { type: "semantic", pattern: "src/semantic/**" },
-            { type: "plugin", pattern: "src/plugin/**" },
+            { type: "plugin", pattern: "src/format/**" },
             { type: "lint", pattern: "src/lint/**" },
             { type: "refactor", pattern: "src/refactor/**" },
             { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },

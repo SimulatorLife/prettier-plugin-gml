@@ -14,7 +14,7 @@ This package powers GML-native codemods and semantic refactoring transactions, a
 It does not replace lint or formatter domains:
 
 - `@gml-modules/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
-- `@gml-modules/plugin` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
+- `@gml-modules/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
 - `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities

@@ -1,5 +1,5 @@
 {
-  "plugins": ["@gml-modules/plugin"],
+  "plugins": ["@gml-modules/format"],
   "overrides": [
     {
       "files": "*.gml",

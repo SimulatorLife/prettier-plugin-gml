@@ -1004,7 +1004,7 @@ export default class GameMakerASTBuilder {
             // `IncDecStatement` before returning so downstream passes know the
             // increment/decrement consumed an entire statement slot. The
             // printers and Feather compatibility transforms (see
-            // `src/plugin/src/transforms/feather/apply-feather-fixes.js`) only look
+            // `src/format/src/transforms/feather/apply-feather-fixes.js`) only look
             // for statement-shaped nodes when deciding whether to emit
             // GameMaker-style semicolons or rewrite postfix updates; leaving
             // the expression tag in place would quietly bypass those guards and
@@ -1016,7 +1016,7 @@ export default class GameMakerASTBuilder {
             const result = this.visit(ctx.postIncDecExpression());
             // See the note above for the prefix branch: postfix statements also
             // surface as expression nodes and must be re-tagged so the printers,
-            // loop-size hoisting logic (`src/plugin/src/transforms/loop-size-hoisting/helpers.js`),
+            // loop-size hoisting logic (`src/format/src/transforms/loop-size-hoisting/helpers.js`),
             // and Feather fixups continue to recognise them as standalone
             // statements instead of loose expressions.
             result.type = "IncDecStatement";
