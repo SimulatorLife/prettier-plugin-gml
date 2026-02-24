@@ -266,18 +266,15 @@ function renderProgressBar(
         bar.update(normalizedCurrent);
     } else {
         const stream = stdout && typeof stdout.write === "function" ? stdout : undefined;
-        const isFactoryProvided = typeof createBar === "function";
 
-        if (createBar !== undefined && !isFactoryProvided) {
+        if (createBar !== undefined && typeof createBar !== "function") {
             throw new TypeError("createBar must be a function when provided.");
         }
 
-        const barFactory: ProgressBarFactory = isFactoryProvided
-            ? createBar
-            : (factoryLabel, factoryWidth, factoryOptions) =>
-                  new TerminalProgressBar(factoryLabel, factoryWidth, factoryOptions);
-
-        bar = barFactory(label, width, { stream });
+        bar =
+            createBar === undefined
+                ? new TerminalProgressBar(label, width, { stream })
+                : createBar(label, width, { stream });
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }
