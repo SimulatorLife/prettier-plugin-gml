@@ -15,12 +15,6 @@ type ControlFlowLineHeader = Readonly<{
     header: string;
 }>;
 
-type BracedDoUntilClause = Readonly<{
-    indentation: string;
-    statement: string;
-    untilCondition: string;
-}>;
-
 function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
     return [`${indentation}${header} {`, `    ${indentation}${statement}`, `${indentation}}`];
 }
@@ -70,20 +64,24 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
 }
 
 function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(if\b[^()]+)\s*(?!\{)(.+)$/u.exec(line);
+    const match = /^([\t ]*)(if\b[^()]*\S)\s+(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
         return null;
     }
 
     const header = match[2] ?? "";
+    const statement = match[3]?.trim() ?? "";
     if (header.includes("(")) {
+        return null;
+    }
+    if (statement.startsWith("{")) {
         return null;
     }
 
     return Object.freeze({
         indentation: match[1] ?? "",
         header,
-        statement: match[3]?.trim() ?? ""
+        statement
     });
 }
 

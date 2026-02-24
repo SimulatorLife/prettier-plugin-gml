@@ -4,6 +4,7 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
+    type AstNodeRecord,
     createMeta,
     isAstNodeRecord,
     reportFullTextRewrite,
@@ -19,6 +20,35 @@ type LeadingArgumentFallback = Readonly<{
     defaultExpression: string;
     statement: any;
 }>;
+
+type VariableDeclaratorNode = AstNodeRecord &
+    Readonly<{
+        type: "VariableDeclarator";
+        id: unknown;
+        init: unknown;
+    }>;
+
+type AssignmentExpressionNode = AstNodeRecord &
+    Readonly<{
+        type: "AssignmentExpression";
+        operator: string;
+        left: unknown;
+        right: unknown;
+    }>;
+
+function isVariableDeclaratorNode(node: unknown): node is VariableDeclaratorNode {
+    return isAstNodeRecord(node) && node.type === "VariableDeclarator" && "id" in node && "init" in node;
+}
+
+function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
+    return (
+        isAstNodeRecord(node) &&
+        node.type === "AssignmentExpression" &&
+        typeof node.operator === "string" &&
+        "left" in node &&
+        "right" in node
+    );
+}
 
 function isUndefinedValueNode(node: any): boolean {
     if (!node || typeof node !== "object") {
@@ -36,15 +66,16 @@ function isUndefinedValueNode(node: any): boolean {
     return node.value.toLowerCase() === "undefined";
 }
 
-function getVariableDeclarator(statement: unknown): any | null {
+function getVariableDeclarator(statement: unknown): VariableDeclaratorNode | null {
     if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
         return null;
     }
     const declarations = statement.declarations;
-    if (Array.isArray(declarations) && declarations.length === 1) {
-        return declarations[0];
+    if (!Array.isArray(declarations) || declarations.length !== 1) {
+        return null;
     }
-    return null;
+
+    return isVariableDeclaratorNode(declarations[0]) ? declarations[0] : null;
 }
 
 function getMemberArgumentIndex(node: any): number | null {
@@ -85,7 +116,7 @@ function getArgumentCountGuardIndex(testNode: any): number | null {
     return Number.isInteger(parsed) ? (testNode.operator === ">" ? parsed : null) : null;
 }
 
-function getSingleAssignmentFromIfConsequent(ifNode: unknown): any | null {
+function getSingleAssignmentFromIfConsequent(ifNode: unknown): AssignmentExpressionNode | null {
     if (!isAstNodeRecord(ifNode) || ifNode.type !== "IfStatement") {
         return null;
     }
@@ -96,13 +127,13 @@ function getSingleAssignmentFromIfConsequent(ifNode: unknown): any | null {
     }
 
     if (consequent.type === "ExpressionStatement") {
-        return consequent.expression;
+        return isAssignmentExpressionNode(consequent.expression) ? consequent.expression : null;
     }
 
     if (consequent.type === "BlockStatement") {
         const body = consequent.body as any[];
         if (body.length === 1 && body[0].type === "ExpressionStatement") {
-            return body[0].expression;
+            return isAssignmentExpressionNode(body[0].expression) ? body[0].expression : null;
         }
     }
 
@@ -144,7 +175,7 @@ function matchVarIfArgumentFallbackRewrite(
     }
 
     const assignment = getSingleAssignmentFromIfConsequent(ifStatement);
-    if (!assignment || assignment.type !== "AssignmentExpression" || assignment.operator !== "=") {
+    if (!assignment || assignment.operator !== "=") {
         return null;
     }
 
@@ -193,16 +224,38 @@ function splitTopLevelCommaSegments(text: string): string[] {
     let braceDepth = 0;
 
     for (const char of text) {
-        if (char === "(") parenDepth++;
-        else if (char === ")") parenDepth--;
-        else if (char === "[") bracketDepth++;
-        else if (char === "]") bracketDepth--;
-        else if (char === "{") braceDepth++;
-        else if (char === "}") braceDepth--;
-        else if (char === "," && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
-            segments.push(current.trim());
-            current = "";
-            continue;
+        switch (char) {
+            case "(": {
+                parenDepth++;
+                break;
+            }
+            case ")": {
+                parenDepth--;
+                break;
+            }
+            case "[": {
+                bracketDepth++;
+                break;
+            }
+            case "]": {
+                bracketDepth--;
+                break;
+            }
+            case "{": {
+                braceDepth++;
+                break;
+            }
+            case "}": {
+                braceDepth--;
+                break;
+            }
+            default: {
+                if (char === "," && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+                    segments.push(current.trim());
+                    current = "";
+                    continue;
+                }
+            }
         }
         current += char;
     }

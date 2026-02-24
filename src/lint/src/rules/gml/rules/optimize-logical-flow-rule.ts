@@ -6,42 +6,10 @@ import { createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
- * Replaces the regex-based optimization with an AST traversal approach.
+ * Normalize whitespace for structural expression comparisons.
  */
-function performLogicalFlowOptimization(ast: any, sourceText: string): string {
-    // Clone AST to avoid mutating original ESLint AST (if that matters,
-    // though we are replacing full text anyway so maybe okay).
-    // Better safe than sorry for other rules.
-    const cloned = Core.cloneAstNode(ast) as any;
-
-    // Apply normalization
-    applyLogicalNormalization(cloned);
-
-    // Re-print the AST?
-    // Problem: Unlike expressions, we can't easily print the whole program if we only changed parts of it,
-    // unless we have a full printer.
-    // We only have `printExpression`.
-
-    // Alternative: Traverse the original AST and the optimized AST in parallel or
-    // record changes during normalization?
-    // `applyLogicalNormalization` modifies the AST in place.
-    // If I could get a list of changes or changed nodes...
-
-    // For now, since `applyLogicalNormalization` works in place, maybe I should adapt `applyLogicalNormalization` to
-    // take a callback for reporting edits?
-
-    // But `reportFullTextRewrite` expects full text.
-    // If I can't print the whole AST, I can't use `reportFullTextRewrite` with the modified AST.
-    // The previous implementation used regex on `sourceText` and returned `rewrittenText`.
-
-    // Solution:
-    // 1. Traverse the AST and identify nodes that *would* be changed.
-    // 2. Perform replacements on source text using ranges.
-    // 3. BUT `applyLogicalNormalization` is recursive and iterative.
-
-    // Ideally, I should switch to `report` with `fixer.replaceText(node, newText)` for individual nodes.
-    // This is better for ESLint anyway.
-    return sourceText; // Placeholder
+function normalizeWhitespaceForComparison(value: string): string {
+    return value.replaceAll(/\s+/g, " ");
 }
 
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -104,10 +72,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // 3. Print normalized node.
                     // 4. If normalized != original (ignoring whitespace?), report fix.
 
-                    // Function to normalize whitespace of a string for comparison
-                    const normalizeWs = (s: string) => s.replaceAll(/\s+/g, " ");
-
-                    if (normalizeWs(sourceText) !== normalizeWs(newText)) {
+                    if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
                         // It changed!
                         context.report({
                             node: originalNode,

@@ -228,7 +228,7 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         // canonicalize any alias tags such as @arg/@argument/@params/@desc, and
         // remove legacy @function markers entirely. this ensures downstream
         // logic can assume only the canonical forms remain.
-        .map((line) => String(CoreWorkspace.Core.applyJsDocTagAliasReplacements(line)))
+        .map((line) => applyJsDocTagAliasLine(line))
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 
     const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
@@ -236,6 +236,124 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
     const returnsNormalizedBlock = CoreWorkspace.Core.convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
 
     return Array.from(alignDescriptionContinuationLines(returnsNormalizedBlock));
+}
+
+function applyJsDocTagAliasLine(line: string): string {
+    const aliasReplaced = CoreWorkspace.Core.applyJsDocTagAliasReplacements(line);
+    return typeof aliasReplaced === "string" ? aliasReplaced : line;
+}
+
+type FallbackParameterEntry = Readonly<{ name: string; defaultVal?: string }>;
+
+function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string> {
+    const existingParams = new Set<string>();
+    for (const line of docLines) {
+        const match = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(line);
+        if (match) {
+            existingParams.add(match[1]);
+        }
+    }
+    return existingParams;
+}
+
+function updateExistingFallbackParamWithDefault(
+    fallbackBlock: Array<string>,
+    parameterName: string,
+    defaultVal: string
+): void {
+    for (const [index, line] of fallbackBlock.entries()) {
+        const paramMatch = new RegExp(String.raw`^(\s*///\s*@param\s+)\[?${parameterName}\]?`).exec(line);
+        if (!paramMatch || /\[/.test(line)) {
+            continue;
+        }
+
+        fallbackBlock[index] = `${paramMatch[1]}[${parameterName}=${defaultVal}]`;
+        return;
+    }
+}
+
+function appendMissingFallbackParamLine(
+    fallbackBlock: Array<string>,
+    indentation: string,
+    parameterName: string,
+    defaultVal: string | undefined
+): void {
+    if (defaultVal === undefined) {
+        fallbackBlock.push(`${indentation}/// @param ${parameterName}`);
+        return;
+    }
+
+    fallbackBlock.push(`${indentation}/// @param [${parameterName}=${defaultVal}]`);
+}
+
+function mergeFallbackParamLines(
+    fallbackBlock: Array<string>,
+    fallbackParams: ReadonlyArray<FallbackParameterEntry>,
+    indentation: string
+): void {
+    const existingParams = collectExistingParamNames(fallbackBlock);
+    for (const { name, defaultVal } of fallbackParams) {
+        if (existingParams.has(name)) {
+            if (defaultVal !== undefined) {
+                updateExistingFallbackParamWithDefault(fallbackBlock, name, defaultVal);
+            }
+            continue;
+        }
+
+        appendMissingFallbackParamLine(fallbackBlock, indentation, name, defaultVal);
+    }
+}
+
+function hasConcreteReturnTextAfterLine(lines: ReadonlyArray<string>, startLineIndex: number): boolean {
+    for (let index = startLineIndex + 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        const returnMatch = /\breturn\b\s*([^;]*)/.exec(line);
+        if (returnMatch) {
+            const returnExpression = returnMatch[1].trim();
+            if (returnExpression !== "" && returnExpression !== "undefined") {
+                return true;
+            }
+        }
+
+        if (/^\s*}\s*$/.test(line)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+function countTopLevelFunctionHeaders(lines: ReadonlyArray<string>): number {
+    return lines.filter((line) => /^\s*function\b/.test(line)).length;
+}
+
+function synthesizeTextFallbackDocCommentBlock({
+    processedBlock,
+    line,
+    indentation,
+    lines,
+    lineIndex
+}: {
+    processedBlock: ReadonlyArray<string>;
+    line: string;
+    indentation: string;
+    lines: ReadonlyArray<string>;
+    lineIndex: number;
+}): ReadonlyArray<string> {
+    const fallbackParams = extractParamsFromLine(line);
+    const fallbackBlock = Array.from(processedBlock);
+
+    mergeFallbackParamLines(fallbackBlock, fallbackParams, indentation);
+
+    const hasReturnLine = fallbackBlock.some((docLine) => /^\s*\/\/\/\s*@returns?/.test(docLine));
+    const hasConcreteReturnText = hasConcreteReturnTextAfterLine(lines, lineIndex);
+    const functionHeaderCount = countTopLevelFunctionHeaders(lines);
+
+    if (!hasReturnLine && (!hasConcreteReturnText || functionHeaderCount === 1)) {
+        fallbackBlock.push(`${indentation}/// @returns {undefined}`);
+    }
+
+    return Array.from(alignDescriptionContinuationLines(fallbackBlock));
 }
 
 export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -277,72 +395,15 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
 
                             const processedBlock = pendingDocBlock.length > 0 ? processDocBlock(pendingDocBlock) : [];
                             const funcNode = functionNodesByLineIndex.get(lineIndex)?.[0] ?? null;
-                            let synthesized: ReadonlyArray<string> | null = null;
-
-                            if (funcNode) {
-                                synthesized = synthesizeFunctionDocCommentBlock(processedBlock, text, funcNode);
-                            } else {
-                                // no AST available (likely running under the simple test harness)
-                                // fall back to a text-based parameter extract. We reuse the
-                                // processedBlock so existing docs are preserved, then we only
-                                // synthesize missing entries.
-                                const fallbackParams = extractParamsFromLine(line);
-                                const fallbackBlock = Array.from(processedBlock);
-                                const existingParams = new Set<string>();
-                                for (const l of fallbackBlock) {
-                                    const m = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(l);
-                                    if (m) existingParams.add(m[1]);
-                                }
-                                for (const { name, defaultVal } of fallbackParams) {
-                                    if (existingParams.has(name)) {
-                                        // if the parameter already exists but we now know a
-                                        // default value, update the existing line if it isn't
-                                        // already bracketed.
-                                        if (defaultVal !== undefined) {
-                                            for (let i = 0; i < fallbackBlock.length; i++) {
-                                                const l = fallbackBlock[i];
-                                                const pm = new RegExp(
-                                                    String.raw`^(\s*///\s*@param\s+)\[?${name}\]?`
-                                                ).exec(l);
-                                                if (pm && !/\[/.test(l)) {
-                                                    fallbackBlock[i] = `${pm[1]}[${name}=${defaultVal}]`;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        if (defaultVal === undefined) {
-                                            fallbackBlock.push(`${indentation}/// @param ${name}`);
-                                        } else {
-                                            fallbackBlock.push(`${indentation}/// @param [${name}=${defaultVal}]`);
-                                        }
-                                    }
-                                }
-                                const hasReturnLine = fallbackBlock.some((l) => /^\s*\/\/\/\s*@returns?/.test(l));
-                                let hasConcreteReturnText = false;
-                                for (let j = lineIndex + 1; j < lines.length; j++) {
-                                    const l = lines[j];
-                                    const retMatch = /\breturn\b\s*([^;]*)/.exec(l);
-                                    if (retMatch) {
-                                        const expr = retMatch[1].trim();
-                                        if (expr && expr !== "undefined") {
-                                            hasConcreteReturnText = true;
-                                            break;
-                                        }
-                                    }
-                                    if (/^\s*}\s*$/.test(l)) {
-                                        break;
-                                    }
-                                }
-                                // If the file only contains a single function, always add a return
-                                // tag when none already exists (this matches older behavior used
-                                // by the simple unit tests).
-                                const functionHeaderCount = lines.filter((ln) => /^\s*function\b/.test(ln)).length;
-                                if (!hasReturnLine && (!hasConcreteReturnText || functionHeaderCount === 1)) {
-                                    fallbackBlock.push(`${indentation}/// @returns {undefined}`);
-                                }
-                                synthesized = Array.from(alignDescriptionContinuationLines(fallbackBlock));
-                            }
+                            const synthesized = funcNode
+                                ? synthesizeFunctionDocCommentBlock(processedBlock, text, funcNode)
+                                : synthesizeTextFallbackDocCommentBlock({
+                                      processedBlock,
+                                      line,
+                                      indentation,
+                                      lines,
+                                      lineIndex
+                                  });
 
                             if (synthesized && synthesized.length > 0) {
                                 rewrittenLines.push(...synthesized);
