@@ -13,8 +13,6 @@ import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import type { GmlFormatComponentContract } from "./format-types.js";
 
-const IDENTIFIER_CASE_OPTIONS: GmlFormatComponentContract["identifierCaseOptions"] = Object.freeze({});
-
 /**
  * Default implementation bundle wiring the canonical parser, printer, and
  * comment handlers. This is the single point where concrete adapters are
@@ -25,6 +23,5 @@ export const defaultGmlFormatComponentImplementations: GmlFormatComponentContrac
     print,
     handleComments,
     printComment,
-    identifierCaseOptions: IDENTIFIER_CASE_OPTIONS,
     LogicalOperatorsStyle
 });

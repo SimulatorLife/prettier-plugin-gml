@@ -15,7 +15,6 @@ void test("default dependency bundle exposes canonical components", () => {
 
     assert.strictEqual(resolved.gmlParserAdapter, gmlParserAdapter);
     assert.strictEqual(resolved.print, print);
-    assert.deepStrictEqual(resolved.identifierCaseOptions, {});
     assert.strictEqual(resolved.LogicalOperatorsStyle, LogicalOperatorsStyle);
 
     for (const key of REQUIRED_KEYS) {

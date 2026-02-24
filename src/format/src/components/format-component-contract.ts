@@ -10,7 +10,6 @@ type ComponentDescriptor = Readonly<{
 const REQUIRED_COMPONENT_DESCRIPTORS: ReadonlyArray<ComponentDescriptor> = Object.freeze([
     { name: "gmlParserAdapter", category: "object" },
     { name: "handleComments", category: "object" },
-    { name: "identifierCaseOptions", category: "object" },
     { name: "LogicalOperatorsStyle", category: "object" },
     { name: "print", category: "function" },
     { name: "printComment", category: "function" }
@@ -42,7 +41,6 @@ export function selectFormatComponentContractEntries(source: GmlFormatComponentC
         print: source.print,
         handleComments: source.handleComments,
         printComment: source.printComment,
-        identifierCaseOptions: source.identifierCaseOptions,
         LogicalOperatorsStyle: source.LogicalOperatorsStyle
     });
 }

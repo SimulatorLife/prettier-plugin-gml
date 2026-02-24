@@ -20,7 +20,6 @@ export type GmlFormatComponentContract = Readonly<{
     print: GmlPrintFunction;
     handleComments: GmlHandleComments;
     printComment: GmlPrintCommentFunction;
-    identifierCaseOptions: SupportOptions;
     LogicalOperatorsStyle: LogicalOperatorsStyleMap;
 }>;
 

@@ -14,10 +14,5 @@ void test("default implementation bundle is frozen and reuses canonical referenc
     assert.strictEqual(defaultGmlFormatComponentImplementations.print, print);
     assert.strictEqual(defaultGmlFormatComponentImplementations.printComment, printComment);
     assert.strictEqual(defaultGmlFormatComponentImplementations.handleComments, handleComments);
-    assert.deepStrictEqual(defaultGmlFormatComponentImplementations.identifierCaseOptions, {});
-    assert.ok(
-        Object.isFrozen(defaultGmlFormatComponentImplementations.identifierCaseOptions),
-        "identifier-case option map should be immutable"
-    );
     assert.strictEqual(defaultGmlFormatComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
 });

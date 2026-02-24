@@ -13,14 +13,7 @@ void test("dependency bundle is frozen and exposes expected contract keys", () =
 
     assert.deepStrictEqual(
         Object.keys(dependencyBundle).toSorted(),
-        [
-            "LogicalOperatorsStyle",
-            "gmlParserAdapter",
-            "handleComments",
-            "identifierCaseOptions",
-            "print",
-            "printComment"
-        ].toSorted()
+        ["LogicalOperatorsStyle", "gmlParserAdapter", "handleComments", "print", "printComment"].toSorted()
     );
 });
 
