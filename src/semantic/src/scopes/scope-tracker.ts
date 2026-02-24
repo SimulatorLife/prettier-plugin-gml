@@ -1573,7 +1573,7 @@ export class ScopeTracker {
             const scope = this.scopesById.get(scopeId);
             const path = scope?.metadata.path;
             if (path) {
-                paths.add(path);
+                paths.add(this.normalizeTrackedPath(path));
             }
         }
 
@@ -1695,7 +1695,7 @@ export class ScopeTracker {
             if (scope.lastModifiedTimestamp > sinceTimestamp) {
                 const path = scope.metadata.path;
                 if (path) {
-                    paths.add(path);
+                    paths.add(this.normalizeTrackedPath(path));
                 }
             }
         }

@@ -104,6 +104,26 @@ void describe("ScopeTracker: getFilePathsReferencingSymbol", () => {
         assert.ok(paths.has("/project/consumer.gml"));
     });
 
+    void it("normalizes file paths with mixed separators for reference exports", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: String.raw`project\lib.gml` });
+        tracker.declare("shared", { name: "shared" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: String.raw`project\scripts\consumer.gml` });
+        tracker.reference("shared", { name: "shared" });
+        tracker.exitScope();
+
+        tracker.enterScope("function", { path: "project/scripts/consumer.gml" });
+        tracker.reference("shared", { name: "shared" });
+        tracker.exitScope();
+
+        const paths = tracker.getFilePathsReferencingSymbol("shared");
+
+        assert.deepEqual([...paths], ["project/scripts/consumer.gml"]);
+    });
+
     void it("skips scopes without path metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
@@ -225,6 +245,25 @@ void describe("ScopeTracker: getChangedFilePaths", () => {
         const paths = tracker.getChangedFilePaths(0);
         assert.ok(paths.has("/project/a.gml"));
         assert.ok(paths.has("/project/b.gml"));
+    });
+
+    void it("normalizes file paths with mixed separators for changed-file exports", async () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const timestamp = Date.now();
+        await delay();
+
+        tracker.enterScope("program", { path: String.raw`project\scripts\modified.gml` });
+        tracker.declare("x", { name: "x" });
+        tracker.exitScope();
+
+        tracker.enterScope("function", { path: "project/scripts/modified.gml" });
+        tracker.declare("y", { name: "y" });
+        tracker.exitScope();
+
+        const paths = tracker.getChangedFilePaths(timestamp);
+
+        assert.deepEqual([...paths], ["project/scripts/modified.gml"]);
     });
 
     void it("returns a new independent Set on each call", async () => {
