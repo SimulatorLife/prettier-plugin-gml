@@ -11,7 +11,7 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
+import { type Dirent, type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -1559,6 +1559,31 @@ interface InitialFileScanResult {
     fileDataCache: Map<string, InitialFileData>;
 }
 
+interface ScannedDirectoryEntries {
+    files: Array<string>;
+    directories: Array<string>;
+}
+
+function partitionScannedDirectoryEntries(
+    currentPath: string,
+    entries: Array<Dirent>,
+    extensionMatcher: ExtensionMatcher
+): ScannedDirectoryEntries {
+    const files: Array<string> = [];
+    const directories: Array<string> = [];
+
+    for (const entry of entries) {
+        const candidatePath = path.join(currentPath, entry.name);
+        if (entry.isDirectory()) {
+            directories.push(candidatePath);
+        } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+            files.push(candidatePath);
+        }
+    }
+
+    return { files, directories };
+}
+
 async function collectScriptNames(
     rootPath: string,
     extensionMatcher: ExtensionMatcher
@@ -1568,19 +1593,7 @@ async function collectScriptNames(
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-
-        // Separate files and directories for optimal parallel processing
-        const files: Array<string> = [];
-        const directories: Array<string> = [];
-
-        for (const entry of entries) {
-            const candidatePath = path.join(currentPath, entry.name);
-            if (entry.isDirectory()) {
-                directories.push(candidatePath);
-            } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                files.push(candidatePath);
-            }
-        }
+        const { files, directories } = partitionScannedDirectoryEntries(currentPath, entries, extensionMatcher);
 
         // Process all files in this directory concurrently for maximum throughput
         await Core.runInParallel(files, async (filePath) => {
