@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 // Node.js deprecated the legacy assert.equal-style helpers; use the strict
 // variants to ensure consistent comparisons across runtimes.
-import { isPathInside, resolveContainedRelativePath, walkAncestorDirectories } from "../src/fs/path.js";
+import {
+    isPathInside,
+    isPathWithinBoundary,
+    normalizeBoundaryPath,
+    resolveContainedRelativePath,
+    walkAncestorDirectories
+} from "../src/fs/path.js";
 
 void describe("path-utils", () => {
     void describe("resolveContainedRelativePath", () => {
@@ -94,5 +102,56 @@ void describe("path-utils", () => {
             assert.strictEqual(isPathInside("", root), false);
             assert.strictEqual(isPathInside(root, ""), false);
         });
+    });
+});
+
+void describe("normalizeBoundaryPath", () => {
+    void it("trims trailing separators from POSIX paths", () => {
+        assert.strictEqual(normalizeBoundaryPath("/root/sub/"), "/root/sub");
+    });
+
+    void it("falls back to lexical normalization for non-existent paths", () => {
+        const missing = "/nonexistent-path-for-test/file.gml";
+        assert.strictEqual(normalizeBoundaryPath(missing), missing);
+    });
+
+    void it("resolves symlinks when the target exists", () => {
+        const tempRoot = mkdtempSync(path.join(os.tmpdir(), "core-boundary-"));
+        const canonical = path.join(tempRoot, "canonical");
+        const symlink = path.join(tempRoot, "symlink");
+        mkdirSync(canonical, { recursive: true });
+        symlinkSync(canonical, symlink, "dir");
+
+        assert.strictEqual(normalizeBoundaryPath(symlink), normalizeBoundaryPath(canonical));
+
+        rmSync(tempRoot, { recursive: true, force: true });
+    });
+});
+
+void describe("isPathWithinBoundary", () => {
+    void it("returns true when the file is directly inside the root", () => {
+        assert.strictEqual(isPathWithinBoundary("/root/sub/file.gml", "/root"), true);
+    });
+
+    void it("returns false when the file is outside the root", () => {
+        assert.strictEqual(isPathWithinBoundary("/root2/file.gml", "/root"), false);
+    });
+
+    void it("is segment-safe and does not match partial directory names", () => {
+        assert.strictEqual(isPathWithinBoundary("/rootmore/file.gml", "/root"), false);
+    });
+
+    void it("returns true when the file path equals the root", () => {
+        assert.strictEqual(isPathWithinBoundary("/root", "/root"), true);
+    });
+
+    void it("handles a trailing separator on the root without false positives", () => {
+        assert.strictEqual(isPathWithinBoundary("/root/sub/file.gml", "/root/"), true);
+        assert.strictEqual(isPathWithinBoundary("/root2/file.gml", "/root/"), false);
+    });
+
+    void it("returns false when either argument is empty", () => {
+        assert.strictEqual(isPathWithinBoundary("", "/root"), false);
+        assert.strictEqual(isPathWithinBoundary("/root/file.gml", ""), false);
     });
 });

@@ -1,18 +1,118 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
 import { ProjectIndexCacheStatus } from "./cache.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
-function assertCoordinatorFunction(value, name) {
+/** Descriptor passed to {@link ProjectIndexCoordinatorInstance.ensureReady}. */
+type EnsureReadyDescriptor = {
+    projectRoot: string;
+    maxSizeBytes?: number | null;
+    buildOptions?: Record<string, unknown>;
+    [key: string]: unknown;
+};
+
+/** Project index data returned from a build or cache hit. */
+type ProjectIndexData = {
+    metrics?: unknown;
+    [key: string]: unknown;
+};
+
+/** Result returned by a cache save operation. Always has a `status` field. */
+type CacheSaveResult = {
+    status: string;
+    [key: string]: unknown;
+};
+
+/** Result returned by a cache load operation. */
+type CacheLoadResult = {
+    status: string;
+    projectIndex?: ProjectIndexData;
+    cacheFilePath: string;
+    [key: string]: unknown;
+};
+
+/** Result returned by {@link ProjectIndexCoordinatorInstance.ensureReady}. */
+export type EnsureReadyResult = {
+    source: "cache" | "build";
+    projectIndex: ProjectIndexData;
+    cache: {
+        saveResult?: CacheSaveResult;
+        [key: string]: unknown;
+    };
+};
+
+/** Loads the project index from cache. Mirrors the shape of `loadProjectIndexCache`. */
+type LoadCacheFunction = (
+    descriptor: { projectRoot: string; [key: string]: unknown },
+    fsFacade: ProjectIndexFsFacade,
+    options: { signal: AbortSignal }
+) => Promise<CacheLoadResult>;
+
+/** Persists the project index to cache. Mirrors the shape of `saveProjectIndexCache`. */
+type SaveCacheFunction = (
+    descriptor: {
+        projectRoot: string;
+        projectIndex: ProjectIndexData;
+        metricsSummary?: unknown;
+        maxSizeBytes: number | null;
+        [key: string]: unknown;
+    },
+    fsFacade: ProjectIndexFsFacade,
+    options: { signal: AbortSignal }
+) => Promise<CacheSaveResult>;
+
+/** Builds a project index from scratch by scanning project sources. */
+type BuildIndexFunction = (
+    projectRoot: string,
+    fsFacade: ProjectIndexFsFacade,
+    options?: Record<string, unknown>
+) => Promise<ProjectIndexData>;
+
+/** Returns the default maximum cache size in bytes. */
+type GetDefaultCacheSizeFunction = () => number;
+
+/**
+ * Options for the core project index coordinator.
+ *
+ * All function dependencies are required here; callers that want optional
+ * parameters with sensible defaults should use the typed wrapper in
+ * `./builder.ts` (`createProjectIndexCoordinator`).
+ */
+export type CoordinatorCoreOptions = {
+    /** Filesystem facade used by load/save operations. Defaults to `defaultFsFacade`. */
+    fsFacade?: ProjectIndexFsFacade;
+    loadCache: LoadCacheFunction;
+    saveCache: SaveCacheFunction;
+    buildIndex: BuildIndexFunction;
+    /** Override the maximum cache size in bytes. Defaults to `getDefaultCacheMaxSize()`. */
+    cacheMaxSizeBytes?: number | null;
+    getDefaultCacheMaxSize: GetDefaultCacheSizeFunction;
+};
+
+/** Public API of the project index coordinator returned by `createProjectIndexCoordinator`. */
+export type ProjectIndexCoordinatorInstance = {
+    /**
+     * Ensures the project index is ready for the given project root.
+     * Returns a cached result when available, otherwise builds and caches a
+     * fresh index. Concurrent calls for the same project root are deduplicated.
+     */
+    ensureReady(descriptor: EnsureReadyDescriptor): Promise<EnsureReadyResult>;
+    /** Disposes the coordinator, aborting any in-flight operations. */
+    dispose(): void;
+};
+
+function assertCoordinatorFunction<T extends (...args: unknown[]) => unknown>(value: unknown, name: string): T {
     const normalizedName = Core.toTrimmedString(name) || "dependency";
     const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
-
-    return Core.assertFunction(value, normalizedName, { errorMessage });
+    return Core.assertFunction<T>(value, normalizedName, { errorMessage });
 }
 
-function normalizeEnsureReadyDescriptor(descriptor) {
+function normalizeEnsureReadyDescriptor(descriptor: EnsureReadyDescriptor | null | undefined): {
+    descriptor: EnsureReadyDescriptor;
+    resolvedRoot: string;
+} {
     const projectRoot = descriptor?.projectRoot;
     if (!projectRoot) {
         throw new Error("projectRoot must be provided to ensureReady");
@@ -24,7 +124,22 @@ function normalizeEnsureReadyDescriptor(descriptor) {
     };
 }
 
-function resolveEnsureReadyContext({ descriptor, abortController, disposedMessage }) {
+type EnsureReadyContext = {
+    descriptor: EnsureReadyDescriptor;
+    resolvedRoot: string;
+    key: string;
+    signal: AbortSignal;
+};
+
+function resolveEnsureReadyContext({
+    descriptor,
+    abortController,
+    disposedMessage
+}: {
+    descriptor: EnsureReadyDescriptor | null | undefined;
+    abortController: AbortController;
+    disposedMessage: string;
+}): EnsureReadyContext {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
     Core.throwIfAborted(signal, disposedMessage);
@@ -37,7 +152,11 @@ function resolveEnsureReadyContext({ descriptor, abortController, disposedMessag
     };
 }
 
-function trackInFlightOperation(map, key, createOperation) {
+function trackInFlightOperation(
+    map: Map<string, Promise<EnsureReadyResult>>,
+    key: string,
+    createOperation: () => Promise<EnsureReadyResult>
+): Promise<EnsureReadyResult> {
     if (map.has(key)) {
         return map.get(key);
     }
@@ -54,6 +173,18 @@ function trackInFlightOperation(map, key, createOperation) {
     return pending;
 }
 
+type ExecuteOperationOptions = {
+    descriptor: EnsureReadyDescriptor;
+    resolvedRoot: string;
+    signal: AbortSignal;
+    fsFacade: ProjectIndexFsFacade;
+    loadCache: LoadCacheFunction;
+    saveCache: SaveCacheFunction;
+    buildIndex: BuildIndexFunction;
+    cacheMaxSizeBytes: number | null;
+    disposedMessage: string;
+};
+
 async function executeEnsureReadyOperation({
     descriptor,
     resolvedRoot,
@@ -64,9 +195,8 @@ async function executeEnsureReadyOperation({
     buildIndex,
     cacheMaxSizeBytes,
     disposedMessage
-}) {
-    const descriptorOptions = descriptor ?? {};
-    const loadResult = await loadCache({ ...descriptorOptions, projectRoot: resolvedRoot }, fsFacade, { signal });
+}: ExecuteOperationOptions): Promise<EnsureReadyResult> {
+    const loadResult = await loadCache({ ...descriptor, projectRoot: resolvedRoot }, fsFacade, { signal });
     Core.throwIfAborted(signal, disposedMessage);
 
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
@@ -79,17 +209,16 @@ async function executeEnsureReadyOperation({
     }
 
     const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
-        ...descriptorOptions?.buildOptions,
+        ...descriptor.buildOptions,
         signal
     });
     Core.throwIfAborted(signal, disposedMessage);
 
-    const descriptorMaxSizeBytes =
-        descriptorOptions?.maxSizeBytes === undefined ? cacheMaxSizeBytes : descriptorOptions.maxSizeBytes;
+    const descriptorMaxSizeBytes = descriptor.maxSizeBytes === undefined ? cacheMaxSizeBytes : descriptor.maxSizeBytes;
 
     const saveResult = await saveCache(
         {
-            ...descriptorOptions,
+            ...descriptor,
             projectRoot: resolvedRoot,
             projectIndex,
             metricsSummary: projectIndex.metrics,
@@ -97,7 +226,7 @@ async function executeEnsureReadyOperation({
         },
         fsFacade,
         { signal }
-    ).catch((error) => {
+    ).catch((error: unknown) => {
         return {
             status: "failed",
             error,
@@ -116,42 +245,50 @@ async function executeEnsureReadyOperation({
     };
 }
 
+/**
+ * Creates a project index coordinator that orchestrates cache loading, index
+ * building, and result caching for a given project root.
+ *
+ * This is the low-level core implementation. Most callers should use the
+ * typed wrapper `createProjectIndexCoordinator` from `./builder.ts`, which
+ * provides convenient defaults for all required dependencies.
+ */
 export function createProjectIndexCoordinator({
-    fsFacade = fs,
+    fsFacade = defaultFsFacade,
     loadCache,
     saveCache,
     buildIndex,
     cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
-}: any = {}) {
-    const normalizedLoadCache = assertCoordinatorFunction(loadCache, "loadCache");
-    const normalizedSaveCache = assertCoordinatorFunction(saveCache, "saveCache");
-    const normalizedBuildIndex = assertCoordinatorFunction(buildIndex, "buildIndex");
-    const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction(
+}: CoordinatorCoreOptions): ProjectIndexCoordinatorInstance {
+    const normalizedLoadCache = assertCoordinatorFunction<LoadCacheFunction>(loadCache, "loadCache");
+    const normalizedSaveCache = assertCoordinatorFunction<SaveCacheFunction>(saveCache, "saveCache");
+    const normalizedBuildIndex = assertCoordinatorFunction<BuildIndexFunction>(buildIndex, "buildIndex");
+    const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction<GetDefaultCacheSizeFunction>(
         getDefaultCacheMaxSize,
         "getDefaultCacheMaxSize"
     );
 
-    const cacheMaxSizeBytes =
+    const cacheMaxSizeBytes: number | null =
         rawCacheMaxSizeBytes === undefined ? normalizedGetDefaultCacheMaxSize() : rawCacheMaxSizeBytes;
 
-    const inFlight = new Map();
+    const inFlight = new Map<string, Promise<EnsureReadyResult>>();
     let disposed = false;
     const abortController = new AbortController();
     const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
 
-    function createDisposedError() {
+    function createDisposedError(): Error {
         return new Error(DISPOSED_MESSAGE);
     }
 
-    function ensureNotDisposed() {
+    function ensureNotDisposed(): void {
         if (disposed) {
             throw createDisposedError();
         }
         Core.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
-    function ensureReady(descriptor) {
+    function ensureReady(descriptor: EnsureReadyDescriptor): Promise<EnsureReadyResult> {
         ensureNotDisposed();
         const context = resolveEnsureReadyContext({
             descriptor,
@@ -174,7 +311,7 @@ export function createProjectIndexCoordinator({
         );
     }
 
-    function dispose() {
+    function dispose(): void {
         if (disposed) {
             return;
         }

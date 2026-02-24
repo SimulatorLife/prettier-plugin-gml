@@ -29,7 +29,7 @@ then return here for deeper context.
   can copy into your GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) &mdash; Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
-  by the plugin.
+  by the formatter workspace.
 - [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) &mdash; Quick
   lookup for environment variables and wrapper behaviour when scripting formatter
   runs in CI or editor tooling.
@@ -46,7 +46,7 @@ then return here for deeper context.
 
 ## Extension hooks & overrides
 
-The plugin exposes several extension hooks that let integrators run controlled
+The format workspace exposes several extension hooks that let integrators run controlled
 experiments without permanently widening the public option surface. Comprehensive
 documentation for these hooks is pending; consult the source files for
 implementation details:
@@ -55,14 +55,14 @@ implementation details:
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when hosts
   provide partial data.
-- **Doc comment type normalization** (`src/plugin/src/comments/`)
+- **Doc comment type normalization** (`src/format/src/comments/`)
   — Extend the doc-comment type synonym tables or resource prefixes without
   patching the formatter's defaults. Resolver helpers expose guardrails and a
   restore helper when experiments end.
 - **Statement newline padding extension** — Register additional AST node
   types that should inherit blank-line padding around statements while keeping
   the opinionated defaults intact for other consumers.
-- **Core option overrides** (`src/plugin/src/options/core-option-overrides.js`)
+- **Core option overrides** (`src/format/src/options/core-option-overrides.js`)
   — Swap or remove the hard-coded Prettier clamps (such as
   `trailingComma: "none"`) when a host needs different defaults, all while
   keeping the formatter opinionated by default.
@@ -71,26 +71,10 @@ implementation details:
 
 - [Formatter/linter split plan](formatter-linter-split-plan.md) &mdash; Canonical
   ownership contract for formatter vs lint vs refactor responsibilities,
-  including target-state lint/refactor boundary rules.
-- [Formatter/linter implementation notes](formatter-linter-split-implementation-notes.md)
-  &mdash; Current migration status, remaining overlap items, and verification
-  notes for the split contract.
-- [Architecture audit log](architecture-audit-log.md) &mdash; Daily architecture
-  snapshots collected in a single document. The GitHub Action appends a fresh
-  section to this file for each run. Start with the most recent entry for the
-  current layout, then review earlier sections to see how the workspace evolved.
-- [Shared module layout refresh](shared-module-layout.md) — Summary of the
-  repository-wide audit that reorganised the `src/shared` helpers into
-  focused barrels.
-- [Interface segregation investigation](interface-segregation-investigation.md)
-  — Research notes that detail why the CLI and plugin expose separate entry
-  points, how shared utilities are packaged, and where the CLI wrapper inserts
-  additional behaviour such as `.prettierignore` discovery.
-- [Live reloading concept](live-reloading-concept.md) &mdash; Exploration of the
+  including the two-tier malformed GML strategy and the native codemod model.
+- [Hot reload architecture](hot-reload.md) &mdash; Concepts, architecture, and integration
   HTML5 runtime fork, watcher pipeline, and runtime integration seams required
-  for hot-reload tooling. Start here when scoping runtime experimentation work
-  or cross-referencing the architecture audits. Use the `watch` CLI command to
-  monitor file changes during development.
+  for hot-reload tooling.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
   ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
   dependency-aware reloads and editor integrations.
@@ -99,7 +83,7 @@ implementation details:
   bootstrap behaviour predictable.
 - [Legacy identifier-case plan — Archived project-index roadmap](legacy-identifier-case-plan.md#archived-project-index-roadmap)
   — Tracks the historical follow-up work that shipped alongside cache
-  persistence and discovery in the plugin.
+  persistence and discovery in the formatter workspace.
 
 ## Metadata tooling
 

@@ -12,12 +12,12 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { getFormat } from "./format-loader.js";
 import {
     createAssetCollisionProject,
     createAssetRenameProject,
     createTempProjectWorkspace
 } from "./identifier-case-asset-helpers.js";
-import { getPlugin } from "./plugin-loader.js";
 // Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
 async function createAssetReservedProject() {
@@ -91,8 +91,8 @@ void describe("asset rename execution", () => {
                 diagnostics
             };
 
-            const Plugin = await getPlugin();
-            await Plugin.format(scriptSource, formatOptions);
+            const Format = await getFormat();
+            await Format.format(scriptSource, formatOptions);
 
             assert.strictEqual(diagnostics.length, 0);
 

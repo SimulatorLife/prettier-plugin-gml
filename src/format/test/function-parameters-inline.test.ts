@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { Format } from "../src/index.js";
+
+void test("inlines default parameter functions with single call bodies", async () => {
+    const source = [
+        "some(",
+        "    thisArgumentIsQuiteLong,",
+        "    function foo(cool, f = function () {",
+        "        ez();",
+        "    }) : bar() constructor {",
+        "        return cool;",
+        "    }",
+        ");",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source, {
+        printWidth: 80
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "some(",
+            "    thisArgumentIsQuiteLong,",
+            "    function foo(cool, f = function () { ez(); }) : bar() constructor {",
+            "        return cool;",
+            "    }",
+            ");",
+            ""
+        ].join("\n")
+    );
+});

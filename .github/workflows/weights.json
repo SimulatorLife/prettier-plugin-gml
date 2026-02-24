@@ -15,6 +15,7 @@
     {"weight":0.22,"name":"agent-16-dead-code"},
     {"weight":0.05,"name":"agent-17-error-handling"},
     {"weight":0.2,"name":"agent-18-clarity"},
+    {"weight":2.0,"name":"agent-19-target-state"},
     {"weight":0.334,"name":"agent-20-micro-optimization"},
     {"weight":0.01,"name":"agent-21-extensibility"},
     {"weight":0.25,"name":"agent-22-bugfix"},
