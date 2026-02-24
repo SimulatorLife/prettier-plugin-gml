@@ -1,4 +1,4 @@
-import { createSampleLimitRuntimeOption } from "./sample-limit-toolkit.js";
+import { createSampleLimitRuntimeOption } from "./toolkit.js";
 
 /**
  * Consolidated sample limit configurations for CLI reporting.

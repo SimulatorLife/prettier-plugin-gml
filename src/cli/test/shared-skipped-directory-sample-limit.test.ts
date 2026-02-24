@@ -8,7 +8,7 @@ import {
     resolveSkippedDirectorySampleLimit,
     setDefaultSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "../src/runtime-options/sample-limits.js";
+} from "../src/runtime-options/sample-limit-options/config.js";
 
 void describe("skipped directory sample limit", () => {
     afterEach(() => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createSampleLimitRuntimeOption } from "../src/runtime-options/sample-limit-toolkit.js";
+import { createSampleLimitRuntimeOption } from "../src/runtime-options/sample-limit-options/toolkit.js";
 
 const TEST_SAMPLE_LIMIT_ENV_VAR = "PRETTIER_PLUGIN_GML_TEST_SAMPLE_LIMIT";
 

@@ -40,7 +40,7 @@ import {
     resolveIgnoredFileSampleLimit,
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
-} from "../runtime-options/sample-limits.js";
+} from "../runtime-options/sample-limit-options/config.js";
 import { CLI_COMMAND_NAMES } from "../shared/command-names.js";
 import {
     hasRegisteredIgnorePath,
