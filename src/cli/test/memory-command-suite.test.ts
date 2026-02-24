@@ -10,9 +10,9 @@ const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 void test("memory command accepts known suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
-    command.parse(["--suite", MemorySuiteName.PLUGIN_FORMAT], USER_PARSE_OPTIONS);
+    command.parse(["--suite", MemorySuiteName.FORMAT_WORKSPACE], USER_PARSE_OPTIONS);
 
-    assert.deepStrictEqual(command.opts().suite, [MemorySuiteName.PLUGIN_FORMAT]);
+    assert.deepStrictEqual(command.opts().suite, [MemorySuiteName.FORMAT_WORKSPACE]);
 });
 
 void test("memory command normalizes suite names", () => {

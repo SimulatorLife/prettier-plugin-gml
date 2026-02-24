@@ -10,8 +10,9 @@
  * when the underlying source files change.
  */
 
+import { Core } from "@gml-modules/core";
+
 import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "./types.js";
-import { hasMethod } from "./validation-utils.js";
 
 /**
  * Cache entry with TTL tracking.
@@ -352,7 +353,7 @@ export class SemanticQueryCache {
      * @private
      */
     private fetchSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getSymbolOccurrences")) {
+        if (!this.semantic || !Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             return Promise.resolve([]);
         }
 
@@ -364,7 +365,7 @@ export class SemanticQueryCache {
      * @private
      */
     private async fetchFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getFileSymbols")) {
+        if (!this.semantic || !Core.hasMethods(this.semantic, "getFileSymbols")) {
             return [];
         }
         return (await this.semantic.getFileSymbols(filePath)) ?? [];
@@ -375,7 +376,7 @@ export class SemanticQueryCache {
      * @private
      */
     private async fetchDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
-        if (!this.semantic || !hasMethod(this.semantic, "getDependents")) {
+        if (!this.semantic || !Core.hasMethods(this.semantic, "getDependents")) {
             return [];
         }
         return (await this.semantic.getDependents(symbolIds)) ?? [];
@@ -386,7 +387,7 @@ export class SemanticQueryCache {
      * @private
      */
     private fetchHasSymbol(symbolId: string): Promise<boolean> {
-        if (!this.semantic || !hasMethod(this.semantic, "hasSymbol")) {
+        if (!this.semantic || !Core.hasMethods(this.semantic, "hasSymbol")) {
             return Promise.resolve(true);
         }
         return Promise.resolve(this.semantic.hasSymbol(symbolId));

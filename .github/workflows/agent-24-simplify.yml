@@ -28,4 +28,4 @@ jobs:
         maintainability. Avoid sweeping rewrites—focus on the clumsiest area you can make elegant without touching
         unrelated code. Make sure tests still pass and explain the original issues and the leaner approach in the commit
         message. Respect the formatter/linter split contract: semantic/content rewrites belong in `@gml-modules/lint`
-        (or refactor transactions), while `@gml-modules/plugin` remains formatter-only and layout-focused.
+        (or refactor transactions), while `@gml-modules/format` remains formatter-only and layout-focused.

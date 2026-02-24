@@ -9,8 +9,8 @@ import {
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import { getFormat } from "./format-loader.js";
 import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
-import { getPlugin } from "./plugin-loader.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
@@ -35,7 +35,7 @@ void describe("identifier case top-level renaming", () => {
         const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
-            const plugin = await getPlugin();
+            const formatWorkspace = await getFormat();
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);
             const logger = { log() {} };
@@ -68,7 +68,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const formatted = await plugin.format(script.source, options);
+                const formatted = await formatWorkspace.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
                     assert.ok(formatted.includes("sample_function"), "Dry-run should keep the original function name");
@@ -104,7 +104,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const formattedEvent = await plugin.format(event.source, eventOptions);
+                const formattedEvent = await formatWorkspace.format(event.source, eventOptions);
                 assert.ok(formattedEvent.includes("instance_counter"), "Dry-run should keep instance variables");
                 assert.ok(!formattedEvent.includes("instanceCounter"));
 
@@ -136,7 +136,7 @@ void describe("identifier case top-level renaming", () => {
         const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
-            const plugin = await getPlugin();
+            const formatWorkspace = await getFormat();
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);
             const baseOptions = {
@@ -165,7 +165,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const rewritten = await plugin.format(script.source, options);
+                const rewritten = await formatWorkspace.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
                     assert.ok(rewritten.includes("sampleFunction"), "Function call should be rewritten");
@@ -212,7 +212,7 @@ void describe("identifier case top-level renaming", () => {
                     filepath: event.path,
                     diagnostics
                 };
-                const rewrittenEvent = await plugin.format(event.source, eventOptions);
+                const rewrittenEvent = await formatWorkspace.format(event.source, eventOptions);
                 assert.ok(rewrittenEvent.includes("instanceCounter"), "Instance variable should be rewritten");
                 assert.ok(!rewrittenEvent.includes("instance_counter"));
             }
@@ -237,7 +237,7 @@ void describe("identifier case top-level renaming", () => {
         const script = scripts[0];
 
         try {
-            const plugin = await getPlugin();
+            const formatWorkspace = await getFormat();
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);
             setIdentifierCaseDryRunContext({
@@ -258,7 +258,7 @@ void describe("identifier case top-level renaming", () => {
                 diagnostics
             };
 
-            const formatted = await plugin.format(script.source, formatOptions);
+            const formatted = await formatWorkspace.format(script.source, formatOptions);
             assert.ok(formatted.includes("function global_value"), "Collisions should prevent rewriting");
             assert.ok(formatted.includes("globalValue"));
             assert.ok(!formatted.includes("function globalValue"));

@@ -2,7 +2,7 @@
  * Watch command for monitoring GML source files and coordinating hot-reload pipeline.
  *
  * This command provides the foundation for the live development workflow described in
- * docs/live-reloading-concept.md. It watches specified directories for .gml file changes
+ * docs/hot-reload.md. It watches specified directories for .gml file changes
  * and triggers appropriate actions (parsing, semantic analysis, transpilation, and patch
  * streaming) as the hot-reload pipeline matures.
  *
@@ -469,13 +469,20 @@ async function performInitialScan(
     runtimeContext: RuntimeContext,
     verbose: boolean,
     quiet: boolean,
-    maxConcurrentDirs: number
+    maxConcurrentDirs: number,
+    fileDataCache?: ReadonlyMap<string, InitialFileData>
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
     async function processFile(fullPath: string): Promise<void> {
         try {
-            const content = await readFile(fullPath, "utf8");
+            // Reuse the cached content and AST from the script-name collection pass when
+            // available. This avoids a second disk read and a second ANTLR parse for every
+            // file that was already processed during startup, cutting initial scan overhead
+            // roughly in half for typical GML projects.
+            const cached = fileDataCache?.get(fullPath);
+            const content = cached?.content ?? (await readFile(fullPath, "utf8"));
+            const cachedAst = cached?.ast;
             const lines = countSourceLines(content);
             await updateFileSnapshot(runtimeContext, fullPath);
 
@@ -484,7 +491,8 @@ async function performInitialScan(
             // Transpile the file (quietly unless verbose mode is on)
             const result = transpileFile(runtimeContext, fullPath, content, lines, {
                 verbose: false,
-                quiet: true
+                quiet: true,
+                cachedAst
             });
 
             // Track symbols and references
@@ -683,7 +691,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const extensionMatcher = createExtensionMatcher(extensions);
     const extensionSet = extensionMatcher.extensions;
 
-    const scriptNames = await collectScriptNames(normalizedPath, extensionMatcher);
+    const { scriptNames, fileDataCache } = await collectScriptNames(normalizedPath, extensionMatcher);
 
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
@@ -1087,7 +1095,15 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 console.log("Scanning existing GML files to build dependency graph...");
             }
 
-            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet, maxConcurrentDirs)
+            void performInitialScan(
+                normalizedPath,
+                extensionMatcher,
+                runtimeContext,
+                verbose,
+                quiet,
+                maxConcurrentDirs,
+                fileDataCache
+            )
                 .then(() => {
                     runtimeContext.scanComplete = true;
                     return null;
@@ -1304,7 +1320,11 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    await Core.runSequentially(dependentFiles, async (dependentFile) => {
+    // Process dependent files concurrently to minimise hot-reload latency.
+    // Each callback has an independent try/catch so a single failure does not
+    // abort sibling retranspilations. Node.js single-threaded execution keeps
+    // dependency-tracker mutations safe without explicit locking.
+    await Core.runInParallel(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {
@@ -1474,12 +1494,29 @@ function getSymbolIdFromFilePath(filePath: string): string {
     return `gml/script/${fileName}`;
 }
 
+function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: string): number {
+    const symbolId = getSymbolIdFromFilePath(filePath);
+    let removedCount = runtimeContext.lastSuccessfulPatches.delete(symbolId) ? 1 : 0;
+
+    for (const [patchId, cachedPatch] of runtimeContext.lastSuccessfulPatches.entries()) {
+        const metadata = Core.isObjectLike(cachedPatch.metadata) ? cachedPatch.metadata : null;
+        const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : null;
+
+        if (sourcePath !== filePath) {
+            continue;
+        }
+
+        runtimeContext.lastSuccessfulPatches.delete(patchId);
+        removedCount += 1;
+    }
+
+    return removedCount;
+}
+
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
-
-    const symbolId = getSymbolIdFromFilePath(filePath);
-    const removedPatch = runtimeContext.lastSuccessfulPatches.delete(symbolId);
+    const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
     const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
     if (debouncedHandler) {
@@ -1488,7 +1525,8 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     }
 
     if (verbose && !quiet) {
-        const patchMessage = removedPatch ? "cleared cached patch" : "no cached patch found";
+        const patchMessage =
+            removedPatchCount > 0 ? `cleared ${removedPatchCount} cached patch(es)` : "no cached patch found";
         console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
     }
 }
@@ -1502,8 +1540,31 @@ async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: stri
     }
 }
 
-async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionMatcher): Promise<Set<string>> {
+/**
+ * Cached data for a single GML file gathered during the initial script name collection pass.
+ * Used to avoid re-reading and re-parsing files during the subsequent initial transpilation scan.
+ */
+interface InitialFileData {
+    content: string;
+    ast: unknown;
+}
+
+/**
+ * Return value from the initial file cache build step.
+ * Provides both the complete set of known script names (for seeding the semantic oracle)
+ * and the per-file content + AST cache (for avoiding re-parsing during initial transpilation).
+ */
+interface InitialFileScanResult {
+    scriptNames: Set<string>;
+    fileDataCache: Map<string, InitialFileData>;
+}
+
+async function collectScriptNames(
+    rootPath: string,
+    extensionMatcher: ExtensionMatcher
+): Promise<InitialFileScanResult> {
     const scriptNames = new Set<string>();
+    const fileDataCache = new Map<string, InitialFileData>();
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
@@ -1523,7 +1584,7 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
         // Process all files in this directory concurrently for maximum throughput
         await Core.runInParallel(files, async (filePath) => {
-            await addScriptNamesFromFile(filePath, scriptNames);
+            await addScriptNamesFromFile(filePath, scriptNames, fileDataCache);
         });
 
         // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
@@ -1538,17 +1599,24 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
         // Fail silently; fallback to empty set
     }
 
-    return scriptNames;
+    return { scriptNames, fileDataCache };
 }
 
-async function addScriptNamesFromFile(filePath: string, scriptNames: Set<string>): Promise<void> {
+async function addScriptNamesFromFile(
+    filePath: string,
+    scriptNames: Set<string>,
+    fileDataCache: Map<string, InitialFileData>
+): Promise<void> {
     const beforeSize = scriptNames.size;
 
     try {
-        const contents = await readFile(filePath, "utf8");
-        const parser = new Parser.GMLParser(contents, {});
+        const content = await readFile(filePath, "utf8");
+        const parser = new Parser.GMLParser(content, {});
         const ast = parser.parse();
         registerScriptNamesFromSymbols(extractSymbolsFromAst(ast, filePath), scriptNames);
+        // Cache the content and AST so performInitialScan can reuse them without
+        // re-reading from disk or re-parsing the GML source.
+        fileDataCache.set(filePath, { content, ast });
     } catch {
         // Ignore parse errors; fallback to file-name based script
     }
