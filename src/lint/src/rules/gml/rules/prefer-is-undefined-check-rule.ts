@@ -1,7 +1,10 @@
+import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
+
+const { unwrapParenthesizedExpression } = CoreWorkspace.Core;
 
 function isUndefinedIdentifier(expression: unknown): boolean {
     if (!isAstNodeRecord(expression)) {
@@ -13,14 +16,6 @@ function isUndefinedIdentifier(expression: unknown): boolean {
     }
 
     return expression.type === "Literal" && expression.value === "undefined";
-}
-
-function unwrapParenthesizedExpression(node: unknown): unknown {
-    let current = node;
-    while (isAstNodeRecord(current) && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current;
 }
 
 export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {

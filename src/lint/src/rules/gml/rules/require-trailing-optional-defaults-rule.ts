@@ -12,7 +12,7 @@ import {
     walkAstNodes
 } from "../rule-base-helpers.js";
 
-const { getNodeStartIndex, getNodeEndIndex } = CoreWorkspace.Core;
+const { getNodeStartIndex, getNodeEndIndex, unwrapParenthesizedExpression: unwrapParenthesized } = CoreWorkspace.Core;
 
 type LeadingArgumentFallback = Readonly<{
     parameterName: string;
@@ -138,14 +138,6 @@ function getSingleAssignmentFromIfConsequent(ifNode: unknown): AssignmentExpress
     }
 
     return null;
-}
-
-function unwrapParenthesized(node: any): any {
-    let current = node;
-    while (current && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current;
 }
 
 function matchVarIfArgumentFallbackRewrite(
