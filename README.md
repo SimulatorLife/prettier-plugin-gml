@@ -253,11 +253,11 @@ Generated artifacts live in `dist/` and are disposable.
 Start here for deeper context and plans:
 
 - [`docs/README.md`](docs/README.md) (documentation index)
-- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md) (core split architecture and malformed code strategy)
+- [`docs/target-state.md`](docs/docs/target-state.md) (project architecture target state)
 - [`src/cli/README.md`](src/cli/README.md)
 - [`src/semantic/README.md`](src/semantic/README.md)
 - [`src/refactor/README.md`](src/refactor/README.md)
-- [`docs/hot-reload.md`](docs/hot-reload.md)
+- [`src/lint/README.md`](src/lint/README.md)
 
 ## References / Tools / Docs
 

@@ -4589,7 +4589,71 @@ function applyScalarCondensing(
         return ast as ScalarCondensingTarget;
     }
 
-    // Missing implementation
+    const traversalContext = normalizeTraversalContext(ast, _context);
+    const seen = new WeakSet<object>();
+
+    const visit = (node: unknown, parent: unknown): void => {
+        if (!isObjectLike(node)) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const element of node) {
+                visit(element, parent);
+            }
+            return;
+        }
+
+        const objectNode = node as object;
+        if (seen.has(objectNode)) {
+            return;
+        }
+        seen.add(objectNode);
+
+        if (parent && !(node as { parent?: unknown }).parent) {
+            Object.defineProperty(node, "parent", {
+                value: parent,
+                enumerable: false,
+                configurable: true
+            });
+        }
+
+        if ((node as { type?: string }).type === BINARY_EXPRESSION) {
+            let changed = true;
+            let iterationCount = 0;
+            while (changed && iterationCount < 1000) {
+                iterationCount += 1;
+                changed = false;
+                if (attemptCondenseSimpleScalarProduct(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCondenseScalarProduct(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCondenseNumericChainWithMultipleBases(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCollectDistributedScalars(node, traversalContext)) {
+                    changed = true;
+                }
+            }
+        }
+
+        const nodeRecord = node as Record<string, unknown>;
+        for (const key of Object.keys(nodeRecord)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            visit(nodeRecord[key], node);
+        }
+    };
+
+    visit(ast, null);
+
     return ast as MutableGameMakerAstNode;
 }
 

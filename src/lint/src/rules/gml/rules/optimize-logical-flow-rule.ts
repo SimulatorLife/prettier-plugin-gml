@@ -12,6 +12,45 @@ function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
 }
 
+function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
+    const sourceText = context.sourceCode.text;
+    const rawStart = Core.getNodeStartIndex(node as any);
+    const startIndex =
+        typeof rawStart === "number" && Number.isFinite(rawStart)
+            ? Math.max(0, Math.min(rawStart, sourceText.length))
+            : 0;
+    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
+    };
+    const located =
+        typeof sourceCodeWithLocator.getLocFromIndex === "function"
+            ? sourceCodeWithLocator.getLocFromIndex(startIndex)
+            : undefined;
+    if (
+        located &&
+        typeof located.line === "number" &&
+        typeof located.column === "number" &&
+        Number.isFinite(located.line) &&
+        Number.isFinite(located.column)
+    ) {
+        return located;
+    }
+
+    let line = 1;
+    let lastLineStart = 0;
+    for (let index = 0; index < startIndex; index += 1) {
+        if (sourceText[index] === "\n") {
+            line += 1;
+            lastLineStart = index + 1;
+        }
+    }
+
+    return {
+        line,
+        column: startIndex - lastLineStart
+    };
+}
+
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -32,6 +71,18 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // Let's create a "check and fix" approach.
                     // Copy the node.
                     const originalNode = node;
+                    const nodeStart = Core.getNodeStartIndex(originalNode);
+                    const nodeEnd = Core.getNodeEndIndex(originalNode);
+                    if (
+                        typeof nodeStart !== "number" ||
+                        typeof nodeEnd !== "number" ||
+                        !Number.isFinite(nodeStart) ||
+                        !Number.isFinite(nodeEnd) ||
+                        nodeEnd <= nodeStart
+                    ) {
+                        return;
+                    }
+
                     const cloned = Core.cloneAstNode(node) as any;
 
                     // Function to run ONE step of simplification on this node only.
@@ -42,8 +93,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     applyLogicalNormalization(cloned);
 
                     // Compare printed version of original vs cloned.
-                    const sourceText =
-                        context.sourceCode.getLoc(originalNode).source || context.sourceCode.getText(originalNode);
+                    const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
                     const newText = Core.printExpression(cloned, context.sourceCode.text);
 
                     // Check if changed.
@@ -75,10 +125,10 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
                         // It changed!
                         context.report({
-                            node: originalNode,
+                            loc: resolveSafeNodeLoc(context, originalNode),
                             messageId: definition.messageId, // "optimizeLogicalFlow"
                             fix(fixer) {
-                                return fixer.replaceText(originalNode, newText);
+                                return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
                             }
                         });
                     }

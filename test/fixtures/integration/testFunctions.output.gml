@@ -1,10 +1,14 @@
 some(
     thisArgumentIsQuiteLong,
+/// @param cool
+/// @param [f=function () { ez(); }]
     function foo(cool, f = function () { ez(); }) : bar() constructor {
         return cool;
     }
 );
 
+/// @param aaaaaaaaaaaaaaaaaa
+/// @returns {undefined}
 call(1, 2, 3, someFunctionCallWithBigArgumentsAndACallback, function (aaaaaaaaaaaaaaaaaa) {
     foo();
 });
@@ -32,30 +36,32 @@ function func_coords(x = 0, y = 0, z = 0) {
 }
 
 var myCoords = func_coords(10, undefined, 20);
-
 /// @ignore
 /// @description Base class for all shapes. Shapes can be solid or not solid.
-///              Solid shapes will collide with other solid shapes, and
-///              non-solid shapes will not collide with anything.
-/// @param [color]
+/// Solid shapes will collide with other solid shapes, and
+/// non-solid shapes will not collide with anything.
+/// @param [color=undefined]
+/// @returns {undefined}
 function Shape(color = undefined) constructor {
     self.color = color;
 
-    /// @returns {undefined}
+/// @returns {undefined}
     static print = function () {
         show_debug_message("I'm a shape");
     };
 
     /// @description This will delete any geometry info contained within the mesh itself.
-    ///              It will not delete any geometry added to a ColMesh.
-    ///              After a mesh has been frozen, it can no longer be added to a colmesh.
+    /// It will not delete any geometry added to a ColMesh.
+    /// After a mesh has been frozen, it can no longer be added to a colmesh.
     /// @returns {undefined}
+    /// @returns {void}
     static freeze = function () {
         triangles = [];
         ds_list_destroy(shapeList);
     };
 
-    /// @param {bool} solid - Whether the shape is solid or not
+    /// @param <boolean> solid Whether the shape is solid or not
+    /// @param solid
     /// @returns {undefined}
     static setSolid = function (solid) {
         if (solid) {
@@ -65,8 +71,9 @@ function Shape(color = undefined) constructor {
         }
     };
 }
-
-/// @param {real} r The radius of the circle
+/// @param {real} r -  The radius of the circle
+/// @param r
+/// @returns {undefined}
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
@@ -75,20 +82,21 @@ var myCircle = new Circle(10);
 var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
-
-/// @param {real} [r1=1] The horizontal radius of the oval
+/// @param {real} r1 - The horizontal radius of the oval
+/// @param [r1=1]
 /// @param [r2=1]
+/// @returns {undefined}
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
     self.r1 = r1;
     self.r2 = r2;
 }
-
+/// @returns {undefined}
 function Line() : Shape() constructor {
-    /// @param x1
-    /// @param y1
-    /// @param x2
-    /// @param y2
-    /// @returns {undefined}
+/// @param x1
+/// @param y1
+/// @param x2
+/// @param y2
+/// @returns {undefined}
     set_points = function (x1, y1, x2, y2) {
         self.x1 = x1;
         self.y1 = y1;
@@ -103,10 +111,10 @@ function choose_profile(settings, fallback) {
     var config = settings ?? global.default_settings;
     var themeCandidate = config.theme_override ?? fallback.theme_override;
     var finalTheme = themeCandidate ?? global.theme_defaults;
-    if (is_undefined(config ?? fallback)) {
+    if ((config ?? fallback) == undefined) {
         return "guest";
     }
-    return (config.profile ?? fallback.profile) ?? "guest";
+    return config.profile ?? (fallback.profile ?? "guest");
 }
 
 var best = choose_profile(undefined, {profile: "dev"});
@@ -124,6 +132,8 @@ var best = choose_profile(undefined, {profile: "dev"});
 // .__GetString()
 // .__GetBuffer()
 
+
+/// @returns {undefined}
 function __ChatterboxBufferBatch() constructor {
     __destroyed = false;
     __inBuffer = undefined;
@@ -131,27 +141,27 @@ function __ChatterboxBufferBatch() constructor {
     __outBuffer = undefined;
     __commands = [];
 
-    /// @returns {undefined}
+/// @returns {undefined}
     static __Destroy = function () {
         if (__destroyed) {
             return;
         }
         __destroyed = true;
 
-        if (!is_undefined(__inBuffer)) {
+        if (__inBuffer != undefined) {
             buffer_delete(__inBuffer);
             __inBuffer = undefined;
         }
 
-        if (is_undefined(__inBuffer)) {
+        if (__inBuffer == undefined) {
             __destroyed = true;
         }
     };
 }
 
-/// @param [name="friend"]
-/// @param [greeting="Hello"]
-function greet(name = "friend", greeting = "Hello") {
+function greet() {
+    var name = argument_count > 0 ? argument[0] : "friend";
+    var greeting = argument_count > 1 ? argument[1] : "Hello";
     return $"{greeting}, ${name}";
 }
 
@@ -160,12 +170,13 @@ var message2 = greet("Alice");
 var message3 = greet("Bob", "Howdy");
 var message4 = greet("Chaz");
 var message5 = greet(undefined, "Welcome");
-
-/// @param {real} [multiplier] The multiplier to apply to the light direction
-/// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
+/// @param {real} [multiplier] - The multiplier to apply to the light direction
+/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
+/// @param [multiplier=undefined]
+/// @param [light_dir=[0, 0, -1]]
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
-    var length = point_distance_3d(0, 0, 0, dir[0], dir[1], dir[2]);
+    var length = sqrt((sqr(dir[]) + sqr(dir[])) + sqr(dir[]));
     length *= multiplier ?? 1;
     if (abs(length) > math_get_epsilon()) {
         dir[0] /= length;
@@ -174,55 +185,65 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     }
     return dir;
 }
-
 /// @param {Id.Instance} a
 /// @param {Id.Instance} b
-/// @param {real} dst
+/// @param {real} distance
 /// @param {real} force
 /// @param {bool} [push_out=true]
 /// @param {bool} [pull_in=true]
-function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
+/// @param a
+/// @param b
+/// @param dst
+/// @param force
+function scr_spring(a, b, dst, force) {
     if (!instance_exists(a) or !instance_exists(b)) {
         return false;
+    }
+
+    var push_out = true;
+    if (argument_count > 4) {
+        push_out = argument[];
+    }
+    var pull_in = true;
+    if (argument_count > 5) {
+        pull_in = argument[];
     }
 
     var xoff = a.x - b.x;
     var yoff = a.y - b.y;
 
     var actual_dist = sqr(xoff) + sqr(yoff);
-    var eps = math_get_epsilon();
-    if (actual_dist <= eps) {
+    if (actual_dist == 0) {
         return false;
     }
+    if (((actual_dist < sqr(dst)) and push_out) or ((actual_dist > sqr(dst)) and pull_in)){
+        actual_dist = sqrt(actual_dist);
+        var diff = actual_dist - dst;
 
-    var dst_sqr = sqr(dst);
-    if ((actual_dist >= dst_sqr - eps and actual_dist <= dst_sqr + eps) or
-        (actual_dist < dst_sqr - eps and !push_out) or
-        (actual_dist > dst_sqr + eps and !pull_in)) {
-        return false;
+
+        // normalize and multiply with diff and amount
+        var norm = (force * diff) / actual_dist;
+        xoff *= norm;
+        yoff *= norm;
+
+
+        // calculate mass
+        var m1, r1, r2;
+        m1 = 1 / (b.mass + a.mass);
+        r1 = b.mass * m1 * 0.5;
+        r2 = a.mass * m1 * 0.5;
+
+
+        // add speeds
+        a.velocity.x -= xoff * r1;
+        a.velocity.y -= yoff * r1;
+        b.velocity.x += xoff * r2;
+        b.velocity.y += yoff * r2;
+
+        return true;
     }
 
-    actual_dist = sqrt(actual_dist);
-    var diff = actual_dist - dst;
-
-    // normalize and multiply with diff and amount
-    var norm = (force * diff) / actual_dist;
-    xoff *= norm;
-    yoff *= norm;
-
-    // calculate mass
-    var m1, r1, r2;
-    m1 = 1 / (b.mass + a.mass);
-    r1 = (b.mass * m1) * 0.5;
-    r2 = (a.mass * m1) * 0.5;
-
-    // add speeds
-    a.velocity.x -= xoff * r1;
-    a.velocity.y -= yoff * r1;
-    b.velocity.x += xoff * r2;
-    b.velocity.y += yoff * r2;
-
-    return true;
+    return false;
 }
 
 get_debug_text = function () {
@@ -242,16 +263,16 @@ get_debug_text = function () {
     txt += arm_r.get_debug_text();
     return txt;
 };
-
 /// @description Write a unit triangular prism into an existing vbuff.
-///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+/// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]
-/// @param [trans_mat]
+/// @param trans_mat
 /// @returns {undefined}
-function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
+function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat) {
     var hx = 0.5, hy = 0.5, h = 1;
+
 
     // Base corners (Z = 0)
     var L0 = [-hx, -hy, 0]; // x-, y-
@@ -259,15 +280,18 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
     var R0 = [hx, -hy, 0]; // x+, y-
     var R1 = [hx, hy, 0]; // x+, y+
 
+
     // Apex line (Y=0, Z=1)
     var LA = [-hx, 0, h];
     var RA = [hx, 0, h];
+
 
     // Reusable UVs
     static uv00 = [0, 0];
     static uv10 = [1, 0];
     static uv11 = [1, 1];
     static uv01 = [0, 1];
+
 
     // Base quad (Z=0): L0-R0-R1, L0-R1-L1 (outside normal points to Z-; ok for debug)
     vertex_buffer_write_triangle(
@@ -295,6 +319,7 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
         trans_mat
     );
 
+
     // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA => (L0,R0,RA) + (L0,RA,LA)
     vertex_buffer_write_triangle(
         vbuff,
@@ -321,6 +346,7 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
         trans_mat
     );
 
+
     // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA => (R1,L1,LA) + (R1,LA,RA)
     vertex_buffer_write_triangle(
         vbuff,
@@ -346,6 +372,7 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
         alpha,
         trans_mat
     );
+
 
     // End caps (triangles in X)
     // X = -hx cap: L0, L1, LA

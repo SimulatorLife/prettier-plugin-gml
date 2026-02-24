@@ -312,11 +312,45 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
+    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number };
+    };
+    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
+    const locatedPoint =
+        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
+            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
+            : null;
+    const loc =
+        locatedPoint &&
+        typeof locatedPoint.line === "number" &&
+        typeof locatedPoint.column === "number" &&
+        Number.isFinite(locatedPoint.line) &&
+        Number.isFinite(locatedPoint.column)
+            ? locatedPoint
+            : fallbackLineColumn;
+
     context.report({
-        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+        loc,
         messageId,
         fix: (fixer) => fixer.replaceTextRange([0, originalText.length], rewrittenText)
     });
+}
+
+function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
+    const clampedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    let line = 1;
+    let lastLineStart = 0;
+    for (let index = 0; index < clampedOffset; index += 1) {
+        if (sourceText[index] === "\n") {
+            line += 1;
+            lastLineStart = index + 1;
+        }
+    }
+
+    return {
+        line,
+        column: clampedOffset - lastLineStart
+    };
 }
 
 export function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {

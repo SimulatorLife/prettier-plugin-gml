@@ -21,6 +21,12 @@ export type InsertTextAfterRangeFixOperation = {
  */
 export type RuleTestFixOperation = ReplaceTextRangeFixOperation | InsertTextAfterRangeFixOperation;
 
+type AstNodeWithOptionalRange = Readonly<{
+    range?: readonly [number, number];
+    start?: number | { index?: number };
+    end?: number | { index?: number };
+}>;
+
 function buildLineStarts(text: string): Array<number> {
     const starts = [0];
     for (const [index, character] of Array.from(text).entries()) {
@@ -75,19 +81,60 @@ export function applyFixOperations(text: string, operations: Array<RuleTestFixOp
         }
         appliedKeys.add(operationKey);
 
+        const anchorStart = operation.kind === "insert-after" ? end : start;
         // ESLint fix application ignores edits that overlap previously applied edits.
         // Mirror that behavior so tests match real fixer execution.
-        if (start < cursor) {
+        if (anchorStart < cursor) {
             continue;
         }
 
-        output += text.slice(cursor, start);
+        output += text.slice(cursor, operation.kind === "insert-after" ? end : start);
         output += operation.text;
-        cursor = operation.kind === "replace" ? end : start;
+        cursor = operation.kind === "replace" || operation.kind === "insert-after" ? end : start;
     }
 
     output += text.slice(cursor);
     return output;
+}
+
+function readNodeBoundaryIndex(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (value && typeof value === "object") {
+        const index = Reflect.get(value, "index");
+        if (typeof index === "number" && Number.isFinite(index)) {
+            return index;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Reads a stable `[start, end]` text range for a parsed AST node.
+ */
+export function readNodeTextRange(node: unknown): [number, number] | null {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const candidate = node as AstNodeWithOptionalRange;
+    if (Array.isArray(candidate.range) && candidate.range.length === 2) {
+        const [start, end] = candidate.range;
+        if (typeof start === "number" && Number.isFinite(start) && typeof end === "number" && Number.isFinite(end)) {
+            return [start, end];
+        }
+    }
+
+    const start = readNodeBoundaryIndex(candidate.start);
+    const end = readNodeBoundaryIndex(candidate.end);
+    if (start === null || end === null) {
+        return null;
+    }
+
+    return [start, end];
 }
 
 /**

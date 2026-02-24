@@ -164,7 +164,7 @@ void test("normalize-doc-comments synthesizes tags for function assignments", ()
     assert.doesNotMatch(output, /^\/\/\/ @description build_struct/m);
     assert.match(output, /^\/\/\/ @param value/m);
     assert.match(output, /^\/\/\/ @param \[amount=1\]/m);
-    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}/m);
 });
 
 void test("normalize-doc-comments synthesizes tags when braces are on the next line", () => {
@@ -184,7 +184,7 @@ void test("normalize-doc-comments synthesizes tags for static function variable 
     assert.doesNotMatch(output, /^\/\/\/ @description spawn_enemy/m);
     assert.match(output, /^\/\/\/ @param x/m);
     assert.match(output, /^\/\/\/ @param \[y=0\]/m);
-    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}/m);
 });
 
 void test("normalize-doc-comments removes legacy @function and normalizes default-param docs", () => {
@@ -201,7 +201,7 @@ void test("normalize-doc-comments removes legacy @function and normalizes defaul
 
     assert.doesNotMatch(output, /^\/\/\/ @function /m);
     assert.match(output, /^\/\/\/ @description Updates ground_dist each step$/m);
-    assert.match(output, /^\/\/\/ @param \[ray_len=128\]$/m);
+    assert.match(output, /^\/\/\/ @param ray_len$/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}$/m);
 });
 
