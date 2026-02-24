@@ -1,13 +1,15 @@
-import { type MutableGameMakerAstNode } from "@gml-modules/core";
+import { type MutableGameMakerAstNode, type ScopeTracker as CoreScopeTracker } from "@gml-modules/core";
 
 import { ScopeTracker } from "./scope-tracker.js";
 import type { ScopeMetadata, ScopeRole } from "./types.js";
 
 /**
- * This is the public facade for external modules to interact with
- * the 'semantic' layer/module for semantic scope tracking.
+ * Public facade that adapts the semantic {@link ScopeTracker} implementation to the
+ * {@link CoreScopeTracker} interface expected by the parser's dependency-injection
+ * contract. Keeping this adapter in `semantic` means the parser stays free of any
+ * direct dependency on the semantic package.
  */
-export class SemanticScopeCoordinator {
+export class SemanticScopeCoordinator implements CoreScopeTracker {
     private scopeTracker: ScopeTracker;
 
     constructor() {
