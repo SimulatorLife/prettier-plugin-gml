@@ -93,12 +93,18 @@ void describe("findAncestorNode", () => {
     }
 
     void it("returns null when path is null", () => {
-        assert.strictEqual(findAncestorNode(null as any, () => true), null);
+        assert.strictEqual(
+            findAncestorNode(null as any, () => true),
+            null
+        );
     });
 
     void it("returns null when path lacks getParentNode", () => {
         const path = { getValue: () => ({}) } as unknown as AstPath<any>;
-        assert.strictEqual(findAncestorNode(path, () => true), null);
+        assert.strictEqual(
+            findAncestorNode(path, () => true),
+            null
+        );
     });
 
     void it("returns null when no ancestor matches the predicate", () => {
