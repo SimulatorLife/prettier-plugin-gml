@@ -8,7 +8,7 @@ import type { Stream } from "node:stream";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
-// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/plugin; CLI memory command needs direct import for benchmarking
+// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/format; CLI memory command needs direct import for benchmarking
 import prettierStandaloneModule from "prettier/standalone.mjs";
 
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
@@ -27,7 +27,7 @@ import {
     SuiteOutputFormat,
     wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
-import { importPluginModule } from "../plugin-runtime/entry-point.js";
+import { importFormatModule } from "../format-runtime/entry-point.js";
 import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
 import {
     REPO_ROOT,
@@ -70,8 +70,8 @@ export const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
-const FORMAT_SAMPLE_RELATIVE_PATH = "test/fixtures/plugin-integration/testFormatting.input.gml";
-const FORMAT_OPTIONS_RELATIVE_PATH = "test/fixtures/plugin-integration/testFormatting.options.json";
+const FORMAT_SAMPLE_RELATIVE_PATH = "test/fixtures/integration/testFormatting.input.gml";
+const FORMAT_OPTIONS_RELATIVE_PATH = "test/fixtures/integration/testFormatting.options.json";
 export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
 export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_FORMAT_MAX_ITERATIONS";
@@ -82,7 +82,7 @@ export const MEMORY_REPORT_FILENAME_ENV_VAR = "GML_MEMORY_REPORT_FILENAME";
 export const MemorySuiteName = Object.freeze({
     NORMALIZE_STRING_LIST: "normalize-string-list",
     PARSER_AST: "parser-ast",
-    PLUGIN_FORMAT: "plugin-format"
+    FORMAT_WORKSPACE: "format-workspace"
 });
 
 const memorySuiteHelpers = createEnumeratedOptionHelpers(Object.values(MemorySuiteName), {
@@ -989,7 +989,7 @@ async function runParserAstSuite({ iterations }) {
 
 AVAILABLE_SUITES.set(MemorySuiteName.PARSER_AST, runParserAstSuite);
 
-async function runPluginFormatSuite({ iterations }) {
+async function runFormatWorkspaceSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
     const maxIterations = getMaxFormatIterations();
@@ -1014,20 +1014,20 @@ async function runPluginFormatSuite({ iterations }) {
         });
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            notes.push("Formatter options fixture not found; using plugin defaults.");
+            notes.push("Formatter options fixture not found; using format workspace defaults.");
         } else {
             throw error;
         }
     }
 
     const prettier = loadPrettierStandalone();
-    const pluginModule = await importPluginModule();
+    const formatModule = await importFormatModule();
 
     const formatOptions = {
-        ...pluginModule.defaultOptions,
+        ...formatModule.defaultOptions,
         ...optionOverrides,
         parser: "gml-parse",
-        plugins: [pluginModule],
+        plugins: [formatModule],
         filepath: sampleAbsolutePath
     };
 
@@ -1074,7 +1074,7 @@ async function runPluginFormatSuite({ iterations }) {
     return result;
 }
 
-AVAILABLE_SUITES.set(MemorySuiteName.PLUGIN_FORMAT, runPluginFormatSuite);
+AVAILABLE_SUITES.set(MemorySuiteName.FORMAT_WORKSPACE, runFormatWorkspaceSuite);
 
 function formatSuiteError(error: unknown) {
     const errorLike =

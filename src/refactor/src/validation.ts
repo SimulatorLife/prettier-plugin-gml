@@ -18,7 +18,6 @@ import {
     assertValidIdentifierName,
     DEFAULT_RESERVED_KEYWORDS,
     extractSymbolName,
-    hasMethod,
     parseSymbolIdParts
 } from "./validation-utils.js";
 
@@ -161,7 +160,7 @@ async function checkShadowingConflicts(
 async function buildReservedKeywordSet(
     keywordProvider: Partial<KeywordProvider> | null
 ): Promise<ReadonlySet<string> | Set<string>> {
-    if (!hasMethod(keywordProvider, "getReservedKeywords")) {
+    if (!Core.hasMethods(keywordProvider, "getReservedKeywords")) {
         return DEFAULT_RESERVED_KEYWORDS;
     }
 
@@ -201,7 +200,7 @@ export async function detectRenameConflicts(
     }
 
     // Check for shadowing conflicts if resolver supports scope-aware lookups
-    if (hasMethod(resolver, "lookup")) {
+    if (Core.hasMethods(resolver, "lookup")) {
         const shadowConflicts = await checkShadowingConflicts(oldName, normalizedNewName, occurrences, resolver);
         conflicts.push(...shadowConflicts);
     }
@@ -336,7 +335,7 @@ export async function validateRenameStructure(
         return [`The new name '${newName}' matches the existing identifier`];
     }
 
-    if (hasMethod(resolver, "hasSymbol")) {
+    if (Core.hasMethods(resolver, "hasSymbol")) {
         const exists = await resolver.hasSymbol(symbolId);
         if (!exists) {
             return [`Symbol '${symbolId}' not found in semantic index`];
@@ -447,7 +446,7 @@ export async function validateCrossFileConsistency(
 ): Promise<Array<ConflictEntry>> {
     const errors: Array<ConflictEntry> = [];
 
-    if (!fileProvider || !hasMethod(fileProvider, "getFileSymbols")) {
+    if (!fileProvider || !Core.hasMethods(fileProvider, "getFileSymbols")) {
         return errors;
     }
 

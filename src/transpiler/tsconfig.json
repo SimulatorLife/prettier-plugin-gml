@@ -9,7 +9,7 @@
       "@gml-modules/cli": ["../cli/index.ts"],
       "@gml-modules/core": ["../core/index.ts"],
       "@gml-modules/parser": ["../parser/index.ts"],
-      "@gml-modules/plugin": ["../plugin/index.ts"],
+      "@gml-modules/format": ["../format/index.ts"],
       "@gml-modules/refactor": ["../refactor/index.ts"],
       "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
       "@gml-modules/semantic": ["../semantic/index.ts"],

@@ -1,3 +1,8 @@
+/**
+ * This test suite verifies that the workspace ownership and dependency policies are correctly enforced across the monorepo workspaces.
+ * The tests ensure that the format workspace remains decoupled from the semantic and refactor packages, while the refactor workspace 
+ * owns the semantic-backed refactor behavior.
+ */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { describe, it } from "node:test";
@@ -20,11 +25,11 @@ function getDependencyVersion(packageJson: PackageJson, dependencyName: string):
 }
 
 void describe("workspace ownership dependency policy", () => {
-    void it("plugin workspace remains decoupled from semantic and refactor packages", () => {
-        const pluginPackage = readWorkspacePackage("@gml-modules/plugin");
+    void it("format workspace remains decoupled from semantic and refactor packages", () => {
+        const formatPackage = readWorkspacePackage("@gml-modules/format");
 
-        assert.strictEqual(getDependencyVersion(pluginPackage, "@gml-modules/semantic"), null);
-        assert.strictEqual(getDependencyVersion(pluginPackage, "@gml-modules/refactor"), null);
+        assert.strictEqual(getDependencyVersion(formatPackage, "@gml-modules/semantic"), null);
+        assert.strictEqual(getDependencyVersion(formatPackage, "@gml-modules/refactor"), null);
     });
 
     void it("refactor workspace owns semantic-backed refactor behavior", () => {
