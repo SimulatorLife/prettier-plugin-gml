@@ -3,6 +3,15 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, isAstNodeRecord } from "../rule-base-helpers.js";
 
+function isFloatLiteralExpression(expression: unknown): boolean {
+    return (
+        isAstNodeRecord(expression) &&
+        expression.type === "Literal" &&
+        typeof expression.value === "number" &&
+        !Number.isInteger(expression.value)
+    );
+}
+
 export function createPreferEpsilonComparisonsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -13,13 +22,7 @@ export function createPreferEpsilonComparisonsRule(definition: GmlRuleDefinition
                         return;
                     }
 
-                    const isFloatLiteral = (expression: unknown): boolean =>
-                        isAstNodeRecord(expression) &&
-                        expression.type === "Literal" &&
-                        typeof expression.value === "number" &&
-                        !Number.isInteger(expression.value);
-
-                    if (isFloatLiteral(node.left) || isFloatLiteral(node.right)) {
+                    if (isFloatLiteralExpression(node.left) || isFloatLiteralExpression(node.right)) {
                         context.report({
                             node,
                             messageId: definition.messageId

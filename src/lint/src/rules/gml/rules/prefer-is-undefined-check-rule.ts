@@ -3,6 +3,10 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
 
+function isUndefinedIdentifier(expression: unknown): boolean {
+    return isAstNodeRecord(expression) && expression.type === "Identifier" && expression.name === "undefined";
+}
+
 export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -13,13 +17,8 @@ export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition):
                         return;
                     }
 
-                    const isUndefined = (expression: unknown): boolean =>
-                        isAstNodeRecord(expression) &&
-                        expression.type === "Identifier" &&
-                        expression.name === "undefined";
-
-                    if (isUndefined(node.left) || isUndefined(node.right)) {
-                        const otherSide = isUndefined(node.left) ? node.right : node.left;
+                    if (isUndefinedIdentifier(node.left) || isUndefinedIdentifier(node.right)) {
+                        const otherSide = isUndefinedIdentifier(node.left) ? node.right : node.left;
                         const start = getNodeStartIndex(node);
                         const end = getNodeEndIndex(node);
                         const otherStart = getNodeStartIndex(otherSide);
