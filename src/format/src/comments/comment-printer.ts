@@ -69,30 +69,14 @@ function attachDanglingCommentToEmptyNode(
     return false;
 }
 
-function handleHoistedDeclarationLeadingComment(comment: PrinterComment) {
-    const target = comment?._featherHoistedTarget;
-
-    if (!target) {
-        return false;
-    }
-
-    addLeadingComment(target, comment);
-    const targetComment = comment;
-    delete targetComment._featherHoistedTarget;
-
-    return true;
-}
-
 const OWN_LINE_COMMENT_HANDLERS = [
     handleDecorativeBlockCommentOwnLine,
-    handleHoistedDeclarationLeadingComment,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
     handleOnlyComments
 ];
 
 const COMMON_COMMENT_HANDLERS = [
-    handleHoistedDeclarationLeadingComment,
     handleOnlyComments,
     handleClauseBlockIntroComment,
     handleCommentAttachedToOpenBrace,
@@ -130,6 +114,12 @@ function shouldSuppressComment(comment, options) {
     }
     if (comment.type !== "CommentLine") {
         return false;
+    }
+    const rawCommentText = Core.getLineCommentRawText(comment, {
+        originalText: options?.originalText
+    });
+    if (typeof rawCommentText === "string" && rawCommentText.trim() === "///") {
+        return true;
     }
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
     const formattingOptions = {
@@ -271,12 +261,12 @@ function printComment(commentPath, options) {
 
                 return parts.length === 1 ? parts[0] : parts;
             }
-            const canonicalTopLevelBlockComment = formatCanonicalTopLevelBlockComment(comment);
+            const canonicalTopLevelBlockComment = formatCanonicalTopLevelBlockComment(comment, options?.originalText);
             if (canonicalTopLevelBlockComment !== null) {
                 return canonicalTopLevelBlockComment;
             }
 
-            return `/*${normalizeNonDecorativeBlockCommentValue(comment.value)}*/`;
+            return formatNonDecorativeBlockComment(comment);
         }
         case "CommentLine": {
             const lineCommentOptions = Core.resolveLineCommentOptions(options);
@@ -288,16 +278,31 @@ function printComment(commentPath, options) {
             if (normalized.trim() === "/// @description") {
                 return "";
             }
+            if (normalized === "") {
+                const rawText = Core.getLineCommentRawText(comment, {
+                    originalText: options?.originalText
+                });
+                if (/^\s*\/\/\/\s*$/.test(rawText)) {
+                    collapseSuppressedTripleSlashSeparatorWhitespace(comment);
+                }
+                return "";
+            }
             // Strip any leading whitespace characters from the comment text itself since
             // Prettier will supply the correct indentation for us. This prevents
             // situations like `    \t// TODO` when the source already included a tab.
             normalized = normalized.replace(/^[ \t]+/, "");
+            const normalizedTrimmedStart = normalized.trimStart();
+            const isMethodListCommentLine = /^\/\/\s+\.[A-Za-z_]/.test(normalizedTrimmedStart);
             const shouldPrependBlankLine =
-                comment._gmlForceLeadingBlankLine === true ||
-                hasLeadingBlankLine(comment) ||
-                hasLeadingBlankLineInSource(comment, options?.originalText);
+                !isMethodListCommentLine &&
+                (comment._gmlForceLeadingBlankLine === true ||
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(comment, options?.originalText));
             if (shouldPrependBlankLine) {
                 return [hardline, normalized];
+            }
+            if (isMethodListCommentLine && isMethodListTerminalCommentBeforeFunction(comment, options?.originalText)) {
+                return [normalized, hardline];
             }
             return normalized;
         }
@@ -463,6 +468,30 @@ function hasLeadingBlankLineInSource(comment, originalText) {
     }
 
     return newlineCount >= 2;
+}
+
+function isMethodListTerminalCommentBeforeFunction(comment, originalText): boolean {
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (sourceSpan === null) {
+        return false;
+    }
+
+    const { endIndex } = sourceSpan;
+    let cursor = endIndex + 1;
+    while (cursor < originalText.length) {
+        const char = originalText[cursor];
+        if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+            cursor += 1;
+            continue;
+        }
+        break;
+    }
+
+    return originalText.startsWith("function", cursor);
 }
 
 const DECORATIVE_LINE_CHARACTERS = new Set(["/", "-", "_", "~", "*", "#", "<", ">", "|", ":", "."]);
@@ -1130,7 +1159,7 @@ function handleCommentInEmptyLiteral(comment /*, text, options, ast, isLastComme
 }
 
 function handleOnlyComments(comment, options, ast /*, isLastComment */) {
-    if (attachDocCommentToFollowingNode(comment, options)) {
+    if (attachDocCommentToFollowingNode(comment, options, ast)) {
         return true;
     }
 
@@ -1143,8 +1172,12 @@ function handleOnlyComments(comment, options, ast /*, isLastComment */) {
     return false;
 }
 
-function attachDocCommentToFollowingNode(comment, options) {
-    const { followingNode } = comment;
+function attachDocCommentToFollowingNode(comment, options, ast) {
+    const immediateFollowingNode = resolveFollowingNonCommentNode(comment);
+    const followingNode =
+        isDocCommentTargetNode(immediateFollowingNode) || !ast
+            ? immediateFollowingNode
+            : findFollowingNodeForComment(ast, comment);
 
     if (!isDocCommentCandidate(comment, followingNode)) {
         return false;
@@ -1152,7 +1185,12 @@ function attachDocCommentToFollowingNode(comment, options) {
 
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
     const formatted = formatDocLikeLineComment(comment, lineCommentOptions, options?.originalText);
-    if (!formatted || !formatted.trimStart().startsWith("///")) {
+    const rawText = Core.getLineCommentRawText(comment, {
+        originalText: options?.originalText
+    });
+    const shouldAttachTripleSlashContinuation = shouldAttachDocTripleSlashContinuation(comment, rawText, options);
+
+    if ((!formatted || !formatted.trimStart().startsWith("///")) && !shouldAttachTripleSlashContinuation) {
         return false;
     }
 
@@ -1160,24 +1198,61 @@ function attachDocCommentToFollowingNode(comment, options) {
         followingNode.docComments = [];
     }
     followingNode.docComments.push(comment);
+    comment._gmlAttachedDocComment = true;
     comment.printed = true;
     return true;
 }
 
-function isDocCommentCandidate(comment, followingNode) {
-    if (!isObjectLike(followingNode)) {
+function shouldAttachDocTripleSlashContinuation(comment, rawText, options) {
+    void comment;
+    void options;
+    if (!/^\s*\/\/\//.test(rawText)) {
         return false;
     }
 
+    if (/^\s*\/\/\/\s*$/.test(rawText)) {
+        return false;
+    }
+
+    if (/^\s*\/\/\/\s*\./.test(rawText)) {
+        return false;
+    }
+
+    return true;
+}
+
+function isDocCommentCandidate(comment, followingNode) {
     if (comment.type !== "CommentLine") {
         return false;
     }
 
+    return isDocCommentTargetNode(followingNode);
+}
+
+function isDocCommentTargetNode(node) {
+    if (!isObjectLike(node)) {
+        return false;
+    }
+
     return (
-        followingNode.type === "FunctionDeclaration" ||
-        followingNode.type === "ConstructorDeclaration" ||
-        followingNode.type === "VariableDeclaration"
+        node.type === "FunctionDeclaration" ||
+        node.type === "ConstructorDeclaration" ||
+        node.type === "VariableDeclaration"
     );
+}
+
+function resolveFollowingNonCommentNode(comment) {
+    let candidate = comment?.followingNode ?? null;
+
+    while (Core.isCommentNode(candidate) && isObjectLike(candidate) && "followingNode" in candidate) {
+        const nextCandidate = candidate.followingNode;
+        if (!nextCandidate || nextCandidate === candidate) {
+            break;
+        }
+        candidate = nextCandidate;
+    }
+
+    return candidate;
 }
 
 function hasEmptyBody(candidate) {
@@ -1239,9 +1314,13 @@ function formatDecorativeBlockComment(comment) {
     return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
 }
 
-function formatCanonicalTopLevelBlockComment(comment): string | null {
+function formatCanonicalTopLevelBlockComment(comment, originalText): string | null {
     const value = typeof comment?.value === "string" ? comment.value : null;
     if (value === null) {
+        return null;
+    }
+
+    if (hasAdjacentBlockCommentInSource(comment, originalText)) {
         return null;
     }
 
@@ -1263,16 +1342,143 @@ function formatCanonicalTopLevelBlockComment(comment): string | null {
     if (textLines.length === 0) {
         return null;
     }
+    if (textLines.length === 1) {
+        return null;
+    }
 
     return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
 }
 
+function hasAdjacentBlockCommentInSource(comment, originalText): boolean {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (sourceSpan === null) {
+        return false;
+    }
+
+    const { startIndex, endIndex } = sourceSpan;
+    const previousNonWhitespaceIndex = findPreviousNonWhitespaceIndex(originalText, startIndex - 1);
+    if (
+        previousNonWhitespaceIndex >= 1 &&
+        originalText[previousNonWhitespaceIndex] === "/" &&
+        originalText[previousNonWhitespaceIndex - 1] === "*"
+    ) {
+        return true;
+    }
+
+    const nextNonWhitespaceIndex = findNextNonWhitespaceIndex(originalText, endIndex + 1);
+    if (
+        nextNonWhitespaceIndex >= 0 &&
+        nextNonWhitespaceIndex + 1 < originalText.length &&
+        originalText[nextNonWhitespaceIndex] === "/" &&
+        originalText[nextNonWhitespaceIndex + 1] === "*"
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function findPreviousNonWhitespaceIndex(text: string, startIndex: number): number {
+    for (let index = startIndex; index >= 0; index -= 1) {
+        const char = text[index];
+        if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+            continue;
+        }
+        return index;
+    }
+
+    return -1;
+}
+
+function findNextNonWhitespaceIndex(text: string, startIndex: number): number {
+    for (let index = startIndex; index < text.length; index += 1) {
+        const char = text[index];
+        if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+            continue;
+        }
+        return index;
+    }
+
+    return -1;
+}
+
+function formatNonDecorativeBlockComment(comment): string {
+    const normalizedValue = normalizeNonDecorativeBlockCommentValue(comment?.value);
+    const hasMultipleLines = normalizedValue.includes("\n");
+
+    if (!hasMultipleLines) {
+        return `/*${normalizedValue}*/`;
+    }
+
+    const openingIndentation = resolveCommentLineIndentation(comment);
+    const minimumInteriorIndentation = openingIndentation + 4;
+    const normalizedInterior = normalizeNonDecorativeMultilineBlockCommentIndentation(
+        normalizedValue,
+        minimumInteriorIndentation
+    );
+
+    return `/*${normalizedInterior}*/`;
+}
+
+function resolveCommentLineIndentation(comment): number {
+    const leadingWhitespace = typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
+    const newlineIndex = Math.max(leadingWhitespace.lastIndexOf("\n"), leadingWhitespace.lastIndexOf("\r"));
+    const indentationFragment = newlineIndex === -1 ? leadingWhitespace : leadingWhitespace.slice(newlineIndex + 1);
+    return indentationFragment.replaceAll("\t", "    ").length;
+}
+
+function normalizeNonDecorativeMultilineBlockCommentIndentation(
+    value: string,
+    minimumInteriorIndentation: number
+): string {
+    const lines = value.split(/\r?\n/);
+    if (lines.length <= 2) {
+        return value;
+    }
+
+    for (let index = 1; index < lines.length - 1; index += 1) {
+        const currentLine = lines[index];
+        const currentLineWithSpaces = currentLine.replaceAll("\t", "    ");
+        const trimmedLine = currentLineWithSpaces.trimStart();
+        if (trimmedLine.length === 0) {
+            continue;
+        }
+
+        const leadingWhitespaceLength = currentLineWithSpaces.length - trimmedLine.length;
+        if (leadingWhitespaceLength >= minimumInteriorIndentation) {
+            lines[index] = currentLineWithSpaces;
+            continue;
+        }
+
+        lines[index] = `${" ".repeat(minimumInteriorIndentation)}${trimmedLine}`;
+    }
+
+    return lines.join("\n");
+}
+
 function normalizeNonDecorativeBlockCommentValue(value: unknown): string {
-    if (typeof value !== "string" || !value.includes("\t")) {
-        return typeof value === "string" ? value : "";
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    if (!value.includes("\t")) {
+        return value;
     }
 
     return value.replaceAll("\t", "    ");
+}
+
+function collapseSuppressedTripleSlashSeparatorWhitespace(comment) {
+    const precedingNode = comment?.precedingNode;
+    const followingNode = comment?.followingNode;
+
+    if (Core.isCommentNode(precedingNode)) {
+        precedingNode.trailingWS = "\n";
+    }
+
+    if (Core.isCommentNode(followingNode)) {
+        followingNode.leadingWS = "";
+    }
 }
 
 function createDecorativeSlashLinePattern(): RegExp {

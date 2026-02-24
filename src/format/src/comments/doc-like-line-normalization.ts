@@ -113,6 +113,9 @@ function formatDocLikeLineComment(
     const rawText = Core.getLineCommentRawText(comment, {
         originalText: originalText ?? undefined
     });
+    if (rawText.trim() === "///") {
+        return null;
+    }
     if (/^\s*\/\/\s+\/\s*$/.test(rawText)) {
         return null;
     }

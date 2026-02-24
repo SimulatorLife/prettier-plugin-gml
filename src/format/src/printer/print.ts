@@ -131,6 +131,7 @@ const {
 } = Core;
 
 const forcedStructArgumentBreaks = new WeakMap();
+const MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING = 4;
 
 function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
     if (!path) {
@@ -288,6 +289,8 @@ function printNodeDocComments(node, path, options) {
         : [];
     const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
+    sortDocCommentsBySourceOrder(docCommentDocs);
+
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
     const parts: any[] = [];
@@ -336,6 +339,56 @@ function printNodeDocComments(node, path, options) {
     markDocCommentsAsPrinted(node, path);
 
     return concat(parts);
+}
+
+function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
+    if (!Core.isObjectLike(commentEntry)) {
+        return null;
+    }
+
+    const startValue = (commentEntry as { start?: unknown }).start;
+    if (typeof startValue === NUMBER_TYPE) {
+        return startValue as number;
+    }
+
+    if (Core.isObjectLike(startValue)) {
+        const startIndex = (startValue as { index?: unknown }).index;
+        if (typeof startIndex === NUMBER_TYPE) {
+            return startIndex as number;
+        }
+    }
+
+    return null;
+}
+
+function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): void {
+    if (!Array.isArray(docCommentDocs) || docCommentDocs.length <= 1) {
+        return;
+    }
+
+    const indexedEntries = docCommentDocs.map((entry, index) => ({
+        entry,
+        index,
+        startIndex: resolveDocCommentStartIndex(entry)
+    }));
+
+    const hasSourcePositions = indexedEntries.some((entry) => typeof entry.startIndex === NUMBER_TYPE);
+    if (!hasSourcePositions) {
+        return;
+    }
+
+    indexedEntries.sort((left, right) => {
+        const leftStart = typeof left.startIndex === NUMBER_TYPE ? left.startIndex : Number.POSITIVE_INFINITY;
+        const rightStart = typeof right.startIndex === NUMBER_TYPE ? right.startIndex : Number.POSITIVE_INFINITY;
+        if (leftStart !== rightStart) {
+            return leftStart - rightStart;
+        }
+        return left.index - right.index;
+    });
+
+    for (const [index, indexedEntry] of indexedEntries.entries()) {
+        docCommentDocs[index] = indexedEntry.entry;
+    }
 }
 
 function markDocCommentsAsPrinted(node, path) {
@@ -2169,6 +2222,31 @@ function isLoopLikeStatement(node) {
     );
 }
 
+function countContiguousVariableDeclarationsBeforeIndex(statements, index): number {
+    if (!Array.isArray(statements) || index < 0 || index >= statements.length) {
+        return 0;
+    }
+
+    let count = 0;
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+        if (statements[cursor]?.type !== VARIABLE_DECLARATION) {
+            break;
+        }
+        count += 1;
+    }
+
+    return count;
+}
+
+function shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode): boolean {
+    if (node?.type !== VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
+        return false;
+    }
+
+    const variableBlockSize = countContiguousVariableDeclarationsBeforeIndex(statements, index);
+    return variableBlockSize >= MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING;
+}
+
 function handleIntermediateTrailingSpacing({
     parts,
     statements,
@@ -2226,6 +2304,12 @@ function handleIntermediateTrailingSpacing({
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
+    const shouldForceVariableBlockLoopPadding =
+        !suppressFollowingEmptyLine &&
+        shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode) &&
+        !nextLineEmpty &&
+        !shouldSuppressExtraEmptyLine &&
+        !sanitizedMacroHasExplicitBlankLine;
     const shouldForceConstructorStaticSectionPadding =
         !suppressFollowingEmptyLine &&
         containerNode?.type === "ConstructorDeclaration" &&
@@ -2239,6 +2323,7 @@ function handleIntermediateTrailingSpacing({
     const shouldAddForcedPadding =
         shouldForceMacroPadding ||
         shouldForceLoopSectionPadding ||
+        shouldForceVariableBlockLoopPadding ||
         shouldForceConstructorStaticSectionPadding ||
         (forceFollowingEmptyLine &&
             !nextLineEmpty &&
