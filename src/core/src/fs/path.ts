@@ -202,6 +202,10 @@ export function trimTrailingSeparators(value: string): string {
         current = current.slice(0, -1);
     }
 
+    if (current.length === 0) {
+        return value.includes("\\") ? "\\" : "/";
+    }
+
     return normalizeWindowsRootShape(current);
 }
 
