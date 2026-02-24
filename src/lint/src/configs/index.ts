@@ -15,22 +15,22 @@ export type FlatConfig = Readonly<{
 export const GML_LINT_FILES_GLOB = Object.freeze(["**/*.gml"]);
 
 const RECOMMENDED_RULES = Object.freeze({
-    "feather/prefer-loop-length-hoist": "warn",
-    "feather/prefer-hoistable-loop-accessors": "warn",
-    "feather/prefer-repeat-loops": "warn",
-    "feather/prefer-struct-literal-assignments": "warn",
-    "feather/optimize-logical-flow": "warn",
-    "feather/no-globalvar": "warn",
-    "feather/normalize-doc-comments": "warn",
-    "feather/normalize-directives": "warn",
-    "feather/require-control-flow-braces": "warn",
-    "feather/no-assignment-in-condition": "warn",
-    "feather/prefer-is-undefined-check": "warn",
-    "feather/prefer-epsilon-comparisons": "warn",
-    "feather/normalize-operator-aliases": "warn",
-    "feather/prefer-string-interpolation": "warn",
-    "feather/optimize-math-expressions": "warn",
-    "feather/require-argument-separators": "error"
+    "gml/prefer-loop-length-hoist": "warn",
+    "gml/prefer-hoistable-loop-accessors": "warn",
+    "gml/prefer-repeat-loops": "warn",
+    "gml/prefer-struct-literal-assignments": "warn",
+    "gml/optimize-logical-flow": "warn",
+    "gml/no-globalvar": "warn",
+    "gml/normalize-doc-comments": "warn",
+    "gml/normalize-directives": "warn",
+    "gml/require-control-flow-braces": "warn",
+    "gml/no-assignment-in-condition": "warn",
+    "gml/prefer-is-undefined-check": "warn",
+    "gml/prefer-epsilon-comparisons": "warn",
+    "gml/normalize-operator-aliases": "warn",
+    "gml/prefer-string-interpolation": "warn",
+    "gml/optimize-math-expressions": "warn",
+    "gml/require-argument-separators": "error"
 });
 
 const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = Object.freeze(
@@ -88,8 +88,8 @@ export function createLintConfigsWithPlugins(plugins: LintConfigPluginSet): Lint
     const recommended: ReadonlyArray<FlatConfig> = Object.freeze([
         Object.freeze({
             files: GML_LINT_FILES_GLOB,
-            plugins: Object.freeze({ feather: plugins.featherPlugin }),
-            language: "feather/gml",
+            plugins: Object.freeze({ gml: plugins.gmlPlugin }),
+            language: "gml/gml",
             rules: RECOMMENDED_RULES
         })
     ]);

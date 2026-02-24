@@ -29,7 +29,7 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
         assert.match(fullRuleId, /^(?:gml|feather)\/.+$/, `Unexpected canonical full rule id: ${fullRuleId}`);
     }
 
-    assert.equal((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "feather/no-globalvar");
+    assert.equal((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
     assert.equal((Lint.ruleIds as Record<string, string>).FeatherGM1000, "feather/gm1000");
 });
 
@@ -48,8 +48,8 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     }
 
     const [recommended] = Lint.configs.recommended;
-    assert.equal(recommended.language, "feather/gml");
-    assert.equal(recommended.rules["feather/require-argument-separators"], "error");
+    assert.equal(recommended.language, "gml/gml");
+    assert.equal(recommended.rules["gml/require-argument-separators"], "error");
 
     const [featherOverlay] = Lint.configs.feather;
     assert.equal(featherOverlay.plugins?.feather, Lint.featherPlugin);
@@ -61,5 +61,13 @@ void test("semver-sensitive lint constants are pinned", () => {
     assert.equal(Object.isFrozen(Lint.services.performanceOverrideRuleIds), true);
     for (const ruleId of Lint.services.performanceOverrideRuleIds) {
         assert.match(ruleId, /^(?:gml|feather)\/.+$/);
+    }
+});
+
+void test("feather namespace rule IDs are strictly feather/gm#### only", () => {
+    const featherRuleShortNames = Object.keys(Lint.featherPlugin.rules);
+    assert.ok(featherRuleShortNames.length > 0);
+    for (const shortName of featherRuleShortNames) {
+        assert.match(shortName, /^gm\d{4}$/u, `Unexpected feather rule short name: ${shortName}`);
     }
 });

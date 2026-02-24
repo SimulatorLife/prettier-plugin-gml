@@ -2,10 +2,10 @@
   "printWidth": 120,
   "allowSingleLineIfStatements": false,
   "lintRules": {
-    "feather/normalize-doc-comments": "error",
-    "feather/normalize-operator-aliases": "error",
-    "feather/prefer-is-undefined-check": "error",
-    "feather/optimize-math-expressions": "error",
-    "feather/optimize-logical-flow": "error"
+    "gml/normalize-doc-comments": "error",
+    "gml/normalize-operator-aliases": "error",
+    "gml/prefer-is-undefined-check": "error",
+    "gml/optimize-math-expressions": "error",
+    "gml/optimize-logical-flow": "error"
   }
 }

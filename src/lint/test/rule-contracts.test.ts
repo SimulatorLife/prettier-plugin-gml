@@ -207,6 +207,7 @@ void test("feather rules declare fixable metadata for autofix reports", () => {
         }
 
         const shortName = ruleId.replace("feather/", "");
+        assert.match(shortName, /^gm\d{4}$/u, `Unexpected feather rule id: ${ruleId}`);
         const rule = LintWorkspace.Lint.featherPlugin.rules[shortName] as { meta?: { fixable?: string } };
         assert.equal(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
     }

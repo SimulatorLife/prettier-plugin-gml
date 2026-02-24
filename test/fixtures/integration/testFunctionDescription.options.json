@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
   "lintRules": {
-    "feather/normalize-doc-comments": "error"
+    "gml/normalize-doc-comments": "error"
   }
 }

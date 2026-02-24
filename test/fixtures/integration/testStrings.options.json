@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
   "lintRules": {
-    "feather/prefer-string-interpolation": "error"
+    "gml/prefer-string-interpolation": "error"
   }
 }

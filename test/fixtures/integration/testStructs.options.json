@@ -2,7 +2,7 @@
   "printWidth": 120,
   "allowSingleLineIfStatements": false,
   "lintRules": {
-    "feather/normalize-doc-comments": "error",
-    "feather/prefer-struct-literal-assignments": "error"
+    "gml/normalize-doc-comments": "error",
+    "gml/prefer-struct-literal-assignments": "error"
   }
 }
