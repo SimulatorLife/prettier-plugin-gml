@@ -234,15 +234,21 @@ function updateInstance(
     for (const key of instanceKeysToUpdate) {
         instance[key] = fn;
 
-        // Also update the object definition (pObject) which the event loop uses
-        const pObject = (instance as any).pObject || (instance as any)._kx;
-        if (pObject && typeof pObject === "object" && pObject[key] !== fn) {
+        // Also update the object definition (pObject) which the event loop uses.
+        // Try the standard property name first, then fall back to the minified alias.
+        // Use nullish coalescing so a falsy-but-non-null pObject is not skipped.
+        const pObjectCandidate: unknown = instance.pObject ?? instance._kx;
+        const pObject: Record<string, unknown> | null =
+            typeof pObjectCandidate === "object" && pObjectCandidate !== null
+                ? (pObjectCandidate as Record<string, unknown>)
+                : null;
+        if (pObject !== null && pObject[key] !== fn) {
             pObject[key] = fn;
         }
 
         const eventIndex = resolveEventIndex(globalScope, key);
         markEventIndexAsEnabled((instance as { Event?: unknown }).Event, eventIndex);
-        markEventIndexAsEnabled((pObject as { Event?: unknown } | null | undefined)?.Event, eventIndex);
+        markEventIndexAsEnabled((pObject as { Event?: unknown } | null)?.Event, eventIndex);
     }
 
     for (const [key, value] of Object.entries(instance)) {

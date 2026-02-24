@@ -397,3 +397,70 @@ await test("updates pObject definition on active instances", () => {
         restoreGlobals(snapshot);
     }
 });
+
+await test("updates _kx object definition when pObject is absent on active instances", () => {
+    // Exercises the _kx fallback branch in updateInstance: when an instance stores
+    // its object definition under the minified `_kx` property rather than `pObject`,
+    // the patcher must still update that object-level entry so the event loop picks
+    // up the patched handler.
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        const originalFn = function gml_Object_oSpider_Step_0(..._args: Array<unknown>) {
+            return "original";
+        };
+        globals.gml_Object_oSpider_Step_0 = originalFn;
+        globals._uB2 = 5;
+
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [
+                {
+                    pName: "oSpider",
+                    StepNormalEvent: originalFn
+                }
+            ]
+        };
+
+        // Instance uses `_kx` (minified alias) instead of `pObject`
+        const kxObject = {
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+        const instance: Record<string, unknown> = {
+            _kx: kxObject,
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+
+        globals._cx = {
+            _dx: {
+                "100002": instance
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/object/oSpider/Step_0",
+            js_body: "return 'patched via _kx';"
+        });
+
+        const updatedInstanceFn = instance.StepNormalEvent;
+        assert.notEqual(updatedInstanceFn, originalFn, "Instance event handler should be updated");
+
+        // The _kx object definition must also reflect the patched handler so the
+        // GameMaker event loop (which reads from the object definition) uses new code
+        const updatedKxFn = kxObject.StepNormalEvent;
+        assert.notEqual(updatedKxFn, originalFn, "_kx object definition should be updated");
+        assert.equal(updatedInstanceFn, updatedKxFn, "Instance and _kx handler should be the same function");
+
+        // Event flags must be set on both the instance and the _kx definition
+        assert.equal((instance.Event as Array<boolean>)[5], true, "Instance event flag should be enabled");
+        assert.equal(kxObject.Event[5], true, "_kx event flag should be enabled");
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
