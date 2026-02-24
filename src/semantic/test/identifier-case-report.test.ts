@@ -8,8 +8,11 @@ import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
-import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
-import { getPlugin } from "./plugin-loader.js";
+import {
+    maybeReportIdentifierCaseDryRun,
+    summarizeIdentifierCasePlan
+} from "../src/identifier-case/identifier-case-report.js";
+import { getFormat } from "./format-loader.js";
 
 function createSampleRenamePlan() {
     return {
@@ -91,13 +94,16 @@ async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagn
         diagnostics
     });
 
-    const Plugin = await getPlugin();
+    const Format = await getFormat();
 
-    return Plugin.format(source, {
+    const formatOptions = {
         filepath,
         diagnostics,
         logger
-    });
+    };
+    const formatted = await Format.format(source, formatOptions);
+    maybeReportIdentifierCaseDryRun(formatOptions);
+    return formatted;
 }
 
 void describe("identifier case reporting", () => {
@@ -261,5 +267,105 @@ void describe("identifier case reporting", () => {
         } finally {
             clearIdentifierCaseDryRunContexts();
         }
+    });
+});
+
+void describe("summarizeIdentifierCasePlan sort ordering", () => {
+    void it("sorts operations by scopeName, then fromName, then toName (ascending)", () => {
+        const renamePlan = {
+            operations: [
+                {
+                    id: "op-c",
+                    scope: { id: "scope:z", displayName: "z.scope" },
+                    from: { name: "alpha" },
+                    to: { name: "Alpha" },
+                    references: []
+                },
+                {
+                    id: "op-a",
+                    scope: { id: "scope:a", displayName: "a.scope" },
+                    from: { name: "beta" },
+                    to: { name: "Beta" },
+                    references: []
+                },
+                {
+                    id: "op-b",
+                    scope: { id: "scope:a", displayName: "a.scope" },
+                    from: { name: "alpha" },
+                    to: { name: "Alpha" },
+                    references: []
+                }
+            ]
+        };
+
+        const result = summarizeIdentifierCasePlan({ renamePlan });
+
+        assert.equal(result.operations[0].id, "op-b", "a.scope/alpha should come first");
+        assert.equal(result.operations[1].id, "op-a", "a.scope/beta should come second");
+        assert.equal(result.operations[2].id, "op-c", "z.scope/alpha should come last");
+    });
+
+    void it("sorts conflicts by severity (ERROR < WARNING < INFO), then scopeName, then message (ascending)", () => {
+        const renamePlan = { operations: [] };
+        const conflicts = [
+            {
+                severity: "info",
+                message: "info note",
+                scope: { displayName: "scope.a" },
+                suggestions: []
+            },
+            {
+                severity: "error",
+                message: "second error",
+                scope: { displayName: "scope.b" },
+                suggestions: []
+            },
+            {
+                severity: "warning",
+                message: "a warning",
+                scope: { displayName: "scope.a" },
+                suggestions: []
+            },
+            {
+                severity: "error",
+                message: "first error",
+                scope: { displayName: "scope.a" },
+                suggestions: []
+            }
+        ];
+
+        const result = summarizeIdentifierCasePlan({ renamePlan, conflicts });
+
+        assert.equal(result.conflicts[0].severity, "error");
+        assert.equal(result.conflicts[0].message, "first error", "errors sorted by scope then message");
+        assert.equal(result.conflicts[1].severity, "error");
+        assert.equal(result.conflicts[1].message, "second error");
+        assert.equal(result.conflicts[2].severity, "warning");
+        assert.equal(result.conflicts[3].severity, "info");
+    });
+
+    void it("sorts references within each operation by filePath (ascending)", () => {
+        const renamePlan = {
+            operations: [
+                {
+                    id: "op-ref-sort",
+                    scope: { displayName: "scope" },
+                    from: { name: "foo" },
+                    to: { name: "bar" },
+                    references: [
+                        { filePath: "scripts/z_script.gml", occurrences: 1 },
+                        { filePath: "objects/a_object.gml", occurrences: 2 },
+                        { filePath: "scripts/m_script.gml", occurrences: 1 }
+                    ]
+                }
+            ]
+        };
+
+        const result = summarizeIdentifierCasePlan({ renamePlan });
+
+        const refs = result.operations[0].references;
+        assert.equal(refs[0].filePath, "objects/a_object.gml");
+        assert.equal(refs[1].filePath, "scripts/m_script.gml");
+        assert.equal(refs[2].filePath, "scripts/z_script.gml");
     });
 });

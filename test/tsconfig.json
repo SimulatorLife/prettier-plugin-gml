@@ -8,7 +8,7 @@
   "references": [
     { "path": "../src/core" },
     { "path": "../src/parser" },
-    { "path": "../src/plugin" },
+    { "path": "../src/format" },
     { "path": "../src/semantic" }
   ],
   "include": ["*.ts"],

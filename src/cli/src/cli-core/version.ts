@@ -12,7 +12,7 @@ const FALLBACK_CLI_VERSION_LABEL = "development build";
 const PACKAGE_VERSION_CANDIDATES = Object.freeze([
     path.resolve(CLI_PACKAGE_DIRECTORY, "package.json"),
     path.resolve(REPO_ROOT, "package.json"),
-    path.resolve(REPO_ROOT, "src", "plugin", "package.json")
+    path.resolve(REPO_ROOT, "src", "format", "package.json")
 ]);
 
 function normalizeVersionValue(value: unknown): string | null {

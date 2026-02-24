@@ -227,4 +227,60 @@ void describe("computeRenameImpactGraph", () => {
         assert.ok(rootNode);
         assert.equal(rootNode.symbolName, "scr_player_attack");
     });
+
+    void it("resolves wide graphs (many dependents per level) correctly", async () => {
+        // 10 dependents at level 1, each with 2 unique dependents at level 2.
+        // With the old sequential BFS this required 21 sequential async calls;
+        // the level-parallel BFS collapses that to 2 batched Promise.all rounds.
+        const level1 = Array.from({ length: 10 }, (_, i) => `gml/script/scr_l1_${i}`);
+        const level2 = level1.flatMap((id) => {
+            const name = id.replace("gml/script/", "");
+            return [
+                { symbolId: `gml/script/${name}_a`, filePath: `scripts/${name}_a.gml` },
+                { symbolId: `gml/script/${name}_b`, filePath: `scripts/${name}_b.gml` }
+            ];
+        });
+
+        const semantic: PartialSemanticAnalyzer = {
+            async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
+                if (symbolIds.includes("gml/script/scr_root")) {
+                    return level1.map((id) => ({
+                        symbolId: id,
+                        filePath: `scripts/${id.replace("gml/script/", "")}.gml`
+                    }));
+                }
+                for (const l1Id of level1) {
+                    if (symbolIds.includes(l1Id)) {
+                        const name = l1Id.replace("gml/script/", "");
+                        return [
+                            { symbolId: `gml/script/${name}_a`, filePath: `scripts/${name}_a.gml` },
+                            { symbolId: `gml/script/${name}_b`, filePath: `scripts/${name}_b.gml` }
+                        ];
+                    }
+                }
+                return [];
+            }
+        };
+
+        const graph = await computeRenameImpactGraph("gml/script/scr_root", semantic);
+
+        // root (1) + level-1 (10) + level-2 (20) = 31 nodes total
+        assert.equal(graph.totalAffectedSymbols, 31);
+        assert.equal(graph.maxDepth, 2);
+        assert.equal(graph.rootSymbol, "gml/script/scr_root");
+
+        // All level-1 nodes should be in the graph at distance 1
+        for (const l1Id of level1) {
+            const node = graph.nodes.get(l1Id);
+            assert.ok(node, `Level-1 node ${l1Id} should be present`);
+            assert.equal(node.distance, 1);
+        }
+
+        // All level-2 nodes should be at distance 2
+        for (const l2Entry of level2) {
+            const node = graph.nodes.get(l2Entry.symbolId);
+            assert.ok(node, `Level-2 node ${l2Entry.symbolId} should be present`);
+            assert.equal(node.distance, 2);
+        }
+    });
 });

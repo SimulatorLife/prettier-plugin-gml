@@ -2,7 +2,13 @@ export * from "./collection.js";
 export * from "./deprecated.js";
 export * from "./documented-params.js";
 export * from "./legacy.js";
-export * from "./metadata.js";
+export {
+    hasCommentImmediatelyBefore,
+    isDocCommentTagLine,
+    isDocLikeLeadingLine,
+    isFunctionDocCommentLine,
+    parseDocCommentMetadata
+} from "./metadata.js";
 export * from "./params.js";
 export * from "./string-coercions.js";
 export * from "./synthetic-generation.js";

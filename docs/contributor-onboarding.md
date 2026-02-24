@@ -37,14 +37,17 @@ suite. Re-run targeted suites when you touch scoped areas:
 
 ```bash
 pnpm run test:parser
-pnpm run test:plugin
+pnpm run test:format
 pnpm run test:semantic
 pnpm run test:cli
+pnpm run test:transpiler
+pnpm run test:runtime-wrapper
+pnpm run test:refactor
 pnpm run lint
 pnpm run format:check
 ```
 
-Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do not
+Fixtures under `src/format/test/` and `src/parser/test/input/` are golden—do not
 edit them unless you are intentionally changing formatter or parser output.
 
 ## 4. Sanity-check the formatter
