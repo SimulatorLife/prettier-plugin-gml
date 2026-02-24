@@ -22,8 +22,15 @@ import {
     simplifyZeroDivisionNumerators
 } from "../transforms/math/traversal-normalization.js";
 
-const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement, readNodeText, printExpression } =
-    CoreWorkspace.Core;
+const {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    unwrapExpressionStatement,
+    readNodeText,
+    printExpression,
+    isIdentifierNode,
+    unwrapParenthesizedExpression: unwrapParenthesized
+} = CoreWorkspace.Core;
 
 type MultiplicativeComponents = Readonly<{
     coefficient: number;
@@ -36,14 +43,6 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "MemberIndexExpression",
     "CallExpression"
 ]);
-
-function unwrapParenthesized(node: any): any {
-    let current = node;
-    while (current && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current;
-}
 
 function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
@@ -356,7 +355,7 @@ function extractHalfLengthdirRotationExpression(node: any, variableName: string,
         const rright = unwrapParenthesized(right.right);
         if (rleft?.type === "Literal" && rleft.value === 1 && rright?.type === "CallExpression") {
             const callee = rright.object;
-            if (callee?.type === "Identifier" && callee.name === "lengthdir_x") {
+            if (isIdentifierNode(callee) && callee.name === "lengthdir_x") {
                 const args = rright.arguments;
                 if (
                     args.length === 2 &&
@@ -561,7 +560,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
         if (expr && (expr.type === "UpdateExpression" || expr.type === "IncDecStatement")) {
             const arg = expr.argument;
             const idNode = unwrapParenthesized(arg);
-            if (idNode?.type === "Identifier") {
+            if (isIdentifierNode(idNode)) {
                 const name = idNode.name;
                 const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
                 current.delta += expr.operator === "++" ? 1 : -1;
@@ -571,7 +570,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
             }
         } else if (expr && expr.type === "AssignmentExpression") {
             const idNode = unwrapParenthesized(expr.left);
-            if (idNode?.type === "Identifier") {
+            if (isIdentifierNode(idNode)) {
                 const name = idNode.name;
                 switch (expr.operator) {
                     case "+=":
