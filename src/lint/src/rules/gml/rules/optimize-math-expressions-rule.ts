@@ -2,6 +2,7 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
+import { printExpression, readNodeText } from "../print-expression.js";
 import {
     applySourceTextEdits,
     createMeta,
@@ -22,8 +23,7 @@ import {
     simplifyZeroDivisionNumerators
 } from "../transforms/math/traversal-normalization.js";
 
-const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement, readNodeText, printExpression } =
-    CoreWorkspace.Core;
+const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement } = CoreWorkspace.Core;
 
 type MultiplicativeComponents = Readonly<{
     coefficient: number;

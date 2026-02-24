@@ -1,17 +1,43 @@
-import { getNodeEndIndex, getNodeStartIndex } from "./locations.js";
+import { Core } from "@gml-modules/core";
 
+/**
+ * Read the source text that corresponds to an AST node using its start/end
+ * position metadata.
+ *
+ * @param sourceText - The full GML source string.
+ * @param node - The AST node whose source span should be extracted.
+ * @returns The substring of `sourceText` covered by the node, or `null` when
+ *   the node is absent or its position metadata is missing.
+ */
 export function readNodeText(sourceText: string, node: any): string | null {
     if (!node || typeof node !== "object") {
         return null;
     }
-    const start = getNodeStartIndex(node);
-    const end = getNodeEndIndex(node);
+    const start = Core.getNodeStartIndex(node);
+    const end = Core.getNodeEndIndex(node);
     if (typeof start === "number" && typeof end === "number") {
         return sourceText.slice(start, end);
     }
     return null;
 }
 
+/**
+ * Reconstruct a minimal GML source representation of an expression node.
+ *
+ * Used by lint auto-fix transforms that need to render a mutated AST fragment
+ * back into source text. The output uses a single space around binary/logical
+ * operators and no extra whitespace inside parentheses or argument lists,
+ * which keeps generated fixes consistent regardless of the original formatting.
+ *
+ * Falls back to {@link readNodeText} for unrecognised node types so that
+ * unhandled constructs preserve whatever text the parser captured.
+ *
+ * @param node - The expression AST node to render.
+ * @param sourceText - The full GML source string (used as a fallback via
+ *   {@link readNodeText} for unrecognised node types).
+ * @returns A GML source string for the expression, or an empty string when the
+ *   node is absent or not an object.
+ */
 export function printExpression(node: any, sourceText: string): string {
     if (!node || typeof node !== "object") {
         return "";
