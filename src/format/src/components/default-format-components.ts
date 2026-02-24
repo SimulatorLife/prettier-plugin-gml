@@ -4,7 +4,7 @@ import { defaultGmlFormatComponentImplementations } from "./default-component-in
 import type { GmlFormatComponentBundle } from "./format-types.js";
 
 export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
-    const { gmlParserAdapter, print, handleComments, printComment, identifierCaseOptions, LogicalOperatorsStyle } =
+    const { gmlParserAdapter, print, handleComments, printComment, LogicalOperatorsStyle } =
         defaultGmlFormatComponentImplementations;
 
     return {
@@ -25,7 +25,6 @@ export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
             }
         },
         options: {
-            ...identifierCaseOptions,
             allowSingleLineIfStatements: {
                 since: "0.0.0",
                 type: "boolean",
