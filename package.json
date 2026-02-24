@@ -55,7 +55,7 @@
     "clean:src-js:preview": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\)",
     "clean:src-js": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' -not -path '*/types/*' -not -path '*/dist/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\) -delete",
     "clean:generated": "rm -rf src/parser/generated",
-    "clean:ts": "pnpm -r run clean:types",
+    "clean:ts": "pnpm -r run clean:types && rm -rf test/dist",
     "lint": "eslint . --ext .ts,.yml,.yaml --cache --report-unused-disable-directives --stats",
     "lint:quiet": "eslint . --ext .ts,.yml,.yaml --cache --quiet",
     "lint:fix": "eslint . --ext .ts,.yml,.yaml --cache --fix --quiet",

@@ -57,6 +57,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 1. Formatter may only perform layout and canonical rendering transforms (indentation, wrapping, spacing, parenthesis rendering, trailing delimiters, final newline, `logicalOperatorsStyle` alias canonicalization).
    - *Parentheses*: Formatter may remove redundant syntactic constructs when provably unnecessary (e.g., redundant parentheses), but must not synthesize new syntax for readability or restructuring.
    - *Numeric Literals*: Canonical numeric literal normalization (e.g., `.5` → `0.5`, `5.` → `5`) is permitted as zero-normalization.
+   - *Numeric Literal Ownership Clarification*: Rewriting existing decimal literals that only differ by missing leading/trailing zeros remains formatter-owned behavior (`@gml-modules/format`). Lint rules such as `optimize-math-expressions` must not rewrite those literals in place. Exception: when a lint math optimization folds an expression and synthesizes a new literal result, the synthesized literal should be emitted in formatter-normalized form to avoid follow-up churn (for example, `1. - .5` folding to `0.5`).
 2. Formatter must not perform semantic/content rewrites or syntax repair.
 3. Invalid code handling: Formatter parses strictly. On parse failure, formatter fails and does not mutate source. The formatter must never attempt recovery or fallback printing. Syntax repairs are lint-only (`lint --fix`).
 
