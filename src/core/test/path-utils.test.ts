@@ -115,6 +115,10 @@ void describe("normalizeBoundaryPath", () => {
         assert.strictEqual(normalizeBoundaryPath(missing), missing);
     });
 
+    void it("normalizes repeated root separators to a canonical root path", () => {
+        assert.strictEqual(normalizeBoundaryPath("///"), "/");
+    });
+
     void it("resolves symlinks when the target exists", () => {
         const tempRoot = mkdtempSync(path.join(os.tmpdir(), "core-boundary-"));
         const canonical = path.join(tempRoot, "canonical");
