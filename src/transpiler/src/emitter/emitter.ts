@@ -54,6 +54,7 @@ import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { LocalVarScope } from "./local-var-scope.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
 import { StringBuilder } from "./string-builder.js";
@@ -64,7 +65,8 @@ type StatementLike = GmlNode | undefined | null;
 const DEFAULT_OPTIONS: EmitOptions = Object.freeze({
     globalsIdent: "global",
     callScriptIdent: "__call_script",
-    resolveWithTargetsIdent: "globalThis.__resolve_with_targets"
+    resolveWithTargetsIdent: "globalThis.__resolve_with_targets",
+    emitSelfPrefix: false
 });
 
 export class GmlToJsEmitter {
@@ -73,6 +75,15 @@ export class GmlToJsEmitter {
     private readonly options: EmitOptions;
     private readonly globalVars: Set<string>;
     private readonly visitNode = (node: GmlNode): string => this.visit(node);
+    /** Scope tracker active only when `emitSelfPrefix` is enabled. */
+    private readonly localVarScope: LocalVarScope | null;
+    /**
+     * Lazily-loaded set of GML global constant and literal names (e.g. `vk_left`,
+     * `noone`, `all`, `MATRIX_MAX`). Populated on first use when `emitSelfPrefix`
+     * is enabled. These names must NOT receive a `self.` prefix because they are
+     * not properties of the GameMaker instance.
+     */
+    private gmlGlobalConstantNames: Set<string> | null = null;
 
     constructor(
         semantic:
@@ -95,6 +106,7 @@ export class GmlToJsEmitter {
         }
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
+        this.localVarScope = this.options.emitSelfPrefix ? new LocalVarScope() : null;
     }
 
     emit(ast: StatementLike): string {
@@ -298,14 +310,37 @@ export class GmlToJsEmitter {
                 return `${this.options.globalsIdent}.${name}`;
             }
             case "script":
-            case "local":
             case "builtin": {
                 return name;
             }
-            default: {
+            case "local": {
+                // When emitSelfPrefix is enabled and we are inside an active
+                // scope (depth > 0), any local-classified identifier that is not
+                // tracked in the local var scope and is not a GML global constant
+                // must be an instance field—emit it with an explicit `self.` prefix.
+                if (
+                    this.localVarScope !== null &&
+                    this.localVarScope.depth > 0 &&
+                    !this.localVarScope.isLocal(name) &&
+                    !this.isGmlGlobalConstant(name)
+                ) {
+                    return `self.${name}`;
+                }
                 return name;
             }
         }
+    }
+
+    /**
+     * Returns `true` if `name` is a GML global constant or literal that must
+     * not receive a `self.` prefix in event-patch code.
+     * Lazily loads and caches the constant set on first call.
+     */
+    private isGmlGlobalConstant(name: string): boolean {
+        if (this.gmlGlobalConstantNames === null) {
+            this.gmlGlobalConstantNames = Core.loadGmlGlobalConstantNames();
+        }
+        return this.gmlGlobalConstantNames.has(name);
     }
 
     private visitBinaryExpression(ast: BinaryExpressionNode): string {
@@ -416,20 +451,33 @@ export class GmlToJsEmitter {
         if (stmts.length === 0) {
             return "";
         }
-        // Fast path: single statement
-        if (stmts.length === 1) {
-            const code = this.emit(stmts[0]);
-            return code ? this.ensureStatementTermination(code) : "";
+        // When emitSelfPrefix is enabled, push an implicit top-level scope so
+        // that `var` declarations in the program body are tracked and undeclared
+        // identifiers are emitted with a `self.` prefix (required for event-patch
+        // bodies, which run without the GML proxy `with`-wrapper).
+        if (this.localVarScope !== null) {
+            this.localVarScope.push();
         }
-        // Multiple statements: use StringBuilder for efficiency
-        const builder = new StringBuilder(stmts.length);
-        for (const stmt of stmts) {
-            const code = this.emit(stmt);
-            if (code) {
-                builder.append(this.ensureStatementTermination(code));
+        try {
+            // Fast path: single statement
+            if (stmts.length === 1) {
+                const code = this.emit(stmts[0]);
+                return code ? this.ensureStatementTermination(code) : "";
+            }
+            // Multiple statements: use StringBuilder for efficiency
+            const builder = new StringBuilder(stmts.length);
+            for (const stmt of stmts) {
+                const code = this.emit(stmt);
+                if (code) {
+                    builder.append(this.ensureStatementTermination(code));
+                }
+            }
+            return builder.toString("\n");
+        } finally {
+            if (this.localVarScope !== null) {
+                this.localVarScope.pop();
             }
         }
-        return builder.toString("\n");
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
@@ -597,6 +645,17 @@ export class GmlToJsEmitter {
 
     private visitVariableDeclaration(ast: VariableDeclarationNode): string {
         const decls = ast.declarations;
+        // Register var-declared names in the local scope when emitSelfPrefix is
+        // active. This ensures the declared identifiers are emitted as bare
+        // names (not as `self.name`) throughout the enclosing function body.
+        if (this.localVarScope !== null && ast.kind === "var") {
+            for (const decl of decls) {
+                const name = this.resolveIdentifierName(decl.id);
+                if (name) {
+                    this.localVarScope.declare(name);
+                }
+            }
+        }
         // Fast path: single declaration without initialization
         if (decls.length === 1 && !decls[0].init) {
             return `${ast.kind} ${this.visit(decls[0].id)}`;
@@ -730,11 +789,19 @@ export class GmlToJsEmitter {
 
     private visitFunctionDeclaration(ast: FunctionDeclarationNode): string {
         const id = ast.id ? (typeof ast.id === "string" ? ast.id : this.visit(ast.id)) : "";
+        // Register the function name itself as a local in the enclosing scope,
+        // so callers inside the same function body can call it without a `self.` prefix.
+        if (this.localVarScope !== null && id) {
+            this.localVarScope.declare(id);
+        }
         return this.emitFunctionLike("function", id, ast.params, ast.body);
     }
 
     private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
         const id = ast.id ?? "";
+        if (this.localVarScope !== null && id) {
+            this.localVarScope.declare(id);
+        }
         return this.emitFunctionLike("function", id, ast.params, ast.body);
     }
 
@@ -785,16 +852,55 @@ export class GmlToJsEmitter {
         params: ReadonlyArray<GmlNode | string>,
         body: GmlNode
     ): string {
-        // Fast path: no parameters
-        if (!params || params.length === 0) {
-            return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
+        // When emitSelfPrefix is active, push a new function scope, register all
+        // parameters as locals, then pop after emitting the body. This ensures
+        // parameter names are never incorrectly prefixed with `self.`.
+        if (this.localVarScope !== null) {
+            this.localVarScope.push();
+            for (const param of params ?? []) {
+                const name = this.resolveParamName(param);
+                if (name) {
+                    this.localVarScope.declare(name);
+                }
+            }
         }
-        // Build parameter list with StringBuilder to avoid sparse array allocation
-        const builder = new StringBuilder(params.length);
-        for (const param of params) {
-            builder.append(typeof param === "string" ? param : this.visit(param));
+        try {
+            // Fast path: no parameters
+            if (!params || params.length === 0) {
+                return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
+            }
+            // Build parameter list with StringBuilder to avoid sparse array allocation
+            const builder = new StringBuilder(params.length);
+            for (const param of params) {
+                builder.append(typeof param === "string" ? param : this.visit(param));
+            }
+            return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+        } finally {
+            if (this.localVarScope !== null) {
+                this.localVarScope.pop();
+            }
         }
-        return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+    }
+
+    /**
+     * Extract the bare parameter name from a parameter node or string for scope
+     * registration. Handles plain identifiers and default-parameter nodes.
+     * Returns `null` for node types that don't produce a simple binding name.
+     */
+    private resolveParamName(param: GmlNode | string): string | null {
+        if (typeof param === "string") {
+            return param || null;
+        }
+        if (param.type === "Identifier") {
+            return (param as { name?: string }).name ?? null;
+        }
+        if (param.type === "DefaultParameter") {
+            const left = (param as { left?: GmlNode }).left;
+            if (left?.type === "Identifier") {
+                return (left as { name?: string }).name ?? null;
+            }
+        }
+        return null;
     }
 
     private ensureStatementTermination(code: string): string {
