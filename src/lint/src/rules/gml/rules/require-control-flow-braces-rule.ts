@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
 type BracedSingleClause = Readonly<{
@@ -25,6 +25,13 @@ function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
         return null;
     }
 
+    if ((match[3] ?? "").includes("{")) {
+        return null;
+    }
+    if (!(match[3] ?? "").includes(";")) {
+        return null;
+    }
+
     return Object.freeze({
         indentation: match[1] ?? "",
         header: match[2] ?? "",
@@ -32,7 +39,31 @@ function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
     });
 }
 
+function parseInlineRepeatClause(line: string): BracedSingleClause | null {
+    const match = /^([\t ]*)(repeat)\s*\(([^)]*)\)\s*(?!\{)(.+)$/u.exec(line);
+    if (!match || match.length < 5 || match[4]?.trim() === "") {
+        return null;
+    }
+    if (!(match[4] ?? "").includes(";")) {
+        return null;
+    }
+
+    return Object.freeze({
+        indentation: match[1] ?? "",
+        header: `${match[2] ?? "repeat"} (${match[3] ?? ""})`,
+        statement: match[4]?.trim() ?? ""
+    });
+}
+
 function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
+    const repeatMatch = /^([\t ]*)(repeat\s*\([^)]*\))\s*$/u.exec(line);
+    if (repeatMatch && repeatMatch.length >= 3) {
+        return Object.freeze({
+            indentation: repeatMatch[1] ?? "",
+            header: repeatMatch[2] ?? ""
+        });
+    }
+
     const match = /^([\t ]*)((?:if|while|for|with)\s*\(.*?\))\s*$/u.exec(line);
     if (!match || match.length < 3) {
         return null;
@@ -77,24 +108,33 @@ function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleCla
     if (statement.startsWith("{")) {
         return null;
     }
+    if (!/^\s*if\s+\S+/iu.test(header)) {
+        return null;
+    }
+    if (!statement.includes(";")) {
+        return null;
+    }
+
+    const legacyThenMatch = /^if\s+(.+?)\s+then$/iu.exec(header);
+    const normalizedHeader = legacyThenMatch ? `if (${legacyThenMatch[1] ?? ""})` : header;
 
     return Object.freeze({
         indentation: match[1] ?? "",
-        header,
+        header: normalizedHeader,
         statement
     });
 }
 
 function parseInlineElseClause(line: string): BracedSingleClause | null {
     const match = /^([\t ]*)(else)\b\s*(?!\{)(?!if\b)(.+)$/u.exec(line);
-    if (!match || match.length < 3 || match[2]?.trim() === "") {
+    if (!match || match.length < 4 || match[3]?.trim() === "") {
         return null;
     }
 
     return Object.freeze({
         indentation: match[1] ?? "",
         header: "else",
-        statement: match[2]?.trim() ?? ""
+        statement: match[3]?.trim() ?? ""
     });
 }
 
@@ -130,6 +170,10 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
 
                     for (let index = 0; index < lines.length; index += 1) {
                         const line = lines[index];
+                        if (/^\s*(if|while|for|with|repeat)\b.*\{\s*\/\//u.test(line)) {
+                            rewrittenLines.push(line);
+                            continue;
+                        }
 
                         if (inMacroContinuation) {
                             rewrittenLines.push(line);
@@ -150,6 +194,18 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                                     bracedConditionedClause.indentation,
                                     bracedConditionedClause.header,
                                     bracedConditionedClause.statement
+                                )
+                            );
+                            continue;
+                        }
+
+                        const bracedRepeatClause = parseInlineRepeatClause(line);
+                        if (bracedRepeatClause) {
+                            rewrittenLines.push(
+                                ...toBracedSingleClause(
+                                    bracedRepeatClause.indentation,
+                                    bracedRepeatClause.header,
+                                    bracedRepeatClause.statement
                                 )
                             );
                             continue;
@@ -194,7 +250,14 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                         }
 
                         const controlFlowHeader = parseLineOnlyControlFlowHeader(line);
-                        if (controlFlowHeader && isSafeSingleLineControlFlowStatement(nextLine)) {
+                        const trimmedNextLine = nextLine.trimStart();
+                        const isConditionContinuation =
+                            trimmedNextLine.startsWith("||") || trimmedNextLine.startsWith("&&");
+                        if (
+                            controlFlowHeader &&
+                            !isConditionContinuation &&
+                            isSafeSingleLineControlFlowStatement(nextLine)
+                        ) {
                             rewrittenLines.push(
                                 ...toBracedSingleClause(
                                     controlFlowHeader.indentation,
@@ -210,13 +273,7 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                     }
 
                     const rewritten = rewrittenLines.join(lineEnding);
-                    if (rewritten !== text) {
-                        context.report({
-                            loc: { line: 1, column: 0 },
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([0, text.length], rewritten)
-                        });
-                    }
+                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
                 }
             });
         }

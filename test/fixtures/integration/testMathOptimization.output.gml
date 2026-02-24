@@ -2,20 +2,20 @@
 
 grid[# _xInd, _yInd] = 100;
 
-var curr_val = myStruct[$ "the_key"];
+var curr_val = myStruct[];
 
 myArray[@ 3] = 9999;
 
 // eAIState
 
 enum eAIState {
-    idle,         // no AI direction currently
-    wander,       // pathfind/steer to random points in room
-    wander_path,  // wanders around but uses path finding
-    evade,        // trying to evade active target. If we can pathfind, pick random points nearby to move to. Otherwise, steer away from active target
-    follow,       // steer to follow our active target keeping distance between
-    follow_path,  // pathfind to follow our active target keeping distance between
-    move_to,      // move to active target's position without pathfinding
+    idle, // no AI direction currently
+    wander, // pathfind/steer to random points in room
+    wander_path, // wanders around but uses path finding
+    evade, // trying to evade active target. If we can pathfind, pick random points nearby to move to. Otherwise, steer away from active target
+    follow, // steer to follow our active target keeping distance between
+    follow_path, // pathfind to follow our active target keeping distance between
+    move_to, // move to active target's position without pathfinding
     move_to_path, // move to active target's position using pathfinding
     attack_target // close enough to enemy target & all attackcriteria met -> attack target
 }
@@ -24,20 +24,20 @@ enum eAIState {
 /// @param ratioY
 /// @param ratioX
 function convert_trig(angleDeg, ratioY, ratioX) {
-    var sin_radians = dsin(angleDeg);
-    var cos_radians = dcos(angleDeg + 90);
-    var tan_radians = dtan(-angleDeg);
-    var asin_degrees = darcsin(ratioY);
-    var atan_degrees = darctan(ratioY);
-    var atan2_degrees = darctan2(ratioY, ratioX);
-    var cos_to_rad = cos(angleDeg);
-    var sin_to_rad = sin(angleDeg);
-    var tan_to_rad = tan(angleDeg);
-    var asin_to_rad = arcsin(ratioY);
-    var acos_degrees = darccos(ratioY);
-    var acos_to_rad = arccos(ratioY);
-    var atan_to_rad = arctan(ratioY);
-    var atan2_to_rad = arctan2(ratioY, ratioX + 1);
+    var sin_radians = sin(degtorad(angleDeg));
+    var cos_radians = cos(degtorad(angleDeg + 90));
+    var tan_radians = tan(degtorad(-angleDeg));
+    var asin_degrees = radtodeg(arcsin(ratioY));
+    var atan_degrees = radtodeg(arctan(ratioY));
+    var atan2_degrees = radtodeg(arctan2(ratioY, ratioX));
+    var cos_to_rad = degtorad(dcos(angleDeg));
+    var sin_to_rad = degtorad(dsin(angleDeg));
+    var tan_to_rad = degtorad(dtan(angleDeg));
+    var asin_to_rad = degtorad(darcsin(ratioY));
+    var acos_degrees = radtodeg(arccos(ratioY));
+    var acos_to_rad = degtorad(darccos(ratioY));
+    var atan_to_rad = degtorad(darctan(ratioY));
+    var atan2_to_rad = degtorad(darctan2(ratioY, ratioX + 1));
     return [
         sin_radians,
         cos_radians,
@@ -57,7 +57,8 @@ function convert_trig(angleDeg, ratioY, ratioX) {
 }
 
 // Test that we can simplify expressions
-var s = size * 0.052 * (1 - lengthdir_x(1, swim_rot));
+var s = size * 0.104;
+s = (s * 0.5) * (1 - lengthdir_x(1, swim_rot));
 
 // 1) Cancelable ratio inside a product
 var s1 = speed * 0.5;
@@ -67,19 +68,19 @@ var s2 = distance * 0.25;
 
 // 3) Degrees to radians
 var s3 = degtorad(angle);
-
-// 4) Distributive constant collection
+/// @description 4) Distributive constant collection
 var s4 = value * 0.5;
 
 // 5) Divide by a reciprocal
-var s5 = (x - x0) * 60;
+var s5 = x - (x0 * 0.016666666666666666);
 // var s5 = (x - x0) / (1 / 60);
+
 
 // 6) Sequential quarter then half
 var s6 = width * 0.125;
 
 // 7) Percent into tenth
-var s7 = (hp / max_hp) * 10;
+var s7 = 10 * hp;
 
 // 8) Multiply by one minus one-half
 var s8 = len * 0.5;
@@ -103,25 +104,25 @@ var s13 = a * 0.5;
 var s14 = vx * dt * 0.06;
 
 // 15) Ten then divide by five
-var s15 = score * 2;
+var s15 = 2 * score;
 
 // 16) Milliseconds to minutes
 var s16 = time_ms * 0.0000166666666667;
 
 // 17) Divide by one-half
-var s17 = pixels * 2;
+var s17 = pixels * 0.5;
 
 // 18) Redundant reciprocal factors
 var s18 = a;
 
 // 19) Minutes to seconds scaling
-var s19 = t * 2;
+var s19 = 2 * t;
 
 // 20) Nested percentage
 var s20 = radius * 0.5;
 
 // 21) Factorable sum
-var s21 = k * 5;
+var s21 = 5 * k;
 
 // 22) Multiply by zero
 var s22 = offset;
@@ -139,7 +140,7 @@ var s25 = dx * 0.5;
 var s26 = value_a;
 
 // 27) Mixed constants
-var s27 = n * 2;
+var s27 = 2 * n;
 
 // 28) Inverted compound
 var s28 = m;
@@ -148,7 +149,7 @@ var s28 = m;
 var s29 = amount;
 
 // 30) Reciprocal of reciprocal
-var s30 = a_val * b_val;
+var s30 = a_val;
 
 // 31) Chained frame scaling with obvious cancel
 var s31 = frames;

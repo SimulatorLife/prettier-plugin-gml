@@ -9,6 +9,7 @@ import {
     isAstNodeRecord,
     isAstNodeWithType
 } from "../rule-base-helpers.js";
+import { shouldReportUnsafe } from "../rule-helpers.js";
 
 function isStringLiteralExpression(expression: unknown): boolean {
     if (!isAstNodeRecord(expression) || expression.type !== "Literal") {
@@ -48,6 +49,41 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const reportUnsafe = shouldReportUnsafe(context);
+
+            function expressionContainsUnsafeMutation(node: unknown): boolean {
+                if (!node || typeof node !== "object") {
+                    return false;
+                }
+
+                if (Array.isArray(node)) {
+                    return node.some((entry) => expressionContainsUnsafeMutation(entry));
+                }
+
+                const candidate = node as AstNodeRecord;
+                if (candidate.type === "UpdateExpression" || candidate.type === "IncDecStatement") {
+                    return true;
+                }
+                if (
+                    candidate.type === "AssignmentExpression" &&
+                    typeof candidate.operator === "string" &&
+                    candidate.operator !== "="
+                ) {
+                    return true;
+                }
+
+                for (const [key, value] of Object.entries(candidate)) {
+                    if (key === "parent") {
+                        continue;
+                    }
+                    if (expressionContainsUnsafeMutation(value)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             // helper shared between the Program walker and regular visitor
             function handleBinary(node: any) {
                 if (node.operator !== "+") {
@@ -55,6 +91,10 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
                 }
 
                 if (isStringLiteralExpression(node.left) || isStringLiteralExpression(node.right)) {
+                    if (!reportUnsafe && expressionContainsUnsafeMutation(node)) {
+                        return;
+                    }
+
                     context.report({
                         node,
                         messageId: definition.messageId,

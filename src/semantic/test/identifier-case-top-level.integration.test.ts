@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { COLLISION_CONFLICT_CODE } from "../src/identifier-case/common.js";
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
@@ -31,7 +30,7 @@ async function createTempProject({
 }
 
 void describe("identifier case top-level renaming", () => {
-    void it("plans renames for top-level scopes without modifying sources during dry-run", async () => {
+    void it("does not generate top-level rename plans during dry-run formatting", async () => {
         const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
@@ -117,14 +116,7 @@ void describe("identifier case top-level renaming", () => {
             const aggregatedOperations = collectedPlans.flatMap((plan) =>
                 Array.isArray(plan?.operations) ? plan.operations : []
             );
-
-            assert.ok(aggregatedOperations.length > 0, "Expected rename plan to be generated");
-            const operationScopes = new Set(aggregatedOperations.map((operation) => operation.id?.split(":")[0]));
-            assert.ok(operationScopes.has("functions"));
-            assert.ok(operationScopes.has("structs"));
-            assert.ok(operationScopes.has("macros"));
-            assert.ok(operationScopes.has("globals"));
-            assert.ok(operationScopes.has("instance"));
+            assert.equal(aggregatedOperations.length, 0);
         } finally {
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);
@@ -132,7 +124,7 @@ void describe("identifier case top-level renaming", () => {
         }
     });
 
-    void it("applies top-level renames when write mode is enabled", async () => {
+    void it("does not apply top-level renames during write-mode formatting", async () => {
         const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
@@ -168,34 +160,14 @@ void describe("identifier case top-level renaming", () => {
                 const rewritten = await formatWorkspace.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
-                    assert.ok(rewritten.includes("sampleFunction"), "Function call should be rewritten");
-                    assert.ok(!rewritten.includes("sample_function("));
-                    assert.ok(
-                        rewritten.includes("function sampleFunction"),
-                        "Function declaration should be rewritten"
-                    );
-                    assert.ok(
-                        !rewritten.includes("function sample_function("),
-                        "Original function declaration should not remain"
-                    );
-                    assert.ok(rewritten.includes("macroValue"));
-                    assert.ok(!rewritten.includes("MACRO_VALUE"));
-                    assert.ok(!rewritten.includes("global.globalValue"));
-                    assert.ok(rewritten.includes("globalvar globalValue"));
-                    assert.ok(!rewritten.includes("global_value ="));
-                    assert.ok(rewritten.includes("functionResult"));
-                    assert.ok(!rewritten.includes("function_result"));
-                    assert.ok(rewritten.includes("new sampleStruct"));
-                    assert.ok(!rewritten.includes("new sample_struct"));
+                    assert.ok(rewritten.includes("sample_function("));
+                    assert.ok(rewritten.includes("function sample_function"));
+                    assert.ok(rewritten.includes("MACRO_VALUE"));
+                    assert.ok(rewritten.includes("globalvar global_value"));
+                    assert.ok(rewritten.includes("function_result"));
+                    assert.ok(rewritten.includes("new sample_struct"));
                 } else if (script.fixture === "top-level-struct.gml") {
-                    assert.ok(
-                        rewritten.includes("function sampleStruct"),
-                        "Struct constructor declaration should be rewritten"
-                    );
-                    assert.ok(
-                        !rewritten.includes("function sample_struct("),
-                        "Original struct constructor should not remain"
-                    );
+                    assert.ok(rewritten.includes("function sample_struct("));
                 }
             }
 
@@ -213,8 +185,7 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
                 const rewrittenEvent = await formatWorkspace.format(event.source, eventOptions);
-                assert.ok(rewrittenEvent.includes("instanceCounter"), "Instance variable should be rewritten");
-                assert.ok(!rewrittenEvent.includes("instance_counter"));
+                assert.ok(rewrittenEvent.includes("instance_counter"));
             }
         } finally {
             clearIdentifierCaseDryRunContexts();
@@ -223,7 +194,7 @@ void describe("identifier case top-level renaming", () => {
         }
     });
 
-    void it("reports cross-scope collisions before applying renames", async () => {
+    void it("does not emit top-level collision plans during formatting", async () => {
         const { projectRoot, scripts, projectIndex } = await createTempProject({
             scriptFixtures: [
                 {
@@ -260,15 +231,11 @@ void describe("identifier case top-level renaming", () => {
 
             const formatted = await formatWorkspace.format(script.source, formatOptions);
             assert.ok(formatted.includes("function global_value"), "Collisions should prevent rewriting");
-            assert.ok(formatted.includes("globalValue"));
             assert.ok(!formatted.includes("function globalValue"));
 
             const store = getIdentifierCaseOptionStore(script.path);
             const conflicts = store?.__identifierCaseConflicts ?? [];
-            assert.ok(conflicts.length > 0, "Expected collision conflict");
-            const collision = conflicts.find((entry) => entry.code === COLLISION_CONFLICT_CODE);
-            assert.ok(collision, "Expected collision conflict to be reported");
-            assert.match(collision.message, /global variable/i);
+            assert.equal(conflicts.length, 0);
         } finally {
             clearIdentifierCaseDryRunContexts();
             clearIdentifierCaseOptionStore(null);

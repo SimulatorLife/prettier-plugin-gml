@@ -3,9 +3,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
-
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
@@ -18,7 +15,6 @@ import {
     createAssetRenameProject,
     createTempProjectWorkspace
 } from "./identifier-case-asset-helpers.js";
-// Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
 async function createAssetReservedProject() {
     const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-reserved-");
@@ -69,7 +65,7 @@ async function createAssetReservedProject() {
 }
 
 void describe("asset rename execution", () => {
-    void it("renames script assets and updates referencing metadata", async () => {
+    void it("does not rename script assets during formatter execution", async () => {
         const { projectRoot, projectIndex, scriptSource, scriptPath } = await createAssetRenameProject();
 
         try {
@@ -96,35 +92,12 @@ void describe("asset rename execution", () => {
 
             assert.strictEqual(diagnostics.length, 0);
 
-            const newYyRelative = "scripts/demo_script/DemoScript.yy";
-            const newGmlRelative = "scripts/demo_script/DemoScript.gml";
-            const newYyPath = path.join(projectRoot, Core.fromPosixPath(newYyRelative));
-            const newGmlPath = path.join(projectRoot, Core.fromPosixPath(newGmlRelative));
-
-            await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.yy"));
-            await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
-
-            const renamedYy = Semantic.parseProjectMetadataDocument(await fs.readFile(newYyPath, "utf8"), newYyPath);
-            assert.strictEqual(renamedYy.name, "DemoScript");
-            assert.strictEqual(renamedYy.resourcePath, newYyRelative);
-
-            const objectPath = path.join(projectRoot, Core.fromPosixPath("objects/obj_controller/obj_controller.yy"));
-            const objectData = Semantic.parseProjectMetadataDocument(await fs.readFile(objectPath, "utf8"), objectPath);
-            assert.deepStrictEqual(objectData.scriptExecute, {
-                path: newYyRelative,
-                name: "DemoScript"
-            });
-
-            const projectManifestPath = path.join(projectRoot, "MyGame.yyp");
-            const projectData = Semantic.parseProjectMetadataDocument(
-                await fs.readFile(projectManifestPath, "utf8"),
-                projectManifestPath
-            );
-            assert.strictEqual(projectData.resources[0].id.path, newYyRelative);
-            assert.strictEqual(projectData.resources[0].id.name, "DemoScript");
-
-            const renamedGmlExists = await fileExists(newGmlPath);
-            assert.ok(renamedGmlExists, "Expected renamed GML file to exist");
+            const originalYyPath = path.join(projectRoot, "scripts/demo_script/demo_script.yy");
+            const originalGmlPath = path.join(projectRoot, "scripts/demo_script/demo_script.gml");
+            const originalYyExists = await fileExists(originalYyPath);
+            const originalGmlExists = await fileExists(originalGmlPath);
+            assert.ok(originalYyExists);
+            assert.ok(originalGmlExists);
         } finally {
             clearIdentifierCaseDryRunContexts();
             await fs.rm(projectRoot, { recursive: true, force: true });
@@ -244,17 +217,6 @@ void describe("asset rename conflict detection", () => {
         }
     });
 });
-
-async function assertPathMissing(targetPath) {
-    try {
-        await fs.access(targetPath);
-        assert.fail(`Path ${targetPath} unexpectedly exists.`);
-    } catch (error) {
-        if (!error || error.code !== "ENOENT") {
-            throw error;
-        }
-    }
-}
 
 async function fileExists(targetPath) {
     try {

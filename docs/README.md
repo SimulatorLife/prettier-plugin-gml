@@ -90,17 +90,11 @@ implementation details:
 - [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline
   that collects built-in Feather debugger metadata and how the generated files
   are versioned.
-- [Reserved identifier metadata hook](reserved-identifier-metadata-hook.md) —
-  Explains how advanced integrations can temporarily swap the bundled
-  identifier dataset while keeping the default loader in place.
 - [Architecture overview](../README.md#architecture-overview) — High-level map
   of the workspace packages, where generated assets live, and which scripts
   refresh them. Pair it with the reserved identifier coverage captured in the
   [legacy identifier-case plan](legacy-identifier-case-plan.md) when updating the
   scrapers or running metadata rebuilds through the CLI.
 
-## Performance & diagnostics
-
-- [Metrics tracker finalize memory experiment](metrics-tracker-finalize-memory.md)
-  — Documents the `node --expose-gc` benchmark that verifies tracker clean-up
-  reduces retained heap size once reports are materialised.
+## TODO / Ideas
+- Create a new workspace for a GML-tooling MCP server that wraps/exposes the CLI's commands (`@gml-modules/mcp-server`) so an AI agent can interact/invoke the tools.

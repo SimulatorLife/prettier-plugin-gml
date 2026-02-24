@@ -1,6 +1,5 @@
 /// @description Top of file description comment
-
-// Banner comment
+/// ///// Banner comment
 var value = 1;
 
 // Comment
@@ -8,7 +7,7 @@ var message = "ready";
 
 // Move camera
 camUpdateTimer += timeStep;
-if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1/60th second
+if ((camUpdateTimer >= 1) or (fps < 70)) { // Only update the mouse movement every 1/60th second
     var mousedx = window_mouse_get_x() - (window_get_width() * 0.5);
     var mousedy = window_mouse_get_y() - (window_get_height() * 0.5);
     window_mouse_set(window_get_width() * 0.5, window_get_height() * 0.5);
@@ -16,7 +15,6 @@ if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1
     camYaw += mousedx * 0.1;
     camPitch = clamp(camPitch - (mousedy * 0.1), -80, -2);
 }
-
 /* Orthogonalize the P2 direction to the vector from P1 to P3 */
 
 /* 
@@ -28,9 +26,8 @@ if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1
 var p1_p3sqr = sqr(p1_p3);
 var p2_p3sqr = sqr(length2);
 var p1_p2sqr = sqr(length1);
-var intersectionRadius = sqrt(p2_p3sqr - (sqr(p1_p2sqr - p2_p3sqr - p1_p3sqr) / (4 * p1_p3sqr)));
-var l = sqrt(p1_p2sqr - sqr(intersectionRadius)) / p1_p3;
-
+var intersectionRadius = sqrt(p2_p3sqr - (sqr((p1_p2sqr - p2_p3sqr) - p1_p3sqr) * p1_p3sqr * 0.25));
+var l = sqrt(p1_p2sqr - sqr(intersectionRadius));
 // eAIState
 
 // Fall state

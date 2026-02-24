@@ -64,7 +64,7 @@ async function fileExists(filePath) {
 }
 
 void describe("identifier case project index bootstrap", () => {
-    void it("discovers the project root and reuses the index cache", async () => {
+    void it("does not apply identifier-case rewrites via formatter autodiscovery", async () => {
         const { projectRoot, fixtureSource, gmlPath } = await createTempProject();
 
         try {
@@ -85,41 +85,23 @@ void describe("identifier case project index bootstrap", () => {
             const formatWorkspace = await getFormat();
             const firstOutput = await formatWorkspace.format(fixtureSource, firstRunOptions);
 
-            assert.match(firstOutput, /counterValue/, "Expected automatic discovery to enable renames");
-
-            const store1 = getIdentifierCaseOptionStore(gmlPath);
-            assert.ok(store1, "Expected bootstrap store to be captured");
-            const bootstrap1 = store1.__identifierCaseProjectIndexBootstrap;
-            assert.ok(bootstrap1, "Expected bootstrap metadata to be stored");
-            assert.strictEqual(bootstrap1.status, "ready");
-            assert.strictEqual(bootstrap1.source, "build");
-            assert.ok(
-                store1.__identifierCaseMetricsReport,
-                "Expected metrics to be recorded during automatic planning"
-            );
+            assert.ok(firstOutput.includes("counter_value"));
 
             const cacheFilePath = path.join(projectRoot, ".prettier-plugin-gml", "project-index-cache.json");
-            assert.ok(await fileExists(cacheFilePath), "Expected index cache to be written after the first run");
+            assert.equal(await fileExists(cacheFilePath), false);
 
             const secondRunOptions = {
                 ...baseOptions
             };
             const secondOutput = await formatWorkspace.format(firstOutput, secondRunOptions);
-            assert.match(secondOutput, /counterValue/, "Expected subsequent runs to keep applying renames");
-            const store2 = getIdentifierCaseOptionStore(gmlPath);
-            assert.ok(store2, "Expected cached bootstrap metadata");
-            const bootstrap2 = store2.__identifierCaseProjectIndexBootstrap;
-            assert.ok(bootstrap2, "Expected cached bootstrap metadata");
-            assert.strictEqual(bootstrap2.status, "ready");
-            assert.strictEqual(bootstrap2.source, "cache");
-            assert.strictEqual(bootstrap2.cache?.status, "hit");
+            assert.ok(secondOutput.includes("counter_value"));
         } finally {
             clearIdentifierCaseOptionStore(gmlPath);
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
 
-    void it("skips discovery when no manifest is present or discovery is disabled", async () => {
+    void it("keeps identifier-case rewrites disabled when discovery cannot run", async () => {
         const missBase = path.join(currentDirectory, "../../tmp", "gml-identifier-case-autodiscovery-miss");
         await fs.mkdir(missBase, { recursive: true });
         const tempRoot = await fs.mkdtemp(path.join(missBase, "gml-identifier-case-autodiscovery-miss-"));
@@ -154,10 +136,7 @@ void describe("identifier case project index bootstrap", () => {
                 "Expected renames to be skipped when no project root is found"
             );
             const missingStore = getIdentifierCaseOptionStore(manifestStoreKey);
-            const skippedBootstrap = missingStore?.__identifierCaseProjectIndexBootstrap;
-            assert.ok(skippedBootstrap, "Expected skip metadata to be recorded");
-            assert.strictEqual(skippedBootstrap.status, "skipped");
-            assert.strictEqual(skippedBootstrap.reason, "project-root-not-found");
+            assert.equal(missingStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
 
             const { projectRoot, gmlPath: discoveredPath, fixtureSource: source } = await createTempProject();
             try {
@@ -182,10 +161,7 @@ void describe("identifier case project index bootstrap", () => {
                     "Expected renames to be disabled when discovery is turned off"
                 );
                 const disabledStore = getIdentifierCaseOptionStore(discoveredPath);
-                const disabledBootstrap = disabledStore?.__identifierCaseProjectIndexBootstrap;
-                assert.ok(disabledBootstrap);
-                assert.strictEqual(disabledBootstrap.status, "skipped");
-                assert.strictEqual(disabledBootstrap.reason, "discovery-disabled");
+                assert.equal(disabledStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
             } finally {
                 clearIdentifierCaseOptionStore(discoveredPath);
                 await fs.rm(projectRoot, { recursive: true, force: true });
