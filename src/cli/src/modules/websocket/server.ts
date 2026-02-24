@@ -256,6 +256,15 @@ export async function startPatchWebSocketServer({
 
     /**
      * Stops the WebSocket server and closes all connections.
+     *
+     * Uses `ws.terminate()` rather than `ws.close()` so that the underlying TCP
+     * socket for each connected client is destroyed immediately.  The graceful
+     * `ws.close()` path sends a WebSocket CLOSE frame and then waits for the
+     * peer to echo it back before freeing the socket; if a client is
+     * unresponsive (network partition, browser crash, etc.) that wait never
+     * completes and `wss.close()` hangs indefinitely.  `ws.terminate()` skips
+     * the handshake and calls `socket.destroy()` directly, guaranteeing that
+     * every TCP socket is freed before `wss.close()` is awaited.
      */
     async function stop() {
         if (closed) {
@@ -265,9 +274,13 @@ export async function startPatchWebSocketServer({
 
         for (const ws of clients) {
             try {
-                ws.close();
+                // terminate() destroys the underlying TCP socket immediately,
+                // unlike close() which sends a CLOSE frame and waits for the
+                // peer's echo.  This is safe for server shutdown because prompt
+                // resource cleanup matters more than a graceful handshake here.
+                ws.terminate();
             } catch {
-                // Ignore close errors
+                // Ignore terminate errors
             }
         }
 
