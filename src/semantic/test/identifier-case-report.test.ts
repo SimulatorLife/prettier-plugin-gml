@@ -96,11 +96,14 @@ async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagn
 
     const Plugin = await getPlugin();
 
-    return Plugin.format(source, {
+    const formatOptions = {
         filepath,
         diagnostics,
         logger
-    });
+    };
+    const formatted = await Plugin.format(source, formatOptions);
+    maybeReportIdentifierCaseDryRun(formatOptions);
+    return formatted;
 }
 
 void describe("identifier case reporting", () => {

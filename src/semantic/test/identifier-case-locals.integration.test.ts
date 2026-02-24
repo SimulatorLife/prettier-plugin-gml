@@ -107,6 +107,8 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
 
             const plugin = await getPlugin();
             const formatted = await plugin.format(fixtureSource, formatOptions);
+            await prepareIdentifierCasePlan(formatOptions);
+            maybeReportIdentifierCaseDryRun(formatOptions);
 
             assert.ok(formatted.includes("counter_value"), "Dry-run should not rewrite identifiers in the source");
             assert.ok(!formatted.includes("counterValue"), "Dry-run should not apply rename targets");
@@ -147,7 +149,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
         }
     });
 
-    void it("applies local identifier renames when write mode is enabled", async () => {
+    void it("does not apply local identifier renames in plugin write mode", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();
 
         try {
@@ -177,13 +179,13 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             const plugin = await getPlugin();
             const formatted = await plugin.format(fixtureSource, formatOptions);
 
-            assert.match(formatted, /counterValue/);
+            assert.match(formatted, /counter_value/);
             assert.match(formatted, /preserve_me/);
             assert.match(formatted, /ignore_temp/);
             assert.match(formatted, /foo_bar/);
             assert.match(formatted, /fooBar/);
 
-            assert.ok(!formatted.includes("counter_value"), "Write mode should update declaration references");
+            assert.ok(!formatted.includes("counterValue"), "Formatter must not apply semantic identifier rewrites");
             assert.strictEqual(diagnostics.length, 0);
         } finally {
             clearIdentifierCaseDryRunContexts();
@@ -191,7 +193,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
         }
     });
 
-    void it("differentiates dry-run versus write output for eligible locals", async () => {
+    void it("keeps dry-run and write output identical for eligible locals", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject("locals-write.gml");
 
         const baseOptions = {
@@ -242,8 +244,8 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
 
             const writeOutput = await plugin.format(fixtureSource, writeOptions);
 
-            assert.match(writeOutput, /shouldRename/);
-            assert.ok(!writeOutput.includes("should_rename"), "Write mode should apply the converted identifier");
+            assert.match(writeOutput, /should_rename/);
+            assert.ok(!writeOutput.includes("shouldRename"), "Formatter must not apply semantic identifier rewrites");
 
             const writeReportOptions = {
                 ...baseOptions,

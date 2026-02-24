@@ -32,11 +32,7 @@ import {
     storeFormattingCacheEntry,
     trimFormattingCache
 } from "../modules/formatting/index.js";
-import {
-    configurePluginRuntimeAdapters,
-    importPluginModule,
-    resolvePluginEntryPoint as resolveCliPluginEntryPoint
-} from "../plugin-runtime/index.js";
+import { importPluginModule, resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/index.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -1691,7 +1687,6 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
  */
 async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, originalInput }) {
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
-    await configurePluginRuntimeAdapters(projectRoot);
 
     await formatResolvedTarget({
         targetPath,

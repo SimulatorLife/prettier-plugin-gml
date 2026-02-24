@@ -60,44 +60,6 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
-type IdentifierCaseIntegrationDryRunReportService = (options: Record<string, unknown>) => unknown;
-
-export type IdentifierCaseIntegrationConfiguration = {
-    runtime?: object;
-    identifierCaseOptions?: Record<string, unknown>;
-    printerServices?: {
-        dryRunReportService?: IdentifierCaseIntegrationDryRunReportService;
-    };
-};
-
-const identifierCaseIntegrationState = {
-    dryRunReportService: null as IdentifierCaseIntegrationDryRunReportService | null
-};
-
-/**
- * Registers semantic identifier-case integration dependencies for plugin consumers.
- *
- * The plugin currently wires identifier-case behavior through semantic context modules,
- * so this hook validates external configuration without mutating the immutable plugin
- * component bundle.
- */
-export function configureIdentifierCaseIntegration(configuration: IdentifierCaseIntegrationConfiguration): void {
-    if (typeof configuration !== "object" || configuration === null) {
-        throw new TypeError("Expected identifier-case integration configuration to be an object.");
-    }
-
-    const dryRunReportServiceCandidate = configuration.printerServices?.dryRunReportService;
-    if (
-        dryRunReportServiceCandidate !== undefined &&
-        dryRunReportServiceCandidate !== null &&
-        typeof dryRunReportServiceCandidate !== "function"
-    ) {
-        throw new TypeError("Expected dryRunReportService to be a function when provided.");
-    }
-
-    identifierCaseIntegrationState.dryRunReportService = dryRunReportServiceCandidate ?? null;
-}
-
 /**
  * Utility function and entry point to format GML source code using the plugin.
  */
@@ -109,8 +71,6 @@ async function format(source: string, options: SupportOptions = {}) {
     };
 
     const formatted = await prettier.format(source, formatOptions);
-
-    identifierCaseIntegrationState.dryRunReportService?.(formatOptions);
 
     if (typeof formatted !== "string") {
         throw new TypeError("Expected Prettier to return a string result.");

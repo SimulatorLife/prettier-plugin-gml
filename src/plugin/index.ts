@@ -1,1 +1,1 @@
-export { configureIdentifierCaseIntegration, Plugin } from "./src/index.js";
+export { Plugin } from "./src/index.js";
