@@ -632,7 +632,7 @@ function tryPrintExpressionNode(node, path, options, print) {
     }
 }
 
-function printParenthesizedExpressionNode(node, path, options, print) {
+function printParenthesizedExpressionNode(_node, path, options, print) {
     if (shouldOmitSyntheticParens(path, options)) {
         return printWithoutExtraParens(path, print, "expression");
     }
@@ -671,7 +671,7 @@ function printBinaryExpressionNode(node, path, options, print) {
     return concat(parts);
 }
 
-function printUnaryLikeExpressionNode(node, path, _options, print) {
+function printUnaryLikeExpressionNode(node, _path, _options, print) {
     if (node.prefix) {
         if (node.operator === "+" && shouldOmitUnaryPlus(node.argument)) {
             return print("argument");
@@ -843,7 +843,7 @@ function printMemberDotExpressionNode(node, path, options, print) {
     }
 }
 
-function printMemberIndexExpressionNode(node, path, options, print) {
+function printMemberIndexExpressionNode(_node, path, options, print) {
     const memberNode = path.getValue();
     let accessor = print("accessor");
     if (memberNode && typeof memberNode.accessor === "string") {
@@ -4066,7 +4066,7 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
         }
     }
 
-    const preserveBraceAdjacency = shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode);
+    const preserveBraceAdjacency = shouldPreserveClauseBlockAdjacency(clauseNode, bodyNode);
 
     return concat([
         keyword,
@@ -4077,7 +4077,7 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     ]);
 }
 
-function shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode) {
+function shouldPreserveClauseBlockAdjacency(clauseNode, bodyNode) {
     if (!clauseNode || !bodyNode || bodyNode.type !== "BlockStatement") {
         return false;
     }

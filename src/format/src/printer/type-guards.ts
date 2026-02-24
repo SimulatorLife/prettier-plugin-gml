@@ -19,13 +19,6 @@ const OBJECT_TYPE = "object";
 const UNDEFINED_TYPE = "undefined";
 
 /**
- * Maximum depth to traverse when walking up the AST.
- *
- * This limit prevents infinite loops when traversing malformed or deeply nested ASTs.
- */
-const MAX_ANCESTOR_TRAVERSAL_DEPTH = 100;
-
-/**
  * Cached regex for detecting decorative banner-style comment lines.
  */
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
@@ -294,28 +287,6 @@ export function isNumericComputationNode(node: any): boolean {
     }
 }
 
-/**
- * Checks if a call expression has been sanitized (for macro safety).
- */
-export function isCallExpressionSanitized(current: unknown, sanitizedMacroNames: Set<string>): boolean {
-    if (!current || typeof current !== OBJECT_TYPE) {
-        return false;
-    }
-
-    const node = current as any;
-    if (node.type !== "CallExpression") {
-        return false;
-    }
-
-    const calleeName = Core.getIdentifierText(node.object);
-    if (typeof calleeName !== STRING_TYPE) {
-        return false;
-    }
-
-    const normalized = calleeName.toLowerCase();
-    return sanitizedMacroNames.has(normalized);
-}
-
 // ============================================================================
 // Context-Aware Type Guards (require path)
 // ============================================================================
@@ -359,145 +330,10 @@ export function isInsideConstructorFunction(path: any): boolean {
 }
 
 /**
- * Determines if a binary expression is part of a control flow logical test.
- */
-export function isControlFlowLogicalTest(path: any): boolean {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let depth = 1;
-    let currentNode = path.getValue();
-
-    while (true) {
-        const ancestor = safeGetParentNode(path, depth - 1);
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (ancestor.type === "ParenthesizedExpression" || ancestor.type === "BinaryExpression") {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        if (ancestor.type === "IfStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "WhileStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "DoUntilStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "RepeatStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "WithStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        if (ancestor.type === "ForStatement" && ancestor.test === currentNode) {
-            return true;
-        }
-
-        return false;
-    }
-}
-
-/**
- * Determines if a comparison is within a logical chain of comparisons.
- */
-export function isComparisonWithinLogicalChain(path: any): boolean {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let depth = 1;
-    let currentNode = path.getValue();
-
-    while (depth < MAX_ANCESTOR_TRAVERSAL_DEPTH) {
-        const ancestor = safeGetParentNode(path, depth - 1);
-
-        if (!ancestor) {
-            return false;
-        }
-
-        // Skip over parenthesized expressions to find meaningful parent
-        if (ancestor.type === "ParenthesizedExpression") {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        // Continue through comparison operators in the chain
-        if (ancestor.type === "BinaryExpression" && Core.isComparisonBinaryOperator(ancestor.operator)) {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        // Check if we've reached a logical operator at the top of the chain
-        if (ancestor.type === "BinaryExpression" && Core.isLogicalBinaryOperator(ancestor.operator)) {
-            return ancestor.left === currentNode || ancestor.right === currentNode;
-        }
-
-        return false;
-    }
-
-    return false;
-}
-
-/**
  * Checks if synthetic parenthesis flattening is enabled in the current context.
  */
 export function isSyntheticParenFlatteningEnabled(path: any): boolean {
     return checkSyntheticParenFlattening(path);
-}
-
-/**
- * Determines if the current node is within a numeric call argument context.
- */
-export function isWithinNumericCallArgument(path: any): boolean {
-    let depth = 1;
-    let currentNode: unknown = path?.getValue?.() ?? null;
-
-    while (true) {
-        const ancestor = safeGetParentNode(path, depth - 1);
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (ancestor.type === "ParenthesizedExpression" || ancestor.type === "BinaryExpression") {
-            currentNode = ancestor;
-            depth += 1;
-            continue;
-        }
-
-        if (ancestor.type === "CallExpression") {
-            if (!Array.isArray(ancestor.arguments)) {
-                return false;
-            }
-
-            const matchingArgument = ancestor.arguments.find(
-                (argument: any) => argument === currentNode || argument?.expression === currentNode
-            );
-
-            if (!matchingArgument) {
-                return false;
-            }
-
-            return isNumericCallExpression(ancestor);
-        }
-
-        return false;
-    }
 }
 
 /**
@@ -548,92 +384,6 @@ export function isLValueExpression(nodeType: string): boolean {
  */
 export function isValidIdentifierName(name: any): boolean {
     return typeof name === STRING_TYPE && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
-}
-
-/**
- * Checks if an assignment matches the expected parameter at a given index.
- */
-export function isArgumentAssignment(assign: any, paramName: string, argIndex: number): boolean {
-    if (!assign || assign.type !== "AssignmentExpression") {
-        return false;
-    }
-
-    if (assign.operator !== "=") {
-        return false;
-    }
-
-    const left = assign.left;
-    if (!left || left.type !== "MemberIndexExpression") {
-        return false;
-    }
-
-    const objectNode = left.object;
-    if (!objectNode || objectNode.type !== "Identifier") {
-        return false;
-    }
-
-    const objectName = objectNode.name;
-    if (typeof objectName !== STRING_TYPE) {
-        return false;
-    }
-
-    if (objectName.toLowerCase() !== "argument") {
-        return false;
-    }
-
-    const indexNode = left.index;
-    if (!indexNode) {
-        return false;
-    }
-
-    if (indexNode.type === "Identifier") {
-        const indexName = indexNode.name;
-        if (typeof indexName === STRING_TYPE && indexName === paramName) {
-            return true;
-        }
-    }
-
-    if (indexNode.type === "Literal") {
-        const indexValue = indexNode.value;
-        if (typeof indexValue === NUMBER_TYPE && indexValue === argIndex) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Determines if an expression is a self-multiplication (e.g., x * x).
- */
-export function isSelfMultiplicationExpression(expression: any): boolean {
-    if (!expression || expression.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (expression.operator !== "*") {
-        return false;
-    }
-
-    const left = expression.left;
-    const right = expression.right;
-
-    if (!left || !right) {
-        return false;
-    }
-
-    if (left.type !== "Identifier" || right.type !== "Identifier") {
-        return false;
-    }
-
-    const leftName = left.name;
-    const rightName = right.name;
-
-    if (typeof leftName !== STRING_TYPE || typeof rightName !== STRING_TYPE) {
-        return false;
-    }
-
-    return leftName === rightName;
 }
 
 // ============================================================================
