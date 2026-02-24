@@ -55,11 +55,32 @@ export function createLocResolver(text: string): (index: number) => { line: numb
  * Applies a set of local test fixer operations in source-order.
  */
 export function applyFixOperations(text: string, operations: Array<RuleTestFixOperation>): string {
-    const ordered = [...operations].sort((left, right) => left.range[0] - right.range[0]);
+    const ordered = [...operations].sort((left, right) => {
+        if (left.range[0] !== right.range[0]) {
+            return left.range[0] - right.range[0];
+        }
+        if (left.range[1] !== right.range[1]) {
+            return left.range[1] - right.range[1];
+        }
+        return left.kind.localeCompare(right.kind);
+    });
     let output = "";
     let cursor = 0;
+    const appliedKeys = new Set<string>();
     for (const operation of ordered) {
         const [start, end] = operation.range;
+        const operationKey = `${operation.kind}:${start}:${end}:${operation.text}`;
+        if (appliedKeys.has(operationKey)) {
+            continue;
+        }
+        appliedKeys.add(operationKey);
+
+        // ESLint fix application ignores edits that overlap previously applied edits.
+        // Mirror that behavior so tests match real fixer execution.
+        if (start < cursor) {
+            continue;
+        }
+
         output += text.slice(cursor, start);
         output += operation.text;
         cursor = operation.kind === "replace" ? end : start;

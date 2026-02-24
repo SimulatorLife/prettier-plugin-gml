@@ -151,8 +151,37 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
         }
     } as never;
 
-    const listeners = rule.create(context);
-    listeners.Program?.(parseProgramNode(code) as never);
+    const listeners = rule.create(context) as Record<string, ((node: unknown) => void) | undefined>;
+    const programNode = parseProgramNode(code);
+
+    const visitedNodes = new WeakSet<object>();
+    const visitNode = (node: unknown): void => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+        if (visitedNodes.has(node)) {
+            return;
+        }
+        visitedNodes.add(node);
+
+        const nodeType = Reflect.get(node, "type");
+        if (typeof nodeType === "string") {
+            listeners[nodeType]?.(node);
+        }
+
+        const values = Object.values(node as Record<string, unknown>);
+        for (const value of values) {
+            if (Array.isArray(value)) {
+                for (const child of value) {
+                    visitNode(child);
+                }
+                continue;
+            }
+            visitNode(value);
+        }
+    };
+
+    visitNode(programNode);
 
     return {
         messages,
