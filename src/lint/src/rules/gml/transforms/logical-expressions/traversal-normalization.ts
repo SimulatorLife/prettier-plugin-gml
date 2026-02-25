@@ -5,8 +5,12 @@ const { isObjectLike, isNode } = Core;
 /**
  * Apply logical expression simplifications using AST traversal.
  * Handles De Morgan's laws, double negation, and boolean constant simplification.
+ *
+ * @param ast The AST node to normalize (mutated in place).
+ * @param sourceText Optional original source text used to detect inline comments
+ *     that must prevent structural rewrites (e.g. if-else-boolean-return collapsing).
  */
-export function applyLogicalNormalization(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+export function applyLogicalNormalization(ast: MutableGameMakerAstNode, sourceText?: string): MutableGameMakerAstNode {
     if (!isObjectLike(ast)) {
         return ast;
     }
@@ -15,14 +19,14 @@ export function applyLogicalNormalization(ast: MutableGameMakerAstNode): Mutable
     let changed = true;
     let iterations = 0;
     while (changed && iterations < 10) {
-        changed = traverseAndSimplify(ast);
+        changed = traverseAndSimplify(ast, sourceText);
         iterations++;
     }
 
     return ast;
 }
 
-function traverseAndSimplify(node: any): boolean {
+function traverseAndSimplify(node: any, sourceText: string | undefined): boolean {
     if (!isObjectLike(node)) {
         return false;
     }
@@ -37,24 +41,24 @@ function traverseAndSimplify(node: any): boolean {
         const child = node[key];
         if (Array.isArray(child)) {
             for (const element of child) {
-                if (traverseAndSimplify(element)) {
+                if (traverseAndSimplify(element, sourceText)) {
                     changed = true;
                 }
             }
-        } else if (isNode(child) && traverseAndSimplify(child)) {
+        } else if (isNode(child) && traverseAndSimplify(child, sourceText)) {
             changed = true;
         }
     }
 
     // Now try to simplify the current node
-    if (simplifyNode(node)) {
+    if (simplifyNode(node, sourceText)) {
         changed = true;
     }
 
     return changed;
 }
 
-function simplifyNode(node: any): boolean {
+function simplifyNode(node: any, sourceText: string | undefined): boolean {
     if (node.type === "UnaryExpression" && node.operator === "!") {
         return simplifyNot(node);
     }
@@ -63,7 +67,7 @@ function simplifyNode(node: any): boolean {
     }
 
     if (node.type === "IfStatement") {
-        return simplifyIfStatement(node);
+        return simplifyIfStatement(node, sourceText);
     }
     if (node.type === "Program" || node.type === "BlockStatement") {
         return simplifyStatementList(node.body);
@@ -124,18 +128,41 @@ function simplifyStatementList(body: any[]): boolean {
     return changed;
 }
 
-function simplifyIfStatement(node: any): boolean {
+function simplifyIfStatement(node: any, sourceText: string | undefined): boolean {
     // 1. if (cond) return true; else return false; -> return cond;
     // 2. if (cond) return false; else return true; -> return !cond;
 
     // Check structure: has consequent and alternate
     if (!node.consequent || !node.alternate) return false;
 
+    // Skip when any part of the if statement carries comments — comment
+    // attachment is semantically significant and must be preserved.
+    // Check both via the AST (Prettier context) and the raw source text (ESLint
+    // context, where comments live in program.comments rather than node.comments).
+    if (Core.hasComment(node)) return false;
+
     // Normalize blocks to single statements if they contain only one statement
     const consequent = unwrapBlock(node.consequent);
     const alternate = unwrapBlock(node.alternate);
 
     if (consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
+        // Skip when either return statement or its argument carries comments.
+        if (Core.hasComment(consequent) || Core.hasComment(alternate)) return false;
+
+        // When source text is available (ESLint context), scan the branch text
+        // for comment tokens so that inline comments prevent the rewrite.
+        if (sourceText) {
+            const consequentStart = Core.getNodeStartIndex(node.consequent);
+            const consequentEnd = Core.getNodeEndIndex(node.consequent);
+            if (
+                typeof consequentStart === "number" &&
+                typeof consequentEnd === "number" &&
+                /\/\/|\/\*/.test(sourceText.slice(consequentStart, consequentEnd))
+            ) {
+                return false;
+            }
+        }
+
         const consArg = consequent.argument;
         const altArg = alternate.argument;
 
@@ -146,7 +173,7 @@ function simplifyIfStatement(node: any): boolean {
             // return cond;
             const newReturn = {
                 type: "ReturnStatement",
-                argument: node.test,
+                argument: unwrapParens(node.test),
                 start: node.start,
                 end: node.end
             };
@@ -160,7 +187,7 @@ function simplifyIfStatement(node: any): boolean {
                 type: "UnaryExpression",
                 operator: "!",
                 prefix: true,
-                argument: node.test
+                argument: unwrapParens(node.test)
             };
             const newReturn = {
                 type: "ReturnStatement",
@@ -245,6 +272,14 @@ function simplifyIfStatement(node: any): boolean {
 function unwrapBlock(node: any): any {
     if (node.type === "BlockStatement" && node.body.length === 1) {
         return node.body[0];
+    }
+    return node;
+}
+
+/** Strip a single layer of `ParenthesizedExpression` so the condition prints without outer parens. */
+function unwrapParens(node: any): any {
+    if (node && node.type === "ParenthesizedExpression" && node.expression) {
+        return node.expression;
     }
     return node;
 }
@@ -630,9 +665,18 @@ function areNegations(node1: any, node2: any): boolean {
 }
 
 function getBooleanValue(node: any): boolean | undefined {
-    if (node.type === "Literal" && typeof node.value === "boolean") {
+    if (node.type !== "Literal") {
+        return undefined;
+    }
+
+    if (typeof node.value === "boolean") {
         return node.value;
     }
+
+    // GML represents boolean literals as string-valued Literal nodes ("true" / "false").
+    if (node.value === "true") return true;
+    if (node.value === "false") return false;
+
     return undefined;
 }
 

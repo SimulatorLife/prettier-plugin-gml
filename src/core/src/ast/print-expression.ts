@@ -73,6 +73,14 @@ export function printExpression(node: any, sourceText: string): string {
             const right = printExpression(node.right, sourceText);
             return `${left} ${node.operator} ${right}`;
         }
+        case "ReturnStatement": {
+            // Synthetic ReturnStatement nodes produced by traversal transforms
+            // (e.g. the if-else-boolean-return simplification) need explicit
+            // printing so the lint-rule comparison detects the change and
+            // produces correct replacement text.
+            const arg = node.argument ? ` ${printExpression(node.argument, sourceText)}` : "";
+            return `return${arg};`;
+        }
         default: {
             const text = readNodeText(sourceText, node);
             return text || "";

@@ -184,4 +184,54 @@ void describe("formatter migrated-transform regression coverage", () => {
             "Formatter must not strip duplicate doc-comment lines — that is a lint-workspace responsibility"
         );
     });
+
+    void it("does not collapse if-else-boolean-return patterns (simplification belongs in lint)", async () => {
+        // The formatter must not perform semantic/content rewrites.
+        // Converting `if (cond) { return true; } else { return false; }` to
+        // `return cond;` is a structural simplification owned by the
+        // `gml/optimize-logical-flow` lint rule (target-state.md §3.2).
+        const source = [
+            "function bool_passthrough(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return condition;/,
+            "Formatter must not collapse if-else-boolean-return to a direct return — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/, "Formatter must preserve the original if-else structure unchanged");
+    });
+
+    void it("does not collapse negated if-else-boolean-return patterns (simplification belongs in lint)", async () => {
+        // The formatter must not perform semantic/content rewrites.
+        // Converting `if (cond) { return false; } else { return true; }` to
+        // `return !cond;` is a structural simplification owned by the
+        // `gml/optimize-logical-flow` lint rule (target-state.md §3.2).
+        const source = [
+            "function bool_negated(condition) {",
+            "    if (condition) {",
+            "        return false;",
+            "    } else {",
+            "        return true;",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return !condition;/,
+            "Formatter must not collapse negated if-else-boolean-return to a negated return — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/, "Formatter must preserve the original if-else structure unchanged");
+    });
 });
