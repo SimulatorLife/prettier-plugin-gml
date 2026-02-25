@@ -1148,3 +1148,73 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
         "optimize-logical-flow should remove !! but not collapse the if/return pattern"
     );
 });
+
+void test("optimize-logical-flow collapses if-else-boolean-return to a direct return", () => {
+    // Semantic simplification of `if (cond) { return true; } else { return false; }` belongs in the
+    // lint workspace (gml/optimize-logical-flow), not the formatter (target-state.md §3.2).
+    const input = [
+        "function bool_passthrough(condition) {",
+        "    if (condition) {",
+        "        return true;",
+        "    } else {",
+        "        return false;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = ["function bool_passthrough(condition) {", "    return condition;", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
+    assert.equal(
+        result.output,
+        expected,
+        "optimize-logical-flow should collapse if-else-boolean-return to return cond"
+    );
+});
+
+void test("optimize-logical-flow collapses negated if-else-boolean-return to a negated return", () => {
+    // `if (cond) { return false; } else { return true; }` → `return !cond;` belongs in lint.
+    const input = [
+        "function bool_negated(condition) {",
+        "    if (condition) {",
+        "        return false;",
+        "    } else {",
+        "        return true;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics for negated case");
+    assert.doesNotMatch(
+        result.output ?? "",
+        /if \(condition\)/,
+        "optimize-logical-flow should collapse negated if-else-boolean-return"
+    );
+});
+
+void test("optimize-logical-flow preserves if-else-boolean-return when branches contain comments", () => {
+    // Comments inside an if-else-boolean-return must prevent simplification —
+    // removing the surrounding structure would orphan the inline comment.
+    const input = [
+        "function bool_with_comment(condition) {",
+        "    if (condition) {",
+        "        // comment should stop simplification",
+        "        return true;",
+        "    } else {",
+        "        return false;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.match(
+        result.output ?? input,
+        /if \(condition\)/,
+        "optimize-logical-flow must not collapse if-else-boolean-return when comments are present in branches"
+    );
+});
