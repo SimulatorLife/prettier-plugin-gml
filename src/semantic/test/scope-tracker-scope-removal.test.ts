@@ -316,6 +316,38 @@ void describe("ScopeTracker: getImpactedFilePaths", () => {
         assert.equal(result.size, 3, "c.gml should not appear twice");
     });
 
+    void it("deduplicates repeated changed paths before traversing dependents", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/a.gml" });
+        declareAt(tracker, "util");
+
+        tracker.enterScope("file", { path: "/project/b.gml" });
+        referenceAt(tracker, "util");
+        tracker.exitScope();
+
+        tracker.exitScope();
+
+        const getTransitiveDependentsMethod = tracker.getTransitiveDependents.bind(tracker);
+        let traversalCount = 0;
+        tracker.getTransitiveDependents = (scopeId, visited) => {
+            traversalCount += 1;
+            return getTransitiveDependentsMethod(scopeId, visited);
+        };
+
+        const result = tracker.getImpactedFilePaths([
+            "/project/a.gml",
+            "/project/a.gml",
+            "/project/a.gml",
+            "/project/b.gml"
+        ]);
+
+        assert.ok(result.has("/project/a.gml"));
+        assert.ok(result.has("/project/b.gml"));
+        assert.equal(result.size, 2);
+        assert.equal(traversalCount, 2, "Each unique scope should traverse dependents only once");
+    });
+
     void it("ignores null and empty strings in the input iterable", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
