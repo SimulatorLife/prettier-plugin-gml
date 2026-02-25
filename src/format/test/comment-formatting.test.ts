@@ -326,3 +326,32 @@ void test("collapses decorative banners even when surrounded by adjacent block c
         ].join("\n")
     );
 });
+
+void test("formats top-level doc block comments without duplicating leading stars", async () => {
+    const source = [
+        "/**",
+        "*\tSnowState | v3.1.4",
+        "*\tDocumentation: https://github.com/sohomsahaun/SnowState/wiki",
+        "*",
+        "*\tAuthor: Sohom Sahaun | @sohomsahaun",
+        "*/",
+        "function demo() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/**",
+            " * SnowState | v3.1.4",
+            " * Documentation: https://github.com/sohomsahaun/SnowState/wiki",
+            " *",
+            " * Author: Sohom Sahaun | @sohomsahaun",
+            " */",
+            "function demo() {}",
+            ""
+        ].join("\n")
+    );
+});

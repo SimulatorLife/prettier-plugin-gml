@@ -1,5 +1,9 @@
 /// @description Top of file description comment
 
+// CONSTANT OFFSETS
+
+// OTHER OFFSETS  (relative to the start of the buffer)
+
 // Banner comment
 var value = 1;
 

@@ -2699,9 +2699,18 @@ function shouldOmitDefaultValueForParameter(path, options) {
         return false;
     }
 
+    const hasInitializer = node.right != null;
+    const defaultIsUndefined = hasInitializer ? Core.isUndefinedSentinel(node.right) : false;
+
+    // Do not strip explicit non-undefined defaults. Formatter-owned optionality
+    // heuristics only apply to `= undefined` signatures.
+    if (hasInitializer && !defaultIsUndefined) {
+        return false;
+    }
+
     const paramName = node.left && node.left.name ? node.left.name : null;
     const functionNode = findEnclosingFunctionDeclaration(path);
-    if (functionNode && paramName) {
+    if (defaultIsUndefined && functionNode && paramName) {
         const optionalDocFlag = resolveDocParamOptionality(functionNode, paramName, options);
         if (optionalDocFlag !== null) {
             return !optionalDocFlag;
@@ -2735,7 +2744,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
         // printing or missing default values in the formatted output.
     }
 
-    if (!Core.isUndefinedSentinel(node.right) || typeof path.getParentNode !== "function") {
+    if (!defaultIsUndefined || typeof path.getParentNode !== "function") {
         return false;
     }
 

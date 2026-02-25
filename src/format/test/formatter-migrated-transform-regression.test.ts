@@ -45,6 +45,25 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.doesNotMatch(formatted, /third = undefined/);
     });
 
+    void it("does not strip non-undefined default parameter values from function declarations", async () => {
+        const source = [
+            "/// @function scr_dq_get_conjugate(dq, target_dq)",
+            "/// @param {array} dq",
+            "/// @param {array} target_dq",
+            "function scr_dq_get_conjugate(dq, target_dq = array_create(8)) {",
+            "    return target_dq;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function scr_dq_get_conjugate\(dq,\s*target_dq = array_create\(8\)\)/,
+            "Formatter must preserve explicit non-undefined default expressions in function parameters."
+        );
+    });
+
     void it("does not synthesize doc-comment tags during formatting", async () => {
         const source = [
             "function make_struct(value) {",

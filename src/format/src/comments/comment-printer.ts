@@ -1351,7 +1351,8 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         return null;
     }
 
-    const textLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line)).map((line) => line.trim());
+    const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));
+    const textLines = significantLines.map((line) => line.trim());
     if (textLines.length === 0) {
         return null;
     }
@@ -1359,7 +1360,47 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         return null;
     }
 
+    if (isCanonicalTopLevelDocBlockComment(comment, originalText)) {
+        const docBlockTextLines = normalizeCanonicalDocBlockTextLines(significantLines);
+        if (docBlockTextLines !== null) {
+            return ["/**", ...docBlockTextLines.map(formatCanonicalDocBlockTextLine), " */"].join("\n");
+        }
+    }
+
     return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+}
+
+function isCanonicalTopLevelDocBlockComment(comment, originalText): boolean {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (sourceSpan === null) {
+        return false;
+    }
+
+    const { startIndex } = sourceSpan;
+    return originalText.startsWith("/**", startIndex);
+}
+
+function normalizeCanonicalDocBlockTextLines(lines: string[]): string[] | null {
+    const normalizedLines = [];
+
+    for (const line of lines) {
+        const trimmedStartLine = line.trimStart();
+        if (!trimmedStartLine.startsWith("*")) {
+            return null;
+        }
+
+        normalizedLines.push(trimmedStartLine.slice(1).trim());
+    }
+
+    if (normalizedLines.length > 1 && normalizedLines[0] === "") {
+        normalizedLines.shift();
+    }
+
+    return normalizedLines;
+}
+
+function formatCanonicalDocBlockTextLine(line: string): string {
+    return line.length === 0 ? " *" : ` * ${line}`;
 }
 
 function hasAdjacentBlockCommentInSource(comment, originalText): boolean {
