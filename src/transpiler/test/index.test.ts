@@ -51,6 +51,18 @@ await test("transpileScript unwraps function bodies without leading blank lines"
     assert.equal(result.js_body, "return 1;");
 });
 
+await test("transpileScript unwraps function parameters into args assignments", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+    const result = transpiler.transpileScript({
+        sourceText: "function test(x, y = 5) { return x + y; }",
+        symbolId: "gml/script/test"
+    });
+
+    assert.match(result.js_body, /^var x = args\[0\];/m);
+    assert.match(result.js_body, /^var y = args\[1\] === undefined \? 5 : args\[1\];/m);
+    assert.match(result.js_body, /return \(?x \+ y\)?;/);
+});
+
 await test("transpileScript includes source path metadata when provided", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileScript({
