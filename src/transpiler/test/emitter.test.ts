@@ -81,6 +81,14 @@ void test("GmlToJsEmitter handles simple binary expressions in AST", () => {
     );
 });
 
+void test("GmlToJsEmitter folds string equality literals", () => {
+    const source = 'isMatch = "player" == "player"';
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("isMatch = true"), "Should emit folded boolean constant for string equality");
+});
+
 void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
     assert.equal(Transpiler.mapBinaryOperator("div"), "/");
 });

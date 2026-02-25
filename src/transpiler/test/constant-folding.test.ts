@@ -116,6 +116,28 @@ void test("constant folding: string concatenation", () => {
     assert.strictEqual(result, "hello world", 'Should fold "hello" + " world" to "hello world"');
 });
 
+void test("constant folding: string equality", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "player" },
+        right: { type: "Literal" as const, value: "player" },
+        operator: "=="
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, true, "Should fold string equality checks");
+});
+
+void test("constant folding: string inequality", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: "player" },
+        right: { type: "Literal" as const, value: "enemy" },
+        operator: "!=="
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, true, "Should fold string inequality checks");
+});
+
 void test("constant folding: boolean AND", () => {
     const ast = {
         type: "BinaryExpression" as const,
