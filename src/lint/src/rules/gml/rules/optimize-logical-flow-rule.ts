@@ -90,7 +90,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // I should probably expose `simplifyNode` logic separately?
                     // Or just use `applyLogicalNormalization` on the cloned node and compare?
 
-                    applyLogicalNormalization(cloned);
+                    applyLogicalNormalization(cloned, context.sourceCode.text);
 
                     // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
