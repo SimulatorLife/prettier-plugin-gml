@@ -42,6 +42,7 @@ pnpm run cli -- format path/to/project
 
 **Options:**
 - `--check` - Check if files are formatted without writing changes
+- `--verbose` - Enable verbose output: emits `Already formatted <file>` for each file that needs no changes, making it easy to confirm which files were scanned and why the run was a no-op
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output

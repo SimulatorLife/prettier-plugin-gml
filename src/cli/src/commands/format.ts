@@ -488,6 +488,7 @@ const skippedDirectorySummary = {
 let checkModeEnabled = false;
 let pendingFormatCount = 0;
 let formattedFileCount = 0;
+let verboseModeEnabled = false;
 
 function resetCheckModeTracking() {
     pendingFormatCount = 0;
@@ -500,6 +501,10 @@ function resetFormattedFileTracking() {
 function configureCheckMode(enabled) {
     checkModeEnabled = Boolean(enabled);
     resetCheckModeTracking();
+}
+
+function configureVerboseMode(enabled) {
+    verboseModeEnabled = Boolean(enabled);
 }
 
 const skippedDirectorySampleLimitState = createSampleLimitState({
@@ -750,6 +755,7 @@ async function resetFormattingSession(onParseError) {
     clearFormattingCache();
     inMemorySnapshotCount = 0;
     processedFileCount = 0;
+    verboseModeEnabled = false;
 }
 
 /**
@@ -1422,6 +1428,9 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         const normalizedOutput = await normalizeFormattedOutputWithFormat(formatted, data);
 
         if (normalizedOutput === data) {
+            if (verboseModeEnabled) {
+                console.log(`Already formatted ${formatPathForDisplay(filePath)}`);
+            }
             return;
         }
 
@@ -1574,7 +1583,8 @@ function safeExistsSync(candidatePath) {
  *   onParseError: string,
  *   skippedDirectorySampleLimit: number,
  *   ignoredFileSampleLimit: number,
- *   unsupportedExtensionSampleLimit: number
+ *   unsupportedExtensionSampleLimit: number,
+ *   verbose: boolean
  * }} params
  */
 async function prepareFormattingRun({
@@ -1583,7 +1593,8 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimit,
     ignoredFileSampleLimit,
     unsupportedExtensionSampleLimit,
-    checkMode
+    checkMode,
+    verbose
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
@@ -1592,6 +1603,7 @@ async function prepareFormattingRun({
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
+    configureVerboseMode(verbose);
 }
 
 /**
@@ -1739,7 +1751,8 @@ export async function runFormatCommand(command) {
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,
-        checkMode: commandOptions.checkMode
+        checkMode: commandOptions.checkMode,
+        verbose: commandOptions.verbose
     });
 
     try {
@@ -2143,5 +2156,7 @@ export const __formatTest__ = Object.freeze({
         inMemorySnapshotCount = 0;
     },
     enforceSnapshotMemoryLimitForTests: enforceSnapshotMemoryLimit,
-    performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup
+    performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup,
+    configureVerboseModeForTests: configureVerboseMode,
+    isVerboseModeEnabledForTests: () => verboseModeEnabled
 });
