@@ -1096,6 +1096,38 @@ export function isLogicalBinaryOperator(operator: string): boolean {
 }
 
 /**
+ * Check whether {@link operator} is the logical AND operator in either of its
+ * two GML forms.
+ *
+ * GML accepts both the symbolic form (`&&`) and the keyword form (`and`) for
+ * logical AND. This predicate matches either variant so that callers do not
+ * need to duplicate the two-branch check everywhere they classify an AND
+ * expression.
+ *
+ * @param operator Candidate operator string (case-sensitive, lower-case expected).
+ * @returns `true` when {@link operator} is `"&&"` or `"and"`.
+ */
+export function isLogicalAndOperator(operator: string): boolean {
+    return operator === "&&" || operator === "and";
+}
+
+/**
+ * Check whether {@link operator} is the logical OR operator in either of its
+ * two GML forms.
+ *
+ * GML accepts both the symbolic form (`||`) and the keyword form (`or`) for
+ * logical OR. This predicate matches either variant so that callers do not
+ * need to duplicate the two-branch check everywhere they classify an OR
+ * expression.
+ *
+ * @param operator Candidate operator string (case-sensitive, lower-case expected).
+ * @returns `true` when {@link operator} is `"||"` or `"or"`.
+ */
+export function isLogicalOrOperator(operator: string): boolean {
+    return operator === "||" || operator === "or";
+}
+
+/**
  * Check whether {@link operator} is an arithmetic binary operator.
  *
  * Arithmetic operators perform mathematical computations on numeric operands.

@@ -460,16 +460,22 @@ export function isSimpleLogicalOperand(node: any): boolean {
 
 /**
  * Checks if an operator is a logical OR operator.
+ *
+ * Delegates to `Core.isLogicalOrOperator`, which is the single source of truth
+ * for this check across the monorepo.
  */
 export function isLogicalOrOperator(operator: string): boolean {
-    return operator === "or" || operator === "||";
+    return Core.isLogicalOrOperator(operator);
 }
 
 /**
  * Checks if an operator is a logical AND operator.
+ *
+ * Delegates to `Core.isLogicalAndOperator`, which is the single source of truth
+ * for this check across the monorepo.
  */
 export function isLogicalAndOperator(operator: string): boolean {
-    return operator === "and" || operator === "&&";
+    return Core.isLogicalAndOperator(operator);
 }
 
 // ============================================================================

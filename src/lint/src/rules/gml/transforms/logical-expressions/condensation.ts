@@ -726,7 +726,7 @@ function toBooleanExpression(node, context) {
 
     if (node.type === "BinaryExpression") {
         const operator = Core.getNormalizedOperator(node);
-        if (operator === "&&" || operator === "and") {
+        if (Core.isLogicalAndOperator(operator)) {
             const left = toBooleanExpression(node.left, context);
             const right = toBooleanExpression(node.right, context);
             if (!left || !right) {
@@ -734,7 +734,7 @@ function toBooleanExpression(node, context) {
             }
             return createBooleanAnd([left, right]);
         }
-        if (operator === "||" || operator === "or") {
+        if (Core.isLogicalOrOperator(operator)) {
             const left = toBooleanExpression(node.left, context);
             const right = toBooleanExpression(node.right, context);
             if (!left || !right) {

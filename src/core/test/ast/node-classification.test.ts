@@ -88,4 +88,30 @@ void describe("AST node classification helpers", () => {
         assert.equal(Core.isControlFlowExitStatement(42), false);
         assert.equal(Core.isControlFlowExitStatement({}), false);
     });
+
+    void it("classifies logical AND operators in both GML forms", () => {
+        assert.equal(Core.isLogicalAndOperator("&&"), true);
+        assert.equal(Core.isLogicalAndOperator("and"), true);
+    });
+
+    void it("rejects non-AND operators for isLogicalAndOperator", () => {
+        assert.equal(Core.isLogicalAndOperator("||"), false);
+        assert.equal(Core.isLogicalAndOperator("or"), false);
+        assert.equal(Core.isLogicalAndOperator("+"), false);
+        assert.equal(Core.isLogicalAndOperator("AND"), false);
+        assert.equal(Core.isLogicalAndOperator(""), false);
+    });
+
+    void it("classifies logical OR operators in both GML forms", () => {
+        assert.equal(Core.isLogicalOrOperator("||"), true);
+        assert.equal(Core.isLogicalOrOperator("or"), true);
+    });
+
+    void it("rejects non-OR operators for isLogicalOrOperator", () => {
+        assert.equal(Core.isLogicalOrOperator("&&"), false);
+        assert.equal(Core.isLogicalOrOperator("and"), false);
+        assert.equal(Core.isLogicalOrOperator("+"), false);
+        assert.equal(Core.isLogicalOrOperator("OR"), false);
+        assert.equal(Core.isLogicalOrOperator(""), false);
+    });
 });
