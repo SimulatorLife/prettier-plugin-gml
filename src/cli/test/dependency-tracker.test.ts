@@ -257,6 +257,21 @@ void describe("DependencyTracker", () => {
             tracker.clear();
             assert.ok(snapshot.fileToDefs.has("scripts/player.gml"));
         });
+
+        void it("should return a deep clone so nested Sets are independent of the tracker", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_move"]);
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move"]);
+
+            const snapshot = tracker.getSnapshot();
+            const snapshotSet = snapshot.fileToDefs.get("scripts/player.gml");
+            assert.ok(snapshotSet instanceof Set);
+
+            // Mutating the live tracker must not affect the snapshot's inner Set.
+            tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_jump"]);
+            assert.equal(snapshotSet.size, 1, "snapshot inner Set should not reflect live changes");
+            assert.ok(!snapshotSet.has("gml_Script_player_jump"), "newly added symbol must not appear in snapshot");
+        });
     });
 
     void describe("getStatistics", () => {

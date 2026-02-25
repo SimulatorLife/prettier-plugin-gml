@@ -225,15 +225,15 @@ export class DependencyTracker {
      * Get a snapshot of the current dependency graph.
      * Useful for debugging and testing.
      *
-     * @returns Copy of the internal dependency graph
+     * @returns Deep copy of the internal dependency graph
      */
     getSnapshot(): DependencyGraph {
-        return {
-            fileToDefs: new Map(Array.from(this.fileToDefs.entries()).map(([k, v]) => [k, new Set(v)])),
-            fileToRefs: new Map(Array.from(this.fileToRefs.entries()).map(([k, v]) => [k, new Set(v)])),
-            symbolToDefFile: new Map(this.symbolToDefFile),
-            symbolToRefFiles: new Map(Array.from(this.symbolToRefFiles.entries()).map(([k, v]) => [k, new Set(v)]))
-        };
+        return structuredClone({
+            fileToDefs: this.fileToDefs,
+            fileToRefs: this.fileToRefs,
+            symbolToDefFile: this.symbolToDefFile,
+            symbolToRefFiles: this.symbolToRefFiles
+        });
     }
 
     /**
