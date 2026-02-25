@@ -48,7 +48,7 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 }
 
 
-/ @function scr_create_fx
+// @function scr_create_fx
 // @param sprite_index
 //// @param {real} fx_x
 ///// @param {real} fx_y*

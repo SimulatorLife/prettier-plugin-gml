@@ -1,11 +1,10 @@
-/// @description States and drawing code examples to be preserved
 
 // Whether chatterboxes should default to singleton mode. This is useful to most RPGs where lines
 // of dialogue arrive one at a time. More modern narrative games tend to deliver larger chunks of
 
+/// @description States and drawing code examples to be preserved
 var my_val = (2 + 3) * 4;
 var b = ((x > y) ? (a + b) : (a - b));
-
 // Define states
 states.add_state(
     "opening",
@@ -17,8 +16,10 @@ states.add_state(
         scaler.big_squish();
         image_speed = 1; // start animation
 
+
         // Start spraying coins
         time_source_start(ts_spray_coins);
+
 
         // Start checking if we should destroy the open chest
         call_later(
@@ -40,15 +41,14 @@ states.add_state(
         time_source_stop(ts_spray_coins); // stop this time source
     }
 );
-
 //global.rain_controller.draw();
 //if (room == rm_island) {
 //	global.spart_controller.draw();
 //}
 //global.part_controller.draw();
 
-var x_body = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);
-var y_body = y + lengthdir_y(radius, angle) - lengthdir_y(radius, aa);
+var x_body = (x + lengthdir_x(radius, angle)) - lengthdir_x(radius, aa);
+var y_body = (y + lengthdir_y(radius, angle)) - lengthdir_y(radius, aa);
 
 if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {
     return []; // Return an empty array for invalid input
@@ -77,7 +77,6 @@ global.settings = {
     //gui_scale     : ini_read_real("settings", "gui_scale", 1),
     fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
-
 //if (!variable_instance_exists(id, "pt_colour")) {
 //	pt_colour = choose(
 //	    eParticleType.fire_red,
@@ -88,20 +87,19 @@ global.settings = {
 //	); // choose fire colour
 //}
 
+
 // The following line should be preserved; math-expression parentheses should not be applied to string concatenation
 var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));
-
 // The following math expressions should be preserved; parentheses make no difference to order of operations
 var calc = 3 + 4 + 5;
 var calc2 = 3 - 4 + 5;
 var calc3 = 3 * 7 * 4 * 5;
-
 // The following line should be preserved; the local variable and instance variable are different scopes and do NOT conflict
 var val = 100;
+
 with (instance_create_layer(x, y, "Instances", obj_Fire)) {
     self.val = val;
 }
-
 // The following line should be preserved; numbers with leading zeros are allowed in GML
 global.lighting.add_key_time(00, 253, 094, 083, 0.5); // Sunset peak at 00h
 
@@ -114,6 +112,7 @@ global.lighting.draw(
         global.renderer.draw_geometry();
         global.spart_controller.draw();
 
+
         // Debug-drawing
         if (!RELEASE) {
             with (obj_debug) {
@@ -122,7 +121,6 @@ global.lighting.draw(
         }
     }
 );
-
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
 //try { // TODO this sometimes throws NaN error, try catch is band-aid
 //	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
@@ -130,11 +128,11 @@ global.lighting.draw(
 //	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 //}
 
+
 // Wobbling in z-axis
 // Value between 0 and 2, this is subtracted from crabs height
-z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;
-
-/// @description Functions for skyboxes using an octahedron vertex buffer
+z_wobble = (sin(current_time * 0.004) + 1) * 2 +
+2;/// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
 /// @param {real} [subimg=0]
 /// @param {real} [octahedron_scale=1] The scale of the skybox octahedron
@@ -155,6 +153,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         // Get the current shader
         var prev_shader = shader_current();
 
+
         // Set up GPU state
         gpu_push_state();
         gpu_set_texfilter(false);
@@ -166,9 +165,11 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         gpu_set_cullmode(cullmode);
         gpu_set_blendmode_ext(bm_one, bm_zero);
 
+
         // Apply world matrix and submit the vertex buffer
         matrix_set(matrix_world, self.matrix);
         submit();
+
 
         // Reset shader, GPU state, and matrix
         gpu_pop_state();
@@ -177,7 +178,9 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         } else if (shader_current() != -1) {
             shader_reset();
         }
-        if (reset_matrix) { scr_matrix_reset(); }
+        if (reset_matrix) {
+            scr_matrix_reset();
+        }
     };
 
     /// @ignore
@@ -196,17 +199,13 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         }
         return lt;
     };
-
 }
-
 // Debug-only macro guard for *use_fast_sampling* edits
 #macro FAST_SAMPLE_GUARD \
     if (use_fast_sampling) {                                                   \
         show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
         return true;                                                       \
-    }
-
-/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
+    }/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @param inst_a
 /// @param inst_b
 /// @param {real} amount

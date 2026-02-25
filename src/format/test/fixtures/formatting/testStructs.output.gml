@@ -2,9 +2,7 @@
 /// @returns {Struct.my_custom_struct}
 function my_custom_struct(_value) constructor {
     value = _value;
-}
-
-/// @desc child_struct
+}/// @desc child_struct
 /// @returns {undefined}
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     self.foo = _foo;
@@ -49,9 +47,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
             draw_circle(points[i].x, points[i].y, 2, false);
         }
     };
-}
-
-/// @function
+}/// @function
 /// @param [_bar=0]
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
     self.foo = _foo;
@@ -68,8 +64,7 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
         // Do nothing
     };
 }
-
-// Print function with different scope 
+// Print function with different scope
 var print = function () {
     show_debug_message("This is a different print function");
 };
@@ -97,9 +92,7 @@ function dynamic_index(value) {
     obj[$ "static_key"] = value;
     obj[$ get_key()] = value;
     return obj;
-}
-
-/// @function make_struct(value)
+}/// @function make_struct(value)
 function make_struct(value) {
     var foo = {};
     foo.alpha = 1;
@@ -120,9 +113,7 @@ function assign_then_extend() {
     data.label = "ok";
     data[$ "value"] = 123;
     return data;
-}
-
-/// @function InputButtonKeyboard
+}/// @function InputButtonKeyboard
 /// @param {real} button
 /// @description Input for a keyboard key
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
@@ -133,6 +124,6 @@ var kbInput = new InputButtonKeyboard();
 kbInput.cleanup();
 delete kbInput; // delete the struct
 
-global.camera.punch(,, _num_hearts);
+global.camera.punch(undefined, undefined, _num_hearts);
 
 array_push(points, { x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1 });
