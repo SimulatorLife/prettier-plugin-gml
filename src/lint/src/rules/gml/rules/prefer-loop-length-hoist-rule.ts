@@ -2,7 +2,6 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { resolveProjectContextForRule } from "../../project-context.js";
 import {
     type AstNodeWithType,
     collectIdentifierNamesInSubtree,
@@ -221,6 +220,31 @@ function collectForStatementContainerContexts(programNode: unknown): ReadonlyArr
     return contexts;
 }
 
+function resolveLoopLengthHoistIdentifierName(
+    preferredName: string,
+    inScopeIdentifierNames: ReadonlySet<string>
+): string | null {
+    if (!isIdentifier(preferredName)) {
+        return null;
+    }
+
+    if (!inScopeIdentifierNames.has(preferredName)) {
+        return preferredName;
+    }
+
+    let suffix = 2;
+    while (suffix < Number.MAX_SAFE_INTEGER) {
+        const candidateName = `${preferredName}${String(suffix)}`;
+        if (!inScopeIdentifierNames.has(candidateName)) {
+            return candidateName;
+        }
+
+        suffix += 1;
+    }
+
+    return null;
+}
+
 export function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -238,22 +262,8 @@ export function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): 
 
                     const text = context.sourceCode.text;
                     const lineEnding = dominantLineEnding(text);
-                    const projectContextResolution = resolveProjectContextForRule(context, definition);
-                    if (!projectContextResolution.available || !projectContextResolution.context) {
-                        return;
-                    }
-
-                    const localIdentifierNames = collectIdentifierNamesInSubtree(programNode);
+                    const localIdentifierNames = new Set(collectIdentifierNamesInSubtree(programNode));
                     const loopContexts = collectForStatementContainerContexts(programNode);
-
-                    const resolveHoistName = (
-                        preferredName: string,
-                        inScopeIdentifierNames: ReadonlySet<string>
-                    ): string | null =>
-                        projectContextResolution.context.resolveLoopHoistIdentifier(
-                            preferredName,
-                            inScopeIdentifierNames
-                        );
 
                     let firstUnsafeOffset: number | null = null;
 
@@ -262,7 +272,7 @@ export function createPreferLoopLengthHoistRule(definition: GmlRuleDefinition): 
                             sourceText: text,
                             loopContext,
                             suffixMap,
-                            resolveHoistName,
+                            resolveHoistName: resolveLoopLengthHoistIdentifierName,
                             localIdentifierNames,
                             lineEnding
                         });

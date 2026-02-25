@@ -7,7 +7,6 @@ It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fi
 - Owns:
   - ESLint language wiring for GML (`language: "gml/gml"`)
   - Lint rules and autofix behavior
-  - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
 - Does not own:
   - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
   - Parser internals/grammar ownership
@@ -54,7 +53,7 @@ export default [
 ];
 ```
 
-For a full "all rules enabled" config (including all `feather/*` rules plus project-context wiring for project-aware `gml/*` rules), see:
+For a full "all rules enabled" config (including all `feather/*` rules), see:
 `docs/examples/example.eslint.all-rules.config.js`.
 
 ## Language Behavior
@@ -132,4 +131,4 @@ pnpm --filter @gml-modules/lint run test
     #endregion
     ```
 * Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
-* **Codemods** (AST-based rewrite tools): We're currently doing large, project-aware rewrites in the lint workspace. But, common pattern is to use codemods / migration transforms: standalone programs that parse code, apply structured changes, and rewrite files—run explicitly (often once) rather than on every save. Codemods are used for large, mechanical refactors across many files. For JavaScript/TypeScript, common ones are jscodeshift, Babel transforms, recast, and ts-morph. Other ecosystems have equivalents (e.g., clang-tidy for C/C++, gofmt/go fixers, etc.) Can rename APIs, change call signatures, rewrite imports, reorder args, etc. Usually run via CLI in CI or as one-off migrations. Characteristics: `Parse → transform AST → print`
+* **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.

@@ -1,7 +1,6 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
 import type { GmlRuleDefinition } from "../catalog.js";
 
 const {
@@ -66,39 +65,16 @@ export interface SourceTextEdit {
 }
 
 export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
-    const docs: {
-        description: string;
-        recommended: false;
-        requiresProjectContext: boolean;
-        gml?: {
-            requiredCapabilities: ReadonlyArray<ProjectCapability>;
-            unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
-        };
-    } = {
+    const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
-        requiresProjectContext: definition.requiresProjectContext
+        requiresProjectContext: false
     };
-
-    if (definition.requiresProjectContext) {
-        docs.gml = {
-            requiredCapabilities: definition.requiredCapabilities,
-            unsafeReasonCodes: definition.unsafeReasonCodes
-        };
-    }
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`
+        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
-
-    if (definition.unsafeReasonCodes.length > 0) {
-        messages.unsafeFix = "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.";
-    }
-
-    if (definition.requiresProjectContext) {
-        messages.missingProjectContext =
-            "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage.";
-    }
 
     return Object.freeze({
         type: "suggestion",

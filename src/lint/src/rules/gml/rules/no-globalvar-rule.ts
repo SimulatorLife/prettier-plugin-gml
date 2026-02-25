@@ -2,7 +2,6 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../../project-context.js";
 import {
     type AstNodeRecord,
     createMeta,
@@ -11,7 +10,7 @@ import {
     getNodeStartIndex,
     isAstNodeRecord
 } from "../rule-base-helpers.js";
-import { isIdentifier, readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
+import { isIdentifier, readObjectOption } from "../rule-helpers.js";
 
 type TextEdit = Readonly<{
     start: number;
@@ -224,34 +223,12 @@ export function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleM
         create(context) {
             const options = readObjectOption(context);
             const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
-            const shouldReportUnsafeFixes = shouldReportUnsafe(context);
-            const projectContext = resolveProjectContextForRule(context, definition);
 
             const listener: Rule.RuleListener = {
                 Program(programNode) {
                     const text = context.sourceCode.text;
-                    const sourcePath = context.sourceCode.parserServices?.gml?.filePath;
-                    const filePath = typeof sourcePath === "string" ? sourcePath : null;
                     const globalVarStatements = collectGlobalVarStatements(programNode);
                     if (globalVarStatements.length === 0) {
-                        return;
-                    }
-
-                    const assessGlobalVarRewrite =
-                        projectContext.context && typeof projectContext.context.assessGlobalVarRewrite === "function"
-                            ? projectContext.context.assessGlobalVarRewrite.bind(projectContext.context)
-                            : null;
-                    const rewriteAssessment = assessGlobalVarRewrite?.(filePath, false) ?? {
-                        allowRewrite: true,
-                        reason: null
-                    };
-
-                    const firstStatementStart = globalVarStatements[0]?.start ?? 0;
-                    if (!rewriteAssessment.allowRewrite) {
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(firstStatementStart),
-                            messageId: shouldReportUnsafeFixes ? "unsafeFix" : definition.messageId
-                        });
                         return;
                     }
 
@@ -280,10 +257,6 @@ export function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleM
                     });
                 }
             };
-
-            if (!projectContext.available) {
-                return reportMissingProjectContextOncePerFile(context, listener);
-            }
 
             return Object.freeze(listener);
         }

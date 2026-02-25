@@ -15,18 +15,12 @@ Contract migration mapping:
 - missing separators => `gml/require-argument-separators`
 - doc comment text normalization => `gml/normalize-doc-comments`
 
-To publish the current project-aware rule list derived from rule metadata (`meta.docs.requiresProjectContext`):
-
-```bash
-pnpm run generate:lint-rule-docs
-```
-
 ## Architecture Role: Composition Root
 
-The CLI wires formatter-only runtime integration and lint project-context settings.
+The CLI wires formatter-only runtime integration and lint execution.
 
 - `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` injects project-context settings consumed by `@gml-modules/lint` project-aware rules.
+- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
 - Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
 Ownership summary:
@@ -737,7 +731,7 @@ Provides ANTLR-based GML parsing used by the transpiler.
 ✅ **Integrated** - Converts GML AST to JavaScript for hot-reload patches.
 
 ### Semantic (`src/semantic`)
-✅ **Integrated** - Supplies analysis data consumed by lint project-context services and refactor planning.
+✅ **Integrated** - Supplies analysis data consumed by refactor planning and hot-reload dependency tracking.
 
 ### Runtime Wrapper (`src/runtime-wrapper`)
 ✅ **Ready** - Has WebSocket client and patch application, ready to receive patches.

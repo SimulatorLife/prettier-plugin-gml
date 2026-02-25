@@ -1,9 +1,7 @@
 import type { Rule } from "eslint";
 
-import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { createFeatherRule, featherManifest } from "./feather/index.js";
 import { createGmlRule } from "./gml/index.js";
-import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
     mapKey: `Gml${string}`;
@@ -11,13 +9,7 @@ export type GmlRuleDefinition = Readonly<{
     fullId: `gml/${string}`;
     messageId: string;
     schema: ReadonlyArray<unknown>;
-    requiresProjectContext: boolean;
-    requiredCapabilities: ReadonlyArray<ProjectCapability>;
-    unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
 }>;
-
-const NO_CAPABILITIES = Object.freeze([]) as ReadonlyArray<ProjectCapability>;
-const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
@@ -25,16 +17,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-loop-length-hoist",
         fullId: "gml/prefer-loop-length-hoist",
         messageId: "preferLoopLengthHoist",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCUPANCY",
-            "LOOP_HOIST_NAME_RESOLUTION"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NAME_COLLISION,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT,
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -56,9 +38,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-hoistable-loop-accessors",
         fullId: "gml/prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -75,9 +54,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-repeat-loops",
         fullId: "gml/prefer-repeat-loops",
         messageId: "preferRepeatLoops",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -85,15 +61,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-struct-literal-assignments",
         fullId: "gml/prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCURRENCES",
-            "RENAME_CONFLICT_PLANNING"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -109,9 +76,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -127,23 +91,12 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCUPANCY",
-            "RENAME_CONFLICT_PLANNING"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NAME_COLLISION,
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                    enableAutofix: { type: "boolean", default: true },
-                    reportUnsafe: { type: "boolean", default: true }
+                    enableAutofix: { type: "boolean", default: true }
                 }
             }
         ])
@@ -153,9 +106,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-doc-comments",
         fullId: "gml/normalize-doc-comments",
         messageId: "normalizeDocComments",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -163,9 +113,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-directives",
         fullId: "gml/normalize-directives",
         messageId: "normalizeDirectives",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -173,9 +120,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "require-control-flow-braces",
         fullId: "gml/require-control-flow-braces",
         messageId: "requireControlFlowBraces",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -183,9 +127,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-assignment-in-condition",
         fullId: "gml/no-assignment-in-condition",
         messageId: "noAssignmentInCondition",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -193,9 +134,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-is-undefined-check",
         fullId: "gml/prefer-is-undefined-check",
         messageId: "preferIsUndefinedCheck",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -203,9 +141,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-epsilon-comparisons",
         fullId: "gml/prefer-epsilon-comparisons",
         messageId: "preferEpsilonComparisons",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -213,9 +148,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-operator-aliases",
         fullId: "gml/normalize-operator-aliases",
         messageId: "normalizeOperatorAliases",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -223,12 +155,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "prefer-string-interpolation",
         fullId: "gml/prefer-string-interpolation",
         messageId: "preferStringInterpolation",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze(["IDENTIFIER_OCCURRENCES"]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -244,9 +170,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "optimize-math-expressions",
         fullId: "gml/optimize-math-expressions",
         messageId: "optimizeMathExpressions",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -254,9 +177,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "require-argument-separators",
         fullId: "gml/require-argument-separators",
         messageId: "requireArgumentSeparators",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             { type: "object", additionalProperties: false, properties: { repair: { type: "boolean", default: true } } }
         ])
@@ -266,9 +186,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "normalize-data-structure-accessors",
         fullId: "gml/normalize-data-structure-accessors",
         messageId: "normalizeDataStructureAccessors",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -276,9 +193,6 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "require-trailing-optional-defaults",
         fullId: "gml/require-trailing-optional-defaults",
         messageId: "requireTrailingOptionalDefaults",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     }
 ]);

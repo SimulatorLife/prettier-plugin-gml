@@ -81,10 +81,7 @@ const expectedRules = Object.freeze([
             {
                 type: "object",
                 additionalProperties: false,
-                properties: {
-                    enableAutofix: { type: "boolean", default: true },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
+                properties: { enableAutofix: { type: "boolean", default: true } }
             }
         ]
     },
@@ -163,20 +160,6 @@ function getRuleMeta(ruleId: string): RuleMeta {
     return rule.meta;
 }
 
-function extractUnsafeFixReasonCodes(messages: Readonly<Record<string, string>>): ReadonlySet<string> {
-    const reasonCodes = new Set<string>();
-    for (const message of Object.values(messages)) {
-        const match = /^\[unsafe-fix:(?<reasonCode>[A-Z_]+)]/.exec(message);
-        if (!match?.groups?.reasonCode) {
-            continue;
-        }
-
-        reasonCodes.add(match.groups.reasonCode);
-    }
-
-    return reasonCodes;
-}
-
 function resolveSourceRoot(testDirectory: string): string {
     const candidates = [path.resolve(testDirectory, "../src"), path.resolve(testDirectory, "../../src")];
     const resolved = candidates.find((candidate) => existsSync(path.join(candidate, "language/recovery.ts")));
@@ -213,70 +196,8 @@ void test("feather rules declare fixable metadata for autofix reports", () => {
     }
 });
 
-void test("project-aware rules declare required capabilities and unsafe reason codes", () => {
-    const projectAwareRuleIds = [
-        "prefer-loop-length-hoist",
-        "prefer-struct-literal-assignments",
-        "no-globalvar",
-        "prefer-string-interpolation"
-    ];
-
-    for (const ruleId of projectAwareRuleIds) {
-        const { docs, messages } = getRuleMeta(ruleId);
-        const gmlDocs = docs.gml as Readonly<Record<string, unknown>>;
-
-        assert.equal(docs.requiresProjectContext, true, `${ruleId} should be project-aware`);
-        assert.ok(Array.isArray(gmlDocs.requiredCapabilities), `${ruleId} must declare requiredCapabilities`);
-        assert.ok(Array.isArray(gmlDocs.unsafeReasonCodes), `${ruleId} must declare unsafeReasonCodes`);
-        assert.ok(messages.missingProjectContext, `${ruleId} must declare missingProjectContext message`);
-
-        const declaredReasonCodes = new Set(gmlDocs.unsafeReasonCodes as ReadonlyArray<string>);
-        const emittedReasonCodes = extractUnsafeFixReasonCodes(messages);
-        for (const reasonCode of emittedReasonCodes) {
-            assert.equal(
-                declaredReasonCodes.has(reasonCode),
-                true,
-                `${ruleId} must declare emitted unsafe-fix reason code ${reasonCode}`
-            );
-            assert.equal(
-                [
-                    "MISSING_PROJECT_CONTEXT",
-                    "NAME_COLLISION",
-                    "CROSS_FILE_CONFLICT",
-                    "SEMANTIC_AMBIGUITY",
-                    "NON_IDEMPOTENT_EXPRESSION"
-                ].includes(reasonCode),
-                true,
-                `${ruleId} emitted unknown unsafe-fix reason code ${reasonCode}`
-            );
-            assert.notEqual(
-                reasonCode,
-                "MISSING_PROJECT_CONTEXT",
-                `${ruleId} must not emit reserved reason code MISSING_PROJECT_CONTEXT via unsafeFix`
-            );
-        }
-    }
-});
-
-void test("non-project-aware rules do not expose gml project metadata", () => {
-    const nonProjectAwareRuleIds = [
-        "prefer-hoistable-loop-accessors",
-        "prefer-repeat-loops",
-        "optimize-logical-flow",
-        "normalize-doc-comments",
-        "normalize-directives",
-        "require-control-flow-braces",
-        "no-assignment-in-condition",
-        "prefer-is-undefined-check",
-        "prefer-epsilon-comparisons",
-        "normalize-operator-aliases",
-        "optimize-math-expressions",
-        "require-argument-separators",
-        "normalize-data-structure-accessors",
-        "require-trailing-optional-defaults"
-    ];
-
-    for (const ruleId of nonProjectAwareRuleIds) {
+void test("all gml rules are local-only and do not require project context", () => {
+    for (const { shortName: ruleId } of expectedRules) {
         const { docs, messages } = getRuleMeta(ruleId);
         assert.equal(docs.requiresProjectContext, false, `${ruleId} should not require project context`);
         assert.equal("gml" in docs, false, `${ruleId} should not declare docs.gml metadata`);
@@ -288,32 +209,7 @@ void test("non-project-aware rules do not expose gml project metadata", () => {
     }
 });
 
-void test("project-aware rules report missingProjectContext at most once per file", () => {
-    const ruleModule = LintWorkspace.Lint.plugin.rules["no-globalvar"];
-    const reported: Array<string> = [];
-    const listeners = ruleModule.create({
-        settings: Object.freeze({}),
-        sourceCode: { parserServices: { gml: { filePath: "sample.gml" } } },
-        report: (payload: { messageId: string }) => {
-            reported.push(payload.messageId);
-        }
-    } as never);
-
-    listeners.Program?.({ type: "Program" } as never);
-    listeners.Program?.({ type: "Program" } as never);
-    listeners.Program?.({ type: "Program" } as never);
-    listeners.Program?.({ type: "Program" } as never);
-    assert.deepEqual(reported, ["missingProjectContext"]);
-});
-
 void test("all registered lint rules return non-empty listeners (no silent placeholder rules)", () => {
-    const allCapabilities = new Set([
-        "IDENTIFIER_OCCUPANCY",
-        "IDENTIFIER_OCCURRENCES",
-        "LOOP_HOIST_NAME_RESOLUTION",
-        "RENAME_CONFLICT_PLANNING"
-    ]);
-
     const allRuleModules = {
         ...LintWorkspace.Lint.plugin.rules,
         ...LintWorkspace.Lint.featherPlugin.rules
@@ -322,13 +218,7 @@ void test("all registered lint rules return non-empty listeners (no silent place
     for (const [ruleShortName, ruleModule] of Object.entries(allRuleModules)) {
         const listeners = ruleModule.create({
             options: [{}],
-            settings: {
-                gml: {
-                    project: {
-                        getContext: () => ({ capabilities: allCapabilities })
-                    }
-                }
-            },
+            settings: {},
             sourceCode: {
                 text: "var value = 1;\n",
                 parserServices: {
