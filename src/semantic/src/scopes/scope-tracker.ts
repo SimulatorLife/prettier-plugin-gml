@@ -1345,6 +1345,10 @@ export class ScopeTracker {
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const normalizedPathResultsCache = new Map<
+            string,
+            Array<{ scopeId: string; scopeKind: string; reason: string }>
+        >();
         const transitiveDependentsCache = new Map<
             string,
             Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
@@ -1361,8 +1365,15 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(path);
+            const cachedInvalidationSet = normalizedPathResultsCache.get(trackedPath);
+            if (cachedInvalidationSet) {
+                results.set(path, cachedInvalidationSet);
+                continue;
+            }
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
+                normalizedPathResultsCache.set(trackedPath, []);
                 results.set(path, []);
                 continue;
             }
@@ -1428,6 +1439,7 @@ export class ScopeTracker {
                 }
             }
 
+            normalizedPathResultsCache.set(trackedPath, pathInvalidationSet);
             results.set(path, pathInvalidationSet);
         }
 
