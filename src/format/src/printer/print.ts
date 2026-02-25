@@ -42,15 +42,9 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
-    filterKeptDeclarators,
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
-    findEnclosingFunctionNode,
-    getPreferredFunctionParameterName,
-    joinDeclaratorPartsWithCommas,
-    resolveArgumentAliasInitializerDoc,
-    resolvePreferredParameterName,
-    shouldSynthesizeUndefinedDefaultForIdentifier
+    joinDeclaratorPartsWithCommas
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -302,9 +296,11 @@ function printNodeDocComments(node, path, options) {
     const isFunctionLikeNode = node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
     if (isFunctionLikeNode) {
         const sourceDocLines = collectDocLinesFromSource(node, options);
-        const sourceHasFunctionTag = sourceDocLines.some((line) => /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim()));
+        const sourceHasFunctionTag = sourceDocLines.some((docLine) =>
+            /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
+        );
         const astHasFunctionTag = docCommentDocs.some(
-            (line) => typeof line === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim())
+            (docLine) => typeof docLine === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
         );
         if (sourceHasFunctionTag && !astHasFunctionTag) {
             docCommentDocs.splice(0, docCommentDocs.length, ...sourceDocLines);
@@ -523,32 +519,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray<any>(node.declarations);
-
-            const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
-
-            if (keptDeclarators.length === 0) {
-                return null;
-            }
-
-            if (keptDeclarators.length !== declarators.length) {
-                const original = node.declarations;
-                node.declarations = keptDeclarators;
-                try {
-                    const decls =
-                        keptDeclarators.length > 1
-                            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                  leadingNewline: false,
-                                  trailingNewline: false,
-                                  addIndent: keptDeclarators.length > 1
-                              })
-                            : path.map(print, "declarations");
-                    return concat([node.kind, " ", decls]);
-                } finally {
-                    node.declarations = original;
-                }
-            }
 
             // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
             //
@@ -575,7 +546,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
-                addIndent: keptDeclarators.length > 1
+                addIndent: declarators.length > 1
             });
 
             const docComments = printNodeDocComments(node, path, options);
@@ -606,10 +577,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
-            if (initializerOverride) {
-                return concat(printSimpleDeclaration(print("id"), initializerOverride));
-            }
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
@@ -1167,33 +1134,9 @@ function tryPrintLiteralNode(node, path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
-            let identifierName = node.name;
-
-            const argumentIndex = Core.getArgumentIndexFromIdentifier(identifierName);
-            if (argumentIndex !== null) {
-                const functionNode = findEnclosingFunctionDeclaration(path);
-                const preferredArgumentName = resolvePreferredParameterName(
-                    functionNode,
-                    argumentIndex,
-                    node.name,
-                    options
-                );
-                if (Core.isNonEmptyString(preferredArgumentName)) {
-                    identifierName = preferredArgumentName;
-                }
-            }
-
-            const preferredParamName = getPreferredFunctionParameterName(path, node, options);
-            if (Core.isNonEmptyString(preferredParamName)) {
-                identifierName = preferredParamName;
-            }
+            const identifierName = node.name;
 
             const docs = [prefix, identifierName];
-
-            if (shouldSynthesizeUndefinedDefaultForIdentifier(path, node)) {
-                docs.push(" = undefined");
-                return concat(docs);
-            }
 
             return concat(docs);
         }
