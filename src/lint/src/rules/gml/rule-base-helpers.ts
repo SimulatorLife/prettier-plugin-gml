@@ -148,7 +148,7 @@ export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodePa
     }
 }
 
-export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+function walkAstNodesUntil(root: unknown, visit: (node: object) => boolean): void {
     if (!root || typeof root !== "object") {
         return;
     }
@@ -174,7 +174,9 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
         }
 
         visited.add(current);
-        visit(current);
+        if (visit(current)) {
+            return;
+        }
 
         for (const key of Object.keys(current)) {
             if (key === "parent") {
@@ -189,6 +191,13 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
             stack.push(value);
         }
     }
+}
+
+export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+    walkAstNodesUntil(root, (node) => {
+        visit(node);
+        return false;
+    });
 }
 
 /**
@@ -209,57 +218,21 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
  * - Arrays are expanded in-place; elements are visited in source order.
  */
 export function findFirstAstNodeBy(root: unknown, predicate: (node: any) => boolean): AstNodeRecord | null {
-    if (!root || typeof root !== "object") {
-        return null;
-    }
-
-    const visited = new WeakSet<object>();
-    const stack: unknown[] = [root];
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-        if (!current || typeof current !== "object") {
-            continue;
+    let matchedNode: AstNodeRecord | null = null;
+    walkAstNodesUntil(root, (node) => {
+        if (!isAstNodeRecord(node)) {
+            return false;
         }
 
-        if (Array.isArray(current)) {
-            // Push elements in reverse so that index 0 lands on top of the stack
-            // and is therefore visited first, preserving source order.
-            for (let index = current.length - 1; index >= 0; index -= 1) {
-                stack.push(current[index]);
-            }
-            continue;
+        if (!predicate(node)) {
+            return false;
         }
 
-        if (visited.has(current)) {
-            continue;
-        }
+        matchedNode = node;
+        return true;
+    });
 
-        visited.add(current);
-
-        if (!isAstNodeRecord(current)) {
-            continue;
-        }
-
-        if (predicate(current)) {
-            return current;
-        }
-
-        for (const key of Object.keys(current)) {
-            if (key === "parent") {
-                continue;
-            }
-
-            const value = current[key];
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            stack.push(value);
-        }
-    }
-
-    return null;
+    return matchedNode;
 }
 
 export function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
