@@ -49,3 +49,20 @@ void test("normalizeFormattedOutput preserves @func tags (content rewrites belon
         "normalizeFormattedOutput must not strip @func tags — that is a lint-workspace responsibility"
     );
 });
+
+void test("normalizeFormattedOutput does not reorder misplaced @description continuation lines", () => {
+    const input = [
+        "/// continuation line that appears before the tag",
+        "/// @description canonical description",
+        "function demo() {}",
+        ""
+    ].join("\n");
+
+    const result = normalizeFormattedOutput(input);
+
+    assert.equal(
+        result,
+        input,
+        "normalizeFormattedOutput must preserve line order; moving misplaced description continuations is lint-owned normalization"
+    );
+});
