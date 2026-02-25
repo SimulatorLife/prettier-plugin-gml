@@ -33,7 +33,11 @@ function isNullishValue(value: unknown): value is null | undefined {
     return value === null || value === undefined;
 }
 
-function evaluateEqualityOperator(operator: string, left: number | boolean, right: number | boolean): boolean | null {
+function evaluatePrimitiveEqualityOperator(
+    operator: string,
+    left: string | number | boolean,
+    right: string | number | boolean
+): boolean | null {
     switch (operator) {
         case "==":
         case "===": {
@@ -146,14 +150,21 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
                 return leftNumber >> rightNumber;
             }
             default: {
-                return evaluateEqualityOperator(op, leftNumber, rightNumber);
+                return evaluatePrimitiveEqualityOperator(op, leftNumber, rightNumber);
             }
         }
     }
 
-    // String concatenation
-    if (typeof left === "string" && typeof right === "string" && op === "+") {
-        return left + right;
+    // String operations
+    if (typeof left === "string" && typeof right === "string") {
+        if (op === "+") {
+            return left + right;
+        }
+
+        const equalityResult = evaluatePrimitiveEqualityOperator(op, left, right);
+        if (equalityResult !== null) {
+            return equalityResult;
+        }
     }
 
     // Logical operations (boolean only)
@@ -170,7 +181,7 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
                 return leftBoolean || rightBoolean;
             }
             default: {
-                return evaluateEqualityOperator(op, leftBoolean, rightBoolean);
+                return evaluatePrimitiveEqualityOperator(op, leftBoolean, rightBoolean);
             }
         }
     }
