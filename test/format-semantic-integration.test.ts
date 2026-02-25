@@ -10,7 +10,7 @@ import { ESLint, type Linter } from "eslint";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
-const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
+const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*\/?\s*@/i;
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)

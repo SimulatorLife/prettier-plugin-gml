@@ -7,7 +7,7 @@ import { builders } from "prettier/doc";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
 import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
 
-const { isObjectLike, isFunctionDocCommentLine } = Core;
+const { isObjectLike } = Core;
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -127,9 +127,6 @@ function shouldSuppressComment(comment, options) {
         originalText: options.originalText
     };
     const formatted = Core.formatLineComment(comment, formattingOptions);
-    if (isFunctionDocCommentLine(formatted)) {
-        return true;
-    }
     return formatted === null || formatted === "";
 }
 

@@ -56,4 +56,8 @@ Migration quick map:
 - doc-comment tag synthesis/normalization => `gml/normalize-doc-comments` (lint)
 - indentation/wrapping/layout => format workspace formatter
 
-See the durable split contract and before/after examples in [`docs/formatter-linter-split-plan.md`](../../docs/formatter-linter-split-plan.md).
+Formatter doc-comment boundary guarantees:
+- Legacy annotations such as `/// @function ...` are preserved by the formatter and are never replaced/normalized.
+- The formatter never synthesizes `/// @description`, `/// @param`, `/// @returns`, or other function doc-comment tags.
+
+See the durable split contract and before/after examples in [`docs/target-state.md`](../../docs/target-state.md).

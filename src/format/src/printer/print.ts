@@ -299,6 +299,18 @@ function printNodeDocComments(node, path, options) {
         : [];
     const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
+    const isFunctionLikeNode = node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
+    if (isFunctionLikeNode) {
+        const sourceDocLines = collectDocLinesFromSource(node, options);
+        const sourceHasFunctionTag = sourceDocLines.some((line) => /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim()));
+        const astHasFunctionTag = docCommentDocs.some(
+            (line) => typeof line === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim())
+        );
+        if (sourceHasFunctionTag && !astHasFunctionTag) {
+            docCommentDocs.splice(0, docCommentDocs.length, ...sourceDocLines);
+        }
+    }
+
     sortDocCommentsBySourceOrder(docCommentDocs);
 
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);

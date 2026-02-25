@@ -9,9 +9,6 @@ then return here for deeper context.
 
 ## Reference guides
 
-- [Legacy identifier-case plan](legacy-identifier-case-plan.md) — Archived
-  summary of the previous identifier casing and renaming pipeline, including
-  tricky identifier examples and the legacy rollout workflow.
 - [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
   file tuned for common GameMaker metadata folders.
 - [Sample `.prettierrc`](examples/example.prettierrc) — Baseline Prettier
@@ -20,9 +17,6 @@ then return here for deeper context.
   config that composes the `@gml-modules/lint` presets (without TypeScript requirement)
 
 ## Usage & rollout
-- [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)
-  — Scripted configuration that warms the project-index cache and captures
-  dry-run reports for review alongside a sample JSON payload.
 - [Quick start](../README.md#quick-start) &mdash; Installation flows for pnpm
   consumers and nightly testers, including side-by-side snippets for the
   published package versus the Git workspace install, plus wrapper scripts you
@@ -67,34 +61,16 @@ implementation details:
   `trailingComma: "none"`) when a host needs different defaults, all while
   keeping the formatter opinionated by default.
 
-## Architecture & planning
+## Architecture, planning
 
-- [Formatter/linter split plan](formatter-linter-split-plan.md) &mdash; Canonical
-  ownership contract for formatter vs lint vs refactor responsibilities,
-  including the two-tier malformed GML strategy and the native codemod model.
-- [Hot reload architecture](hot-reload.md) &mdash; Concepts, architecture, and integration
-  HTML5 runtime fork, watcher pipeline, and runtime integration seams required
-  for hot-reload tooling.
-- [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
-  ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
-  dependency-aware reloads and editor integrations.
-- [Project index cache design](legacy-identifier-case-plan.md#project-index-cache-design) —
-  Captures the shipped cache shape plus the instrumentation used to keep
-  bootstrap behaviour predictable.
-- [Legacy identifier-case plan — Archived project-index roadmap](legacy-identifier-case-plan.md#archived-project-index-roadmap)
-  — Tracks the historical follow-up work that shipped alongside cache
-  persistence and discovery in the formatter workspace.
-
-## Metadata tooling
-
+- [Project target state plan](target-state.md) &mdash; Canonical
+  ownership contract for formatter vs lint vs refactor responsibilities, including the two-tier malformed GML strategy and the native codemod model. Concepts, architecture, and integration HTML5 runtime fork, watcher pipeline, and runtime integration seams required for hot-reload tooling.
 - [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline
   that collects built-in Feather debugger metadata and how the generated files
   are versioned.
 - [Architecture overview](../README.md#architecture-overview) — High-level map
   of the workspace packages, where generated assets live, and which scripts
-  refresh them. Pair it with the reserved identifier coverage captured in the
-  [legacy identifier-case plan](legacy-identifier-case-plan.md) when updating the
-  scrapers or running metadata rebuilds through the CLI.
+  refresh them.
 
 ## TODO / Ideas
 - Create a new workspace for a GML-tooling MCP server that wraps/exposes the CLI's commands (`@gml-modules/mcp-server`) so an AI agent can interact/invoke the tools.

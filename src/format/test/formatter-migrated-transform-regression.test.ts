@@ -57,6 +57,75 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.match(formatted, /function make_struct\(value\)/);
     });
 
+    void it("preserves legacy /// @function annotations (formatter must not normalize to newer tags)", async () => {
+        const source = [
+            "/// @function update_ground_dist(ray_len)",
+            "/// @description Updates ground distance each step",
+            "/// @param ray_len {real} The ray length",
+            "function update_ground_dist(ray_len) {",
+            "return ray_len;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @function update_ground_dist\(ray_len\)/m,
+            "Formatter must preserve legacy @function annotation text verbatim enough to keep tag ownership in lint."
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @func update_ground_dist/m,
+            "Formatter must not replace @function with alternate doc tags."
+        );
+    });
+
+    void it("never synthesizes function doc-comments for declarations or function assignments", async () => {
+        const source = [
+            "function declared(alpha, beta) {",
+            "return alpha + beta;",
+            "}",
+            "",
+            "var assigned = function(gamma) {",
+            "return gamma * 2;",
+            "};"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @(?:description|function|func|param|returns?)\b/m,
+            "Formatter must not synthesize any function doc-comment tags; this is lint-only behavior."
+        );
+        assert.match(formatted, /function declared\(alpha,\s*beta\)/);
+        assert.match(formatted, /var assigned = function \(gamma\)/);
+    });
+
+    void it("does not promote plain leading comments into synthetic /// @description tags", async () => {
+        const source = [
+            "// This function computes a score.",
+            "function compute_score(points) {",
+            "return points;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /^\/\/ This function computes a score\./m);
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description\b/m,
+            "Formatter must not synthesize @description from plain leading comments."
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @(?:function|func|param|returns?)\b/m,
+            "Formatter must not synthesize function doc-comment tags."
+        );
+    });
+
     void it("fails fast on invalid syntax instead of repairing parse input", async () => {
         const malformedSource = 'if (ready) {\n    show_debug_message("x");\n';
 
