@@ -2281,12 +2281,6 @@ function handleIntermediateTrailingSpacing({
     const nextNode = statements ? statements[index + 1] : null;
     const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(node, nextNode);
     const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
-    const shouldSkipStandardHardline =
-        shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro;
-
-    if (!shouldSkipStandardHardline) {
-        parts.push(hardlineDoc);
-    }
 
     const nextLineProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
@@ -2296,6 +2290,29 @@ function handleIntermediateTrailingSpacing({
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
+
+    // When the source already has a blank line after the current node and the
+    // next node has a leading comment, Prettier's comment handler will emit a
+    // blank line (hardline + hardline) before that comment. Emitting the
+    // standard hardline here too would produce a double blank line on the first
+    // formatting pass. Skip the standard hardline in this case and let Prettier
+    // own the separator entirely.
+    const originalTextForLeadingCheck =
+        typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const nextNodeStartIndexForLeadingCheck = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
+    const nextNodeHasLeadingCommentWithBlankLine =
+        nextLineEmpty &&
+        isTopLevel &&
+        typeof nextNodeStartIndexForLeadingCheck === NUMBER_TYPE &&
+        Core.hasCommentImmediatelyBefore(originalTextForLeadingCheck, nextNodeStartIndexForLeadingCheck);
+
+    const shouldSkipStandardHardline =
+        (shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro) ||
+        nextNodeHasLeadingCommentWithBlankLine;
+
+    if (!shouldSkipStandardHardline) {
+        parts.push(hardlineDoc);
+    }
 
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
@@ -2378,16 +2395,10 @@ function handleIntermediateTrailingSpacing({
         // the comment. Emitting one here too would produce a double blank line.
         // Detect this by checking whether the original source has a comment
         // immediately before the next node; if so, let Prettier handle spacing.
-        const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
-        const nextNodeStartIndex = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
-        const nextNodeHasLeadingComment =
-            isTopLevel &&
-            typeof nextNodeStartIndex === NUMBER_TYPE &&
-            Core.hasCommentImmediatelyBefore(originalText, nextNodeStartIndex);
-
-        if (!nextNodeHasLeadingComment) {
+        if (!nextNodeHasLeadingCommentWithBlankLine) {
             parts.push(hardlineDoc);
         }
+        previousNodeHadNewlineAddedAfter = true;
     }
 
     return previousNodeHadNewlineAddedAfter;

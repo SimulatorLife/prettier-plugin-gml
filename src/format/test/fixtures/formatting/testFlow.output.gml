@@ -41,7 +41,7 @@ var matrix2 = scr_matrix_build(
     image_zscale + 90
 );
 
-#macro SQUARE(_value) ((_value)*(_value))
+#macro SQUARE (_value)    ((_value)*(_value))
 
 var total = 0;
 var limit = 99;
@@ -56,8 +56,7 @@ do {
     }
 } until (value >= limit);
 
-var arr_len = array_length(arr);
-for (var i = 0; i < arr_len; i++) {
+for (var i = 0; i < array_length(arr); i++) {
     var current = arr[i];
     if (current < 0) {
         continue;
@@ -76,7 +75,7 @@ repeat (array_length(arr2)) {
     show_debug_message(arr2[i++]);
 }
 
-#macro INCREMENT(_v) ((_v)+1)
+#macro INCREMENT (_v) ((_v)+1)
 
 do {
     value = INCREMENT(value);
@@ -84,16 +83,18 @@ do {
         value = limit * limit;
         throw "Square limit";
     }
-} until (value > (limit * limit));
+} until (value > limit * limit);
 
 return total;
 
 function bool_passthrough(condition) {
-    return condition;
-}
-
-/// @param {boolean} a The first boolean
-/// @param {boolean} b The second boolean
+    if (condition) {
+        return true;
+    } else {
+        return false;
+    }
+}/// @param {boolean} b - The second boolean
+/// @param {boolean} a - The first boolean
 function bool_negated(a, b) {
     if (a and b) {
         return false;
@@ -115,20 +116,16 @@ function bool_with_comment(condition) {
 /// @param grid
 /// @returns {undefined}
 function iterate_structures(list, map, grid) {
-    var list_size = ds_list_size(list);
-    for (var i = 0; i < list_size; i++) {
+    for (var i = 0; i < ds_list_size(list); i++) {
         show_debug_message(list[| i]);
     }
 
-    var map_size = ds_map_size(map);
-    for (var key = 0; key <= map_size; key += 1) {
+    for (var key = 0; key <= ds_map_size(map); key += 1) {
         show_debug_message(ds_map_find_value(map, key));
     }
 
-    var grid_width = ds_grid_width(grid);
-    for (var x = 0; x < grid_width; x++) {
-        var grid_height = ds_grid_height(grid);
-        for (var y = 0; y < grid_height; y++) {
+    for (var x = 0; x < ds_grid_width(grid); x++) {
+        for (var y = 0; y < ds_grid_height(grid); y++) {
             show_debug_message(grid[# x, y]);
         }
     }
