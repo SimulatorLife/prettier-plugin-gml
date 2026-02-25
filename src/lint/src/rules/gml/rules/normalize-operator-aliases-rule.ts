@@ -4,6 +4,19 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, reportFullTextRewrite } from "../rule-base-helpers.js";
 
+/**
+ * Returns true for logical operator aliases (`and`, `or`, `xor`) whose canonical
+ * symbol forms (`&&`, `||`, `^^`) are governed by the formatter's `logicalOperatorsStyle`
+ * option. The lint rule must not rewrite these operators so that the two tools do not
+ * conflict: format converts between keyword and symbol styles bidirectionally, while lint
+ * is responsible only for non-style alias normalizations such as `mod` → `%`.
+ *
+ * See: docs/target-state.md §2.1 – formatter owns "logical operator style rendering".
+ */
+function isFormatterOwnedLogicalAlias(operator: string): boolean {
+    return Core.getOperatorInfo(operator)?.type === "logical";
+}
+
 export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -18,6 +31,14 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                     reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 },
                 BinaryExpression(node) {
+                    // Logical operator style (`and`/`or`/`xor` ↔ `&&`/`||`/`^^`) is owned
+                    // by the formatter's `logicalOperatorsStyle` option. Rewriting those
+                    // aliases here would conflict with the formatter's bidirectional style
+                    // control and violate the formatter/lint boundary contract.
+                    if (isFormatterOwnedLogicalAlias(node.operator)) {
+                        return;
+                    }
+
                     const normalized = Core.OPERATOR_ALIAS_MAP.get(node.operator);
                     if (normalized) {
                         const operator = String(node.operator);

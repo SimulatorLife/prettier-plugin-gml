@@ -1092,6 +1092,28 @@ void test("normalize-operator-aliases does not rewrite identifier usage of 'not'
     assert.equal(result.output, input);
 });
 
+// Logical operator style (`and`/`or`/`xor` ↔ `&&`/`||`/`^^`) belongs to the formatter's
+// `logicalOperatorsStyle` option. The lint rule must not rewrite those operators, otherwise
+// it would conflict with the formatter when `logicalOperatorsStyle: "keywords"` is active.
+// See: docs/target-state.md §2.1 and the lint workspace README.
+void test("normalize-operator-aliases does not rewrite logical keyword operators (formatter boundary)", () => {
+    const input = ["if (a and b or c xor d) {", "    return true;", "}", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0, "logical keywords should not be reported by this rule");
+    assert.equal(result.output, input, "logical keywords should be left unchanged");
+});
+
+void test("normalize-operator-aliases normalizes arithmetic alias 'mod' to '%'", () => {
+    const input = ["result = x mod y;", ""].join("\n");
+    const expected = ["result = x % y;", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(
+        result.output,
+        expected,
+        "mod should be normalized to % as it is an arithmetic alias, not a logical operator"
+    );
+});
+
 void test("require-control-flow-braces skips macro continuation blocks", () => {
     const input = [
         '#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == "body")\\',
