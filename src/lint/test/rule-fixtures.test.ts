@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { test } from "node:test";
+import { describe, it, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
@@ -441,20 +441,25 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
     return pairs.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
 }
 
-void test("all discovered fixture input/fixed pairs apply expected lint fixes", async () => {
-    const fixturePairs = await collectFixturePairs();
-    assert.equal(fixturePairs.length > 0, true, "Expected at least one fixture input/fixed pair.");
+const discoveredFixturePairs = await collectFixturePairs();
 
-    for (const fixturePair of fixturePairs) {
-        const input = await readFile(fixturePair.inputFilePath, "utf8");
-        const expected = await readFile(fixturePair.fixedFilePath, "utf8");
-        const result = lintWithRule(fixturePair.ruleName, input, fixturePair.options);
+void test("discovers lint fixture input/fixed pairs", () => {
+    assert.equal(discoveredFixturePairs.length > 0, true, "Expected at least one fixture input/fixed pair.");
+});
 
-        assert.equal(
-            result.output,
-            expected,
-            `${fixturePair.ruleName} should produce expected output for ${fixturePair.relativeInputPath}`
-        );
+void describe("lint fixture auto-fix pairs", () => {
+    for (const fixturePair of discoveredFixturePairs) {
+        void it(`${fixturePair.ruleName} :: ${fixturePair.relativeInputPath}`, async () => {
+            const input = await readFile(fixturePair.inputFilePath, "utf8");
+            const expected = await readFile(fixturePair.fixedFilePath, "utf8");
+            const result = lintWithRule(fixturePair.ruleName, input, fixturePair.options);
+
+            assert.equal(
+                result.output,
+                expected,
+                `${fixturePair.ruleName} should produce expected output for ${fixturePair.relativeInputPath}`
+            );
+        });
     }
 });
 

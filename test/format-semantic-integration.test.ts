@@ -279,6 +279,10 @@ async function runIntegrationLintPass(
 const integrationCases = await loadIntegrationCases();
 
 void describe("Format integration fixtures", () => {
+    void it("discovers integration fixture cases", () => {
+        assert.equal(integrationCases.length > 0, true, "Expected at least one integration fixture case.");
+    });
+
     for (const { baseName, inputSource, expectedOutput, options, lintRules, expectParseError } of integrationCases) {
         void it(`formats ${baseName}`, async () => {
             if (expectParseError) {
@@ -294,10 +298,6 @@ void describe("Format integration fixtures", () => {
 
             const formatted = await Format.format(inputSource, options ?? undefined);
             const linted = await runIntegrationLintPass(formatted, baseName, lintRules);
-            if (baseName === "testOptimizeMathExpression") {
-                console.log("FORMATTED:", formatted);
-                console.log("LINTED:", linted);
-            }
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
             assert.strictEqual(canonicalizeFixtureText(linted), canonicalizeFixtureText(expectedOutput));
