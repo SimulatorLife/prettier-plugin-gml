@@ -28,7 +28,6 @@ import { createCollectStatsCommand, runCollectStats } from "./commands/collect-s
 import { __formatTest__, createFormatCommand, runFormatCommand } from "./commands/format.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
-import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
 import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
@@ -350,16 +349,6 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate GML identifiers.",
-            exitCode: 1
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createGenerateQualityReportCommand(),
-    run: ({ command }) => runGenerateQualityReport({ command }),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to generate quality report.",
             exitCode: 1
         })
 });
