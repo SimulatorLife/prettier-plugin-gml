@@ -195,10 +195,15 @@ function build_enemy_struct(name, hp = 100) {
     };
 }
 
-function EnemyConfig(_type, _speed = 4) constructor {
+function EnemyConfig(_type, _speed = 4) : EntityConfig(_speed) constructor {
     type = _type;
     speed = _speed;
     setup = function (state) {
         current_state = state;
     };
+
+    /// @override
+    /// @function step
+    /// @return {void}
+    static step = function() {}
 }

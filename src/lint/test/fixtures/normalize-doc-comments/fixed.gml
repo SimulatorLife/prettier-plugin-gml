@@ -223,12 +223,17 @@ function build_enemy_struct(name, hp = 100) {
 
 /// @param type
 /// @param [speed=4]
-function EnemyConfig(_type, _speed = 4) constructor {
+function EnemyConfig(_type, _speed = 4) : EntityConfig(_speed) constructor {
     type = _type;
     speed = _speed;
+
     /// @param state
     /// @returns {undefined}
     setup = function (state) {
         current_state = state;
     };
+
+    /// @override
+    /// @returns {undefined}
+    static step = function() {}
 }
