@@ -285,7 +285,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         return null;
     }
 
-    let assignment: MutableGameMakerAstNode | null = null;
+    let assignment: MutableGameMakerAstNode | null;
     const commentTarget = node;
 
     switch (node.type) {
