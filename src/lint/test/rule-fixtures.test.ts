@@ -1071,6 +1071,77 @@ void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1
     assert.equal(result.output, expected);
 });
 
+void test("optimize-math-expressions auto-fixes manual math forms to built-in helpers", () => {
+    const input = [
+        "var squared = value * value;",
+        "var cubed = value * value * value;",
+        "var quartic = value * value * value * value;",
+        "var sqrtManual = power(length, 0.5);",
+        "var sqrtFromPower = power(distance, 0.5);",
+        "var logTwo = ln(amount) / ln(2);",
+        "var expManual = power(2.718281828459045, factor);",
+        "var meanDivision = (alpha + beta) / 2;",
+        "var meanMultiply = (first + second) * 0.5;",
+        "var dot2 = (ax * bx) + (ay * by);",
+        "var dot2Flat = ax * bx + ay * by;",
+        "var dot3 = (ax * bx) + (ay * by) + (az * bz);",
+        "var distance = sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));",
+        "var distancePower = power(",
+        "    (x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start),",
+        "    0.5",
+        ");",
+        "var distance3 = sqrt(",
+        "    (x2 - x1) * (x2 - x1) +",
+        "        (y2 - y1) * (y2 - y1) +",
+        "        (z2 - z1) * (z2 - z1)",
+        ");",
+        "var direction = arctan2(y2 - y1, x2 - x1);",
+        "var lenXDegrees = radius * dcos(direction);",
+        "var lenYDegrees = -radius * dsin(direction);",
+        "var lenXRadians = radius * cos(degtorad(direction));",
+        "var lenYRadians = -radius * sin(degtorad(direction));",
+        "var sinDegrees = sin(direction * pi / 180);",
+        "var cosDegrees = cos((direction / 180) * pi);",
+        "var tanDegrees = tan(direction * pi / 180);",
+        "var unchangedCall = update() * update();",
+        "var squaredVals = value * value;",
+        "var commented = value /* keep */ * value;",
+        ""
+    ].join("\n");
+    const expected = [
+        "var squared = sqr(value);",
+        "var cubed = power(value, 3);",
+        "var quartic = power(value, 4);",
+        "var sqrtManual = sqrt(length);",
+        "var sqrtFromPower = sqrt(distance);",
+        "var logTwo = log2(amount);",
+        "var expManual = exp(factor);",
+        "var meanDivision = mean(alpha, beta);",
+        "var meanMultiply = mean(first, second);",
+        "var dot2 = dot_product(ax, ay, bx, by);",
+        "var dot2Flat = dot_product(ax, ay, bx, by);",
+        "var dot3 = dot_product_3d(ax, ay, az, bx, by, bz);",
+        "var distance = point_distance(x1, y1, x2, y2);",
+        "var distancePower = point_distance(x_start, y_start, x_end, y_end);",
+        "var distance3 = point_distance_3d(x1, y1, z1, x2, y2, z2);",
+        "var direction = point_direction(x1, y1, x2, y2);",
+        "var lenXDegrees = lengthdir_x(radius, direction);",
+        "var lenYDegrees = lengthdir_y(radius, direction);",
+        "var lenXRadians = lengthdir_x(radius, direction);",
+        "var lenYRadians = lengthdir_y(radius, direction);",
+        "var sinDegrees = sin(degtorad(direction));",
+        "var cosDegrees = cos(degtorad(direction));",
+        "var tanDegrees = tan(degtorad(direction));",
+        "var unchangedCall = update() * update();",
+        "var squaredVals = sqr(value);",
+        "var commented = value /* keep */ * value;",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
+});
+
 void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
     const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
     const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
