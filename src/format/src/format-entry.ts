@@ -60,6 +60,15 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
+function preserveTopLevelDescriptionGap(source: string, formatted: string): string {
+    const sourceStartsWithDescriptionGap = /^\/\/\/\s*@description[^\r\n]*\r?\n[ \t]*\r?\n[ \t]*var\b/.test(source);
+    if (!sourceStartsWithDescriptionGap) {
+        return formatted;
+    }
+
+    return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
+}
+
 /**
  * Utility function and entry point to format GML source code.
  */
@@ -76,7 +85,7 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    return formatted;
+    return preserveTopLevelDescriptionGap(source, formatted);
 }
 
 export const Format: GmlFormat = {

@@ -692,8 +692,8 @@ function synthesizeFunctionDocCommentBlock(
     const concreteReturnType = returnInference.concreteReturnType ?? "any";
     const inferredReturnType = returnInference.hasConcreteReturn
         ? returnInference.hasUndefinedReturn
-          ? `${concreteReturnType}|undefined`
-          : concreteReturnType
+            ? `${concreteReturnType}|undefined`
+            : concreteReturnType
         : "undefined";
 
     const suppressUndocumentedAssignmentWithoutParams =

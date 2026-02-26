@@ -341,6 +341,11 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             util.isPreviousLineEmpty(originalText, nodeStartIndex);
+        const shouldPreserveSourceBlankLineAfterDocComments =
+            originalText !== null &&
+            typeof nodeStartIndex === NUMBER_TYPE &&
+            hasExistingBlankLine &&
+            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentDocs, nodeStartIndex, originalText);
         const isTopOfFileDocBlock =
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -353,7 +358,11 @@ function printNodeDocComments(node, path, options) {
             parts.push(hardline);
         }
 
-        parts.push(join(hardline, printableDocComments), hardline);
+        if (shouldPreserveSourceBlankLineAfterDocComments) {
+            parts.push(join(hardline, printableDocComments), hardline, hardline);
+        } else {
+            parts.push(join(hardline, printableDocComments), hardline);
+        }
     } else {
         if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
             delete node[DOC_COMMENT_OUTPUT_FLAG];
@@ -383,6 +392,50 @@ function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
     }
 
     return null;
+}
+
+function resolveDocCommentEndIndex(commentEntry: unknown): number | null {
+    if (!Core.isObjectLike(commentEntry)) {
+        return null;
+    }
+
+    const endValue = (commentEntry as { end?: unknown }).end;
+    if (typeof endValue === NUMBER_TYPE) {
+        return endValue as number;
+    }
+
+    if (Core.isObjectLike(endValue)) {
+        const endIndex = (endValue as { index?: unknown }).index;
+        if (typeof endIndex === NUMBER_TYPE) {
+            return endIndex as number;
+        }
+    }
+
+    return null;
+}
+
+function hasOnlyWhitespaceBetweenLastDocCommentAndNode(
+    docCommentDocs: MutableDocCommentLines,
+    nodeStartIndex: number,
+    originalText: string
+): boolean {
+    let lastDocCommentEndIndex: number | null = null;
+    for (const docCommentEntry of docCommentDocs) {
+        const endIndex = resolveDocCommentEndIndex(docCommentEntry);
+        if (endIndex === null) {
+            continue;
+        }
+        if (lastDocCommentEndIndex === null || endIndex > lastDocCommentEndIndex) {
+            lastDocCommentEndIndex = endIndex;
+        }
+    }
+
+    if (lastDocCommentEndIndex === null || nodeStartIndex <= lastDocCommentEndIndex) {
+        return false;
+    }
+
+    const sourceSlice = originalText.slice(lastDocCommentEndIndex + 1, nodeStartIndex);
+    return sourceSlice.trim().length === 0;
 }
 
 function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): void {

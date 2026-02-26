@@ -155,11 +155,18 @@ void describe("formatter fixtures", () => {
                     `Expected paired formatter fixture '${fixtureCase.basename}' to include .output.gml content.`
                 );
                 assert.equal(
-                    formatted.trim(),
-                    fixture.output.trim(),
-                    `${fixtureCase.basename} should match expected formatter output`
+                    formatted,
+                    fixture.output,
+                    `${fixtureCase.basename} should match expected formatter output byte-for-byte`
                 );
+                return;
             }
+
+            assert.equal(
+                formatted,
+                fixture.input,
+                `${fixtureCase.basename} standalone fixture should be formatter-idempotent byte-for-byte`
+            );
         });
     }
 });
