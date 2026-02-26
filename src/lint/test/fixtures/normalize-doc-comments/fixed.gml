@@ -37,7 +37,6 @@ function func_undefined() {
 var func_default_callback = function (x = function() { return 1; }) {
     return x();
 };
-
 /// @description Updates movement for the active player.
 /// @param [angle=90] Current heading in degrees.
 /// @customTag keep this custom metadata
@@ -46,7 +45,6 @@ var func_default_callback = function (x = function() { return 1; }) {
 function update_movement(angle = 90, speed) {
     return;
 }
-
 /// @param first first description should stay attached to first.
 /// @internal custom annotation users may provide
 /// @param second second description should stay attached to second.
@@ -55,7 +53,6 @@ function update_movement(angle = 90, speed) {
 function reorder_with_descriptions(first, second, third) {
     return;
 }
-
 /// @deprecated use build_packet_v2
 /// @param alpha Existing alpha description should stay attached.
 /// @custom preserve me
@@ -64,3 +61,21 @@ function reorder_with_descriptions(first, second, third) {
 var build_packet = function (alpha, beta = 4) {
     return;
 };
+/// @param {Struct.MyCustomStruct} custom Struct payload should retain namespaced type.
+/// @param {string} name Player display name should retain {string}.
+/// @returns {undefined}
+function typed_reorder(custom, name) {
+    return;
+}
+/// @param {Struct.MyCustomStruct} custom Main custom struct payload.
+/// @param {real} score Numeric score payload.
+/// @returns {undefined}
+function typed_aliases(custom, score) {
+    return;
+}
+/// @param {Struct.MyCustomStruct} custom Existing type should be preserved.
+/// @param count Existing untyped param should remain valid.
+/// @returns {undefined}
+function typed_and_untyped(custom, count) {
+    return;
+}
