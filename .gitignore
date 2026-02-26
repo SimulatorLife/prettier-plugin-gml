@@ -17,7 +17,7 @@ tools/
 # We only want extra markdown files in docs/ and README.md files for each workspace
 *.md
 !docs/**/*.md
-!src/*/README.md
+!**/*/README.md
 
 # TypeScript
 *.tsbuildinfo

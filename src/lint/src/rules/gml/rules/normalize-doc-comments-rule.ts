@@ -60,7 +60,9 @@ function isFunctionInitializerNode(node: unknown): node is AstNodeWithType {
     }
 
     const nodeType = Reflect.get(node, "type");
-    return nodeType === "FunctionDeclaration" || nodeType === "FunctionExpression" || nodeType === "ConstructorDeclaration";
+    return (
+        nodeType === "FunctionDeclaration" || nodeType === "FunctionExpression" || nodeType === "ConstructorDeclaration"
+    );
 }
 
 function getFunctionCandidateForNode(node: AstNodeWithType): FunctionLineCandidate | null {
@@ -237,8 +239,7 @@ function parseDocCommentParamMetadata(line: string): DocCommentParamMetadata | n
 }
 
 function normalizeDocParamLineParameterName(line: string): string {
-    const optionalMatch =
-        /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)\[([A-Za-z0-9_]+)([^\]]*)\](.*)$/u.exec(line);
+    const optionalMatch = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)\[([A-Za-z0-9_]+)([^\]]*)\](.*)$/u.exec(line);
     if (optionalMatch) {
         return `${optionalMatch[1]}[${normalizeParamName(optionalMatch[2])}${optionalMatch[3]}]${optionalMatch[4]}`;
     }
@@ -559,11 +560,7 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     return existingParams;
 }
 
-function updateExistingParamDocWithDefault(
-    docBlock: Array<string>,
-    parameterName: string,
-    defaultVal: string
-): void {
+function updateExistingParamDocWithDefault(docBlock: Array<string>, parameterName: string, defaultVal: string): void {
     for (const [index, line] of docBlock.entries()) {
         const paramMatch = new RegExp(
             String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[?${parameterName}(?:=[^\]]*)?\]?(.*)$`

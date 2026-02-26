@@ -24,7 +24,9 @@ function isFunctionLikeSyntheticNode(value: unknown): value is FunctionLikeSynth
     }
 
     const nodeType = Reflect.get(value, "type");
-    return nodeType === "FunctionDeclaration" || nodeType === "FunctionExpression" || nodeType === "ConstructorDeclaration";
+    return (
+        nodeType === "FunctionDeclaration" || nodeType === "FunctionExpression" || nodeType === "ConstructorDeclaration"
+    );
 }
 
 function getIdentifierNodeName(value: unknown): string | null {
@@ -63,13 +65,13 @@ function processLeadingCommentLines(
         programNode,
         sourceText
     );
-    const { leadingLines: leadingCommentLines, remainingComments: updatedComments } = Core.extractLeadingNonDocCommentLines(
-        remainingComments,
-        options
-    );
+    const { leadingLines: leadingCommentLines, remainingComments: updatedComments } =
+        Core.extractLeadingNonDocCommentLines(remainingComments, options);
 
     const sourceLeadingLines =
-        existingDocLines.length === 0 ? Core.collectAdjacentLeadingSourceLineComments(targetNode, options, sourceText) : [];
+        existingDocLines.length === 0
+            ? Core.collectAdjacentLeadingSourceLineComments(targetNode, options, sourceText)
+            : [];
     const programLeadingLines = Core.collectLeadingProgramLineComments(targetNode, programNode, options, sourceText);
     const combinedLeadingLines = [...programLeadingLines, ...sourceLeadingLines, ...leadingCommentLines];
     const docLikeLeadingLines: string[] = [];
@@ -153,7 +155,9 @@ function computeSyntheticDocComment(
 
     let syntheticLines = hasExistingDocLines
         ? Core.mergeSyntheticDocComments(functionNode, existingDocLines, docCommentOptions, overrides)
-        : Core.reorderDescriptionLinesToTop(Core.computeSyntheticFunctionDocLines(functionNode, [], options, overrides));
+        : Core.reorderDescriptionLinesToTop(
+              Core.computeSyntheticFunctionDocLines(functionNode, [], options, overrides)
+          );
 
     if (hasExistingDocLines && syntheticLines.length > 0) {
         syntheticLines = syntheticLines.filter((line) => {
@@ -194,7 +198,7 @@ function computeSyntheticDocComment(
               ? [...syntheticLines, ...potentiallyPromotableLines]
               : [...potentiallyPromotableLines, ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])];
 
-    const normalizedDocLines = Core.toMutableArray(docLines) as string[];
+    const normalizedDocLines = Core.toMutableArray(docLines);
 
     return {
         docLines: normalizedDocLines,
@@ -326,13 +330,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
 
     suppressConstructorAssignmentPadding(functionNode);
 
-    const processedComments = processLeadingCommentLines(
-        commentTarget,
-        functionNode,
-        options,
-        programNode,
-        sourceText
-    );
+    const processedComments = processLeadingCommentLines(commentTarget, functionNode, options, programNode, sourceText);
     if (!processedComments) {
         return null;
     }
@@ -359,12 +357,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         syntheticOverrides.preserveDocCommentParamNames = true;
     }
 
-    const syntheticDoc = computeSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        syntheticOverrides
-    );
+    const syntheticDoc = computeSyntheticDocComment(functionNode, existingDocLines, options, syntheticOverrides);
 
     if (!syntheticDoc && plainLeadingLines.length === 0) {
         return null;

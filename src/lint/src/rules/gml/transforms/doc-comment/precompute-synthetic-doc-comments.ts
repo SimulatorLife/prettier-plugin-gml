@@ -1,4 +1,5 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import {
     computeSyntheticDocCommentForFunctionAssignment,
     computeSyntheticDocCommentForStaticVariable
