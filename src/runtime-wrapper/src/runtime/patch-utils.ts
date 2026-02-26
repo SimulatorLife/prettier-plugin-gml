@@ -135,18 +135,54 @@ function resolveNamedFunctionId(runtimeId: string): string | null {
     return runtimeId;
 }
 
+/**
+ * Lookup map from GameMaker HTML5 event function name suffix (as produced by
+ * parseObjectRuntimeId) to the corresponding GMObjects property key.
+ *
+ * The suffix format is "<EventType>_<SubtypeNumber>", e.g. "Draw_64" for DrawGUI.
+ * Exact matches are checked before the prefix fallback so that numeric event
+ * sub-types (DrawGUI, StepBegin, StepEnd, etc.) are resolved correctly.
+ *
+ * Sub-type numbers are taken from GameMaker's HTML5 event encoding:
+ *   Draw 0=DrawEvent, 64=DrawGUI, 72=DrawGUIBegin, 73=DrawGUIEnd, 74=DrawEventBegin, 75=DrawEventEnd
+ *   Step 0=StepNormal, 1=StepBegin, 2=StepEnd
+ */
+const OBJECT_EVENT_NAME_TO_KEY: ReadonlyMap<string, string> = new Map([
+    ["Create_0", "CreateEvent"],
+    ["PreCreate_0", "PreCreateEvent"],
+    ["Destroy_0", "DestroyEvent"],
+    ["CleanUp_0", "CleanUpEvent"],
+    ["Step_0", "StepNormalEvent"],
+    ["Step_1", "StepBeginEvent"],
+    ["Step_2", "StepEndEvent"],
+    ["Draw_0", "DrawEvent"],
+    ["Draw_64", "DrawGUI"],
+    ["Draw_72", "DrawGUIBegin"],
+    ["Draw_73", "DrawGUIEnd"],
+    ["Draw_74", "DrawEventBegin"],
+    ["Draw_75", "DrawEventEnd"]
+]);
+
 function resolveObjectEventKey(eventName: string): string | null {
+    const exact = OBJECT_EVENT_NAME_TO_KEY.get(eventName);
+    if (exact !== undefined) {
+        return exact;
+    }
+
+    // Fallback: prefix-based matching for unknown sub-type numbers so that
+    // future GameMaker versions with new event subtypes still receive a best-
+    // effort mapping rather than silently dropping the update.
     if (eventName.startsWith("Create")) {
         return "CreateEvent";
+    }
+    if (eventName.startsWith("Destroy")) {
+        return "DestroyEvent";
     }
     if (eventName.startsWith("Step")) {
         return "StepNormalEvent";
     }
     if (eventName.startsWith("Draw")) {
         return "DrawEvent";
-    }
-    if (eventName.startsWith("Destroy")) {
-        return "DestroyEvent";
     }
 
     return null;

@@ -397,3 +397,145 @@ await test("updates pObject definition on active instances", () => {
         restoreGlobals(snapshot);
     }
 });
+
+await test("DrawGUI patches (Draw_64) update the DrawGUI key in GMObjects, not DrawEvent", () => {
+    const snapshot = snapshotGlobals();
+    const g = globalThis as Record<string, unknown>;
+    const savedDrawGuiFn = g.gml_Object_oPlayer_Draw_64;
+
+    try {
+        function originalDrawGuiHandler() {
+            return "original-draw-gui";
+        }
+
+        const objectEntry: Record<string, unknown> = {
+            pName: "oPlayer",
+            DrawGUI: originalDrawGuiHandler
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+        g.gml_Object_oPlayer_Draw_64 = originalDrawGuiHandler;
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/Draw_64",
+            runtimeId: "gml_Object_oPlayer_Draw_64",
+            js_body: "return 'patched-draw-gui';"
+        });
+
+        const updatedFn = g.gml_Object_oPlayer_Draw_64;
+        assert.notEqual(updatedFn, originalDrawGuiHandler, "Global DrawGUI reference should be replaced");
+        assert.equal(objectEntry.DrawGUI, updatedFn, "GMObjects DrawGUI entry should be updated");
+        assert.equal(
+            objectEntry.DrawEvent,
+            undefined,
+            "GMObjects DrawEvent entry must not be created by a DrawGUI patch"
+        );
+    } finally {
+        if (savedDrawGuiFn === undefined) {
+            delete g.gml_Object_oPlayer_Draw_64;
+        } else {
+            g.gml_Object_oPlayer_Draw_64 = savedDrawGuiFn;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("StepBegin patches (Step_1) update the StepBeginEvent key in GMObjects, not StepNormalEvent", () => {
+    const snapshot = snapshotGlobals();
+    const g = globalThis as Record<string, unknown>;
+    const savedStepBeginFn = g.gml_Object_oPlayer_Step_1;
+
+    try {
+        function originalStepBeginHandler() {
+            return "original-step-begin";
+        }
+
+        const objectEntry: Record<string, unknown> = {
+            pName: "oPlayer",
+            StepBeginEvent: originalStepBeginHandler
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+        g.gml_Object_oPlayer_Step_1 = originalStepBeginHandler;
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/Step_1",
+            runtimeId: "gml_Object_oPlayer_Step_1",
+            js_body: "return 'patched-step-begin';"
+        });
+
+        const updatedFn = g.gml_Object_oPlayer_Step_1;
+        assert.notEqual(updatedFn, originalStepBeginHandler, "Global StepBegin reference should be replaced");
+        assert.equal(objectEntry.StepBeginEvent, updatedFn, "GMObjects StepBeginEvent entry should be updated");
+        assert.equal(
+            objectEntry.StepNormalEvent,
+            undefined,
+            "GMObjects StepNormalEvent entry must not be created by a StepBegin patch"
+        );
+    } finally {
+        if (savedStepBeginFn === undefined) {
+            delete g.gml_Object_oPlayer_Step_1;
+        } else {
+            g.gml_Object_oPlayer_Step_1 = savedStepBeginFn;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("CleanUp patches (CleanUp_0) update the CleanUpEvent key in GMObjects", () => {
+    const snapshot = snapshotGlobals();
+    const g = globalThis as Record<string, unknown>;
+    const savedCleanUpFn = g.gml_Object_oPlayer_CleanUp_0;
+
+    try {
+        function originalCleanUpHandler() {
+            return "original-cleanup";
+        }
+
+        const objectEntry: Record<string, unknown> = {
+            pName: "oPlayer",
+            CleanUpEvent: originalCleanUpHandler
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+        g.gml_Object_oPlayer_CleanUp_0 = originalCleanUpHandler;
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/CleanUp_0",
+            runtimeId: "gml_Object_oPlayer_CleanUp_0",
+            js_body: "return 'patched-cleanup';"
+        });
+
+        const updatedFn = g.gml_Object_oPlayer_CleanUp_0;
+        assert.notEqual(updatedFn, originalCleanUpHandler, "Global CleanUp reference should be replaced");
+        assert.equal(objectEntry.CleanUpEvent, updatedFn, "GMObjects CleanUpEvent entry should be updated");
+    } finally {
+        if (savedCleanUpFn === undefined) {
+            delete g.gml_Object_oPlayer_CleanUp_0;
+        } else {
+            g.gml_Object_oPlayer_CleanUp_0 = savedCleanUpFn;
+        }
+        restoreGlobals(snapshot);
+    }
+});
