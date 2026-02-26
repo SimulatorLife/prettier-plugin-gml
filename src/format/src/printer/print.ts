@@ -49,8 +49,7 @@ import {
     getPreferredFunctionParameterName,
     joinDeclaratorPartsWithCommas,
     resolveArgumentAliasInitializerDoc,
-    resolvePreferredParameterName,
-    shouldSynthesizeUndefinedDefaultForIdentifier
+    resolvePreferredParameterName
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -1243,14 +1242,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                 identifierName = preferredParamName;
             }
 
-            const docs = [prefix, identifierName];
-
-            if (shouldSynthesizeUndefinedDefaultForIdentifier(path, node)) {
-                docs.push(" = undefined");
-                return concat(docs);
-            }
-
-            return concat(docs);
+            return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
             return concat(node.value);

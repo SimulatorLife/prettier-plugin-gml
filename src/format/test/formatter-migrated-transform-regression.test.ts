@@ -45,6 +45,19 @@ void describe("formatter migrated-transform regression coverage", () => {
         assert.doesNotMatch(formatted, /third = undefined/);
     });
 
+    void it("does not synthesize identifier defaults while printing function parameters", async () => {
+        const source = ["function synthesize_default(argument0) {", "    return argument0;", "}"].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /function synthesize_default\(argument0\)/);
+        assert.doesNotMatch(
+            formatted,
+            /function synthesize_default\(argument0 = undefined\)/,
+            "Formatter must not synthesize `= undefined` because optionality/content rewrites belong to lint."
+        );
+    });
+
     void it("does not strip non-undefined default parameter values from function declarations", async () => {
         const source = [
             "/// @function scr_dq_get_conjugate(dq, target_dq)",
