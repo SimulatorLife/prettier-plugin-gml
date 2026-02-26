@@ -564,7 +564,7 @@ void test("normalize-doc-comments converts legacy returns description text to @r
     assert.equal(result.output, expected);
 });
 
-void test("normalize-doc-comments only synthesizes @returns {undefined} for functions without concrete return values", () => {
+void test("normalize-doc-comments synthesizes concrete and undefined @returns metadata", () => {
     const input = [
         "function no_return() {",
         "    var x = 1;",
@@ -588,10 +588,12 @@ void test("normalize-doc-comments only synthesizes @returns {undefined} for func
         "    var x = 1;",
         "}",
         "",
+        "/// @returns {real}",
         "function returns_value() {",
         "    return 123;",
         "}",
         "",
+        "/// @returns {undefined}",
         "function returns_undefined_only() {",
         "    if (keyboard_check(vk_space)) {",
         "        return undefined;",
