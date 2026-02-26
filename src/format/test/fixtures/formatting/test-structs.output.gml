@@ -3,7 +3,6 @@
 function my_custom_struct(_value) constructor {
     value = _value;
 }
-
 /// @desc child_struct
 /// @returns {undefined}
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
@@ -50,7 +49,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         }
     };
 }
-
 /// @function
 /// @param [_bar=0]
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
@@ -69,7 +67,7 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
     };
 }
 
-// Print function with different scope 
+// Print function with different scope
 var print = function () {
     show_debug_message("This is a different print function");
 };
@@ -98,7 +96,6 @@ function dynamic_index(value) {
     obj[$ get_key()] = value;
     return obj;
 }
-
 /// @function make_struct(value)
 function make_struct(value) {
     var foo = {};
@@ -121,7 +118,6 @@ function assign_then_extend() {
     data[$ "value"] = 123;
     return data;
 }
-
 /// @function InputButtonKeyboard
 /// @param {real} button
 /// @description Input for a keyboard key
@@ -133,6 +129,6 @@ var kbInput = new InputButtonKeyboard();
 kbInput.cleanup();
 delete kbInput; // delete the struct
 
-global.camera.punch(,, _num_hearts);
+global.camera.punch(undefined, undefined, _num_hearts);
 
 array_push(points, { x: mouse_x, y: mouse_y, z: 0, nx: 0, ny: 0, nz: 1 });

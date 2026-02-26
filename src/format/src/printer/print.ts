@@ -302,9 +302,11 @@ function printNodeDocComments(node, path, options) {
     const isFunctionLikeNode = node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
     if (isFunctionLikeNode) {
         const sourceDocLines = collectDocLinesFromSource(node, options);
-        const sourceHasFunctionTag = sourceDocLines.some((line) => /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim()));
+        const sourceHasFunctionTag = sourceDocLines.some((docLine) =>
+            /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
+        );
         const astHasFunctionTag = docCommentDocs.some(
-            (line) => typeof line === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(line.trim())
+            (docLine) => typeof docLine === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
         );
         if (sourceHasFunctionTag && !astHasFunctionTag) {
             docCommentDocs.splice(0, docCommentDocs.length, ...sourceDocLines);

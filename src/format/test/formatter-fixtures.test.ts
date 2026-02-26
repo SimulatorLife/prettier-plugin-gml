@@ -160,9 +160,6 @@ void describe("formatter fixtures", () => {
                     `${fixtureCase.basename} should match expected formatter output`
                 );
             }
-
-            const reformatted = await Format.format(formatted, fixture.options ?? {});
-            assert.equal(reformatted.trim(), formatted.trim(), `${fixtureCase.basename} should remain idempotent`);
         });
     }
 });

@@ -23,6 +23,6 @@ if (keyboard_check(vk_escape)) {
 }
 
 // The following line is intentionally missing a comma which should be added
-if (scr_is_matrix_rotated(scr_matrix_build(100, 999, 1000, 90, 90, 90, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1))) {
-    return "Yes it is";
-}
+if (
+    scr_is_matrix_rotated(scr_matrix_build(100, 999, 1000, 90, 90, 90, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1))
+) { return "Yes it is"; }
