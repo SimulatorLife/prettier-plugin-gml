@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { Format } from "../src/index.js";
+import * as FunctionParameterNaming from "../src/printer/function-parameter-naming.js";
 
 void describe("formatter migrated-transform regression coverage", () => {
     void it("does not apply semantic/content rewrites during formatting", async () => {
@@ -195,6 +196,22 @@ void describe("formatter migrated-transform regression coverage", () => {
             docLineCount,
             2,
             "Formatter must not strip duplicate doc-comment lines — that is a lint-workspace responsibility"
+        );
+    });
+
+    void it("does not export parameter-synthesis decision functions from the format printer (target-state.md §3.2, §3.5)", () => {
+        // shouldSynthesizeUndefinedDefaultForIdentifier was a dormant semantic
+        // transform: it read Core's synthesizedUndefinedDefaultParameters WeakSet
+        // to decide whether to emit `= undefined` defaults inline during printing.
+        // Synthesizing parameter defaults is a content rewrite owned exclusively
+        // by @gml-modules/lint (gml/require-trailing-optional-defaults). The
+        // format workspace must not contain or export that decision logic.
+        assert.strictEqual(
+            (FunctionParameterNaming as Record<string, unknown>).shouldSynthesizeUndefinedDefaultForIdentifier,
+            undefined,
+            "Formatter printer must not export shouldSynthesizeUndefinedDefaultForIdentifier — " +
+                "parameter-default synthesis is a semantic/content rewrite that belongs in @gml-modules/lint " +
+                "(target-state.md §2.2, §3.2, §3.5)."
         );
     });
 });
