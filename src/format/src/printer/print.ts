@@ -42,14 +42,9 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
-    filterKeptDeclarators,
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
-    findEnclosingFunctionNode,
-    getPreferredFunctionParameterName,
-    joinDeclaratorPartsWithCommas,
-    resolveArgumentAliasInitializerDoc,
-    resolvePreferredParameterName
+    joinDeclaratorPartsWithCommas
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -577,33 +572,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            const functionNode = findEnclosingFunctionNode(path);
-            const declarators = Core.asArray<any>(node.declarations);
-
-            const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
-
-            if (keptDeclarators.length === 0) {
-                return null;
-            }
-
-            if (keptDeclarators.length !== declarators.length) {
-                const original = node.declarations;
-                node.declarations = keptDeclarators;
-                try {
-                    const decls =
-                        keptDeclarators.length > 1
-                            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                  leadingNewline: false,
-                                  trailingNewline: false,
-                                  addIndent: keptDeclarators.length > 1
-                              })
-                            : path.map(print, "declarations");
-                    return concat([node.kind, " ", decls]);
-                } finally {
-                    node.declarations = original;
-                }
-            }
-
             // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
             //
             // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
@@ -629,7 +597,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
-                addIndent: keptDeclarators.length > 1
+                addIndent: node.declarations.length > 1
             });
 
             const docComments = printNodeDocComments(node, path, options);
@@ -660,10 +628,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
-            if (initializerOverride) {
-                return concat(printSimpleDeclaration(print("id"), initializerOverride));
-            }
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
@@ -1221,28 +1185,7 @@ function tryPrintLiteralNode(node, path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
-            let identifierName = node.name;
-
-            const argumentIndex = Core.getArgumentIndexFromIdentifier(identifierName);
-            if (argumentIndex !== null) {
-                const functionNode = findEnclosingFunctionDeclaration(path);
-                const preferredArgumentName = resolvePreferredParameterName(
-                    functionNode,
-                    argumentIndex,
-                    node.name,
-                    options
-                );
-                if (Core.isNonEmptyString(preferredArgumentName)) {
-                    identifierName = preferredArgumentName;
-                }
-            }
-
-            const preferredParamName = getPreferredFunctionParameterName(path, node, options);
-            if (Core.isNonEmptyString(preferredParamName)) {
-                identifierName = preferredParamName;
-            }
-
-            return concat([prefix, identifierName]);
+            return concat([prefix, node.name]);
         }
         case "TemplateStringText": {
             return concat(node.value);
