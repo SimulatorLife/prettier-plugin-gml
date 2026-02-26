@@ -117,6 +117,42 @@ void test("cache persists across metadata loader changes", () => {
     cleanup();
 });
 
+void test("identifier metadata loader allocations are stable across repeated reserved-name cache misses", () => {
+    let loaderInvocations = 0;
+
+    setReservedIdentifierMetadataLoader(() => {
+        loaderInvocations += 1;
+        return {
+            identifiers: {
+                alpha: { type: "function" },
+                beta: { type: "keyword" },
+                gamma: { type: "literal" },
+                delta: { type: "variable" }
+            }
+        };
+    });
+
+    const disallowedTypeConfigurations = [
+        ["literal", "keyword"],
+        ["keyword"],
+        ["literal"],
+        ["variable"],
+        ["keyword", "variable"]
+    ];
+
+    for (const config of disallowedTypeConfigurations) {
+        loadReservedIdentifierNames({ disallowedTypes: config });
+    }
+
+    loadManualFunctionNames();
+
+    assert.strictEqual(
+        loaderInvocations,
+        1,
+        `Expected exactly one metadata loader invocation, received ${loaderInvocations}.`
+    );
+});
+
 void test("memory allocation is reduced by caching", () => {
     // This test verifies the optimization by ensuring multiple calls
     // don't create new Set instances, thus reducing memory allocations
