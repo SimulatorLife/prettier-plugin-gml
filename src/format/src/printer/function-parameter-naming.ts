@@ -557,24 +557,6 @@ export function joinDeclaratorPartsWithCommas(parts: unknown[]): unknown[] {
     return joined;
 }
 
-export function shouldSynthesizeUndefinedDefaultForIdentifier(path: AstPath<any>, node: unknown): boolean {
-    if (!node || Core.synthesizedUndefinedDefaultParameters.has(node)) {
-        return false;
-    }
-
-    if (!path || typeof (path as { getParentNode?: unknown }).getParentNode !== "function") {
-        return false;
-    }
-
-    const parent = safeGetParentNode(path);
-    if (!parent || (parent as { type?: string }).type !== "FunctionDeclaration") {
-        return false;
-    }
-
-    const params = getFunctionParams(parent);
-    return params.includes(node);
-}
-
 // ---------------------------------------------------------------------------
 // Argument alias initializer resolution
 // ---------------------------------------------------------------------------

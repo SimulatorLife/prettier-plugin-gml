@@ -1,8 +1,18 @@
 /// @description Create collectible particles and inherit
 /// @function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color)
-function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
-    var w = width;
-    var step_size = 1 / steps;
+function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, argument5, argument6, argument7, argument8, argument9, argument10) {
+    var x1 = argument0;
+    var y1 = argument1;
+    var x2 = argument2;
+    var y2 = argument3;
+    var x3 = argument4;
+    var y3 = argument5;
+    var x4 = argument6;
+    var y4 = argument7;
+    var w = argument8;
+    var step_size = 1 / argument9;
+    var color = argument10;
+
     var xnet = -1;
     var ynet = -1;
 
