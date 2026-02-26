@@ -250,6 +250,60 @@ export function findFirstChangedCharacterOffset(originalText: string, rewrittenT
     return 0;
 }
 
+/**
+ * Resolves a `{ line, column }` location from a character offset within the
+ * current rule context's source text.
+ *
+ * The ESLint `sourceCode.getLocFromIndex` API is tried first. When it is
+ * unavailable or returns a non-finite result, this function falls back to a
+ * manual newline scan so that every rule can produce a valid report location
+ * regardless of the ESLint version in use.
+ *
+ * This function consolidates three previously duplicated implementations:
+ * - `resolveReportLoc` in `create-feather-rule.ts`
+ * - `resolveSafeLocFromIndex` in `prefer-loop-length-hoist-rule.ts`
+ * - `resolveSafeNodeLoc` in `optimize-logical-flow-rule.ts`
+ *
+ * @param context ESLint rule context providing the source text and optional
+ *   `getLocFromIndex` API.
+ * @param index Zero-based character offset within the source text.
+ * @returns A `{ line, column }` pair suitable for `context.report({ loc })`.
+ */
+export function resolveLocFromIndex(
+    context: Rule.RuleContext,
+    index: number
+): { line: number; column: number } {
+    const sourceText = context.sourceCode.text;
+    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
+    };
+    const located =
+        typeof sourceCodeWithLocator.getLocFromIndex === "function"
+            ? sourceCodeWithLocator.getLocFromIndex(clampedIndex)
+            : undefined;
+    if (
+        located &&
+        typeof located.line === "number" &&
+        typeof located.column === "number" &&
+        Number.isFinite(located.line) &&
+        Number.isFinite(located.column)
+    ) {
+        return located;
+    }
+
+    let line = 1;
+    let lastLineStart = 0;
+    for (let cursor = 0; cursor < clampedIndex; cursor += 1) {
+        if (sourceText[cursor] === "\n") {
+            line += 1;
+            lastLineStart = cursor + 1;
+        }
+    }
+
+    return { line, column: clampedIndex - lastLineStart };
+}
+
 export function reportFullTextRewrite(
     context: Rule.RuleContext,
     messageId: string,
@@ -261,45 +315,11 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
-    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number };
-    };
-    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
-    const locatedPoint =
-        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
-            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
-            : null;
-    const loc =
-        locatedPoint &&
-        typeof locatedPoint.line === "number" &&
-        typeof locatedPoint.column === "number" &&
-        Number.isFinite(locatedPoint.line) &&
-        Number.isFinite(locatedPoint.column)
-            ? locatedPoint
-            : fallbackLineColumn;
-
     context.report({
-        loc,
+        loc: resolveLocFromIndex(context, firstChangedOffset),
         messageId,
         fix: (fixer) => fixer.replaceTextRange([0, originalText.length], rewrittenText)
     });
-}
-
-function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
-    const clampedOffset = Math.max(0, Math.min(offset, sourceText.length));
-    let line = 1;
-    let lastLineStart = 0;
-    for (let index = 0; index < clampedOffset; index += 1) {
-        if (sourceText[index] === "\n") {
-            line += 1;
-            lastLineStart = index + 1;
-        }
-    }
-
-    return {
-        line,
-        column: clampedOffset - lastLineStart
-    };
 }
 
 export function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {

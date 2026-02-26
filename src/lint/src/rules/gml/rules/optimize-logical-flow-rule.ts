@@ -2,7 +2,7 @@ import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import { createMeta, resolveLocFromIndex } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
@@ -10,45 +10,6 @@ import { applyLogicalNormalization } from "../transforms/logical-expressions/tra
  */
 function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
-}
-
-function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
-    const sourceText = context.sourceCode.text;
-    const rawStart = Core.getNodeStartIndex(node as any);
-    const startIndex =
-        typeof rawStart === "number" && Number.isFinite(rawStart)
-            ? Math.max(0, Math.min(rawStart, sourceText.length))
-            : 0;
-    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
-    };
-    const located =
-        typeof sourceCodeWithLocator.getLocFromIndex === "function"
-            ? sourceCodeWithLocator.getLocFromIndex(startIndex)
-            : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
-    }
-
-    let line = 1;
-    let lastLineStart = 0;
-    for (let index = 0; index < startIndex; index += 1) {
-        if (sourceText[index] === "\n") {
-            line += 1;
-            lastLineStart = index + 1;
-        }
-    }
-
-    return {
-        line,
-        column: startIndex - lastLineStart
-    };
 }
 
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -125,7 +86,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
                         // It changed!
                         context.report({
-                            loc: resolveSafeNodeLoc(context, originalNode),
+                            loc: resolveLocFromIndex(context, nodeStart),
                             messageId: definition.messageId, // "optimizeLogicalFlow"
                             fix(fixer) {
                                 return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
