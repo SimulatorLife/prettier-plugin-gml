@@ -70,9 +70,8 @@ function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string
 }
 
 function resolveRuntimeId(patch: ScriptPatch): string {
-    const candidate = (patch as { runtimeId?: unknown }).runtimeId;
-    if (Core.isNonEmptyString(candidate)) {
-        return candidate;
+    if (Core.isNonEmptyString(patch.runtimeId)) {
+        return patch.runtimeId;
     }
 
     return patch.id;
@@ -235,14 +234,15 @@ function updateInstance(
         instance[key] = fn;
 
         // Also update the object definition (pObject) which the event loop uses
-        const pObject = (instance as any).pObject || (instance as any)._kx;
-        if (pObject && typeof pObject === "object" && pObject[key] !== fn) {
+        const rawPObject = instance.pObject ?? instance._kx;
+        const pObject = rawPObject && typeof rawPObject === "object" ? (rawPObject as Record<string, unknown>) : null;
+        if (pObject !== null && pObject[key] !== fn) {
             pObject[key] = fn;
         }
 
         const eventIndex = resolveEventIndex(globalScope, key);
-        markEventIndexAsEnabled((instance as { Event?: unknown }).Event, eventIndex);
-        markEventIndexAsEnabled((pObject as { Event?: unknown } | null | undefined)?.Event, eventIndex);
+        markEventIndexAsEnabled(instance.Event, eventIndex);
+        markEventIndexAsEnabled(pObject?.Event, eventIndex);
     }
 
     for (const [key, value] of Object.entries(instance)) {
