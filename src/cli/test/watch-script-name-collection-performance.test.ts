@@ -6,12 +6,15 @@
  * as the number of files increases.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { after, before, describe, test } from "node:test";
+import { after, before, describe, it, test } from "node:test";
 
-import { createExtensionMatcher } from "../src/commands/watch.js";
+import { createExtensionMatcher, runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
+import { waitForScanComplete } from "./test-helpers/status-polling.js";
 
 // Import the watch module to access collectScriptNames (note: this is a private function,
 // so we're testing indirectly through the watch command behavior)
@@ -92,6 +95,126 @@ function helper_${i}() {
             console.warn(
                 `File discovery took ${duration}ms, which is slower than expected (target: <100ms). This may indicate a performance issue.`
             );
+        }
+    });
+});
+
+void describe("script name collection – nested directory scanning", () => {
+    let nestedTestDir: string;
+
+    before(async () => {
+        nestedTestDir = path.join(tmpdir(), `watch-nested-${Date.now()}`);
+
+        // Build a 3-level deep directory tree so we exercise the subdirectory
+        // traversal that was previously sequential and is now bounded-parallel.
+        //
+        //   nestedTestDir/
+        //     scripts/
+        //       player.gml
+        //       enemies/
+        //         enemy_base.gml
+        //         bosses/
+        //           boss_dragon.gml
+
+        const scriptsDir = path.join(nestedTestDir, "scripts");
+        const enemiesDir = path.join(scriptsDir, "enemies");
+        const bossesDir = path.join(enemiesDir, "bosses");
+
+        await mkdir(bossesDir, { recursive: true });
+
+        await Promise.all([
+            writeFile(path.join(scriptsDir, "player.gml"), `function player_move() {\n    x += speed;\n}\n`, "utf8"),
+            writeFile(
+                path.join(enemiesDir, "enemy_base.gml"),
+                `function enemy_update() {\n    move_towards_player();\n}\n`,
+                "utf8"
+            ),
+            writeFile(
+                path.join(bossesDir, "boss_dragon.gml"),
+                `function boss_dragon_attack() {\n    fire_breath();\n}\n`,
+                "utf8"
+            )
+        ]);
+    });
+
+    after(async () => {
+        if (nestedTestDir) {
+            await rm(nestedTestDir, { recursive: true, force: true }).catch(() => {
+                // Best-effort cleanup; OS will reclaim tmp on next boot if this fails.
+            });
+        }
+    });
+
+    void it("scans GML files in nested subdirectories during initial startup", async () => {
+        const statusPort = await findAvailablePort();
+        const abortController = new AbortController();
+
+        const watchPromise = runWatchCommand(nestedTestDir, {
+            extensions: [".gml"],
+            verbose: false,
+            quiet: true,
+            websocketServer: false,
+            runtimeServer: false,
+            statusServer: true,
+            statusPort,
+            statusHost: "127.0.0.1",
+            maxConcurrentDirs: 2,
+            abortSignal: abortController.signal
+        });
+
+        try {
+            // Wait until the initial scan marks itself complete so we can
+            // query a stable snapshot of what was discovered.
+            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 10_000, 50);
+
+            const response = await fetch(`http://127.0.0.1:${statusPort}/status`);
+            const payload = (await response.json()) as { patchCount: number };
+
+            // All 3 GML files across all subdirectory levels must have been
+            // transpiled during the initial scan, confirming that bounded-parallel
+            // traversal visits every level of the directory tree.
+            assert.ok(
+                payload.patchCount >= 3,
+                `Expected at least 3 initial patches (one per nested .gml file), got ${payload.patchCount}`
+            );
+        } finally {
+            abortController.abort();
+            await watchPromise.catch(() => {});
+        }
+    });
+
+    void it("respects maxConcurrentDirs=1 and still scans all nested directories", async () => {
+        const statusPort = await findAvailablePort();
+        const abortController = new AbortController();
+
+        const watchPromise = runWatchCommand(nestedTestDir, {
+            extensions: [".gml"],
+            verbose: false,
+            quiet: true,
+            websocketServer: false,
+            runtimeServer: false,
+            statusServer: true,
+            statusPort,
+            statusHost: "127.0.0.1",
+            // Use the minimum concurrency limit (equivalent to sequential) so we
+            // verify correctness independently of any parallelism benefit.
+            maxConcurrentDirs: 1,
+            abortSignal: abortController.signal
+        });
+
+        try {
+            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 10_000, 50);
+
+            const response = await fetch(`http://127.0.0.1:${statusPort}/status`);
+            const payload = (await response.json()) as { patchCount: number };
+
+            assert.ok(
+                payload.patchCount >= 3,
+                `Expected at least 3 initial patches with maxConcurrentDirs=1, got ${payload.patchCount}`
+            );
+        } finally {
+            abortController.abort();
+            await watchPromise.catch(() => {});
         }
     });
 });

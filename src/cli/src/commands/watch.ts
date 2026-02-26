@@ -691,7 +691,11 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const extensionMatcher = createExtensionMatcher(extensions);
     const extensionSet = extensionMatcher.extensions;
 
-    const { scriptNames, fileDataCache } = await collectScriptNames(normalizedPath, extensionMatcher);
+    const { scriptNames, fileDataCache } = await collectScriptNames(
+        normalizedPath,
+        extensionMatcher,
+        maxConcurrentDirs
+    );
 
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
@@ -1586,7 +1590,8 @@ function partitionScannedDirectoryEntries(
 
 async function collectScriptNames(
     rootPath: string,
-    extensionMatcher: ExtensionMatcher
+    extensionMatcher: ExtensionMatcher,
+    maxConcurrentDirs: number
 ): Promise<InitialFileScanResult> {
     const scriptNames = new Set<string>();
     const fileDataCache = new Map<string, InitialFileData>();
@@ -1600,10 +1605,16 @@ async function collectScriptNames(
             await addScriptNamesFromFile(filePath, scriptNames, fileDataCache);
         });
 
-        // Traverse subdirectories sequentially to avoid excessive concurrent directory handles
-        await Core.runSequentially(directories, async (subDirPath) => {
-            await scan(subDirPath);
-        });
+        // Traverse subdirectories with bounded parallelism, matching the pattern used in
+        // performInitialScan, to balance throughput and resource usage. Sequential traversal
+        // was the prior approach here but serialised the hot-reload startup scan unnecessarily.
+        await Core.runInParallelWithLimit(
+            directories,
+            async (subDirPath) => {
+                await scan(subDirPath);
+            },
+            maxConcurrentDirs
+        );
     }
 
     try {
