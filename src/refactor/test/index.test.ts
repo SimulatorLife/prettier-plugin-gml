@@ -3307,6 +3307,48 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
     assert.equal(result.metadata.maxDistance, 2);
 });
 
+void test("computeHotReloadCascade does not falsely report cycles in diamond dependency patterns", async () => {
+    // Diamond: root → left → bottom AND root → right → bottom.
+    // `bottom` is a shared dependency reached via two paths, NOT a cycle.
+    // The old DFS-with-parallel-exploration implementation added `bottom` to the
+    // `visiting` set during exploration of the left branch; when the right branch
+    // then queried `bottom`, it saw it in `visiting` and incorrectly reported a cycle.
+    const mockSemantic: PartialSemanticAnalyzer = {
+        getDependents: async (symbolIds: Array<string>) => {
+            const id = symbolIds[0];
+            if (id === "gml/script/scr_root") {
+                return [
+                    { symbolId: "gml/script/scr_left", filePath: "scripts/left.gml" },
+                    { symbolId: "gml/script/scr_right", filePath: "scripts/right.gml" }
+                ];
+            }
+            if (id === "gml/script/scr_left" || id === "gml/script/scr_right") {
+                return [{ symbolId: "gml/script/scr_bottom", filePath: "scripts/bottom.gml" }];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_root"]);
+
+    // A diamond is NOT a cycle — both paths converge on a shared dependency.
+    assert.equal(result.metadata.hasCircular, false);
+    assert.equal(result.circular.length, 0);
+
+    // All 4 symbols should be present exactly once.
+    assert.equal(result.cascade.length, 4);
+    const ids = new Set(result.cascade.map((e) => e.symbolId));
+    assert.ok(ids.has("gml/script/scr_root"));
+    assert.ok(ids.has("gml/script/scr_left"));
+    assert.ok(ids.has("gml/script/scr_right"));
+    assert.ok(ids.has("gml/script/scr_bottom"));
+
+    // The shared dependency should appear exactly once.
+    const bottomOccurrences = result.cascade.filter((e) => e.symbolId === "gml/script/scr_bottom");
+    assert.equal(bottomOccurrences.length, 1);
+});
+
 void test("validateBatchRenameRequest validates empty array", async () => {
     const engine = new RefactorEngineClass();
     const validation = await engine.validateBatchRenameRequest([]);

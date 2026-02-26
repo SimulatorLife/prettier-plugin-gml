@@ -150,138 +150,96 @@ export async function computeHotReloadCascade(
         };
     }
 
-    // Track visited symbols to detect cycles and compute transitive closure
-    const visited = new Set<string>();
-    const visiting = new Set<string>(); // For cycle detection
-    const cascade = new Map<string, CascadeEntry>(); // symbolId -> entry
-    const circular: Array<Array<string>> = [];
+    // BFS traversal: symbols visited so far (prevents re-exploring shared dependencies
+    // or infinite loops in cyclic graphs). Unlike a DFS `visiting` stack, a BFS
+    // `visited` set never causes false-positive cycle reports in diamond-shaped graphs
+    // (A→B→D, A→C→D) because sibling branches share only the "already seen" bit, not
+    // an "on the current recursive path" bit.
+    const visited = new Set<string>(changedSymbolIds);
+    const cascade = new Map<string, CascadeEntry>();
     const dependencyGraph = new Map<string, Array<string>>();
 
-    // Initialize changed symbols at distance 0. These are the root symbols directly
+    // Initialize root symbols at distance 0. These are the symbols directly
     // modified by the user (e.g., a renamed function or edited variable). All other
     // symbols in the cascade are transitively impacted through dependency edges.
-    // Starting with distance=0 establishes the baseline for computing how far each
-    // dependent is from the original change, which is critical for prioritizing
-    // hot-reload patches (closer symbols reload first) and for generating meaningful
-    // impact reports that show developers the ripple effects of their edits.
     for (const symbolId of changedSymbolIds) {
         cascade.set(symbolId, {
             symbolId,
             distance: 0,
             reason: "direct change"
         });
-        visited.add(symbolId);
     }
 
-    // Track the traversal path during DFS for complete cycle reconstruction.
-    // This array is intentionally shared across all recursive calls to maintain
-    // the full call stack, enabling accurate cycle path tracing when a back edge
-    // is detected (e.g., A→B→C→A results in visitPath = [A, B, C] at the moment
-    // we discover C depends on A).
-    const visitPath: Array<string> = [];
-
-    // Helper to reconstruct a complete cycle path from the current traversal state.
-    // When we detect a symbol already in the visiting set, we know we've found a
-    // back edge. This function extracts the cycle from visitPath by finding where
-    // the cycle starts and appending the re-encountered symbol to close the loop.
-    const reconstructCyclePath = (cycleStartSymbol: string): Array<string> => {
-        const cycleStartIndex = visitPath.indexOf(cycleStartSymbol);
-        if (cycleStartIndex !== -1) {
-            return [...visitPath.slice(cycleStartIndex), cycleStartSymbol];
-        }
-        // Fallback if symbol isn't in path (shouldn't happen, but be defensive)
-        return [cycleStartSymbol];
-    };
-
-    // Helper to explore dependencies recursively
-    const exploreDependents = async (
-        symbolId: string,
-        currentDistance: number,
-        parentReason: string
-    ): Promise<{ cycleDetected: boolean; cycle?: Array<string> }> => {
-        // Check if we're already exploring this symbol (cycle detection)
-        if (visiting.has(symbolId)) {
-            // Found a cycle - reconstruct the full cycle path from visitPath.
-            // The cycle starts at the first occurrence of symbolId in visitPath
-            // and extends to the current position where we re-encountered it.
-            const cyclePath = reconstructCyclePath(symbolId);
-            return { cycleDetected: true, cycle: cyclePath };
+    // Level-parallel BFS: all symbols at the same dependency depth are queried
+    // concurrently, reducing total async round trips to O(max_depth) instead of
+    // O(total_nodes). The `visited` set (not a DFS `visiting` stack) prevents
+    // false-positive cycle reports in diamond patterns while still terminating
+    // correctly on genuine cycles.
+    //
+    // Implemented as tail-recursive levels rather than a while-loop to satisfy the
+    // no-await-in-loop rule: each level awaits only its own Promise.all batch.
+    const processLevel = async (level: ReadonlyArray<{ id: string; distance: number }>): Promise<void> => {
+        if (level.length === 0 || !Core.hasMethods(semantic, "getDependents")) {
+            return;
         }
 
-        visiting.add(symbolId);
-        visitPath.push(symbolId);
+        // Fetch dependents for every node in this level concurrently.
+        const levelResults = await Promise.all(
+            level.map(async ({ id, distance }) => {
+                const deps = (await semantic.getDependents([id])) ?? [];
+                return { id, distance, deps };
+            })
+        );
 
-        try {
-            // Query semantic analyzer for symbols that depend on this one
-            if (Core.hasMethods(semantic, "getDependents")) {
-                const dependents = (await semantic.getDependents([symbolId])) ?? [];
+        const nextLevel: Array<{ id: string; distance: number }> = [];
 
-                // Process dependents in parallel since they don't interfere with each other.
-                // Each dependent gets explored independently, and we track their results
-                // to aggregate any discovered cycles. This significantly improves cascade
-                // computation performance when symbols have many dependents, which is
-                // common in large projects with shared utility functions or core types.
-                // The DFS cycle-detection invariants remain intact because the visiting
-                // set is shared and synchronously checked before recursive exploration.
-                await Core.runInParallel(dependents, async (dep) => {
-                    const depId = dep.symbolId;
+        for (const { id: parentId, distance, deps } of levelResults) {
+            for (const dep of deps) {
+                const depId = dep.symbolId;
 
-                    // Track the dependency edge for topological sort
-                    if (!dependencyGraph.has(symbolId)) {
-                        dependencyGraph.set(symbolId, []);
-                    }
-                    dependencyGraph.get(symbolId).push(depId);
+                // Record the dependency edge so the topological sort has complete
+                // edge information. We record all edges (even to already-visited nodes)
+                // because Kahn's algorithm needs them to compute correct in-degrees.
+                const edges = dependencyGraph.get(parentId) ?? [];
+                edges.push(depId);
+                dependencyGraph.set(parentId, edges);
 
-                    // Check if this creates a cycle by looking at the visiting set.
-                    // The visiting set contains symbols currently on the call stack,
-                    // so finding a dependent in that set means we've encountered a cycle.
-                    if (visiting.has(depId)) {
-                        // Reconstruct and record the complete cycle path
-                        const cyclePath = reconstructCyclePath(depId);
-                        circular.push(cyclePath);
-                        return;
-                    }
+                // Skip already-visited symbols. BFS handles shared dependencies
+                // (diamond patterns) correctly here: the second path to a shared
+                // node just skips it without any false cycle detection.
+                if (visited.has(depId)) {
+                    continue;
+                }
 
-                    // If we haven't visited this dependent yet, explore it
-                    if (!visited.has(depId)) {
-                        const newDistance = currentDistance + 1;
-                        const reason = `depends on ${extractSymbolName(symbolId)} (${parentReason})`;
-
-                        cascade.set(depId, {
-                            symbolId: depId,
-                            distance: newDistance,
-                            reason,
-                            filePath: dep.filePath
-                        });
-                        visited.add(depId);
-
-                        // Recursively explore this dependent's dependents
-                        const result = await exploreDependents(depId, newDistance, reason);
-                        if (result && result.cycleDetected && result.cycle) {
-                            circular.push(result.cycle);
-                        }
-                    }
+                visited.add(depId);
+                cascade.set(depId, {
+                    symbolId: depId,
+                    distance: distance + 1,
+                    reason: `depends on ${extractSymbolName(parentId)}`,
+                    filePath: dep.filePath
                 });
+
+                nextLevel.push({ id: depId, distance: distance + 1 });
             }
-        } finally {
-            visiting.delete(symbolId);
-            visitPath.pop();
         }
 
-        return { cycleDetected: false };
+        await processLevel(nextLevel);
     };
 
-    // Explore from each changed symbol
-    await Core.runSequentially(changedSymbolIds, async (symbolId) => {
-        await exploreDependents(symbolId, 0, "initial change");
-    });
+    await processLevel(changedSymbolIds.map((id) => ({ id, distance: 0 })));
 
-    // Convert cascade to array and compute topological order
+    // Detect cycles on the completed dependency graph using a sequential DFS pass.
+    // Separating cycle detection from BFS traversal ensures the DFS `visiting` stack
+    // is never shared with concurrent async branches, eliminating the false positives
+    // that occur when a DFS stack is mutated during parallel exploration.
+    const circular = detectCyclesInDependencyGraph(dependencyGraph);
+
+    // Convert cascade to array and compute topological order.
     const cascadeArray = Array.from(cascade.values());
 
-    // Topological sort using Kahn's algorithm
-    // Build in-degree map
-    const inDegree = new Map();
+    // Topological sort using Kahn's algorithm.
+    // Build in-degree map.
+    const inDegree = new Map<string, number>();
     for (const item of cascadeArray) {
         inDegree.set(item.symbolId, 0);
     }
@@ -289,7 +247,7 @@ export async function computeHotReloadCascade(
     for (const [, toList] of dependencyGraph.entries()) {
         for (const to of toList) {
             if (inDegree.has(to)) {
-                inDegree.set(to, inDegree.get(to) + 1);
+                inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
             }
         }
     }
@@ -316,11 +274,11 @@ export async function computeHotReloadCascade(
         queueIndex += 1;
         order.push(current);
 
-        // Reduce in-degree for dependents
-        const dependents = dependencyGraph.get(current) || [];
+        // Reduce in-degree for dependents.
+        const dependents = dependencyGraph.get(current) ?? [];
         for (const dep of dependents) {
             if (inDegree.has(dep)) {
-                const newDegree = inDegree.get(dep) - 1;
+                const newDegree = (inDegree.get(dep) ?? 0) - 1;
                 inDegree.set(dep, newDegree);
                 if (newDegree === 0) {
                     queue.push(dep);
@@ -329,10 +287,10 @@ export async function computeHotReloadCascade(
         }
     }
 
-    // If order doesn't include all symbols, we have cycles
+    // If order doesn't include all symbols, we have cycles.
     const hasUnorderedSymbols = order.length < cascadeArray.length;
 
-    // Add any remaining symbols (those in cycles) to the end of the order
+    // Add any remaining symbols (those in cycles) to the end of the order.
     const orderSet = new Set(order);
     for (const item of cascadeArray) {
         if (!orderSet.has(item.symbolId)) {
@@ -341,7 +299,7 @@ export async function computeHotReloadCascade(
         }
     }
 
-    // Compute metadata
+    // Compute metadata.
     const maxDistance = cascadeArray.reduce((max, item) => Math.max(max, item.distance), 0);
 
     return {
@@ -354,6 +312,67 @@ export async function computeHotReloadCascade(
             hasCircular: circular.length > 0 || hasUnorderedSymbols
         }
     };
+}
+
+/**
+ * Detect cycles in a completed dependency graph using sequential DFS.
+ * Returns all discovered cycles as arrays of symbol IDs.
+ *
+ * This is intentionally separate from BFS traversal so the DFS `visiting`/`path`
+ * state is never shared with concurrent async branches—the root cause of false
+ * positives when DFS cycle detection is interleaved with parallel exploration.
+ *
+ * @param graph - Adjacency list: parent symbolId → array of dependent symbolIds
+ * @returns Each cycle as an ordered sequence of symbol IDs with the start node
+ *   repeated at the end to close the loop (e.g., `["A", "B", "C", "A"]` for A→B→C→A)
+ *
+ * @example
+ * // Given A→B→C→A cycle in the dependency graph:
+ * const graph = new Map([
+ *   ["A", ["B"]],
+ *   ["B", ["C"]],
+ *   ["C", ["A"]]
+ * ]);
+ * detectCyclesInDependencyGraph(graph);
+ * // Returns [["A", "B", "C", "A"]]
+ */
+function detectCyclesInDependencyGraph(graph: Map<string, Array<string>>): Array<Array<string>> {
+    const cycles: Array<Array<string>> = [];
+    const fullyExplored = new Set<string>();
+    const visiting = new Set<string>();
+    const path: Array<string> = [];
+
+    const dfs = (node: string): void => {
+        if (fullyExplored.has(node)) {
+            return;
+        }
+
+        if (visiting.has(node)) {
+            // Back edge: reconstruct cycle from current path.
+            const cycleStart = path.indexOf(node);
+            if (cycleStart !== -1) {
+                cycles.push([...path.slice(cycleStart), node]);
+            }
+            return;
+        }
+
+        visiting.add(node);
+        path.push(node);
+
+        for (const neighbor of graph.get(node) ?? []) {
+            dfs(neighbor);
+        }
+
+        path.pop();
+        visiting.delete(node);
+        fullyExplored.add(node);
+    };
+
+    for (const node of graph.keys()) {
+        dfs(node);
+    }
+
+    return cycles;
 }
 
 /**
