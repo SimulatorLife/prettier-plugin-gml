@@ -7,8 +7,8 @@ import {
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
-    makeDummyOracle
-} from "../emitter/index.js";
+    makeDummyOracle,
+    type ProgramNode} from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
     /**
@@ -77,6 +77,20 @@ export class GmlTranspiler {
         return parser.parse();
     }
 
+    private resolveProgramAst(request: TranspileScriptRequest): ProgramNode {
+        const astCandidate = request.ast ?? this.parseProgram(request.sourceText);
+        if (!Core.isObjectLike(astCandidate)) {
+            throw new TypeError("transpileScript requires ast to be a Program-like object when provided");
+        }
+
+        const astRecord = astCandidate as Record<string, unknown>;
+        if (!Array.isArray(astRecord.body)) {
+            throw new TypeError("transpileScript requires ast.body to be an array when ast is provided");
+        }
+
+        return astCandidate as ProgramNode;
+    }
+
     private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
         let unpacked = "";
 
@@ -127,7 +141,7 @@ export class GmlTranspiler {
         }
 
         try {
-            const ast = request.ast ?? this.parseProgram(sourceText);
+            const ast = this.resolveProgramAst(request);
             const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             let jsBody = "";
 
