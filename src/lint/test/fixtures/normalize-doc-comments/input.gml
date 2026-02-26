@@ -55,21 +55,62 @@ function reorder_with_descriptions(first, second, third) {
 var build_packet = function (alpha, beta = 4) {
     return;
 };
-
 /// @param {string} name Player display name should retain {string}.
 /// @param {Struct.MyCustomStruct} custom Struct payload should retain namespaced type.
 function typed_reorder(custom, name) {
     return;
 }
-
 /// @arg {Struct.MyCustomStruct} custom Main custom struct payload.
 /// @argument {real} score Numeric score payload.
 function typed_aliases(custom, score) {
     return;
 }
-
 /// @param {Struct.MyCustomStruct} custom Existing type should be preserved.
 /// @param count Existing untyped param should remain valid.
 function typed_and_untyped(custom, count) {
     return;
 }
+
+function no_returns_no_docs() {
+    var x = 1;
+    x += 1;
+}
+
+function bare_return_only() {
+    return;
+}
+
+function explicit_undefined_return_only() {
+    return undefined;
+}
+
+function returns_concrete_literal() {
+    return 42;
+}
+
+function returns_concrete_in_branch(flag) {
+    if (flag) {
+        return 1;
+    }
+
+    return;
+}
+
+/// @returns {real}
+function typed_returns_metadata() {
+    return;
+}
+
+/// @return {Struct.MyCustomStruct}
+function legacy_typed_return_alias() {
+    return;
+}
+
+/// @returns {Struct.MyCustomStruct|undefined}
+function typed_union_return_metadata() {
+    return;
+}
+
+var assigned_returns_concrete = function () {
+    return "ok";
+};

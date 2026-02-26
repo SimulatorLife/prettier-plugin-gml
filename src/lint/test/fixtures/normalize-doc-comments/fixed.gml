@@ -79,3 +79,52 @@ function typed_aliases(custom, score) {
 function typed_and_untyped(custom, count) {
     return;
 }
+
+/// @returns {undefined}
+function no_returns_no_docs() {
+    var x = 1;
+    x += 1;
+}
+
+/// @returns {undefined}
+function bare_return_only() {
+    return;
+}
+
+/// @returns {undefined}
+function explicit_undefined_return_only() {
+    return undefined;
+}
+
+/// @returns {real}
+function returns_concrete_literal() {
+    return 42;
+}
+
+/// @param flag
+function returns_concrete_in_branch(flag) {
+    if (flag) {
+        return 1;
+    }
+
+    return;
+}
+
+/// @returns {undefined}
+function typed_returns_metadata() {
+    return;
+}
+
+/// @returns {undefined}
+function legacy_typed_return_alias() {
+    return;
+}
+
+/// @returns {undefined}
+function typed_union_return_metadata() {
+    return;
+}
+
+var assigned_returns_concrete = function () {
+    return "ok";
+};
