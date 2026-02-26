@@ -49,24 +49,91 @@ function normalizeDocCommentPrefixLine(line: string): string {
     return line;
 }
 
+type FunctionLineCandidate = Readonly<{
+    functionNode: AstNodeWithType;
+    assignmentStyle: boolean;
+}>;
+
+function isFunctionInitializerNode(node: unknown): node is AstNodeWithType {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    const nodeType = Reflect.get(node, "type");
+    return nodeType === "FunctionDeclaration" || nodeType === "FunctionExpression" || nodeType === "ConstructorDeclaration";
+}
+
+function getFunctionCandidateForNode(node: AstNodeWithType): FunctionLineCandidate | null {
+    if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+        return { functionNode: node, assignmentStyle: false };
+    }
+
+    if (node.type === "VariableDeclaration") {
+        const declarations = Reflect.get(node, "declarations");
+        if (!Array.isArray(declarations) || declarations.length !== 1) {
+            return null;
+        }
+
+        const declarator = declarations[0] as { type?: string; init?: unknown } | undefined;
+        if (!declarator || declarator.type !== "VariableDeclarator" || !isFunctionInitializerNode(declarator.init)) {
+            return null;
+        }
+
+        return { functionNode: declarator.init, assignmentStyle: true };
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = Reflect.get(node, "expression");
+        if (!expression || typeof expression !== "object") {
+            return null;
+        }
+        const expressionType = Reflect.get(expression, "type");
+        if (expressionType !== "AssignmentExpression") {
+            return null;
+        }
+        const right = Reflect.get(expression, "right");
+        if (!isFunctionInitializerNode(right)) {
+            return null;
+        }
+
+        return { functionNode: right, assignmentStyle: true };
+    }
+
+    if (node.type === "AssignmentExpression") {
+        const right = Reflect.get(node, "right");
+        if (!isFunctionInitializerNode(right)) {
+            return null;
+        }
+
+        return { functionNode: right, assignmentStyle: true };
+    }
+
+    return null;
+}
+
 function collectFunctionNodesByStartLine(
     programNode: unknown,
     lineStartOffsets: ReadonlyArray<number>
-): Map<number, Array<AstNodeWithType>> {
-    const nodesByLine = new Map<number, Array<AstNodeWithType>>();
+): Map<number, Array<FunctionLineCandidate>> {
+    const nodesByLine = new Map<number, Array<FunctionLineCandidate>>();
     walkAstNodes(programNode, (node) => {
-        if (node?.type !== "FunctionDeclaration" && node?.type !== "ConstructorDeclaration") {
+        if (!node || typeof node !== "object") {
             return;
         }
 
-        const start = getNodeStartIndex(node);
+        const candidate = getFunctionCandidateForNode(node as AstNodeWithType);
+        if (!candidate) {
+            return;
+        }
+
+        const start = getNodeStartIndex(node as AstNodeWithType);
         if (typeof start !== "number") {
             return;
         }
 
         const lineIndex = getLineIndexForOffset(lineStartOffsets, start);
         const existing = nodesByLine.get(lineIndex) ?? [];
-        existing.push(node);
+        existing.push(candidate);
         nodesByLine.set(lineIndex, existing);
     });
 
@@ -152,6 +219,10 @@ type DocCommentParamMetadata = Readonly<{
     typeText: string | null;
 }>;
 
+function normalizeParamName(name: string): string {
+    return name.replace(/^_+/, "");
+}
+
 function parseDocCommentParamMetadata(line: string): DocCommentParamMetadata | null {
     const paramMatch = /^\s*\/\/\/\s*@param(?:\s+\{([^}]+)\})?\s+\[?([A-Za-z0-9_]+)(?:=[^\]]*)?\]?/u.exec(line);
     if (!paramMatch) {
@@ -165,6 +236,21 @@ function parseDocCommentParamMetadata(line: string): DocCommentParamMetadata | n
     };
 }
 
+function normalizeDocParamLineParameterName(line: string): string {
+    const optionalMatch =
+        /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)\[([A-Za-z0-9_]+)([^\]]*)\](.*)$/u.exec(line);
+    if (optionalMatch) {
+        return `${optionalMatch[1]}[${normalizeParamName(optionalMatch[2])}${optionalMatch[3]}]${optionalMatch[4]}`;
+    }
+
+    const requiredMatch = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)([A-Za-z0-9_]+)(.*)$/u.exec(line);
+    if (requiredMatch) {
+        return `${requiredMatch[1]}${normalizeParamName(requiredMatch[2])}${requiredMatch[3]}`;
+    }
+
+    return line;
+}
+
 function collectDocCommentParamTypesByName(docLines: ReadonlyArray<string>): Map<string, string> {
     const typesByName = new Map<string, string>();
     for (const line of docLines) {
@@ -173,12 +259,74 @@ function collectDocCommentParamTypesByName(docLines: ReadonlyArray<string>): Map
             continue;
         }
 
-        if (!typesByName.has(metadata.name)) {
-            typesByName.set(metadata.name, metadata.typeText);
+        const cleanName = normalizeParamName(metadata.name);
+        if (!typesByName.has(cleanName)) {
+            typesByName.set(cleanName, metadata.typeText);
         }
     }
 
     return typesByName;
+}
+
+function removeParamDocLinesNotInFunctionSignature(
+    docLines: ReadonlyArray<string>,
+    functionParameterNames: ReadonlySet<string>
+): ReadonlyArray<string> {
+    return docLines.filter((line) => {
+        const metadata = parseDocCommentParamMetadata(line);
+        if (!metadata) {
+            return true;
+        }
+
+        return functionParameterNames.has(normalizeParamName(metadata.name));
+    });
+}
+
+function reorderDocParamLinesByFunctionOrder(
+    docLines: ReadonlyArray<string>,
+    functionParameterNamesInOrder: ReadonlyArray<string>
+): ReadonlyArray<string> {
+    const parameterOrder = new Map<string, number>();
+    for (const [index, name] of functionParameterNamesInOrder.entries()) {
+        if (!parameterOrder.has(name)) {
+            parameterOrder.set(name, index);
+        }
+    }
+
+    const paramEntries = docLines
+        .map((line, index) => {
+            const metadata = parseDocCommentParamMetadata(line);
+            if (!metadata) {
+                return null;
+            }
+            return {
+                index,
+                line,
+                name: normalizeParamName(metadata.name)
+            };
+        })
+        .filter((entry): entry is { index: number; line: string; name: string } => entry !== null);
+
+    if (paramEntries.length <= 1) {
+        return docLines;
+    }
+
+    const sortedEntries = Array.from(paramEntries).toSorted((left, right) => {
+        const leftOrder = parameterOrder.get(left.name);
+        const rightOrder = parameterOrder.get(right.name);
+        const leftKey = leftOrder ?? Number.MAX_SAFE_INTEGER;
+        const rightKey = rightOrder ?? Number.MAX_SAFE_INTEGER;
+        if (leftKey !== rightKey) {
+            return leftKey - rightKey;
+        }
+        return left.index - right.index;
+    });
+
+    const rewritten = Array.from(docLines);
+    for (const [orderIndex, originalEntry] of paramEntries.entries()) {
+        rewritten[originalEntry.index] = sortedEntries[orderIndex].line;
+    }
+    return rewritten;
 }
 
 function inferReturnDocTypeFromFunctionNode(
@@ -239,7 +387,8 @@ function inferReturnDocTypeFromFunctionNode(
 function synthesizeFunctionDocCommentBlock(
     existingLines: ReadonlyArray<string> | null,
     sourceText: string,
-    functionNode: AstNodeWithType | null
+    functionNode: AstNodeWithType | null,
+    allowSynthesisWithoutDocs: boolean
 ): ReadonlyArray<string> | null {
     if (!functionNode) {
         return null;
@@ -248,26 +397,15 @@ function synthesizeFunctionDocCommentBlock(
     const name = (functionNode as any).id?.name || "";
     // start with a mutable copy of whatever the user already wrote
     const block = existingLines ? Array.from(existingLines) : [];
+    const hadInputDocLines = block.length > 0;
+    if (block.length === 0 && !allowSynthesisWithoutDocs) {
+        return null;
+    }
 
     // remove any literal placeholder description that simply repeats the name
     for (let i = block.length - 1; i >= 0; i--) {
         if (new RegExp(String.raw`^\s*///\s*@description\s+${name}\s*$`).test(block[i])) {
             block.splice(i, 1);
-        }
-    }
-
-    // examine what we currently have, so we only add missing lines
-    const existingParams = new Set<string>();
-    const existingParamTypesByName = collectDocCommentParamTypesByName(block);
-    let hasReturns = false;
-
-    for (const line of block) {
-        const paramMatch = /^\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+\[?([A-Za-z0-9_]+)/u.exec(line);
-        if (paramMatch) {
-            existingParams.add(paramMatch[1]);
-        }
-        if (/^\s*\/\/\/\s*@returns?/.test(line)) {
-            hasReturns = true;
         }
     }
 
@@ -286,6 +424,43 @@ function synthesizeFunctionDocCommentBlock(
     });
 
     const params = (functionNode as any).params || [];
+    const functionParameterNamesInOrder: Array<string> = [];
+    for (const param of params) {
+        let parameterName: string | undefined;
+        if (param.type === "Identifier") {
+            parameterName = param.name;
+        } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
+            const left = param.left;
+            parameterName = left?.name ?? left?.id?.name;
+        } else if (typeof param.name === "string") {
+            parameterName = param.name;
+        }
+
+        if (typeof parameterName !== "string" || parameterName.length === 0) {
+            continue;
+        }
+
+        functionParameterNamesInOrder.push(normalizeParamName(parameterName));
+    }
+    const functionParameterNames = new Set(functionParameterNamesInOrder);
+    const prunedBlock = removeParamDocLinesNotInFunctionSignature(block, functionParameterNames);
+    const reorderedBlock = reorderDocParamLinesByFunctionOrder(prunedBlock, functionParameterNamesInOrder);
+    block.splice(0, block.length, ...reorderedBlock);
+
+    // examine what we currently have, so we only add missing lines
+    const existingParams = new Set<string>();
+    const existingParamTypesByName = collectDocCommentParamTypesByName(block);
+    let hasReturns = false;
+    for (const line of block) {
+        const metadata = parseDocCommentParamMetadata(line);
+        if (metadata) {
+            existingParams.add(normalizeParamName(metadata.name));
+        }
+        if (/^\s*\/\/\/\s*@returns?/.test(line)) {
+            hasReturns = true;
+        }
+    }
+
     for (const param of params) {
         let paramName: string | undefined;
         let defaultVal: string | undefined;
@@ -303,8 +478,13 @@ function synthesizeFunctionDocCommentBlock(
         }
 
         if (!paramName) continue;
-        const cleanName = paramName.replace(/^_+/, "");
-        if (existingParams.has(cleanName)) continue;
+        const cleanName = normalizeParamName(paramName);
+        if (existingParams.has(cleanName)) {
+            if (defaultVal !== undefined) {
+                updateExistingParamDocWithDefault(block, cleanName, defaultVal);
+            }
+            continue;
+        }
 
         if (defaultVal === undefined) {
             block.push(`${indentation}/// @param ${cleanName}`);
@@ -314,24 +494,10 @@ function synthesizeFunctionDocCommentBlock(
     }
 
     if (!hasReturns) {
-        if (hasConcreteReturn) {
+        if (hasConcreteReturn && hadInputDocLines) {
             const functionParameterNames = new Set<string>();
-            for (const param of params) {
-                let parameterName: string | undefined;
-                if (param.type === "Identifier") {
-                    parameterName = param.name;
-                } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-                    const left = param.left;
-                    parameterName = left?.name ?? left?.id?.name;
-                } else if (typeof param.name === "string") {
-                    parameterName = param.name;
-                }
-
-                if (typeof parameterName !== "string" || parameterName.length === 0) {
-                    continue;
-                }
-
-                functionParameterNames.add(parameterName.replace(/^_+/, ""));
+            for (const parameterName of functionParameterNamesInOrder) {
+                functionParameterNames.add(parameterName);
             }
 
             const inferredReturnType = inferReturnDocTypeFromFunctionNode(
@@ -342,7 +508,7 @@ function synthesizeFunctionDocCommentBlock(
             if (inferredReturnType !== null) {
                 block.push(`${indentation}/// @returns {${inferredReturnType}}`);
             }
-        } else {
+        } else if (!hasConcreteReturn) {
             block.push(`${indentation}/// @returns {undefined}`);
         }
     }
@@ -363,7 +529,9 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         // remove legacy @function markers entirely. this ensures downstream
         // logic can assume only the canonical forms remain.
         .map((line) => applyJsDocTagAliasLine(line))
+        .map((line) => normalizeDocParamLineParameterName(line))
         .map((line) => normalizeUndefinedOptionalDefaultParamDocLine(line))
+        .filter((line) => !emptyDescriptionPattern.test(line))
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 
     const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
@@ -385,18 +553,18 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     for (const line of docLines) {
         const metadata = parseDocCommentParamMetadata(line);
         if (metadata) {
-            existingParams.add(metadata.name);
+            existingParams.add(normalizeParamName(metadata.name));
         }
     }
     return existingParams;
 }
 
-function updateExistingFallbackParamWithDefault(
-    fallbackBlock: Array<string>,
+function updateExistingParamDocWithDefault(
+    docBlock: Array<string>,
     parameterName: string,
     defaultVal: string
 ): void {
-    for (const [index, line] of fallbackBlock.entries()) {
+    for (const [index, line] of docBlock.entries()) {
         const paramMatch = new RegExp(
             String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[?${parameterName}(?:=[^\]]*)?\]?(.*)$`
         ).exec(line);
@@ -404,10 +572,17 @@ function updateExistingFallbackParamWithDefault(
             continue;
         }
 
-        fallbackBlock[index] =
-            `${paramMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${paramMatch[2]}`;
+        docBlock[index] = `${paramMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${paramMatch[2]}`;
         return;
     }
+}
+
+function updateExistingFallbackParamWithDefault(
+    fallbackBlock: Array<string>,
+    parameterName: string,
+    defaultVal: string
+): void {
+    updateExistingParamDocWithDefault(fallbackBlock, parameterName, defaultVal);
 }
 
 function appendMissingFallbackParamLine(
@@ -429,16 +604,23 @@ function mergeFallbackParamLines(
     fallbackParams: ReadonlyArray<FallbackParameterEntry>,
     indentation: string
 ): void {
+    const fallbackParamNamesInOrder = fallbackParams.map((parameter) => normalizeParamName(parameter.name));
+    const fallbackParamNames = new Set(fallbackParamNamesInOrder);
+    const prunedFallbackBlock = removeParamDocLinesNotInFunctionSignature(fallbackBlock, fallbackParamNames);
+    const reorderedFallbackBlock = reorderDocParamLinesByFunctionOrder(prunedFallbackBlock, fallbackParamNamesInOrder);
+    fallbackBlock.splice(0, fallbackBlock.length, ...reorderedFallbackBlock);
+
     const existingParams = collectExistingParamNames(fallbackBlock);
     for (const { name, defaultVal } of fallbackParams) {
-        if (existingParams.has(name)) {
+        const cleanName = normalizeParamName(name);
+        if (existingParams.has(cleanName)) {
             if (defaultVal !== undefined) {
-                updateExistingFallbackParamWithDefault(fallbackBlock, name, defaultVal);
+                updateExistingFallbackParamWithDefault(fallbackBlock, cleanName, defaultVal);
             }
             continue;
         }
 
-        appendMissingFallbackParamLine(fallbackBlock, indentation, name, defaultVal);
+        appendMissingFallbackParamLine(fallbackBlock, indentation, cleanName, defaultVal);
     }
 }
 
@@ -576,12 +758,19 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                             continue;
                         }
 
-                        const hasAstNode = functionNodesByLineIndex.has(lineIndex);
+                        const astFunctionCandidate = functionNodesByLineIndex.get(lineIndex)?.[0] ?? null;
+                        const hasAstNode = astFunctionCandidate !== null;
                         // when running under the minimalist test harness the AST will be
                         // just `{type:"Program"}` so the map will be empty; fall back to a
                         // simple regex to recognize function headers in that case.
+                        const hasLeadingIndentation = /^\s+/u.test(line);
+                        const isTextualFunctionDeclaration = /^\s*function\b/u.test(line);
+                        const isTextualFunctionAssignment = /^\s*(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b/u.test(
+                            line
+                        );
                         const isTextualFunction =
-                            /^\s*(function\b|(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b)/.test(line);
+                            isTextualFunctionDeclaration ||
+                            (isTextualFunctionAssignment && (pendingDocBlock.length > 0 || !hasLeadingIndentation));
                         const isFunctionLine = hasAstNode || isTextualFunction;
 
                         if (isFunctionLine) {
@@ -589,9 +778,13 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                             const indentation = indentationMatch ? indentationMatch[1] : "";
 
                             const processedBlock = pendingDocBlock.length > 0 ? processDocBlock(pendingDocBlock) : [];
-                            const funcNode = functionNodesByLineIndex.get(lineIndex)?.[0] ?? null;
-                            const synthesized = funcNode
-                                ? synthesizeFunctionDocCommentBlock(processedBlock, text, funcNode)
+                            const synthesized = astFunctionCandidate
+                                ? synthesizeFunctionDocCommentBlock(
+                                      processedBlock,
+                                      text,
+                                      astFunctionCandidate.functionNode,
+                                      !astFunctionCandidate.assignmentStyle || !hasLeadingIndentation
+                                  )
                                 : synthesizeTextFallbackDocCommentBlock({
                                       processedBlock,
                                       line,

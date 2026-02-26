@@ -1,5 +1,5 @@
 /// @description legacy style line
-///              Keep me
+/// Keep me
 /// @param x
 /// @returns {undefined}
 function test(x) {}
@@ -160,6 +160,7 @@ var assigned_returns_concrete = function () {
 };
 
 /// @param seed
+/// @returns {any}
 function local_assignment_container(seed) {
     var assigned_returns_concrete_local = function () {
         return "ok";
@@ -173,7 +174,7 @@ function local_assignment_container(seed) {
         var total = value + count;
     };
 
-    /// @param {real} value Local documented param should normalize.
+    /// @param value Local documented param should normalize.
     /// @returns {real}
     var local_documented_alias = function (_value) {
         return _value;
@@ -201,17 +202,25 @@ var assigned_local_with_params = function (left, right = 10) {
     var total = left + right;
 };
 
+/// @param left
+/// @param [right=10]
+/// @returns {undefined}
+var assigned_local_with_params = function (left, right = 10) {
+    var total = left + right;
+};
+
 var assigned_local_with_explicit_undefined = function () {
     return undefined;
 };
 
 /// @param name
 /// @param [hp=100]
-/// @returns {Struct}
 function build_enemy_struct(name, hp = 100) {
     return {
         name: name,
         hp: hp,
+/// @param amount
+/// @returns {undefined}
         heal: function (amount) {
             hp += amount;
         },
@@ -223,17 +232,15 @@ function build_enemy_struct(name, hp = 100) {
 
 /// @param type
 /// @param [speed=4]
+/// @returns {undefined}
 function EnemyConfig(_type, _speed = 4) : EntityConfig(_speed) constructor {
     type = _type;
     speed = _speed;
-
-    /// @param state
-    /// @returns {undefined}
     setup = function (state) {
         current_state = state;
     };
 
     /// @override
-    /// @returns {undefined}
+    /// @returns {void}
     static step = function() {}
 }

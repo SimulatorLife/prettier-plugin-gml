@@ -398,11 +398,6 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
         const options = await readFixtureOptions(path.dirname(inputFilePath));
         const relativeInputPath = normalizeFixtureRelativePath(inputFilePath);
-        if (relativeInputPath === "normalize-doc-comments/input.gml") {
-            // Legacy fixture expects deprecated synthetic `@returns {undefined}` behavior.
-            // Canonical normalize-doc-comments behavior is verified by targeted unit tests below.
-            continue;
-        }
         if (relativeInputPath === "normalize-data-structure-accessors/input.gml") {
             // This fixture depends on full project data-structure ownership context.
             // The local lightweight harness does not model those cross-file semantics.

@@ -1,4 +1,8 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import {
+    computeSyntheticDocCommentForFunctionAssignment,
+    computeSyntheticDocCommentForStaticVariable
+} from "./synthetic-comments.js";
 
 const { isObjectLike } = Core;
 
@@ -163,7 +167,7 @@ export function precomputeSyntheticDocComments(
 
         if (isStaticFunctionDeclaration(node)) {
             const result = computeSyntheticDocSafely(programNode, () =>
-                Core.computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText)
+                computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText)
             );
             cacheSyntheticDocComment(node, result);
             return false;
@@ -174,7 +178,7 @@ export function precomputeSyntheticDocComments(
         }
 
         const result = computeSyntheticDocSafely(programNode, () =>
-            Core.computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText)
+            computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText)
         );
         cacheSyntheticDocComment(node, result);
         return false;
