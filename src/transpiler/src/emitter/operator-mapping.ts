@@ -15,7 +15,7 @@
  * - Strict equality conversion (`==` → `===`, `!=` → `!==`)
  * - Bitwise operators (preserved but documented for clarity)
  *
- * @param op - The GML operator to map
+ * @param operatorToken - The GML operator to map
  * @returns The equivalent JavaScript operator
  *
  * @example
@@ -26,8 +26,8 @@
  * mapBinaryOperator("+")   // → "+" (passthrough for standard operators)
  * ```
  */
-export function mapBinaryOperator(op: string): string {
-    return BINARY_OPERATOR_MAPPINGS[op] ?? op;
+export function mapBinaryOperator(operatorToken: string): string {
+    return BINARY_OPERATOR_MAPPINGS[operatorToken] ?? operatorToken;
 }
 
 /**
@@ -36,7 +36,7 @@ export function mapBinaryOperator(op: string): string {
  * Most unary operators are the same in both languages, but GML's `not`
  * operator must be converted to JavaScript's `!`.
  *
- * @param op - The GML unary operator to map
+ * @param operatorToken - The GML unary operator to map
  * @returns The equivalent JavaScript operator
  *
  * @example
@@ -46,8 +46,8 @@ export function mapBinaryOperator(op: string): string {
  * mapUnaryOperator("~")   // → "~" (passthrough)
  * ```
  */
-export function mapUnaryOperator(op: string): string {
-    return op === "not" ? "!" : op;
+export function mapUnaryOperator(operatorToken: string): string {
+    return operatorToken === "not" ? "!" : operatorToken;
 }
 
 const BINARY_OPERATOR_MAPPINGS: Readonly<Record<string, string>> = Object.freeze({

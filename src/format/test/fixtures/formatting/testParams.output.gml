@@ -6,6 +6,7 @@ pe_fire.set_region(
     eSpartShape.Cylinder,
     ps_distr_gaussian
 );
+
 // Function call with an embedded function call with params
 draw_custom_3d_model(
     undefined,

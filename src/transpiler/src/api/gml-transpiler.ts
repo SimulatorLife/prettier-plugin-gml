@@ -54,10 +54,60 @@ export class GmlTranspiler {
         callTarget: CallTargetAnalyzer;
     };
     private readonly emitterOptions?: Partial<EmitOptions>;
+    private readonly fallbackSemantic: {
+        identifier: IdentifierAnalyzer;
+        callTarget: CallTargetAnalyzer;
+    };
 
     constructor(dependencies: TranspilerDependencies = {}) {
         this.semantic = dependencies.semantic;
         this.emitterOptions = dependencies.emitterOptions;
+        this.fallbackSemantic = makeDummyOracle();
+    }
+
+    private getSemanticAnalyzers(): {
+        identifier: IdentifierAnalyzer;
+        callTarget: CallTargetAnalyzer;
+    } {
+        return this.semantic ?? this.fallbackSemantic;
+    }
+
+    private parseProgram(sourceText: string) {
+        const parser = new Parser.GMLParser(sourceText, {});
+        return parser.parse();
+    }
+
+    private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
+        let unpacked = "";
+
+        for (let index = 0; index < func.params.length; index += 1) {
+            const parameter = func.params[index];
+            let line = "";
+
+            if (typeof parameter === "string") {
+                continue;
+            }
+
+            if (parameter.type === "Identifier") {
+                line = `var ${parameter.name} = args[${index}];`;
+            } else if (parameter.type === "DefaultParameter" && parameter.left.type === "Identifier") {
+                const name = parameter.left.name;
+                if (parameter.right) {
+                    const defaultValue = emitter.emit(parameter.right);
+                    line = `var ${name} = args[${index}] === undefined ? ${defaultValue} : args[${index}];`;
+                } else {
+                    line = `var ${name} = args[${index}];`;
+                }
+            }
+
+            if (!line) {
+                continue;
+            }
+
+            unpacked = unpacked ? `${unpacked}\n${line}` : line;
+        }
+
+        return unpacked;
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
@@ -77,14 +127,8 @@ export class GmlTranspiler {
         }
 
         try {
-            const ast =
-                request.ast ??
-                (() => {
-                    const parser = new Parser.GMLParser(sourceText, {});
-                    return parser.parse();
-                })();
-            const oracle = this.semantic ?? makeDummyOracle();
-            const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
+            const ast = request.ast ?? this.parseProgram(sourceText);
+            const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             let jsBody = "";
 
             // Special handling for GML 2.3+ scripts that contain a single function declaration.
@@ -94,29 +138,7 @@ export class GmlTranspiler {
             // and then emit the body of the function.
             if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
                 const func = ast.body[0] as unknown as FunctionDeclarationNode;
-                const params = func.params || [];
-                const paramLines = params.map((p, i) => {
-                    if (typeof p === "string") {
-                        // Should not happen in AST, params are nodes
-                        return null;
-                    }
-                    if (p.type === "Identifier") {
-                        return `var ${p.name} = args[${i}];`;
-                    }
-                    if (p.type === "DefaultParameter") {
-                        const left = p.left;
-                        if (left.type === "Identifier") {
-                            const name = left.name;
-                            if (p.right) {
-                                const defaultVal = emitter.emit(p.right);
-                                return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
-                            }
-                            return `var ${name} = args[${i}];`;
-                        }
-                    }
-                    return null;
-                });
-                const paramUnpacking = Core.compactArray(paramLines).join("\n");
+                const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
 
                 const bodyRaw = emitter.emit(func.body).trim();
                 // Strip surrounding braces if present (BlockStatement)
@@ -157,8 +179,7 @@ export class GmlTranspiler {
         try {
             const parser = new Parser.GMLParser(sourceText);
             const ast = parser.parse();
-            const oracle = this.semantic ?? makeDummyOracle();
-            const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
+            const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             return emitter.emit(ast);
         } catch (error) {
             const message = Core.isErrorLike(error) ? error.message : String(error);

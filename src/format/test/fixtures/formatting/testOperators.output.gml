@@ -9,6 +9,7 @@ var myCountAlt = myCount++;
 var myCountAlt2 = ++myCount;
 
 var myArray = [1, 2, 3, 4, 5];
+
 // Fall state
 
 var op1 = true or false;

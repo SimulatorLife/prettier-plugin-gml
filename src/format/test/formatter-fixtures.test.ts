@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import fsp from "node:fs/promises";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, it, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -14,85 +13,156 @@ const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
 const fixtureDirectory = path.join(currentDirectory, "fixtures", "formatting");
 const fileEncoding = "utf8";
 
-type FixtureKind = "pair" | "single";
+type FormatterFixtureCase = Readonly<{
+    basename: string;
+    inputPath: string;
+    outputPath: string | null;
+    optionsPath: string;
+    kind: "paired" | "standalone";
+}>;
 
-type FixtureShape = {
-    baseName: string;
-    kind: FixtureKind;
-};
+async function discoverFormatterFixtureCases(): Promise<ReadonlyArray<FormatterFixtureCase>> {
+    const entries = await fs.readdir(fixtureDirectory);
+    const pairedInputBasenames = new Set<string>();
+    const pairedOutputBasenames = new Set<string>();
+    const standaloneBasenames = new Set<string>();
+    const optionBasenames = new Set<string>();
 
-function discoverFixturesSync(): FixtureShape[] {
-    const entries = fs.readdirSync(fixtureDirectory);
-    const gmlFiles = entries.filter((e) => e.endsWith(".gml"));
-    const basenames = new Map<string, FixtureKind>();
-    for (const file of gmlFiles) {
-        if (file.endsWith(".input.gml")) {
-            const base = file.slice(0, -".input.gml".length);
-            basenames.set(base, "pair");
-        } else if (file.endsWith(".output.gml")) {
-            // covered by the corresponding .input.gml entry
-        } else {
-            const base = file.slice(0, -".gml".length);
-            if (!basenames.has(base)) {
-                basenames.set(base, "single");
-            }
+    for (const entry of entries) {
+        if (entry.endsWith(".input.gml")) {
+            pairedInputBasenames.add(entry.slice(0, -".input.gml".length));
+            continue;
+        }
+
+        if (entry.endsWith(".output.gml")) {
+            pairedOutputBasenames.add(entry.slice(0, -".output.gml".length));
+            continue;
+        }
+
+        if (entry.endsWith(".options.json")) {
+            optionBasenames.add(entry.slice(0, -".options.json".length));
+            continue;
+        }
+
+        if (entry.endsWith(".gml")) {
+            standaloneBasenames.add(entry.slice(0, -".gml".length));
         }
     }
-    return [...basenames.entries()]
-        .map(([baseName, kind]) => ({ baseName, kind }))
-        .sort((a, b) => a.baseName.localeCompare(b.baseName));
-}
 
-async function readOptions(baseName: string): Promise<Record<string, unknown>> {
-    const optionsPath = path.join(fixtureDirectory, `${baseName}.options.json`);
-    try {
-        const text = await fsp.readFile(optionsPath, fileEncoding);
-        const parsed: unknown = JSON.parse(text);
-        return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
-    } catch {
-        return {};
+    const pairedBasenames = new Set([...pairedInputBasenames, ...pairedOutputBasenames]);
+    for (const basename of pairedBasenames) {
+        assert.equal(
+            pairedInputBasenames.has(basename),
+            true,
+            `Formatter fixture '${basename}' is missing .input.gml in '${fixtureDirectory}'.`
+        );
+        assert.equal(
+            pairedOutputBasenames.has(basename),
+            true,
+            `Formatter fixture '${basename}' is missing .output.gml in '${fixtureDirectory}'.`
+        );
     }
+
+    for (const basename of standaloneBasenames) {
+        assert.equal(
+            pairedBasenames.has(basename),
+            false,
+            `Formatter fixture '${basename}' cannot mix standalone .gml with paired .input/.output fixtures.`
+        );
+    }
+
+    const fixtureBasenames = new Set([...pairedBasenames, ...standaloneBasenames]);
+    for (const optionBasename of optionBasenames) {
+        assert.equal(
+            fixtureBasenames.has(optionBasename),
+            true,
+            `Formatter options file '${optionBasename}.options.json' has no matching fixture.`
+        );
+    }
+
+    const pairedFixtureCases = [...pairedBasenames].toSorted().map((basename) =>
+        Object.freeze({
+            basename,
+            inputPath: path.join(fixtureDirectory, `${basename}.input.gml`),
+            outputPath: path.join(fixtureDirectory, `${basename}.output.gml`),
+            optionsPath: path.join(fixtureDirectory, `${basename}.options.json`),
+            kind: "paired" as const
+        })
+    );
+    const standaloneFixtureCases = [...standaloneBasenames].toSorted().map((basename) =>
+        Object.freeze({
+            basename,
+            inputPath: path.join(fixtureDirectory, `${basename}.gml`),
+            outputPath: null,
+            optionsPath: path.join(fixtureDirectory, `${basename}.options.json`),
+            kind: "standalone" as const
+        })
+    );
+    const fixtureCases = [...pairedFixtureCases, ...standaloneFixtureCases];
+
+    for (const fixtureCase of fixtureCases) {
+        await fs.access(fixtureCase.inputPath);
+        if (fixtureCase.outputPath !== null) {
+            await fs.access(fixtureCase.outputPath);
+        }
+    }
+
+    return fixtureCases;
 }
 
-const fixtures = discoverFixturesSync();
+async function readFixtureText(
+    fixtureCase: FormatterFixtureCase
+): Promise<{ input: string; output: string | null; options: Record<string, unknown> | null }> {
+    const [input, output] = await Promise.all([
+        fs.readFile(fixtureCase.inputPath, fileEncoding),
+        fixtureCase.outputPath === null ? Promise.resolve(null) : fs.readFile(fixtureCase.outputPath, fileEncoding)
+    ]);
+    let options: Record<string, unknown> | null = null;
+    try {
+        const serialized = await fs.readFile(fixtureCase.optionsPath, fileEncoding);
+        const parsed = JSON.parse(serialized);
+        if (parsed && typeof parsed === "object") {
+            options = parsed as Record<string, unknown>;
+        }
+    } catch {
+        options = null;
+    }
+
+    return { input, output, options };
+}
+
+const formatterFixtureCases = await discoverFormatterFixtureCases();
 
 void test("discovers formatter fixture pairs", () => {
-    assert.ok(fixtures.length > 0, "should discover at least one fixture");
-    for (const { baseName, kind } of fixtures) {
-        if (kind === "pair") {
-            const inputPath = path.join(fixtureDirectory, `${baseName}.input.gml`);
-            const outputPath = path.join(fixtureDirectory, `${baseName}.output.gml`);
-            assert.ok(fs.existsSync(inputPath), `${baseName}.input.gml should exist`);
-            assert.ok(fs.existsSync(outputPath), `${baseName}.output.gml should exist`);
-        }
-    }
+    assert.equal(formatterFixtureCases.length > 0, true, "Expected at least one formatter fixture pair.");
+    assert.equal(
+        formatterFixtureCases.some((fixtureCase) => fixtureCase.kind === "paired"),
+        true,
+        "Expected at least one paired formatter fixture."
+    );
 });
 
 void describe("formatter fixtures", () => {
-    for (const { baseName, kind } of fixtures) {
-        void it(`formats ${baseName}`, async () => {
-            const options = await readOptions(baseName);
-            if (kind === "pair") {
-                const inputPath = path.join(fixtureDirectory, `${baseName}.input.gml`);
-                const outputPath = path.join(fixtureDirectory, `${baseName}.output.gml`);
-                const [input, expectedOutput] = await Promise.all([
-                    fsp.readFile(inputPath, fileEncoding),
-                    fsp.readFile(outputPath, fileEncoding)
-                ]);
-                const formatted = await Format.format(input, options);
+    for (const fixtureCase of formatterFixtureCases) {
+        void it(`formats ${fixtureCase.basename}`, async () => {
+            const fixture = await readFixtureText(fixtureCase);
+            const formatted = await Format.format(fixture.input, fixture.options ?? {});
+
+            if (fixtureCase.kind === "paired") {
+                assert.notEqual(
+                    fixture.output,
+                    null,
+                    `Expected paired formatter fixture '${fixtureCase.basename}' to include .output.gml content.`
+                );
                 assert.equal(
                     formatted.trim(),
-                    expectedOutput.trim(),
-                    `${baseName} should match expected formatter output`
+                    fixture.output.trim(),
+                    `${fixtureCase.basename} should match expected formatter output`
                 );
-                const reformatted = await Format.format(formatted, options);
-                assert.equal(reformatted.trim(), formatted.trim(), `${baseName} should remain idempotent`);
-            } else {
-                const singlePath = path.join(fixtureDirectory, `${baseName}.gml`);
-                const content = await fsp.readFile(singlePath, fileEncoding);
-                const formatted = await Format.format(content, options);
-                assert.equal(formatted.trim(), content.trim(), `${baseName} should be idempotent when formatted`);
             }
+
+            const reformatted = await Format.format(formatted, fixture.options ?? {});
+            assert.equal(reformatted.trim(), formatted.trim(), `${fixtureCase.basename} should remain idempotent`);
         });
     }
 });

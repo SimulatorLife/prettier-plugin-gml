@@ -5,6 +5,7 @@
 /// @description States and drawing code examples to be preserved
 var my_val = (2 + 3) * 4;
 var b = ((x > y) ? (a + b) : (a - b));
+
 // Define states
 states.add_state(
     "opening",
@@ -41,6 +42,7 @@ states.add_state(
         time_source_stop(ts_spray_coins); // stop this time source
     }
 );
+
 //global.rain_controller.draw();
 //if (room == rm_island) {
 //	global.spart_controller.draw();
@@ -77,6 +79,7 @@ global.settings = {
     //gui_scale     : ini_read_real("settings", "gui_scale", 1),
     fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
+
 //if (!variable_instance_exists(id, "pt_colour")) {
 //	pt_colour = choose(
 //	    eParticleType.fire_red,
@@ -90,16 +93,19 @@ global.settings = {
 
 // The following line should be preserved; math-expression parentheses should not be applied to string concatenation
 var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));
+
 // The following math expressions should be preserved; parentheses make no difference to order of operations
 var calc = 3 + 4 + 5;
 var calc2 = 3 - 4 + 5;
 var calc3 = 3 * 7 * 4 * 5;
+
 // The following line should be preserved; the local variable and instance variable are different scopes and do NOT conflict
 var val = 100;
 
 with (instance_create_layer(x, y, "Instances", obj_Fire)) {
     self.val = val;
 }
+
 // The following line should be preserved; numbers with leading zeros are allowed in GML
 global.lighting.add_key_time(00, 253, 094, 083, 0.5); // Sunset peak at 00h
 
@@ -121,6 +127,7 @@ global.lighting.draw(
         }
     }
 );
+
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
 //try { // TODO this sometimes throws NaN error, try catch is band-aid
 //	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
@@ -131,8 +138,8 @@ global.lighting.draw(
 
 // Wobbling in z-axis
 // Value between 0 and 2, this is subtracted from crabs height
-z_wobble = (sin(current_time * 0.004) + 1) * 2 +
-2;/// @description Functions for skyboxes using an octahedron vertex buffer
+z_wobble = (sin(current_time * 0.004) + 1) * 2 + 2;
+/// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
 /// @param {real} [subimg=0]
 /// @param {real} [octahedron_scale=1] The scale of the skybox octahedron
@@ -200,12 +207,14 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         return lt;
     };
 }
+
 // Debug-only macro guard for *use_fast_sampling* edits
 #macro FAST_SAMPLE_GUARD \
     if (use_fast_sampling) {                                                   \
         show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
         return true;                                                       \
-    }/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
+    }
+/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @param inst_a
 /// @param inst_b
 /// @param {real} amount

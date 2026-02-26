@@ -93,7 +93,8 @@ function bool_passthrough(condition) {
     } else {
         return false;
     }
-}/// @param {boolean} b - The second boolean
+}
+/// @param {boolean} b - The second boolean
 /// @param {boolean} a - The first boolean
 function bool_negated(a, b) {
     if (a and b) {
