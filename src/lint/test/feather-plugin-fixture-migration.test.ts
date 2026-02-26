@@ -12,7 +12,7 @@ import { lintWithFeatherRule } from "./rule-test-harness.js";
 type MigrationCase = {
     fixtureDirectory: string;
     ruleName: string;
-    assertOutput: (output: string) => void;
+    assertOutput: (output: string, input: string) => void;
 };
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -162,9 +162,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm1033",
         ruleName: "gm1033",
-        assertOutput: (output) => {
-            assert.equal(output.includes(";;"), false);
-            assert.equal(output.includes("var value = 1;"), true);
+        assertOutput: (output, input) => {
+            assert.equal(output, input);
+            assert.equal(output.includes(";;"), true);
         }
     },
     {
@@ -185,9 +185,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm1051",
         ruleName: "gm1051",
-        assertOutput: (output) => {
-            assert.equal(output.includes("#macro FOO_SIMPLE 1;"), false);
-            assert.equal(output.includes("#macro FOO_SIMPLE 1"), true);
+        assertOutput: (output, input) => {
+            assert.equal(output, input);
+            assert.equal(output.includes("#macro FOO_SIMPLE 1;"), true);
         }
     },
     {
@@ -324,9 +324,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm2007",
         ruleName: "gm2007",
-        assertOutput: (output) => {
-            assert.equal(output.includes("var missing;"), true);
-            assert.equal(output.includes("var inside;"), true);
+        assertOutput: (output, input) => {
+            assert.equal(output, input);
+            assert.equal(output.includes("var missing"), true);
         }
     },
     {
@@ -559,7 +559,7 @@ void test("legacy plugin GM fixtures are now lint-owned feather rule tests", asy
         const input = await readMigratedFeatherFixture(migrationCase.fixtureDirectory);
         const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, migrationCase.ruleName, input);
         assert.equal(result.messages.length > 0, true, `${migrationCase.ruleName} should report diagnostics`);
-        migrationCase.assertOutput(result.output);
+        migrationCase.assertOutput(result.output, input);
     }
 });
 

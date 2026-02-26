@@ -17,10 +17,9 @@ type EnumDeclarationMatch = {
 
 type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
 
-function createFeatherRuleMeta(entry: FeatherManifestEntry): Rule.RuleMetaData {
-    return Object.freeze({
+function createFeatherRuleMeta(entry: FeatherManifestEntry, fixable: "code" | null = "code"): Rule.RuleMetaData {
+    const baseMeta: Rule.RuleMetaData = {
         type: "suggestion",
-        fixable: "code",
         docs: Object.freeze({
             description: `Rule for ${entry.ruleId}.`,
             recommended: false,
@@ -30,7 +29,16 @@ function createFeatherRuleMeta(entry: FeatherManifestEntry): Rule.RuleMetaData {
         messages: Object.freeze({
             diagnostic: `${entry.ruleId} diagnostic.`
         })
-    });
+    };
+
+    if (fixable === "code") {
+        return Object.freeze({
+            ...baseMeta,
+            fixable: "code"
+        });
+    }
+
+    return Object.freeze(baseMeta);
 }
 
 function appendLineIfMissing(sourceText: string, lineToAppend: string): string {
@@ -150,6 +158,30 @@ function createFullTextRewriteRule(
                         loc: resolveReportLoc(context, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
+                    });
+                }
+            });
+        }
+    });
+}
+
+function createDiagnosticOnlyRule(
+    entry: FeatherManifestEntry,
+    shouldReport: (sourceText: string) => boolean
+): Rule.RuleModule {
+    return Object.freeze({
+        meta: createFeatherRuleMeta(entry, null),
+        create(context) {
+            return Object.freeze({
+                Program() {
+                    const sourceText = context.sourceCode.text;
+                    if (!shouldReport(sourceText)) {
+                        return;
+                    }
+
+                    context.report({
+                        loc: resolveReportLoc(context, 0),
+                        messageId: "diagnostic"
                     });
                 }
             });
@@ -685,7 +717,7 @@ function createGm1030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1033Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) => sourceText.replaceAll(/;{2,}/g, ";"));
+    return createDiagnosticOnlyRule(entry, (sourceText) => /;{2,}/.test(sourceText));
 }
 
 function createGm1038Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -723,24 +755,26 @@ function createGm1041Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1051Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) => {
+    return createDiagnosticOnlyRule(entry, (sourceText) => {
         const lines = sourceText.split(/\r?\n/u);
-        return lines
-            .map((line) => {
-                if (!/^\s*#macro\b/.test(line)) {
-                    return line;
-                }
+        for (const line of lines) {
+            if (!/^\s*#macro\b/.test(line)) {
+                continue;
+            }
 
-                const inlineCommentStart = line.search(/\/\/|\/\*/);
-                const body = inlineCommentStart === -1 ? line : line.slice(0, inlineCommentStart);
-                const comment = inlineCommentStart === -1 ? "" : line.slice(inlineCommentStart);
-                const sanitizedBody = body.replace(/;\s*$/, "");
-                if (/\w;\w/.test(sanitizedBody)) {
-                    return line;
-                }
-                return `${sanitizedBody}${comment}`;
-            })
-            .join("\n");
+            const inlineCommentStart = line.search(/\/\/|\/\*/);
+            const body = inlineCommentStart === -1 ? line : line.slice(0, inlineCommentStart);
+            const sanitizedBody = body.replace(/;\s*$/, "");
+            if (/\w;\w/.test(sanitizedBody)) {
+                continue;
+            }
+
+            if (sanitizedBody !== body) {
+                return true;
+            }
+        }
+
+        return false;
     });
 }
 
@@ -1508,13 +1542,13 @@ function createGm2005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm2007Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) => {
-        let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/^(\s*var [A-Za-z_][A-Za-z0-9_]*)\s*$/gm, "$1;");
-        rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
-        rewritten = rewritten.replaceAll(/(\s*var [A-Za-z_][A-Za-z0-9_]*)(\s*\/\/.*)$/gm, "$1;$2");
-        return rewritten;
-    });
+    return createDiagnosticOnlyRule(
+        entry,
+        (sourceText) =>
+            /^(\s*var [A-Za-z_][A-Za-z0-9_]*)\s*$/gm.test(sourceText) ||
+            /if \(([^)]+)\)\s*\n\{/g.test(sourceText) ||
+            /(\s*var [A-Za-z_][A-Za-z0-9_]*)(\s*\/\/.*)$/gm.test(sourceText)
+    );
 }
 
 function createGm2008Rule(entry: FeatherManifestEntry): Rule.RuleModule {

@@ -183,6 +183,7 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 });
 
 void test("feather rules declare fixable metadata for autofix reports", () => {
+    const diagnosticOnlyFeatherRules = new Set(["feather/gm1033", "feather/gm1051", "feather/gm2007"]);
     const allRuleIds = Object.values(LintWorkspace.Lint.ruleIds as Record<string, string>);
     for (const ruleId of allRuleIds) {
         if (!ruleId.startsWith("feather/")) {
@@ -192,6 +193,11 @@ void test("feather rules declare fixable metadata for autofix reports", () => {
         const shortName = ruleId.replace("feather/", "");
         assert.match(shortName, /^gm\d{4}$/u, `Unexpected feather rule id: ${ruleId}`);
         const rule = LintWorkspace.Lint.featherPlugin.rules[shortName] as { meta?: { fixable?: string } };
+        if (diagnosticOnlyFeatherRules.has(ruleId)) {
+            assert.equal(rule.meta?.fixable, undefined, `${ruleId} must remain diagnostic-only`);
+            continue;
+        }
+
         assert.equal(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
     }
 });
