@@ -49,8 +49,7 @@ import {
     getPreferredFunctionParameterName,
     joinDeclaratorPartsWithCommas,
     resolveArgumentAliasInitializerDoc,
-    resolvePreferredParameterName,
-    shouldSynthesizeUndefinedDefaultForIdentifier
+    resolvePreferredParameterName
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -1190,14 +1189,10 @@ function tryPrintLiteralNode(node, path, options, print) {
                 identifierName = preferredParamName;
             }
 
-            const docs = [prefix, identifierName];
-
-            if (shouldSynthesizeUndefinedDefaultForIdentifier(path, node)) {
-                docs.push(" = undefined");
-                return concat(docs);
-            }
-
-            return concat(docs);
+            // Formatter boundary contract (docs/target-state.md §2.1, §3.2):
+            // identifiers are rendered as-is and must not trigger semantic
+            // rewrites such as synthesizing `= undefined` defaults.
+            return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
             return concat(node.value);
