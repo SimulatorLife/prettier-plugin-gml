@@ -620,11 +620,24 @@ function areNegations(node1: any, node2: any): boolean {
     return false;
 }
 
-function getBooleanValue(node: any): boolean | undefined {
-    if (node.type === "Literal" && typeof node.value === "boolean") {
-        return node.value;
+/**
+ * Extract the boolean value of a literal node, returning `true` / `false` for
+ * any form GML recognises as a boolean (JS primitives and the string literals
+ * `"true"` / `"false"`), or `null` when the node is not a boolean literal.
+ *
+ * Previously this was a local helper that only recognised JS boolean primitives.
+ * Routing through {@link Core.getBooleanLiteralValue} with
+ * `acceptBooleanPrimitives: true` gives the same coverage as
+ * `isBooleanLiteralValue` in the sibling `condensation` module, fixes the
+ * missing string-literal case, and resolves the former `boolean | undefined`
+ * return-type mismatch with its consumers.
+ */
+function getBooleanValue(node: any): boolean | null {
+    const result = Core.getBooleanLiteralValue(node, true);
+    if (result === null) {
+        return null;
     }
-    return undefined;
+    return result === "true";
 }
 
 function nodesAreEqual(a: any, b: any): boolean {

@@ -12,7 +12,6 @@ const {
     compactArray,
     getOrCreateMapEntry,
     isNonEmptyArray,
-    toNormalizedLowerCaseString,
     isObjectLike
 } = Core;
 
@@ -91,13 +90,8 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
 
     switch (node.type) {
         case "Literal": {
-            const { value } = node;
-            if (typeof value === "boolean") {
+            if (Core.isBooleanLiteral(node, true)) {
                 return true;
-            }
-            if (typeof value === "string") {
-                const normalized = toNormalizedLowerCaseString(value);
-                return normalized === "true" || normalized === "false";
             }
             return allowValueLiterals;
         }
@@ -146,24 +140,6 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
             return false;
         }
     }
-}
-
-function isBooleanLiteralValue(node, expected) {
-    if (!node || node.type !== "Literal") {
-        return false;
-    }
-
-    const { value } = node;
-    if (typeof value === "boolean") {
-        return value === expected;
-    }
-
-    if (typeof value === "string") {
-        const normalized = toNormalizedLowerCaseString(value);
-        return normalized === (expected ? "true" : "false");
-    }
-
-    return false;
 }
 
 function visit(node, helpers) {
@@ -588,11 +564,17 @@ function resolveSimpleBooleanReturnArgument(
 
     const testNode = Core.unwrapParenthesizedExpression(statement.test) ?? statement.test;
 
-    if (isBooleanLiteralValue(consequentExpression, true) && isBooleanLiteralValue(alternateExpression, false)) {
+    if (
+        Core.getBooleanLiteralValue(consequentExpression, true) === "true" &&
+        Core.getBooleanLiteralValue(alternateExpression, true) === "false"
+    ) {
         return cloneAstNode(testNode);
     }
 
-    if (isBooleanLiteralValue(consequentExpression, false) && isBooleanLiteralValue(alternateExpression, true)) {
+    if (
+        Core.getBooleanLiteralValue(consequentExpression, true) === "false" &&
+        Core.getBooleanLiteralValue(alternateExpression, true) === "true"
+    ) {
         const clone = cloneAstNode(testNode) as {
             start?: unknown;
             end?: unknown;
