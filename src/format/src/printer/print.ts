@@ -42,14 +42,10 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
-    filterKeptDeclarators,
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
-    findEnclosingFunctionNode,
     getPreferredFunctionParameterName,
-    joinDeclaratorPartsWithCommas,
-    resolveArgumentAliasInitializerDoc,
-    resolvePreferredParameterName
+    joinDeclaratorPartsWithCommas
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -577,32 +573,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray<any>(node.declarations);
-
-            const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
-
-            if (keptDeclarators.length === 0) {
-                return null;
-            }
-
-            if (keptDeclarators.length !== declarators.length) {
-                const original = node.declarations;
-                node.declarations = keptDeclarators;
-                try {
-                    const decls =
-                        keptDeclarators.length > 1
-                            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                  leadingNewline: false,
-                                  trailingNewline: false,
-                                  addIndent: keptDeclarators.length > 1
-                              })
-                            : path.map(print, "declarations");
-                    return concat([node.kind, " ", decls]);
-                } finally {
-                    node.declarations = original;
-                }
-            }
 
             // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
             //
@@ -629,7 +600,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
-                addIndent: keptDeclarators.length > 1
+                addIndent: declarators.length > 1
             });
 
             const docComments = printNodeDocComments(node, path, options);
@@ -660,10 +631,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
-            if (initializerOverride) {
-                return concat(printSimpleDeclaration(print("id"), initializerOverride));
-            }
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
@@ -1223,23 +1190,11 @@ function tryPrintLiteralNode(node, path, options, print) {
             const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
             let identifierName = node.name;
 
-            const argumentIndex = Core.getArgumentIndexFromIdentifier(identifierName);
-            if (argumentIndex !== null) {
-                const functionNode = findEnclosingFunctionDeclaration(path);
-                const preferredArgumentName = resolvePreferredParameterName(
-                    functionNode,
-                    argumentIndex,
-                    node.name,
-                    options
-                );
-                if (Core.isNonEmptyString(preferredArgumentName)) {
-                    identifierName = preferredArgumentName;
+            if (isFunctionParameterIdentifierPath(path)) {
+                const preferredParamName = getPreferredFunctionParameterName(path, node, options);
+                if (Core.isNonEmptyString(preferredParamName)) {
+                    identifierName = preferredParamName;
                 }
-            }
-
-            const preferredParamName = getPreferredFunctionParameterName(path, node, options);
-            if (Core.isNonEmptyString(preferredParamName)) {
-                identifierName = preferredParamName;
             }
 
             return concat([prefix, identifierName]);
@@ -1288,6 +1243,41 @@ function tryPrintLiteralNode(node, path, options, print) {
             return print(node);
         }
     }
+}
+
+function isFunctionParameterIdentifierPath(path): boolean {
+    const parentNode = safeGetParentNode(path);
+    if (!parentNode || typeof parentNode !== "object") {
+        return false;
+    }
+
+    const parentType = (parentNode as { type?: string }).type;
+    if (parentType === "FunctionDeclaration" || parentType === "ConstructorDeclaration") {
+        const params = Core.toMutableArray((parentNode as { params?: unknown[] }).params ?? []);
+        return params.includes(path.getValue());
+    }
+
+    if (parentType === "DefaultParameter") {
+        const defaultParameterNode = parentNode as { left?: unknown };
+        if (defaultParameterNode.left !== path.getValue()) {
+            return false;
+        }
+
+        const functionNode = safeGetParentNode(path, 1);
+        if (!functionNode || typeof functionNode !== "object") {
+            return false;
+        }
+
+        const functionType = (functionNode as { type?: string }).type;
+        if (functionType !== "FunctionDeclaration" && functionType !== "ConstructorDeclaration") {
+            return false;
+        }
+
+        const params = Core.toMutableArray((functionNode as { params?: unknown[] }).params ?? []);
+        return params.includes(parentNode);
+    }
+
+    return false;
 }
 
 function printProgramNode(node, path, options, print) {
