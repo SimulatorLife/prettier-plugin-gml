@@ -1345,6 +1345,10 @@ export class ScopeTracker {
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const normalizedPathResultsCache = new Map<
+            string,
+            Array<{ scopeId: string; scopeKind: string; reason: string }>
+        >();
         const transitiveDependentsCache = new Map<
             string,
             Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
@@ -1361,8 +1365,15 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(path);
+            const cachedInvalidationSet = normalizedPathResultsCache.get(trackedPath);
+            if (cachedInvalidationSet) {
+                results.set(path, cachedInvalidationSet);
+                continue;
+            }
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
+                normalizedPathResultsCache.set(trackedPath, []);
                 results.set(path, []);
                 continue;
             }
@@ -1428,6 +1439,7 @@ export class ScopeTracker {
                 }
             }
 
+            normalizedPathResultsCache.set(trackedPath, pathInvalidationSet);
             results.set(path, pathInvalidationSet);
         }
 
@@ -2481,6 +2493,11 @@ export class ScopeTracker {
      */
     public getImpactedFilePaths(changedPaths: Iterable<string>): Set<string> {
         const result = new Set<string>();
+        const seenTrackedPaths = new Set<string>();
+        const transitiveDependentsCache = new Map<
+            string,
+            Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
+        >();
 
         for (const filePath of changedPaths) {
             if (!filePath || typeof filePath !== "string" || filePath.length === 0) {
@@ -2488,6 +2505,11 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(filePath);
+            if (seenTrackedPaths.has(trackedPath)) {
+                continue;
+            }
+            seenTrackedPaths.add(trackedPath);
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
                 continue;
@@ -2497,7 +2519,12 @@ export class ScopeTracker {
             result.add(filePath);
 
             for (const scopeId of scopeIds) {
-                const transitiveDeps = this.getTransitiveDependents(scopeId);
+                let transitiveDeps = transitiveDependentsCache.get(scopeId);
+                if (!transitiveDeps) {
+                    transitiveDeps = this.getTransitiveDependents(scopeId);
+                    transitiveDependentsCache.set(scopeId, transitiveDeps);
+                }
+
                 for (const dep of transitiveDeps) {
                     const depScope = this.scopesById.get(dep.dependentScopeId);
                     const depPath = depScope?.metadata.path;

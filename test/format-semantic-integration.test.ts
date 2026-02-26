@@ -10,7 +10,7 @@ import { ESLint, type Linter } from "eslint";
 
 const fileEncoding: BufferEncoding = "utf8";
 const fixtureExtension = ".gml";
-const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*\/?\s*@/i;
+const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/i;
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixtureDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
@@ -75,9 +75,7 @@ const integrationProjectContext = Object.freeze({
     capabilities: allCapabilities,
     isIdentifierNameOccupiedInProject: () => false,
     listIdentifierOccurrenceFiles: () => new Set<string>(),
-    planFeatherRenames: (
-        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-    ) =>
+    planFeatherRenames: (requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>) =>
         requests.map((request) => ({
             identifierName: request.identifierName,
             preferredReplacementName: request.preferredReplacementName,
@@ -141,9 +139,7 @@ async function tryLoadOptions(baseName: string): Promise<Record<string, unknown>
     return null;
 }
 
-function extractFixtureExpectations(
-    options: Record<string, unknown> | null
-): Readonly<{
+function extractFixtureExpectations(options: Record<string, unknown> | null): Readonly<{
     options: Record<string, unknown> | null;
     lintRules: Readonly<Record<string, Linter.RuleEntry>> | null;
     expectParseError: boolean;
@@ -165,8 +161,8 @@ function extractFixtureExpectations(
         Object.keys(lintRules as Record<string, unknown>).length > 0;
     const lintRuleOverrides = hasLintRules
         ? (Object.freeze({ ...(lintRules as Record<string, Linter.RuleEntry>) }) as Readonly<
-            Record<string, Linter.RuleEntry>
-        >)
+              Record<string, Linter.RuleEntry>
+          >)
         : null;
     return Object.freeze({
         options: hasFormatOptions ? formatOptions : null,
@@ -279,6 +275,10 @@ async function runIntegrationLintPass(
 const integrationCases = await loadIntegrationCases();
 
 void describe("Format integration fixtures", () => {
+    void it("discovers integration fixture cases", () => {
+        assert.equal(integrationCases.length > 0, true, "Expected at least one integration fixture case.");
+    });
+
     for (const { baseName, inputSource, expectedOutput, options, lintRules, expectParseError } of integrationCases) {
         void it(`formats ${baseName}`, async () => {
             if (expectParseError) {
@@ -294,10 +294,6 @@ void describe("Format integration fixtures", () => {
 
             const formatted = await Format.format(inputSource, options ?? undefined);
             const linted = await runIntegrationLintPass(formatted, baseName, lintRules);
-            if (baseName === "testOptimizeMathExpression") {
-                console.log("FORMATTED:", formatted);
-                console.log("LINTED:", linted);
-            }
             assert.equal(typeof formatted, "string");
             assert.notEqual(formatted.length, 0);
             assert.strictEqual(canonicalizeFixtureText(linted), canonicalizeFixtureText(expectedOutput));

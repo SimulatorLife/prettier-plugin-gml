@@ -2282,6 +2282,13 @@ function handleIntermediateTrailingSpacing({
     const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(node, nextNode);
     const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
 
+    const shouldSkipStandardHardline =
+        shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro;
+
+    if (!shouldSkipStandardHardline) {
+        parts.push(hardlineDoc);
+    }
+
     const nextLineProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
@@ -2291,28 +2298,20 @@ function handleIntermediateTrailingSpacing({
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
-    // When the source already has a blank line after the current node and the
-    // next node has a leading comment, Prettier's comment handler will emit a
-    // blank line (hardline + hardline) before that comment. Emitting the
-    // standard hardline here too would produce a double blank line on the first
-    // formatting pass. Skip the standard hardline in this case and let Prettier
-    // own the separator entirely.
-    const originalTextForLeadingCheck =
-        typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
-    const nextNodeStartIndexForLeadingCheck = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
-    const nextNodeHasLeadingCommentWithBlankLine =
-        nextLineEmpty &&
+    // When the next top-level statement has a leading comment immediately
+    // preceding it, Prettier's built-in comment printing already emits a
+    // hardline before that comment. Emitting another hardline here would
+    // produce a double blank line. Skip the blank-line separator in this case
+    // and let Prettier own the spacing entirely. Checking this unconditionally
+    // (not only when nextLineEmpty is true) also ensures idempotency: the
+    // formatter won't re-add a blank line between functions separated only by
+    // a doc-comment block.
+    const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const nextNodeStartIndex = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
+    const nextNodeHasLeadingComment =
         isTopLevel &&
-        typeof nextNodeStartIndexForLeadingCheck === NUMBER_TYPE &&
-        Core.hasCommentImmediatelyBefore(originalTextForLeadingCheck, nextNodeStartIndexForLeadingCheck);
-
-    const shouldSkipStandardHardline =
-        (shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro) ||
-        nextNodeHasLeadingCommentWithBlankLine;
-
-    if (!shouldSkipStandardHardline) {
-        parts.push(hardlineDoc);
-    }
+        typeof nextNodeStartIndex === NUMBER_TYPE &&
+        Core.hasCommentImmediatelyBefore(originalText, nextNodeStartIndex);
 
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
@@ -2388,18 +2387,9 @@ function handleIntermediateTrailingSpacing({
         // addLeadingStatementSpacing from inserting one before the #endregion
         // on the next iteration, preserving the source round-trip.
         previousNodeHadNewlineAddedAfter = true;
-    } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine) {
-        // When the next statement has a leading comment immediately preceding it
-        // and a blank line separates the current statement from that comment,
-        // Prettier's built-in comment printing already emits a hardline before
-        // the comment. Emitting one here too would produce a double blank line.
-        // Detect this by checking whether the original source has a comment
-        // immediately before the next node; if so, let Prettier handle spacing.
-        if (!nextNodeHasLeadingCommentWithBlankLine) {
+    } else if (nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine && !nextNodeHasLeadingComment) {
             parts.push(hardlineDoc);
         }
-        previousNodeHadNewlineAddedAfter = true;
-    }
 
     return previousNodeHadNewlineAddedAfter;
 }

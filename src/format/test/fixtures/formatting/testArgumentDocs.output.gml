@@ -32,7 +32,8 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
         xnet = xx;
         ynet = yy;
     }
-}/* @description Create an effect */
+}
+/* @description Create an effect */
 /// @function scr_create_fx
 /// @param sprite_index
 //// @param {real} fx_x
@@ -63,7 +64,8 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
             image_blend   : color
         }
     );
-}/// @param {Struct} structure
+}
+/// @param {Struct} structure
 /// @return {any}
 function scr_struct_get(structure, key, default_value) {
     if (is_undefined(structure)) {
@@ -71,6 +73,7 @@ function scr_struct_get(structure, key, default_value) {
     }
     return struct_get(structure, key) ?? default_value;
 }
+
 // Note: Multiple data types can also be listed, separated by a comma ,
 // For example String,Array<String>, Id.Instance,Asset.GMObject, etc.
 
@@ -84,7 +87,8 @@ function scr_struct_get(structure, key, default_value) {
 /// @return {string}
 function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
-}/**
+}
+/**
  * @param {string} [greeting="Hello, World!"]
  * @description    An anonymous function that greets
  * @returns {string}
@@ -92,7 +96,8 @@ function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = un
 var func_greet = function (greeting = "Hello, World!") {
     show_debug_message(greeting);
     return greeting;
-};/// Adds a custom function that can be called by expressions
+};
+/// Adds a custom function that can be called by expressions
 /// Custom functions can return values, but they should be numbers or strings.
 ///     GML:    ChatterboxLoadFromFile("example.json");
 ///             ChatterboxAddFunction("AmIDead", am_i_dead);
