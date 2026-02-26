@@ -205,6 +205,57 @@ void test("normalize-doc-comments removes legacy @function and normalizes defaul
     assert.match(output, /^\/\/\/ @returns \{undefined\}$/m);
 });
 
+void test("normalize-doc-comments omits explicit undefined defaults in typed optional @param docs", () => {
+    const input = [
+        "function local_assignment_container(seed) {",
+        "    /// @param {Struct.MyCustomStruct} [first=undefined] first typed description should remain.",
+        "    /// @custom local annotations should stay.",
+        "    /// @param second second description should remain.",
+        "    /// @returns {undefined}",
+        "    var local_documented_reorder = function (first = undefined, second) {",
+        "        return;",
+        "    };",
+        "",
+        "    return seed;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(
+        output,
+        /^ {4}\/\/\/ @param \{Struct\.MyCustomStruct\} \[first\] first typed description should remain\.$/m
+    );
+    assert.doesNotMatch(output, /\[first=undefined\]/m);
+    assert.match(output, /^ {4}\/\/\/ @custom local annotations should stay\.$/m);
+    assert.match(output, /^ {4}\/\/\/ @param second second description should remain\.$/m);
+    assert.match(output, /^ {4}\/\/\/ @returns \{undefined\}$/m);
+});
+
+void test("normalize-doc-comments synthesizes typed @returns when return value is an unambiguous typed param passthrough", () => {
+    const input = [
+        "/// @param {real} [angle=90]",
+        "function update_movement(angle = 90) {",
+        "    return angle;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param \{real\} \[angle=90\]$/m);
+    assert.match(output, /^\/\/\/ @returns \{real\}$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
+});
+
+void test("normalize-doc-comments synthesizes @returns {any} when passthrough param lacks type metadata", () => {
+    const input = ["/// @param [angle=90]", "function update_movement(angle = 90) {", "    return angle;", "}"].join(
+        "\n"
+    );
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param \[angle=90\]$/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
+});
+
 void test("normalize-doc-comments preserves multiline @description continuations while synthesizing missing tags", () => {
     const input = [
         "/// @description Build a spawn packet",
@@ -218,7 +269,7 @@ void test("normalize-doc-comments preserves multiline @description continuations
     assert.match(output, /^\/\/\/ @description Build a spawn packet/m);
     assert.match(output, /^\/\/\/\s+with a deterministic seed/m);
     assert.match(output, /^\/\/\/ @param seed/m);
-    assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}/m);
 });
 
 void test("normalize-doc-comments does not convert // // section comments into synthetic docs", () => {
@@ -247,5 +298,5 @@ void test("normalize-doc-comments preserves function indentation for synthesized
     const output = runNormalizeDocCommentsRule(input);
 
     assert.match(output, /^ {4}\/\/\/ @param value$/m);
-    assert.match(output, /^ {4}\/\/\/ @returns \{undefined\}$/m);
+    assert.match(output, /^ {4}\/\/\/ @returns \{any\}$/m);
 });

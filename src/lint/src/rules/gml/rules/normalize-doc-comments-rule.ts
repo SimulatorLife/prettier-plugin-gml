@@ -126,6 +126,109 @@ function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): Rea
     return aligned;
 }
 
+function isUndefinedDefaultValueText(defaultValueText: string): boolean {
+    return defaultValueText.trim() === "undefined";
+}
+
+function formatOptionalParamDocName(parameterName: string, defaultValueText: string): string {
+    if (isUndefinedDefaultValueText(defaultValueText)) {
+        return `[${parameterName}]`;
+    }
+
+    return `[${parameterName}=${defaultValueText}]`;
+}
+
+function normalizeUndefinedOptionalDefaultParamDocLine(line: string): string {
+    const normalized = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)\[([A-Za-z0-9_]+)\s*=\s*undefined\](.*)$/u.exec(line);
+    if (!normalized) {
+        return line;
+    }
+
+    return `${normalized[1]}[${normalized[2]}]${normalized[3]}`;
+}
+
+type DocCommentParamMetadata = Readonly<{
+    name: string;
+    typeText: string | null;
+}>;
+
+function parseDocCommentParamMetadata(line: string): DocCommentParamMetadata | null {
+    const paramMatch = /^\s*\/\/\/\s*@param(?:\s+\{([^}]+)\})?\s+\[?([A-Za-z0-9_]+)(?:=[^\]]*)?\]?/u.exec(line);
+    if (!paramMatch) {
+        return null;
+    }
+
+    const rawTypeText = typeof paramMatch[1] === "string" ? paramMatch[1].trim() : "";
+    return {
+        name: paramMatch[2],
+        typeText: rawTypeText.length > 0 ? rawTypeText : null
+    };
+}
+
+function collectDocCommentParamTypesByName(docLines: ReadonlyArray<string>): Map<string, string> {
+    const typesByName = new Map<string, string>();
+    for (const line of docLines) {
+        const metadata = parseDocCommentParamMetadata(line);
+        if (!metadata || metadata.typeText === null) {
+            continue;
+        }
+
+        if (!typesByName.has(metadata.name)) {
+            typesByName.set(metadata.name, metadata.typeText);
+        }
+    }
+
+    return typesByName;
+}
+
+function inferReturnDocTypeFromFunctionNode(
+    functionNode: AstNodeWithType,
+    functionParameterNames: ReadonlySet<string>,
+    docParamTypesByName: ReadonlyMap<string, string>
+): string | null {
+    let sawConcreteReturn = false;
+    let inferredParamName: string | null = null;
+    let ambiguous = false;
+
+    walkAstNodes(functionNode, (node) => {
+        if (node?.type !== "ReturnStatement") {
+            return;
+        }
+
+        const argument = (node as { argument?: { type?: string; name?: string } }).argument;
+        if (!argument || (argument.type === "Identifier" && argument.name === "undefined")) {
+            return;
+        }
+
+        sawConcreteReturn = true;
+        if (argument.type !== "Identifier" || typeof argument.name !== "string") {
+            ambiguous = true;
+            return;
+        }
+
+        const cleanName = argument.name.replace(/^_+/, "");
+        if (!functionParameterNames.has(cleanName)) {
+            ambiguous = true;
+            return;
+        }
+
+        if (inferredParamName === null) {
+            inferredParamName = cleanName;
+            return;
+        }
+
+        if (inferredParamName !== cleanName) {
+            ambiguous = true;
+        }
+    });
+
+    if (!sawConcreteReturn || ambiguous || inferredParamName === null) {
+        return null;
+    }
+
+    return docParamTypesByName.get(inferredParamName) ?? "any";
+}
+
 // Generate a canonical doc-comment block for a function. This helper is
 // intentionally broad: it can operate on an existing (possibly-empty) list of
 // normalized lines and will fold in any missing @param/@returns tags while
@@ -155,10 +258,11 @@ function synthesizeFunctionDocCommentBlock(
 
     // examine what we currently have, so we only add missing lines
     const existingParams = new Set<string>();
+    const existingParamTypesByName = collectDocCommentParamTypesByName(block);
     let hasReturns = false;
 
     for (const line of block) {
-        const paramMatch = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(line);
+        const paramMatch = /^\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+\[?([A-Za-z0-9_]+)/u.exec(line);
         if (paramMatch) {
             existingParams.add(paramMatch[1]);
         }
@@ -205,12 +309,42 @@ function synthesizeFunctionDocCommentBlock(
         if (defaultVal === undefined) {
             block.push(`${indentation}/// @param ${cleanName}`);
         } else {
-            block.push(`${indentation}/// @param [${cleanName}=${defaultVal}]`);
+            block.push(`${indentation}/// @param ${formatOptionalParamDocName(cleanName, defaultVal)}`);
         }
     }
 
-    if (!hasReturns && !hasConcreteReturn) {
-        block.push(`${indentation}/// @returns {undefined}`);
+    if (!hasReturns) {
+        if (hasConcreteReturn) {
+            const functionParameterNames = new Set<string>();
+            for (const param of params) {
+                let parameterName: string | undefined;
+                if (param.type === "Identifier") {
+                    parameterName = param.name;
+                } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
+                    const left = param.left;
+                    parameterName = left?.name ?? left?.id?.name;
+                } else if (typeof param.name === "string") {
+                    parameterName = param.name;
+                }
+
+                if (typeof parameterName !== "string" || parameterName.length === 0) {
+                    continue;
+                }
+
+                functionParameterNames.add(parameterName.replace(/^_+/, ""));
+            }
+
+            const inferredReturnType = inferReturnDocTypeFromFunctionNode(
+                functionNode,
+                functionParameterNames,
+                existingParamTypesByName
+            );
+            if (inferredReturnType !== null) {
+                block.push(`${indentation}/// @returns {${inferredReturnType}}`);
+            }
+        } else {
+            block.push(`${indentation}/// @returns {undefined}`);
+        }
     }
 
     return Array.from(alignDescriptionContinuationLines(block));
@@ -229,6 +363,7 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         // remove legacy @function markers entirely. this ensures downstream
         // logic can assume only the canonical forms remain.
         .map((line) => applyJsDocTagAliasLine(line))
+        .map((line) => normalizeUndefinedOptionalDefaultParamDocLine(line))
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 
     const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
@@ -248,9 +383,9 @@ type FallbackParameterEntry = Readonly<{ name: string; defaultVal?: string }>;
 function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string> {
     const existingParams = new Set<string>();
     for (const line of docLines) {
-        const match = /^\s*\/\/\/\s*@param\s+\[?([A-Za-z0-9_]+)/.exec(line);
-        if (match) {
-            existingParams.add(match[1]);
+        const metadata = parseDocCommentParamMetadata(line);
+        if (metadata) {
+            existingParams.add(metadata.name);
         }
     }
     return existingParams;
@@ -262,12 +397,15 @@ function updateExistingFallbackParamWithDefault(
     defaultVal: string
 ): void {
     for (const [index, line] of fallbackBlock.entries()) {
-        const paramMatch = new RegExp(String.raw`^(\s*///\s*@param\s+)\[?${parameterName}\]?`).exec(line);
-        if (!paramMatch || /\[/.test(line)) {
+        const paramMatch = new RegExp(
+            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[?${parameterName}(?:=[^\]]*)?\]?(.*)$`
+        ).exec(line);
+        if (!paramMatch) {
             continue;
         }
 
-        fallbackBlock[index] = `${paramMatch[1]}[${parameterName}=${defaultVal}]`;
+        fallbackBlock[index] =
+            `${paramMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${paramMatch[2]}`;
         return;
     }
 }
@@ -283,7 +421,7 @@ function appendMissingFallbackParamLine(
         return;
     }
 
-    fallbackBlock.push(`${indentation}/// @param [${parameterName}=${defaultVal}]`);
+    fallbackBlock.push(`${indentation}/// @param ${formatOptionalParamDocName(parameterName, defaultVal)}`);
 }
 
 function mergeFallbackParamLines(
@@ -315,12 +453,57 @@ function hasConcreteReturnTextAfterLine(lines: ReadonlyArray<string>, startLineI
             }
         }
 
-        if (/^\s*}\s*$/.test(line)) {
+        if (/^\s*}\s*;?\s*$/.test(line)) {
             return false;
         }
     }
 
     return false;
+}
+
+function inferReturnDocTypeFromTextAfterLine(
+    lines: ReadonlyArray<string>,
+    startLineIndex: number,
+    functionParameterNames: ReadonlySet<string>,
+    docParamTypesByName: ReadonlyMap<string, string>
+): string | null {
+    let sawConcreteReturn = false;
+    let inferredParamName: string | null = null;
+
+    for (let index = startLineIndex + 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        const returnMatch = /\breturn\b\s*([^;]*)/.exec(line);
+        if (returnMatch) {
+            const returnExpression = returnMatch[1].trim();
+            if (returnExpression !== "" && returnExpression !== "undefined") {
+                sawConcreteReturn = true;
+                if (!/^[A-Za-z_]\w*$/u.test(returnExpression)) {
+                    return null;
+                }
+
+                const cleanName = returnExpression.replace(/^_+/, "");
+                if (!functionParameterNames.has(cleanName)) {
+                    return null;
+                }
+
+                if (inferredParamName === null) {
+                    inferredParamName = cleanName;
+                } else if (inferredParamName !== cleanName) {
+                    return null;
+                }
+            }
+        }
+
+        if (/^\s*}\s*;?\s*$/.test(line)) {
+            break;
+        }
+    }
+
+    if (!sawConcreteReturn || inferredParamName === null) {
+        return null;
+    }
+
+    return docParamTypesByName.get(inferredParamName) ?? "any";
 }
 
 function countTopLevelFunctionHeaders(lines: ReadonlyArray<string>): number {
@@ -342,15 +525,27 @@ function synthesizeTextFallbackDocCommentBlock({
 }): ReadonlyArray<string> {
     const fallbackParams = extractParamsFromLine(line);
     const fallbackBlock = Array.from(processedBlock);
+    const fallbackParamNames = new Set(fallbackParams.map((parameter) => parameter.name));
+    const fallbackParamTypesByName = collectDocCommentParamTypesByName(fallbackBlock);
 
     mergeFallbackParamLines(fallbackBlock, fallbackParams, indentation);
 
     const hasReturnLine = fallbackBlock.some((docLine) => /^\s*\/\/\/\s*@returns?/.test(docLine));
     const hasConcreteReturnText = hasConcreteReturnTextAfterLine(lines, lineIndex);
+    const inferredReturnType = inferReturnDocTypeFromTextAfterLine(
+        lines,
+        lineIndex,
+        fallbackParamNames,
+        fallbackParamTypesByName
+    );
     const functionHeaderCount = countTopLevelFunctionHeaders(lines);
 
-    if (!hasReturnLine && (!hasConcreteReturnText || functionHeaderCount === 1)) {
-        fallbackBlock.push(`${indentation}/// @returns {undefined}`);
+    if (!hasReturnLine) {
+        if (inferredReturnType !== null) {
+            fallbackBlock.push(`${indentation}/// @returns {${inferredReturnType}}`);
+        } else if (!hasConcreteReturnText || functionHeaderCount === 1) {
+            fallbackBlock.push(`${indentation}/// @returns {undefined}`);
+        }
     }
 
     return Array.from(alignDescriptionContinuationLines(fallbackBlock));
