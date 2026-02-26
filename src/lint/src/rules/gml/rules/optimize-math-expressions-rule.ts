@@ -28,6 +28,9 @@ const {
     unwrapExpressionStatement,
     readNodeText,
     printExpression,
+    createStringCommentScanState,
+    advanceStringCommentScan,
+    hasComment,
     isIdentifierNode,
     unwrapParenthesizedExpression: unwrapParenthesized
 } = CoreWorkspace.Core;
@@ -336,6 +339,26 @@ function simplifyMathExpression(sourceText: string, node: any, _source?: string)
     return simplified;
 }
 
+function containsCommentSyntax(text: string): boolean {
+    const scanState = createStringCommentScanState();
+    const length = text.length;
+    for (let index = 0; index < length; ) {
+        const nextIndex = advanceStringCommentScan(text, length, index, scanState, true);
+        if (nextIndex !== index) {
+            if (scanState.inBlockComment || scanState.inLineComment) {
+                return true;
+            }
+
+            index = nextIndex;
+            continue;
+        }
+
+        index += 1;
+    }
+
+    return false;
+}
+
 function extractHalfLengthdirRotationExpression(node: any, variableName: string, sourceText: string): string | null {
     const unwrapped = unwrapParenthesized(node);
     if (!unwrapped || unwrapped.type !== "BinaryExpression" || unwrapped.operator !== "*") {
@@ -642,15 +665,11 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
     }
 
     const original = readNodeText(sourceText, node) || "";
-    // debug output for every check so we see what the transform is seeing
-    console.log("[opt-math] manualNorm check", JSON.stringify(original), "->", JSON.stringify(printed));
 
     if (trimOuterParentheses(original) === trimOuterParentheses(printed)) {
-        // nothing changed
         return null;
     }
 
-    console.log("[opt-math] manualNorm applied", JSON.stringify(original), "->", JSON.stringify(printed));
     return printed;
 }
 
@@ -687,6 +706,9 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
+                if (hasComment(targetNode) || containsCommentSyntax(sourceTextOfNode)) {
+                    return;
+                }
                 // manual normalization has the broadest coverage; try it first.
                 let replacement = attemptManualNormalization(sourceText, targetNode);
 
@@ -695,19 +717,6 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 }
 
                 if (replacement) {
-                    // debug: log problematic multiplications involving mousedx or small coefficients
-                    if (
-                        sourceTextOfNode.includes("mousedx") ||
-                        replacement.includes("mousedx") ||
-                        replacement.includes("0.1")
-                    ) {
-                        console.log(
-                            "[opt-math] simplify",
-                            JSON.stringify(sourceTextOfNode),
-                            "->",
-                            JSON.stringify(replacement)
-                        );
-                    }
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;
                     }

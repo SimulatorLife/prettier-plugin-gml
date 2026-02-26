@@ -6,25 +6,61 @@
 function test(x) {}
 /// @param a
 /// @param [b=1]
-/// @returns {undefined}
 function synth_me(_a, b = 1) {
     return _a + b;
 }
 /// @description Existing docs
 /// @param alpha
 /// @param beta
-/// @returns {undefined}
 function enrich_me(alpha, beta) {
     return alpha + beta;
 }
+/// @param alpha
+/// @param [beta]
+function enrich_me2(alpha, beta = undefined) {
+    return alpha + beta;
+}
 /// @param value
-/// @returns {undefined}
 var build_struct = function (value) {
     return { value: value };
 };
 /// @param kind
 /// @param [amount=1]
-/// @returns {undefined}
 static step_once = function (_kind, amount = 1) {
     return amount;
+};
+/// @returns {undefined}
+function func_undefined() {
+    return undefined;
+}
+/// @param {function} [x]
+var func_default_callback = function (x = function() { return 1; }) {
+    return x();
+};
+
+/// @description Updates movement for the active player.
+/// @param [angle=90] Current heading in degrees.
+/// @customTag keep this custom metadata
+/// @param speed The per-step speed scalar.
+/// @returns {undefined}
+function update_movement(angle = 90, speed) {
+    return;
+}
+
+/// @param first first description should stay attached to first.
+/// @internal custom annotation users may provide
+/// @param second second description should stay attached to second.
+/// @param third third description should stay attached to third.
+/// @returns {undefined}
+function reorder_with_descriptions(first, second, third) {
+    return;
+}
+
+/// @deprecated use build_packet_v2
+/// @param alpha Existing alpha description should stay attached.
+/// @custom preserve me
+/// @param [beta=4] Existing beta description should stay attached.
+/// @returns {undefined}
+var build_packet = function (alpha, beta = 4) {
+    return;
 };

@@ -1134,6 +1134,34 @@ void test("optimize-math-expressions auto-fixes manual math forms to built-in he
     assert.equal(result.output, expected);
 });
 
+void test("optimize-math-expressions rewrites uncommented math expressions and preserves trailing line comments", () => {
+    const input = [
+        "var squared = value * value; // keep trailing context",
+        "var direction = arctan2(y2 - y1, x2 - x1); // preserve this note",
+        ""
+    ].join("\n");
+    const expected = [
+        "var squared = sqr(value); // keep trailing context",
+        "var direction = point_direction(x1, y1, x2, y2); // preserve this note",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions does not rewrite expressions with inline block comments even with trailing line comments", () => {
+    const input = ["var squared = value /* keep */ * value; // trailing note", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, input);
+});
+
+void test("optimize-math-expressions does not rewrite expressions with inline trailing-line comments between operands", () => {
+    const input = ["var squared = value // keep", "    * value;", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, input);
+});
+
 void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
     const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
     const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
