@@ -115,8 +115,7 @@
     "lint:duplicates": "jscpd --noSymlinks --format \"typescript\" --reporters \"console\" --min-lines 5 --min-tokens 105 src/",
     "tree": "tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" .",
     "tree:report": "mkdir -p reports && tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" . > reports/tree.txt",
-    "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src",
-    "check:dependency-policy": "pnpm run build:ts && node --test test/dist/prettier-dependency.test.js test/dist/module-ownership-dependencies.test.js"
+    "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src"
   },
   "jscpd": {
     "threshold": 0.3,
