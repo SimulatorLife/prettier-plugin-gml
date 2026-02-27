@@ -1,6 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { resolveDocCommentTraversalService } from "../manager.js";
+import { resolveDocCommentTraversalService } from "./manager.js";
 
 const {
     asArray,

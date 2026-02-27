@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 
-import { resolveDocCommentTraversalService } from "../manager.js";
 import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
+import { resolveDocCommentTraversalService } from "./manager.js";
 
 const { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } = Core;
 
