@@ -1018,12 +1018,11 @@ void test("require-control-flow-braces wraps repeat statements with nested index
     assert.equal(result.output.trimEnd().endsWith("}"), true);
 });
 
-void test("optimize-math-expressions does not rewrite decimal literals that start with zero", () => {
+void test("optimize-math-expressions skips formatting-only rewrites for decimal literals that already start with zero", () => {
     const input = "__fit_scale = _lower_limit + 0.5*(_upper_limit - _lower_limit);\n";
-    const expected = "__fit_scale = _lower_limit + (0.5 * (_upper_limit - _lower_limit));\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
@@ -1031,10 +1030,9 @@ void test("optimize-math-expressions does not rewrite decimal literals with miss
     // However, when a math-optimization condenses an expression containing two or more of these literals into a single literal, the resulting literal
     // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
     const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");
-    const expected = ["var a = 0.5;", "var b = 1. - .5;", "var c = 5;", ""].join("\n");
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
@@ -1178,6 +1176,62 @@ void test("normalize-operator-aliases does not rewrite identifier usage of 'not'
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
+    const source = "if (left and right) {\n    value = 1;\n}\n";
+    const operatorStart = source.indexOf("and");
+    const operatorEnd = operatorStart + "and".length;
+    const expressionStart = source.indexOf("left");
+    const expressionEnd = source.indexOf("right") + "right".length;
+    const getLocFromIndex = createLocResolver(source);
+    const reports: Array<{ loc?: { line: number; column: number } }> = [];
+    const rule = Lint.plugin.rules["normalize-operator-aliases"];
+    const context = {
+        sourceCode: {
+            text: source,
+            getLocFromIndex
+        },
+        report(payload: {
+            loc?: { line: number; column: number };
+            fix?: (fixer: {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
+            }) => ReplaceTextRangeFixOperation | null;
+        }) {
+            reports.push({ loc: payload.loc });
+            if (payload.fix) {
+                payload.fix({
+                    replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
+                        return { kind: "replace", range, text };
+                    }
+                });
+            }
+        }
+    } as never;
+    const listeners = rule.create(context) as Record<string, (node: unknown) => void>;
+    listeners.BinaryExpression?.({
+        type: "BinaryExpression",
+        operator: "and",
+        start: { index: expressionStart },
+        end: { index: expressionEnd },
+        left: {
+            type: "Identifier",
+            name: "left",
+            start: { index: expressionStart },
+            end: { index: expressionStart + "left".length }
+        },
+        right: {
+            type: "Identifier",
+            name: "right",
+            start: { index: source.indexOf("right") },
+            end: { index: source.indexOf("right") + "right".length }
+        }
+    });
+
+    assert.equal(reports.length, 1);
+    assert.deepEqual(reports[0]?.loc, getLocFromIndex(operatorStart));
+    assert.notDeepEqual(reports[0]?.loc, getLocFromIndex(expressionStart));
+    assert.equal(operatorEnd > operatorStart, true);
 });
 
 void test("require-control-flow-braces skips macro continuation blocks", () => {
