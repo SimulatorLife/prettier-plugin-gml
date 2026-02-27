@@ -42,18 +42,15 @@ function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, 
     );
 }
 
-function computeOptionDefaults(): Record<string, unknown> {
-    return extractOptionDefaults(formatOptions);
-}
-
 function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
     const coreOptionOverrides = resolveCoreOptionOverrides();
+    const formatOptionDefaults = extractOptionDefaults(formatOptions);
 
     return {
         // Merge order:
         // GML Prettier defaults -> option defaults -> fixed overrides
         ...BASE_PRETTIER_DEFAULTS,
-        ...computeOptionDefaults(),
+        ...formatOptionDefaults,
         ...coreOptionOverrides
     };
 }
