@@ -8,7 +8,8 @@ import {
     GmlToJsEmitter,
     type IdentifierAnalyzer,
     makeDummyOracle,
-    type ProgramNode} from "../emitter/index.js";
+    type ProgramNode
+} from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
     /**
