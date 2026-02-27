@@ -1208,9 +1208,6 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    // console.log("Applying DivByReciprocal", Core.printExpression(node));
-    console.log("Applying DivByReciprocal");
-
     const leftClone = Core.cloneAstNode(node.left);
     const rightClone =
         Core.cloneAstNode(rawReciprocalFactor) ?? Core.cloneAstNode(reciprocalFactor) ?? reciprocalFactor;

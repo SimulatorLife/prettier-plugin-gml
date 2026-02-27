@@ -46,6 +46,86 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "MemberIndexExpression",
     "CallExpression"
 ]);
+const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
+
+function unwrapParenthesizedExpressionNode(node: unknown): unknown {
+    let current = node;
+    while (
+        current &&
+        typeof current === "object" &&
+        (current as { type?: unknown }).type === "ParenthesizedExpression" &&
+        "expression" in (current as Record<string, unknown>)
+    ) {
+        current = (current as { expression?: unknown }).expression;
+    }
+
+    return current;
+}
+
+function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    if (left === right) {
+        return true;
+    }
+
+    if (left === null || right === null) {
+        return false;
+    }
+
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+
+        for (const [index, element] of left.entries()) {
+            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    if (typeof left !== typeof right) {
+        return false;
+    }
+
+    if (typeof left !== "object" || typeof right !== "object") {
+        return false;
+    }
+
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord)
+        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
+        .sort((a, b) => a.localeCompare(b));
+    const rightKeys = Object.keys(rightRecord)
+        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
+        .sort((a, b) => a.localeCompare(b));
+
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+
+    for (const [index, leftKey] of leftKeys.entries()) {
+        const rightKey = rightKeys[index];
+        if (leftKey !== rightKey) {
+            return false;
+        }
+
+        if (!areExpressionNodesEquivalentIgnoringParentheses(leftRecord[leftKey], rightRecord[rightKey])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    return areAstValuesEquivalentIgnoringParentheses(
+        unwrapParenthesizedExpressionNode(left),
+        unwrapParenthesizedExpressionNode(right)
+    );
+}
 
 function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
@@ -659,12 +739,15 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
     simplifyZeroDivisionNumerators(clone, context as any);
     cleanupMultiplicativeIdentityParentheses(clone, context as any);
 
+    const original = readNodeText(sourceText, node) || "";
+    if (areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
+        return original;
+    }
+
     const printed = printExpression(clone, sourceText);
     if (!printed) {
         return null;
     }
-
-    const original = readNodeText(sourceText, node) || "";
 
     if (trimOuterParentheses(original) === trimOuterParentheses(printed)) {
         return null;

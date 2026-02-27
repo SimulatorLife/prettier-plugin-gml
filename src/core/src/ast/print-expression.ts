@@ -59,7 +59,14 @@ export function printExpression(node: any, sourceText: string): string {
         }
         case "MemberIndexExpression": {
             const object = printExpression(node.object, sourceText);
-            const index = printExpression(node.index, sourceText);
+            let index = "";
+            if (Array.isArray(node.property)) {
+                index = node.property.map((entry: any) => printExpression(entry, sourceText)).join(", ");
+            } else if (node.index) {
+                index = printExpression(node.index, sourceText);
+            } else {
+                index = printExpression(node.property, sourceText);
+            }
             return `${object}[${index}]`;
         }
         case "ConditionalExpression": {
