@@ -573,8 +573,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            const declarators = Core.asArray<any>(node.declarations);
-
             // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
             //
             // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
@@ -600,7 +598,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
-                addIndent: declarators.length > 1
+                addIndent: node.declarations.length > 1
             });
 
             const docComments = printNodeDocComments(node, path, options);

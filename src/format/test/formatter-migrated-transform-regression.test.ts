@@ -197,4 +197,34 @@ void describe("formatter migrated-transform regression coverage", () => {
             "Formatter must not strip duplicate doc-comment lines — that is a lint-workspace responsibility"
         );
     });
+
+    void it("does not rename argumentN parameters based on @function doc-comment tags", async () => {
+        // Renaming `argument0`-style parameters to their doc-comment preferred names is a
+        // semantic content rewrite that belongs in `@gml-modules/lint`, not the formatter.
+        // The formatter must preserve the original identifier names verbatim.
+        // (target-state.md §2.2, §3.2 — "Formatter must not perform semantic/content rewrites")
+        const source = [
+            "/// @function draw_bezier(x1, y1, x2, y2)",
+            "function draw_bezier(argument0, argument1, argument2, argument3) {",
+            "    var x1 = argument0;",
+            "    var y1 = argument1;",
+            "    draw_line(x1, y1, argument2, argument3);",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function draw_bezier\(argument0,\s*argument1,\s*argument2,\s*argument3\)/,
+            "Formatter must not rename argumentN parameters — that is a lint-workspace responsibility"
+        );
+        assert.match(formatted, /var x1 = argument0;/, "Formatter must not filter argument alias declarations");
+        assert.match(formatted, /var y1 = argument1;/, "Formatter must not filter argument alias declarations");
+        assert.doesNotMatch(
+            formatted,
+            /^function draw_bezier\(x1,\s*y1/m,
+            "Formatter must not rename parameters from @function tag"
+        );
+    });
 });

@@ -51,6 +51,54 @@ function parseWithOptions(sourceText: string, recovery: "none" | "limited"): Par
     );
 }
 
+function collectTypedNodesMissingLocationMetadata(root: unknown): Array<string> {
+    const missingTypes: Array<string> = [];
+    const seen = new Set<object>();
+    const pending: Array<unknown> = [root];
+
+    while (pending.length > 0) {
+        const current = pending.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (seen.has(current)) {
+            continue;
+        }
+        seen.add(current);
+
+        if (Array.isArray(current)) {
+            for (const entry of current) {
+                pending.push(entry);
+            }
+            continue;
+        }
+
+        const record = current as Record<string, unknown>;
+        if (typeof record.type === "string") {
+            const hasLoc =
+                record.loc &&
+                typeof record.loc === "object" &&
+                (record.loc as { start?: { line?: unknown } }).start &&
+                typeof (record.loc as { start: { line?: unknown } }).start.line === "number";
+            const hasRange =
+                Array.isArray(record.range) &&
+                record.range.length === 2 &&
+                typeof record.range[0] === "number" &&
+                typeof record.range[1] === "number";
+            if (!hasLoc || !hasRange) {
+                missingTypes.push(record.type);
+            }
+        }
+
+        for (const value of Object.values(record)) {
+            pending.push(value);
+        }
+    }
+
+    return missingTypes;
+}
+
 async function lintTextWithESLintVersion(ESLintImplementation: typeof ESLint, sourceText: string) {
     return lintTextWithConfiguredRules(
         ESLintImplementation,
@@ -130,6 +178,29 @@ void test("language object pins ESLint v9 language behavior fields", () => {
 void test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
     const result = parseWithOptions("var x = 1;", "limited");
     assert.equal(result.ok, true);
+});
+
+void test("language parse projects loc/range metadata for try/catch branches", () => {
+    const source = [
+        "function test_projection() {",
+        "    try {",
+        "        values = [1, 2, 3];",
+        "    } catch (error) {",
+        "        values = [0, 0, 0];",
+        "    }",
+        "    return values[0];",
+        "}",
+        ""
+    ].join("\n");
+    const parseResult = parseWithOptions(source, "limited");
+    assert.equal(parseResult.ok, true);
+
+    if (!parseResult.ok) {
+        return;
+    }
+
+    const missingTypes = collectTypedNodesMissingLocationMetadata(parseResult.ast);
+    assert.deepEqual(missingTypes, []);
 });
 
 void test("language parse failure returns ESLint parse-failure channel", () => {
@@ -319,6 +390,34 @@ void test("require-argument-separators reports precise location and fixes commen
         true
     );
     assert.equal(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
+});
+
+void test("optimize-math-expressions fix pipeline converges without parenthesis oscillation", async () => {
+    const source = [
+        "if (global.disableDraw) {",
+        "    exit;",
+        "}",
+        "var angle = (((current_time / 300) + x) + y) + z;",
+        "var x1 = x - ((radius / 10) * cos(angle));",
+        "var y1 = y - ((radius / 10) * sin(angle));",
+        "var z1 = z;",
+        "var x2 = x + ((radius / 10) * cos(angle));",
+        "var y2 = y + ((radius / 10) * sin(angle));",
+        "var z2 = z;",
+        "cm_debug_draw(cm_cylinder(x1, y1, z1, x2, y2, z2, radius), -1, c_yellow);",
+        ""
+    ].join("\n");
+    const rules: Linter.RulesRecord = {
+        "gml/no-globalvar": "off",
+        "gml/optimize-math-expressions": "warn"
+    };
+
+    const firstPass = await lintTextWithConfiguredRules(ESLint, source, rules, true);
+    const stabilizedOutput = typeof firstPass.output === "string" ? firstPass.output : source;
+    const secondPass = await lintTextWithConfiguredRules(ESLint, stabilizedOutput, rules, false);
+
+    assert.equal(secondPass.fatalErrorCount, 0);
+    assert.equal(secondPass.messages.length, 0);
 });
 
 void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
