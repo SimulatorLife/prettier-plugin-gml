@@ -54,7 +54,15 @@ export async function prepareHotReloadUpdates(
             let affectedSymbols = [];
 
             if (Core.hasMethods(semantic, "getFileSymbols")) {
-                affectedSymbols = await semantic.getFileSymbols(filePath);
+                try {
+                    affectedSymbols = await semantic.getFileSymbols(filePath);
+                } catch {
+                    // Keep hot reload preparation resilient when semantic indexing is
+                    // temporarily unavailable for a specific file. Falling back to a
+                    // file-level recompile update preserves edit-to-reload latency and
+                    // avoids aborting all updates due to one analyzer failure.
+                    affectedSymbols = [];
+                }
             }
 
             const fileUpdates: Array<HotReloadUpdate> = [];
