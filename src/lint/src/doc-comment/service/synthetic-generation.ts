@@ -14,7 +14,6 @@ import {
     suppressedImplicitDocCanonicalByNode,
     type SyntheticDocGenerationOptions
 } from "./synthetic-helpers.js";
-import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 
 const {
     asArray,
@@ -25,9 +24,11 @@ const {
     isNonEmptyTrimmedString,
     isOptionalParamDocName,
     isUndefinedSentinel,
+    normalizeDocCommentTypeAnnotations,
     normalizeParamDocType,
     preservedUndefinedDefaultParameters,
-    synthesizedUndefinedDefaultParameters
+    synthesizedUndefinedDefaultParameters,
+    toMutableArray
 } = Core;
 
 const STRING_TYPE = "string";

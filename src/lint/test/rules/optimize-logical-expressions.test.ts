@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { optimizeLogicalExpressionsTransform } from "../../../../../src/rules/gml/transforms/logical-expressions/optimize-logical-expressions.js";
+import { optimizeLogicalExpressionsTransform } from "../../src/rules/gml/transforms/logical-expressions/optimize-logical-expressions.js";
 
 /**
  * Returns a minimal WhileStatement AST whose condition is `a.b.length > 0`

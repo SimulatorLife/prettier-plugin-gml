@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getCanonicalParamNameFromText, normalizeDocMetadataName } from "../../../src/doc-comment/service/params.js";
+import { Core } from "@gml-modules/core";
+
+const { getCanonicalParamNameFromText, normalizeDocMetadataName } = Core;
 
 void test("normalizeDocMetadataName preserves valid optional tokens", () => {
     assert.equal(normalizeDocMetadataName("[value]"), "[value]");

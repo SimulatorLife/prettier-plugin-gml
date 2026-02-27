@@ -1242,9 +1242,7 @@ function mergeDocLines({
         returnsLines = returnExtraction.returnsLines;
     }
 
-    const syntheticParamNames = new Set(
-        otherLines.map((line) => getParamCanonicalName(line)).filter(isNonEmptyString)
-    );
+    const syntheticParamNames = new Set(otherLines.map((line) => getParamCanonicalName(line)).filter(isNonEmptyString));
 
     if (syntheticParamNames.size > 0) {
         const filtered = removeExistingParamLinesWithSyntheticNames({

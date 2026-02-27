@@ -1,4 +1,6 @@
-import {
+import { Core } from "@gml-modules/core";
+
+const {
     asArray,
     formatLineComment,
     getCommentArray,
@@ -8,7 +10,7 @@ import {
     resolveLineCommentOptions,
     toMutableArray,
     toTrimmedString
-} from "../utils.js";
+} = Core;
 
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;

@@ -183,12 +183,12 @@ function normalizePreferredParameterName(name: unknown): string | null {
         return null;
     }
 
-    const canonical = Lint.getCanonicalParamNameFromText(name);
+    const canonical = Core.getCanonicalParamNameFromText(name);
     if (canonical && canonical.length > 0) {
         return canonical;
     }
 
-    const normalizedValue = Lint.normalizeDocMetadataName(name);
+    const normalizedValue = Core.normalizeDocMetadataName(name);
     if (typeof normalizedValue !== STRING_TYPE) {
         return null;
     }

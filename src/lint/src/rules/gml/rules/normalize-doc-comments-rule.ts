@@ -2,7 +2,6 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import {
-    applyJsDocTagAliasReplacements,
     convertLegacyReturnsDescriptionLinesToMetadata,
     promoteLeadingDocCommentTextToDescription
 } from "../../../doc-comment/index.js";
@@ -17,6 +16,8 @@ import {
     walkAstNodes
 } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
+
+const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 
 const { getNodeStartIndex } = CoreWorkspace.Core;
 

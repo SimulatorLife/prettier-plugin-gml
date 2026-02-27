@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { findFirstAstNodeBy, walkAstNodes } from "../src/rules/gml/rule-base-helpers.js";
+import { findFirstAstNodeBy, walkAstNodes } from "../../src/rules/gml/rule-base-helpers.js";
 
 void test("findFirstAstNodeBy returns the first matching node in source order", () => {
     const astRoot = {

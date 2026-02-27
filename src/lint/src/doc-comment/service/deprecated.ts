@@ -1,6 +1,9 @@
+import { Core } from "@gml-modules/core";
+
 import { resolveDocCommentTraversalService } from "../manager.js";
-import { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } from "../utils.js";
 import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
+
+const { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } = Core;
 
 type CandidateCommentNode = {
     value?: string;

@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as LintWorkspace from "../src/index.js";
-import type { ProjectAnalysisProvider } from "../src/services/index.js";
+import * as LintWorkspace from "../../src/index.js";
+import type { ProjectAnalysisProvider } from "../../src/services/index.js";
 
 function createProject(tempRoot: string, relativePath: string, projectName: string): string {
     const projectRoot = path.join(tempRoot, relativePath);

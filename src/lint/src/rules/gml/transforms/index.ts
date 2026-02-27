@@ -1,8 +1,9 @@
-import { type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-import { stripCommentsTransform } from "./strip-comments.js";
+
+const { stripCommentsTransform } = Core;
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
@@ -84,5 +85,5 @@ export {
 } from "./conditional-assignment-sanitizer.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-export { stripCommentsTransform } from "./strip-comments.js";
+export { stripCommentsTransform };
 export { CommentTracker } from "./utils/comment-tracker.js";
