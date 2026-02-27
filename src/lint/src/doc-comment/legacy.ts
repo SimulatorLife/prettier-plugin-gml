@@ -2,15 +2,7 @@ import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gml-mo
 
 import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
 
-const {
-    capitalize,
-    copyDocCommentArrayFlags,
-    isNonEmptyArray,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    toMutableArray,
-    toTrimmedString
-} = Core;
+const { capitalize, copyDocCommentArrayFlags, isNonEmptyTrimmedString, toMutableArray, toTrimmedString } = Core;
 
 const STRING_TYPE = "string";
 

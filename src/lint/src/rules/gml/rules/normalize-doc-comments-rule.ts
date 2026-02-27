@@ -620,26 +620,8 @@ function synthesizeFunctionDocCommentBlock(
 
     const indentation = /^((?:\s*)?)\S?/.exec(block[0] || "")?.[1] || "";
 
-    const params = (functionNode as any).params || [];
-    const functionParameterNamesInOrder: Array<string> = [];
-    for (const param of params) {
-        let parameterName: string | undefined;
-        if (param.type === "Identifier") {
-            parameterName = param.name;
-        } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-            const left = param.left;
-            parameterName = left?.name ?? left?.id?.name;
-        } else if (typeof param.name === "string") {
-            parameterName = param.name;
-        }
-
-        if (typeof parameterName !== "string" || parameterName.length === 0) {
-            continue;
-        }
-
-        functionParameterNamesInOrder.push(normalizeParamName(parameterName));
-    }
-    const functionParameterNames = new Set(functionParameterNamesInOrder);
+    const { inOrder: functionParameterNamesInOrder, set: functionParameterNames } =
+        getFunctionParameterNames(functionNode);
     const prunedBlock = removeParamDocLinesNotInFunctionSignature(block, functionParameterNames);
     const reorderedBlock = reorderDocParamLinesByFunctionOrder(prunedBlock, functionParameterNamesInOrder);
     block.splice(0, block.length, ...reorderedBlock);
@@ -656,6 +638,7 @@ function synthesizeFunctionDocCommentBlock(
         }
     }
 
+    const params = (functionNode as any).params || [];
     for (const param of params) {
         let paramName: string | undefined;
         let defaultVal: string | undefined;
@@ -702,31 +685,15 @@ function synthesizeFunctionDocCommentBlock(
             : concreteReturnType
         : "undefined";
 
-    const suppressUndocumentedAssignmentWithoutParams =
-        assignmentStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
-    const suppressNestedUndocumentedNoParamConcreteReturn =
-        !assignmentStyle &&
-        !hadInputDocLines &&
-        hasLeadingIndentation &&
-        functionParameterNamesInOrder.length === 0 &&
-        returnInference.hasConcreteReturn;
-    const suppressDocOnlyNoParamConcreteReturn =
-        !assignmentStyle &&
-        hadInputDocLines &&
-        functionParameterNamesInOrder.length === 0 &&
-        existingReturnLines.length === 0 &&
-        returnInference.hasConcreteReturn;
-    const suppressUndocumentedStructReturnForDeclarations =
-        !assignmentStyle &&
-        !hadInputDocLines &&
-        normalizeReturnTypeForComparison(inferredReturnType) === "struct" &&
-        returnInference.hasConcreteReturn;
-
-    const shouldSynthesizeReturnLine =
-        !suppressUndocumentedAssignmentWithoutParams &&
-        !suppressNestedUndocumentedNoParamConcreteReturn &&
-        !suppressDocOnlyNoParamConcreteReturn &&
-        !suppressUndocumentedStructReturnForDeclarations;
+    const shouldSynthesizeReturnLine = determineIfShouldSynthesizeReturnLine({
+        assignmentStyle,
+        hadInputDocLines,
+        hasLeadingIndentation,
+        functionParameterNamesInOrder,
+        returnInference,
+        inferredReturnType,
+        hasExistingReturnLine: hasReturns
+    });
 
     if (hasReturns && shouldSynthesizeReturnLine) {
         const firstExistingReturnType = parseReturnDocType(existingReturnLines[0] ?? "");
@@ -1034,52 +1001,15 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                       lineIndex
                                   });
 
-                            let deferredSynthesisHandled = false;
-                            if (
-                                astFunctionCandidate &&
-                                synthesized &&
-                                synthesized.length > 0 &&
-                                astFunctionCandidate.assignmentStyle &&
-                                !hasLeadingIndentation &&
-                                processedBlock.length === 0 &&
-                                countNamedFunctionParameters(astFunctionCandidate.functionNode) > 0
-                            ) {
-                                const assignmentReturnSummary = inferReturnDocTypeFromFunctionNode(
-                                    astFunctionCandidate.functionNode,
-                                    new Set<string>(),
-                                    new Map<string, string>()
-                                );
-                                if (!assignmentReturnSummary.hasReturnStatement) {
-                                    const assignmentStartIndex = getNodeStartIndex(astFunctionCandidate.sourceNode);
-                                    const assignmentEndIndex = getNodeEndIndex(astFunctionCandidate.sourceNode);
-                                    if (
-                                        typeof assignmentStartIndex === "number" &&
-                                        typeof assignmentEndIndex === "number" &&
-                                        assignmentEndIndex > assignmentStartIndex
-                                    ) {
-                                        let assignmentSliceEndIndex = assignmentEndIndex;
-                                        if (text[assignmentSliceEndIndex] === ";") {
-                                            assignmentSliceEndIndex += 1;
-                                        }
-
-                                        const assignmentText = text.slice(
-                                            assignmentStartIndex,
-                                            assignmentSliceEndIndex
-                                        );
-                                        const assignmentLines = assignmentText.split(/\r?\n/u);
-                                        const assignmentEndLineIndex = getLineIndexForOffset(
-                                            lineStartOffsets,
-                                            assignmentEndIndex - 1
-                                        );
-                                        const deferredLines = ["", ...synthesized, ...assignmentLines];
-                                        const existingDeferredLines =
-                                            deferredDocBlocksByLineIndex.get(assignmentEndLineIndex) ?? [];
-                                        existingDeferredLines.push(...deferredLines);
-                                        deferredDocBlocksByLineIndex.set(assignmentEndLineIndex, existingDeferredLines);
-                                        deferredSynthesisHandled = true;
-                                    }
-                                }
-                            }
+                            const deferredSynthesisHandled = handleDeferredDocSynthesis(
+                                astFunctionCandidate,
+                                synthesized ?? [],
+                                text,
+                                hasLeadingIndentation,
+                                processedBlock,
+                                lineStartOffsets,
+                                deferredDocBlocksByLineIndex
+                            );
 
                             if (synthesized && synthesized.length > 0) {
                                 if (!deferredSynthesisHandled) {
@@ -1113,4 +1043,122 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
             });
         }
     });
+}
+
+function getFunctionParameterNames(functionNode: any): { inOrder: string[]; set: Set<string> } {
+    const params = (functionNode).params || [];
+    const inOrder: string[] = [];
+    for (const param of params) {
+        let parameterName: string | undefined;
+        if (param.type === "Identifier") {
+            parameterName = param.name;
+        } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
+            const left = param.left;
+            parameterName = left?.name ?? left?.id?.name;
+        } else if (typeof param.name === "string") {
+            parameterName = param.name;
+        }
+
+        if (typeof parameterName !== "string" || parameterName.length === 0) {
+            continue;
+        }
+
+        inOrder.push(normalizeParamName(parameterName));
+    }
+    return { inOrder, set: new Set(inOrder) };
+}
+
+function determineIfShouldSynthesizeReturnLine({
+    assignmentStyle,
+    hadInputDocLines,
+    hasLeadingIndentation,
+    functionParameterNamesInOrder,
+    returnInference,
+    inferredReturnType,
+    hasExistingReturnLine
+}: {
+    assignmentStyle: boolean;
+    hadInputDocLines: boolean;
+    hasLeadingIndentation: boolean;
+    functionParameterNamesInOrder: string[];
+    returnInference: ReturnInferenceSummary;
+    inferredReturnType: string;
+    hasExistingReturnLine: boolean;
+}): boolean {
+    const suppressUndocumentedAssignmentWithoutParams =
+        assignmentStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
+    const suppressNestedUndocumentedNoParamConcreteReturn =
+        !assignmentStyle &&
+        !hadInputDocLines &&
+        hasLeadingIndentation &&
+        functionParameterNamesInOrder.length === 0 &&
+        returnInference.hasConcreteReturn;
+    const suppressDocOnlyNoParamConcreteReturn =
+        !assignmentStyle &&
+        hadInputDocLines &&
+        functionParameterNamesInOrder.length === 0 &&
+        !hasExistingReturnLine &&
+        returnInference.hasConcreteReturn;
+    const suppressUndocumentedStructReturnForDeclarations =
+        !assignmentStyle &&
+        !hadInputDocLines &&
+        normalizeReturnTypeForComparison(inferredReturnType) === "struct" &&
+        returnInference.hasConcreteReturn;
+
+    return (
+        !suppressUndocumentedAssignmentWithoutParams &&
+        !suppressNestedUndocumentedNoParamConcreteReturn &&
+        !suppressDocOnlyNoParamConcreteReturn &&
+        !suppressUndocumentedStructReturnForDeclarations
+    );
+}
+
+function handleDeferredDocSynthesis(
+    astFunctionCandidate: any,
+    synthesized: ReadonlyArray<string>,
+    text: string,
+    hasLeadingIndentation: boolean,
+    processedBlock: ReadonlyArray<string>,
+    lineStartOffsets: number[],
+    deferredDocBlocksByLineIndex: Map<number, Array<string>>
+): boolean {
+    if (
+        astFunctionCandidate &&
+        synthesized &&
+        synthesized.length > 0 &&
+        astFunctionCandidate.assignmentStyle &&
+        !hasLeadingIndentation &&
+        processedBlock.length === 0 &&
+        countNamedFunctionParameters(astFunctionCandidate.functionNode) > 0
+    ) {
+        const assignmentReturnSummary = inferReturnDocTypeFromFunctionNode(
+            astFunctionCandidate.functionNode,
+            new Set<string>(),
+            new Map<string, string>()
+        );
+        if (!assignmentReturnSummary.hasReturnStatement) {
+            const assignmentStartIndex = getNodeStartIndex(astFunctionCandidate.sourceNode);
+            const assignmentEndIndex = getNodeEndIndex(astFunctionCandidate.sourceNode);
+            if (
+                typeof assignmentStartIndex === "number" &&
+                typeof assignmentEndIndex === "number" &&
+                assignmentEndIndex > assignmentStartIndex
+            ) {
+                let assignmentSliceEndIndex = assignmentEndIndex;
+                if (text[assignmentSliceEndIndex] === ";") {
+                    assignmentSliceEndIndex += 1;
+                }
+
+                const assignmentText = text.slice(assignmentStartIndex, assignmentSliceEndIndex);
+                const assignmentLines = assignmentText.split(/\r?\n/u);
+                const assignmentEndLineIndex = getLineIndexForOffset(lineStartOffsets, assignmentEndIndex - 1);
+                const deferredLines = ["", ...synthesized, ...assignmentLines];
+                const existingDeferredLines = deferredDocBlocksByLineIndex.get(assignmentEndLineIndex) ?? [];
+                existingDeferredLines.push(...deferredLines);
+                deferredDocBlocksByLineIndex.set(assignmentEndLineIndex, existingDeferredLines);
+                return true;
+            }
+        }
+    }
+    return false;
 }

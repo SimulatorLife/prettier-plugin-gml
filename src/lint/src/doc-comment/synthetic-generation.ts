@@ -27,8 +27,7 @@ const {
     normalizeDocCommentTypeAnnotations,
     normalizeParamDocType,
     preservedUndefinedDefaultParameters,
-    synthesizedUndefinedDefaultParameters,
-    toMutableArray
+    synthesizedUndefinedDefaultParameters
 } = Core;
 
 const STRING_TYPE = "string";

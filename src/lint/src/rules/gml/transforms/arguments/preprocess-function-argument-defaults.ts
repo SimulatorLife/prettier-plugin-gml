@@ -7,7 +7,7 @@ import {
     getArgumentIndexFromIdentifier,
     getIdentifierFromParameterNode,
     prepareDocCommentEnvironment
-} from "../../../doc-comment/index.js";
+} from "../../../../doc-comment/index.js";
 
 const { isObjectLike } = Core;
 

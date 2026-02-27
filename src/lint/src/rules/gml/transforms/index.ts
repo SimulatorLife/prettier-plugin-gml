@@ -1,7 +1,6 @@
 import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
-import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+import { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
 
 const { stripCommentsTransform } = Core;
 
@@ -9,11 +8,7 @@ const { stripCommentsTransform } = Core;
  * Central registry for parser transforms exposed by the plugin pipeline.
  * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
  */
-const TRANSFORM_REGISTRY_ENTRIES = [
-    stripCommentsTransform,
-    enforceVariableBlockSpacingTransform,
-    markCallsMissingArgumentSeparatorsTransform
-] as const;
+const TRANSFORM_REGISTRY_ENTRIES = [stripCommentsTransform, markCallsMissingArgumentSeparatorsTransform] as const;
 
 type RegisteredTransform = (typeof TRANSFORM_REGISTRY_ENTRIES)[number];
 export type ParserTransformName = RegisteredTransform["name"];
@@ -78,12 +73,11 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
+export { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
-export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { stripCommentsTransform };
-export { CommentTracker } from "./utils/comment-tracker.js";
+export { CommentTracker } from "./comments/comment-tracker.js";
