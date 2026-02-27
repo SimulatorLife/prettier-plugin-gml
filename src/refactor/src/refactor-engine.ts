@@ -34,6 +34,7 @@ import {
     type RefactorEngineDependencies,
     type RefactorProjectAnalysisProvider,
     type RenameImpactAnalysis,
+    type RenameImpactGraph,
     type RenamePlanSummary,
     type RenameRequest,
     type SymbolLocation,
@@ -1684,7 +1685,7 @@ export class RefactorEngine {
      *     }
      * }
      */
-    async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
+    async computeRenameImpactGraph(symbolId: string): Promise<RenameImpactGraph> {
         return await HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
