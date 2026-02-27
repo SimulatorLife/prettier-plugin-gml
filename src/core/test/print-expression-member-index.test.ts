@@ -28,3 +28,16 @@ void test("printExpression falls back to property nodes for MemberIndexExpressio
 
     assert.equal(rendered, "camMat[8]");
 });
+
+void test("printExpression renders parser-style property arrays for MemberIndexExpression", () => {
+    const rendered = printExpression(
+        {
+            type: "MemberIndexExpression",
+            object: { type: "Identifier", name: "camMat" },
+            property: [{ type: "Literal", value: 4 }]
+        },
+        ""
+    );
+
+    assert.equal(rendered, "camMat[4]");
+});
