@@ -1,4 +1,4 @@
-import { assertFunction, capitalize, getNonEmptyString, getNonEmptyTrimmedString } from "../utils.js";
+import { assertFunction, capitalize, getNonEmptyString, getNonEmptyTrimmedString } from "../../utils/index.js";
 import { normalizeOptionalParamToken } from "./params.js";
 
 const STRING_TYPE = "string" as const;

@@ -1,13 +1,15 @@
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { resolveDocCommentTraversalService } from "../manager.js";
-import {
+
+const {
     asArray,
     getCommentBoundaryIndex,
     getNodeStartIndex,
     isFunctionLikeNode,
     isLineComment,
-    type MutableGameMakerAstNode,
     toNormalizedLowerCaseString
-} from "../utils.js";
+} = Core;
 
 type DocCommentTraversalService = {
     forEach(callback: (node: unknown, comments?: readonly unknown[] | null) => void): void;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Lint } from "../../src/index.js";
 
 function createLineComment(text: string, start = 0, end = start) {
     return {
@@ -17,7 +17,7 @@ void test("collectSyntheticDocCommentLines prefers node-level doc comments", () 
         comments: [createLineComment("/// @function local", 2, 10)],
         start: { index: 20 }
     };
-    const result = Core.collectSyntheticDocCommentLines(node, {}, null, null);
+    const result = Lint.collectSyntheticDocCommentLines(node, {}, null, null);
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function local"]);
     assert.deepStrictEqual(result.remainingComments, []);
@@ -31,7 +31,7 @@ void test("collectSyntheticDocCommentLines falls back to program-level comments"
     };
     const sourceText = "/// @function program\nfunction entry() {}";
 
-    const result = Core.collectSyntheticDocCommentLines(node, {}, programNode, sourceText);
+    const result = Lint.collectSyntheticDocCommentLines(node, {}, programNode, sourceText);
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function program"]);
 });
@@ -42,7 +42,7 @@ void test("collectLeadingProgramLineComments returns plain // comments", () => {
     };
     const node = { start: { index: 25 } };
 
-    const lines = Core.collectLeadingProgramLineComments(
+    const lines = Lint.collectLeadingProgramLineComments(
         node,
         programNode,
         {},
@@ -69,7 +69,7 @@ void test("collectLeadingProgramLineComments ignores non-line and printed commen
     };
     const node = { start: { index: 50 } };
 
-    const lines = Core.collectLeadingProgramLineComments(node, programNode, {}, "// retained\nfunction foo() {}");
+    const lines = Lint.collectLeadingProgramLineComments(node, programNode, {}, "// retained\nfunction foo() {}");
 
     assert.deepStrictEqual(lines, ["// retained"]);
 });
@@ -77,7 +77,7 @@ void test("collectLeadingProgramLineComments ignores non-line and printed commen
 void test("extractLeadingNonDocCommentLines keeps plain comments only", () => {
     const comments = [createLineComment("// plain", 0, 4), createLineComment("/// @description", 5, 10)];
 
-    const { leadingLines, remainingComments } = Core.extractLeadingNonDocCommentLines(comments, {});
+    const { leadingLines, remainingComments } = Lint.extractLeadingNonDocCommentLines(comments, {});
 
     assert.deepStrictEqual(leadingLines, ["// plain"]);
     assert.strictEqual(remainingComments[0]?.value, "/// @description");
@@ -87,7 +87,7 @@ void test("collectAdjacentLeadingSourceLineComments gathers contiguous source li
     const sourceText = ["// first", "// second", "", "function go() {}"].join("\n");
     const node = { start: { index: sourceText.indexOf("function") } };
 
-    const lines = Core.collectAdjacentLeadingSourceLineComments(node, {}, sourceText);
+    const lines = Lint.collectAdjacentLeadingSourceLineComments(node, {}, sourceText);
 
     assert.deepStrictEqual(lines, ["// first", "// second"]);
 });

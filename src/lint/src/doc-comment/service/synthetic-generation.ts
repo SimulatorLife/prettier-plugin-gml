@@ -1,13 +1,6 @@
-import { asArray, compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
+import { Core } from "@gml-modules/core";
+
 import { parseDocCommentMetadata } from "./metadata.js";
-import {
-    docParamNamesLooselyEqual,
-    getCanonicalParamNameFromText,
-    isOptionalParamDocName,
-    normalizeParamDocType,
-    preservedUndefinedDefaultParameters,
-    synthesizedUndefinedDefaultParameters
-} from "./params.js";
 import {
     collectImplicitArgumentDocNames,
     gatherImplicitArgumentReferences,
@@ -22,6 +15,20 @@ import {
     type SyntheticDocGenerationOptions
 } from "./synthetic-helpers.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
+
+const {
+    asArray,
+    compactArray,
+    docParamNamesLooselyEqual,
+    getCanonicalParamNameFromText,
+    isNonEmptyArray,
+    isNonEmptyTrimmedString,
+    isOptionalParamDocName,
+    isUndefinedSentinel,
+    normalizeParamDocType,
+    preservedUndefinedDefaultParameters,
+    synthesizedUndefinedDefaultParameters
+} = Core;
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

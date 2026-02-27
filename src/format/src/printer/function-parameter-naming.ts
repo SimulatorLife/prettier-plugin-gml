@@ -17,6 +17,7 @@
  */
 
 import { Core } from "@gml-modules/core";
+import { Lint } from "@gml-modules/lint";
 import type { AstPath } from "prettier";
 
 import { NUMBER_TYPE, OBJECT_TYPE, STRING_TYPE } from "./constants.js";
@@ -100,7 +101,7 @@ function getFunctionTagParamFromOriginalText(
     const docBlock = prefix.slice(lastDocIndex);
     const lines = Core.splitLines(docBlock);
     for (const docLine of lines) {
-        const params = Core.extractFunctionTagParams(docLine);
+        const params = Lint.extractFunctionTagParams(docLine);
         if (params.length > 0) {
             return paramIndex < params.length ? params[paramIndex] : null;
         }
@@ -153,7 +154,7 @@ function getFunctionTagParamName(functionNode: unknown, paramIndex: number, opti
             continue;
         }
 
-        const params = Core.extractFunctionTagParams(rawValue);
+        const params = Lint.extractFunctionTagParams(rawValue);
         if (params.length === 0) {
             continue;
         }
@@ -182,12 +183,12 @@ function normalizePreferredParameterName(name: unknown): string | null {
         return null;
     }
 
-    const canonical = Core.getCanonicalParamNameFromText(name);
+    const canonical = Lint.getCanonicalParamNameFromText(name);
     if (canonical && canonical.length > 0) {
         return canonical;
     }
 
-    const normalizedValue = Core.normalizeDocMetadataName(name);
+    const normalizedValue = Lint.normalizeDocMetadataName(name);
     if (typeof normalizedValue !== STRING_TYPE) {
         return null;
     }
@@ -207,12 +208,12 @@ function resolvePreferredParameterSource(
         return functionTagName;
     }
 
-    const docPreferences = Core.preferredParamDocNamesByNode.get(functionNode);
+    const docPreferences = Lint.preferredParamDocNamesByNode.get(functionNode);
     if (docPreferences?.has(paramIndex)) {
         return docPreferences.get(paramIndex) ?? null;
     }
 
-    const implicitEntries = Core.collectImplicitArgumentDocNames(functionNode, options);
+    const implicitEntries = Lint.collectImplicitArgumentDocNames(functionNode, options);
     if (!Array.isArray(implicitEntries)) {
         return null;
     }
@@ -253,7 +254,7 @@ export function resolvePreferredParameterName(
 
     const functionTagName = getFunctionTagParamName(functionNode, paramIndex, options);
     const hasRenamableCurrentName =
-        typeof currentName === STRING_TYPE && Core.getArgumentIndexFromIdentifier(currentName as string) !== null;
+        typeof currentName === STRING_TYPE && Lint.getArgumentIndexFromIdentifier(currentName as string) !== null;
 
     if (!hasRenamableCurrentName) {
         return null;
@@ -337,7 +338,7 @@ export function getPreferredFunctionParameterName(path: AstPath<any>, node: unkn
             return null;
         }
 
-        const identifier = Core.getIdentifierFromParameterNode(params[paramIndex]);
+        const identifier = Lint.getIdentifierFromParameterNode(params[paramIndex]);
         const n = node as { name?: string } | null;
         const currentName =
             (identifier && typeof (identifier as { name?: string }).name === STRING_TYPE
@@ -358,7 +359,7 @@ export function getPreferredFunctionParameterName(path: AstPath<any>, node: unkn
         return null;
     }
 
-    const argumentIndex = Core.getArgumentIndexFromIdentifier(n.name);
+    const argumentIndex = Lint.getArgumentIndexFromIdentifier(n.name);
     if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
         return null;
     }
@@ -379,7 +380,7 @@ export function getPreferredFunctionParameterName(path: AstPath<any>, node: unkn
         return null;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifier = Lint.getIdentifierFromParameterNode(params[argumentIndex]);
     if (!identifier || typeof (identifier as { name?: string }).name !== STRING_TYPE) {
         return null;
     }
@@ -423,13 +424,13 @@ function shouldOmitParameterAlias(declarator: unknown, functionNode: unknown, op
         return true;
     }
 
-    const argumentIndex = Core.getArgumentIndexFromIdentifier(d.init.name);
+    const argumentIndex = Lint.getArgumentIndexFromIdentifier(d.init.name);
 
     let paramIndex: number | null = argumentIndex;
     if (argumentIndex === null && functionNode) {
         const params = getFunctionParams(functionNode);
         for (const [i, param] of params.entries()) {
-            const paramId = Core.getIdentifierFromParameterNode(param);
+            const paramId = Lint.getIdentifierFromParameterNode(param);
             if (paramId && (paramId as { name?: string }).name === d.init.name) {
                 paramIndex = i;
                 break;
@@ -458,7 +459,7 @@ function shouldOmitParameterAlias(declarator: unknown, functionNode: unknown, op
         return false;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[paramIndex]);
+    const identifier = Lint.getIdentifierFromParameterNode(params[paramIndex]);
     if (!identifier || typeof (identifier as { name?: string }).name !== STRING_TYPE) {
         return false;
     }
@@ -603,7 +604,7 @@ export function resolveArgumentAliasInitializerDoc(path: AstPath<any>): string |
         return null;
     }
 
-    const docPreferences = Core.preferredParamDocNamesByNode.get(functionNode);
+    const docPreferences = Lint.preferredParamDocNamesByNode.get(functionNode);
     let parameterName: string | null = null;
 
     if (docPreferences && docPreferences.has(argumentIndex)) {

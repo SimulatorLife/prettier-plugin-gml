@@ -1,12 +1,16 @@
-import { type DocCommentLines, type MutableDocCommentLines } from "../../comment-utils.js";
-import {
+import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gml-modules/core";
+
+import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
+
+const {
     capitalize,
     copyDocCommentArrayFlags,
+    isNonEmptyArray,
+    isNonEmptyString,
     isNonEmptyTrimmedString,
     toMutableArray,
     toTrimmedString
-} from "../utils.js";
-import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
+} = Core;
 
 const STRING_TYPE = "string";
 

@@ -1,6 +1,11 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
+import {
+    applyJsDocTagAliasReplacements,
+    convertLegacyReturnsDescriptionLinesToMetadata,
+    promoteLeadingDocCommentTextToDescription
+} from "../../../doc-comment/index.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeWithType,
@@ -770,15 +775,15 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         .filter((line) => !emptyDescriptionPattern.test(line))
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 
-    const promotedBlock = CoreWorkspace.Core.promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
+    const promotedBlock = promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
 
-    const returnsNormalizedBlock = CoreWorkspace.Core.convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
+    const returnsNormalizedBlock = convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
 
     return Array.from(alignDescriptionContinuationLines(returnsNormalizedBlock));
 }
 
 function applyJsDocTagAliasLine(line: string): string {
-    const aliasReplaced = CoreWorkspace.Core.applyJsDocTagAliasReplacements(line);
+    const aliasReplaced = applyJsDocTagAliasReplacements(line);
     return typeof aliasReplaced === "string" ? aliasReplaced : line;
 }
 

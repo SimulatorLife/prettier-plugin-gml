@@ -398,31 +398,6 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
         const options = await readFixtureOptions(path.dirname(inputFilePath));
         const relativeInputPath = normalizeFixtureRelativePath(inputFilePath);
-        if (relativeInputPath === "normalize-data-structure-accessors/input.gml") {
-            // This fixture depends on full project data-structure ownership context.
-            // The local lightweight harness does not model those cross-file semantics.
-            continue;
-        }
-        if (relativeInputPath === "normalize-directives/input.gml") {
-            // Canonical directive behavior is validated by focused rule tests in this file.
-            continue;
-        }
-        if (relativeInputPath === "prefer-loop-length-hoist/input.gml") {
-            // Preferred hoist identifier naming is project-policy-dependent and validated in targeted tests.
-            continue;
-        }
-        if (relativeInputPath === "prefer-struct-literal-assignments/input.gml") {
-            // Struct-literal collapsing depends on richer project ownership constraints.
-            continue;
-        }
-        if (relativeInputPath === "require-control-flow-braces/input.gml") {
-            // This broad legacy fixture exceeds the intentionally conservative brace rewrite strategy.
-            continue;
-        }
-        if (relativeInputPath === "require-trailing-optional-defaults/input.gml") {
-            // Trailing-default synthesis is validated through targeted scenario tests below.
-            continue;
-        }
 
         pairs.push({
             ruleName,

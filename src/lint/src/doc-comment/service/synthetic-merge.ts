@@ -1,14 +1,5 @@
-import {
-    copyDocCommentArrayFlags,
-    type DocCommentLines,
-    findLastIndex,
-    isNonEmptyArray,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    type MutableDocCommentLines,
-    toMutableArray,
-    toTrimmedString
-} from "../utils.js";
+import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gml-modules/core";
+
 import {
     convertLegacyReturnsDescriptionLinesToMetadata,
     dedupeReturnDocLines,
@@ -17,7 +8,6 @@ import {
     reorderDescriptionLinesToTop
 } from "./legacy.js";
 import { parseDocCommentMetadata } from "./metadata.js";
-import { getCanonicalParamNameFromText } from "./params.js";
 import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 import {
     collectImplicitArgumentDocNames,
@@ -26,7 +16,19 @@ import {
     preferredParamDocNamesByNode,
     suppressedImplicitDocCanonicalByNode
 } from "./synthetic-helpers.js";
-import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
+
+const {
+    copyDocCommentArrayFlags,
+    findLastIndex,
+    getCanonicalParamNameFromText,
+    isNonEmptyArray,
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    normalizeDocCommentTypeAnnotations,
+    normalizeGameMakerType,
+    toMutableArray,
+    toTrimmedString
+} = Core;
 
 const STRING_TYPE: string = "string";
 
@@ -151,7 +153,7 @@ function filterEmptyDescriptionTags(docs: DocCommentLines): MutableDocCommentLin
 
             return descriptionText.length > 0;
         })
-    );
+    ) as MutableDocCommentLines;
 }
 
 export function mergeSyntheticDocComments(
@@ -413,7 +415,9 @@ export function mergeSyntheticDocComments(
         );
 
         if ((originalExistingHasTags || originalExistingHasDocLikePrefixes) && !hasDescriptionTag) {
-            filteredResult = toMutableArray(promoteLeadingDocCommentTextToDescription(filteredResult));
+            filteredResult = toMutableArray(
+                promoteLeadingDocCommentTextToDescription(filteredResult)
+            ) as MutableDocCommentLines;
         }
     } catch {
         // Tolerate missing Core service during test scenarios or when the doc
@@ -1238,7 +1242,9 @@ function mergeDocLines({
         returnsLines = returnExtraction.returnsLines;
     }
 
-    const syntheticParamNames = new Set(otherLines.map((line) => getParamCanonicalName(line)).filter(isNonEmptyString));
+    const syntheticParamNames = new Set(
+        otherLines.map((line) => getParamCanonicalName(line)).filter(isNonEmptyString)
+    );
 
     if (syntheticParamNames.size > 0) {
         const filtered = removeExistingParamLinesWithSyntheticNames({

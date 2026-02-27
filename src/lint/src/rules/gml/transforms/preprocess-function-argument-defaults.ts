@@ -3,6 +3,12 @@
  */
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
+import {
+    getArgumentIndexFromIdentifier,
+    getIdentifierFromParameterNode,
+    prepareDocCommentEnvironment
+} from "../../../doc-comment/index.js";
+
 const { isObjectLike } = Core;
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
@@ -176,7 +182,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
 
         const paramInfoByName = new Map();
         for (const [index, param] of params.entries()) {
-            const identifier = Core.getIdentifierFromParameterNode(param);
+            const identifier = getIdentifierFromParameterNode(param);
             if (!identifier) {
                 continue;
             }
@@ -580,7 +586,7 @@ function ensureParameterInfoForMatch(
     }
 
     const paramAtIndex = params[argumentIndex];
-    const identifier = Core.getIdentifierFromParameterNode(paramAtIndex);
+    const identifier = getIdentifierFromParameterNode(paramAtIndex);
     if (!identifier) {
         return null;
     }
@@ -589,7 +595,7 @@ function ensureParameterInfoForMatch(
     if (targetName && (!identifierName || identifierName !== targetName)) {
         try {
             const fallbackParam = params[argumentIndex];
-            const fallBackIdentifier = Core.getIdentifierFromParameterNode(fallbackParam);
+            const fallBackIdentifier = getIdentifierFromParameterNode(fallbackParam);
             if (fallBackIdentifier) {
                 return registerInfo(argumentIndex, fallBackIdentifier);
             }
@@ -656,7 +662,7 @@ function ensureTrailingOptionalParametersHaveUndefinedDefaults(params: Array<any
 
 function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGameMakerAstNode) {
     try {
-        const docManager = Core.prepareDocCommentEnvironment(ast);
+        const docManager = prepareDocCommentEnvironment(ast);
         const comments = docManager.getComments(node);
 
         const paramDocMap = new Map<string, boolean>();
@@ -1264,7 +1270,7 @@ function getArgumentIndexFromNode(node: any) {
     if (!isObjectLike(node)) return null;
 
     if (node.type === "Identifier") {
-        return Core.getArgumentIndexFromIdentifier(node.name);
+        return getArgumentIndexFromIdentifier(node.name);
     }
 
     if (

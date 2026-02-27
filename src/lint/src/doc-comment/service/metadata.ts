@@ -1,4 +1,6 @@
-import { toTrimmedString } from "../utils.js";
+import { Core } from "@gml-modules/core";
+
+const { toTrimmedString } = Core;
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

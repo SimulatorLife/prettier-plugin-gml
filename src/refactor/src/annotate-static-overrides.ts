@@ -1,6 +1,5 @@
 /**
  * Marks static constructor helper functions that override implementations inherited from parent constructors.
- * The `_overridesStaticFunction` flag ensures downstream normalizers and formatters know when a collision exists.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 

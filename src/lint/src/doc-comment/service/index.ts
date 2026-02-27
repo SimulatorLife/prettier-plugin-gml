@@ -9,9 +9,6 @@ export {
     isFunctionDocCommentLine,
     parseDocCommentMetadata
 } from "./metadata.js";
-export * from "./params.js";
-export * from "./string-coercions.js";
 export * from "./synthetic-generation.js";
 export * from "./synthetic-helpers.js";
 export * from "./synthetic-merge.js";
-export * from "./type-normalization.js";

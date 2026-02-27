@@ -1,12 +1,15 @@
-import { type DocCommentLines, getCommentArray, isDocCommentLine } from "../comment-utils.js";
-import {
+import { Core, type DocCommentLines } from "@gml-modules/core";
+
+const {
+    getCommentArray,
     getNodeStartIndex,
+    isDocCommentLine,
     isFunctionLikeNode,
     isNode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     toMutableArray
-} from "./utils.js";
+} = Core;
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();

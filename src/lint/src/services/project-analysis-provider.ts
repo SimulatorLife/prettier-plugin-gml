@@ -1,3 +1,4 @@
+// TODO: This is not the linter's responsibility. Rename conflict planning should be handled by the codemod workspace, '@gml-modules/refactor'
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";

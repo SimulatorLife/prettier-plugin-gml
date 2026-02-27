@@ -1,14 +1,17 @@
-import {
+import { Core } from "@gml-modules/core";
+
+import { isFunctionLikeDocCommentNode } from "./ast-contract.js";
+
+const {
     getIdentifierText,
     getNodeEndIndex,
     getNodeStartIndex,
     getNonEmptyString,
     isNonEmptyTrimmedString,
     isObjectLike,
-    isUndefinedSentinel
-} from "../utils.js";
-import { isFunctionLikeDocCommentNode } from "./ast-contract.js";
-import { normalizeDocMetadataName } from "./params.js";
+    isUndefinedSentinel,
+    normalizeDocMetadataName
+} = Core;
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

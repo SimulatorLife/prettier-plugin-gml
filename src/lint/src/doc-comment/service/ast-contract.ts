@@ -1,4 +1,5 @@
-import { isFunctionLikeNode } from "../../../ast/index.js";
+import { Core } from "@gml-modules/core";
+const { isFunctionLikeNode } = Core;
 
 /**
  * Determines whether a node should be treated as function-like for synthetic

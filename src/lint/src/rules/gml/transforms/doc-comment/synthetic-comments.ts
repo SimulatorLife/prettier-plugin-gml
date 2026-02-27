@@ -1,5 +1,17 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import {
+    collectAdjacentLeadingSourceLineComments,
+    collectLeadingProgramLineComments,
+    collectSyntheticDocCommentLines,
+    computeSyntheticFunctionDocLines,
+    extractLeadingNonDocCommentLines,
+    isDocLikeLeadingLine,
+    mergeSyntheticDocComments,
+    promoteLeadingDocCommentTextToDescription,
+    reorderDescriptionLinesToTop
+} from "../../../../doc-comment/index.js";
+
 const STRING_TYPE = "string";
 
 type SyntheticDocCommentResult = Readonly<{
@@ -59,25 +71,25 @@ function processLeadingCommentLines(
 } | null {
     const hasFunctionDoc = Core.isNonEmptyArray((functionNode as { docComments?: unknown[] }).docComments);
 
-    const { existingDocLines, remainingComments } = Core.collectSyntheticDocCommentLines(
+    const { existingDocLines, remainingComments } = collectSyntheticDocCommentLines(
         targetNode,
         options,
         programNode,
         sourceText
     );
-    const { leadingLines: leadingCommentLines, remainingComments: updatedComments } =
-        Core.extractLeadingNonDocCommentLines(remainingComments, options);
+    const { leadingLines: leadingCommentLines, remainingComments: updatedComments } = extractLeadingNonDocCommentLines(
+        remainingComments,
+        options
+    );
 
     const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? Core.collectAdjacentLeadingSourceLineComments(targetNode, options, sourceText)
-            : [];
-    const programLeadingLines = Core.collectLeadingProgramLineComments(targetNode, programNode, options, sourceText);
+        existingDocLines.length === 0 ? collectAdjacentLeadingSourceLineComments(targetNode, options, sourceText) : [];
+    const programLeadingLines = collectLeadingProgramLineComments(targetNode, programNode, options, sourceText);
     const combinedLeadingLines = [...programLeadingLines, ...sourceLeadingLines, ...leadingCommentLines];
     const docLikeLeadingLines: string[] = [];
     const plainLeadingLines: string[] = [];
     for (const line of combinedLeadingLines) {
-        if (Core.isDocLikeLeadingLine(line)) {
+        if (isDocLikeLeadingLine(line)) {
             docLikeLeadingLines.push(line);
         } else {
             plainLeadingLines.push(line);
@@ -154,10 +166,8 @@ function computeSyntheticDocComment(
     const hasExistingDocLines = existingDocLines.length > 0;
 
     let syntheticLines = hasExistingDocLines
-        ? Core.mergeSyntheticDocComments(functionNode, existingDocLines, docCommentOptions, overrides)
-        : Core.reorderDescriptionLinesToTop(
-              Core.computeSyntheticFunctionDocLines(functionNode, [], options, overrides)
-          );
+        ? mergeSyntheticDocComments(functionNode, existingDocLines, docCommentOptions, overrides)
+        : reorderDescriptionLinesToTop(computeSyntheticFunctionDocLines(functionNode, [], options, overrides));
 
     if (hasExistingDocLines && syntheticLines.length > 0) {
         syntheticLines = syntheticLines.filter((line) => {
@@ -181,7 +191,7 @@ function computeSyntheticDocComment(
 
     const potentiallyPromotableLines =
         leadingCommentLines.length > 0 && syntheticLines.length > 0
-            ? Core.promoteLeadingDocCommentTextToDescription([...leadingCommentLines, syntheticLines[0]]).slice(
+            ? promoteLeadingDocCommentTextToDescription([...leadingCommentLines, syntheticLines[0]]).slice(
                   0,
                   leadingCommentLines.length
               )

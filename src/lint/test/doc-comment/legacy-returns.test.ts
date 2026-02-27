@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Lint } from "../../src/index.js";
 
-const { convertLegacyReturnsDescriptionLinesToMetadata } = Core;
+const { convertLegacyReturnsDescriptionLinesToMetadata } = Lint;
 
 void test("convertLegacyReturnsDescriptionLinesToMetadata ignores non-return descriptions with hyphens", () => {
     const input = [

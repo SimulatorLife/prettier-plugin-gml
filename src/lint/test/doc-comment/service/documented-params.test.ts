@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Lint } from "../../../src/index.js";
 
 const {
     buildDocumentedParamNameLookup,
@@ -11,9 +11,9 @@ const {
     getCommentStartIndex,
     isWhitespaceBetween,
     normalizeDocParamNameForComparison
-} = Core;
+} = Lint;
 
-type DocCommentTraversalService = ReturnType<typeof Core.resolveDocCommentTraversalService>;
+type DocCommentTraversalService = ReturnType<typeof Lint.resolveDocCommentTraversalService>;
 
 void test("extractParamNameFromComment trims optional references", () => {
     assert.strictEqual(extractParamNameFromComment("/ @param foo value"), "foo");
