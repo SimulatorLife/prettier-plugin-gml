@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@gml-modules/core": "workspace:*",
+    "@gml-modules/lint": "workspace:*",
     "@gml-modules/parser": "workspace:*"
   },
   "engines": {

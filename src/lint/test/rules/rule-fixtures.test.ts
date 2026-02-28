@@ -21,7 +21,8 @@ const { Lint } = LintWorkspace;
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRootCandidates = [
     path.resolve(testDirectory, "fixtures"),
-    path.resolve(testDirectory, "../../test/fixtures")
+    path.resolve(testDirectory, "../../test/fixtures"),
+    path.resolve(testDirectory, "../../../test/fixtures")
 ];
 const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candidate));
 if (!fixtureRoot) {

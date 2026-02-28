@@ -18,7 +18,8 @@ type MigrationCase = {
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const migratedFeatherFixtureCandidates = [
     path.resolve(testDirectory, "fixtures/feather"),
-    path.resolve(testDirectory, "../../test/fixtures/feather")
+    path.resolve(testDirectory, "../../test/fixtures/feather"),
+    path.resolve(testDirectory, "../../../test/fixtures/feather")
 ];
 const migratedFeatherFixtureDirectory = migratedFeatherFixtureCandidates.find((candidate) => existsSync(candidate));
 if (!migratedFeatherFixtureDirectory) {

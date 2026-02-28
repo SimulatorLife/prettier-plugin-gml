@@ -26,7 +26,6 @@ void test("root test discovery includes formatter, lint, and integration fixture
         "src/format/dist/test/formatter-fixtures.test.js",
         "src/lint/dist/test/rule-fixtures.test.js",
         "src/lint/dist/test/feather-rule-fixtures.test.js",
-        "src/lint/dist/test/feather-plugin-fixture-migration.test.js",
         "test/dist/format-semantic-integration.test.js"
     ];
 

@@ -11,7 +11,8 @@ import { lintWithFeatherRule } from "./rule-test-harness.js";
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRootCandidates = [
     path.resolve(testDirectory, "fixtures", "feather"),
-    path.resolve(testDirectory, "../../test/fixtures/feather")
+    path.resolve(testDirectory, "../../test/fixtures/feather"),
+    path.resolve(testDirectory, "../../../test/fixtures/feather")
 ];
 
 async function readFixture(ruleName: string, fileName: "input.gml" | "fixed.gml"): Promise<string> {

@@ -161,7 +161,11 @@ function getRuleMeta(ruleId: string): RuleMeta {
 }
 
 function resolveSourceRoot(testDirectory: string): string {
-    const candidates = [path.resolve(testDirectory, "../src"), path.resolve(testDirectory, "../../src")];
+    const candidates = [
+        path.resolve(testDirectory, "../src"),
+        path.resolve(testDirectory, "../../src"),
+        path.resolve(testDirectory, "../../../src")
+    ];
     const resolved = candidates.find((candidate) => existsSync(path.join(candidate, "language/recovery.ts")));
     if (!resolved) {
         throw new Error(`Unable to resolve lint source root from ${testDirectory}`);

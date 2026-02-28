@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex -- disabled to intentionally match control characters in feather comments */
 import type { Rule } from "eslint";
 
 import type { FeatherManifestEntry } from "./manifest.js";
@@ -341,7 +342,7 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                             }
 
                             const memberMatch =
-                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*[^,\n]+)?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
+                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
                                     trimmed
                                 );
                             if (!memberMatch?.groups?.name) {
@@ -624,7 +625,10 @@ function createGm1017Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1015Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/(\b[A-Za-z_]\w*\s*=\s*[^;\n/]+)\s*\/\s*0\b/g, "$1");
+        rewritten = rewritten.replaceAll(
+            /(\b[A-Za-z_]\w*\s*=\s*(?:[^\s/;][^;\n/]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))\s*\/\s*0\b/g,
+            "$1"
+        );
         rewritten = rewritten.replaceAll(/^\s*\w+\s*\/=\s*0\s*;\s*/gm, "");
         rewritten = rewritten.replaceAll(/%=\s*\(\s*-?0\s*\)/g, "%= -1");
         return rewritten;
@@ -886,7 +890,7 @@ function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         const rewrittenLines = sourceText.split(/\r?\n/u).filter((line) => {
             const trimmed = line.trim();
-            if (/^=\s*.+;\s*$/u.test(trimmed)) {
+            if (/^=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/u.test(trimmed)) {
                 return false;
             }
 
@@ -1049,7 +1053,7 @@ function createGm2053Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
         const appendedReset = appendLineIfMissing(sourceText, "gpu_set_alphatestenable(false);");
         return appendedReset.replaceAll(
-            /(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)\s*\n\s*\n(\s*[^\s])/g,
+            /(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*\n(\s*[^\s])/g,
             "$1\n$2"
         );
     });
@@ -1333,7 +1337,7 @@ function createGm1036Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
         rewritten = rewritten.replaceAll(
-            /\[(?!\s*#)([^,\]\n]+(?:\s*,\s*[^,\]\n]+)+)\]/g,
+            /\[(?!\s*#)([^,\]\n]+(?:\s*,\s*(?:[^\s,\]][^,\]\n]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))+)\]/g,
             (_fullMatch, indexList: string) => {
                 return indexList
                     .split(",")
@@ -1560,7 +1564,7 @@ function createGm2008Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         }
 
         return sourceText.replace(
-            /(vertex_begin\(vb,\s*format\);\s*\n\s*vertex_position_3d\([^\n]+\);\s*)/m,
+            /(vertex_begin\(vb,\s*format\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*vertex_position_3d\([^\n]+\);\s*)/m,
             "$1\nvertex_end(vb);\n"
         );
     });
@@ -1688,8 +1692,14 @@ function createGm2042Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
         rewritten = rewritten.replaceAll(/\n\}\nelse\s*\n\{/g, "\n} else {");
-        rewritten = rewritten.replaceAll(/gpu_push_state\(\);\s*\n\s*gpu_push_state\(\);/g, "gpu_push_state();");
-        rewritten = rewritten.replaceAll(/gpu_pop_state\(\);\s*\n\s*gpu_pop_state\(\);/g, "gpu_pop_state();");
+        rewritten = rewritten.replaceAll(
+            /gpu_push_state\(\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*gpu_push_state\(\);/g,
+            "gpu_push_state();"
+        );
+        rewritten = rewritten.replaceAll(
+            /gpu_pop_state\(\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*gpu_pop_state\(\);/g,
+            "gpu_pop_state();"
+        );
         rewritten = rewritten.replace(
             "gpu_push_state();draw_circle(x + 1, y + 1, 2, true);scr_another_custom_function_which_might_reset_things();",
             "gpu_push_state();\ndraw_circle(x + 1, y + 1, 2, true);\nscr_another_custom_function_which_might_reset_things();"
