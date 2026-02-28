@@ -14,7 +14,8 @@ import {
     lintWithFeatherRule,
     readNodeTextRange,
     type ReplaceTextRangeFixOperation,
-    type RuleTestFixOperation} from "./rule-test-harness.js";
+    type RuleTestFixOperation
+} from "./rule-test-harness.js";
 
 const { Lint } = LintWorkspace;
 

@@ -46,6 +46,12 @@ void test("omits redundant unary plus before identifiers", async () => {
     assert.strictEqual(formatted, "var value = count;\n");
 });
 
+void test("retains plus-plus before identifiers", async () => {
+    const formatted = await Format.format("var value = ++count;\n");
+
+    assert.strictEqual(formatted, "var value = ++count;\n");
+});
+
 void test("preserves unary plus conversions", async () => {
     const formatted = await Format.format('var value = +"5";\n');
 
