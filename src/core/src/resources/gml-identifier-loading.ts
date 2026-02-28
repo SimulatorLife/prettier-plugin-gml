@@ -31,6 +31,12 @@ let cachedIdentifierMetadata: unknown = null;
 let cachedManualFunctionNames: Set<string> | null = null;
 
 /**
+ * Cached Set of GML global constant/literal names to avoid re-allocating on
+ * every call. Reset alongside metadata cache to maintain consistency.
+ */
+let cachedGmlGlobalConstantNames: Set<string> | null = null;
+
+/**
  * Maximum number of cached reserved identifier name Sets.
  * Limits memory growth when many different disallowedTypes configurations are used.
  * Common configurations (e.g., default, no exclusions) will remain cached while
@@ -65,6 +71,7 @@ export function getIdentifierMetadata() {
 export function clearIdentifierMetadataCache() {
     cachedIdentifierMetadata = null;
     cachedManualFunctionNames = null;
+    cachedGmlGlobalConstantNames = null;
     cachedReservedIdentifierNames.clear();
 }
 
@@ -330,4 +337,48 @@ export function loadManualFunctionNames(): Set<string> {
     // Store in cache and return
     cachedManualFunctionNames = names;
     return cachedManualFunctionNames;
+}
+
+/**
+ * Load GML global constant and literal identifiers from the bundled metadata payload.
+ *
+ * Returns names of GML constants and literals (e.g., `vk_left`, `noone`, `all`,
+ * `cr_default`, `MATRIX_MAX`) – identifiers that refer to fixed global values rather
+ * than instance fields. When emitting code for contexts without the GML proxy
+ * `with`-wrapper (such as event patches), these names must NOT receive a `self.`
+ * prefix because they are not properties of the GameMaker instance.
+ *
+ * The result is cached to avoid re-allocating the Set on every call.
+ * Multiple calls return the same Set instance, reducing memory churn.
+ *
+ * @returns {Set<string>} A cached set of GML global constant and literal names.
+ */
+export function loadGmlGlobalConstantNames(): Set<string> {
+    if (cachedGmlGlobalConstantNames !== null) {
+        return cachedGmlGlobalConstantNames;
+    }
+
+    const metadata = loadIdentifierMetadata();
+    const entries = normalizeIdentifierMetadataEntries(metadata);
+
+    if (entries.length === 0) {
+        cachedGmlGlobalConstantNames = new Set<string>();
+        return cachedGmlGlobalConstantNames;
+    }
+
+    const names = new Set<string>();
+
+    for (const { name, type } of entries) {
+        if (type !== "literal" && type !== "constant") {
+            continue;
+        }
+
+        const normalizedName = getNonEmptyString(name);
+        if (normalizedName) {
+            names.add(normalizedName);
+        }
+    }
+
+    cachedGmlGlobalConstantNames = names;
+    return cachedGmlGlobalConstantNames;
 }

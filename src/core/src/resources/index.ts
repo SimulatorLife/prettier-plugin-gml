@@ -15,6 +15,7 @@ export {
     GML_IDENTIFIER_METADATA_PATH,
     GML_IDENTIFIER_METADATA_URL,
     loadBundledIdentifierMetadata,
+    loadGmlGlobalConstantNames,
     loadManualFunctionNames,
     loadReservedIdentifierNames,
     normalizeIdentifierMetadataEntries,

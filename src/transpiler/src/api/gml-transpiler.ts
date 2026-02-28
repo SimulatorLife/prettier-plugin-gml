@@ -27,6 +27,31 @@ export interface TranspileScriptRequest {
     readonly ast?: unknown;
 }
 
+/**
+ * Request parameters for transpiling a GML object event body.
+ *
+ * Object events (Create, Step, Draw, etc.) are raw GML statement sequences—
+ * they are not wrapped in an explicit function declaration. The transpiled
+ * `js_body` is intended for the runtime wrapper's `EventPatch`, which executes
+ * the body inside `new Function("self", argsDecl, js_body)`.
+ */
+export interface TranspileEventRequest {
+    /**
+     * Absolute or workspace-relative path to the GML source file for diagnostics.
+     */
+    readonly sourcePath?: string;
+    /** Raw GML source text for the event body. */
+    readonly sourceText: string;
+    /** SCIP-style symbol identifier, e.g. `"gml/event/obj_player/Create_0"`. */
+    readonly symbolId: string;
+    /**
+     * Pre-parsed AST to reuse instead of parsing `sourceText` again.
+     * Useful for callers that have already parsed the source (e.g., the CLI
+     * watcher) to avoid redundant parsing overhead.
+     */
+    readonly ast?: unknown;
+}
+
 export interface PatchMetadata {
     readonly timestamp: number;
     readonly sourcePath?: string;
@@ -34,6 +59,23 @@ export interface PatchMetadata {
 
 export interface ScriptPatch {
     readonly kind: "script";
+    readonly id: string;
+    readonly js_body: string;
+    readonly sourceText: string;
+    readonly version: number;
+    readonly metadata?: PatchMetadata;
+}
+
+/**
+ * A patch object produced by transpiling a GML object event body.
+ *
+ * Compatible with the runtime wrapper's `EventPatch` type. The `js_body`
+ * uses explicit `self.` prefixes for instance-variable access so it runs
+ * correctly inside `new Function("self", argsDecl, js_body)` without
+ * requiring the GML proxy `with`-wrapper that script patches rely on.
+ */
+export interface EventPatch {
+    readonly kind: "event";
     readonly id: string;
     readonly js_body: string;
     readonly sourceText: string;
@@ -199,6 +241,78 @@ export class GmlTranspiler {
         } catch (error) {
             const message = Core.isErrorLike(error) ? error.message : String(error);
             throw new Error(`Failed to transpile expression: ${message}`, {
+                cause: Core.isErrorLike(error) ? error : undefined
+            });
+        }
+    }
+
+    /**
+     * Transpile a GML object event body into an `EventPatch`.
+     *
+     * Unlike `transpileScript`, event bodies are never wrapped in an explicit
+     * function declaration, and the resulting `js_body` is executed inside
+     * `new Function("self", argsDecl, js_body)` without the GML proxy
+     * `with`-wrapper. Therefore the emitter is configured with
+     * `emitSelfPrefix: true` so that instance-variable accesses are emitted
+     * as explicit `self.<name>` references.
+     *
+     * @example
+     * ```typescript
+     * const transpiler = new GmlTranspiler();
+     * const patch = transpiler.transpileEvent({
+     *   sourceText: "x += speed;\nif (hp <= 0) { instance_destroy(); }",
+     *   symbolId: "gml/event/obj_player/Step_0",
+     * });
+     * // patch.js_body ≈ "self.x += self.speed;\nif ((self.hp <= 0)) { instance_destroy(); }"
+     * ```
+     */
+    transpileEvent(request: TranspileEventRequest): EventPatch {
+        if (!request || typeof request !== "object") {
+            throw new TypeError("transpileEvent requires a request object");
+        }
+        const { sourceText, symbolId } = request;
+        const sourcePath = request.sourcePath;
+        if (typeof sourceText !== "string" || sourceText.length === 0) {
+            throw new TypeError("transpileEvent requires a sourceText string");
+        }
+        if (typeof symbolId !== "string" || symbolId.length === 0) {
+            throw new TypeError("transpileEvent requires a symbolId string");
+        }
+        if (sourcePath !== undefined && (typeof sourcePath !== "string" || sourcePath.length === 0)) {
+            throw new TypeError("transpileEvent requires sourcePath to be a non-empty string when provided");
+        }
+
+        try {
+            const ast =
+                request.ast ??
+                (() => {
+                    const parser = new Parser.GMLParser(sourceText, {});
+                    return parser.parse();
+                })();
+            const oracle = this.semantic ?? makeDummyOracle();
+            // Events run without the GML proxy `with`-wrapper, so instance variables
+            // must be emitted with an explicit `self.` prefix.
+            const emitter = new GmlToJsEmitter(oracle, {
+                ...this.emitterOptions,
+                emitSelfPrefix: true
+            });
+            const jsBody = emitter.emit(ast);
+            const timestamp = Date.now();
+            const patch: EventPatch = {
+                kind: "event",
+                id: symbolId,
+                js_body: jsBody,
+                sourceText,
+                version: timestamp,
+                metadata: {
+                    ...(sourcePath ? { sourcePath } : {}),
+                    timestamp
+                }
+            };
+            return patch;
+        } catch (error) {
+            const message = Core.isErrorLike(error) ? error.message : String(error);
+            throw new Error(`Failed to transpile event ${symbolId}: ${message}`, {
                 cause: Core.isErrorLike(error) ? error : undefined
             });
         }

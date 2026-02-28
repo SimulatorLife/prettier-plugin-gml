@@ -6,6 +6,7 @@ export { tryFoldConstantExpression } from "./constant-folding.js";
 export { GmlToJsEmitter } from "./emitter.js";
 export { emitJavaScript, makeDummyOracle } from "./emitter-entrypoints.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";
+export { LocalVarScope } from "./local-var-scope.js";
 export { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 export type { SemanticOracleOptions } from "./semantic-factory.js";
 export { createSemanticOracle } from "./semantic-factory.js";
