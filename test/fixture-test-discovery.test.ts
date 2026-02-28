@@ -24,8 +24,11 @@ void test("root test discovery includes formatter, lint, and integration fixture
 
     const requiredFixtureSuites = [
         "src/format/dist/test/formatter-fixtures.test.js",
+
+        // TODO: Combine the two lint-fixture test files into one so there's one fixture-runner for that workspace
         "src/lint/dist/test/rule-fixtures.test.js",
         "src/lint/dist/test/feather-rule-fixtures.test.js",
+
         "test/dist/format-semantic-integration.test.js"
     ];
 

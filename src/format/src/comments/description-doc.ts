@@ -1,3 +1,4 @@
+// TODO: Is this duplicating lint's logic?
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
