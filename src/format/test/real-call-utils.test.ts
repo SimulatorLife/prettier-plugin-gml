@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { getNumericValueFromRealCall } from "../src/printer/real-call-value.js";
 
-function buildRealCall(name, literalValue, skipFlag = true) {
+function buildRealCall(name, literalValue) {
     return {
         type: "CallExpression",
         object: {
@@ -27,6 +27,16 @@ void test("real literal simplification tolerates uppercase callees", () => {
 void test("real literal simplification tolerates mixed-case callees", () => {
     const node = buildRealCall("ReAl", "'56'");
     assert.strictEqual(getNumericValueFromRealCall(node), "56");
+});
+
+void test("real literal simplification supports verbatim string literals", () => {
+    const node = buildRealCall("real", '@"123.45"');
+    assert.strictEqual(getNumericValueFromRealCall(node), "123.45");
+});
+
+void test("real literal simplification rejects unquoted string literals", () => {
+    const node = buildRealCall("real", "123.45");
+    assert.strictEqual(getNumericValueFromRealCall(node), null);
 });
 
 void test("real literal simplification handles null node gracefully", () => {

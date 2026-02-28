@@ -14,20 +14,8 @@ function getNumericStringLiteralValue(node) {
         return null;
     }
 
-    let literalText = null;
-
-    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
-        literalText = rawValue.slice(2, -1);
-    } else if (rawValue.length >= 2) {
-        const startingQuote = rawValue[0];
-        const endingQuote = rawValue.at(-1);
-
-        if ((startingQuote === '"' || startingQuote === "'") && startingQuote === endingQuote) {
-            literalText = Core.stripStringQuotes(rawValue);
-        }
-    }
-
-    if (literalText === undefined || literalText === null) {
+    const literalText = extractLiteralText(rawValue);
+    if (literalText === null) {
         return null;
     }
 
@@ -38,6 +26,25 @@ function getNumericStringLiteralValue(node) {
     }
 
     return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+function extractLiteralText(rawValue) {
+    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
+        return rawValue.slice(2, -1);
+    }
+
+    if (rawValue.length < 2) {
+        return null;
+    }
+
+    const startingQuote = rawValue[0];
+    const endingQuote = rawValue.at(-1);
+
+    if ((startingQuote !== '"' && startingQuote !== "'") || startingQuote !== endingQuote) {
+        return null;
+    }
+
+    return Core.stripStringQuotes(rawValue);
 }
 
 export function getNumericValueFromRealCall(node) {
