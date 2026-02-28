@@ -3,7 +3,7 @@ longerName = 22;
 show_debug_message("done");
 value = compute();
 
-// Comment separating assignments should reset the count
+// Comment separating assignments
 foo2 = 12;
 thisIsAReallyLongName2 = 23;
 variable3 = 34;

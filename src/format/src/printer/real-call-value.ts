@@ -1,3 +1,4 @@
+// TODO: What is this for? What does this do? Should be owned by the formatter?
 import { Core } from "@gml-modules/core";
 
 import { NUMERIC_STRING_LITERAL_PATTERN } from "./constants.js";
@@ -50,7 +51,7 @@ export function getNumericValueFromRealCall(node) {
     }
 
     const argument = args[0];
-    if (!argument || argument.type !== "Literal" || argument._skipNumericStringCoercion !== true) {
+    if (!argument || argument.type !== "Literal") {
         return null;
     }
 

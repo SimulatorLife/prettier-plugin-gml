@@ -13,8 +13,7 @@ function buildRealCall(name, literalValue, skipFlag = true) {
         arguments: [
             {
                 type: "Literal",
-                value: literalValue,
-                _skipNumericStringCoercion: skipFlag
+                value: literalValue
             }
         ]
     };
@@ -28,11 +27,6 @@ void test("real literal simplification tolerates uppercase callees", () => {
 void test("real literal simplification tolerates mixed-case callees", () => {
     const node = buildRealCall("ReAl", "'56'");
     assert.strictEqual(getNumericValueFromRealCall(node), "56");
-});
-
-void test("real literal simplification skips when coercion flag missing", () => {
-    const node = buildRealCall("real", '"789"', false);
-    assert.strictEqual(getNumericValueFromRealCall(node), null);
 });
 
 void test("real literal simplification handles null node gracefully", () => {
@@ -57,7 +51,7 @@ void test("real literal simplification handles non-identifier object", () => {
     const node = {
         type: "CallExpression",
         object: { type: "Literal", value: "real" },
-        arguments: [{ type: "Literal", value: '"123"', _skipNumericStringCoercion: true }]
+        arguments: [{ type: "Literal", value: '"123"' }]
     };
     assert.strictEqual(getNumericValueFromRealCall(node), null);
 });

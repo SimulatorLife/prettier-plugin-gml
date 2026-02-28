@@ -5,7 +5,7 @@ longerName=22;
 show_debug_message("done");
 value=compute();
 
-// Comment separating assignments should reset the count
+// Comment separating assignments
 foo2 = 12;
 thisIsAReallyLongName2 = 23; variable3=34;
 show_debug_message("done again");
@@ -48,7 +48,7 @@ for (var i = 0; i < armNum; i++) {
     armMoving[i] = -1;
     armSpeed[i] = 0.1;
     armPrevPos[i] = armPos[i];
-    armOvershoot[i] = [0, 0];
+    armOvershoot[i] = [0,0];
 }
 
 
@@ -60,7 +60,7 @@ var dsin_lp = dsin(pdir_l + leg_spread),
     dcos_lm = dcos(pdir_l - leg_spread),
     dcos_rp = dcos(pdir_r + leg_spread),
     dcos_rm = dcos(pdir_r - leg_spread),
-    dcosl = dcos(pdir_l),
-    dsinl = dsin(pdir_l),
-    dcosr = dcos(pdir_r),
-    dsinr = dsin(pdir_r);
+    dcosl   = dcos(pdir_l),
+    dsinl   = dsin(pdir_l),
+    dcosr   = dcos(pdir_r),
+    dsinr   = dsin(pdir_r);
