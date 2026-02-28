@@ -44,6 +44,7 @@ import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./en
 import {
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
+    getPreferredFunctionParameterName,
     joinDeclaratorPartsWithCommas
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
@@ -1185,7 +1186,16 @@ function tryPrintLiteralNode(node, path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
-            return concat([prefix, node.name]);
+            let identifierName = node.name;
+
+            if (isFunctionParameterIdentifierPath(path)) {
+                const preferredParamName = getPreferredFunctionParameterName(path, node, options);
+                if (Core.isNonEmptyString(preferredParamName)) {
+                    identifierName = preferredParamName;
+                }
+            }
+
+            return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
             return concat(node.value);
@@ -1231,6 +1241,41 @@ function tryPrintLiteralNode(node, path, options, print) {
             return print(node);
         }
     }
+}
+
+function isFunctionParameterIdentifierPath(path): boolean {
+    const parentNode = safeGetParentNode(path);
+    if (!parentNode || typeof parentNode !== "object") {
+        return false;
+    }
+
+    const parentType = (parentNode as { type?: string }).type;
+    if (parentType === "FunctionDeclaration" || parentType === "ConstructorDeclaration") {
+        const params = Core.toMutableArray((parentNode as { params?: unknown[] }).params ?? []);
+        return params.includes(path.getValue());
+    }
+
+    if (parentType === "DefaultParameter") {
+        const defaultParameterNode = parentNode as { left?: unknown };
+        if (defaultParameterNode.left !== path.getValue()) {
+            return false;
+        }
+
+        const functionNode = safeGetParentNode(path, 1);
+        if (!functionNode || typeof functionNode !== "object") {
+            return false;
+        }
+
+        const functionType = (functionNode as { type?: string }).type;
+        if (functionType !== "FunctionDeclaration" && functionType !== "ConstructorDeclaration") {
+            return false;
+        }
+
+        const params = Core.toMutableArray((functionNode as { params?: unknown[] }).params ?? []);
+        return params.includes(parentNode);
+    }
+
+    return false;
 }
 
 function printProgramNode(node, path, options, print) {
