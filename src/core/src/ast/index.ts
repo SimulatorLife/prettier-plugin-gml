@@ -9,7 +9,6 @@ export * from "./node-helpers.js";
 export * from "./node-types.js";
 export * from "./object-graph.js";
 export * from "./parser-transform.js";
-export * from "./print-expression.js";
 export * from "./scope-tracker.js";
 export * from "./strip-comments-transform.js";
 export * from "./type-guards.js";

@@ -1,6 +1,7 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
+import { printExpression, readNodeText } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
@@ -26,8 +27,6 @@ const {
     getNodeStartIndex,
     getNodeEndIndex,
     unwrapExpressionStatement,
-    readNodeText,
-    printExpression,
     createStringCommentScanState,
     advanceStringCommentScan,
     hasComment,
