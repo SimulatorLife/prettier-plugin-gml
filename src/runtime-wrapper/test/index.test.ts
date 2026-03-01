@@ -1472,6 +1472,34 @@ void test("onChange listener receives registry-cleared events", () => {
     assert.strictEqual(event.version, 2);
 });
 
+void test("onChange listener receives patch-rolled-back events", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    events.length = 0;
+
+    // A patch with an unsatisfied dependency passes shadow validation (valid body)
+    // but fails inside applyPatchWithValidation due to the missing dependency,
+    // which causes trySafeApply to rollback and emit "patch-rolled-back".
+    const result = wrapper.trySafeApply({
+        kind: "script",
+        id: "script:needs_dep",
+        js_body: "return 1;",
+        metadata: { dependencies: ["script:missing_dep"] }
+    });
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, true);
+    assert.strictEqual(events.length, 1);
+    const event = events[0] as { type: string; patch: { id: string }; version: number; error: string };
+    assert.strictEqual(event.type, "patch-rolled-back");
+    assert.strictEqual(event.patch.id, "script:needs_dep");
+    assert.ok(typeof event.version === "number");
+    assert.ok(typeof event.error === "string" && event.error.length > 0);
+});
+
 void test("onChange listener receives events for batch patches", () => {
     const events: Array<unknown> = [];
     const wrapper = RuntimeWrapper.createRuntimeWrapper({

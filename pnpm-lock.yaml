@@ -178,6 +178,9 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:../core
+      '@gml-modules/lint':
+        specifier: workspace:*
+        version: link:../lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser

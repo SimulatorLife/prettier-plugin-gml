@@ -100,6 +100,16 @@ jobs:
                 continue;
               }
 
+              const changedFixtures = files.filter(f => 
+                f.filename.endsWith('.gml') &&
+                (f.filename.includes('/test/') || f.filename.startsWith('test/')) &&
+                f.status !== 'added'
+              );
+              if (changedFixtures.length > 0) {
+                core.warning(`Skipping draft PR #${pr.number}: Golden .gml test fixtures cannot be modified or removed! Found: ${changedFixtures.map(f => f.filename).join(', ')}`);
+                continue;
+              }
+
               const authorLogin = pr.user?.login?.toLowerCase() || '';
               if (!allowedAuthors.has(authorLogin)) {
                 core.info(`Skipping draft PR #${pr.number}: author ${pr.user?.login} is not an approved agent.`);

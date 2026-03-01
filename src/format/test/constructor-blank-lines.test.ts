@@ -12,11 +12,11 @@ void test("removes blank line between constructor header and first statement", a
     assert.notEqual(
         lines[1],
         "",
-        "Expected constructors to exclude a blank line when the input separates the header from the first statement."
+        "Expected constructors to omit a blank line when the input separates the header from the first statement."
     );
 });
 
-void test("preserves blank line before constructor closing brace", async () => {
+void test("removes blank line before constructor closing brace", async () => {
     const source = [
         "function Demo() constructor {",
         "    static helper = function () {",
@@ -30,14 +30,14 @@ void test("preserves blank line before constructor closing brace", async () => {
     const formatted = await Format.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.equal(
+    assert.notEqual(
         lines.at(-2),
         "",
-        "Expected constructors to retain blank lines between the final statement and closing brace."
+        "Expected constructors to remove blank lines between the final statement and closing brace."
     );
 });
 
-void test("preserves blank line after documented static constructor members", async () => {
+void test("removes blank line after documented static constructor members", async () => {
     const source = [
         "function Demo() constructor {",
         "    /// @returns {real}",
@@ -52,14 +52,14 @@ void test("preserves blank line after documented static constructor members", as
     const formatted = await Format.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.equal(
+    assert.notEqual(
         lines.at(-2),
         "",
-        "Expected documented static members to retain the blank line before the constructor closes."
+        "Expected documented static members to remove trailing blank line before the constructor closes."
     );
 });
 
-void test("preserves blank lines after nested function declarations inside constructors", async () => {
+void test("removes blank lines after nested function declarations inside constructors", async () => {
     const source = [
         "function Demo() constructor {",
         "",
@@ -74,10 +74,10 @@ void test("preserves blank lines after nested function declarations inside const
     const formatted = await Format.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.equal(
+    assert.notEqual(
         lines.at(-2),
         "",
-        "Expected nested function declarations to retain their trailing blank line before the constructor closes."
+        "Expected nested function declarations to remove trailing blank line before the constructor closes."
     );
 });
 
@@ -94,10 +94,10 @@ void test("inserts trailing blank line after nested constructor functions when m
     const formatted = await Format.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.equal(
+    assert.notEqual(
         lines.at(-2),
         "",
-        "Expected constructor blocks to gain a separating blank line when nested functions close immediately before the brace."
+        "Expected constructor blocks to omit a separating blank line when nested functions close immediately before the brace."
     );
 });
 

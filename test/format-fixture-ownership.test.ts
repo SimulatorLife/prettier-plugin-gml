@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 const formatTestRoot = path.resolve(process.cwd(), "src", "format", "test");
-const formatFormattingFixtureRoot = path.resolve(formatTestRoot, "fixtures", "formatting");
+const formatFormattingFixtureRoot = path.resolve(formatTestRoot, "fixtures");
 const formatIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "integration");
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "applyFeatherFixes",
@@ -42,8 +42,8 @@ void test("formatting fixture directory contains only valid fixture shapes", asy
         const baseName = entry.endsWith(".input.gml")
             ? entry.slice(0, -".input.gml".length)
             : entry.endsWith(".output.gml")
-              ? entry.slice(0, -".output.gml".length)
-              : entry.slice(0, -".gml".length);
+                ? entry.slice(0, -".output.gml".length)
+                : entry.slice(0, -".gml".length);
 
         const shape = shapes.get(baseName) ?? { single: false, input: false, output: false };
         if (entry.endsWith(".input.gml")) {

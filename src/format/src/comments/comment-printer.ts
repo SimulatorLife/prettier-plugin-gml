@@ -1195,7 +1195,6 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
     if (!isDocCommentCandidate(comment, followingNode)) {
         return false;
     }
-
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
     const formatted = formatDocLikeLineComment(comment, lineCommentOptions, options?.originalText);
     const rawText = Core.getLineCommentRawText(comment, {

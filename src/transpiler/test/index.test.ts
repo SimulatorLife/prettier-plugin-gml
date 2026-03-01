@@ -94,6 +94,22 @@ await test("transpileExpression generates JavaScript for simple expressions", ()
     assert.ok(result, "Should generate some output");
 });
 
+await test("transpileScript rejects malformed ast objects before property access", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    assert.throws(
+        () =>
+            transpiler.transpileScript({
+                sourceText: "x = 1 + 2",
+                symbolId: "gml/script/test",
+                ast: { type: "Program" }
+            }),
+        {
+            message: /ast\.body to be an array/
+        }
+    );
+});
+
 await test("transpileScript handles parsing errors gracefully", () => {
     const transpiler = new Transpiler.GmlTranspiler();
 

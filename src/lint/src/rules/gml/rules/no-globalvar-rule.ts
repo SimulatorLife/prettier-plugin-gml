@@ -175,6 +175,19 @@ function collectGlobalVarDeclarationRemovalEdits(
             end += 1;
         }
 
+        // When the file starts with one or more globalvar declarations, consume
+        // any immediately following blank lines so the rewrite does not leave a
+        // synthetic leading newline.
+        if (start === 0) {
+            while (sourceText[end] === "\r" && sourceText[end + 1] === "\n") {
+                end += 2;
+            }
+
+            while (sourceText[end] === "\n") {
+                end += 1;
+            }
+        }
+
         return Object.freeze({
             start,
             end,

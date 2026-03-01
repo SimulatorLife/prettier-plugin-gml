@@ -27,7 +27,7 @@ import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
  * would cause import cycles and build failures. Do not remove until the parser
  * no longer requires semantic imports.
  */
-type ParserNamespace = typeof import("@gml-modules/parser").Parser;
+type ParserNamespace = typeof Parser.Parser;
 type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 
 let parserNamespace: ParserNamespace | null = null;

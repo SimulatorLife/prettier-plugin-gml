@@ -4,6 +4,37 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, reportFullTextRewrite } from "../rule-base-helpers.js";
 
+function resolveReportLocation(context: Rule.RuleContext, index: number): { line: number; column: number } {
+    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number };
+    };
+
+    if (typeof sourceCodeWithLocator.getLocFromIndex === "function") {
+        const located = sourceCodeWithLocator.getLocFromIndex(index);
+        if (
+            typeof located?.line === "number" &&
+            Number.isFinite(located.line) &&
+            typeof located.column === "number" &&
+            Number.isFinite(located.column)
+        ) {
+            return located;
+        }
+    }
+
+    const sourceText = context.sourceCode.text;
+    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
+    let line = 1;
+    let lineStart = 0;
+    for (let cursor = 0; cursor < clampedIndex; cursor += 1) {
+        if (sourceText[cursor] === "\n") {
+            line += 1;
+            lineStart = cursor + 1;
+        }
+    }
+
+    return { line, column: clampedIndex - lineStart };
+}
+
 export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -38,7 +69,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
                             const operatorStart = start + operatorIndex;
                             const operatorEnd = operatorStart + operator.length;
                             context.report({
-                                node,
+                                loc: resolveReportLocation(context, operatorStart),
                                 messageId: definition.messageId,
                                 fix: (fixer) => fixer.replaceTextRange([operatorStart, operatorEnd], normalized)
                             });

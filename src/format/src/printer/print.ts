@@ -42,7 +42,6 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
-    filterKeptDeclarators,
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
     findEnclosingFunctionNode,
@@ -340,6 +339,11 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             util.isPreviousLineEmpty(originalText, nodeStartIndex);
+        const shouldPreserveSourceBlankLineAfterDocComments =
+            originalText !== null &&
+            typeof nodeStartIndex === NUMBER_TYPE &&
+            hasExistingBlankLine &&
+            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentDocs, nodeStartIndex, originalText);
         const isTopOfFileDocBlock =
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -352,7 +356,11 @@ function printNodeDocComments(node, path, options) {
             parts.push(hardline);
         }
 
-        parts.push(join(hardline, printableDocComments), hardline);
+        if (shouldPreserveSourceBlankLineAfterDocComments) {
+            parts.push(join(hardline, printableDocComments), hardline, hardline);
+        } else {
+            parts.push(join(hardline, printableDocComments), hardline);
+        }
     } else {
         if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
             delete node[DOC_COMMENT_OUTPUT_FLAG];
@@ -382,6 +390,50 @@ function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
     }
 
     return null;
+}
+
+function resolveDocCommentEndIndex(commentEntry: unknown): number | null {
+    if (!Core.isObjectLike(commentEntry)) {
+        return null;
+    }
+
+    const endValue = (commentEntry as { end?: unknown }).end;
+    if (typeof endValue === NUMBER_TYPE) {
+        return endValue as number;
+    }
+
+    if (Core.isObjectLike(endValue)) {
+        const endIndex = (endValue as { index?: unknown }).index;
+        if (typeof endIndex === NUMBER_TYPE) {
+            return endIndex as number;
+        }
+    }
+
+    return null;
+}
+
+function hasOnlyWhitespaceBetweenLastDocCommentAndNode(
+    docCommentDocs: MutableDocCommentLines,
+    nodeStartIndex: number,
+    originalText: string
+): boolean {
+    let lastDocCommentEndIndex: number | null = null;
+    for (const docCommentEntry of docCommentDocs) {
+        const endIndex = resolveDocCommentEndIndex(docCommentEntry);
+        if (endIndex === null) {
+            continue;
+        }
+        if (lastDocCommentEndIndex === null || endIndex > lastDocCommentEndIndex) {
+            lastDocCommentEndIndex = endIndex;
+        }
+    }
+
+    if (lastDocCommentEndIndex === null || nodeStartIndex <= lastDocCommentEndIndex) {
+        return false;
+    }
+
+    const sourceSlice = originalText.slice(lastDocCommentEndIndex + 1, nodeStartIndex);
+    return sourceSlice.trim().length === 0;
 }
 
 function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): void {
@@ -524,33 +576,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            const functionNode = findEnclosingFunctionNode(path);
-            const declarators = Core.asArray<any>(node.declarations);
-
-            const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
-
-            if (keptDeclarators.length === 0) {
-                return null;
-            }
-
-            if (keptDeclarators.length !== declarators.length) {
-                const original = node.declarations;
-                node.declarations = keptDeclarators;
-                try {
-                    const decls =
-                        keptDeclarators.length > 1
-                            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                                  leadingNewline: false,
-                                  trailingNewline: false,
-                                  addIndent: keptDeclarators.length > 1
-                              })
-                            : path.map(print, "declarations");
-                    return concat([node.kind, " ", decls]);
-                } finally {
-                    node.declarations = original;
-                }
-            }
-
             // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
             //
             // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
@@ -576,7 +601,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
-                addIndent: keptDeclarators.length > 1
+                addIndent: node.declarations.length > 1
             });
 
             const docComments = printNodeDocComments(node, path, options);
@@ -607,10 +632,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
-            if (initializerOverride) {
-                return concat(printSimpleDeclaration(print("id"), initializerOverride));
-            }
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
