@@ -47,7 +47,13 @@ import {
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
-import { getWorkspaceArrays, type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
+import {
+    getWorkspaceArrays,
+    type GroupedTextEdits,
+    isWorkspaceEditLike,
+    type TextEdit,
+    WorkspaceEdit
+} from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -649,7 +655,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -754,7 +760,7 @@ export class RefactorEngine {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
         const { dryRun = false, readFile, writeFile } = opts;
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
@@ -1294,7 +1300,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -1735,7 +1741,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }

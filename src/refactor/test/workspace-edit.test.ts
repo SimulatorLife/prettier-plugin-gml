@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { getWorkspaceArrays, WorkspaceEdit } from "../src/workspace-edit.js";
+import { getWorkspaceArrays, isWorkspaceEditLike, WorkspaceEdit } from "../src/workspace-edit.js";
 
 void test("getWorkspaceArrays extracts valid arrays from workspace", () => {
     const workspace = new WorkspaceEdit();
@@ -94,4 +94,51 @@ void test("getWorkspaceArrays preserves array contents", () => {
 
     assert.deepEqual(metadataEdits, expectedMetadata);
     assert.deepEqual(fileRenames, expectedRenames);
+});
+
+void test("isWorkspaceEditLike returns true for a valid WorkspaceEdit-shaped object", () => {
+    const validWorkspaceEdit = {
+        edits: [],
+        addEdit() {},
+        groupByFile() {
+            return new Map();
+        }
+    };
+
+    assert.equal(isWorkspaceEditLike(validWorkspaceEdit), true);
+});
+
+void test("isWorkspaceEditLike returns true for a real WorkspaceEdit instance", () => {
+    assert.equal(isWorkspaceEditLike(new WorkspaceEdit()), true);
+});
+
+void test("isWorkspaceEditLike returns false when edits array is missing", () => {
+    assert.equal(isWorkspaceEditLike({ addEdit() {}, groupByFile() {} }), false);
+});
+
+void test("isWorkspaceEditLike returns false when addEdit method is missing", () => {
+    assert.equal(isWorkspaceEditLike({ edits: [], groupByFile() {} }), false);
+});
+
+void test("isWorkspaceEditLike returns false when groupByFile method is missing", () => {
+    assert.equal(isWorkspaceEditLike({ edits: [], addEdit() {} }), false);
+});
+
+void test("isWorkspaceEditLike returns false when edits is not an array", () => {
+    assert.equal(
+        isWorkspaceEditLike({
+            edits: "not an array",
+            addEdit() {},
+            groupByFile() {}
+        }),
+        false
+    );
+});
+
+void test("isWorkspaceEditLike returns false for null", () => {
+    assert.equal(isWorkspaceEditLike(null), false);
+});
+
+void test("isWorkspaceEditLike returns false when called with no argument", () => {
+    assert.equal(isWorkspaceEditLike(), false);
 });

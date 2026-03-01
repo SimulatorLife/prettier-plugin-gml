@@ -20,12 +20,13 @@ import {
     SymbolKind
 } from "./types.js";
 import * as ValidationAPI from "./validation.js";
-import { WorkspaceEdit } from "./workspace-edit.js";
+import { isWorkspaceEditLike, WorkspaceEdit } from "./workspace-edit.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     ...ProjectAnalysisProviderAPI,
     WorkspaceEdit,
+    isWorkspaceEditLike,
     SemanticQueryCache,
     RenameValidationCache,
     ...OccurrenceAnalysisAPI,
@@ -139,4 +140,4 @@ export {
     validateCrossFileConsistency,
     validateRenameStructure
 } from "./validation.js";
-export { WorkspaceEdit } from "./workspace-edit.js";
+export { isWorkspaceEditLike,WorkspaceEdit } from "./workspace-edit.js";

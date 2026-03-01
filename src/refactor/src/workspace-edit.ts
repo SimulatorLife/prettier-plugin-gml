@@ -4,6 +4,8 @@
  * represent a semantic-safe refactoring operation across multiple files.
  */
 
+import { Core } from "@gml-modules/core";
+
 export interface TextEdit {
     path: string;
     start: number;
@@ -98,4 +100,28 @@ export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRen
         metadataEdits: Array.isArray(workspace.metadataEdits) ? (workspace.metadataEdits as Array<MetadataEdit>) : [],
         fileRenames: Array.isArray(workspace.fileRenames) ? (workspace.fileRenames as Array<FileRename>) : []
     };
+}
+
+/**
+ * Determine whether a value implements the `WorkspaceEdit` interface by confirming
+ * it exposes an `edits` array property and the required methods (`addEdit`, `groupByFile`).
+ * Accepts any object that conforms to the expected contract (duck-typed interface) so
+ * refactor operations can work with substitutable implementations without relying
+ * on `instanceof` checks that break polymorphism across module boundaries.
+ *
+ * @param {unknown} [value] Candidate value to inspect.
+ * @returns {boolean} `true` when the value behaves like a WorkspaceEdit.
+ */
+export function isWorkspaceEditLike(value?: unknown): boolean {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+
+    return (
+        Array.isArray(candidate.edits) &&
+        Core.hasFunction(candidate, "addEdit") &&
+        Core.hasFunction(candidate, "groupByFile")
+    );
 }
