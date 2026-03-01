@@ -1,3 +1,4 @@
+// TODO: Is this duplicating 'lint' logic for doc-comments?
 import { Core } from "@gml-modules/core";
 
 type LineComment = {

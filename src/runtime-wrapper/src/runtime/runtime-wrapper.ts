@@ -4,7 +4,6 @@ import {
     applyPatchInternal,
     calculateTimingMetrics,
     captureSnapshot,
-    collectPatchDurations,
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
@@ -504,12 +503,15 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
 
         const uniqueIds = new Set<string>();
+        const durations: Array<number> = [];
 
         for (const entry of state.patchHistory) {
             switch (entry.action) {
                 case "apply": {
                     stats.appliedPatches++;
-
+                    if (typeof entry.durationMs === "number") {
+                        durations.push(entry.durationMs);
+                    }
                     break;
                 }
                 case "undo": {
@@ -544,7 +546,6 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             }
         }
 
-        const durations = collectPatchDurations(state.patchHistory);
         const timingMetrics = calculateTimingMetrics(durations);
 
         if (timingMetrics) {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { promisify } from "node:util";
 
@@ -159,8 +160,25 @@ async function runVersionCompatibilityProbe(packageName: string): Promise<void> 
         }
     `;
 
+    const probeCwdCandidates = [
+        new URL("../", import.meta.url),
+        new URL("../../", import.meta.url),
+        new URL("../../../", import.meta.url)
+    ];
+    const probeCwd = probeCwdCandidates.find((candidate) => {
+        try {
+            const pluginPath = new URL("src/plugin.js", candidate);
+            return existsSync(pluginPath);
+        } catch {
+            return false;
+        }
+    });
+    if (!probeCwd) {
+        throw new Error("Unable to resolve compatibility probe cwd");
+    }
+
     await execFileAsync("node", ["--input-type=module", "-e", languageProbe], {
-        cwd: new URL("../", import.meta.url)
+        cwd: probeCwd
     });
 }
 

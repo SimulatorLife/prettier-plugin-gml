@@ -11,6 +11,7 @@ import {
     applyFixOperations,
     createLocResolver,
     type InsertTextAfterRangeFixOperation,
+    lintWithFeatherRule,
     readNodeTextRange,
     type ReplaceTextRangeFixOperation,
     type RuleTestFixOperation
@@ -21,7 +22,8 @@ const { Lint } = LintWorkspace;
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRootCandidates = [
     path.resolve(testDirectory, "fixtures"),
-    path.resolve(testDirectory, "../../test/fixtures")
+    path.resolve(testDirectory, "../../test/fixtures"),
+    path.resolve(testDirectory, "../../../test/fixtures")
 ];
 const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candidate));
 if (!fixtureRoot) {
@@ -1269,4 +1271,39 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
         expected,
         "optimize-logical-flow should remove !! but not collapse the if/return pattern"
     );
+});
+
+void test("feather migrated fixture rules apply local fixes", async () => {
+    const fixtureRules = [
+        "gm1003",
+        "gm1004",
+        "gm1005",
+        "gm1012",
+        "gm1014",
+        "gm1016",
+        "gm1017",
+        "gm1021",
+        "gm1023",
+        "gm1054",
+        "gm1100",
+        "gm2023",
+        "gm2025",
+        "gm2040",
+        "gm2064"
+    ] as const;
+    const cases = await Promise.all(
+        fixtureRules.map(async (ruleName) => {
+            const [input, expected] = await Promise.all([
+                readFixture("feather", ruleName, "input.gml"),
+                readFixture("feather", ruleName, "fixed.gml")
+            ]);
+            return { ruleName, input, expected };
+        })
+    );
+
+    for (const entry of cases) {
+        const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, entry.ruleName, entry.input);
+        assert.equal(result.messages.length > 0, true, `${entry.ruleName} should report diagnostics`);
+        assert.equal(result.output, entry.expected, `${entry.ruleName} should apply the expected fixer`);
+    }
 });

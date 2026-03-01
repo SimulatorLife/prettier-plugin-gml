@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { Format } from "../src/index.js";
 
-void describe("formatter migrated-transform regression coverage", () => {
+void describe("formatter boundaries ownership", () => {
     void it("does not apply semantic/content rewrites during formatting", async () => {
         const source = [
             "#macro VALUE 1;",
@@ -225,6 +225,54 @@ void describe("formatter migrated-transform regression coverage", () => {
             formatted,
             /^function draw_bezier\(x1,\s*y1/m,
             "Formatter must not rename parameters from @function tag"
+        );
+    });
+
+    void it("does not apply math optimizations during formatting", async () => {
+        const source = ["var division = 1 / 2;", "var multiplication = 2 * 2;"].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /var division = 1 \/ 2;/);
+        assert.match(formatted, /var multiplication = 2 \* 2;/);
+    });
+
+    void it("preserves function declarations with no parameters", async () => {
+        const source = ["function demo() {", "    return 42;", "}", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.ok(formatted.includes("function demo()"), "formatter should preserve function declaration");
+        assert.ok(formatted.includes("return 42"), "formatter should preserve function body");
+        assert.strictEqual(
+            formatted,
+            ["function demo() {", "    return 42;", "}", ""].join("\n"),
+            "formatter should produce consistent output"
+        );
+    });
+
+    void it("formatting retains numbered arguments", async () => {
+        const source = [
+            "/// @param first",
+            "function sample() {",
+            "    var first = argument0;",
+            "    return argument0;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.strictEqual(
+            formatted,
+            [
+                "/// @param first",
+                "function sample() {",
+                "    var first = argument0;",
+                "    return argument0;",
+                "}",
+                ""
+            ].join("\n")
         );
     });
 });

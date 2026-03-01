@@ -416,7 +416,7 @@ function isUndefinedReturnArgument(argument: unknown): boolean {
 }
 
 function isNumericLiteralText(value: string): boolean {
-    return /^[+-]?(?:\d+\.?\d*|\.\d+)$/u.test(value.trim());
+    return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/u.test(value.trim());
 }
 
 function inferConcreteReturnTypeFromArgument(
@@ -840,7 +840,7 @@ function hasConcreteReturnTextAfterLine(lines: ReadonlyArray<string>, startLineI
             }
         }
 
-        if (/^\s*}\s*;?\s*$/.test(line)) {
+        if (/^\s*}\s*(?:;\s*)?$/.test(line)) {
             return false;
         }
     }
@@ -881,7 +881,7 @@ function inferReturnDocTypeFromTextAfterLine(
             }
         }
 
-        if (/^\s*}\s*;?\s*$/.test(line)) {
+        if (/^\s*}\s*(?:;\s*)?$/.test(line)) {
             break;
         }
     }
@@ -1046,7 +1046,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
 }
 
 function getFunctionParameterNames(functionNode: any): { inOrder: string[]; set: Set<string> } {
-    const params = (functionNode).params || [];
+    const params = functionNode.params || [];
     const inOrder: string[] = [];
     for (const param of params) {
         let parameterName: string | undefined;

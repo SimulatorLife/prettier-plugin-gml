@@ -136,6 +136,20 @@ jobs:
               return;
             }
 
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number, per_page: 100
+            });
+            
+            const changedFixtures = files.filter(f => 
+              f.filename.endsWith('.gml') &&
+              (f.filename.includes('/test/') || f.filename.startsWith('test/')) &&
+              f.status !== 'added'
+            );
+            if (changedFixtures.length > 0) {
+              core.setFailed(`Golden .gml test fixtures cannot be modified or removed! Found: ${changedFixtures.map(f => f.filename).join(', ')}`);
+              return;
+            }
+
             if (current.mergeable === null) {
               core.info('Mergeability could not be determined.');
               return;
