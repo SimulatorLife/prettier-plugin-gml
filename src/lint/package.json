@@ -14,11 +14,11 @@
   "scripts": {
     "build:types": "tsc -b tsconfig.json",
     "clean:types": "rm -rf dist",
-    "test": "pnpm run build:types && node --test dist/test/*.test.js"
+    "test": "pnpm run build:types && node --test 'dist/test/**/*.test.js'"
   },
   "dependencies": {
     "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
+    "@gml-modules/parser": "workspace:*)"
   },
   "peerDependencies": {
     "eslint": ">=9.39.0 <10"

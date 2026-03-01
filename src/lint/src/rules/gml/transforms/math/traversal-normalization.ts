@@ -4,6 +4,8 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
+import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
+
 const {
     ASSIGNMENT_EXPRESSION,
     BINARY_EXPRESSION,
@@ -141,12 +143,6 @@ function traverse(node, seen, context, parent = null) {
             continue;
         }
 
-        // Micro-optimization: Use Object.keys() instead of Object.entries().
-        // Object.entries() creates an array of [key, value] tuple arrays, allocating
-        // 1 + N objects per node (where N = number of properties). Object.keys() creates
-        // only 1 array. For a typical AST node with 5 properties, this reduces allocations
-        // from 6 to 1 per node visited (~83% reduction). Micro-benchmark shows Object.keys()
-        // is 5-6x faster than Object.entries() for property iteration.
         for (const key of Object.keys(node)) {
             if (key === "parent") {
                 continue;
@@ -277,7 +273,7 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -324,8 +320,8 @@ function combineLengthdirScalarAssignments(ast) {
 
     const body = Array.isArray(ast.body) ? ast.body : null;
     if (!body) {
-        for (const value of Object.values(ast)) {
-            if (!isObjectLike(value)) {
+        for (const [key, value] of Object.entries(ast)) {
+            if (key === "parent" || !isObjectLike(value)) {
                 continue;
             }
 
@@ -604,7 +600,7 @@ function scaleNumericLiteralCoefficient(node, factor) {
         return false;
     }
 
-    const literalValue = parseNumericLiteral(literal);
+    const literalValue = Core.getLiteralNumberValue(literal);
     if (literalValue === null) {
         return false;
     }
@@ -625,10 +621,15 @@ function findFirstNumericLiteral(node) {
     }
 
     if (node.type === LITERAL) {
-        return parseNumericLiteral(node) === null ? null : node;
+        return Core.getLiteralNumberValue(node) === null ? null : node;
     }
 
-    for (const value of Object.values(node)) {
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        const value = node[key];
         if (!isObjectLike(value)) {
             continue;
         }
@@ -974,7 +975,7 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -1027,7 +1028,7 @@ function isMultiplicationAnnihilatedByZero(node, context) {
 }
 
 function isNumericZeroLiteral(node) {
-    const literalValue = parseNumericLiteral(node);
+    const literalValue = Core.getLiteralNumberValue(node);
     if (literalValue === null) {
         return false;
     }
@@ -1072,7 +1073,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
         return false;
     }
 
-    let value = parseNumericLiteral(expression);
+    let value = Core.getLiteralNumberValue(expression);
 
     if (value === null && isMultiplicationAnnihilatedByZero(expression, context)) {
         value = 0;
@@ -1125,7 +1126,7 @@ function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
         return false;
     }
 
-    const numericValue = parseNumericLiteral(rightExpression);
+    const numericValue = Core.getLiteralNumberValue(rightExpression);
     if (numericValue === null || !Number.isFinite(numericValue)) {
         return false;
     }
@@ -1198,7 +1199,7 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
         return false;
     }
 
-    const numericValue = parseNumericLiteral(numerator);
+    const numericValue = Core.getLiteralNumberValue(numerator);
     if (numericValue === null) {
         return false;
     }
@@ -1720,11 +1721,6 @@ function attemptCondenseScalarProduct(node, context) {
 
     if (!clonedOperand || !literal) {
         return false;
-    }
-
-    if (ratioMetadata?.text) {
-        literal._gmlManualMathRatio = ratioMetadata.text;
-        node._gmlManualMathRatio = ratioMetadata.text;
     }
 
     node.operator = "*";
@@ -3440,7 +3436,7 @@ function isLiteralReciprocalOf180(node) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    const value = Core.getLiteralNumberValue(expression);
     if (value === null) {
         return false;
     }
@@ -3552,7 +3548,7 @@ function areLiteralNumbersApproximatelyEqual(left, right) {
 }
 
 function isLiteralNumber(node, expected, tolerance?) {
-    const value = parseNumericLiteral(node);
+    const value = Core.getLiteralNumberValue(node);
     if (value == null) {
         return false;
     }
@@ -3578,30 +3574,12 @@ function isHalfExponentLiteral(node) {
 }
 
 function isEulerLiteral(node) {
-    const value = parseNumericLiteral(node);
+    const value = Core.getLiteralNumberValue(node);
     if (value == undefined) {
         return false;
     }
 
     return Math.abs(value - Math.E) <= 1e-9;
-}
-
-function parseNumericLiteral(node) {
-    if (!node || node.type !== LITERAL) {
-        return null;
-    }
-
-    const raw = node.value;
-    if (typeof raw === "number") {
-        return Number.isFinite(raw) ? raw : null;
-    }
-
-    if (typeof raw === "string") {
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    return null;
 }
 
 function evaluateNumericExpression(node) {
@@ -3611,7 +3589,7 @@ function evaluateNumericExpression(node) {
     }
 
     if (expression.type === LITERAL) {
-        return parseNumericLiteral(expression);
+        return Core.getLiteralNumberValue(expression);
     }
 
     if (expression.type === UNARY_EXPRESSION) {
@@ -3753,7 +3731,7 @@ function parseNumericFactor(node) {
         return null;
     }
 
-    const literalValue = parseNumericLiteral(expression);
+    const literalValue = Core.getLiteralNumberValue(expression);
     return literalValue ?? null;
 }
 
@@ -3784,8 +3762,8 @@ function areNodesApproximatelyEquivalent(a, b) {
             return left.name === right.name;
         }
         case LITERAL: {
-            const leftNumber = parseNumericLiteral(left);
-            const rightNumber = parseNumericLiteral(right);
+            const leftNumber = Core.getLiteralNumberValue(left);
+            const rightNumber = Core.getLiteralNumberValue(right);
 
             if (typeof leftNumber === "number" && typeof rightNumber === "number") {
                 return areLiteralNumbersApproximatelyEqual(leftNumber, rightNumber);
@@ -4166,7 +4144,9 @@ function insertNodeBefore(root, target, statement) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
+        for (const key of Object.keys(node)) {
+            if (key === "parent") continue;
+            const value = node[key];
             if (value && typeof value === "object") {
                 stack.push(value);
             }
@@ -4206,7 +4186,9 @@ function markPreviousSiblingForBlankLine(root, target, context) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
+        for (const key of Object.keys(node)) {
+            if (key === "parent") continue;
+            const value = node[key];
             if (value && typeof value === "object") {
                 stack.push(value);
             }
@@ -4342,120 +4324,35 @@ function findStatementAncestor(node) {
     return null;
 }
 
-function findAssignmentExpressionForRight(root, target) {
+function findAssignmentExpressionForRight(root: any, target: any): any {
     if (!isObjectLike(root) || !target) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "AssignmentExpression" && node.right === target) {
-            return node;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+    return findFirstAstNodeBy(root, (node) => node.type === ASSIGNMENT_EXPRESSION && node.right === target);
 }
 
-function findVariableDeclaratorForInit(root, target) {
+function findVariableDeclaratorForInit(root: any, target: any): any {
     if (!isObjectLike(root) || !target) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "VariableDeclarator" && node.init === target) {
-            return node;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+    return findFirstAstNodeBy(root, (node) => node.type === "VariableDeclarator" && node.init === target);
 }
 
-function findVariableDeclarationByName(root, identifierName) {
+function findVariableDeclarationByName(root: any, identifierName: string): any {
     if (!isObjectLike(root) || typeof identifierName !== "string") {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
+    return findFirstAstNodeBy(root, (node) => {
+        if (node.type !== VARIABLE_DECLARATION || !Array.isArray(node.declarations) || node.declarations.length !== 1) {
+            return false;
         }
 
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        if (node.type === "VariableDeclaration" && Array.isArray(node.declarations) && node.declarations.length === 1) {
-            const [declarator] = node.declarations;
-            const name = getUnwrappedIdentifierName(declarator?.id);
-
-            if (name === identifierName) {
-                return node;
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return null;
+        const [declarator] = node.declarations;
+        return getUnwrappedIdentifierName(declarator?.id) === identifierName;
+    });
 }
 
 function removeNodeFromAst(root, target) {
@@ -4487,7 +4384,9 @@ function removeNodeFromAst(root, target) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
+        for (const key of Object.keys(node)) {
+            if (key === "parent") continue;
+            const value = node[key];
             if (value && typeof value === "object") {
                 stack.push(value);
             }
@@ -4546,7 +4445,12 @@ function traverseZeroDivisionNumerators(node, context) {
         return;
     }
 
-    for (const value of Object.values(node)) {
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        const value = node[key];
         if (value && typeof value === "object") {
             traverseZeroDivisionNumerators(value, context);
         }
@@ -4674,14 +4578,80 @@ function hasOriginalComment(node, context) {
 
 type ScalarCondensingTarget = MutableGameMakerAstNode | Array<unknown>;
 
-function applyScalarCondensing(ast: unknown, context: ConvertManualMathTransformOptions | null = null) {
+function applyScalarCondensing(
+    ast: unknown,
+    _context: ConvertManualMathTransformOptions | null = null
+): ScalarCondensingTarget {
     if (!Core.isNode(ast)) {
-        return ast;
+        return ast as ScalarCondensingTarget;
     }
 
-    const root = ast as MutableGameMakerAstNode;
-    // Missing implementation
-    return root;
+    const traversalContext = normalizeTraversalContext(ast, _context);
+    const seen = new WeakSet<object>();
+
+    const visit = (node: unknown, parent: unknown): void => {
+        if (!isObjectLike(node)) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const element of node) {
+                visit(element, parent);
+            }
+            return;
+        }
+
+        const objectNode = node as object;
+        if (seen.has(objectNode)) {
+            return;
+        }
+        seen.add(objectNode);
+
+        if (parent && !(node as { parent?: unknown }).parent) {
+            Object.defineProperty(node, "parent", {
+                value: parent,
+                enumerable: false,
+                configurable: true
+            });
+        }
+
+        if ((node as { type?: string }).type === BINARY_EXPRESSION) {
+            let changed = true;
+            let iterationCount = 0;
+            while (changed && iterationCount < 1000) {
+                iterationCount += 1;
+                changed = false;
+                if (attemptCondenseSimpleScalarProduct(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCondenseScalarProduct(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCondenseNumericChainWithMultipleBases(node, traversalContext)) {
+                    changed = true;
+                    continue;
+                }
+                if (attemptCollectDistributedScalars(node, traversalContext)) {
+                    changed = true;
+                }
+            }
+        }
+
+        const nodeRecord = node as Record<string, unknown>;
+        for (const key of Object.keys(nodeRecord)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            visit(nodeRecord[key], node);
+        }
+    };
+
+    visit(ast, null);
+
+    return ast as MutableGameMakerAstNode;
 }
 
 export {

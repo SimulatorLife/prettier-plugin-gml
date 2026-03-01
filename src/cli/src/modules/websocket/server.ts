@@ -16,6 +16,14 @@ const { describeValueForError } = Core;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;
 
+function describeWebSocketError(error: unknown): string {
+    if (Core.isErrorLike(error)) {
+        return error.message;
+    }
+
+    return describeValueForError(error);
+}
+
 export interface PatchWebSocketServerOptions {
     host?: string;
     port?: number;
@@ -110,8 +118,7 @@ export async function startPatchWebSocketServer({
             return true;
         } catch (error) {
             if (verbose) {
-                const message = Core.isErrorLike(error) ? error.message : String(error);
-                console.error(`[WebSocket] Failed to send to ${clientId}: ${message}`);
+                console.error(`[WebSocket] Failed to send to ${clientId}: ${describeWebSocketError(error)}`);
             }
             return false;
         }
@@ -145,14 +152,15 @@ export async function startPatchWebSocketServer({
                 }
             } catch (error) {
                 if (verbose) {
-                    const message = Core.isErrorLike(error) ? error.message : String(error);
-                    console.error(`[WebSocket] Failed to send initial messages to ${clientId}: ${message}`);
+                    console.error(
+                        `[WebSocket] Failed to send initial messages to ${clientId}: ${describeWebSocketError(error)}`
+                    );
                 }
             }
         }
 
         let cleanedUp = false;
-        const cleanupClient = (reason: "close" | "error", error?: Error) => {
+        const cleanupClient = (reason: "close" | "error", error?: unknown) => {
             if (cleanedUp) {
                 return;
             }
@@ -163,10 +171,7 @@ export async function startPatchWebSocketServer({
 
             if (verbose) {
                 if (reason === "error") {
-                    console.error(
-                        `[WebSocket] Client error (${clientId}):`,
-                        error instanceof Error ? error.message : "unknown error"
-                    );
+                    console.error(`[WebSocket] Client error (${clientId}): ${describeWebSocketError(error)}`);
                 } else {
                     console.log(`[WebSocket] Client disconnected: ${clientId}`);
                 }
@@ -186,8 +191,12 @@ export async function startPatchWebSocketServer({
 
             try {
                 ws.close();
-            } catch {
-                // Ignore close errors
+            } catch (closeError) {
+                if (verbose) {
+                    console.error(
+                        `[WebSocket] Failed to close client socket (${clientId}): ${describeWebSocketError(closeError)}`
+                    );
+                }
             }
         });
     });
@@ -225,8 +234,7 @@ export async function startPatchWebSocketServer({
             serializedMessage = JSON.stringify(patch);
         } catch (error) {
             if (verbose) {
-                const message = Core.isErrorLike(error) ? error.message : String(error);
-                console.error(`[WebSocket] Failed to serialize patch: ${message}`);
+                console.error(`[WebSocket] Failed to serialize patch: ${describeWebSocketError(error)}`);
             }
             // All sends fail if serialization fails
             return { successCount: 0, failureCount: clients.size, totalClients: clients.size };
@@ -245,8 +253,7 @@ export async function startPatchWebSocketServer({
                 failureCount += 1;
                 if (verbose) {
                     const clientId = clientIds.get(ws) ?? "[unknown]";
-                    const message = Core.isErrorLike(error) ? error.message : String(error);
-                    console.error(`[WebSocket] Failed to send to ${clientId}: ${message}`);
+                    console.error(`[WebSocket] Failed to send to ${clientId}: ${describeWebSocketError(error)}`);
                 }
             }
         }
@@ -266,8 +273,13 @@ export async function startPatchWebSocketServer({
         for (const ws of clients) {
             try {
                 ws.close();
-            } catch {
-                // Ignore close errors
+            } catch (closeError) {
+                if (verbose) {
+                    const clientId = clientIds.get(ws) ?? "[unknown]";
+                    console.error(
+                        `[WebSocket] Failed to close client socket (${clientId}): ${describeWebSocketError(closeError)}`
+                    );
+                }
             }
         }
 

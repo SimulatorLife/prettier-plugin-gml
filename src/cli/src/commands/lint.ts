@@ -94,11 +94,6 @@ function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     return args.length > 0 ? args : ["."];
 }
 
-function isPathInsideDirectory(parameters: { directoryPath: string; candidatePath: string }): boolean {
-    const relativePath = path.relative(parameters.directoryPath, parameters.candidatePath);
-    return relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
-}
-
 function shouldPreferBundledDefaultsForExternalTargets(parameters: {
     cwd: string;
     targets: ReadonlyArray<string>;
@@ -110,7 +105,7 @@ function shouldPreferBundledDefaultsForExternalTargets(parameters: {
     const cwdAbsolute = path.resolve(parameters.cwd);
     return parameters.targets.every((target) => {
         const absoluteTarget = path.resolve(parameters.cwd, target);
-        return !isPathInsideDirectory({ directoryPath: cwdAbsolute, candidatePath: absoluteTarget });
+        return !Core.isPathInside(absoluteTarget, cwdAbsolute);
     });
 }
 
@@ -123,7 +118,7 @@ function findCommonAncestorDirectory(directoryPaths: ReadonlyArray<string>): str
     for (const directoryPath of directoryPaths.slice(1)) {
         const candidateDirectory = path.resolve(directoryPath);
 
-        while (!isPathInsideDirectory({ directoryPath: commonAncestor, candidatePath: candidateDirectory })) {
+        while (!Core.isPathInside(candidateDirectory, commonAncestor)) {
             const parentDirectory = path.dirname(commonAncestor);
             if (parentDirectory === commonAncestor) {
                 return commonAncestor;

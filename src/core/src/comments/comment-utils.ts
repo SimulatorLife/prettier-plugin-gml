@@ -438,3 +438,112 @@ export function isDocCommentLine(comment) {
 
     return /^\s*(?:\/\s*)?@/.test(comment.value);
 }
+
+function isInlineWhitespace(charCode: number) {
+    return (
+        charCode === 9 || // Tab
+        charCode === 10 || // Line feed
+        charCode === 13 || // Carriage return
+        charCode === 32 // Space
+    );
+}
+
+/**
+ * Checks whether there is a comment (line or block) immediately preceding the
+ * character at the given index, ignoring inline whitespace.
+ *
+ * @param {unknown} text The source text to check.
+ * @param {unknown} index The index of the character to check before.
+ * @returns {boolean} `true` if a comment is found before the index.
+ */
+export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
+    if (typeof text !== "string" || typeof index !== "number") {
+        return false;
+    }
+
+    const normalizedText = text;
+    const normalizedIndex = index;
+
+    let cursor = normalizedIndex - 1;
+    while (cursor >= 0 && isInlineWhitespace(normalizedText.charCodeAt(cursor))) {
+        cursor -= 1;
+    }
+
+    if (cursor < 0) {
+        return false;
+    }
+
+    const lineEndExclusive = cursor + 1;
+    while (cursor >= 0) {
+        const charCode = normalizedText.charCodeAt(cursor);
+        if (charCode === 10 || charCode === 13) {
+            break;
+        }
+        cursor -= 1;
+    }
+
+    let lineStart = cursor + 1;
+    while (lineStart < lineEndExclusive && isInlineWhitespace(normalizedText.charCodeAt(lineStart))) {
+        lineStart += 1;
+    }
+
+    if (lineStart >= lineEndExclusive) {
+        return false;
+    }
+
+    let lineEnd = lineEndExclusive - 1;
+    while (lineEnd >= lineStart && isInlineWhitespace(normalizedText.charCodeAt(lineEnd))) {
+        lineEnd -= 1;
+    }
+
+    if (lineEnd < lineStart) {
+        return false;
+    }
+
+    const first = normalizedText.charCodeAt(lineStart);
+    const second = lineStart + 1 <= lineEnd ? normalizedText.charCodeAt(lineStart + 1) : -1;
+
+    if (first === 47) {
+        if (second === 47 || second === 42) {
+            return true;
+        }
+    } else if (first === 42) {
+        return true;
+    }
+
+    return (
+        lineEnd >= lineStart + 1 &&
+        normalizedText.charCodeAt(lineEnd) === 47 &&
+        normalizedText.charCodeAt(lineEnd - 1) === 42
+    );
+}
+
+/**
+ * Determines whether a given line of text looks like a doc-style leading line.
+ *
+ * @param {unknown} value Candidate line of text.
+ * @returns {boolean} `true` if the line looks like a doc comment.
+ */
+export function isDocLikeLeadingLine(value: unknown) {
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.startsWith("///") || /^\/\/\s*\/\s*/.test(trimmed) || /^\/+\s*@/.test(trimmed);
+}
+
+/**
+ * Determines whether a given line of text looks like a function doc comment.
+ *
+ * @param {unknown} line Candidate line of text.
+ * @returns {boolean} `true` if the line looks like a function doc comment.
+ */
+export function isFunctionDocCommentLine(line: unknown) {
+    if (typeof line !== "string") {
+        return false;
+    }
+
+    const trimmed = line.trim();
+    return /^\/\/\/\s*@(?:function|func)\b/i.test(trimmed);
+}

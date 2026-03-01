@@ -9,14 +9,14 @@
       "@gml-modules/cli": ["../cli/index.ts"],
       "@gml-modules/core": ["../core/index.ts"],
       "@gml-modules/parser": ["../parser/index.ts"],
-      "@gml-modules/plugin": ["../plugin/index.ts"],
+      "@gml-modules/format": ["../format/index.ts"],
       "@gml-modules/refactor": ["./index.ts"],
       "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
       "@gml-modules/semantic": ["../semantic/index.ts"],
       "@gml-modules/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../parser" }, { "path": "../semantic" }, { "path": "../plugin" }],
+  "references": [{ "path": "../core" }, { "path": "../parser" }, { "path": "../semantic" }, { "path": "../format" }],
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

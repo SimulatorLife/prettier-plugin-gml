@@ -297,7 +297,7 @@ export class GmlSemanticBridge {
         // we risk emitting a WorkspaceEdit that can't be applied cleanly. Keeping
         // the on-disk paths stable until the inner files are updated prevents
         // partial refactors and aligns with the refactor flow described in
-        // docs/live-reloading-concept.md (see the refactor pipeline section).
+        // docs/hot-reload.md (see the refactor pipeline section).
         const extensionsToRename = [".yy"];
         if (resource.resourceType === "GMScript") {
             extensionsToRename.push(".gml");

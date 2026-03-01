@@ -520,7 +520,7 @@ export function isProgramNode(node: unknown): node is MutableGameMakerAstNode {
  * Returns true if the node is a statement that unconditionally exits the current
  * control flow scope: `return`, `break`, `continue`, `exit`, or `throw`.
  *
- * This helper consolidates duplicated logic scattered across the plugin workspace
+ * This helper consolidates duplicated logic scattered across the format workspace
  * where multiple files independently checked for these statement types. Instead of
  * maintaining separate implementations (e.g., `isTerminatingStatement` in
  * apply-feather-fixes.ts, `isEarlyExitStatement` in condensation.ts), consumers

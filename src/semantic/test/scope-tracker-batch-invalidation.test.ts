@@ -206,6 +206,43 @@ void describe("ScopeTracker batch invalidation", () => {
         assert.ok(scopesByPath.length > 0, "Windows-style path should resolve scopes by path");
     });
 
+    void it("reuses normalized path invalidation work for mixed path separators", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "C:/project/root.gml" });
+        tracker.withScope(
+            "function",
+            () => {
+                tracker.declare("playerHealth", { name: "playerHealth" });
+            },
+            { path: "C:/project/scripts/player.gml" }
+        );
+
+        const originalGetTransitiveDependents = tracker.getTransitiveDependents.bind(tracker);
+        let getTransitiveDependentsCallCount = 0;
+
+        tracker.getTransitiveDependents = (...arguments_) => {
+            getTransitiveDependentsCallCount += 1;
+            return originalGetTransitiveDependents(...arguments_);
+        };
+
+        const windowsPath = String.raw`C:\project\scripts\player.gml`;
+        const posixPath = "C:/project/scripts/player.gml";
+
+        const results = tracker.getBatchInvalidationSets([windowsPath, posixPath]);
+
+        assert.strictEqual(
+            getTransitiveDependentsCallCount,
+            1,
+            "Equivalent normalized paths should compute transitive dependents only once"
+        );
+        assert.deepStrictEqual(
+            results.get(windowsPath),
+            results.get(posixPath),
+            "Equivalent normalized paths should produce identical invalidation entries"
+        );
+    });
+
     void it("handles empty input gracefully", () => {
         const tracker = new ScopeTracker({ enabled: true });
 

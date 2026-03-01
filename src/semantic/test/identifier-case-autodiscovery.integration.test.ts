@@ -2,16 +2,16 @@
  * Integration test for identifier-case autodiscovery.
  *
  * ARCHITECTURE SMELL: This integration test lives in the 'semantic' package but
- * requires importing the full 'plugin' package (via Prettier), creating a reverse
+ * requires importing the full 'format' package (via Prettier), creating a reverse
  * dependency from a lower layer to a higher layer. The dependency flow should be:
- *   Core ← Parser ← Semantic ← Plugin
+ *   Core ← Parser ← Semantic ← Format
  *
- * Integration tests that exercise the full pipeline (Prettier → Plugin → Semantic → Parser)
+ * Integration tests that exercise the full pipeline (Prettier → Format → Semantic → Parser)
  * should not live inside a workspace that's supposed to be lower in the stack.
  *
- * CURRENT STATE: The test here imports Prettier and the plugin, formats GML source,
+ * CURRENT STATE: The test here imports Prettier and the format workspace, formats GML source,
  * and verifies that identifier-case analysis works end-to-end. This forces the
- * 'semantic' package to have a dev-dependency on 'plugin', which is backwards.
+ * 'semantic' package to have a dev-dependency on 'format', which is backwards.
  *
  * RECOMMENDATION: Move all integration tests to a top-level 'test/' directory at the
  * repository root, outside any individual workspace. This directory can depend on
@@ -30,8 +30,8 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import { getFormat } from "./format-loader.js";
 import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
-import { getPlugin } from "./plugin-loader.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
@@ -64,7 +64,7 @@ async function fileExists(filePath) {
 }
 
 void describe("identifier case project index bootstrap", () => {
-    void it("discovers the project root and reuses the index cache", async () => {
+    void it("does not apply identifier-case rewrites via formatter autodiscovery", async () => {
         const { projectRoot, fixtureSource, gmlPath } = await createTempProject();
 
         try {
@@ -82,44 +82,26 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
             const firstRunOptions = { ...baseOptions };
-            const plugin = await getPlugin();
-            const firstOutput = await plugin.format(fixtureSource, firstRunOptions);
+            const formatWorkspace = await getFormat();
+            const firstOutput = await formatWorkspace.format(fixtureSource, firstRunOptions);
 
-            assert.match(firstOutput, /counterValue/, "Expected automatic discovery to enable renames");
-
-            const store1 = getIdentifierCaseOptionStore(gmlPath);
-            assert.ok(store1, "Expected bootstrap store to be captured");
-            const bootstrap1 = store1.__identifierCaseProjectIndexBootstrap;
-            assert.ok(bootstrap1, "Expected bootstrap metadata to be stored");
-            assert.strictEqual(bootstrap1.status, "ready");
-            assert.strictEqual(bootstrap1.source, "build");
-            assert.ok(
-                store1.__identifierCaseMetricsReport,
-                "Expected metrics to be recorded during automatic planning"
-            );
+            assert.ok(firstOutput.includes("counter_value"));
 
             const cacheFilePath = path.join(projectRoot, ".prettier-plugin-gml", "project-index-cache.json");
-            assert.ok(await fileExists(cacheFilePath), "Expected index cache to be written after the first run");
+            assert.equal(await fileExists(cacheFilePath), false);
 
             const secondRunOptions = {
                 ...baseOptions
             };
-            const secondOutput = await plugin.format(firstOutput, secondRunOptions);
-            assert.match(secondOutput, /counterValue/, "Expected subsequent runs to keep applying renames");
-            const store2 = getIdentifierCaseOptionStore(gmlPath);
-            assert.ok(store2, "Expected cached bootstrap metadata");
-            const bootstrap2 = store2.__identifierCaseProjectIndexBootstrap;
-            assert.ok(bootstrap2, "Expected cached bootstrap metadata");
-            assert.strictEqual(bootstrap2.status, "ready");
-            assert.strictEqual(bootstrap2.source, "cache");
-            assert.strictEqual(bootstrap2.cache?.status, "hit");
+            const secondOutput = await formatWorkspace.format(firstOutput, secondRunOptions);
+            assert.ok(secondOutput.includes("counter_value"));
         } finally {
             clearIdentifierCaseOptionStore(gmlPath);
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
 
-    void it("skips discovery when no manifest is present or discovery is disabled", async () => {
+    void it("keeps identifier-case rewrites disabled when discovery cannot run", async () => {
         const missBase = path.join(currentDirectory, "../../tmp", "gml-identifier-case-autodiscovery-miss");
         await fs.mkdir(missBase, { recursive: true });
         const tempRoot = await fs.mkdtemp(path.join(missBase, "gml-identifier-case-autodiscovery-miss-"));
@@ -147,17 +129,14 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
 
-            const plugin = await getPlugin();
-            const formattedWithoutManifest = await plugin.format(fixtureSource, optionsWithoutManifest);
+            const formatWorkspace = await getFormat();
+            const formattedWithoutManifest = await formatWorkspace.format(fixtureSource, optionsWithoutManifest);
             assert.ok(
                 formattedWithoutManifest.includes("counter_value"),
                 "Expected renames to be skipped when no project root is found"
             );
             const missingStore = getIdentifierCaseOptionStore(manifestStoreKey);
-            const skippedBootstrap = missingStore?.__identifierCaseProjectIndexBootstrap;
-            assert.ok(skippedBootstrap, "Expected skip metadata to be recorded");
-            assert.strictEqual(skippedBootstrap.status, "skipped");
-            assert.strictEqual(skippedBootstrap.reason, "project-root-not-found");
+            assert.equal(missingStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
 
             const { projectRoot, gmlPath: discoveredPath, fixtureSource: source } = await createTempProject();
             try {
@@ -176,16 +155,13 @@ void describe("identifier case project index bootstrap", () => {
                     __identifierCaseDryRun: false
                 };
 
-                const formattedDisabled = await plugin.format(source, disabledOptions);
+                const formattedDisabled = await formatWorkspace.format(source, disabledOptions);
                 assert.ok(
                     formattedDisabled.includes("counter_value"),
                     "Expected renames to be disabled when discovery is turned off"
                 );
                 const disabledStore = getIdentifierCaseOptionStore(discoveredPath);
-                const disabledBootstrap = disabledStore?.__identifierCaseProjectIndexBootstrap;
-                assert.ok(disabledBootstrap);
-                assert.strictEqual(disabledBootstrap.status, "skipped");
-                assert.strictEqual(disabledBootstrap.reason, "discovery-disabled");
+                assert.equal(disabledStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
             } finally {
                 clearIdentifierCaseOptionStore(discoveredPath);
                 await fs.rm(projectRoot, { recursive: true, force: true });

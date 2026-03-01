@@ -6,6 +6,7 @@ export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    DocCommentNodeMetadata,
     DocCommentNormalizationPayload,
     EmptyTransformOptions,
     FeatherDiagnostic,
@@ -21,5 +22,6 @@ export type {
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
-    StringCommentScanState
+    StringCommentScanState,
+    StripCommentsTransformOptions
 } from "./src/index.js";
