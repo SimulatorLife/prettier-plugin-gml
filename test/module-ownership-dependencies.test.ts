@@ -1,6 +1,6 @@
 /**
  * This test suite verifies that the workspace ownership and dependency policies are correctly enforced across the monorepo workspaces.
- * The tests ensure that the format workspace remains decoupled from the semantic and refactor packages, while the refactor workspace
+ * The tests ensure that the format workspace remains decoupled from the semantic and refactor packages, while the refactor workspace 
  * owns the semantic-backed refactor behavior.
  */
 import assert from "node:assert/strict";

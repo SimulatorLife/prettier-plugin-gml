@@ -42,8 +42,8 @@ void test("formatting fixture directory contains only valid fixture shapes", asy
         const baseName = entry.endsWith(".input.gml")
             ? entry.slice(0, -".input.gml".length)
             : entry.endsWith(".output.gml")
-              ? entry.slice(0, -".output.gml".length)
-              : entry.slice(0, -".gml".length);
+                ? entry.slice(0, -".output.gml".length)
+                : entry.slice(0, -".gml".length);
 
         const shape = shapes.get(baseName) ?? { single: false, input: false, output: false };
         if (entry.endsWith(".input.gml")) {

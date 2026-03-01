@@ -75,7 +75,9 @@ const integrationProjectContext = Object.freeze({
     capabilities: allCapabilities,
     isIdentifierNameOccupiedInProject: () => false,
     listIdentifierOccurrenceFiles: () => new Set<string>(),
-    planFeatherRenames: (requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>) =>
+    planFeatherRenames: (
+        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
+    ) =>
         requests.map((request) => ({
             identifierName: request.identifierName,
             preferredReplacementName: request.preferredReplacementName,
@@ -139,7 +141,9 @@ async function tryLoadOptions(baseName: string): Promise<Record<string, unknown>
     return null;
 }
 
-function extractFixtureExpectations(options: Record<string, unknown> | null): Readonly<{
+function extractFixtureExpectations(
+    options: Record<string, unknown> | null
+): Readonly<{
     options: Record<string, unknown> | null;
     lintRules: Readonly<Record<string, Linter.RuleEntry>> | null;
     expectParseError: boolean;
@@ -161,8 +165,8 @@ function extractFixtureExpectations(options: Record<string, unknown> | null): Re
         Object.keys(lintRules as Record<string, unknown>).length > 0;
     const lintRuleOverrides = hasLintRules
         ? (Object.freeze({ ...(lintRules as Record<string, Linter.RuleEntry>) }) as Readonly<
-              Record<string, Linter.RuleEntry>
-          >)
+            Record<string, Linter.RuleEntry>
+        >)
         : null;
     return Object.freeze({
         options: hasFormatOptions ? formatOptions : null,
