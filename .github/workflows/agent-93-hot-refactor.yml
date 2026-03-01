@@ -22,9 +22,8 @@ jobs:
       agent: ${{ inputs.agent }}
       component: "refactor engine (src/refactor)"
       extra_context: >
-        Focus on the advancing the '@gml-modules/refactor' workspace ('src/refactor'). Work on expanding/fixing/improving/aligning semantic-safe refactoring workflows—especially rename planning, validation, and the 
-        integration hooks required for hot reload—with an explicit priority on speed, low overhead, and fast edit-to-reload turnaround. Every change must be as performant or more performant than the
-        previous state, avoiding additional analysis passes, graph walks, or bookkeeping that increase steady-state or incremental cost. Keep scope small and strictly focused on refactoring behavior
-        that directly impacts hot reload correctness or latency. Coordinate with the semantic and transpiler packages only where necessary, and prefer reusing existing semantic data, compiler 
-        infrastructure, or runtime capabilities rather than introducing parallel logic. Add targeted, low-cost tests that lock in refactoring behavior and hot-reload integration without materially 
-        slowing the test suite or expanding the surface area of the refactoring system.
+        Focus on advancing the '@gml-modules/refactor' workspace ('src/refactor'). The target state for this workspace is a 'codemod' module for executing complex, project-aware refactors (think 'JSCodeshift' or 'recast'). 
+        Work on expanding and improving semantic-safe structural transformations—such as renaming variables/symbols globally, moving or renaming assets and files, and coordinating large-scale logic shifts that go far beyond 
+        local linting fixes or layout formatting. Every change must remain highly performant, avoiding redundant analysis passes, full-graph sweeps, or excessive bookkeeping that degrade incremental speed. 
+        Coordinate with the core and semantic packages where necessary, relying on established AST traversal utilities and existing semantic indices rather than introducing parallel logic. Add targeted, low-cost 
+        tests that lock in project-wide codemod execution and behavioral correctness without materially expanding the testing overhead of the refactoring system.
