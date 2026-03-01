@@ -22,13 +22,15 @@ import {
     buildPrintableDocCommentLines,
     printComment,
     printDanglingComments,
-    printDanglingCommentsAsGroup} from "../comments/index.js";
+    printDanglingCommentsAsGroup
+} from "../comments/index.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle,
     ObjectWrapOption,
     resolveObjectWrapOption,
-    TRAILING_COMMA} from "../options/index.js";
+    TRAILING_COMMA
+} from "../options/index.js";
 import {
     INLINEABLE_SINGLE_STATEMENT_TYPES,
     MULTIPLICATIVE_BINARY_OPERATORS,
@@ -36,7 +38,8 @@ import {
     OBJECT_TYPE,
     PRESERVED_GLOBAL_VAR_NAMES,
     STRING_TYPE,
-    UNDEFINED_TYPE} from "./constants.js";
+    UNDEFINED_TYPE
+} from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -148,10 +151,8 @@ function callPathMethod(path: any, methodName: any, { args, defaultValue }: { ar
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function applyLogicalOperatorsStyle(operator, style) {
-    const entry = Core.OPERATOR_ALIAS_MAP[operator];
-    if (!entry) return operator;
-
-    return style === LogicalOperatorsStyle.KEYWORDS ? entry.keyword : entry.symbol;
+    const coreStyle = style === LogicalOperatorsStyle.KEYWORDS ? "keyword" : "symbol";
+    return Core.getOperatorVariant(operator, coreStyle);
 }
 
 function _printImpl(path, options, print) {
@@ -590,14 +591,13 @@ function printParenthesizedExpressionNode(node, path, options, print) {
 function printBinaryExpressionNode(node, path, options, print) {
     const left = print("left");
     const operator = node.operator;
-    let right;
 
     const logicalOperatorsStyle = normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 
-    right = print("right");
+    const right = print("right");
     const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
-    const parts = [left, " ", operator, line, right];
+    const parts = [left, " ", styledOperator, line, right];
 
     let parent = safeGetParentNode(path);
     let depth = 0;
@@ -983,13 +983,14 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof nameStart === NUMBER_TYPE &&
                 typeof nameEnd === NUMBER_TYPE &&
                 nameStart >= macroStart &&
-                nameEnd >= nameStart
-             && Core.isNonEmptyString(node.name)) {
-                    const relativeStart = nameStart - macroStart;
-                    const relativeEnd = nameEnd - macroStart;
+                nameEnd >= nameStart &&
+                Core.isNonEmptyString(node.name)
+            ) {
+                const relativeStart = nameStart - macroStart;
+                const relativeEnd = nameEnd - macroStart;
 
-                    text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
-                }
+                text = text.slice(0, relativeStart) + node.name + text.slice(relativeEnd);
+            }
 
             return concat(stripTrailingLineTerminators(text));
         }
@@ -2363,7 +2364,7 @@ function findNextTerminalCharacter(
  * @param endIndex Exclusive end index of {@link node} within {@link originalText}.
  * @returns {string | null} The restored call text with injected separators when a numeric gap was detected, or `null` if nothing needed to change.
  */
-function synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
+function _synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
     // TODO: This should NOT be part of the formatter; this needs to be moved to the linting layer/workspace, 'lint'
     if (
         !node ||
@@ -2979,11 +2980,11 @@ function getSourceTextForNode(node, options) {
 // upstream in the parser or in dedicated lint auto-fix rules; the printer
 // should be purely layout-focused. Leave an empty stub in case a downstream
 // consumer still references the symbol, but performing no work.
-function materializeParamDefaultsFromParamDefault(functionNode) {
+function _materializeParamDefaultsFromParamDefault(_functionNode) {
     // intentionally no-op
 }
 
-function locateDefaultParameterFallback(
+function _locateDefaultParameterFallback(
     statements: Array<any>,
     paramName: string
 ): {
@@ -3081,7 +3082,7 @@ function deriveArgumentIndex(test: any) {
     }
 }
 
-function materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
+function _materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
     try {
         const defaultExpr = param.default;
         const defaultNode = {
@@ -3764,7 +3765,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 
 function getBinaryOperatorInfo(operator) {
     if (operator === undefined) {
-        return undefined;
+        return;
     }
     return Core.BINARY_OPERATORS[operator];
 }
@@ -3908,6 +3909,71 @@ function shouldFlattenTernaryTest(parentKey, expression) {
         expressionType === "MemberDotExpression" ||
         expressionType === "MemberIndexExpression"
     );
+}
+
+function shouldFlattenSyntheticBinary(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    return parent.operator === expression.operator;
+}
+
+function shouldFlattenMultiplicationChain(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    return (
+        (parent.operator === "*" || parent.operator === "/") &&
+        (expression.operator === "*" || expression.operator === "/")
+    );
+}
+
+function shouldFlattenSyntheticCall(_parent, _expression, _path) {
+    return false;
+}
+
+function shouldFlattenComparisonLogicalTest(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    if (parentInfo.type === "logical" && (expressionInfo.type === "comparison" || expressionInfo.type === "logical")) {
+        return true;
+    }
+
+    if (parentInfo.type === "comparison" && expressionInfo.type === "arithmetic") {
+        return true;
+    }
+
+    return false;
+}
+
+function evaluateNumericBinaryFlattening(parent, expression, _path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const expressionInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !expressionInfo) {
+        return;
+    }
+
+    if (parentInfo.type === "arithmetic" && expressionInfo.type === "arithmetic") {
+        return "allow";
+    }
+
+    if (parentInfo.type === "bitwise" || expressionInfo.type === "bitwise") {
+        return "allow";
+    }
 }
 
 function shouldWrapTernaryExpression(path) {
