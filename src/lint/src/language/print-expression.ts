@@ -1,17 +1,24 @@
-import { getNodeEndIndex, getNodeStartIndex } from "./locations.js";
+import { Core } from "@gml-modules/core";
 
+/**
+ * Reads the original source text associated with an AST node range.
+ */
 export function readNodeText(sourceText: string, node: any): string | null {
     if (!node || typeof node !== "object") {
         return null;
     }
-    const start = getNodeStartIndex(node);
-    const end = getNodeEndIndex(node);
+
+    const start = Core.getNodeStartIndex(node);
+    const end = Core.getNodeEndIndex(node);
     if (typeof start === "number" && typeof end === "number") {
         return sourceText.slice(start, end);
     }
     return null;
 }
 
+/**
+ * Produces a minimal expression string for lint autofixes.
+ */
 export function printExpression(node: any, sourceText: string): string {
     if (!node || typeof node !== "object") {
         return "";
@@ -48,7 +55,7 @@ export function printExpression(node: any, sourceText: string): string {
         case "CallExpression": {
             const callee = printExpression(node.object || node.callee, sourceText);
             const args = Array.isArray(node.arguments)
-                ? node.arguments.map((a: any) => printExpression(a, sourceText)).join(", ")
+                ? node.arguments.map((argument: any) => printExpression(argument, sourceText)).join(", ")
                 : "";
             return `${callee}(${args})`;
         }
