@@ -16,3 +16,23 @@ void test("default implementation bundle is frozen and reuses canonical referenc
     assert.strictEqual(defaultGmlFormatComponentImplementations.handleComments, handleComments);
     assert.strictEqual(defaultGmlFormatComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
 });
+
+void test("default implementation bundle satisfies the component contract shape", () => {
+    const bundle = defaultGmlFormatComponentImplementations;
+
+    assert.equal(typeof bundle.gmlParserAdapter, "object", "gmlParserAdapter must be an object");
+    assert.ok(bundle.gmlParserAdapter !== null, "gmlParserAdapter must not be null");
+    assert.equal(typeof bundle.handleComments, "object", "handleComments must be an object");
+    assert.ok(bundle.handleComments !== null, "handleComments must not be null");
+    assert.equal(typeof bundle.LogicalOperatorsStyle, "object", "LogicalOperatorsStyle must be an object");
+    assert.ok(bundle.LogicalOperatorsStyle !== null, "LogicalOperatorsStyle must not be null");
+
+    assert.equal(typeof bundle.print, "function", "print must be a function");
+    assert.equal(typeof bundle.printComment, "function", "printComment must be a function");
+
+    assert.deepStrictEqual(
+        Object.keys(bundle).toSorted(),
+        ["LogicalOperatorsStyle", "gmlParserAdapter", "handleComments", "print", "printComment"].toSorted(),
+        "bundle must expose exactly the five contract fields"
+    );
+});
