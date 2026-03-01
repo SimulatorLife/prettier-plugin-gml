@@ -78,7 +78,7 @@ function halve(value) {
 if (pos == undefined) {
 	pos = -1;
 } else {
-	pos = 0;
+	pos = 0.0;
 }
 
 

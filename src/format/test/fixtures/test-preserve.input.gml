@@ -4,7 +4,7 @@
 // of dialogue arrive one at a time. More modern narrative games tend to deliver larger chunks of
 
 var my_val = (2 + 3) * 4;
-var b = ((x > y) ? (a + b) : (a - b));
+var b = x > y ? a + b : a - b;
 
 // Define states
 states.add_state(
@@ -12,7 +12,7 @@ states.add_state(
     function () { // enter
         gml_pragma("forceinline");
 
-        var l_jsDummy = (l_isJS ? function () {} : undefined);
+        var l_jsDummy = l_isJS ? function () {} : undefined;
         scr_play_sound_at(snd_slot_machine, x, y, z);
         scaler.big_squish();
         image_speed = 1; // start animation
@@ -50,7 +50,7 @@ states.add_state(
 var x_body = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);
 var y_body = y + lengthdir_y(radius, angle) - lengthdir_y(radius, aa);
 
-if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {
+if (x_body <= 0 || y_body <= 0 || x <= 0 || y <= 0) {
     return []; // Return an empty array for invalid input
 }
 
@@ -66,16 +66,16 @@ shader_reset();
 scr_matrix_reset();
 
 global.settings = {
-    master_volume : scr_ini_read_real("settings", "master_volume", 0.5, 0, 1),
-    music_volume  : scr_ini_read_real("settings", "music_volume", 0.6, 0, 1),
-    sound_volume  : scr_ini_read_real("settings", "sound_volume", 1, 0, 1),
-    zoom_level    : scr_ini_read_real("settings", "zoom", 3, 0, 1),
-    show_hud      : scr_ini_read_real("settings", "hud", 1, 0, 1),
-    nice_graphics : scr_ini_read_real("settings", "nice_graphics", 1, 0, 1),
-    wavy_menu     : scr_ini_read_real("settings", "wavy_menu", 1, 0, 1),
-    screen_shake  : scr_ini_read_real("settings", "screen_shake", 1, 0, 1),
-    //gui_scale     : ini_read_real("settings", "gui_scale", 1),
-    fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
+    master_volume: scr_ini_read_real("settings", "master_volume", 0.5, 0, 1),
+    music_volume: scr_ini_read_real("settings", "music_volume", 0.6, 0, 1),
+    sound_volume: scr_ini_read_real("settings", "sound_volume", 1, 0, 1),
+    zoom_level: scr_ini_read_real("settings", "zoom", 3, 0, 1),
+    show_hud: scr_ini_read_real("settings", "hud", 1, 0, 1),
+    nice_graphics: scr_ini_read_real("settings", "nice_graphics", 1, 0, 1),
+    wavy_menu: scr_ini_read_real("settings", "wavy_menu", 1, 0, 1),
+    screen_shake: scr_ini_read_real("settings", "screen_shake", 1, 0, 1),
+    //gui_scale: ini_read_real("settings", "gui_scale", 1),
+    fullscreen: scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
 
 //if (!variable_instance_exists(id, "pt_colour")) {
