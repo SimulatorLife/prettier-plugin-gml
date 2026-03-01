@@ -11,6 +11,7 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
+import { createHash } from "node:crypto";
 import { type Dirent, type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
@@ -241,6 +242,10 @@ interface RuntimeContext
         WatchLifecycle {
     scriptNames: Set<string>;
     fileSnapshots: Map<string, number>;
+    /** SHA-256 prefix of each file's last-transpiled source text.
+     * Used to skip transpilation when a file's mtime changes but content is
+     * identical (e.g., redundant editor saves or `touch` operations). */
+    fileContentHashes: Map<string, string>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
@@ -351,6 +356,20 @@ export function countSourceLines(source: string): number {
     }
 
     return getLineBreakCount(source) + 1;
+}
+
+/**
+ * Computes a short SHA-256 digest of source text for change-detection purposes.
+ *
+ * The digest is truncated to 16 hex characters (64-bit prefix of SHA-256), which
+ * is sufficient to distinguish file versions in a single-process watch session while
+ * keeping per-file memory overhead to a minimum.
+ *
+ * @param {string} source - Source text to hash.
+ * @returns {string} 16-character hex digest.
+ */
+export function hashSourceContent(source: string): string {
+    return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 16);
 }
 
 /**
@@ -485,6 +504,10 @@ async function performInitialScan(
             const cachedAst = cached?.ast;
             const lines = countSourceLines(content);
             await updateFileSnapshot(runtimeContext, fullPath);
+
+            // Store the initial content hash so that change events immediately after
+            // startup are skipped if the file content has not actually changed.
+            runtimeContext.fileContentHashes.set(fullPath, hashSourceContent(content));
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
@@ -734,6 +757,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         unknownScanPromise: null,
         unknownScanQueued: false,
         fileSnapshots: new Map(),
+        fileContentHashes: new Map(),
         dependencyTracker
     };
 
@@ -1207,6 +1231,23 @@ async function handleFileChange(
                 return;
             }
 
+            // Skip transpilation when content is byte-for-byte identical to what was
+            // last transpiled.  Mtime-based deduplication already handles the common
+            // case where the file is not written at all; this second guard covers
+            // the remaining scenario where an editor or tool updates the mtime without
+            // changing the actual bytes (e.g. redundant saves, `touch`, auto-formatters
+            // that produce no change).
+            const contentHash = hashSourceContent(content);
+            const lastContentHash = runtimeContext.fileContentHashes.get(filePath);
+            if (lastContentHash !== undefined && lastContentHash === contentHash) {
+                if (verbose && !quiet) {
+                    console.log("  ↳ Skipping transpilation: content unchanged");
+                }
+                return;
+            }
+
+            runtimeContext.fileContentHashes.set(filePath, contentHash);
+
             ensureScriptNameRegistered(filePath, runtimeContext.scriptNames);
 
             // Transpile the changed file
@@ -1520,6 +1561,7 @@ function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: st
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
+    runtimeContext.fileContentHashes.delete(filePath);
     const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
     const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
