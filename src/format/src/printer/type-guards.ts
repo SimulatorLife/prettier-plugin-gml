@@ -21,6 +21,7 @@ const UNDEFINED_TYPE = "undefined";
 /**
  * Cached regex for detecting decorative banner-style comment lines.
  */
+// TODO: Decorative banner-comment are fixed by the linter, so some of this functionality should maybe live in the 'Core' module instead for reuse
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
     String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
 );

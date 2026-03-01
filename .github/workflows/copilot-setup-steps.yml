@@ -15,8 +15,6 @@ jobs:
 
     permissions:
       contents: read
-    
-    timeout-minutes: 10
 
     steps:
       - name: Checkout code
