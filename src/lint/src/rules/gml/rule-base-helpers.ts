@@ -261,28 +261,46 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
-    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number };
-    };
-    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
-    const locatedPoint =
-        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
-            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
-            : null;
-    const loc =
-        locatedPoint &&
-        typeof locatedPoint.line === "number" &&
-        typeof locatedPoint.column === "number" &&
-        Number.isFinite(locatedPoint.line) &&
-        Number.isFinite(locatedPoint.column)
-            ? locatedPoint
-            : fallbackLineColumn;
-
     context.report({
-        loc,
+        loc: resolveRuleReportLocation(context, firstChangedOffset),
         messageId,
         fix: (fixer) => fixer.replaceTextRange([0, originalText.length], rewrittenText)
     });
+}
+
+/**
+ * Resolves a `{ line, column }` location from a character offset within the
+ * current rule's source text.
+ *
+ * First attempts to use ESLint's `sourceCode.getLocFromIndex()` API (available
+ * in ESLint ≥ 7.28). Falls back to a manual line-scan when the API is absent
+ * or returns an unusable value.
+ *
+ * This helper consolidates the boilerplate location resolution that was
+ * previously duplicated across several rule files
+ * (`normalize-operator-aliases-rule`, `prefer-loop-length-hoist-rule`, and
+ * `optimize-logical-flow-rule`).
+ */
+export function resolveRuleReportLocation(context: Rule.RuleContext, index: number): { line: number; column: number } {
+    const sourceText = context.sourceCode.text;
+    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
+    };
+    if (typeof sourceCodeWithLocator.getLocFromIndex === "function") {
+        const located = sourceCodeWithLocator.getLocFromIndex(clampedIndex);
+        if (
+            located &&
+            typeof located.line === "number" &&
+            Number.isFinite(located.line) &&
+            typeof located.column === "number" &&
+            Number.isFinite(located.column)
+        ) {
+            return located;
+        }
+    }
+
+    return resolveLineColumnFromOffset(sourceText, clampedIndex);
 }
 
 function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
