@@ -616,7 +616,8 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "optimize-math-expressions",
         "require-argument-separators",
         "normalize-data-structure-accessors",
-        "require-trailing-optional-defaults"
+        "require-trailing-optional-defaults",
+        "normalize-real-calls"
     ] as const;
 
     for (const ruleName of semanticFixRuleNames) {

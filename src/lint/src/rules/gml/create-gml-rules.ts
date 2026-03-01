@@ -7,6 +7,7 @@ import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-dat
 import { createNormalizeDirectivesRule } from "./rules/normalize-directives-rule.js";
 import { createNormalizeDocCommentsRule } from "./rules/normalize-doc-comments-rule.js";
 import { createNormalizeOperatorAliasesRule } from "./rules/normalize-operator-aliases-rule.js";
+import { createNormalizeRealCallsRule } from "./rules/normalize-real-calls-rule.js";
 import { createOptimizeLogicalFlowRule } from "./rules/optimize-logical-flow-rule.js";
 import { createOptimizeMathExpressionsRule } from "./rules/optimize-math-expressions-rule.js";
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
@@ -75,6 +76,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-trailing-optional-defaults": {
             return createRequireTrailingOptionalDefaultsRule(definition);
+        }
+        case "normalize-real-calls": {
+            return createNormalizeRealCallsRule(definition);
         }
         default: {
             throw new Error(`Missing gml rule implementation for shortName '${definition.shortName}'.`);

@@ -275,4 +275,19 @@ void describe("formatter boundaries ownership", () => {
             ].join("\n")
         );
     });
+
+    void it("does not unwrap real() calls with string-literal numeric arguments", async () => {
+        // Replacing `real("1.5")` with `1.5` requires understanding the semantics of
+        // the GML `real()` built-in — it is not a pure layout transform. This belongs
+        // in `@gml-modules/lint` as `gml/normalize-real-calls`.
+        // (target-state.md §2.1, §3.2 — "Formatter must not perform semantic/content rewrites")
+        const source = ['var a = real("1.5");', 'var b = real("42");', ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /real\("1\.5"\)/, "Formatter must not unwrap real() — that is a lint responsibility");
+        assert.match(formatted, /real\("42"\)/, "Formatter must not unwrap real() — that is a lint responsibility");
+        assert.doesNotMatch(formatted, /var a = 1\.5;/, "Formatter must not replace real() call with numeric literal");
+        assert.doesNotMatch(formatted, /var b = 42;/, "Formatter must not replace real() call with numeric literal");
+    });
 });

@@ -30,7 +30,8 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/normalize-operator-aliases": "warn",
     "gml/prefer-string-interpolation": "warn",
     "gml/optimize-math-expressions": "warn",
-    "gml/require-argument-separators": "error"
+    "gml/require-argument-separators": "error",
+    "gml/normalize-real-calls": "warn"
 });
 
 const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = Object.freeze(
