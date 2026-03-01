@@ -60,11 +60,11 @@ void describe("watch command", () => {
         assert.equal(countSourceLines("one\u2028two\u2029three"), 3);
     });
 
-    void it("hashSourceContent returns a stable 16-character hex digest", () => {
+    void it("hashSourceContent returns a stable 32-character hex digest", () => {
         const digest = hashSourceContent("function foo() { return 1; }");
         assert.equal(typeof digest, "string");
-        assert.equal(digest.length, 16);
-        assert.ok(/^[0-9a-f]{16}$/.test(digest), "digest should be lowercase hex");
+        assert.equal(digest.length, 32);
+        assert.ok(/^[0-9a-f]{32}$/.test(digest), "digest should be lowercase hex");
     });
 
     void it("hashSourceContent returns the same digest for identical input", () => {

@@ -10,6 +10,12 @@
  * on every successful transpilation call – including ones that produce identical
  * output.  It therefore distinguishes "transpilation skipped" from "transpilation
  * ran but produced the same patch".
+ *
+ * The test uses a sentinel file to create a deterministic wait point: after
+ * firing the "same content" event we immediately write a distinct sentinel file
+ * and fire its event, then wait for patchCount to reflect the sentinel
+ * transpilation.  This avoids hard-coded delays: if the same-content event had
+ * triggered a transpilation, patchCount would overshoot the expected value.
  */
 
 import assert from "node:assert/strict";
@@ -40,14 +46,15 @@ void describe("watch command source content hash guard", () => {
                 await waitForStatus(baseUrl, (status) => status.scanComplete === true, 2000);
 
                 const testFile = path.join(testDir, "content_hash_script.gml");
+                const sentinelFile = path.join(testDir, "sentinel_script.gml");
                 const originalContent = `function content_hash_script() {
     return 42;
 }`;
 
+                assert.ok(listenerCapture.listener, "watch listener should be captured");
+
                 // ── Step 1: first write – triggers a real transpilation ──────────
                 await writeFile(testFile, originalContent, "utf8");
-
-                assert.ok(listenerCapture.listener, "watch listener should be captured");
                 listenerCapture.listener("change", path.basename(testFile));
 
                 await waitForStatus(baseUrl, (status) => (status.patchCount ?? 0) >= 1, 2000);
@@ -56,42 +63,51 @@ void describe("watch command source content hash guard", () => {
 
                 assert.ok(patchCountAfterFirst >= 1, "first write should trigger transpilation");
 
-                // ── Step 2: re-write identical content after a short pause ───────
-                // The pause ensures the OS assigns a strictly newer mtime so the
-                // mtime guard does not suppress the event before the hash check runs.
+                // ── Step 2: re-write identical content – content hash should suppress it ─
+                // A short pause (20ms) ensures the OS assigns a strictly newer mtime
+                // so the cheaper mtime guard does not suppress the event before the
+                // hash check gets a chance to run.
                 await new Promise<void>((resolve) => {
-                    setTimeout(resolve, 10);
+                    setTimeout(resolve, 20);
                 });
                 await writeFile(testFile, originalContent, "utf8");
-
                 listenerCapture.listener("change", path.basename(testFile));
 
-                // Allow time for event processing to complete.
-                await new Promise<void>((resolve) => {
-                    setTimeout(resolve, 200);
-                });
+                // ── Step 3: sentinel write – provides a deterministic wait point ──
+                // The sentinel file has different content so it always triggers
+                // transpilation.  We wait for patchCount to reflect exactly the
+                // sentinel transpilation; if the same-content event had also
+                // triggered transpilation, patchCount would overshoot the target.
+                const sentinelContent = `function sentinel_script() {
+    return 0;
+}`;
+                await writeFile(sentinelFile, sentinelContent, "utf8");
+                listenerCapture.listener("change", path.basename(sentinelFile));
 
-                const afterSecondWrite = await fetchStatusPayload(baseUrl);
+                // Wait until the sentinel transpilation has been recorded.
+                const expectedPatchCount = patchCountAfterFirst + 1;
+                await waitForStatus(baseUrl, (status) => (status.patchCount ?? 0) >= expectedPatchCount, 2000);
+
+                const afterSentinel = await fetchStatusPayload(baseUrl);
 
                 assert.equal(
-                    afterSecondWrite.patchCount,
-                    patchCountAfterFirst,
-                    "re-saving identical content should not trigger transpilation"
+                    afterSentinel.patchCount,
+                    expectedPatchCount,
+                    "re-saving identical content should not trigger transpilation (only sentinel should)"
                 );
 
-                // ── Step 3: change content – transpilation resumes ────────────────
+                // ── Step 4: changed content resumes transpilation ─────────────────
                 const newContent = `function content_hash_script() {
     return 99;
 }`;
                 await writeFile(testFile, newContent, "utf8");
-
                 listenerCapture.listener("change", path.basename(testFile));
 
-                await waitForStatus(baseUrl, (status) => (status.patchCount ?? 0) > patchCountAfterFirst, 2000);
+                await waitForStatus(baseUrl, (status) => (status.patchCount ?? 0) > expectedPatchCount, 2000);
 
-                const afterThirdWrite = await fetchStatusPayload(baseUrl);
+                const afterChange = await fetchStatusPayload(baseUrl);
                 assert.ok(
-                    (afterThirdWrite.patchCount ?? 0) > patchCountAfterFirst,
+                    (afterChange.patchCount ?? 0) > expectedPatchCount,
                     "changed content should trigger a new transpilation"
                 );
             }

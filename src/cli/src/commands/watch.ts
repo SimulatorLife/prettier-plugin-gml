@@ -361,15 +361,15 @@ export function countSourceLines(source: string): number {
 /**
  * Computes a short SHA-256 digest of source text for change-detection purposes.
  *
- * The digest is truncated to 16 hex characters (64-bit prefix of SHA-256), which
- * is sufficient to distinguish file versions in a single-process watch session while
- * keeping per-file memory overhead to a minimum.
+ * The digest is truncated to 32 hex characters (128-bit prefix of SHA-256), which
+ * provides negligible collision probability even for large projects while keeping
+ * per-file memory overhead minimal.
  *
  * @param {string} source - Source text to hash.
- * @returns {string} 16-character hex digest.
+ * @returns {string} 32-character hex digest.
  */
 export function hashSourceContent(source: string): string {
-    return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 16);
+    return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
 }
 
 /**
