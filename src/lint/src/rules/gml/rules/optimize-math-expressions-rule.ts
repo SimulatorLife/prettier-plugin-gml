@@ -31,6 +31,8 @@ const {
     advanceStringCommentScan,
     hasComment,
     isIdentifierNode,
+    isLogicalAndOperator,
+    isLogicalOrOperator,
     unwrapParenthesizedExpression: unwrapParenthesized
 } = CoreWorkspace.Core;
 
@@ -173,7 +175,7 @@ function tryEvaluateExpression(node: any): any {
         const leftValue = tryEvaluateExpression(unwrapped.left);
         const rightValue = tryEvaluateExpression(unwrapped.right);
 
-        if (unwrapped.operator === "&&" || unwrapped.operator === "and") {
+        if (isLogicalAndOperator(unwrapped.operator)) {
             if (leftValue === false || rightValue === false) {
                 return false;
             }
@@ -182,7 +184,7 @@ function tryEvaluateExpression(node: any): any {
             }
             return undefined;
         }
-        if (unwrapped.operator === "||" || unwrapped.operator === "or") {
+        if (isLogicalOrOperator(unwrapped.operator)) {
             if (leftValue === true || rightValue === true) {
                 return true;
             }

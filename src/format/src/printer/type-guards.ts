@@ -399,7 +399,7 @@ export function isLogicalComparisonClause(node: any): boolean {
         return false;
     }
 
-    if (!isLogicalOrOperator(clauseExpression.operator)) {
+    if (!Core.isLogicalOrOperator(clauseExpression.operator)) {
         return false;
     }
 
@@ -415,7 +415,7 @@ export function isComparisonAndConjunction(node: any): boolean {
         return false;
     }
 
-    if (!isLogicalAndOperator(expression.operator)) {
+    if (!Core.isLogicalAndOperator(expression.operator)) {
         return false;
     }
 
@@ -456,20 +456,6 @@ export function isSimpleLogicalOperand(node: any): boolean {
     }
 
     return isComparisonExpression(expression);
-}
-
-/**
- * Checks if an operator is a logical OR operator.
- */
-export function isLogicalOrOperator(operator: string): boolean {
-    return operator === "or" || operator === "||";
-}
-
-/**
- * Checks if an operator is a logical AND operator.
- */
-export function isLogicalAndOperator(operator: string): boolean {
-    return operator === "and" || operator === "&&";
 }
 
 // ============================================================================
