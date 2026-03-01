@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { printExpression } from "../src/language/print-expression.js";
+import { printExpression } from "../../src/rules/gml/expression-printer.js";
 
 void test("printExpression renders MemberIndexExpression using index nodes", () => {
     const rendered = printExpression(

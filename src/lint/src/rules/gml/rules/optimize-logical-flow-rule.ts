@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
+import { printExpression } from "../expression-printer.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
 
