@@ -1,9 +1,12 @@
+import { realpathSync } from "node:fs";
 import path from "node:path";
 
 import { isNonEmptyString } from "../utils/string.js";
 
 const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
 const POSIX_SEPARATOR_PATTERN = /\/+/g;
+const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Za-z]:/;
+const UNC_PREFIX_PATTERN = /^\\\\/;
 // Match `..` path segments while tolerating either separator so we can detect
 // when `path.relative` escapes the provided parent without rejecting file names
 // that legitimately begin with `..`.
@@ -199,5 +202,90 @@ export function trimTrailingSeparators(value: string): string {
         current = current.slice(0, -1);
     }
 
+    if (current.length === 0) {
+        return value.includes("\\") ? "\\" : "/";
+    }
+
     return normalizeWindowsRootShape(current);
+}
+
+// ---------------------------------------------------------------------------
+// Path-boundary canonicalization (moved from lint workspace per TODO)
+// ---------------------------------------------------------------------------
+
+function isWindowsLikeBoundaryPath(value: string): boolean {
+    return WINDOWS_DRIVE_LETTER_PATTERN.test(value) || UNC_PREFIX_PATTERN.test(value);
+}
+
+function normalizeBoundarySeparators(value: string): string {
+    if (isWindowsLikeBoundaryPath(value)) {
+        return value.replaceAll("/", "\\");
+    }
+
+    return value.replaceAll("\\", "/");
+}
+
+function canonicalizeBoundaryPathCase(value: string): string {
+    if (isWindowsLikeBoundaryPath(value)) {
+        return value.toLowerCase();
+    }
+
+    return value;
+}
+
+function canonicalizeFromString(value: string): string {
+    const withNormalizedSeparators = normalizeBoundarySeparators(value);
+    const trimmed = trimTrailingSeparators(withNormalizedSeparators);
+    return canonicalizeBoundaryPathCase(trimmed);
+}
+
+/**
+ * Canonicalize a path for use in project-boundary comparisons.
+ *
+ * Resolves symlinks via `realpathSync.native` when the path exists on disk and
+ * falls back to a purely lexical normalization (separator normalization +
+ * trailing-separator trim + Windows case-fold) when the path is missing. This
+ * makes the function safe for both live file trees and synthetic test paths.
+ *
+ * @param {string} pathValue Raw path to canonicalize.
+ * @returns {string} Canonicalized path suitable for prefix-containment checks.
+ */
+export function normalizeBoundaryPath(pathValue: string): string {
+    try {
+        return canonicalizeFromString(realpathSync.native(pathValue));
+    } catch {
+        return canonicalizeFromString(pathValue);
+    }
+}
+
+function boundaryPathSeparatorFor(pathValue: string): string {
+    return isWindowsLikeBoundaryPath(pathValue) ? "\\" : "/";
+}
+
+/**
+ * Return `true` when `filePath` is the same as or resides within `rootPath`.
+ *
+ * Both paths are canonicalized with {@link normalizeBoundaryPath} before the
+ * comparison so the check is robust against symlinks, mixed separators,
+ * trailing slashes, and Windows case differences.
+ *
+ * @param {string} filePath Candidate descendant path.
+ * @param {string} rootPath Candidate ancestor directory.
+ * @returns {boolean} Whether `filePath` is contained within `rootPath`.
+ */
+export function isPathWithinBoundary(filePath: string, rootPath: string): boolean {
+    const normalizedRoot = normalizeBoundaryPath(rootPath);
+    const normalizedFile = normalizeBoundaryPath(filePath);
+
+    if (normalizedRoot.length === 0 || normalizedFile.length === 0) {
+        return false;
+    }
+
+    if (normalizedRoot === normalizedFile) {
+        return true;
+    }
+
+    const separator = boundaryPathSeparatorFor(normalizedRoot);
+    const withBoundary = normalizedRoot.endsWith(separator) ? normalizedRoot : `${normalizedRoot}${separator}`;
+    return normalizedFile.startsWith(withBoundary);
 }

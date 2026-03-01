@@ -1,5 +1,5 @@
 import { getCommentBoundaryIndex, getCommentValue } from "../comment-utils.js";
-import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
+import { applyJsDocReplacements } from "../doc-comment/type-normalization.js";
 import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,

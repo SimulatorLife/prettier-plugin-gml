@@ -6,12 +6,6 @@
 import { Core } from "@gml-modules/core";
 
 /**
- * Re-export the non-throwing method checker from core for backwards compatibility.
- * @deprecated Import {@link Core.hasMethods} directly instead.
- */
-export const hasMethod = Core.hasMethods;
-
-/**
  * Validate and normalize an identifier name.
  * Throws TypeError or Error if the name is invalid.
  *

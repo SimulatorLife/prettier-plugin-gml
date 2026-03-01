@@ -76,13 +76,6 @@ export interface CommanderOptionSetter {
 }
 
 /**
- * Legacy combined program interface.
- *
- * @deprecated Use CommanderExecutor for execution-only operations.
- */
-export type CommanderProgramLike = CommanderExecutor;
-
-/**
  * Complete command interface.
  *
  * Combines all role-focused interfaces for consumers that need full

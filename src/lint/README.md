@@ -2,20 +2,17 @@
 
 `@gml-modules/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
 
-It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/plugin`.
-
-## Ownership Boundaries
+It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
 
 - Owns:
   - ESLint language wiring for GML (`language: "gml/gml"`)
   - Lint rules and autofix behavior
-  - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
 - Does not own:
-  - Prettier formatting behavior
+  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
   - Parser internals/grammar ownership
   - Refactor transaction planning/execution
 
-See [../../docs/formatter-linter-split-plan.md](../../docs/formatter-linter-split-plan.md) for the split contract.
+See [../../docs/target-state.md](../../docs/target-state.md) for the split contract.
 
 ## Install and Peer Requirements
 
@@ -40,11 +37,10 @@ This wires:
 
 ## Config Sets
 
-`Lint.configs` exposes three immutable flat-config sets:
+`Lint.configs` exposes these immutable flat-config sets:
 
 - `recommended`: baseline `gml/*` rules
 - `feather`: `feather/gm####` overlay rules from the feather manifest
-- `performance`: disables costlier/project-aware rewrites for faster passes
 
 Example:
 
@@ -57,82 +53,8 @@ export default [
 ];
 ```
 
-For a full "all rules enabled" config (including all `feather/*` rules plus project-context wiring for project-aware `gml/*` rules), see:
+For a full "all rules enabled" config (including all `feather/*` rules), see:
 `docs/examples/example.eslint.all-rules.config.js`.
-
-## Project-Aware Rules
-
-Some `gml/*` rules require project context to safely reason about cross-file behavior. Current project-aware IDs:
-
-- `gml/no-globalvar`
-- `gml/prefer-loop-length-hoist`
-- `gml/prefer-string-interpolation`
-- `gml/prefer-struct-literal-assignments`
-
-Canonical generated inventory: [../../docs/generated/project-aware-rules.md](../../docs/generated/project-aware-rules.md)
-
-**Note**: `settings.gml.project` is not a file in your GameMaker project. It is a runtime object attached to your ESLint flat config entry:
-
-- Not required in `.yyp` or any `.gml` file
-- Not a standalone config file to create in the game project
-- It is the value you provide at `eslint.config.js -> settings -> gml -> project`
-- If you use the monorepo CLI lint command, this is already wired for you
-
-Shape in config:
-
-```js
-settings: {
-    gml: {
-        project: projectSettings
-    }
-}
-```
-
-If you run these rules directly through ESLint (outside CLI wiring), inject `settings.gml.project`:
-
-```js
-// eslint.config.js
-import * as LintWorkspace from "@gml-modules/lint";
-import * as SemanticWorkspace from "@gml-modules/semantic";
-
-const projectRoot = process.cwd();
-const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(projectRoot);
-const excludedDirectories = new Set(
-    LintWorkspace.Lint.services.defaultProjectIndexExcludes.map((entry) => entry.toLowerCase())
-);
-const snapshot = LintWorkspace.Lint.services.createProjectAnalysisSnapshotFromProjectIndex(
-    projectIndex,
-    projectRoot,
-    {
-        excludedDirectories,
-        allowedDirectories: []
-    }
-);
-const analysisProvider = LintWorkspace.Lint.services.createPrebuiltProjectAnalysisProvider(
-    new Map([[projectRoot, snapshot]])
-);
-const registry = LintWorkspace.Lint.services.createProjectLintContextRegistry({
-    cwd: process.cwd(),
-    forcedProjectPath: null,
-    indexAllowDirectories: [],
-    analysisProvider
-});
-const projectSettings = LintWorkspace.Lint.services.createProjectSettingsFromRegistry(registry);
-
-export default [
-    ...LintWorkspace.Lint.configs.recommended,
-    {
-        files: ["**/*.gml"],
-        settings: {
-            gml: {
-                project: projectSettings
-            }
-        }
-    }
-];
-```
-
-If you do not provide project settings, project-aware rules will emit `missingProjectContext`.
 
 ## Language Behavior
 
@@ -163,12 +85,8 @@ LintWorkspace.Lint;
 
 - `plugin`: ESLint plugin object for `gml/*` (`rules`, `languages`)
 - `featherPlugin`: ESLint plugin object for `feather/*` (`rules`)
-- `configs`: `recommended`, `feather`, `performance`
+- `configs`: `recommended`, `feather`
 - `ruleIds`: PascalCase map keys to canonical full IDs (`gml/...`, `feather/...`)
-- `services`: project-analysis/context helpers and constants
-- `docs`:
-  - `collectProjectAwareRuleIds()`
-  - `renderProjectAwareRulesMarkdown()`
 
 ## GML Rule IDs
 
@@ -194,9 +112,9 @@ Built-in `gml/*` rule short names:
 - `require-trailing-optional-defaults`
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
-Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/plugin`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
+Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
-Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`.
+Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`. All feather-namespace lint rules follow the naming pattern `feather/gm####`, where the lint rule diagnoses/fixes specificy/only the issue for the associated Feather rule/diagnostic. For example, lint rule `feather/gm1000` identifies and fixes the specific issue described in Feather rule `gm1000`: "No enclosing loop from which to break" This creates a clear, traceable link between each Feather rule and its corresponding lint rule(s), and allows us to easily add new lint rules for new Feather rules as they are added to the manifest.
 
 ## Development
 
@@ -204,3 +122,14 @@ Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.fe
 pnpm --filter @gml-modules/lint run build:types
 pnpm --filter @gml-modules/lint run test
 ```
+
+## TODO
+* When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
+* Add a rule for empty regions (`@gml/no-empty-regions`). Also add an auto-fix to remove empty regions. For example:
+    ```gml
+    #region Empty region
+    #endregion
+    ```
+* Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
+* **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.
+- The structure/files of 'src/lint/src/doc-comment' is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?
