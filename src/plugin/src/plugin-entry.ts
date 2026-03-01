@@ -12,9 +12,9 @@ import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-typ
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
 
-const parsers = gmlPluginComponents.parsers;
-const printers = gmlPluginComponents.printers;
-const pluginOptions = gmlPluginComponents.options;
+export const parsers = gmlPluginComponents.parsers;
+export const printers = gmlPluginComponents.printers;
+export const pluginOptions = gmlPluginComponents.options;
 
 export const languages: SupportLanguage[] = [
     {
@@ -57,7 +57,7 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
-const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
+export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 /**
  * Utility function and entry point to format GML source code using the plugin.

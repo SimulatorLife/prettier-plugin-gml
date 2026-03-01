@@ -112,3 +112,12 @@ export function getOperatorVariant(operator: string, style: BinaryOperatorStyle)
 
     return CANONICAL_TO_KEYWORD[canonical] ?? operator;
 }
+
+/** Maps alias operators (e.g. "and", "or") to their canonical symbol form (e.g. "&&", "||"). */
+export const OPERATOR_ALIAS_MAP: Map<string, string> = new Map();
+
+for (const [token, info] of Object.entries(BINARY_OPERATORS)) {
+    if (info.canonical) {
+        OPERATOR_ALIAS_MAP.set(token, info.canonical);
+    }
+}
