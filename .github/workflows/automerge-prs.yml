@@ -82,7 +82,7 @@ jobs:
       - name: Enable pnpm via Corepack (${{ matrix.target }})
         run: |
           corepack enable
-          corepack prepare pnpm@10.28.0 --activate
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Setup Node (${{ matrix.target }})
         uses: actions/setup-node@v4
@@ -158,7 +158,7 @@ jobs:
       - name: Enable pnpm via Corepack (summary)
         run: |
           corepack enable
-          corepack prepare pnpm@10.28.0 --activate
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Setup Node
         uses: actions/setup-node@v4

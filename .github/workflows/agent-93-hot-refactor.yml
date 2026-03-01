@@ -22,7 +22,7 @@ jobs:
       agent: ${{ inputs.agent }}
       component: "refactor engine (src/refactor)"
       extra_context: >
-        Focus on the advancing the 'refactor' workspace ('src/refactor' / '@gml-modules/refactor'). Work on expanding semantic-safe refactoring workflows—especially rename planning, validation, and the 
+        Focus on the advancing the '@gml-modules/refactor' workspace ('src/refactor'). Work on expanding/fixing/improving/aligning semantic-safe refactoring workflows—especially rename planning, validation, and the 
         integration hooks required for hot reload—with an explicit priority on speed, low overhead, and fast edit-to-reload turnaround. Every change must be as performant or more performant than the
         previous state, avoiding additional analysis passes, graph walks, or bookkeeping that increase steady-state or incremental cost. Keep scope small and strictly focused on refactoring behavior
         that directly impacts hot reload correctness or latency. Coordinate with the semantic and transpiler packages only where necessary, and prefer reusing existing semantic data, compiler 
