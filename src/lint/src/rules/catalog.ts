@@ -91,15 +91,7 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    enableAutofix: { type: "boolean", default: true }
-                }
-            }
-        ])
+        schema: Object.freeze([])
     },
     {
         mapKey: "GmlNormalizeDocComments",

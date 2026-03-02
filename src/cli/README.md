@@ -10,7 +10,7 @@ Command-line interface for the prettier-plugin-gml project. Provides utilities f
 
 Contract migration mapping:
 
-- `globalvar` rewrite => `gml/no-globalvar`
+- `globalvar` rewrite => `gml/no-globalvar` (diagnostic only, no autofix)
 - loop-length hoist => `gml/prefer-loop-length-hoist`
 - missing separators => `gml/require-argument-separators`
 - doc comment text normalization => `gml/normalize-doc-comments`

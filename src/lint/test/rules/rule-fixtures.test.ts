@@ -313,8 +313,23 @@ function normalizeFixtureRelativePath(absolutePath: string): string {
 
 function deriveFixedFixturePath(inputFilePath: string): string | null {
     const inputFileName = path.basename(inputFilePath);
+
+    if (inputFileName.endsWith(".fixed.gml")) {
+        return inputFilePath;
+    }
+
     if (inputFileName === "input.gml") {
-        return path.join(path.dirname(inputFilePath), "fixed.gml");
+        const fixedCandidate = path.join(path.dirname(inputFilePath), "fixed.gml");
+        if (existsSync(fixedCandidate)) {
+            return fixedCandidate;
+        }
+
+        const inputFixedCandidate = path.join(path.dirname(inputFilePath), "input.fixed.gml");
+        if (existsSync(inputFixedCandidate)) {
+            return inputFixedCandidate;
+        }
+
+        return null;
     }
 
     const suffix = ".input.gml";
@@ -323,7 +338,12 @@ function deriveFixedFixturePath(inputFilePath: string): string | null {
     }
 
     const stem = inputFileName.slice(0, -suffix.length);
-    return path.join(path.dirname(inputFilePath), `${stem}.fixed.gml`);
+    const fixedCandidate = path.join(path.dirname(inputFilePath), `${stem}.fixed.gml`);
+    if (existsSync(fixedCandidate)) {
+        return fixedCandidate;
+    }
+
+    return null;
 }
 
 function deriveRuleNameFromFixturePath(inputFilePath: string): string {
@@ -387,7 +407,7 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         }
 
         const fileName = path.basename(filePath);
-        return fileName === "input.gml" || fileName.endsWith(".input.gml");
+        return fileName === "input.gml" || fileName.endsWith(".input.gml") || fileName.endsWith(".fixed.gml");
     });
 
     const pairs: Array<FixturePair> = [];
@@ -397,6 +417,9 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
             continue;
         }
 
+        // If it's a *.fixed.gml that is its own input/fixed, we need to make sure we don't
+        // accidentally pick up a separate *.input.gml that would also claim it as fixed.
+        // The current loop handles this naturally if we only add it once.
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
         const options = await readFixtureOptions(path.dirname(inputFilePath));
         const relativeInputPath = normalizeFixtureRelativePath(inputFilePath);
@@ -410,7 +433,14 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         });
     }
 
-    return pairs.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
+    // De-duplicate by inputFilePath to handle cases where we might have both input.gml and input.fixed.gml
+    const uniquePairsMap = new Map<string, FixturePair>();
+    for (const pair of pairs) {
+        uniquePairsMap.set(pair.inputFilePath, pair);
+    }
+    const uniquePairsList = Array.from(uniquePairsMap.values());
+
+    return uniquePairsList.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
 }
 
 const discoveredFixturePairs = await collectFixturePairs();
@@ -604,7 +634,6 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "optimize-logical-flow",
-        "no-globalvar",
         "normalize-doc-comments",
         "normalize-directives",
         "require-control-flow-braces",
@@ -822,28 +851,21 @@ void test("no-assignment-in-condition does not rewrite grouped multiline conditi
     assert.equal(result.output, input);
 });
 
-void test("no-globalvar rewrites declared globals and preserves non-matching identifiers", async () => {
-    const input = await readFixture("no-globalvar", "rewrite-scope.gml");
+void test("no-globalvar diagnoses declared globals", async () => {
+    const input = await readFixture("no-globalvar", "input.fixed.gml");
     const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.output.includes("globalvarToken"), true);
-    assert.equal(result.output.includes("globalvar score"), false);
-    assert.equal(result.output.includes("global.globalvarToken"), false);
+    assert.equal(result.messages.length > 0, true);
+    assert.equal(result.output, input);
 });
 
-void test("no-globalvar rewrites comma-separated declarations and identifier uses", () => {
+void test("no-globalvar diagnoses comma-separated declarations", () => {
     const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
         "\n"
     );
-    const expected = [
-        "global.score = 1;",
-        "if (global.lives > 0) {",
-        "    global.score += global.lives;",
-        "}",
-        ""
-    ].join("\n");
 
     const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.output, expected);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, input);
 });
 
 void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {

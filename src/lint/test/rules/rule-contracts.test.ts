@@ -77,13 +77,7 @@ const expectedRules = Object.freeze([
     {
         shortName: "no-globalvar",
         messageId: "noGlobalvar",
-        schema: [
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: { enableAutofix: { type: "boolean", default: true } }
-            }
-        ]
+        schema: []
     },
     {
         shortName: "normalize-doc-comments",
@@ -182,7 +176,9 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 
         assert.equal(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
-        assert.equal(rule.meta?.fixable, "code");
+        if (ruleDefinition.shortName !== "no-globalvar") {
+            assert.equal(rule.meta?.fixable, "code");
+        }
     }
 });
 
