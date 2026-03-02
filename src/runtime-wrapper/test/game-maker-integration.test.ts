@@ -7,6 +7,7 @@ type JsonGameSnapshot = {
     ScriptNames: Array<string>;
     Scripts: Array<(...args: Array<unknown>) => unknown>;
     GMObjects: Array<Record<string, unknown>>;
+    Sprites?: Array<{ pName?: string; Name?: string }>;
 };
 
 type GlobalSnapshot = {
@@ -14,6 +15,7 @@ type GlobalSnapshot = {
     gml_Script_test?: (...args: Array<unknown>) => unknown;
     gml_Object_oSpider_Step_0?: (...args: Array<unknown>) => unknown;
     g_pBuiltIn?: Record<string, unknown>;
+    g_pSpriteManager?: { Sprite_Find?: (name: string) => unknown };
     make_colour_rgb?: (red: number, green: number, blue: number) => number;
     vk_anykey?: number;
     _uB2?: number;
@@ -28,6 +30,7 @@ function snapshotGlobals(): GlobalSnapshot {
         gml_Script_test: globals.gml_Script_test,
         gml_Object_oSpider_Step_0: globals.gml_Object_oSpider_Step_0,
         g_pBuiltIn: globals.g_pBuiltIn,
+        g_pSpriteManager: globals.g_pSpriteManager,
         make_colour_rgb: globals.make_colour_rgb,
         vk_anykey: globals.vk_anykey,
         _uB2: globals._uB2,
@@ -61,6 +64,12 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
         delete globals.g_pBuiltIn;
     } else {
         globals.g_pBuiltIn = snapshot.g_pBuiltIn;
+    }
+
+    if (snapshot.g_pSpriteManager === undefined) {
+        delete globals.g_pSpriteManager;
+    } else {
+        globals.g_pSpriteManager = snapshot.g_pSpriteManager;
     }
 
     if (snapshot.make_colour_rgb === undefined) {
@@ -393,6 +402,67 @@ await test("updates pObject definition on active instances", () => {
         // Verify event flags were set on both instance and pObject definitions
         assert.equal(instance.Event[5], true);
         assert.equal(pObject.Event[5], true);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patches resolve sprite constants via JSON_game.Sprites table", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        globals.g_pBuiltIn = {};
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [],
+            Sprites: [
+                { pName: "spr_player", Name: "spr_player" },
+                { pName: "spr_enemy", Name: "spr_enemy" }
+            ]
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/get_sprite_indices",
+            js_body: "return [spr_player, spr_enemy];"
+        });
+
+        const fn = wrapper.getScript("gml/script/get_sprite_indices");
+        assert.ok(fn);
+        const result = fn(null, null, []) as Array<number>;
+        assert.deepEqual(result, [0, 1]);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patches resolve sprite constants via g_pSpriteManager.Sprite_Find", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        globals.g_pBuiltIn = {};
+        globals.g_pSpriteManager = {
+            Sprite_Find: (name: string) => {
+                const map: Record<string, number> = { spr_coin: 7, spr_block: 3 };
+                return map[name] ?? -1;
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/get_sprite_by_manager",
+            js_body: "return [spr_coin, spr_block];"
+        });
+
+        const fn = wrapper.getScript("gml/script/get_sprite_by_manager");
+        assert.ok(fn);
+        const result = fn(null, null, []) as Array<number>;
+        assert.deepEqual(result, [7, 3]);
     } finally {
         restoreGlobals(snapshot);
     }

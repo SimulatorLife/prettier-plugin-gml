@@ -20,8 +20,10 @@ type RuntimeBindingGlobals = {
         ScriptNames?: Array<string>;
         Scripts?: Array<RuntimeFunction>;
         GMObjects?: Array<Record<string, unknown>>;
+        Sprites?: Array<{ pName?: string; Name?: string }>;
     };
     g_pBuiltIn?: Record<string, unknown>;
+    g_pSpriteManager?: { Sprite_Find?: (name: string) => unknown };
     _cx?: {
         _dx?: Record<string, unknown>;
     };
@@ -35,6 +37,230 @@ type RuntimeBindingGlobals = {
         objidlist?: Array<unknown>;
     };
 };
+
+// ---------------------------------------------------------------------------
+// Module-level GML scope proxy helpers
+//
+// These constants and functions are defined at module load time so they are
+// shared across every compiled script function. Previously they were defined
+// as closures inside the `new Function(...)` template, which caused each
+// invocation of a patched script to allocate a fresh set of helper closures
+// and a new proxy handler object—measurable GC pressure at 60fps with many
+// active patched scripts.
+// ---------------------------------------------------------------------------
+
+const HTML_COLOR_PATTERN = /^rgba?\(/;
+
+/** Returns true if `value` is a CSS-style HTML color string. */
+function isHtmlColorString(value: unknown): boolean {
+    return typeof value === "string" && HTML_COLOR_PATTERN.test(value);
+}
+
+/**
+ * Maps a GML property name to the canonical key used in an instance scope
+ * object. Returns `null` when no matching key exists in `target`.
+ *
+ * GML emits instance variables with a `gml` prefix (e.g. `armNum` → `gmlarmNum`)
+ * and occasionally with a double-underscore prefix (`__armNum`). This function
+ * checks all three candidates and returns the first that actually exists on the
+ * target, or `null` if none do.
+ */
+function resolveGmlScopePropertyKey(target: Record<string, unknown>, prop: string): string | null {
+    if (prop in target) {
+        return prop;
+    }
+
+    const gmlProp = `gml${prop}`;
+    if (gmlProp in target) {
+        return gmlProp;
+    }
+
+    const underscoreProp = `__${prop}`;
+    if (underscoreProp in target) {
+        return underscoreProp;
+    }
+
+    return null;
+}
+
+/**
+ * Resolves a sprite name to its numeric runtime index by querying the
+ * GameMaker HTML5 runtime's sprite table or sprite manager.
+ * Returns `null` when no matching sprite is found.
+ */
+function resolveSpriteConstantFromRuntime(prop: string): number | null {
+    const globals = globalThis as RuntimeBindingGlobals;
+    const sprites = globals.JSON_game?.Sprites;
+
+    if (Array.isArray(sprites)) {
+        const index = sprites.findIndex((sprite) => sprite?.pName === prop || sprite?.Name === prop);
+        if (index !== -1) {
+            return index;
+        }
+    }
+
+    const spriteManager = globals.g_pSpriteManager;
+    if (spriteManager && typeof spriteManager.Sprite_Find === "function") {
+        const value = spriteManager.Sprite_Find(prop);
+        if (typeof value === "number" && value >= 0) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Resolves a GML script name to its compiled function via the GameMaker
+ * HTML5 runtime's script name/function table.
+ * Returns `null` when no matching script is registered.
+ */
+function resolveScriptFunctionFromRuntime(prop: string): RuntimeFunction | null {
+    const globals = globalThis as RuntimeBindingGlobals;
+    const scriptNames = globals.JSON_game?.ScriptNames;
+    const scripts = globals.JSON_game?.Scripts;
+
+    if (!Array.isArray(scriptNames) || !Array.isArray(scripts)) {
+        return null;
+    }
+
+    const idx = scriptNames.indexOf(`gml_Script_${prop}`);
+    if (idx !== -1 && idx < scripts.length) {
+        return scripts[idx];
+    }
+
+    const globalIdx = scriptNames.indexOf(`gml_GlobalScript_${prop}`);
+    if (globalIdx !== -1 && globalIdx < scripts.length) {
+        return scripts[globalIdx];
+    }
+
+    return null;
+}
+
+/**
+ * Stable `with`-scope proxy handler for compiled GML script functions.
+ *
+ * Allocated once at module load. The `with (__gml_proxy)` statement injected
+ * into every compiled script function references this shared handler instead of
+ * constructing a fresh handler object on each invocation. The handler reads
+ * `globalThis` and the memoized builtin-constants table on demand, so no
+ * per-call state needs to be captured.
+ */
+const GML_SCOPE_PROXY_HANDLER: ProxyHandler<Record<string, unknown>> = {
+    has(target, prop): boolean {
+        if (typeof prop !== "string") {
+            return prop in target;
+        }
+
+        if (resolveGmlScopePropertyKey(target, prop) !== null) {
+            return true;
+        }
+
+        const globals = globalThis as Record<string, unknown>;
+        const gmlConstants = resolveBuiltinConstants(globals);
+
+        if (Object.hasOwn(gmlConstants, prop)) {
+            return true;
+        }
+
+        if (globals[prop] !== undefined) {
+            return true;
+        }
+
+        if (resolveSpriteConstantFromRuntime(prop) !== null) {
+            return true;
+        }
+
+        if (resolveScriptFunctionFromRuntime(prop) !== null) {
+            return true;
+        }
+
+        const gmlBuiltins = globals.g_pBuiltIn as Record<string, unknown> | undefined;
+        if (gmlBuiltins) {
+            if (typeof gmlBuiltins[`get_${prop}`] === "function") {
+                return true;
+            }
+            if (prop in gmlBuiltins) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+
+    get(target, prop, receiver): unknown {
+        if (typeof prop !== "string") {
+            return Reflect.get(target, prop, receiver);
+        }
+
+        const key = resolveGmlScopePropertyKey(target, prop);
+        if (key !== null) {
+            return Reflect.get(target, key, receiver);
+        }
+
+        const globals = globalThis as Record<string, unknown>;
+        const hasGlobalValue = prop in globals;
+        const globalValue = hasGlobalValue ? globals[prop] : undefined;
+        const gmlConstants = resolveBuiltinConstants(globals);
+
+        if (Object.hasOwn(gmlConstants, prop)) {
+            if (globalValue === undefined || isHtmlColorString(globalValue)) {
+                return (gmlConstants as Record<string, unknown>)[prop];
+            }
+            return globalValue;
+        }
+
+        if (hasGlobalValue && globalValue !== undefined) {
+            return globalValue;
+        }
+
+        const spriteConst = resolveSpriteConstantFromRuntime(prop);
+        if (spriteConst !== null) {
+            return spriteConst;
+        }
+
+        const scriptFn = resolveScriptFunctionFromRuntime(prop);
+        if (scriptFn !== null) {
+            return scriptFn;
+        }
+
+        const gmlBuiltins = globals.g_pBuiltIn as Record<string, unknown> | undefined;
+        if (gmlBuiltins) {
+            const getter = gmlBuiltins[`get_${prop}`];
+            if (typeof getter === "function") {
+                return (getter as () => unknown).call(gmlBuiltins);
+            }
+            if (prop in gmlBuiltins) {
+                return gmlBuiltins[prop];
+            }
+        }
+
+        return Reflect.get(target, prop, receiver);
+    },
+
+    set(target, prop, value, receiver): boolean {
+        if (typeof prop !== "string") {
+            return Reflect.set(target, prop, value, receiver);
+        }
+
+        const key = resolveGmlScopePropertyKey(target, prop);
+        if (key !== null) {
+            return Reflect.set(target, key, value, receiver);
+        }
+
+        return Reflect.set(target, prop, value, receiver);
+    }
+};
+
+/**
+ * Prefix prepended to every compiled script function body. Together with a
+ * trailing `\n}` it forms the complete `with`-scope wrapper. Kept as a
+ * module-level constant so the string is allocated once.
+ */
+const SCRIPT_PATCH_BODY_PREFIX =
+    `const __gml_scope = self && typeof self === "object" ? self : Object.create(null);\n` +
+    `const __gml_proxy = new Proxy(__gml_scope, __proxy_handler);\n` +
+    `with (__gml_proxy) {\n`;
 
 type EventMapping = {
     standard: string;
@@ -554,161 +780,12 @@ function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): Runtim
         "self",
         "other",
         "args",
-        "__gml_constants",
-        "__gml_builtins",
-        `const __gml_scope = self && typeof self === "object" ? self : Object.create(null);
-const __global_scope = typeof globalThis === "object" && globalThis !== null ? globalThis : null;
-const __html_color_pattern = /^rgba?\\(/;
-const __is_html_color_string = (value) => typeof value === "string" && __html_color_pattern.test(value);
-const __resolveSpriteConstant = (prop) => {
-    const jsonGame = __global_scope?.JSON_game;
-    const sprites = jsonGame?.Sprites;
-    if (Array.isArray(sprites)) {
-        const index = sprites.findIndex(
-            (sprite) => sprite?.pName === prop || sprite?.Name === prop
-        );
-        if (index !== -1) {
-            return index;
-        }
-    }
-
-    const spriteManager = __global_scope?.g_pSpriteManager;
-    if (spriteManager && typeof spriteManager.Sprite_Find === "function") {
-        const value = spriteManager.Sprite_Find(prop);
-        if (typeof value === "number" && value >= 0) {
-            return value;
-        }
-    }
-
-    return undefined;
-};
-const __resolveScriptFunction = (prop) => {
-    const jsonGame = __global_scope?.JSON_game;
-    const scriptNames = jsonGame?.ScriptNames;
-    const scripts = jsonGame?.Scripts;
-    if (!Array.isArray(scriptNames) || !Array.isArray(scripts)) {
-        return undefined;
-    }
-
-    const scriptIndex = scriptNames.indexOf(\`gml_Script_\${prop}\`);
-    if (scriptIndex !== -1 && scriptIndex < scripts.length) {
-        return scripts[scriptIndex];
-    }
-
-    const globalScriptIndex = scriptNames.indexOf(\`gml_GlobalScript_\${prop}\`);
-    if (globalScriptIndex !== -1 && globalScriptIndex < scripts.length) {
-        return scripts[globalScriptIndex];
-    }
-
-    return undefined;
-};
-const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
-const __resolveExistingGmlPropertyKey = (target, prop) => {
-    const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
-    if (prop in target) {
-        return prop;
-    }
-    if (gmlProp in target) {
-        return gmlProp;
-    }
-    if (underscoreProp in target) {
-        return underscoreProp;
-    }
-    return null;
-};
-const __gml_proxy = new Proxy(__gml_scope, {
-    has(target, prop) {
-        if (typeof prop !== "string") {
-            return prop in target;
-        }
-        const key = __resolveExistingGmlPropertyKey(target, prop);
-        if (key !== null) {
-            return true;
-        }
-        const __has_global_value = __global_scope && prop in __global_scope;
-        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
-            return true;
-        }
-        const __global_value = __has_global_value ? __global_scope[prop] : undefined;
-        if (__has_global_value && __global_value !== undefined) {
-            return true;
-        }
-        if (__resolveSpriteConstant(prop) !== undefined) {
-            return true;
-        }
-        if (__resolveScriptFunction(prop) !== undefined) {
-            return true;
-        }
-        if (
-            __gml_builtins &&
-            typeof __gml_builtins[\`get_\${prop}\`] === "function"
-        ) {
-            return true;
-        }
-        if (__gml_builtins && prop in __gml_builtins) {
-            return true;
-        }
-        return false;
-    },
-    get(target, prop, receiver) {
-        if (typeof prop !== "string") {
-            return Reflect.get(target, prop, receiver);
-        }
-        const key = __resolveExistingGmlPropertyKey(target, prop);
-        if (key !== null) {
-            return Reflect.get(target, key, receiver);
-        }
-        const __has_global_value = __global_scope && prop in __global_scope;
-        const __global_value = __has_global_value ? __global_scope[prop] : undefined;
-        const __sprite_constant = __resolveSpriteConstant(prop);
-        const __script_function = __resolveScriptFunction(prop);
-        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
-            if (__global_value === undefined || __is_html_color_string(__global_value)) {
-                return __gml_constants[prop];
-            }
-            return __global_value;
-        }
-        if (__has_global_value && __global_value !== undefined) {
-            return __global_value;
-        }
-        if (__sprite_constant !== undefined) {
-            return __sprite_constant;
-        }
-        if (__script_function !== undefined) {
-            return __script_function;
-        }
-        if (__gml_builtins) {
-            const getter = __gml_builtins[\`get_\${prop}\`];
-            if (typeof getter === "function") {
-                return getter.call(__gml_builtins);
-            }
-            if (prop in __gml_builtins) {
-                return __gml_builtins[prop];
-            }
-        }
-        return Reflect.get(target, prop, receiver);
-    },
-    set(target, prop, value, receiver) {
-        if (typeof prop !== "string") {
-            return Reflect.set(target, prop, value, receiver);
-        }
-        const key = __resolveExistingGmlPropertyKey(target, prop);
-        if (key !== null) {
-            return Reflect.set(target, key, value, receiver);
-        }
-        return Reflect.set(target, prop, value, receiver);
-    }
-});
-with (__gml_proxy) {
-${patchBody}
-}`
+        "__proxy_handler",
+        `${SCRIPT_PATCH_BODY_PREFIX}${patchBody}\n}`
     ) as RuntimeFunction;
 
     const fn = ((self, other, args) => {
-        const globals = globalThis as RuntimeBindingGlobals & Record<string, unknown>;
-        const constants = resolveBuiltinConstants(globals);
-        const builtins = globals.g_pBuiltIn && typeof globals.g_pBuiltIn === "object" ? globals.g_pBuiltIn : undefined;
-        return rawFn.call(self, self, other, args, constants, builtins);
+        return rawFn.call(self, self, other, args, GML_SCOPE_PROXY_HANDLER);
     }) as RuntimeFunction;
     const namedFn = createNamedRuntimeFunction(resolveRuntimeId(patch), fn);
 
