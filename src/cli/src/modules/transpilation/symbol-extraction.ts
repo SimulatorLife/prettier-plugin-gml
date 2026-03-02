@@ -210,6 +210,28 @@ interface CallExpressionNode {
 }
 
 /**
+ * Handles a CallExpression node: records the direct callee name as a reference,
+ * recurses into the callee (for chained/member-expression callees), and recurses
+ * into each argument (for nested call expressions like `outer(inner())`).
+ */
+function processCallExpressionReferences(callNode: CallExpressionNode, references: Set<string>): void {
+    const callee = callNode.object ?? callNode.callee;
+    if (callee) {
+        const calleeName = extractIdentifierName(callee);
+        if (calleeName) {
+            references.add(`gml_Script_${calleeName}`);
+        }
+        walkNodeForReferences(callee, references);
+    }
+
+    if (Array.isArray(callNode.arguments)) {
+        for (const arg of callNode.arguments) {
+            walkNodeForReferences(arg, references);
+        }
+    }
+}
+
+/**
  * Recursively walks an AST node and extracts direct function call references.
  *
  * Only CallExpression callees are recorded as references. Standalone Identifier
@@ -230,32 +252,10 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
     const astNode = node as AstNode;
 
     // Extract from CallExpression nodes (e.g., player_move(), enemy_attack()).
-    // The GML parser places the callee under `object`, not the ESTree `callee` field.
-    // The callee walk and arguments walk are scoped to CallExpression nodes only to
-    // avoid unnecessary property access on every other node type.
+    // Callee and arguments walks are delegated to processCallExpressionReferences
+    // to keep this function within the allowed cognitive complexity budget.
     if (astNode.type === "CallExpression") {
-        const callNode = astNode as unknown as CallExpressionNode;
-        const callee = callNode.object ?? callNode.callee;
-        if (callee) {
-            const calleeName = extractIdentifierName(callee);
-            if (calleeName) {
-                references.add(`gml_Script_${calleeName}`);
-            }
-        }
-
-        // Walk into the callee so chained or member-expression callees are traversed
-        // (e.g. the MemberDotExpression in `obj.method()` or the inner CallExpression
-        // in `foo()()`).
-        if (callee) {
-            walkNodeForReferences(callee, references);
-        }
-
-        // Walk arguments to capture nested call expressions (e.g. `outer(inner())`).
-        if (Array.isArray(callNode.arguments)) {
-            for (const arg of callNode.arguments) {
-                walkNodeForReferences(arg, references);
-            }
-        }
+        processCallExpressionReferences(astNode as unknown as CallExpressionNode, references);
     }
 
     // Recursively walk body — as a statement array (Program, BlockStatement.body)
