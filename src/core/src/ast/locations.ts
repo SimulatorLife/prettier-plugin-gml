@@ -1,4 +1,4 @@
-import { isObjectLike, withObjectLike } from "../utils/object.js";
+import { isObjectLike } from "../utils/object.js";
 import type { GameMakerAstNode } from "./types.js";
 
 type AstNode = GameMakerAstNode;
@@ -29,26 +29,22 @@ type NodeRange = {
  * @returns {number | null} Normalized numeric location or `null`.
  */
 function getLocationNumber(node: unknown, key: LocationKey, field: LocationField): number | null {
-    return withObjectLike(
-        node,
-        (nodeObject) => {
-            const location = nodeObject[key];
+    if (!isObjectLike(node)) {
+        return null;
+    }
 
-            if (typeof location === "number") {
-                return location;
-            }
+    const location = (node as Record<string, unknown>)[key];
 
-            return withObjectLike(
-                location,
-                (locationObject) => {
-                    const value = locationObject[field];
-                    return typeof value === "number" ? value : null;
-                },
-                () => null
-            );
-        },
-        () => null
-    );
+    if (typeof location === "number") {
+        return location;
+    }
+
+    if (!isObjectLike(location)) {
+        return null;
+    }
+
+    const value = (location as Record<string, unknown>)[field];
+    return typeof value === "number" ? value : null;
 }
 
 /**
@@ -190,38 +186,21 @@ function assignClonedLocation<TTarget extends AstNode>(
     target: TTarget | null | undefined,
     template: unknown
 ): TTarget | null | undefined {
-    return withObjectLike(
-        target,
-        (mutableTarget) =>
-            withObjectLike(
-                template,
-                (templateNode) => {
-                    let shouldAssign = false;
-                    const clonedLocations: {
-                        start?: unknown;
-                        end?: unknown;
-                    } = {};
+    if (!isObjectLike(target) || !isObjectLike(template)) {
+        return target;
+    }
 
-                    if (Object.hasOwn(templateNode, "start")) {
-                        clonedLocations.start = cloneLocation(templateNode.start);
-                        shouldAssign = true;
-                    }
+    const templateNode = template as Record<string, unknown>;
 
-                    if (Object.hasOwn(templateNode, "end")) {
-                        clonedLocations.end = cloneLocation(templateNode.end);
-                        shouldAssign = true;
-                    }
+    if (Object.hasOwn(templateNode, "start")) {
+        (target as AstNode).start = cloneLocation(templateNode.start) as AstNode["start"];
+    }
 
-                    if (shouldAssign) {
-                        Object.assign(mutableTarget, clonedLocations);
-                    }
+    if (Object.hasOwn(templateNode, "end")) {
+        (target as AstNode).end = cloneLocation(templateNode.end) as AstNode["end"];
+    }
 
-                    return mutableTarget;
-                },
-                () => mutableTarget
-            ),
-        () => target
-    );
+    return target;
 }
 
 /**
