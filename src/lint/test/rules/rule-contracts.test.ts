@@ -15,25 +15,6 @@ type RuleMeta = Readonly<{
 
 const expectedRules = Object.freeze([
     {
-        shortName: "prefer-loop-length-hoist",
-        messageId: "preferLoopLengthHoist",
-        schema: [
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    functionSuffixes: {
-                        type: "object",
-                        additionalProperties: {
-                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
-                        }
-                    },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ]
-    },
-    {
         shortName: "prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
         schema: [
@@ -42,6 +23,12 @@ const expectedRules = Object.freeze([
                 additionalProperties: false,
                 properties: {
                     minOccurrences: { type: "integer", minimum: 2, default: 2 },
+                    functionSuffixes: {
+                        type: "object",
+                        additionalProperties: {
+                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
+                        }
+                    },
                     reportUnsafe: { type: "boolean", default: true }
                 }
             }
