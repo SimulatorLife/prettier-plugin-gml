@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
 
 import * as Printer from "../src/printer/index.js";
 
 void describe("statement spacing policy", () => {
-    afterEach(() => {
-        Printer.StatementSpacingPolicy.resetSurroundingNewlineNodeTypes();
-    });
-
     void it("detects macro-like statements", () => {
         const macroDeclaration = { type: "MacroDeclaration" };
         const defineMacro = {
@@ -107,13 +103,9 @@ void describe("statement spacing policy", () => {
         );
     });
 
-    void it("allows internal consumers to register extra padded statement types", () => {
+    void it("returns false for unknown statement types", () => {
         const experimentalNode = { type: "ExperimentalStatement" };
 
         assert.equal(Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement(experimentalNode), false);
-
-        Printer.StatementSpacingPolicy.registerSurroundingNewlineNodeTypes("ExperimentalStatement");
-
-        assert.equal(Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement(experimentalNode), true);
     });
 });
