@@ -10,7 +10,7 @@ const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
     ? path.resolve(rawDirectory, "..", "..", "test")
     : rawDirectory;
-const fixtureDirectory = path.join(currentDirectory, "fixtures", "formatting");
+const fixtureDirectory = path.join(currentDirectory, "fixtures");
 const fileEncoding = "utf8";
 
 type FormatterFixtureCase = Readonly<{

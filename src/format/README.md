@@ -2,13 +2,6 @@
 
 This directory contains the source code for the [gml-modules/format](https://github.com/gml-modules/format) package.
 
-## Ownership Boundaries
-
-The format workspace owns formatting and parser-to-printer orchestration *only* (semicolons, whitespaces, line breaks, indentation, etc.).
-
-- This Prettier formatter workspace **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
-- Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
-
 ## Test Tiering
 
 - Format fixture/unit tests validate formatter-owned layout behavior.
@@ -41,23 +34,17 @@ These constants are used throughout the format workspace to ensure consistent be
 - Why it was removed: argument layout now follows Prettier-style default wrapping with `printWidth` and document shape, without numeric argument-count thresholds.
 - Migration: remove `maxParamsPerLine` from configuration files; no replacement option is provided.
 
-## Formatter/Linter split (finalized)
+## Formatter/Linter/Refactor Ownership Boundaries
 
-The split is now contractually fixed:
+The format workspace owns formatting and parser-to-printer orchestration *only* (semicolons, whitespaces, line breaks, indentation, etc.).
 
 - `@gml-modules/format` is formatter-only.
-- Any semantic/content rewrite belongs to `@gml-modules/lint` rules and is applied via `lint --fix`.
-
-Migration quick map:
-
-- `globalvar` rewrites => `gml/no-globalvar` (lint)
-- loop-hoist rewrites => `gml/prefer-loop-length-hoist` (lint)
-- separator repair => `gml/require-argument-separators` (lint)
-- doc-comment tag synthesis/normalization => `gml/normalize-doc-comments` (lint)
-- indentation/wrapping/layout => format workspace formatter
+- Any file-scoped semantic/content rewrites belongs to `@gml-modules/lint` rules and is applied via `lint --fix`. project-aware transformations and rewrites (e.g. function doc-comment generation/fixing, legacy annotation normalization, `globalvar` rewrite) are the responsibility of the `@gml-modules/refactor` module, which is a 'codemod' module.
+- This Prettier formatter workspace **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
+- Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
 
 Formatter doc-comment boundary guarantees:
 - Legacy annotations such as `/// @function ...` are preserved by the formatter and are never replaced/normalized.
 - The formatter never synthesizes `/// @description`, `/// @param`, `/// @returns`, or other function doc-comment tags.
 
-See the durable split contract and before/after examples in [`docs/target-state.md`](../../docs/target-state.md).
+See the durable split contract and examples in [`docs/target-state.md`](../../docs/target-state.md).

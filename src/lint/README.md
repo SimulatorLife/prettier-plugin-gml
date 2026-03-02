@@ -92,12 +92,12 @@ LintWorkspace.Lint;
 
 Built-in `gml/*` rule short names:
 
-- `prefer-loop-length-hoist`
-- `prefer-hoistable-loop-accessors`
+- `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
 - `optimize-logical-flow`
 - `no-globalvar`
+- `no-unnecessary-string-interpolation`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`
@@ -132,4 +132,4 @@ pnpm --filter @gml-modules/lint run test
     ```
 * Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
 * **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.
-- The structure/files of 'src/lint/src/doc-comment' is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?
+- The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?
