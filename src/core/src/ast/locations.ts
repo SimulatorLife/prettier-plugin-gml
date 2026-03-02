@@ -138,7 +138,7 @@ function getNodeRangeIndices(node: unknown): NodeRange {
     const start = getNodeStartIndex(node);
     const endIndex = getLocationNumber(node, "end", "index");
 
-    let end = null;
+    let end: number | null = null;
 
     if (typeof endIndex === "number") {
         end = endIndex + 1;
@@ -191,13 +191,14 @@ function assignClonedLocation<TTarget extends AstNode>(
     }
 
     const templateNode = template as Record<string, unknown>;
+    const mutableTarget = target as AstNode;
 
     if (Object.hasOwn(templateNode, "start")) {
-        (target as AstNode).start = cloneLocation(templateNode.start) as AstNode["start"];
+        mutableTarget.start = cloneLocation(templateNode.start) as AstNode["start"];
     }
 
     if (Object.hasOwn(templateNode, "end")) {
-        (target as AstNode).end = cloneLocation(templateNode.end) as AstNode["end"];
+        mutableTarget.end = cloneLocation(templateNode.end) as AstNode["end"];
     }
 
     return target;
