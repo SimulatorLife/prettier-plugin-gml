@@ -19,6 +19,7 @@ import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-
 import { createRequireArgumentSeparatorsRule } from "./rules/require-argument-separators-rule.js";
 import { createRequireControlFlowBracesRule } from "./rules/require-control-flow-braces-rule.js";
 import { createRequireTrailingOptionalDefaultsRule } from "./rules/require-trailing-optional-defaults-rule.js";
+import { createSimplifyRealStringCallsRule } from "./rules/simplify-real-string-calls-rule.js";
 
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
@@ -75,6 +76,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-trailing-optional-defaults": {
             return createRequireTrailingOptionalDefaultsRule(definition);
+        }
+        case "simplify-real-string-calls": {
+            return createSimplifyRealStringCallsRule(definition);
         }
         default: {
             throw new Error(`Missing gml rule implementation for shortName '${definition.shortName}'.`);

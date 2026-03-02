@@ -275,4 +275,24 @@ void describe("formatter boundaries ownership", () => {
             ].join("\n")
         );
     });
+
+    void it("does not fold real(string) calls into numeric literals", async () => {
+        // `real("42")` → `42` is a semantic function-call evaluation, not a layout
+        // operation. The formatter must preserve the original call expression verbatim.
+        // Folding belongs in `@gml-modules/lint` (gml/simplify-real-string-calls).
+        // (target-state.md §3.2 — "Formatter must not perform semantic/content rewrites")
+        const source = 'var n = real("42");\n';
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /real\("42"\)/,
+            "Formatter must not fold real(string) calls — that is a lint-workspace responsibility"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /var n = 42;/,
+            "Formatter must not evaluate real() and replace it with a numeric literal"
+        );
+    });
 });
