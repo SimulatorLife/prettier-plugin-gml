@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
+import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
@@ -94,7 +95,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
 
                     // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = Core.printExpression(cloned, context.sourceCode.text);
+                    const newText = printExpression(cloned, context.sourceCode.text);
 
                     // Check if changed.
                     // Note: `printExpression` might output different whitespace than source even if AST is same.

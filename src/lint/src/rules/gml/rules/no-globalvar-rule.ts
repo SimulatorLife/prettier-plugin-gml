@@ -2,64 +2,14 @@ import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import {
-    type AstNodeRecord,
-    createMeta,
-    findFirstChangedCharacterOffset,
-    getNodeEndIndex,
-    getNodeStartIndex,
-    isAstNodeRecord
-} from "../rule-base-helpers.js";
-import { isIdentifier, readObjectOption } from "../rule-helpers.js";
-
-type TextEdit = Readonly<{
-    start: number;
-    end: number;
-    replacement: string;
-}>;
+import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
+import { isIdentifier } from "../rule-helpers.js";
 
 type GlobalVarStatementRange = Readonly<{
     start: number;
     end: number;
     names: ReadonlyArray<string>;
 }>;
-
-function shouldRewriteGlobalvarIdentifierNode(
-    identifierNode: AstNodeRecord,
-    parentNode: AstNodeRecord | null
-): boolean {
-    if (!parentNode) {
-        return false;
-    }
-
-    if (identifierNode.name === "global") {
-        return false;
-    }
-
-    if (parentNode.type === "GlobalVarStatement") {
-        return false;
-    }
-
-    if (parentNode.type === "MemberDotExpression" && parentNode.property === identifierNode) {
-        return false;
-    }
-
-    if ((parentNode.type === "Property" || parentNode.type === "EnumMember") && parentNode.name === identifierNode) {
-        return false;
-    }
-
-    if (
-        (parentNode.type === "VariableDeclarator" ||
-            parentNode.type === "FunctionDeclaration" ||
-            parentNode.type === "ConstructorDeclaration" ||
-            parentNode.type === "ConstructorParentClause") &&
-        parentNode.id === identifierNode
-    ) {
-        return false;
-    }
-
-    return true;
-}
 
 function collectGlobalVarStatements(programNode: unknown): ReadonlyArray<GlobalVarStatementRange> {
     const statements: Array<GlobalVarStatementRange> = [];
@@ -104,170 +54,20 @@ function collectGlobalVarStatements(programNode: unknown): ReadonlyArray<GlobalV
     return statements;
 }
 
-function collectGlobalIdentifierReplacementEdits(
-    programNode: unknown,
-    globalVarStatements: ReadonlyArray<GlobalVarStatementRange>
-): ReadonlyArray<TextEdit> {
-    const declaredNames = new Set<string>();
-    for (const statement of globalVarStatements) {
-        for (const name of statement.names) {
-            declaredNames.add(name);
-        }
-    }
-
-    if (declaredNames.size === 0) {
-        return [];
-    }
-
-    const edits: Array<TextEdit> = [];
-    const isWithinGlobalVarDeclaration = (start: number, end: number): boolean =>
-        globalVarStatements.some((statement) => start >= statement.start && end <= statement.end);
-
-    const visit = (node: unknown, parentNode: Record<string, unknown> | null): void => {
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                visit(element, parentNode);
-            }
-            return;
-        }
-
-        if (!isAstNodeRecord(node)) {
-            return;
-        }
-
-        if (node.type === "Identifier" && typeof node.name === "string" && declaredNames.has(node.name)) {
-            const start = getNodeStartIndex(node);
-            const endExclusive = getNodeEndIndex(node);
-            if (
-                typeof start === "number" &&
-                typeof endExclusive === "number" &&
-                shouldRewriteGlobalvarIdentifierNode(node, parentNode as AstNodeRecord) &&
-                !isWithinGlobalVarDeclaration(start, endExclusive)
-            ) {
-                edits.push(
-                    Object.freeze({
-                        start,
-                        end: endExclusive,
-                        replacement: `global.${node.name}`
-                    })
-                );
-            }
-        }
-
-        CoreWorkspace.Core.forEachNodeChild(node, (childNode) => visit(childNode, node as Record<string, unknown>));
-    };
-
-    visit(programNode, null);
-    return edits;
-}
-
-function collectGlobalVarDeclarationRemovalEdits(
-    sourceText: string,
-    globalVarStatements: ReadonlyArray<GlobalVarStatementRange>
-): ReadonlyArray<TextEdit> {
-    return globalVarStatements.map((statement) => {
-        const start = statement.start;
-        let end = statement.end;
-
-        if (sourceText[end] === "\r" && sourceText[end + 1] === "\n") {
-            end += 2;
-        } else if (sourceText[end] === "\n") {
-            end += 1;
-        }
-
-        // When the file starts with one or more globalvar declarations, consume
-        // any immediately following blank lines so the rewrite does not leave a
-        // synthetic leading newline.
-        if (start === 0) {
-            while (sourceText[end] === "\r" && sourceText[end + 1] === "\n") {
-                end += 2;
-            }
-
-            while (sourceText[end] === "\n") {
-                end += 1;
-            }
-        }
-
-        return Object.freeze({
-            start,
-            end,
-            replacement: ""
-        });
-    });
-}
-
-function applyTextEdits(sourceText: string, edits: ReadonlyArray<TextEdit>): string {
-    if (edits.length === 0) {
-        return sourceText;
-    }
-
-    const sortedEdits = edits
-        .filter((edit) => edit.start >= 0 && edit.end >= edit.start && edit.end <= sourceText.length)
-        .toSorted((left, right) => {
-            if (left.start !== right.start) {
-                return left.start - right.start;
-            }
-
-            return left.end - right.end;
-        });
-
-    const nonOverlappingEdits: Array<TextEdit> = [];
-    let previousEnd = -1;
-    for (const edit of sortedEdits) {
-        if (edit.start < previousEnd) {
-            continue;
-        }
-
-        nonOverlappingEdits.push(edit);
-        previousEnd = edit.end;
-    }
-
-    let rewrittenText = sourceText;
-    for (const edit of nonOverlappingEdits.toReversed()) {
-        rewrittenText = rewrittenText.slice(0, edit.start) + edit.replacement + rewrittenText.slice(edit.end);
-    }
-
-    return rewrittenText;
-}
-
 export function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
-            const options = readObjectOption(context);
-            const enableAutofix = options.enableAutofix === undefined ? true : options.enableAutofix === true;
-
             const listener: Rule.RuleListener = {
                 Program(programNode) {
-                    const text = context.sourceCode.text;
                     const globalVarStatements = collectGlobalVarStatements(programNode);
-                    if (globalVarStatements.length === 0) {
-                        return;
-                    }
 
-                    const edits = [
-                        ...collectGlobalVarDeclarationRemovalEdits(text, globalVarStatements),
-                        ...collectGlobalIdentifierReplacementEdits(programNode, globalVarStatements)
-                    ];
-                    const rewrittenText = applyTextEdits(text, edits);
-                    if (rewrittenText === text) {
-                        return;
-                    }
-
-                    const firstChangedOffset = findFirstChangedCharacterOffset(text, rewrittenText);
-                    if (!enableAutofix) {
+                    for (const statement of globalVarStatements) {
                         context.report({
-                            loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+                            loc: context.sourceCode.getLocFromIndex(statement.start),
                             messageId: definition.messageId
                         });
-                        return;
                     }
-
-                    context.report({
-                        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
-                        messageId: definition.messageId,
-                        fix: (fixer) => fixer.replaceTextRange([0, text.length], rewrittenText)
-                    });
                 }
             };
 

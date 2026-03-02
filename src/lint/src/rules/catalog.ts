@@ -13,27 +13,6 @@ export type GmlRuleDefinition = Readonly<{
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
-        mapKey: "GmlPreferLoopLengthHoist",
-        shortName: "prefer-loop-length-hoist",
-        fullId: "gml/prefer-loop-length-hoist",
-        messageId: "preferLoopLengthHoist",
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    functionSuffixes: {
-                        type: "object",
-                        additionalProperties: {
-                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
-                        }
-                    },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ])
-    },
-    {
         mapKey: "GmlPreferHoistableLoopAccessors",
         shortName: "prefer-hoistable-loop-accessors",
         fullId: "gml/prefer-hoistable-loop-accessors",
@@ -44,6 +23,12 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
                 additionalProperties: false,
                 properties: {
                     minOccurrences: { type: "integer", minimum: 2, default: 2 },
+                    functionSuffixes: {
+                        type: "object",
+                        additionalProperties: {
+                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
+                        }
+                    },
                     reportUnsafe: { type: "boolean", default: true }
                 }
             }
@@ -91,15 +76,14 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    enableAutofix: { type: "boolean", default: true }
-                }
-            }
-        ])
+        schema: Object.freeze([])
+    },
+    {
+        mapKey: "GmlNoUnnecessaryStringInterpolation",
+        shortName: "no-unnecessary-string-interpolation",
+        fullId: "gml/no-unnecessary-string-interpolation",
+        messageId: "noUnnecessaryStringInterpolation",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlNormalizeDocComments",

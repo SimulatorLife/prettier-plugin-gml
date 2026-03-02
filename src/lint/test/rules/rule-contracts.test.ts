@@ -15,25 +15,6 @@ type RuleMeta = Readonly<{
 
 const expectedRules = Object.freeze([
     {
-        shortName: "prefer-loop-length-hoist",
-        messageId: "preferLoopLengthHoist",
-        schema: [
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    functionSuffixes: {
-                        type: "object",
-                        additionalProperties: {
-                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
-                        }
-                    },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ]
-    },
-    {
         shortName: "prefer-hoistable-loop-accessors",
         messageId: "preferHoistableLoopAccessor",
         schema: [
@@ -42,6 +23,12 @@ const expectedRules = Object.freeze([
                 additionalProperties: false,
                 properties: {
                     minOccurrences: { type: "integer", minimum: 2, default: 2 },
+                    functionSuffixes: {
+                        type: "object",
+                        additionalProperties: {
+                            anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
+                        }
+                    },
                     reportUnsafe: { type: "boolean", default: true }
                 }
             }
@@ -77,13 +64,12 @@ const expectedRules = Object.freeze([
     {
         shortName: "no-globalvar",
         messageId: "noGlobalvar",
-        schema: [
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: { enableAutofix: { type: "boolean", default: true } }
-            }
-        ]
+        schema: []
+    },
+    {
+        shortName: "no-unnecessary-string-interpolation",
+        messageId: "noUnnecessaryStringInterpolation",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
         shortName: "normalize-doc-comments",
@@ -182,7 +168,9 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 
         assert.equal(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
-        assert.equal(rule.meta?.fixable, "code");
+        if (ruleDefinition.shortName !== "no-globalvar") {
+            assert.equal(rule.meta?.fixable, "code");
+        }
     }
 });
 

@@ -2438,13 +2438,6 @@ function handleTerminalTrailingSpacing({
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
-    const constructorBodyStatements =
-        containerNode?.type === "ConstructorDeclaration" && Array.isArray(containerNode?.body?.body)
-            ? containerNode.body.body
-            : [];
-    const constructorContainsOnlyStaticFunctions =
-        constructorBodyStatements.length > 0 &&
-        constructorBodyStatements.every((statement) => isStaticFunctionVariableDeclaration(statement));
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
@@ -2470,8 +2463,10 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine =
-                nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : nextCharacter !== null;
+            // Never keep a trailing blank line when the next non-whitespace character is the
+            // constructor's closing brace; constructors should close without a blank gap
+            // regardless of whether all members are static function declarations.
+            shouldPreserveTrailingBlankLine = nextCharacter !== null && nextCharacter !== "}";
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {
