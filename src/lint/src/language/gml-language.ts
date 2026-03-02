@@ -2,7 +2,6 @@ import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
-import { normalizeLintFilePath } from "./path-normalization.js";
 import {
     createLimitedRecoveryProjection,
     type InsertedArgumentSeparatorRecovery,
@@ -448,7 +447,7 @@ export const gmlLanguage = Object.freeze({
     visitorKeys: GML_VISITOR_KEYS,
     parse(file: GMLLanguageContext, parseContext: { languageOptions?: unknown }) {
         const sourceText = readSourceText(file);
-        const filePath = normalizeLintFilePath(readFilename(file));
+        const filePath = Core.normalizeLintFilePath(readFilename(file));
         const recoveryMode = readRecoveryMode(parseContext);
 
         try {
