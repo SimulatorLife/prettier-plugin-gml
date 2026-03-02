@@ -111,7 +111,7 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
       prettier:
-        specifier: 3.6.2
+        specifier: ^3.6.2
         version: 3.6.2
       timeout-cli:
         specifier: ^0.3.2
@@ -178,9 +178,6 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/lint':
-        specifier: workspace:*
-        version: link:../lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser
