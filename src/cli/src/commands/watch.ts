@@ -23,6 +23,7 @@ import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
@@ -378,7 +379,7 @@ export function hashSourceContent(source: string): string {
  * @returns {Command} Commander command instance
  */
 export function createWatchCommand(): Command {
-    const command = new Command("watch");
+    const command = applyStandardCommandOptions(new Command("watch"));
 
     command
         .description("Watch GML source files and coordinate hot-reload pipeline actions")

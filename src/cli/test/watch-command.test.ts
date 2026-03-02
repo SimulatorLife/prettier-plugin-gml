@@ -78,6 +78,23 @@ void describe("watch command", () => {
             hashSourceContent("function foo() { return 2; }")
         );
     });
+
+    void it("uses consistent help option text matching all other commands", () => {
+        const command = createWatchCommand();
+        const helpText = command.helpInformation();
+
+        assert.match(helpText, /Show this help message\./, "Help option should use the standard description");
+    });
+
+    void it("rejects excess positional arguments", () => {
+        const command = createWatchCommand();
+
+        assert.throws(
+            () => command.parse(["node", "watch", "path/one", "unexpected-extra-arg"]),
+            /error/i,
+            "Excess positional arguments should be rejected"
+        );
+    });
 });
 
 void describe("watch command integration", () => {

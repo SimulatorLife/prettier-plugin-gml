@@ -74,4 +74,21 @@ void describe("watch-status command", () => {
         assert.ok(endpointOption, "Should have --endpoint option");
         assert.deepStrictEqual(endpointOption?.argChoices, ["status", "health", "ping", "ready"]);
     });
+
+    void it("uses consistent help option text matching all other commands", () => {
+        const command = createWatchStatusCommand();
+        const helpText = command.helpInformation();
+
+        assert.match(helpText, /Show this help message\./, "Help option should use the standard description");
+    });
+
+    void it("rejects excess positional arguments", () => {
+        const command = createWatchStatusCommand();
+
+        assert.throws(
+            () => command.parse(["node", "watch-status", "unexpected-extra-arg"]),
+            /error/i,
+            "Excess positional arguments should be rejected"
+        );
+    });
 });
