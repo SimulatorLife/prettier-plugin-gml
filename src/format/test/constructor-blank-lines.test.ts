@@ -23,6 +23,10 @@ void test("removes blank line before constructor closing brace", async () => {
         "        return 1;",
         "    };",
         "",
+        "    static helper_alt = function () {",
+        "        return 2;",
+        "    };",
+        "",
         "}",
         ""
     ].join("\n");
@@ -37,7 +41,7 @@ void test("removes blank line before constructor closing brace", async () => {
     );
 });
 
-void test("removes blank line after documented static constructor members", async () => {
+void test("removes trailing blank line after documented static constructor members", async () => {
     const source = [
         "function Demo() constructor {",
         "    /// @returns {real}",
@@ -59,7 +63,7 @@ void test("removes blank line after documented static constructor members", asyn
     );
 });
 
-void test("removes blank lines after nested function declarations inside constructors", async () => {
+void test("removes blank lines around nested function declarations inside constructors", async () => {
     const source = [
         "function Demo() constructor {",
         "",
@@ -81,12 +85,12 @@ void test("removes blank lines after nested function declarations inside constru
     );
 });
 
-void test("inserts trailing blank line after nested constructor functions when missing", async () => {
+void test("omits trailing blank line after nested constructor functions", async () => {
     const source = [
         "function Demo() constructor {",
-        "    function nested() {",
+        "    nested = function () {",
         "        return 1;",
-        "    }",
+        "    };",
         "}",
         ""
     ].join("\n");
@@ -98,6 +102,11 @@ void test("inserts trailing blank line after nested constructor functions when m
         lines.at(-2),
         "",
         "Expected constructor blocks to omit a separating blank line when nested functions close immediately before the brace."
+    );
+    assert.equal(
+        source,
+        formatted,
+        "Expected the formatter to not modify the input when no blank lines are present or needed."
     );
 });
 
