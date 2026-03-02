@@ -22,7 +22,7 @@ function resolveReportLocation(context: Rule.RuleContext, index: number): { line
     }
 
     const sourceText = context.sourceCode.text;
-    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const clampedIndex = Core.clamp(index, 0, sourceText.length);
     let line = 1;
     let lineStart = 0;
     for (let cursor = 0; cursor < clampedIndex; cursor += 1) {
