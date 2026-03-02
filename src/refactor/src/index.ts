@@ -1,8 +1,12 @@
 import * as HotReloadAPI from "./hot-reload.js";
+import * as ImpactAnalysisAPI from "./impact-analysis.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as ProjectAnalysisProviderAPI from "./project-analysis-provider.js";
 import * as RefactorAPI from "./refactor-engine.js";
+import * as RenameExecutorAPI from "./rename-executor.js";
+import * as RenamePlannerAPI from "./rename-planner.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
+import * as RenameRequestValidatorAPI from "./rename-request-validator.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import {
@@ -32,6 +36,10 @@ export const Refactor = Object.freeze({
     ...RenamePreviewAPI,
     ...ValidationAPI,
     ...HotReloadAPI,
+    ...ImpactAnalysisAPI,
+    ...RenameExecutorAPI,
+    ...RenamePlannerAPI,
+    ...RenameRequestValidatorAPI,
     ConflictType,
     isConflictType,
     parseConflictType,
@@ -53,6 +61,7 @@ export {
     generateTranspilerPatches,
     prepareHotReloadUpdates
 } from "./hot-reload.js";
+export { analyzeRenameImpact, verifyPostEditIntegrity } from "./impact-analysis.js";
 export type { OccurrenceClassification } from "./occurrence-analysis.js";
 export {
     classifyOccurrences,
@@ -63,6 +72,13 @@ export {
 } from "./occurrence-analysis.js";
 export { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 export { RefactorEngine } from "./refactor-engine.js";
+export {
+    applyEditsToContent,
+    applyWorkspaceEdits,
+    validateTranspilerCompatibility,
+    validateWorkspaceEdit
+} from "./rename-executor.js";
+export { buildRenameWorkspace } from "./rename-planner.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
     formatBatchRenamePlanReport,
@@ -70,6 +86,7 @@ export {
     formatRenamePlanReport,
     generateRenamePreview
 } from "./rename-preview.js";
+export { computeRenameValidation, validateBatchRenameRequests } from "./rename-request-validator.js";
 export type {
     CachedValidationResult,
     RenameValidationCacheConfig,
