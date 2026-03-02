@@ -15,7 +15,6 @@ export type FlatConfig = Readonly<{
 export const GML_LINT_FILES_GLOB = Object.freeze(["**/*.gml"]);
 
 const RECOMMENDED_RULES = Object.freeze({
-    "gml/prefer-loop-length-hoist": "warn",
     "gml/prefer-hoistable-loop-accessors": "warn",
     "gml/prefer-repeat-loops": "warn",
     "gml/prefer-struct-literal-assignments": "warn",
@@ -43,7 +42,7 @@ const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = O
 
 function createPerformanceRuleSet(): Readonly<Record<string, "off" | "warn" | "error">> {
     const rules: Record<string, "off" | "warn" | "error"> = {
-        "gml/prefer-loop-length-hoist": "off",
+        "gml/prefer-hoistable-loop-accessors": "off",
         "gml/prefer-struct-literal-assignments": "off",
         "gml/no-globalvar": "warn",
         "gml/prefer-string-interpolation": "off"
