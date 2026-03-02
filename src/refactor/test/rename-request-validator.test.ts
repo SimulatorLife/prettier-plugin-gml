@@ -143,11 +143,15 @@ void describe("computeRenameValidation", () => {
 });
 
 void describe("validateBatchRenameRequests", () => {
-    const noopValidateSingle = async (): Promise<ValidationSummary> => ({
-        valid: true,
-        errors: [],
-        warnings: []
-    });
+    // Shared fixture: a no-op validator that always returns valid.
+    async function noopValidateSingle(): Promise<ValidationSummary> {
+        return { valid: true, errors: [], warnings: [] };
+    }
+
+    // Shared fixture: a validator that always returns an error.
+    async function validateFailing(): Promise<ValidationSummary> {
+        return { valid: false, errors: ["Name already taken"], warnings: [] };
+    }
 
     void it("returns error when renames is not an array", async () => {
         const result = await validateBatchRenameRequests(null as never, undefined, noopValidateSingle);
@@ -162,12 +166,6 @@ void describe("validateBatchRenameRequests", () => {
     });
 
     void it("propagates per-rename validation errors", async () => {
-        const validateFailing = async (): Promise<ValidationSummary> => ({
-            valid: false,
-            errors: ["Name already taken"],
-            warnings: []
-        });
-
         const result = await validateBatchRenameRequests(
             [{ symbolId: "gml/script/scr_a", newName: "scr_x" }],
             undefined,
