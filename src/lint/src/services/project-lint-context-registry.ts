@@ -1,5 +1,6 @@
 import { Core } from "@gml-modules/core";
 
+import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
 import type { ProjectAnalysisProvider } from "./project-analysis-provider.js";
@@ -52,10 +53,10 @@ function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider[
 }
 
 export function createProjectLintContextRegistry(options: RegistryOptions): ProjectLintContextRegistry {
-    const normalizedCwd = Core.normalizeLintFilePath(options.cwd);
+    const normalizedCwd = normalizeLintFilePath(options.cwd);
     const forcedRoot = resolveForcedProjectRoot(options.forcedProjectPath);
     const normalizedAllowedDirectories = options.indexAllowDirectories.map((directory) =>
-        Core.normalizeLintFilePath(directory)
+        normalizeLintFilePath(directory)
     );
     const excludedDirectories = new Set(DEFAULT_PROJECT_INDEX_EXCLUDES.map((directory) => directory.toLowerCase()));
     if (!options.analysisProvider) {
@@ -68,7 +69,7 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
 
     return Object.freeze({
         getContext(filePath: string): GmlProjectContext | null {
-            const normalizedFilePath = Core.normalizeLintFilePath(filePath);
+            const normalizedFilePath = normalizeLintFilePath(filePath);
 
             if (forcedRoot && !Core.isPathWithinBoundary(normalizedFilePath, forcedRoot)) {
                 return null;
@@ -79,7 +80,7 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
             }
 
             const resolvedRoot = forcedRoot ?? resolveNearestProjectRoot(normalizedFilePath, normalizedCwd);
-            const cacheKey = Core.normalizeLintFilePath(resolvedRoot);
+            const cacheKey = normalizeLintFilePath(resolvedRoot);
 
             const cachedContext = contextCache.get(cacheKey);
             if (cachedContext) {
@@ -109,7 +110,7 @@ export function createProjectLintContextRegistry(options: RegistryOptions): Proj
                 return false;
             }
 
-            return !Core.isPathWithinBoundary(Core.normalizeLintFilePath(filePath), forcedRoot);
+            return !Core.isPathWithinBoundary(normalizeLintFilePath(filePath), forcedRoot);
         }
     });
 }
