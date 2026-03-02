@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { areNumbersApproximatelyEqual, isFiniteNumber, toNormalizedInteger } from "../src/utils/number.js";
+import { areNumbersApproximatelyEqual, clamp, isFiniteNumber, toNormalizedInteger } from "../src/utils/number.js";
 
 void describe("number-utils", () => {
     void describe("isFiniteNumber", () => {
@@ -35,6 +35,30 @@ void describe("number-utils", () => {
             assert.equal(toNormalizedInteger(-Infinity), null);
             assert.equal(toNormalizedInteger("10"), null);
             assert.equal(toNormalizedInteger(), null);
+        });
+    });
+
+    void describe("clamp", () => {
+        void it("returns value unchanged when within range", () => {
+            assert.equal(clamp(5, 0, 10), 5);
+            assert.equal(clamp(0, 0, 10), 0);
+            assert.equal(clamp(10, 0, 10), 10);
+        });
+
+        void it("returns min when value is below range", () => {
+            assert.equal(clamp(-5, 0, 10), 0);
+            assert.equal(clamp(-1, 0, 100), 0);
+        });
+
+        void it("returns max when value is above range", () => {
+            assert.equal(clamp(15, 0, 10), 10);
+            assert.equal(clamp(200, 0, 100), 100);
+        });
+
+        void it("works with negative ranges", () => {
+            assert.equal(clamp(-3, -5, -1), -3);
+            assert.equal(clamp(0, -5, -1), -1);
+            assert.equal(clamp(-10, -5, -1), -5);
         });
     });
 
