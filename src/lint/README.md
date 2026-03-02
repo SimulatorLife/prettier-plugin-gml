@@ -92,8 +92,7 @@ LintWorkspace.Lint;
 
 Built-in `gml/*` rule short names:
 
-- `prefer-loop-length-hoist`
-- `prefer-hoistable-loop-accessors`
+- `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
 - `optimize-logical-flow`

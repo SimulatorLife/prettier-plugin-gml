@@ -4,6 +4,9 @@ import { matchDegreesToRadians, replaceNodeWith } from "./traversal-normalizatio
 
 const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
 
+const MIN_SAFE_DIVISOR = 1e-10;
+const MAX_SAFE_RECIPROCAL = 1e10;
+
 /**
  * Compute a tolerance scaled to a reference value's magnitude. Used to determine
  * when a floating-point number is "close enough" to zero to avoid unsafe division
@@ -71,10 +74,16 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
         // Use tolerance-aware comparison to detect values extremely close to zero
         // that might arise from floating-point rounding errors
         const tolerance = computeNumericTolerance(literalValue);
-        if (Math.abs(literalValue) <= tolerance) {
+        if (Math.abs(literalValue) <= Math.max(tolerance, MIN_SAFE_DIVISOR)) {
             return null;
         }
-        return 1 / literalValue;
+
+        const reciprocal = 1 / literalValue;
+        if (!Number.isFinite(reciprocal) || Math.abs(reciprocal) > MAX_SAFE_RECIPROCAL) {
+            return null;
+        }
+
+        return reciprocal;
     }
 
     const reciprocalScalar = extractReciprocalScalar(node);
@@ -84,6 +93,11 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
         if (Math.abs(reciprocalScalar) <= tolerance) {
             return null;
         }
+
+        if (Math.abs(reciprocalScalar) > MAX_SAFE_RECIPROCAL) {
+            return null;
+        }
+
         return reciprocalScalar;
     }
 
