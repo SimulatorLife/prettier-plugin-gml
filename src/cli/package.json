@@ -23,7 +23,7 @@
     "@gml-modules/core": "workspace:*",
     "@gml-modules/lint": "workspace:*",
     "@gml-modules/parser": "workspace:*",
-    "@gml-modules/plugin": "workspace:*",
+    "@gml-modules/format": "workspace:*",
     "@gml-modules/refactor": "workspace:*",
     "@gml-modules/semantic": "workspace:*",
     "@gml-modules/transpiler": "workspace:*",

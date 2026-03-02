@@ -24,7 +24,6 @@ import type {
     ScopeModificationDetails,
     ScopeModificationMetadata,
     ScopeOccurrencesSummary,
-    ScopeRemovalResult,
     ScopeRole,
     ScopeScipOccurrences,
     ScopeSummary,
@@ -1346,6 +1345,10 @@ export class ScopeTracker {
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const normalizedPathResultsCache = new Map<
+            string,
+            Array<{ scopeId: string; scopeKind: string; reason: string }>
+        >();
         const transitiveDependentsCache = new Map<
             string,
             Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
@@ -1362,8 +1365,15 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(path);
+            const cachedInvalidationSet = normalizedPathResultsCache.get(trackedPath);
+            if (cachedInvalidationSet) {
+                results.set(path, cachedInvalidationSet);
+                continue;
+            }
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
+                normalizedPathResultsCache.set(trackedPath, []);
                 results.set(path, []);
                 continue;
             }
@@ -1429,6 +1439,7 @@ export class ScopeTracker {
                 }
             }
 
+            normalizedPathResultsCache.set(trackedPath, pathInvalidationSet);
             results.set(path, pathInvalidationSet);
         }
 
@@ -1574,7 +1585,7 @@ export class ScopeTracker {
             const scope = this.scopesById.get(scopeId);
             const path = scope?.metadata.path;
             if (path) {
-                paths.add(path);
+                paths.add(this.normalizeTrackedPath(path));
             }
         }
 
@@ -1696,7 +1707,7 @@ export class ScopeTracker {
             if (scope.lastModifiedTimestamp > sinceTimestamp) {
                 const path = scope.metadata.path;
                 if (path) {
-                    paths.add(path);
+                    paths.add(this.normalizeTrackedPath(path));
                 }
             }
         }
@@ -2352,82 +2363,52 @@ export class ScopeTracker {
     }
 
     /**
-     * Removes all scopes associated with a file path, along with their descendants.
-     * Cleans up all internal indexes (`symbolToScopesIndex`, `scopesById`,
-     * `scopeChildrenIndex`, `pathToScopesIndex`) and invalidates the identifier
-     * resolution cache for every symbol touched by the removed scopes.
+     * Removes all scopes registered for the given file path—including their
+     * descendant scopes—from every internal index.
      *
-     * This is the primary entry point for hot-reload scope invalidation: after
-     * detecting that a file has changed on disk, call this method to purge stale
-     * scope data before re-parsing and re-analysing that file. The returned
-     * `affectedSymbols` set tells the caller which symbol names were declared or
-     * referenced in the removed scopes—dependent scopes that reference those
-     * symbols may have stale resolution results and should be re-evaluated.
+     * Call this before re-analysing a changed file so that stale declaration
+     * and occurrence data does not accumulate. The typical hot-reload workflow
+     * is:
+     * 1. Determine which files changed (e.g. via `getChangedFilePaths`).
+     * 2. Call `getImpactedFilePaths` to expand the change set to all
+     *    transitively-impacted files.
+     * 3. Call `clearScopesForPath` for each impacted path.
+     * 4. Re-analyse the impacted files to register fresh scopes.
      *
-     * **Important**: Do not call this method while a parse traversal is in
-     * progress (i.e., while scopes are on the active scope stack). It is safe
-     * to call only between complete, standalone parse operations.
-     *
-     * @param path - File path whose associated scopes should be removed.
-     * @returns `removedScopeIds` – sorted list of scope IDs that were removed,
-     *          including all descendants of the path-associated root scopes;
-     *          `affectedSymbols` – every symbol name declared or referenced in
-     *          the removed scopes.
+     * @param path - File path whose scopes should be removed.
+     * @returns The total number of scopes removed (path-level + descendants).
      */
-    public removeScopesByPath(path: string | null | undefined): ScopeRemovalResult {
-        const empty: ScopeRemovalResult = { removedScopeIds: [], affectedSymbols: new Set<string>() };
-
-        if (!path || !this.enabled) {
-            return empty;
+    public clearScopesForPath(path: string | null | undefined): number {
+        if (!path || typeof path !== "string" || path.length === 0) {
+            return 0;
         }
 
         const trackedPath = this.normalizeTrackedPath(path);
-        const scopeIds = this.pathToScopesIndex.get(trackedPath);
-
-        if (!scopeIds || scopeIds.size === 0) {
-            return empty;
+        const rootScopeIds = this.pathToScopesIndex.get(trackedPath);
+        if (!rootScopeIds || rootScopeIds.size === 0) {
+            return 0;
         }
 
-        // Collect all scopes to remove: path-associated scopes + all descendants.
-        const toRemove = new Set<string>();
-        for (const scopeId of scopeIds) {
-            toRemove.add(scopeId);
-            const descendants = this.getDescendantScopeIds(scopeId);
-            for (const descId of descendants) {
-                toRemove.add(descId);
+        // Collect all scope IDs to remove: path-level scopes + all their descendants.
+        // Copy root IDs first so iteration is not affected by later deletions.
+        const scopeIdsToRemove = new Set<string>(rootScopeIds);
+        for (const scopeId of rootScopeIds) {
+            for (const descId of this.getDescendantScopeIds(scopeId)) {
+                scopeIdsToRemove.add(descId);
             }
         }
 
-        const affectedSymbols = new Set<string>();
-
-        for (const scopeId of toRemove) {
+        for (const scopeId of scopeIdsToRemove) {
             const scope = this.scopesById.get(scopeId);
             if (!scope) {
                 continue;
             }
 
-            // Track every symbol name involved in this scope (declarations + references).
-            for (const name of scope.occurrences.keys()) {
-                affectedSymbols.add(name);
-            }
-
-            // Detach from parent's children set only when the parent itself is
-            // not also being removed (to avoid double-editing the same set).
-            if (scope.parent && !toRemove.has(scope.parent.id)) {
-                const parentChildren = this.scopeChildrenIndex.get(scope.parent.id);
-                if (parentChildren) {
-                    parentChildren.delete(scopeId);
-                    if (parentChildren.size === 0) {
-                        this.scopeChildrenIndex.delete(scope.parent.id);
-                    }
-                }
-            }
-
-            // Remove this scope's own children index entry.
-            this.scopeChildrenIndex.delete(scopeId);
-
-            // Remove this scope from every symbol's entry in symbolToScopesIndex.
-            for (const name of scope.occurrences.keys()) {
+            // Fully invalidate identifier-resolution cache for every declared symbol,
+            // since any scope in the tracker could have cached a lookup that resolved
+            // to a declaration in this scope.
+            for (const name of scope.symbolMetadata.keys()) {
+                this.identifierCache.invalidate(name);
                 const scopeSummaryMap = this.symbolToScopesIndex.get(name);
                 if (scopeSummaryMap) {
                     scopeSummaryMap.delete(scopeId);
@@ -2437,30 +2418,124 @@ export class ScopeTracker {
                 }
             }
 
+            // Remove from symbolToScopesIndex for symbols that are only referenced
+            // (not declared) in this scope.
+            for (const name of scope.occurrences.keys()) {
+                if (!scope.symbolMetadata.has(name)) {
+                    const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+                    if (scopeSummaryMap) {
+                        scopeSummaryMap.delete(scopeId);
+                        if (scopeSummaryMap.size === 0) {
+                            this.symbolToScopesIndex.delete(name);
+                        }
+                    }
+                }
+            }
+
+            // Unlink from parent's children only when the parent itself is not
+            // also being removed (avoids redundant work for intermediate scopes).
+            if (scope.parent && !scopeIdsToRemove.has(scope.parent.id)) {
+                const siblings = this.scopeChildrenIndex.get(scope.parent.id);
+                if (siblings) {
+                    siblings.delete(scopeId);
+                    if (siblings.size === 0) {
+                        this.scopeChildrenIndex.delete(scope.parent.id);
+                    }
+                }
+            }
+
+            // Remove own children-index entry.
+            this.scopeChildrenIndex.delete(scopeId);
+
+            // Remove from path index (covers both the requested path and any
+            // descendant scopes that carry their own path metadata).
+            const scopePath = scope.metadata.path;
+            if (scopePath) {
+                const trackedScopePath = this.normalizeTrackedPath(scopePath);
+                const scopeSet = this.pathToScopesIndex.get(trackedScopePath);
+                if (scopeSet) {
+                    scopeSet.delete(scopeId);
+                    if (scopeSet.size === 0) {
+                        this.pathToScopesIndex.delete(trackedScopePath);
+                    }
+                }
+            }
+
             this.scopesById.delete(scopeId);
+
+            if (this.rootScope?.id === scopeId) {
+                this.rootScope = null;
+            }
         }
 
-        // Remove the path entry now that all its scopes are gone.
-        this.pathToScopesIndex.delete(trackedPath);
-
-        // Reset rootScope if it was one of the removed scopes.
-        if (this.rootScope && toRemove.has(this.rootScope.id)) {
-            this.rootScope = null;
-        }
-
-        // Invalidate identifier resolution caches for every affected symbol.
-        for (const name of affectedSymbols) {
-            this.identifierCache.invalidate(name);
-        }
-
-        // Clear the lookup cache; reset depth so the next enterScope/exitScope
-        // does not redundantly clear an already-empty cache.
+        // The lookup cache is keyed on identifier names resolved at a specific
+        // stack depth; clearing it conservatively ensures no stale hits remain.
         this.lookupCache.clear();
-        this.lookupCacheDepth = this.scopeStack.length;
 
-        const removedScopeIds = [...toRemove];
-        removedScopeIds.sort();
-        return { removedScopeIds, affectedSymbols };
+        return scopeIdsToRemove.size;
+    }
+
+    /**
+     * Returns the complete set of file paths that require re-analysis when the
+     * given file paths change.
+     *
+     * Expands each changed path to its transitive set of dependent scopes and
+     * collects the file path recorded in each dependent scope's metadata.
+     * This gives callers a single flat set of paths to clear and re-analyse
+     * rather than requiring them to navigate the scope graph manually.
+     *
+     * Scopes without a `path` in their metadata (e.g. anonymous blocks) are
+     * silently skipped—only named file scopes contribute to the result.
+     *
+     * @param changedPaths - Iterable of file paths that have changed.
+     * @returns Set of file paths that need re-analysis, including the changed
+     *          paths themselves when they have registered scopes.
+     */
+    public getImpactedFilePaths(changedPaths: Iterable<string>): Set<string> {
+        const result = new Set<string>();
+        const seenTrackedPaths = new Set<string>();
+        const transitiveDependentsCache = new Map<
+            string,
+            Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
+        >();
+
+        for (const filePath of changedPaths) {
+            if (!filePath || typeof filePath !== "string" || filePath.length === 0) {
+                continue;
+            }
+
+            const trackedPath = this.normalizeTrackedPath(filePath);
+            if (seenTrackedPaths.has(trackedPath)) {
+                continue;
+            }
+            seenTrackedPaths.add(trackedPath);
+
+            const scopeIds = this.pathToScopesIndex.get(trackedPath);
+            if (!scopeIds || scopeIds.size === 0) {
+                continue;
+            }
+
+            // Include the changed file itself.
+            result.add(filePath);
+
+            for (const scopeId of scopeIds) {
+                let transitiveDeps = transitiveDependentsCache.get(scopeId);
+                if (!transitiveDeps) {
+                    transitiveDeps = this.getTransitiveDependents(scopeId);
+                    transitiveDependentsCache.set(scopeId, transitiveDeps);
+                }
+
+                for (const dep of transitiveDeps) {
+                    const depScope = this.scopesById.get(dep.dependentScopeId);
+                    const depPath = depScope?.metadata.path;
+                    if (depPath) {
+                        result.add(depPath);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 }
 

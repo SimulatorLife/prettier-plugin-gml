@@ -1,7 +1,22 @@
+import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
+
+const { unwrapParenthesizedExpression } = CoreWorkspace.Core;
+
+function isUndefinedIdentifier(expression: unknown): boolean {
+    if (!isAstNodeRecord(expression)) {
+        return false;
+    }
+
+    if (expression.type === "Identifier") {
+        return expression.name === "undefined";
+    }
+
+    return expression.type === "Literal" && expression.value === "undefined";
+}
 
 export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
@@ -13,13 +28,8 @@ export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition):
                         return;
                     }
 
-                    const isUndefined = (expression: unknown): boolean =>
-                        isAstNodeRecord(expression) &&
-                        expression.type === "Identifier" &&
-                        expression.name === "undefined";
-
-                    if (isUndefined(node.left) || isUndefined(node.right)) {
-                        const otherSide = isUndefined(node.left) ? node.right : node.left;
+                    if (isUndefinedIdentifier(node.left) || isUndefinedIdentifier(node.right)) {
+                        const otherSide = isUndefinedIdentifier(node.left) ? node.right : node.left;
                         const start = getNodeStartIndex(node);
                         const end = getNodeEndIndex(node);
                         const otherStart = getNodeStartIndex(otherSide);
@@ -44,6 +54,47 @@ export function createPreferIsUndefinedCheckRule(definition: GmlRuleDefinition):
                             });
                         }
                     }
+                },
+                UnaryExpression(node) {
+                    if (node.operator !== "!") {
+                        return;
+                    }
+
+                    const inner = unwrapParenthesizedExpression(node.argument);
+                    if (!isAstNodeRecord(inner) || inner.type !== "BinaryExpression") {
+                        return;
+                    }
+
+                    if (inner.operator !== "==" && inner.operator !== "!=") {
+                        return;
+                    }
+
+                    if (!isUndefinedIdentifier(inner.left) && !isUndefinedIdentifier(inner.right)) {
+                        return;
+                    }
+
+                    const comparedExpression = isUndefinedIdentifier(inner.left) ? inner.right : inner.left;
+                    const comparedStart = getNodeStartIndex(comparedExpression);
+                    const comparedEnd = getNodeEndIndex(comparedExpression);
+                    const start = getNodeStartIndex(node);
+                    const end = getNodeEndIndex(node);
+                    if (
+                        typeof comparedStart !== "number" ||
+                        typeof comparedEnd !== "number" ||
+                        typeof start !== "number" ||
+                        typeof end !== "number"
+                    ) {
+                        return;
+                    }
+
+                    const comparedText = context.sourceCode.text.slice(comparedStart, comparedEnd);
+                    const replacement =
+                        inner.operator === "==" ? `!is_undefined(${comparedText})` : `is_undefined(${comparedText})`;
+                    context.report({
+                        node,
+                        messageId: definition.messageId,
+                        fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
+                    });
                 }
             });
         }

@@ -18,7 +18,7 @@ export function identity<T>(value: T): T {
 // shared fallback callback that does nothing. Using a module-level singleton
 // allows downstream consumers to detect "was this callback customized?" via
 // `callback === noop` instead of threading sentinel flags or magic strings
-// around. Manual CLI flows (documented in docs/live-reloading-concept.md#manual-mode-cleanup-handoffs)
+// around. Manual CLI flows (documented in docs/hot-reload.md)
 // stash this exact reference as the fallback `unsubscribe` handler, and
 // semantic integrations such as `setReservedIdentifierMetadataLoader` return
 // it from their setup methods so try/finally cleanup blocks stay balanced.

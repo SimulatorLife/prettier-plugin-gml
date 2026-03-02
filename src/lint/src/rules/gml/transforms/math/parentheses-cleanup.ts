@@ -51,7 +51,13 @@ export function cleanupMultiplicativeIdentityParentheses(
         return;
     }
 
-    for (const value of Object.values(node)) {
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        const value = node[key];
+
         if (!isObjectLike(value)) {
             continue;
         }

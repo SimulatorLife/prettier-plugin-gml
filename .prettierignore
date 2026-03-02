@@ -2,7 +2,7 @@
 node_modules/
 vendor/
 src/parser/node_modules/
-src/plugin/node_modules/
+src/format/node_modules/
 src/cli/node_modules/
 src/parser/generated/
 dist/

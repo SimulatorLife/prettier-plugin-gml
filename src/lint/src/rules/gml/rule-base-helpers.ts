@@ -1,7 +1,6 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
 import type { GmlRuleDefinition } from "../catalog.js";
 
 const {
@@ -21,11 +20,7 @@ export function getLineStartOffset(sourceText: string, offset: number): number {
 export function getLineIndentationAtOffset(sourceText: string, offset: number): string {
     const lineStart = getLineStartOffset(sourceText, offset);
     let cursor = lineStart;
-    while (
-        cursor < sourceText.length &&
-        cursor < sourceText.length &&
-        (sourceText[cursor] === " " || sourceText[cursor] === "\t")
-    ) {
+    while (cursor < sourceText.length && (sourceText[cursor] === " " || sourceText[cursor] === "\t")) {
         cursor += 1;
     }
 
@@ -70,39 +65,16 @@ export interface SourceTextEdit {
 }
 
 export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
-    const docs: {
-        description: string;
-        recommended: false;
-        requiresProjectContext: boolean;
-        gml?: {
-            requiredCapabilities: ReadonlyArray<ProjectCapability>;
-            unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
-        };
-    } = {
+    const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
-        requiresProjectContext: definition.requiresProjectContext
+        requiresProjectContext: false
     };
-
-    if (definition.requiresProjectContext) {
-        docs.gml = {
-            requiredCapabilities: definition.requiredCapabilities,
-            unsafeReasonCodes: definition.unsafeReasonCodes
-        };
-    }
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`
+        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
-
-    if (definition.unsafeReasonCodes.length > 0) {
-        messages.unsafeFix = "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.";
-    }
-
-    if (definition.requiresProjectContext) {
-        messages.missingProjectContext =
-            "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage.";
-    }
 
     return Object.freeze({
         type: "suggestion",
@@ -176,7 +148,7 @@ export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodePa
     }
 }
 
-export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+function walkAstNodesUntil(root: unknown, visit: (node: object) => boolean): void {
     if (!root || typeof root !== "object") {
         return;
     }
@@ -202,7 +174,9 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
         }
 
         visited.add(current);
-        visit(current);
+        if (visit(current)) {
+            return;
+        }
 
         for (const key of Object.keys(current)) {
             if (key === "parent") {
@@ -217,6 +191,48 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
             stack.push(value);
         }
     }
+}
+
+export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+    walkAstNodesUntil(root, (node) => {
+        visit(node);
+        return false;
+    });
+}
+
+/**
+ * Performs a depth-first search over an AST rooted at `root`, returning the
+ * first non-array node for which `predicate` returns `true`, or `null` if no
+ * match is found.
+ *
+ * This helper consolidates the boilerplate DFS traversal that was previously
+ * duplicated across several near-identical `find*` functions (e.g.
+ * `findAssignmentExpressionForRight`, `findVariableDeclaratorForInit`,
+ * `findVariableDeclarationByName`) in the math transform helpers. Each caller
+ * only needs to supply the match condition; the traversal mechanics are handled
+ * here once.
+ *
+ * Traversal notes:
+ * - `parent` keys are skipped to avoid re-visiting ancestors.
+ * - Cycles are guarded with a `WeakSet`.
+ * - Arrays are expanded in-place; elements are visited in source order.
+ */
+export function findFirstAstNodeBy(root: unknown, predicate: (node: any) => boolean): AstNodeRecord | null {
+    let matchedNode: AstNodeRecord | null = null;
+    walkAstNodesUntil(root, (node) => {
+        if (!isAstNodeRecord(node)) {
+            return false;
+        }
+
+        if (!predicate(node)) {
+            return false;
+        }
+
+        matchedNode = node;
+        return true;
+    });
+
+    return matchedNode;
 }
 
 export function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
@@ -245,11 +261,45 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
+    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
+        getLocFromIndex?: (index: number) => { line: number; column: number };
+    };
+    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
+    const locatedPoint =
+        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
+            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
+            : null;
+    const loc =
+        locatedPoint &&
+        typeof locatedPoint.line === "number" &&
+        typeof locatedPoint.column === "number" &&
+        Number.isFinite(locatedPoint.line) &&
+        Number.isFinite(locatedPoint.column)
+            ? locatedPoint
+            : fallbackLineColumn;
+
     context.report({
-        loc: context.sourceCode.getLocFromIndex(firstChangedOffset),
+        loc,
         messageId,
         fix: (fixer) => fixer.replaceTextRange([0, originalText.length], rewrittenText)
     });
+}
+
+function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
+    const clampedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    let line = 1;
+    let lastLineStart = 0;
+    for (let index = 0; index < clampedOffset; index += 1) {
+        if (sourceText[index] === "\n") {
+            line += 1;
+            lastLineStart = index + 1;
+        }
+    }
+
+    return {
+        line,
+        column: clampedOffset - lastLineStart
+    };
 }
 
 export function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {
@@ -352,9 +402,15 @@ export function readLineIndentationBeforeOffset(sourceText: string, offset: numb
     return indentationMatch?.[0] ?? "";
 }
 
-export function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
+/**
+ * Collect all identifier names reachable from any AST subtree or statement
+ * list. Works for a single node, an array of statements, or any object-like
+ * root since the underlying {@link walkAstNodes} expands arrays encountered
+ * during traversal.
+ */
+export function collectIdentifierNamesInSubtree(root: unknown): ReadonlySet<string> {
     const identifierNames = new Set<string>();
-    walkAstNodes(programNode, (node) => {
+    walkAstNodes(root, (node) => {
         if (!isAstNodeRecord(node) || node.type !== "Identifier" || typeof node.name !== "string") {
             return;
         }

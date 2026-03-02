@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 
 import { Parser } from "@gml-modules/parser";
 
-import { extractSymbolsFromAst } from "../src/modules/transpilation/symbol-extraction.js";
+import { extractReferencesFromAst, extractSymbolsFromAst } from "../src/modules/transpilation/symbol-extraction.js";
 
 void describe("Symbol extraction from AST", () => {
     void it("should extract function declaration symbols", () => {
@@ -175,5 +175,106 @@ void describe("Symbol extraction from AST", () => {
 
         assert.ok(symbols.includes("gml_Script_myFunc"), "Should extract function assignment");
         assert.strictEqual(symbols.length, 1, "Should only extract function assignment");
+    });
+});
+
+void describe("Reference extraction from AST", () => {
+    void it("should track direct function calls", () => {
+        const source = `
+            function use_helper() {
+                var result = helper_function();
+                return result;
+            }
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.ok(refs.includes("gml_Script_helper_function"), "Should track the called function");
+    });
+
+    void it("should not track variable names as script references", () => {
+        const source = `
+            function do_something() {
+                var result = some_call();
+                var x = 10;
+                var name = "test";
+                return result;
+            }
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.ok(refs.includes("gml_Script_some_call"), "Should track the called function");
+        assert.ok(!refs.includes("gml_Script_result"), "Should not track local variable 'result'");
+        assert.ok(!refs.includes("gml_Script_x"), "Should not track local variable 'x'");
+        assert.ok(!refs.includes("gml_Script_name"), "Should not track local variable 'name'");
+    });
+
+    void it("should not create false positives from method call object names", () => {
+        const source = `
+            function update() {
+                array_push(list, item);
+            }
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.ok(refs.includes("gml_Script_array_push"), "Should track the called function");
+        assert.ok(!refs.includes("gml_Script_list"), "Should not track 'list' argument as a reference");
+        assert.ok(!refs.includes("gml_Script_item"), "Should not track 'item' argument as a reference");
+    });
+
+    void it("should track nested function calls in arguments", () => {
+        const source = `
+            function run() {
+                outer_fn(inner_fn());
+            }
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.ok(refs.includes("gml_Script_outer_fn"), "Should track outer call");
+        assert.ok(refs.includes("gml_Script_inner_fn"), "Should track inner call passed as argument");
+    });
+
+    void it("should return an empty array for files with no function calls", () => {
+        const source = `
+            var x = 10;
+            var y = 20;
+            var z = x + y;
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.strictEqual(refs.length, 0, "Should return empty array when no functions are called");
+    });
+
+    void it("should deduplicate references when the same function is called multiple times", () => {
+        const source = `
+            function run_twice() {
+                helper();
+                helper();
+            }
+        `;
+
+        const parser = new Parser.GMLParser(source, {});
+        const ast = parser.parse();
+        const refs = extractReferencesFromAst(ast);
+
+        assert.deepEqual(
+            refs,
+            ["gml_Script_helper"],
+            "Should return exactly one entry for a repeatedly called function"
+        );
     });
 });
