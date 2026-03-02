@@ -397,7 +397,7 @@ export class ScopeTracker {
 
         node.scopeId = scopeId;
         node.declaration = Core.assignClonedLocation({ scopeId: scopeId ?? undefined }, metadata);
-        node.classifications = classifications as any;
+        node.classifications = classifications;
 
         const occurrence = createOccurrence("declaration", metadata, node, metadata);
         this.recordScopeOccurrence(scope, name, occurrence);
@@ -430,7 +430,7 @@ export class ScopeTracker {
         const classifications = this.buildClassifications(combinedRole, false);
 
         node.scopeId = scopeId;
-        node.classifications = classifications as any;
+        node.classifications = classifications;
 
         node.declaration = declaration
             ? Core.assignClonedLocation({ scopeId: declaration.scopeId }, declaration)
@@ -1592,6 +1592,47 @@ export class ScopeTracker {
         return paths;
     }
 
+    /**
+     * Returns the set of file paths where the named symbol has at least one
+     * declaration occurrence.
+     *
+     * This is the counterpart to {@link getFilePathsReferencingSymbol}:
+     * together they provide the full picture of which files declare a symbol
+     * and which files consume it. Hot-reload pipelines use the declaration
+     * paths to determine the root files that must be re-analysed to refresh
+     * a symbol's definition before propagating updates to all referencing files.
+     *
+     * Only scopes with a `path` in their metadata are included. Scopes
+     * without a path (e.g., anonymous or synthetic scopes) are silently skipped.
+     *
+     * @param name - Symbol name to query
+     * @returns Set of file paths containing at least one declaration of the symbol
+     */
+    public getFilePathsDeclaringSymbol(name: string | null | undefined): Set<string> {
+        if (!name || !this.enabled) {
+            return new Set();
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return new Set();
+        }
+
+        const paths = new Set<string>();
+        for (const [scopeId, summary] of scopeSummaryMap) {
+            if (!summary.hasDeclaration) {
+                continue;
+            }
+            const scope = this.scopesById.get(scopeId);
+            const path = scope?.metadata.path;
+            if (path) {
+                paths.add(this.normalizeTrackedPath(path));
+            }
+        }
+
+        return paths;
+    }
+
     public getScopeModificationMetadata(scopeId: string | null | undefined): ScopeModificationMetadata | null {
         if (!scopeId) {
             return null;
@@ -1988,7 +2029,7 @@ export class ScopeTracker {
     }
 
     public get globalIdentifiers(): Set<string> {
-        return (this.globalIdentifierRegistry as any).globalIdentifiers;
+        return this.globalIdentifierRegistry.getGlobalIdentifierNames();
     }
 
     public markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void {
