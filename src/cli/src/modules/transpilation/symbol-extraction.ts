@@ -196,8 +196,31 @@ export function extractSymbolsFromAst(ast: AstNode, filePath: string): Array<str
 }
 
 /**
- * Recursively walks an AST node and extracts all symbol references (function calls).
- * This differs from extractSymbolsFromAst by finding where symbols are used rather than defined.
+ * GML CallExpression shape.
+ *
+ * The GML parser emits `object` (not the ESTree-standard `callee`) for the
+ * function position of a call. Both fields are typed here so the walker can
+ * handle GML ASTs and any ESTree-compatible AST transparently.
+ */
+interface CallExpressionNode {
+    type: string;
+    object?: AstNode;
+    callee?: AstNode;
+    arguments?: Array<unknown>;
+}
+
+/**
+ * Recursively walks an AST node and extracts direct function call references.
+ *
+ * Only CallExpression callees are recorded as references. Standalone Identifier
+ * nodes (variable reads, property names, etc.) are intentionally excluded to
+ * prevent false-positive dependencies: a local variable named `x` must not
+ * create a phantom dependency on a script also named `x`. Nested call
+ * expressions within arguments are correctly discovered via recursive descent,
+ * so chains like `outer(inner())` track both `outer` and `inner`.
+ *
+ * NOTE: The GML parser emits `object` (not the ESTree standard `callee`) as the
+ * function being called in a CallExpression. This handler accounts for that shape.
  */
 function walkNodeForReferences(node: unknown, references: Set<string>): void {
     if (!node || typeof node !== "object") {
@@ -206,29 +229,32 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
 
     const astNode = node as AstNode;
 
-    // Extract from CallExpression nodes (e.g., player_move(), enemy_attack())
+    // Extract from CallExpression nodes (e.g., player_move(), enemy_attack()).
+    // The GML parser places the callee under `object`, not the ESTree `callee` field.
+    // The callee walk and arguments walk are scoped to CallExpression nodes only to
+    // avoid unnecessary property access on every other node type.
     if (astNode.type === "CallExpression") {
-        const callee = (astNode as { callee?: AstNode }).callee;
+        const callNode = astNode as unknown as CallExpressionNode;
+        const callee = callNode.object ?? callNode.callee;
         if (callee) {
             const calleeName = extractIdentifierName(callee);
             if (calleeName) {
-                // Convert to runtime ID format
-                const runtimeId = `gml_Script_${calleeName}`;
-                references.add(runtimeId);
+                references.add(`gml_Script_${calleeName}`);
             }
         }
-    }
 
-    // Extract from Identifier nodes that might reference global scripts
-    // (excluding left-hand side of assignments and function parameters)
-    if (astNode.type === "Identifier") {
-        const identifierName = extractIdentifierName(astNode);
-        if (identifierName) {
-            // Check if this is a potential script reference
-            // This is a heuristic - we add it as a reference but the dependency
-            // tracker will only match it if a corresponding definition exists
-            const runtimeId = `gml_Script_${identifierName}`;
-            references.add(runtimeId);
+        // Walk into the callee so chained or member-expression callees are traversed
+        // (e.g. the MemberDotExpression in `obj.method()` or the inner CallExpression
+        // in `foo()()`).
+        if (callee) {
+            walkNodeForReferences(callee, references);
+        }
+
+        // Walk arguments to capture nested call expressions (e.g. `outer(inner())`).
+        if (Array.isArray(callNode.arguments)) {
+            for (const arg of callNode.arguments) {
+                walkNodeForReferences(arg, references);
+            }
         }
     }
 
@@ -249,17 +275,7 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
         }
     }
 
-    // Walk CallExpression-specific properties
-    if ("callee" in astNode) {
-        walkNodeForReferences((astNode as { callee?: unknown }).callee, references);
-    }
-    if ("arguments" in astNode && Array.isArray((astNode as { arguments?: unknown }).arguments)) {
-        for (const arg of (astNode as { arguments: Array<unknown> }).arguments) {
-            walkNodeForReferences(arg, references);
-        }
-    }
-
-    // Walk common AST properties
+    // Walk common AST properties that may contain nested call expressions.
     for (const prop of [
         "init",
         "left",
@@ -268,8 +284,6 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
         "test",
         "consequent",
         "alternate",
-        "object",
-        "property",
         "expression"
     ] as const) {
         const value = astNode[prop];
@@ -280,11 +294,15 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
 }
 
 /**
- * Extracts all symbol references (function calls and usages) from a GML AST.
- * Used to build dependency graphs for incremental transpilation.
+ * Extracts direct function call references from a GML AST.
+ *
+ * Only identifiers appearing as CallExpression callees are returned. This keeps
+ * the reference set compact and precise, preventing variable names from creating
+ * false-positive entries in the dependency tracker that would trigger unnecessary
+ * dependent retranspilation during hot-reload.
  *
  * @param ast - The parsed AST from Parser.GMLParser
- * @returns Array of runtime symbol IDs referenced in the file
+ * @returns Array of runtime symbol IDs called in the file (e.g., "gml_Script_player_move")
  */
 export function extractReferencesFromAst(ast: AstNode): Array<string> {
     const references = new Set<string>();
