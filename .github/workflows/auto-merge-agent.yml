@@ -139,12 +139,27 @@ jobs:
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number, per_page: 100
             });
+
+            const protectedGoldenFixturePatterns = [
+              /^test\/fixtures\/plugin-integration\/.*\.gml$/u,
+              /^src\/parser\/test\/input\/.*\.gml$/u,
+              /^src\/lint\/test\/fixtures\/.*\.gml$/u
+            ];
+
+            const isProtectedGoldenFixture = (filename) =>
+              typeof filename === 'string' &&
+              protectedGoldenFixturePatterns.some((pattern) => pattern.test(filename));
             
-            const changedFixtures = files.filter(f => 
-              f.filename.endsWith('.gml') &&
-              (f.filename.includes('/test/') || f.filename.startsWith('test/')) &&
-              f.status !== 'added'
-            );
+            const changedFixtures = files.filter((f) => {
+              if (f.status === 'added') {
+                return false;
+              }
+
+              return (
+                isProtectedGoldenFixture(f.filename) ||
+                isProtectedGoldenFixture(f.previous_filename)
+              );
+            });
             if (changedFixtures.length > 0) {
               core.setFailed(`Golden .gml test fixtures cannot be modified or removed! Found: ${changedFixtures.map(f => f.filename).join(', ')}`);
               return;
