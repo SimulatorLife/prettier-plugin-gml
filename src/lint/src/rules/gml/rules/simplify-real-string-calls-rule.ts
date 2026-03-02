@@ -24,11 +24,31 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex } from "../rule-base-helpers.js";
 
 /**
- * Matches a valid GML/JavaScript numeric literal: optional sign, integer or
- * decimal digits, and an optional exponent. This is the same pattern the
- * formatter previously used in `real-call-value.ts`.
+ * Returns true when {@link value} is a valid GML/JavaScript numeric literal:
+ * optional sign, integer or decimal digits, optional exponent.
+ *
+ * Uses `Number.isFinite` rather than a regex to avoid unbounded backtracking
+ * on adversarial inputs (target-state.md security note).
  */
-const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+function isValidNumericLiteralString(value: string): boolean {
+    if (value.length === 0) {
+        return false;
+    }
+
+    const hasLeadingOrTrailingWhitespace = /^\s|\s$/.test(value);
+    if (hasLeadingOrTrailingWhitespace) {
+        return false;
+    }
+
+    const isInfinityKeyword = value === "Infinity" || value === "-Infinity" || value === "+Infinity";
+    if (isInfinityKeyword) {
+        return false;
+    }
+
+    // Allow a trailing dot (e.g. "42.") which Number() rejects but GML accepts.
+    const normalized = value.endsWith(".") ? `${value}0` : value;
+    return Number.isFinite(Number(normalized));
+}
 
 /**
  * Extracts the inner string content from a double-quoted or verbatim GML string
@@ -83,7 +103,7 @@ function extractNumericValueFromRealCall(node: unknown): string | null {
     }
 
     const trimmed = Core.toTrimmedString(content);
-    return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed) ? trimmed : null;
+    return isValidNumericLiteralString(trimmed) ? trimmed : null;
 }
 
 /**
