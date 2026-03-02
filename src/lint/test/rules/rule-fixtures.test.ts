@@ -421,6 +421,9 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         // accidentally pick up a separate *.input.gml that would also claim it as fixed.
         // The current loop handles this naturally if we only add it once.
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
+        if (ruleName === "prefer-loop-length-hoist") {
+            continue;
+        }
         const options = await readFixtureOptions(path.dirname(inputFilePath));
         const relativeInputPath = normalizeFixtureRelativePath(inputFilePath);
 
@@ -630,7 +633,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
     const input =
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);\n";
     const semanticFixRuleNames = [
-        "prefer-loop-length-hoist",
+        "prefer-hoistable-loop-accessors",
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "optimize-logical-flow",
@@ -894,14 +897,21 @@ void test("no-globalvar diagnoses comma-separated declarations", () => {
     assert.equal(result.output, input);
 });
 
-void test("prefer-loop-length-hoist respects null suffix override by disabling hoist generation", async () => {
+void test("prefer-hoistable-loop-accessors respects null suffix override by disabling loop-test diagnostics", async () => {
     const input = await readFixture("prefer-loop-length-hoist", "input.gml");
-    const result = lintWithRule("prefer-loop-length-hoist", input, {
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {
         functionSuffixes: {
             array_length: null
         }
     });
     assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("prefer-hoistable-loop-accessors is diagnostic-only and leaves source unchanged", async () => {
+    const input = await readFixture("prefer-loop-length-hoist", "input.gml");
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
+    assert.equal(result.messages.length > 0, true);
     assert.equal(result.output, input);
 });
 
@@ -970,16 +980,17 @@ void test("prefer-hoistable-loop-accessors reports the first matching accessor l
     assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 20 });
 });
 
-void test("prefer-hoistable-loop-accessors suppresses diagnostics for loops owned by prefer-loop-length-hoist", () => {
+void test("prefer-hoistable-loop-accessors reports loop-test accessor scenarios previously covered by prefer-loop-length-hoist", () => {
     const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += array_length(items);", "}", ""].join(
         "\n"
     );
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(result.messages.length, 0);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0]?.messageId, "preferHoistableLoopAccessor");
 });
 
-void test("prefer-loop-length-hoist reports unsafeFix when insertion requires brace synthesis", () => {
+void test("prefer-hoistable-loop-accessors reports unsafeFix when insertion requires brace synthesis", () => {
     const input = [
         "if (ready)",
         "    for (var i = 0; i < array_length(items); i++) {",
@@ -988,9 +999,16 @@ void test("prefer-loop-length-hoist reports unsafeFix when insertion requires br
         ""
     ].join("\n");
 
-    const result = lintWithRule("prefer-loop-length-hoist", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.messages[0]?.messageId, "unsafeFix");
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
+    assert.equal(
+        result.messages.some((message) => message.messageId === "preferHoistableLoopAccessor"),
+        true
+    );
+    assert.equal(
+        result.messages.some((message) => message.messageId === "unsafeFix"),
+        true
+    );
+    assert.equal(result.output, input);
 });
 
 void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
@@ -1115,6 +1133,8 @@ void test("optimize-math-expressions auto-fixes manual math forms to built-in he
         "var sinDegrees = sin(direction * pi / 180);",
         "var cosDegrees = cos((direction / 180) * pi);",
         "var tanDegrees = tan(direction * pi / 180);",
+        "var radiansFromDegreeTrig = degtorad(darctan2(vy, vx));",
+        "var degreesFromRadianTrig = radtodeg(arctan2(vy, vx));",
         "var unchangedCall = update() * update();",
         "var squaredVals = value * value;",
         "var commented = value /* keep */ * value;",
@@ -1141,9 +1161,11 @@ void test("optimize-math-expressions auto-fixes manual math forms to built-in he
         "var lenYDegrees = lengthdir_y(radius, direction);",
         "var lenXRadians = lengthdir_x(radius, direction);",
         "var lenYRadians = lengthdir_y(radius, direction);",
-        "var sinDegrees = sin(degtorad(direction));",
-        "var cosDegrees = cos(degtorad(direction));",
-        "var tanDegrees = tan(degtorad(direction));",
+        "var sinDegrees = dsin(direction);",
+        "var cosDegrees = dcos(direction);",
+        "var tanDegrees = dtan(direction);",
+        "var radiansFromDegreeTrig = arctan2(vy, vx);",
+        "var degreesFromRadianTrig = darctan2(vy, vx);",
         "var unchangedCall = update() * update();",
         "var squaredVals = sqr(value);",
         "var commented = value /* keep */ * value;",
@@ -1163,6 +1185,48 @@ void test("optimize-math-expressions rewrites uncommented math expressions and p
     const expected = [
         "var squared = sqr(value); // keep trailing context",
         "var direction = point_direction(x1, y1, x2, y2); // preserve this note",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions simplifies trigonometric degree/radian wrapper pairs", () => {
+    const input = [
+        "var a = sin(degtorad(angle));",
+        "var b = cos(degtorad(angle));",
+        "var c = tan(degtorad(angle));",
+        "var d = degtorad(dsin(angle));",
+        "var e = degtorad(darctan2(vy, vx));",
+        "var f = radtodeg(arctan2(vy, vx));",
+        ""
+    ].join("\n");
+    const expected = [
+        "var a = dsin(angle);",
+        "var b = dcos(angle);",
+        "var c = dtan(angle);",
+        "var d = sin(angle);",
+        "var e = arctan2(vy, vx);",
+        "var f = darctan2(vy, vx);",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("optimize-math-expressions skips unsafe division-to-multiplication rewrites for extreme reciprocals", () => {
+    const input = [
+        "var keepTinyDivisor = value / 0.00000000001;",
+        "var keepHugeReciprocal = value / (1 / 100000000000);",
+        "var convertSafe = value / 4;",
+        ""
+    ].join("\n");
+    const expected = [
+        "var keepTinyDivisor = value / 0.00000000001;",
+        "var keepHugeReciprocal = value / (1 / 100000000000);",
+        "var convertSafe = value * 0.25;",
         ""
     ].join("\n");
 

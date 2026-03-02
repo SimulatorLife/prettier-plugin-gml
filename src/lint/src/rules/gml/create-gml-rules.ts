@@ -13,7 +13,6 @@ import { createOptimizeMathExpressionsRule } from "./rules/optimize-math-express
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
 import { createPreferHoistableLoopAccessorsRule } from "./rules/prefer-hoistable-loop-accessors-rule.js";
 import { createPreferIsUndefinedCheckRule } from "./rules/prefer-is-undefined-check-rule.js";
-import { createPreferLoopLengthHoistRule } from "./rules/prefer-loop-length-hoist-rule.js";
 import { createPreferRepeatLoopsRule } from "./rules/prefer-repeat-loops-rule.js";
 import { createPreferStringInterpolationRule } from "./rules/prefer-string-interpolation-rule.js";
 import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-literal-assignments-rule.js";
@@ -23,9 +22,6 @@ import { createRequireTrailingOptionalDefaultsRule } from "./rules/require-trail
 
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
-        case "prefer-loop-length-hoist": {
-            return createPreferLoopLengthHoistRule(definition);
-        }
         case "prefer-hoistable-loop-accessors": {
             return createPreferHoistableLoopAccessorsRule(definition);
         }
