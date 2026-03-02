@@ -113,10 +113,11 @@ export interface DebounceOptions {
  * Creates a debounced version of a function that delays execution until after
  * a specified delay has elapsed since the last invocation.
  *
- * @param fn - Function to debounce
- * @param delayMs - Delay in milliseconds to wait before executing
- * @param options - Optional configuration for error handling
- * @returns Debounced function with flush, cancel, and isPending methods
+ * @template {Array<unknown>} TArgs
+ * @param {(...args: TArgs) => void} fn Function to debounce.
+ * @param {number} delayMs Delay in milliseconds to wait after the last invocation before executing.
+ * @param {DebounceOptions} [options] Optional configuration for error handling.
+ * @returns {DebouncedFunction<TArgs>} Debounced version of {@link fn} with flush, cancel, and isPending methods.
  *
  * @example
  * ```ts

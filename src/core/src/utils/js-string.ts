@@ -15,8 +15,8 @@
  * Check if a string is a valid JavaScript identifier.
  * Matches the ECMAScript identifier naming rules (IdentifierName production).
  *
- * @param value - The string to test
- * @returns true if the string is a valid identifier
+ * @param {string} value Candidate string to evaluate.
+ * @returns {boolean} `true` when {@link value} matches the ECMAScript identifier pattern.
  *
  * @example
  * isIdentifierLike("foo")      // true
@@ -35,8 +35,8 @@ export function isIdentifierLike(value: string): boolean {
  * Escapes backticks and template interpolation syntax to prevent
  * unintended substitution in JavaScript template literals.
  *
- * @param text - The raw text content to escape
- * @returns The escaped text safe for embedding in a template literal
+ * @param {string} text Raw text content to escape.
+ * @returns {string} Escaped text safe for embedding in a JavaScript template literal.
  *
  * @example
  * escapeTemplateText("hello")           // "hello"
@@ -52,8 +52,8 @@ export function escapeTemplateText(text: string): string {
  * Keys that are valid identifiers or numeric strings are emitted as-is.
  * Other keys are quoted using JSON.stringify.
  *
- * @param rawKey - The raw key string from the GML struct
- * @returns The JavaScript property key (quoted or unquoted)
+ * @param {string} rawKey Raw key string from the GML struct.
+ * @returns {string} JavaScript property key representation, quoted when necessary.
  *
  * @example
  * stringifyStructKey("name")        // "name"
@@ -75,8 +75,8 @@ export function stringifyStructKey(rawKey: string): string {
  * Handles both double and single quotes. Returns the input unchanged
  * if it's not a properly quoted string.
  *
- * @param value - The string to normalize
- * @returns The unquoted string content, or the original if not quoted
+ * @param {string} value Quoted or unquoted string to normalize.
+ * @returns {string} Unquoted string content, or the original value when not surrounded by matching quotes.
  *
  * @example
  * normalizeStructKeyText('"hello"')     // "hello"
