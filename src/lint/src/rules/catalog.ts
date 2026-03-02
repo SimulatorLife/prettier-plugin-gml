@@ -178,6 +178,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         fullId: "gml/require-trailing-optional-defaults",
         messageId: "requireTrailingOptionalDefaults",
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlSimplifyRealCalls",
+        shortName: "simplify-real-calls",
+        fullId: "gml/simplify-real-calls",
+        messageId: "simplifyRealCalls",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     }
 ]);
 
