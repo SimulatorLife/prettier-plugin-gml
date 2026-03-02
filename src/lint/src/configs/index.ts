@@ -21,6 +21,7 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/prefer-struct-literal-assignments": "warn",
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",
+    "gml/no-unnecessary-string-interpolation": "warn",
     "gml/normalize-doc-comments": "warn",
     "gml/normalize-directives": "warn",
     "gml/require-control-flow-braces": "warn",

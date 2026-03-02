@@ -98,6 +98,7 @@ Built-in `gml/*` rule short names:
 - `prefer-struct-literal-assignments`
 - `optimize-logical-flow`
 - `no-globalvar`
+- `no-unnecessary-string-interpolation`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`

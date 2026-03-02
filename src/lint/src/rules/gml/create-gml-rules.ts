@@ -3,6 +3,7 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../catalog.js";
 import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-condition-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
+import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
 import { createNormalizeDirectivesRule } from "./rules/normalize-directives-rule.js";
 import { createNormalizeDocCommentsRule } from "./rules/normalize-doc-comments-rule.js";
@@ -39,6 +40,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-globalvar": {
             return createNoGlobalvarRule(definition);
+        }
+        case "no-unnecessary-string-interpolation": {
+            return createNoUnnecessaryStringInterpolationRule(definition);
         }
         case "normalize-doc-comments": {
             return createNormalizeDocCommentsRule(definition);

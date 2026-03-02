@@ -80,6 +80,11 @@ const expectedRules = Object.freeze([
         schema: []
     },
     {
+        shortName: "no-unnecessary-string-interpolation",
+        messageId: "noUnnecessaryStringInterpolation",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "normalize-doc-comments",
         messageId: "normalizeDocComments",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]

@@ -636,6 +636,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "optimize-logical-flow",
         "normalize-doc-comments",
         "normalize-directives",
+        "no-unnecessary-string-interpolation",
         "require-control-flow-braces",
         "no-assignment-in-condition",
         "prefer-is-undefined-check",
@@ -709,6 +710,31 @@ void test("reportUnsafe=false suppresses unsafe-only diagnostics", () => {
     const input = 'message = "HP: " + string(_i++);\n';
     const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
     assert.equal(result.messages.length, 0);
+});
+
+void test("no-unnecessary-string-interpolation rewrites template strings without interpolation atoms", () => {
+    const input = [
+        "function create_fx() {",
+        '    return instance_create_layer(x, y, $"instances", obj_fx);',
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "function create_fx() {",
+        '    return instance_create_layer(x, y, "instances", obj_fx);',
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("no-unnecessary-string-interpolation keeps interpolated template strings unchanged", () => {
+    const input = 'message = $"instances are: {myInstances}";\n';
+    const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("prefer-string-interpolation rewrites string literal + string(variable) chains", () => {

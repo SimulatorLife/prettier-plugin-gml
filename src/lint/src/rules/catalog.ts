@@ -94,6 +94,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([])
     },
     {
+        mapKey: "GmlNoUnnecessaryStringInterpolation",
+        shortName: "no-unnecessary-string-interpolation",
+        fullId: "gml/no-unnecessary-string-interpolation",
+        messageId: "noUnnecessaryStringInterpolation",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNormalizeDocComments",
         shortName: "normalize-doc-comments",
         fullId: "gml/normalize-doc-comments",
