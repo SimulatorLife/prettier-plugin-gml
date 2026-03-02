@@ -39,7 +39,21 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          set -o pipefail
+          install_log="$(mktemp)"
+          if pnpm install --frozen-lockfile 2>&1 | tee "$install_log"; then
+            exit 0
+          fi
+
+          if grep -q "ERR_PNPM_OUTDATED_LOCKFILE" "$install_log"; then
+            echo "::warning::pnpm-lock.yaml is out of date. Retrying install with --no-frozen-lockfile."
+            pnpm install --no-frozen-lockfile
+            exit 0
+          fi
+
+          echo "::error::Dependency install failed for a reason other than outdated lockfile."
+          exit 1
 
       - name: Run duplicate scan
         id: run_duplicates
