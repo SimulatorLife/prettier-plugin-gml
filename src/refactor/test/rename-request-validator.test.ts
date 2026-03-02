@@ -142,17 +142,16 @@ void describe("computeRenameValidation", () => {
     });
 });
 
+// Module-level fixtures shared across validateBatchRenameRequests tests.
+async function noopValidateSingle(): Promise<ValidationSummary> {
+    return { valid: true, errors: [], warnings: [] };
+}
+
+async function validateFailing(): Promise<ValidationSummary> {
+    return { valid: false, errors: ["Name already taken"], warnings: [] };
+}
+
 void describe("validateBatchRenameRequests", () => {
-    // Shared fixture: a no-op validator that always returns valid.
-    async function noopValidateSingle(): Promise<ValidationSummary> {
-        return { valid: true, errors: [], warnings: [] };
-    }
-
-    // Shared fixture: a validator that always returns an error.
-    async function validateFailing(): Promise<ValidationSummary> {
-        return { valid: false, errors: ["Name already taken"], warnings: [] };
-    }
-
     void it("returns error when renames is not an array", async () => {
         const result = await validateBatchRenameRequests(null as never, undefined, noopValidateSingle);
         assert.equal(result.valid, false);
