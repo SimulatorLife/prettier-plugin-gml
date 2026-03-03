@@ -261,9 +261,17 @@ export default class GameMakerASTBuilder {
     }
 
     private buildDirectiveKeywordRange(
-        token: Token | ParserToken | null | undefined,
+        token: number | Token | ParserToken | null | undefined,
         keyword: DirectiveKeyword
     ): DirectiveKeywordRange | null {
+        // ctx.start can be typed as `number | Token` by TypeScript when
+        // ParserRuleContext is intersected with an index signature. When a bare
+        // token index (number) is passed, we cannot determine the character
+        // position without the token stream, so return null in that case.
+        if (typeof token === "number") {
+            return null;
+        }
+
         const start = this.getTokenStartIndex(token);
         if (typeof start !== "number") {
             return null;

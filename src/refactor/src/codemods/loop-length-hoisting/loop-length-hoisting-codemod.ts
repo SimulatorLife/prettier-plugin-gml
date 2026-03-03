@@ -82,8 +82,8 @@ function resolveLoopLengthHoistSuffixMap(
 
 function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string> {
     const names = new Set<string>();
-    Core.walkAst(rootNode, (node) => {
-        if (node?.type !== "Identifier" || typeof node.name !== "string") {
+    Core.walkAst(rootNode, (node: Record<string, unknown>) => {
+        if (node.type !== "Identifier" || typeof node.name !== "string") {
             return;
         }
 
@@ -94,24 +94,47 @@ function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string>
 }
 
 function collectForStatementContainerContexts(programNode: unknown): ReadonlyArray<ForStatementContainerContext> {
-    const contexts: Array<ForStatementContainerContext> = [];
-
-    Core.walkAst(programNode, (node, parent, key) => {
-        if (node?.type !== "ForStatement") {
+    // Build a set of ForStatement nodes that appear directly inside a body array
+    // of a Program or BlockStatement. Only these for loops can safely have a hoisted
+    // variable inserted before them; a for loop that is the single-statement
+    // consequent of an if/while/for cannot because there is no enclosing block.
+    //
+    // walkAst passes the immediate parent of each node. When a ForStatement is
+    // inside a body array, its parent is the array itself (not the container
+    // node), so we cannot check `key === "body"` on the node visit. Instead,
+    // we walk Program/BlockStatement nodes and inspect their body arrays directly.
+    const hoistableForNodes = new Set<unknown>();
+    Core.walkAst(programNode, (node: Record<string, unknown>) => {
+        if (node.type !== "Program" && node.type !== "BlockStatement") {
             return;
         }
 
-        const parentNode =
-            parent && typeof parent === "object" && !Array.isArray(parent) ? (parent as Record<string, unknown>) : null;
-        const canInsertHoistBeforeLoop =
-            parentNode !== null &&
-            key === "body" &&
-            (parentNode.type === "Program" || parentNode.type === "BlockStatement");
+        const body = node.body;
+        if (!Array.isArray(body)) {
+            return;
+        }
+
+        for (const child of body) {
+            if (
+                child != null &&
+                typeof child === "object" &&
+                (child as Record<string, unknown>).type === "ForStatement"
+            ) {
+                hoistableForNodes.add(child);
+            }
+        }
+    });
+
+    const contexts: Array<ForStatementContainerContext> = [];
+    Core.walkAst(programNode, (node: Record<string, unknown>) => {
+        if (node.type !== "ForStatement") {
+            return;
+        }
 
         contexts.push(
             Object.freeze({
-                forNode: node as Record<string, unknown>,
-                canInsertHoistBeforeLoop
+                forNode: node,
+                canInsertHoistBeforeLoop: hoistableForNodes.has(node)
             })
         );
     });
@@ -126,21 +149,23 @@ function collectLoopLengthAccessorCallsFromTestExpression(parameters: {
 }): ReadonlyArray<LoopLengthAccessorCall> {
     const collectedCalls: Array<LoopLengthAccessorCall> = [];
 
-    Core.walkAst(parameters.testNode, (node) => {
-        if (node?.type !== "CallExpression") {
+    Core.walkAst(parameters.testNode, (node: Record<string, unknown>) => {
+        if (node.type !== "CallExpression") {
             return;
         }
 
         const callTarget = node.object;
         if (
-            !callTarget ||
-            callTarget.type !== "Identifier" ||
-            typeof callTarget.name !== "string" ||
-            !parameters.enabledFunctionNames.has(callTarget.name)
+            callTarget == null ||
+            typeof callTarget !== "object" ||
+            (callTarget as Record<string, unknown>).type !== "Identifier" ||
+            typeof (callTarget as Record<string, unknown>).name !== "string" ||
+            !parameters.enabledFunctionNames.has((callTarget as Record<string, unknown>).name as string)
         ) {
             return;
         }
 
+        const targetName = (callTarget as Record<string, unknown>).name as string;
         const start = Core.getNodeStartIndex(node);
         const end = Core.getNodeEndIndex(node);
         if (typeof start !== "number" || typeof end !== "number") {
@@ -149,7 +174,7 @@ function collectLoopLengthAccessorCallsFromTestExpression(parameters: {
 
         collectedCalls.push(
             Object.freeze({
-                functionName: callTarget.name,
+                functionName: targetName,
                 callStart: start,
                 callEnd: end,
                 callText: parameters.sourceText.slice(start, end)
