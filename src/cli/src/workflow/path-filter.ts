@@ -2,7 +2,15 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqueArray, compactArray } = Core;
+import { REPO_ROOT } from "../shared/workspace-paths.js";
+
+const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqueArray, compactArray, pushUnique } =
+    Core;
+
+export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
+    path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
+    path.resolve(REPO_ROOT, "src", "format", "test")
+]);
 
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;
@@ -17,6 +25,43 @@ export interface WorkflowPathFilter {
     allowsPath: (candidate: string) => boolean;
     allowsDirectory: (candidate: string) => boolean;
 }
+
+/**
+ * Resolve fixture roots used by workflow tools.
+ *
+ * The resulting list includes canonical fixture directories plus caller-
+ * supplied entries, filtered through the same allow/deny policy used by other
+ * workflow operations.
+ */
+export function normalizeFixtureRoots(
+    additionalRoots: Iterable<unknown> | Array<unknown> = [],
+    filterOptions: WorkflowPathFilterOptions = {}
+): Array<string> {
+    const pathFilter = createWorkflowPathFilter(filterOptions);
+    const candidates = [
+        ...DEFAULT_FIXTURE_DIRECTORIES,
+        ...(Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots))
+    ];
+
+    const resolved = [];
+
+    for (const candidate of candidates) {
+        if (typeof candidate !== "string" || candidate.length === 0) {
+            continue;
+        }
+
+        const normalized = path.resolve(candidate);
+
+        if (!pathFilter.allowsDirectory(normalized)) {
+            continue;
+        }
+
+        pushUnique(resolved, normalized);
+    }
+
+    return resolved;
+}
+
 
 /**
  * Normalize workflow path lists into absolute, deduplicated entries.
@@ -227,3 +272,5 @@ function collectManualWorkflowArtifactEntries({
 
     return entries;
 }
+
+export {REPO_ROOT} from "../shared/workspace-paths.js";
