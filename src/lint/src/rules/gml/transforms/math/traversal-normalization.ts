@@ -2032,7 +2032,7 @@ function attemptCollectDistributedScalars(node, context) {
             return false;
         }
 
-        const negated = createNegatedExpression(baseClone, node);
+        const negated = createUnaryNegationNode(baseClone, node);
         if (!negated) {
             return false;
         }
@@ -3290,20 +3290,11 @@ function createMultiplicationNode(left, right, template) {
         return null;
     }
 
-    const expression = {
-        type: BINARY_EXPRESSION,
-        operator: "*",
-        left,
-        right
-    };
-
-    Core.assignClonedLocation(expression, template);
-
-    return expression;
+    return createBinaryExpressionNode("*", left, right, template);
 }
 
 function createUnaryNegationNode(argument, template) {
-    if (!argument) {
+    if (!isObjectLike(argument)) {
         return null;
     }
 
@@ -4065,23 +4056,6 @@ function mutateToNumericLiteral(target, value, template) {
     }
 
     replaceNode(target, literal);
-}
-
-function createNegatedExpression(argument, template) {
-    if (!isObjectLike(argument)) {
-        return null;
-    }
-
-    const unary = {
-        type: UNARY_EXPRESSION,
-        operator: "-",
-        prefix: true,
-        argument
-    };
-
-    Core.assignClonedLocation(unary, template);
-
-    return unary;
 }
 
 function createCallExpressionNode(name, args, template) {
