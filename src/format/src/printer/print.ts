@@ -2778,6 +2778,12 @@ function collectDocLinesFromFunctionComments(functionNode, options) {
     return docLines;
 }
 
+// Formatter boundary (target-state.md §2.2, §3.2): this function may only
+// read already-normalized `///` doc-comment lines from the source text.
+// Converting `/* content */` → `/// content` or `// @param` → `/// @param`
+// is a content rewrite that belongs exclusively in `@gml-modules/lint`
+// (normalize-doc-comments rule).  The formatter must never synthesize or
+// rewrite comment syntax — it should only render what is already present.
 function collectDocLinesFromSource(functionNode, options) {
     const originalText = getOriginalTextFromOptions(options);
     if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
@@ -2801,14 +2807,10 @@ function collectDocLinesFromSource(functionNode, options) {
 
         if (trimmedLine.startsWith("///")) {
             docLines.unshift(trimmedLine);
-        } else if (trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/")) {
-            const content = trimmedLine.slice(2, -2).trim();
-            docLines.unshift(`/// ${content}`);
-        } else if (trimmedLine.startsWith("//")) {
-            if (trimmedLine.includes("@param") || trimmedLine.includes("@function")) {
-                docLines.unshift(`/// ${trimmedLine.replace(/^\/+/u, "").trim()}`);
-            }
         } else {
+            // Stop at any non-`///` non-blank line.  Converting `/* ... */`
+            // block comments or `//`-style lines to `///` doc syntax is a
+            // content rewrite owned by the lint `normalize-doc-comments` rule.
             break;
         }
     }

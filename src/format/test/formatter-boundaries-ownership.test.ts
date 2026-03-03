@@ -309,4 +309,49 @@ void describe("formatter boundaries ownership", () => {
             ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join("\n")
         );
     });
+
+    void it("does not convert block-comment doc syntax to triple-slash syntax (target-state.md §2.2, §3.2)", async () => {
+        // Converting `/* @function foo() */` or `// @param x` to `/// @function foo()` / `/// @param x`
+        // is a content/syntax rewrite that belongs exclusively in `@gml-modules/lint`
+        // (normalize-doc-comments rule).  The formatter must render source comments verbatim —
+        // any syntax normalization must happen in lint before formatting.
+        const source = [
+            "/* @function scr_block_doc(x, y) */",
+            "function scr_block_doc(x, y) {",
+            "    return x + y;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        // The formatter must not convert the block-comment to triple-slash syntax
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @function scr_block_doc/m,
+            "Formatter must not convert /* @function */ block comments to /// @function syntax — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+    });
+
+    void it("does not promote // @param lines to /// @param doc syntax (target-state.md §2.2, §3.2)", async () => {
+        // Promoting `// @param x` to `/// @param x` is a content rewrite owned by
+        // `@gml-modules/lint` (normalize-doc-comments rule).
+        const source = [
+            "// @function scr_double_slash(x)",
+            "// @param x {real} The value",
+            "function scr_double_slash(x) {",
+            "    return x * 2;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        // The formatter must not synthesize /// doc lines from // @param lines
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @function scr_double_slash/m,
+            "Formatter must not promote // @function lines to /// doc-comment syntax — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+    });
 });
