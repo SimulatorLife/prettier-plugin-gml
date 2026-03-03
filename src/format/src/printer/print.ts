@@ -66,7 +66,6 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
-import { getNumericValueFromRealCall } from "./real-call-value.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
@@ -752,11 +751,6 @@ function printCallExpressionNode(node, path, options, print) {
         ) {
             return normalizeCallTextNewlines(options.originalText.slice(startIndex, endIndex), options.endOfLine);
         }
-    }
-
-    const numericLiteralValue = getNumericValueFromRealCall(node);
-    if (numericLiteralValue) {
-        return numericLiteralValue;
     }
 
     let printedArgs;

@@ -4,6 +4,7 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../catalog.js";
 
 const {
+    clamp,
     isObjectLike,
     getNodeStartIndex,
     getNodeEndIndex,
@@ -286,7 +287,7 @@ export function reportFullTextRewrite(
 }
 
 function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
-    const clampedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    const clampedOffset = clamp(offset, 0, sourceText.length);
     let line = 1;
     let lastLineStart = 0;
     for (let index = 0; index < clampedOffset; index += 1) {
@@ -363,7 +364,7 @@ export function getLineIndexForOffset(lineStartOffsets: ReadonlyArray<number>, o
         return middle;
     }
 
-    return Math.max(0, Math.min(lineStartOffsets.length - 1, low));
+    return clamp(low, 0, lineStartOffsets.length - 1);
 }
 
 export function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
@@ -389,7 +390,7 @@ export function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: nu
 }
 
 export function readLineIndentationBeforeOffset(sourceText: string, offset: number): string {
-    const boundedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    const boundedOffset = clamp(offset, 0, sourceText.length);
     let lineStart = sourceText.lastIndexOf("\n", boundedOffset - 1);
     if (lineStart < 0) {
         lineStart = 0;
