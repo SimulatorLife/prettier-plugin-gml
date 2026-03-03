@@ -1,6 +1,7 @@
 import * as AST from "./ast/index.js";
 import * as GMLParserModule from "./gml-parser.js";
 import * as Runtime from "./runtime/index.js";
+import * as SourcePreprocessing from "./source-preprocessing.js";
 
 // Re-export stable facade for generated parser base classes. External consumers
 // should depend on these factory functions rather than importing from the
@@ -11,7 +12,8 @@ export const GameMakerLanguageParserVisitorBase = Runtime.getParserVisitorBase()
 // Define the Parser namespace type from existing module types
 type ParserNamespace = typeof GMLParserModule &
     typeof AST &
-    typeof Runtime & {
+    typeof Runtime &
+    typeof SourcePreprocessing & {
         AST: typeof AST;
         Runtime: typeof Runtime;
     };
@@ -46,6 +48,7 @@ export const Parser: ParserNamespace = Object.freeze({
     ...GMLParserModule,
     ...AST,
     ...Runtime,
+    ...SourcePreprocessing,
     AST,
     Runtime
 });
