@@ -7,6 +7,7 @@ export type {
     CacheStats,
     CascadeEntry,
     ConflictEntry,
+    ConflictSeverityValue,
     ConflictTypeValue,
     DependencyAnalyzer,
     DependentSymbol,
