@@ -2,16 +2,23 @@
 
 `@gml-modules/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
 
-It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/plugin`.
+It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
 
-## Ownership Boundaries
+## Two-Tier Workflow for Malformed GML
+
+As outlined in the [split plan](../../docs/formatter-linter-split-plan.md), the linter implements a two-phase workflow to handle malformed code:
+
+- **Phase A (Token-based)**: Runs on a tokenizer/tolerant scanner to apply local, unambiguous repairs (e.g., operator normalization) even when the file contains syntax errors.
+- **Phase B (AST-based)**: Runs standard semantic rules and fixes that require a successful parse.
+
+This allows the linter to provide productive auto-fixes even when the formatter cannot run due to parse errors.
 
 - Owns:
   - ESLint language wiring for GML (`language: "gml/gml"`)
   - Lint rules and autofix behavior
   - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
 - Does not own:
-  - Prettier formatting behavior
+  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
   - Parser internals/grammar ownership
   - Refactor transaction planning/execution
 
@@ -194,7 +201,7 @@ Built-in `gml/*` rule short names:
 - `require-trailing-optional-defaults`
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
-Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/plugin`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
+Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`.
 
@@ -204,3 +211,13 @@ Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.fe
 pnpm --filter @gml-modules/lint run build:types
 pnpm --filter @gml-modules/lint run test
 ```
+
+## TODO
+* When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
+* Add a rule for empty regions (`@gml/no-empty-regions`). Also add an auto-fix to remove empty regions. For example:
+    ```gml
+    #region Empty region
+    #endregion
+    ```
+* Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
+* **Codemods** (AST-based rewrite tools): We're currently doing large, project-aware rewrites in the lint workspace. But, common pattern is to use codemods / migration transforms: standalone programs that parse code, apply structured changes, and rewrite files—run explicitly (often once) rather than on every save. Codemods are used for large, mechanical refactors across many files. For JavaScript/TypeScript, common ones are jscodeshift, Babel transforms, recast, and ts-morph. Other ecosystems have equivalents (e.g., clang-tidy for C/C++, gofmt/go fixers, etc.) Can rename APIs, change call signatures, rewrite imports, reorder args, etc. Usually run via CLI in CI or as one-off migrations. Characteristics: `Parse → transform AST → print`

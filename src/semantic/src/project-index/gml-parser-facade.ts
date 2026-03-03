@@ -10,7 +10,7 @@ import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
  * ARCHITECTURE NOTE: This module exists as a temporary decoupling layer to manage
  * a circular dependency between the 'parser' and 'semantic' packages during the
  * ongoing parser rebuild. Ideally, dependencies should flow in one direction:
- *   Core ← Parser ← Semantic ← Plugin
+ *   Core ← Parser ← Semantic ← Format
  *
  * However, the current implementation requires 'semantic' to invoke the parser for
  * project-wide indexing, while the parser also depends on 'semantic' for scope
@@ -64,7 +64,7 @@ function parseProjectIndexSource(sourceText: string, context = {}, parser: Parse
         // during incremental refactoring.
         //
         // CONTEXT: The ParserOptions interface is evolving across multiple packages
-        // (parser, semantic, plugin) as the parser is being rebuilt. During this
+        // (parser, semantic, format) as the parser is being rebuilt. During this
         // transition, the options object may have fields that exist at runtime but
         // don't match the compile-time type definitions in all workspaces.
         //

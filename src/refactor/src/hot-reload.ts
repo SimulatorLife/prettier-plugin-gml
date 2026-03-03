@@ -24,7 +24,7 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectRenameConflicts } from "./validation.js";
-import { assertValidIdentifierName, extractSymbolName, hasMethod, parseSymbolIdParts } from "./validation-utils.js";
+import { assertValidIdentifierName, extractSymbolName, parseSymbolIdParts } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
@@ -53,7 +53,7 @@ export async function prepareHotReloadUpdates(
             // Determine which symbols are defined in this file
             let affectedSymbols = [];
 
-            if (hasMethod(semantic, "getFileSymbols")) {
+            if (Core.hasMethods(semantic, "getFileSymbols")) {
                 affectedSymbols = await semantic.getFileSymbols(filePath);
             }
 
@@ -213,7 +213,7 @@ export async function computeHotReloadCascade(
 
         try {
             // Query semantic analyzer for symbols that depend on this one
-            if (hasMethod(semantic, "getDependents")) {
+            if (Core.hasMethods(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
 
                 // Process dependents in parallel since they don't interfere with each other.
@@ -630,7 +630,7 @@ export async function generateTranspilerPatches(
                 // Transpile the updated script into a hot-reload patch if a transpiler
                 // is available. The patch contains executable JavaScript code that the
                 // GameMaker runtime can inject without restarting the game.
-                if (hasMethod(formatter, "transpileScript")) {
+                if (Core.hasMethods(formatter, "transpileScript")) {
                     const patch = await formatter.transpileScript({
                         sourceText,
                         symbolId: update.symbolId
@@ -733,64 +733,81 @@ export async function computeRenameImpactGraph(
         };
     }
 
-    // Build dependency graph using BFS
+    // Level-parallel BFS: query all nodes at the same dependency depth concurrently.
+    // Each level's getDependents calls are independent, so we fire them with
+    // Promise.all and process results after the entire level resolves. This reduces
+    // total latency from O(total_nodes) sequential async roundtrips to O(max_depth)
+    // batched ones—critical for fast hot-reload turnaround when the dependency graph
+    // has high branching factors (many dependents per symbol).
+    //
+    // The recursion is on levels (not individual nodes), so depth is bounded by the
+    // dependency tree height rather than the total node count.
+    //
+    // Cycle-safety: the visited set is checked synchronously when building the next
+    // level from the resolved results, so circular dependencies (A→B→C→A) still
+    // terminate correctly even with parallel fetching.
     const visited = new Set<string>([symbolId]);
-    const queue: Array<{ id: string; distance: number }> = [{ id: symbolId, distance: 0 }];
 
-    const processQueue = async (): Promise<void> => {
-        const current = queue.shift();
-        if (!current) {
+    const processLevel = async (currentLevel: ReadonlyArray<{ id: string; distance: number }>): Promise<void> => {
+        if (currentLevel.length === 0) {
             return;
         }
 
-        const { id: currentId, distance: currentDistance } = current;
+        // Fetch dependents for every node in this level in parallel
+        const levelResults = await Promise.all(
+            currentLevel.map(async ({ id: currentId, distance: currentDistance }) => {
+                const dependents = await SymbolQueries.getSymbolDependents([currentId], semantic);
+                return { currentId, currentDistance, dependents };
+            })
+        );
 
-        // Query dependents for this symbol
-        const dependents = await SymbolQueries.getSymbolDependents([currentId], semantic);
+        const nextLevel: Array<{ id: string; distance: number }> = [];
 
-        for (const dep of dependents) {
-            const depId = dep.symbolId;
-            const depName = extractSymbolName(depId);
+        for (const { currentId, currentDistance, dependents } of levelResults) {
+            for (const dep of dependents) {
+                const depId = dep.symbolId;
+                const depName = extractSymbolName(depId);
 
-            // Add dependent edge to current node
-            const currentNode = nodes.get(currentId);
-            if (currentNode && !currentNode.dependents.includes(depId)) {
-                currentNode.dependents.push(depId);
+                // Record the dependent edge on the parent node so callers can traverse
+                // the graph in either direction. We do this before the visited check so
+                // diamond-shaped graphs (two parents sharing the same child) correctly
+                // record both parent→child edges even when the child is already in the
+                // visited set from the first parent.
+                const currentNode = nodes.get(currentId);
+                if (currentNode && !currentNode.dependents.includes(depId)) {
+                    currentNode.dependents.push(depId);
+                }
+
+                // Skip already-visited symbols to prevent infinite cycles in the
+                // dependency graph. Without this guard, circular dependencies (A→B→C→A)
+                // would cause the traversal to loop indefinitely, consuming unbounded
+                // memory and CPU. The visited set acts as a termination condition: once a
+                // symbol has been explored, we record its impact and move on.
+                if (visited.has(depId)) {
+                    continue;
+                }
+
+                visited.add(depId);
+
+                nodes.set(depId, {
+                    symbolId: depId,
+                    symbolName: depName,
+                    distance: currentDistance + 1,
+                    isDirectlyAffected: false,
+                    dependents: [],
+                    dependsOn: [currentId],
+                    filePath: dep.filePath,
+                    estimatedReloadTime: 30
+                });
+
+                nextLevel.push({ id: depId, distance: currentDistance + 1 });
             }
-
-            // Skip if already visited to prevent infinite cycles in the dependency
-            // graph. Without this guard, circular dependencies (A→B→C→A) would cause
-            // the traversal to loop indefinitely, consuming unbounded memory and CPU.
-            // The visited set acts as a termination condition: once a symbol has been
-            // explored, we record its impact and move on. Removing this check would
-            // break hot-reload analysis for any project with mutual dependencies,
-            // which are common in GameMaker codebases (e.g., state machines, observers).
-            if (visited.has(depId)) {
-                continue;
-            }
-
-            visited.add(depId);
-
-            // Create node for dependent
-            const dependentNode: RenameImpactNode = {
-                symbolId: depId,
-                symbolName: depName,
-                distance: currentDistance + 1,
-                isDirectlyAffected: false,
-                dependents: [],
-                dependsOn: [currentId],
-                filePath: dep.filePath,
-                estimatedReloadTime: 30
-            };
-
-            nodes.set(depId, dependentNode);
-            queue.push({ id: depId, distance: currentDistance + 1 });
         }
 
-        await processQueue();
+        await processLevel(nextLevel);
     };
 
-    await processQueue();
+    await processLevel([{ id: symbolId, distance: 0 }]);
 
     // Compute metrics
     const maxDepth = Math.max(...Array.from(nodes.values()).map((n) => n.distance));

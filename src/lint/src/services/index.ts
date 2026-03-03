@@ -1,7 +1,8 @@
+import { Core } from "@gml-modules/core";
+
 import { PERFORMANCE_OVERRIDE_RULE_IDS } from "../configs/performance-rule-ids.js";
 import { featherManifest } from "../rules/feather/manifest.js";
 import type { ProjectCapability } from "../types/index.js";
-import { isPathWithinBoundary } from "./path-boundary.js";
 import {
     createPrebuiltProjectAnalysisProvider,
     createProjectAnalysisSnapshotFromProjectIndex
@@ -45,7 +46,7 @@ export const services = Object.freeze({
     createProjectAnalysisSnapshotFromProjectIndex,
     createProjectLintContextRegistry,
     createProjectSettingsFromRegistry,
-    isPathWithinBoundary,
+    isPathWithinBoundary: Core.isPathWithinBoundary,
     createMissingContextSettings(): GmlProjectSettings {
         return Object.freeze({
             getContext() {

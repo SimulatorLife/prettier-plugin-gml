@@ -43,7 +43,7 @@ async function primeMemorySuiteSampleCache() {
         "..",
         "test",
         "fixtures",
-        "plugin-integration",
+        "integration",
         "testFoo.input.gml"
     );
     const formatterSampleContents = await readFile(formatterSamplePath, "utf8");
@@ -129,7 +129,7 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
         assert.strictEqual(typeof parserSuite.memory.delta.heapUsed, "number");
     }
 
-    const formatterSuite = payload.suites[MemorySuiteName.PLUGIN_FORMAT];
+    const formatterSuite = payload.suites[MemorySuiteName.FORMAT_WORKSPACE];
     assert.ok(formatterSuite && typeof formatterSuite === "object");
     assert.strictEqual(formatterSuite.iterations, 1);
     assert.strictEqual(typeof formatterSuite.description, "string");

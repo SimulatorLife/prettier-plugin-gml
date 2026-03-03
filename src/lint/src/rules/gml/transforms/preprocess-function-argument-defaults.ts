@@ -176,7 +176,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
 
         const paramInfoByName = new Map();
         for (const [index, param] of params.entries()) {
-            const identifier = getIdentifierFromParameter(param);
+            const identifier = Core.getIdentifierFromParameterNode(param);
             if (!identifier) {
                 continue;
             }
@@ -580,7 +580,7 @@ function ensureParameterInfoForMatch(
     }
 
     const paramAtIndex = params[argumentIndex];
-    const identifier = getIdentifierFromParameter(paramAtIndex);
+    const identifier = Core.getIdentifierFromParameterNode(paramAtIndex);
     if (!identifier) {
         return null;
     }
@@ -589,13 +589,13 @@ function ensureParameterInfoForMatch(
     if (targetName && (!identifierName || identifierName !== targetName)) {
         try {
             const fallbackParam = params[argumentIndex];
-            const fallBackIdentifier = getIdentifierFromParameter(fallbackParam);
+            const fallBackIdentifier = Core.getIdentifierFromParameterNode(fallbackParam);
             if (fallBackIdentifier) {
                 return registerInfo(argumentIndex, fallBackIdentifier);
             }
         } catch {
             // Swallow parameter lookup errors and return null.
-            // REASON: getIdentifierFromParameter attempts to extract a name from
+            // REASON: Core.getIdentifierFromParameterNode attempts to extract a name from
             // the fallback parameter at the given index. If the params array is
             // malformed, the index is out of bounds, or the parameter has an
             // unexpected shape, we gracefully fail by returning null rather than
@@ -1191,26 +1191,6 @@ function resolveNodeToArgumentCountSubject(node: any) {
     return null;
 }
 
-function getIdentifierFromParameter(param: GameMakerAstNode | null | undefined) {
-    if (!param) {
-        return null;
-    }
-
-    if (param.type === "Identifier") {
-        return param;
-    }
-
-    if (param.type === "AssignmentPattern") {
-        return param.left;
-    }
-
-    if (param.type === "DefaultParameter") {
-        return param.left;
-    }
-
-    return null;
-}
-
 function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
     if (!functionNode || functionNode.type !== "FunctionDeclaration") {
         return [];
@@ -1284,7 +1264,7 @@ function getArgumentIndexFromNode(node: any) {
     if (!isObjectLike(node)) return null;
 
     if (node.type === "Identifier") {
-        return getArgumentIndexFromIdentifier(node.name);
+        return Core.getArgumentIndexFromIdentifier(node.name);
     }
 
     if (
@@ -1301,14 +1281,6 @@ function getArgumentIndexFromNode(node: any) {
     }
 
     return null;
-}
-
-function getArgumentIndexFromIdentifier(name: unknown) {
-    if (typeof name !== "string") return null;
-    const match = name.match(/^argument(\d+)$/);
-    if (!match) return null;
-    const parsed = Number.parseInt(match[1]);
-    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function applyCondenseMatches(params: {

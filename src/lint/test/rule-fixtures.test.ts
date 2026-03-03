@@ -879,6 +879,17 @@ void test("optimize-math-expressions does not rewrite decimal literals that star
     assert.equal(result.output, input);
 });
 
+void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
+    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gml-modules/format')
+    // However, when a math-optimization condenses an expression containing two or more of these literals into a single literal, the resulting literal
+    // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
+    const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");
+    const expected = ["var a = .5;", "var b = 0.5;", "var c = 5.;", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, expected);
+});
+
 void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
     const input = ["var s = 1.3 * size * 0.12 / 1.5;", "s = s - s / 2 - lengthdir_x(s / 2, swim_rot);", ""].join("\n");
     const expected = ["var s = size * 0.052 * (1 - lengthdir_x(1, swim_rot));", ""].join("\n");

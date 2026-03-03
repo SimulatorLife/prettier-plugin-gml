@@ -3,7 +3,7 @@
 This repository is the source monorepo for various GameMaker Language tools.
 
 It contains:
-- a Prettier formatter plugin (`@gml-modules/plugin`)
+- a Prettier formatter plugin (`@gml-modules/format`)
 - an ESLint language plugin + rules (`@gml-modules/lint`)
 - a refactor engine (`@gml-modules/refactor`)
 - a **gml** to **js** transpiler (`@gml-modules/transpiler`)
@@ -23,7 +23,7 @@ It contains:
 
 ## Formatter at a glance
 
-Formatter (`format`) does layout/canonical rendering only.
+Formatter (`format`) does layout/canonical rendering only (whitespace, semicolons, etc). It does not rewrite code or change semantics.
 
 ```gml
 // input
@@ -44,9 +44,10 @@ Lint (`lint --fix`) does semantic/content rewrites (rule-owned), for example `gm
 ```gml
 // input
 globalvar score;
+score = 0;
 
 // fixed output
-global.score = undefined;
+global.score = 0;
 ```
 
 Project-aware rule inventory: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md)
@@ -96,6 +97,8 @@ pnpm run cli -- lint /absolute/path/to/MyGame --fix
 
 ### Refactor from a local clone
 
+The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
+
 ```bash
 # dry-run rename preview
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --dry-run
@@ -108,7 +111,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 | Workspace | Path | Responsibility |
 | --- | --- | --- |
-| `@gml-modules/plugin` | `src/plugin/` | Formatter-only Prettier plugin surface |
+| `@gml-modules/format` | `src/format/` | Formatter-only Prettier plugin surface |
 | `@gml-modules/lint` | `src/lint/` | ESLint v9 language plugin + lint rules |
 | `@gml-modules/refactor` | `src/refactor/` | Cross-file refactor planning/application |
 | `@gml-modules/parser` | `src/parser/` | GML parsing (ANTLR + AST construction) |
@@ -128,7 +131,7 @@ pnpm run check
 pnpm test
 
 # targeted suites
-pnpm run test:plugin
+pnpm run test:format
 pnpm run test:lint
 pnpm run test:cli
 
@@ -154,7 +157,7 @@ These are the most commonly used CLI environment overrides.
 | `PRETTIER_PLUGIN_GML_DEFAULT_ACTION` | Set default CLI action when no command is provided (`help` or `format`). |
 | `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` | Default parse error strategy for `format` (`abort`, `skip`, `revert`). |
 | `PRETTIER_PLUGIN_GML_LOG_LEVEL` | Default log level for formatter wrapper output. |
-| `PRETTIER_PLUGIN_GML_PLUGIN_PATH` / `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` | Override plugin entry-point resolution paths. |
+| `PRETTIER_PLUGIN_GML_FORMAT_PATH` / `PRETTIER_PLUGIN_GML_FORMAT_PATHS` | Override format entry-point resolution paths. |
 | `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` | Cap ignored-file samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` | Cap skipped-directory samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` | Cap unsupported-extension samples in formatter summary output. |
@@ -186,7 +189,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
 }
 ```
 
-Current formatter-specific options exposed by `@gml-modules/plugin`:
+Current formatter-specific options exposed by `@gml-modules/format`:
 - `allowSingleLineIfStatements`
 - `logicalOperatorsStyle` (`"keywords"` or `"symbols"`)
 
@@ -250,12 +253,11 @@ Generated artifacts live in `dist/` and are disposable.
 Start here for deeper context and plans:
 
 - [`docs/README.md`](docs/README.md) (documentation index)
-- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md)
-- [`docs/formatter-linter-split-implementation-notes.md`](docs/formatter-linter-split-implementation-notes.md)
+- [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md) (core split architecture and malformed code strategy)
 - [`src/cli/README.md`](src/cli/README.md)
 - [`src/semantic/README.md`](src/semantic/README.md)
 - [`src/refactor/README.md`](src/refactor/README.md)
-- [`docs/live-reloading-concept.md`](docs/live-reloading-concept.md)
+- [`docs/hot-reload.md`](docs/hot-reload.md)
 
 ## References / Tools / Docs
 

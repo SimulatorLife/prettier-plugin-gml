@@ -3,14 +3,32 @@ import type { GameMakerAstNode } from "./types.js";
 
 type AstNode = GameMakerAstNode;
 type LocationKey = "start" | "end";
+type LocationField = "index" | "line";
+
 type LocationObject = { index?: number; line?: number };
 
-// Shared helpers for working with AST node location metadata.
-// These utilities centralize the logic for reading start/end positions
-// so both the parser and printer can remain consistent without duplicating
-// defensive checks around optional location shapes.
+type NodeRange = {
+    start: number | null;
+    end: number | null;
+};
 
-function getLocationIndex(node: unknown, key: LocationKey): number | null {
+/**
+ * Safely extract a numeric location field (`index` or `line`) from a node's
+ * `start` or `end` location payload.
+ *
+ * The parser may represent locations either as:
+ *   - a raw number
+ *   - an object containing `{ index?: number; line?: number }`
+ *   - `null` / `undefined`
+ *
+ * This helper normalizes all variants to `number | null`.
+ *
+ * @param {unknown} node AST node containing optional location metadata.
+ * @param {"start" | "end"} key Location boundary to inspect.
+ * @param {"index" | "line"} field Specific numeric field to extract.
+ * @returns {number | null} Normalized numeric location or `null`.
+ */
+function getLocationNumber(node: unknown, key: LocationKey, field: LocationField): number | null {
     return withObjectLike(
         node,
         (nodeObject) => {
@@ -23,8 +41,8 @@ function getLocationIndex(node: unknown, key: LocationKey): number | null {
             return withObjectLike(
                 location,
                 (locationObject) => {
-                    const { index } = locationObject;
-                    return typeof index === "number" ? index : null;
+                    const value = locationObject[field];
+                    return typeof value === "number" ? value : null;
                 },
                 () => null
             );
@@ -33,6 +51,16 @@ function getLocationIndex(node: unknown, key: LocationKey): number | null {
     );
 }
 
+/**
+ * Type guard for member access expressions.
+ *
+ * Certain member-expression nodes do not carry their own `start` position
+ * and instead rely on their `object` sub-node. This guard allows callers
+ * to detect those shapes safely.
+ *
+ * @param {unknown} node Potential AST node.
+ * @returns {boolean} Whether the node is a supported member expression.
+ */
 function isMemberExpressionNode(node: unknown): node is { type?: string; object?: unknown } {
     if (!isObjectLike(node)) {
         return false;
@@ -40,64 +68,101 @@ function isMemberExpressionNode(node: unknown): node is { type?: string; object?
 
     const nodeObject = node as { type?: unknown };
     const type = nodeObject.type;
+
     return typeof type === "string" && (type === "MemberDotExpression" || type === "MemberIndexExpression");
 }
 
-function getStartIndex(node: unknown): number | null {
+/**
+ * Retrieves the starting offset for a node while converting missing locations
+ * to `null` for easier downstream checks.
+ *
+ * Member-expression nodes inherit their starting position from their `object`
+ * sub-node when present. This avoids incorrect positioning for chained
+ * expressions.
+ *
+ * @param {unknown} node AST node whose start position should be resolved.
+ * @returns {number | null} Zero-based character index or `null`.
+ */
+function getNodeStartIndex(node: unknown): number | null {
     if (!isObjectLike(node)) {
         return null;
     }
 
-    const nodeWithType = node as { type?: string; object?: unknown };
+    const nodeWithType = node as {
+        type?: string;
+        object?: unknown;
+    };
+
     const isMemberAccess = isMemberExpressionNode(nodeWithType) && nodeWithType.object;
 
     if (isMemberAccess) {
-        const objectStart = getStartIndex(nodeWithType.object);
+        const objectStart = getNodeStartIndex(nodeWithType.object);
+
         if (typeof objectStart === "number") {
             return objectStart;
         }
     }
 
-    return getLocationIndex(node, "start");
-}
-
-/**
- * Retrieves the starting offset for a node while converting missing locations
- * to `null` for easier downstream checks. Several parser nodes omit their
- * `start` marker entirely; callers can therefore treat a `null` response as a
- * definitive "position unknown" signal instead of re-validating the shape of
- * the location payload every time.
- *
- * @param {unknown} node AST node whose start position should be resolved.
- * @returns {number | null} Zero-based character index or `null` when no
- *                          concrete start position is available.
- */
-function getNodeStartIndex(node: unknown): number | null {
-    const startIndex = getStartIndex(node);
-    return typeof startIndex === "number" ? startIndex : null;
+    return getLocationNumber(node, "start", "index");
 }
 
 /**
  * Reports the character offset immediately following the node's last token.
+ *
  * When the `end` marker is missing, the helper falls back to the `start`
- * marker so that printers can still anchor single-token constructs (e.g.,
- * keywords without explicit ranges). The `null` return mirrors
- * {@link getNodeStartIndex} and indicates that no reliable boundary exists.
+ * marker so that single-token constructs still have a usable anchor.
  *
  * @param {unknown} node AST node whose end boundary should be resolved.
- * @returns {number | null} One-past-the-end index or `null` when the location
- *                          data is unavailable.
+ * @returns {number | null} One-past-the-end index or `null`.
  */
 function getNodeEndIndex(node: unknown): number | null {
-    const endIndex = getLocationIndex(node, "end");
+    const endIndex = getLocationNumber(node, "end", "index");
+
     if (typeof endIndex === "number") {
         return endIndex + 1;
     }
 
-    const fallbackStart = getStartIndex(node);
+    const fallbackStart = getNodeStartIndex(node);
+
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
+/**
+ * Resolves both the starting and ending offsets for a node in a single call.
+ *
+ * The helper mirrors `getNodeStartIndex` / `getNodeEndIndex`
+ * by returning `null` when either boundary is unavailable.
+ *
+ * The end boundary is exclusive when defined.
+ *
+ * @param {unknown} node AST node whose bounds should be retrieved.
+ * @returns {{ start: number | null, end: number | null }}
+ */
+function getNodeRangeIndices(node: unknown): NodeRange {
+    const start = getNodeStartIndex(node);
+    const endIndex = getLocationNumber(node, "end", "index");
+
+    let end = null;
+
+    if (typeof endIndex === "number") {
+        end = endIndex + 1;
+    } else if (typeof start === "number") {
+        end = start;
+    }
+
+    return { start, end };
+}
+
+/**
+ * Clone a location payload defensively.
+ *
+ * Structured cloning avoids leaking shared references between nodes when
+ * synthesizing or transforming AST structures.
+ *
+ * @template TLocation
+ * @param {TLocation | undefined} location Location object or primitive.
+ * @returns {TLocation | undefined} Cloned location.
+ */
 function cloneLocation<TLocation = unknown>(location?: TLocation): TLocation | undefined {
     if (isObjectLike(location)) {
         return structuredClone(location);
@@ -111,19 +176,15 @@ function cloneLocation<TLocation = unknown>(location?: TLocation): TLocation | u
 }
 
 /**
- * Copy the `start`/`end` location metadata from {@link template} onto
- * {@link target} while cloning each boundary to avoid leaking shared
- * references between nodes. Callers frequently perform this defensive copy
- * when synthesizing AST nodes from existing ones, so centralizing the guard
- * clauses here keeps those transforms focused on their core logic.
+ * Copy the `start`/`end` location metadata from `template` onto `target`
+ * while cloning each boundary to avoid shared references.
+ *
+ * Frequently used when synthesizing AST nodes from existing ones.
  *
  * @template TTarget extends object
- * @param {TTarget | null | undefined} target Node whose location properties
- *   should be updated in-place.
- * @param {unknown} template Source node providing the optional `start` and
- *   `end` locations to clone.
- * @returns {TTarget | null | undefined} The original target reference for
- *   chaining.
+ * @param {TTarget | null | undefined} target Node to mutate.
+ * @param {unknown} template Source node providing location metadata.
+ * @returns {TTarget | null | undefined} The original target reference.
  */
 function assignClonedLocation<TTarget extends AstNode>(
     target: TTarget | null | undefined,
@@ -136,7 +197,10 @@ function assignClonedLocation<TTarget extends AstNode>(
                 template,
                 (templateNode) => {
                     let shouldAssign = false;
-                    const clonedLocations: { start?: unknown; end?: unknown } = {};
+                    const clonedLocations: {
+                        start?: unknown;
+                        end?: unknown;
+                    } = {};
 
                     if (Object.hasOwn(templateNode, "start")) {
                         clonedLocations.start = cloneLocation(templateNode.start);
@@ -161,64 +225,13 @@ function assignClonedLocation<TTarget extends AstNode>(
 }
 
 /**
- * Resolves both the starting and ending offsets for a node in a single call.
- *
- * The helper mirrors {@link getNodeStartIndex} / {@link getNodeEndIndex}
- * by returning `null` when either boundary is unavailable so callers can
- * branch without repeatedly validating nested location objects.
- *
- * @param {unknown} node AST node whose bounds should be retrieved.
- * @returns {{ start: number | null, end: number | null }} Character indices
- *          where `end` is exclusive when defined.
- */
-type NodeRange = {
-    start: number | null;
-    end: number | null;
-};
-
-function getNodeRangeIndices(node: unknown): NodeRange {
-    const start = getNodeStartIndex(node);
-    const endLocation = getLocationIndex(node, "end");
-
-    // `getNodeEndIndex` would normally fall back to the node's start location when
-    // the end marker is missing, but that fallback requires traversing the AST again
-    // to extract the start index. Since callers of `getNodeRangeIndices` frequently
-    // need both start and end bounds together (e.g., for range extraction, source
-    // slicing, or diagnostic reporting), we cache the normalized start index locally
-    // and reuse it for the fallback. This avoids redundant tree walking and location
-    // resolution, which matters because range queries run on nearly every node during
-    // printing and comment attachment passes. The optimization is invisible to callers
-    // but reduces the number of AST traversals by roughly 50% in typical formatting
-    // runs where many nodes lack explicit end locations (such as synthesized or
-    // placeholder nodes). The correctness tradeoff is zero—the fallback behavior is
-    // identical—but the performance gain is measurable in large files.
-    let end = null;
-    if (typeof endLocation === "number") {
-        end = endLocation + 1;
-    } else if (typeof start === "number") {
-        end = start;
-    }
-
-    return {
-        start,
-        end
-    };
-}
-
-/**
  * Select the preferred location object from a list of candidates.
  *
- * Many transforms supply multiple possible location sources (for example a
- * computed property start and the assignment's start) and expect a single
- * location-like value that can be cloned and assigned to a synthesized node.
- * This helper returns the first concrete candidate it finds. Numeric indices
- * are normalized to a `{ index: number }` shape for callers that expect an
- * object-like location.
+ * Returns the first object-like candidate found.
+ * Numeric indices are normalized to `{ index: number }`.
  *
- * @param {...(object|number|null|undefined)} candidates Potential location
- *        values ordered by preference.
- * @returns {object | null} The chosen location object or `null` when none
- *                         were provided.
+ * @param {...(object|number|null|undefined)} candidates
+ * @returns {object | null}
  */
 function getPreferredLocation(...candidates: Array<LocationObject | number | null | undefined>): LocationObject | null {
     for (const candidate of candidates) {
@@ -238,48 +251,26 @@ function getPreferredLocation(...candidates: Array<LocationObject | number | nul
     return null;
 }
 
-function getNodeLocationLine(node, key) {
-    return withObjectLike(
-        node,
-        (nodeObject) =>
-            withObjectLike(
-                nodeObject[key],
-                (location) => {
-                    const { line } = location;
-                    return typeof line === "number" ? line : null;
-                },
-                () => null
-            ),
-        () => null
-    );
+/**
+ * Retrieve the zero-based line number where `node` begins.
+ *
+ * @param {unknown} node AST node.
+ * @returns {number | null} Line index or `null`.
+ */
+function getNodeStartLine(node: unknown): number | null {
+    return getLocationNumber(node, "start", "line");
 }
 
 /**
- * Retrieve the zero-based line number where {@link node} begins.
+ * Retrieve the zero-based line number where `node` ends.
  *
- * Mirrors {@link getNodeStartIndex} by collapsing missing or malformed
- * location metadata to `null` so callers can branch on a single sentinel
- * value instead of re-validating nested location shapes.
+ * Falls back to the node's start line if no explicit end line exists.
  *
- * @param {unknown} node AST node whose starting line should be resolved.
- * @returns {number | null} Line index or `null` when unavailable.
+ * @param {unknown} node AST node.
+ * @returns {number | null} Line index or `null`.
  */
-function getNodeStartLine(node) {
-    return getNodeLocationLine(node, "start");
-}
-
-/**
- * Retrieve the zero-based line number where {@link node} ends.
- *
- * Follows {@link getNodeEndIndex} by falling back to the node's start line
- * whenever the parser omits an explicit end marker so downstream consumers can
- * share the same guard logic across index- and line-based helpers.
- *
- * @param {unknown} node AST node whose ending line should be resolved.
- * @returns {number | null} Line index or `null` when unavailable.
- */
-function getNodeEndLine(node) {
-    return getNodeLocationLine(node, "end") ?? getNodeLocationLine(node, "start");
+function getNodeEndLine(node: unknown): number | null {
+    return getLocationNumber(node, "end", "line") ?? getLocationNumber(node, "start", "line");
 }
 
 export {
