@@ -209,24 +209,21 @@ void test("GmlToJsEmitter routes script calls through the wrapper helper", () =>
     const source = "result = scr_attack(target)";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const dummyOracle = Transpiler.makeDummyOracle();
-    const sem: SemanticAnalyzers = {
-        identifier: dummyOracle.identifier,
-        callTarget: {
-            callTargetKind(node) {
-                if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
-                    return "script";
-                }
-                return "unknown";
-            },
-            callTargetSymbol(node) {
-                if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
-                    return "gml/script/scr_attack";
-                }
-                return null;
+    const defaultOracle = Transpiler.createSemanticOracle();
+    const sem: SemanticAnalyzers = Object.assign(Object.create(defaultOracle), {
+        callTargetKind(node) {
+            if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
+                return "script";
             }
+            return "unknown";
+        },
+        callTargetSymbol(node) {
+            if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
+                return "gml/script/scr_attack";
+            }
+            return null;
         }
-    };
+    });
     const emitter = new Transpiler.GmlToJsEmitter(sem);
     const result = emitter.emit(ast);
 
@@ -240,18 +237,15 @@ void test("GmlToJsEmitter allows overriding the script call helper name", () => 
     const source = "scr_attack()";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const dummyOracle = Transpiler.makeDummyOracle();
-    const sem: SemanticAnalyzers = {
-        identifier: dummyOracle.identifier,
-        callTarget: {
-            callTargetKind() {
-                return "script";
-            },
-            callTargetSymbol() {
-                return "gml/script/scr_attack";
-            }
+    const defaultOracle = Transpiler.createSemanticOracle();
+    const sem: SemanticAnalyzers = Object.assign(Object.create(defaultOracle), {
+        callTargetKind() {
+            return "script";
+        },
+        callTargetSymbol() {
+            return "gml/script/scr_attack";
         }
-    };
+    });
     const emitter = new Transpiler.GmlToJsEmitter(sem, {
         callScriptIdent: "__runtime_call"
     });
@@ -294,7 +288,7 @@ void test("GmlToJsEmitter allows overriding the globals identifier", () => {
     const source = "globalvar foo; foo = 1;";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle(), {
         globalsIdent: "__globals"
     });
 
@@ -307,7 +301,7 @@ void test("GmlToJsEmitter applies the globals identifier for globalvar initializ
     const source = "globalvar foo;";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle(), {
         globalsIdent: "__globals"
     });
 
@@ -324,7 +318,7 @@ void test("Transpiler.emitJavaScript accepts emitter options", () => {
     const source = "globalvar foo; foo = 1;";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const result = Transpiler.emitJavaScript(ast, Transpiler.makeDummyOracle(), {
+    const result = Transpiler.emitJavaScript(ast, Transpiler.createSemanticOracle(), {
         globalsIdent: "__globals"
     });
 
@@ -444,7 +438,7 @@ void test("GmlToJsEmitter allows overriding the with-target resolver helper", ()
     const source = "with (obj_enemy) hp -= 1";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle(), {
         resolveWithTargetsIdent: "__custom_resolve_with"
     });
     const result = emitter.emit(ast);
