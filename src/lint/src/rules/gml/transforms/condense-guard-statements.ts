@@ -1,6 +1,4 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-
-import type { ParserTransform } from "./functional-transform.js";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
 type AssignmentBranchInfo = {
     type: "assignment";

@@ -32,18 +32,18 @@ type IdentifierCaseProject = {
 
 export function resolveIdentifierCasePluginPath(currentDirectory: string): string {
     const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts"),
-        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../../plugin/dist/src/index.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
+        path.resolve(currentDirectory, "../../format/dist/src/format-entry.js"),
+        path.resolve(currentDirectory, "../../format/dist/index.js"),
+        path.resolve(currentDirectory, "../../format/dist/src/index.js"),
+        path.resolve(currentDirectory, "../../format/src/format-entry.js"),
+        path.resolve(currentDirectory, "../../format/src/index.js"),
+        path.resolve(currentDirectory, "../../format/src/format-entry.ts"),
+        path.resolve(currentDirectory, "../../../format/dist/src/format-entry.js"),
+        path.resolve(currentDirectory, "../../../format/dist/index.js"),
+        path.resolve(currentDirectory, "../../../format/dist/src/index.js"),
+        path.resolve(currentDirectory, "../../../format/src/format-entry.js"),
+        path.resolve(currentDirectory, "../../../format/src/index.js"),
+        path.resolve(currentDirectory, "../../../format/src/format-entry.ts")
     ];
 
     for (const candidate of candidates) {

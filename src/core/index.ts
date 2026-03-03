@@ -1,11 +1,12 @@
 // Expose the Core namespace as the sole public surface
-export { Core, createParserTransform, DescriptionUtils, NormalizationUtils } from "./src/index.js";
+export { Core, createParserTransform } from "./src/index.js";
 
 // Re-export key types for consumer usage
 export type {
     AbortSignalLike,
     DebouncedFunction,
     DocCommentLines,
+    DocCommentNodeMetadata,
     EmptyTransformOptions,
     FeatherDiagnostic,
     FeatherMetadata,
@@ -20,5 +21,6 @@ export type {
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions,
-    StringCommentScanState
+    StringCommentScanState,
+    StripCommentsTransformOptions
 } from "./src/index.js";

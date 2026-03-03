@@ -9,8 +9,6 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
-
 type CollapseRedundantMissingCallArgumentsTransformOptions = Record<string, never>;
 
 /**
@@ -72,7 +70,7 @@ function collapseRedundantMissingCallArguments(ast: MutableGameMakerAstNode) {
 
 /** Singleton instance exported for composition into the plugin pipeline. */
 export const collapseRedundantMissingCallArgumentsTransform =
-    createParserTransform<CollapseRedundantMissingCallArgumentsTransformOptions>(
+    Core.createParserTransform<CollapseRedundantMissingCallArgumentsTransformOptions>(
         "collapse-redundant-missing-call-arguments",
         {},
         execute

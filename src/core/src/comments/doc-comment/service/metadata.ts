@@ -22,6 +22,15 @@ export function isDocCommentTagLine(line: unknown) {
     return DOC_COMMENT_TAG_PATTERN.test(trimmed) || DOC_COMMENT_ALT_TAG_PATTERN.test(trimmed);
 }
 
+export function isFunctionDocCommentLine(line: unknown) {
+    if (typeof line !== STRING_TYPE) {
+        return false;
+    }
+
+    const trimmed = toTrimmedString(line);
+    return /^\/\/\/\s*@(?:function|func)\b/i.test(trimmed);
+}
+
 export function parseDocCommentMetadata(line: unknown): DocCommentMetadata | null {
     if (typeof line !== STRING_TYPE) {
         return null;

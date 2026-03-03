@@ -2,16 +2,16 @@
  * Integration test for identifier-case autodiscovery.
  *
  * ARCHITECTURE SMELL: This integration test lives in the 'semantic' package but
- * requires importing the full 'plugin' package (via Prettier), creating a reverse
+ * requires importing the full 'format' package (via Prettier), creating a reverse
  * dependency from a lower layer to a higher layer. The dependency flow should be:
- *   Core ← Parser ← Semantic ← Plugin
+ *   Core ← Parser ← Semantic ← Format
  *
- * Integration tests that exercise the full pipeline (Prettier → Plugin → Semantic → Parser)
+ * Integration tests that exercise the full pipeline (Prettier → Format → Semantic → Parser)
  * should not live inside a workspace that's supposed to be lower in the stack.
  *
- * CURRENT STATE: The test here imports Prettier and the plugin, formats GML source,
+ * CURRENT STATE: The test here imports Prettier and the format workspace, formats GML source,
  * and verifies that identifier-case analysis works end-to-end. This forces the
- * 'semantic' package to have a dev-dependency on 'plugin', which is backwards.
+ * 'semantic' package to have a dev-dependency on 'format', which is backwards.
  *
  * RECOMMENDATION: Move all integration tests to a top-level 'test/' directory at the
  * repository root, outside any individual workspace. This directory can depend on
@@ -30,8 +30,8 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import { getFormat } from "./format-loader.js";
 import { createIdentifierCaseProject, resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
-import { getPlugin } from "./plugin-loader.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
@@ -82,8 +82,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
             const firstRunOptions = { ...baseOptions };
-            const plugin = await getPlugin();
-            const firstOutput = await plugin.format(fixtureSource, firstRunOptions);
+            const formatWorkspace = await getFormat();
+            const firstOutput = await formatWorkspace.format(fixtureSource, firstRunOptions);
 
             assert.match(firstOutput, /counterValue/, "Expected automatic discovery to enable renames");
 
@@ -104,7 +104,7 @@ void describe("identifier case project index bootstrap", () => {
             const secondRunOptions = {
                 ...baseOptions
             };
-            const secondOutput = await plugin.format(firstOutput, secondRunOptions);
+            const secondOutput = await formatWorkspace.format(firstOutput, secondRunOptions);
             assert.match(secondOutput, /counterValue/, "Expected subsequent runs to keep applying renames");
             const store2 = getIdentifierCaseOptionStore(gmlPath);
             assert.ok(store2, "Expected cached bootstrap metadata");
@@ -147,8 +147,8 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
 
-            const plugin = await getPlugin();
-            const formattedWithoutManifest = await plugin.format(fixtureSource, optionsWithoutManifest);
+            const formatWorkspace = await getFormat();
+            const formattedWithoutManifest = await formatWorkspace.format(fixtureSource, optionsWithoutManifest);
             assert.ok(
                 formattedWithoutManifest.includes("counter_value"),
                 "Expected renames to be skipped when no project root is found"
@@ -176,7 +176,7 @@ void describe("identifier case project index bootstrap", () => {
                     __identifierCaseDryRun: false
                 };
 
-                const formattedDisabled = await plugin.format(source, disabledOptions);
+                const formattedDisabled = await formatWorkspace.format(source, disabledOptions);
                 assert.ok(
                     formattedDisabled.includes("counter_value"),
                     "Expected renames to be disabled when discovery is turned off"

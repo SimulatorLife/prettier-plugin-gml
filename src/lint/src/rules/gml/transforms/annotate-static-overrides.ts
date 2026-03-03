@@ -4,8 +4,6 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
-
 const { isObjectLike } = Core;
 
 type AnnotateStaticFunctionOverridesTransformOptions = Record<string, never>;
@@ -204,4 +202,8 @@ function execute(
 }
 
 export const annotateStaticFunctionOverridesTransform =
-    createParserTransform<AnnotateStaticFunctionOverridesTransformOptions>("annotate-static-overrides", {}, execute);
+    Core.createParserTransform<AnnotateStaticFunctionOverridesTransformOptions>(
+        "annotate-static-overrides",
+        {},
+        execute
+    );

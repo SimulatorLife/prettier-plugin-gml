@@ -246,7 +246,7 @@ function normalizeIndefiniteArticle(label) {
     return `${STARTS_WITH_VOWEL_PATTERN.test(normalized) ? "an" : "a"} ${normalized}`;
 }
 
-function toSafeString(value: unknown) {
+function toSafeString(value: unknown): string {
     if (value == null) {
         return value === null ? "null" : "undefined";
     }
@@ -344,6 +344,15 @@ export function formatWithIndefiniteArticle(label) {
     return "a";
 }
 
+/**
+ * Determine whether a character is a valid identifier word character in
+ * GameMaker Language (GML). Accepted characters are ASCII letters (a–z, A–Z),
+ * decimal digits (0–9), and the underscore (`_`). Non-string inputs, empty
+ * strings, and characters outside this set all return `false`.
+ *
+ * @param {unknown} character Candidate single-character string to evaluate.
+ * @returns {boolean} `true` when {@link character} is a word character.
+ */
 export function isWordChar(character) {
     if (typeof character !== "string" || character.length === 0) {
         return false;
@@ -465,7 +474,7 @@ const SINGLE_QUOTE_CHARACTER = "'";
  *                   whitespace removed. Returns `""` when {@link value} is
  *                   `null` or `undefined`.
  */
-export function toNormalizedLowerCaseString(value?: unknown) {
+export function toNormalizedLowerCaseString(value?: unknown): string {
     if (value == null) {
         return "";
     }
@@ -473,6 +482,16 @@ export function toNormalizedLowerCaseString(value?: unknown) {
     return toSafeString(value).trim().toLowerCase();
 }
 
+/**
+ * Upper-case the first character of {@link value} while leaving the remainder
+ * unchanged. Non-string inputs are coerced to a string via the internal
+ * `toSafeString` helper before the transformation is applied. Returns an empty
+ * string for `null`, `undefined`, or empty input.
+ *
+ * @param {unknown} value Value whose first character should be upper-cased.
+ * @returns {string} The input string with its first character capitalized, or
+ *                   an empty string when the input is nullish or empty.
+ */
 export function capitalize(value?: unknown): string {
     if (value == null) {
         return "";
@@ -503,8 +522,7 @@ export function capitalize(value?: unknown): string {
  *          use with `String#split`.
  */
 export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
-    /** @type {Array<{ pattern: string, length: number, order: number }>} */
-    const entries = [];
+    const entries: Array<{ pattern: string; length: number; order: number }> = [];
     const seenPatterns = new Set();
 
     const addEntry = (pattern, length) => {

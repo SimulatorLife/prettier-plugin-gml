@@ -1,9 +1,11 @@
 import path from "node:path";
 
+import { Core } from "@gml-modules/core";
+
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
 import type { GmlFeatherRenamePlanEntry } from "./index.js";
-import { isPathWithinBoundary } from "./path-boundary.js";
+import { isDirectoryExcludedBySegments } from "./path-boundary.js";
 
 const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
     "IDENTIFIER_OCCUPANCY",
@@ -39,30 +41,13 @@ type ProjectIndex = Readonly<{
     identifierToFiles: ReadonlyMap<string, ReadonlySet<string>>;
 }>;
 
-function normalizeIdentifierName(identifierName: string): string {
-    return identifierName.trim().toLowerCase();
-}
-
-function splitPathSegments(pathValue: string): Array<string> {
-    return pathValue
-        .split(/[\\/]+/u)
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
-}
-
 function isExcludedPath(
     filePath: string,
     excludedDirectories: ReadonlySet<string>,
     allowedDirectories: ReadonlyArray<string>
 ): boolean {
     const normalizedFilePath = normalizeLintFilePath(filePath);
-    const isAllowed = allowedDirectories.some((directory) => isPathWithinBoundary(normalizedFilePath, directory));
-    if (isAllowed) {
-        return false;
-    }
-
-    const segments = splitPathSegments(normalizedFilePath);
-    return segments.some((segment) => excludedDirectories.has(segment.toLowerCase()));
+    return isDirectoryExcludedBySegments(normalizedFilePath, excludedDirectories, allowedDirectories);
 }
 
 function resolveLoopHoistIdentifierName(
@@ -72,10 +57,10 @@ function resolveLoopHoistIdentifierName(
 ): string | null {
     const normalizedLocalNames = new Set<string>();
     for (const name of localIdentifierNames) {
-        normalizedLocalNames.add(normalizeIdentifierName(name));
+        normalizedLocalNames.add(Core.toNormalizedLowerCaseString(name));
     }
 
-    const normalizedPreferredName = normalizeIdentifierName(preferredName);
+    const normalizedPreferredName = Core.toNormalizedLowerCaseString(preferredName);
     if (
         !normalizedPreferredName ||
         normalizedLocalNames.has(normalizedPreferredName) ||
@@ -84,7 +69,7 @@ function resolveLoopHoistIdentifierName(
         const baseName = preferredName.length > 0 ? preferredName : "len";
         for (let index = 1; index <= 1000; index += 1) {
             const candidate = `${baseName}_${index}`;
-            const normalizedCandidate = normalizeIdentifierName(candidate);
+            const normalizedCandidate = Core.toNormalizedLowerCaseString(candidate);
             if (!normalizedLocalNames.has(normalizedCandidate) && !isProjectIdentifierOccupied(normalizedCandidate)) {
                 return candidate;
             }
@@ -97,14 +82,14 @@ function resolveLoopHoistIdentifierName(
 
 function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
     const isIdentifierOccupied = (identifierName: string): boolean => {
-        return index.identifierToFiles.has(normalizeIdentifierName(identifierName));
+        return index.identifierToFiles.has(Core.toNormalizedLowerCaseString(identifierName));
     };
 
     return Object.freeze({
         capabilities: ALL_PROJECT_CAPABILITIES,
         isIdentifierNameOccupiedInProject: isIdentifierOccupied,
         listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
-            const files = index.identifierToFiles.get(normalizeIdentifierName(identifierName));
+            const files = index.identifierToFiles.get(Core.toNormalizedLowerCaseString(identifierName));
             return files ?? new Set<string>();
         },
         planFeatherRenames(
@@ -120,7 +105,9 @@ function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnap
                     };
                 }
 
-                const normalizedPreferredReplacementName = normalizeIdentifierName(request.preferredReplacementName);
+                const normalizedPreferredReplacementName = Core.toNormalizedLowerCaseString(
+                    request.preferredReplacementName
+                );
                 if (index.identifierToFiles.has(normalizedPreferredReplacementName)) {
                     return {
                         identifierName: request.identifierName,
@@ -212,7 +199,7 @@ function addIdentifierFile(
     filePath: string,
     options: ProjectAnalysisBuildOptions
 ): void {
-    const normalizedIdentifierName = normalizeIdentifierName(identifierName);
+    const normalizedIdentifierName = Core.toNormalizedLowerCaseString(identifierName);
     if (
         !normalizedIdentifierName ||
         isExcludedPath(filePath, options.excludedDirectories, options.allowedDirectories)

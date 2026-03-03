@@ -1,22 +1,20 @@
 # Refactor Engine Module
 
-This package powers semantic refactoring workflows such as safe renames, as outlined in
-`docs/semantic-scope-plan.md` and the hot-reload lifecycle in `docs/live-reloading-concept.md`.
-It consumes parser spans and semantic bindings to plan WorkspaceEdits that the CLI can apply
-atomically across the project.
+This package powers GML-native codemods and semantic refactoring transactions, as outlined in the [formatter/linter split plan](../../docs/formatter-linter-split-plan.md). It implements a native, GML-centric Collection API (inspired by `jscodeshift`) to handle atomic cross-file edits, metadata updates (`.yy`, `.yyp`), and structural migrations.
 
 ## Ownership Boundaries
 
-`@gml-modules/refactor` owns explicit cross-file rename/refactor transactions.
+`@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**.
 
 - Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
-- Owns rename validation, conflict detection, and workspace edit planning/application.
-- Is the only layer that should decide whether a rename requires cross-file edits.
+- Owns atomic cross-file edits, metadata updates, and structural migrations.
+- Implements a jscodeshift-like Collection API for GML ASTs.
+- Is the ONLY layer that should decide whether a rename requires cross-file edits or metadata changes.
 
 It does not replace lint or formatter domains:
 
-- `@gml-modules/lint` owns lint diagnostics and lint-rule autofix rewrites.
-- `@gml-modules/plugin` is formatter-only (layout/canonical rendering) and does not own refactor transactions.
+- `@gml-modules/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
+- `@gml-modules/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
 - `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities

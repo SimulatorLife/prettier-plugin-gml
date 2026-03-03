@@ -32,9 +32,6 @@
       "docs/README.md"
     ]
   },
-  "shell": {
-    "enableInteractiveShell": true
-  },
   "ui": {
     "accessibility": {
       "disableLoadingPhrases": true

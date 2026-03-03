@@ -22,8 +22,7 @@ export function loadBundledIdentifierMetadata() {
     return JSON.parse(contents);
 }
 
-/** @type {unknown | null} */
-let cachedIdentifierMetadata = null;
+let cachedIdentifierMetadata: unknown = null;
 
 /**
  * Cached Set of manual function names to avoid re-allocating on every call.

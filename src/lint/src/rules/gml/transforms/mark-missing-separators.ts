@@ -3,8 +3,6 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-import { createParserTransform } from "./functional-transform.js";
-
 type MarkCallsMissingArgumentSeparatorsTransformOptions = {
     originalText?: string;
 };
@@ -106,7 +104,7 @@ function execute(
 }
 
 export const markCallsMissingArgumentSeparatorsTransform =
-    createParserTransform<MarkCallsMissingArgumentSeparatorsTransformOptions>(
+    Core.createParserTransform<MarkCallsMissingArgumentSeparatorsTransformOptions>(
         "mark-calls-missing-argument-separators",
         {},
         execute

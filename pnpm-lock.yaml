@@ -17,15 +17,15 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:src/core
+      '@gml-modules/format':
+        specifier: workspace:*
+        version: link:src/format
       '@gml-modules/lint':
         specifier: workspace:*
         version: link:src/lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:src/parser
-      '@gml-modules/plugin':
-        specifier: workspace:*
-        version: link:src/plugin
       '@gml-modules/refactor':
         specifier: workspace:*
         version: link:src/refactor
@@ -134,15 +134,15 @@ importers:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:../core
+      '@gml-modules/format':
+        specifier: workspace:*
+        version: link:../format
       '@gml-modules/lint':
         specifier: workspace:*
         version: link:../lint
       '@gml-modules/parser':
         specifier: workspace:*
         version: link:../parser
-      '@gml-modules/plugin':
-        specifier: workspace:*
-        version: link:../plugin
       '@gml-modules/refactor':
         specifier: workspace:*
         version: link:../refactor
@@ -173,13 +173,25 @@ importers:
 
   src/core: {}
 
-  src/lint:
+  src/format:
     dependencies:
       '@gml-modules/core':
         specifier: workspace:*
         version: link:../core
       '@gml-modules/parser':
         specifier: workspace:*
+        version: link:../parser
+      prettier:
+        specifier: ^3.0.0
+        version: 3.6.2
+
+  src/lint:
+    dependencies:
+      '@gml-modules/core':
+        specifier: workspace:*
+        version: link:../core
+      '@gml-modules/parser':
+        specifier: workspace:*)
         version: link:../parser
     devDependencies:
       eslint:
@@ -197,18 +209,6 @@ importers:
       antlr4:
         specifier: ^4.13.2
         version: 4.13.2
-
-  src/plugin:
-    dependencies:
-      '@gml-modules/core':
-        specifier: workspace:*
-        version: link:../core
-      '@gml-modules/parser':
-        specifier: workspace:*
-        version: link:../parser
-      prettier:
-        specifier: ^3.0.0
-        version: 3.6.2
 
   src/refactor:
     dependencies:
