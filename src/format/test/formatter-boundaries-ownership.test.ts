@@ -302,4 +302,17 @@ void describe("formatter boundaries ownership", () => {
             ].join("\n")
         );
     });
+
+    void it("keeps argument aliases even when a named parameter exists", async () => {
+        const source = ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join(
+            "\n"
+        );
+
+        const formatted = await Format.format(source);
+
+        assert.strictEqual(
+            formatted,
+            ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join("\n")
+        );
+    });
 });
