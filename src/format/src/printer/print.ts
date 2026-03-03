@@ -3788,9 +3788,10 @@ function shouldFlattenComparisonLogicalTest(parent, expression, _path) {
         return false;
     }
 
-    // Flatten logic inside logic (e.g. `(a && b) || c`) if precedence allows
+    // Preserve comparator grouping for `or` chains to avoid collapsing
+    // canonical `(a < b) or (c > d)` formatting.
     if (parentInfo.type === "logical" && (expressionInfo.type === "comparison" || expressionInfo.type === "logical")) {
-        return true;
+        return parent.operator !== "or" && parent.operator !== "||";
     }
 
     // Flatten arithmetic inside comparison (e.g. `a < (b * c)`) if precedence allows
