@@ -1,9 +1,7 @@
 /**
  * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals (`$"{a}{b}{c}"`) so the printer renders more idiomatic GML.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-
-import type { ParserTransform } from "./functional-transform.js";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
 const { isObjectLike } = Core;
 

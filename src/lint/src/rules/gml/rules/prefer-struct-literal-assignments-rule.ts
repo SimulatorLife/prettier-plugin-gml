@@ -1,7 +1,6 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../../project-context.js";
 import {
     computeLineStartOffsets,
     createMeta,
@@ -283,11 +282,6 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                     }
                 }
             };
-
-            const projectContext = resolveProjectContextForRule(context, definition);
-            if (!projectContext.available) {
-                return reportMissingProjectContextOncePerFile(context, listener);
-            }
 
             return Object.freeze(listener);
         }

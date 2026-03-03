@@ -1,45 +1,28 @@
 import type { Rule } from "eslint";
 
-import type { ProjectCapability, UnsafeReasonCode } from "../types/index.js";
 import { createFeatherRule, featherManifest } from "./feather/index.js";
 import { createGmlRule } from "./gml/index.js";
-import { UNSAFE_REASON_CODES } from "./reason-codes.js";
 
 export type GmlRuleDefinition = Readonly<{
     mapKey: `Gml${string}`;
     shortName: string;
-    fullId: `feather/${string}`;
+    fullId: `gml/${string}`;
     messageId: string;
     schema: ReadonlyArray<unknown>;
-    requiresProjectContext: boolean;
-    requiredCapabilities: ReadonlyArray<ProjectCapability>;
-    unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
 }>;
-
-const NO_CAPABILITIES = Object.freeze([]) as ReadonlyArray<ProjectCapability>;
-const NO_REASON_CODES = Object.freeze([]) as ReadonlyArray<UnsafeReasonCode>;
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {
-        mapKey: "GmlPreferLoopLengthHoist",
-        shortName: "prefer-loop-length-hoist",
-        fullId: "feather/prefer-loop-length-hoist",
-        messageId: "preferLoopLengthHoist",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCUPANCY",
-            "LOOP_HOIST_NAME_RESOLUTION"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NAME_COLLISION,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT,
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY
-        ]),
+        mapKey: "GmlPreferHoistableLoopAccessors",
+        shortName: "prefer-hoistable-loop-accessors",
+        fullId: "gml/prefer-hoistable-loop-accessors",
+        messageId: "preferHoistableLoopAccessor",
         schema: Object.freeze([
             {
                 type: "object",
                 additionalProperties: false,
                 properties: {
+                    minOccurrences: { type: "integer", minimum: 2, default: 2 },
                     functionSuffixes: {
                         type: "object",
                         additionalProperties: {
@@ -52,48 +35,17 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
-        mapKey: "GmlPreferHoistableLoopAccessors",
-        shortName: "prefer-hoistable-loop-accessors",
-        fullId: "feather/prefer-hoistable-loop-accessors",
-        messageId: "preferHoistableLoopAccessor",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    minOccurrences: { type: "integer", minimum: 2, default: 2 },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ])
-    },
-    {
         mapKey: "GmlPreferRepeatLoops",
         shortName: "prefer-repeat-loops",
-        fullId: "feather/prefer-repeat-loops",
+        fullId: "gml/prefer-repeat-loops",
         messageId: "preferRepeatLoops",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlPreferStructLiteralAssignments",
         shortName: "prefer-struct-literal-assignments",
-        fullId: "feather/prefer-struct-literal-assignments",
+        fullId: "gml/prefer-struct-literal-assignments",
         messageId: "preferStructLiteralAssignments",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCURRENCES",
-            "RENAME_CONFLICT_PLANNING"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -107,11 +59,8 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
-        fullId: "feather/optimize-logical-flow",
+        fullId: "gml/optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             {
                 type: "object",
@@ -125,110 +74,71 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNoGlobalvar",
         shortName: "no-globalvar",
-        fullId: "feather/no-globalvar",
+        fullId: "gml/no-globalvar",
         messageId: "noGlobalvar",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze([
-            "IDENTIFIER_OCCUPANCY",
-            "RENAME_CONFLICT_PLANNING"
-        ]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.NAME_COLLISION,
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
-        schema: Object.freeze([
-            {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    enableAutofix: { type: "boolean", default: true },
-                    reportUnsafe: { type: "boolean", default: true }
-                }
-            }
-        ])
+        schema: Object.freeze([])
+    },
+    {
+        mapKey: "GmlNoUnnecessaryStringInterpolation",
+        shortName: "no-unnecessary-string-interpolation",
+        fullId: "gml/no-unnecessary-string-interpolation",
+        messageId: "noUnnecessaryStringInterpolation",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlNormalizeDocComments",
         shortName: "normalize-doc-comments",
-        fullId: "feather/normalize-doc-comments",
+        fullId: "gml/normalize-doc-comments",
         messageId: "normalizeDocComments",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlNormalizeDirectives",
         shortName: "normalize-directives",
-        fullId: "feather/normalize-directives",
+        fullId: "gml/normalize-directives",
         messageId: "normalizeDirectives",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlRequireControlFlowBraces",
         shortName: "require-control-flow-braces",
-        fullId: "feather/require-control-flow-braces",
+        fullId: "gml/require-control-flow-braces",
         messageId: "requireControlFlowBraces",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlNoAssignmentInCondition",
         shortName: "no-assignment-in-condition",
-        fullId: "feather/no-assignment-in-condition",
+        fullId: "gml/no-assignment-in-condition",
         messageId: "noAssignmentInCondition",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlPreferIsUndefinedCheck",
         shortName: "prefer-is-undefined-check",
-        fullId: "feather/prefer-is-undefined-check",
+        fullId: "gml/prefer-is-undefined-check",
         messageId: "preferIsUndefinedCheck",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlPreferEpsilonComparisons",
         shortName: "prefer-epsilon-comparisons",
-        fullId: "feather/prefer-epsilon-comparisons",
+        fullId: "gml/prefer-epsilon-comparisons",
         messageId: "preferEpsilonComparisons",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlNormalizeOperatorAliases",
         shortName: "normalize-operator-aliases",
-        fullId: "feather/normalize-operator-aliases",
+        fullId: "gml/normalize-operator-aliases",
         messageId: "normalizeOperatorAliases",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlPreferStringInterpolation",
         shortName: "prefer-string-interpolation",
-        fullId: "feather/prefer-string-interpolation",
+        fullId: "gml/prefer-string-interpolation",
         messageId: "preferStringInterpolation",
-        requiresProjectContext: true,
-        requiredCapabilities: Object.freeze(["IDENTIFIER_OCCURRENCES"]) as ReadonlyArray<ProjectCapability>,
-        unsafeReasonCodes: Object.freeze([
-            UNSAFE_REASON_CODES.SEMANTIC_AMBIGUITY,
-            UNSAFE_REASON_CODES.CROSS_FILE_CONFLICT
-        ]),
         schema: Object.freeze([
             {
                 type: "object",
@@ -242,21 +152,15 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlOptimizeMathExpressions",
         shortName: "optimize-math-expressions",
-        fullId: "feather/optimize-math-expressions",
+        fullId: "gml/optimize-math-expressions",
         messageId: "optimizeMathExpressions",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlRequireArgumentSeparators",
         shortName: "require-argument-separators",
-        fullId: "feather/require-argument-separators",
+        fullId: "gml/require-argument-separators",
         messageId: "requireArgumentSeparators",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([
             { type: "object", additionalProperties: false, properties: { repair: { type: "boolean", default: true } } }
         ])
@@ -264,21 +168,15 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
     {
         mapKey: "GmlNormalizeDataStructureAccessors",
         shortName: "normalize-data-structure-accessors",
-        fullId: "feather/normalize-data-structure-accessors",
+        fullId: "gml/normalize-data-structure-accessors",
         messageId: "normalizeDataStructureAccessors",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
         mapKey: "GmlRequireTrailingOptionalDefaults",
         shortName: "require-trailing-optional-defaults",
-        fullId: "feather/require-trailing-optional-defaults",
+        fullId: "gml/require-trailing-optional-defaults",
         messageId: "requireTrailingOptionalDefaults",
-        requiresProjectContext: false,
-        requiredCapabilities: NO_CAPABILITIES,
-        unsafeReasonCodes: NO_REASON_CODES,
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     }
 ]);

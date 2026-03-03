@@ -1,6 +1,7 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
+import { printExpression, readNodeText } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
@@ -10,6 +11,7 @@ import {
     type SourceTextEdit,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import { applyDivisionToMultiplication } from "../transforms/math/division-to-multiplication.js";
 import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
 // manual-transforms provide a comprehensive suite of normalization helpers that
 // the linter rule previously replicated only incompletely. We now invoke them
@@ -21,7 +23,18 @@ import {
     simplifyZeroDivisionNumerators
 } from "../transforms/math/traversal-normalization.js";
 
-const { getNodeStartIndex, getNodeEndIndex, unwrapExpressionStatement } = CoreWorkspace.Core;
+const {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    unwrapExpressionStatement,
+    createStringCommentScanState,
+    advanceStringCommentScan,
+    hasComment,
+    isIdentifierNode,
+    isLogicalAndOperator,
+    isLogicalOrOperator,
+    unwrapParenthesizedExpression: unwrapParenthesized
+} = CoreWorkspace.Core;
 
 type MultiplicativeComponents = Readonly<{
     coefficient: number;
@@ -34,13 +47,85 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "MemberIndexExpression",
     "CallExpression"
 ]);
+const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
 
-function unwrapParenthesized(node: any): any {
+function unwrapParenthesizedExpressionNode(node: unknown): unknown {
     let current = node;
-    while (current && current.type === "ParenthesizedExpression") {
-        current = current.expression;
+    while (
+        current &&
+        typeof current === "object" &&
+        (current as { type?: unknown }).type === "ParenthesizedExpression" &&
+        "expression" in (current as Record<string, unknown>)
+    ) {
+        current = (current as { expression?: unknown }).expression;
     }
+
     return current;
+}
+
+function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    if (left === right) {
+        return true;
+    }
+
+    if (left === null || right === null) {
+        return false;
+    }
+
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+
+        for (const [index, element] of left.entries()) {
+            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    if (typeof left !== typeof right) {
+        return false;
+    }
+
+    if (typeof left !== "object" || typeof right !== "object") {
+        return false;
+    }
+
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord)
+        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
+        .sort((a, b) => a.localeCompare(b));
+    const rightKeys = Object.keys(rightRecord)
+        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
+        .sort((a, b) => a.localeCompare(b));
+
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+
+    for (const [index, leftKey] of leftKeys.entries()) {
+        const rightKey = rightKeys[index];
+        if (leftKey !== rightKey) {
+            return false;
+        }
+
+        if (!areExpressionNodesEquivalentIgnoringParentheses(leftRecord[leftKey], rightRecord[rightKey])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    return areAstValuesEquivalentIgnoringParentheses(
+        unwrapParenthesizedExpressionNode(left),
+        unwrapParenthesizedExpressionNode(right)
+    );
 }
 
 function tryEvaluateExpression(node: any): any {
@@ -90,7 +175,7 @@ function tryEvaluateExpression(node: any): any {
         const leftValue = tryEvaluateExpression(unwrapped.left);
         const rightValue = tryEvaluateExpression(unwrapped.right);
 
-        if (unwrapped.operator === "&&" || unwrapped.operator === "and") {
+        if (isLogicalAndOperator(unwrapped.operator)) {
             if (leftValue === false || rightValue === false) {
                 return false;
             }
@@ -99,7 +184,7 @@ function tryEvaluateExpression(node: any): any {
             }
             return undefined;
         }
-        if (unwrapped.operator === "||" || unwrapped.operator === "or") {
+        if (isLogicalOrOperator(unwrapped.operator)) {
             if (leftValue === true || rightValue === true) {
                 return true;
             }
@@ -188,15 +273,6 @@ function canUseOpaqueMathFactor(node: any): boolean {
     }
 
     return false;
-}
-
-function readNodeText(sourceText: string, node: any): string | null {
-    const start = getNodeStartIndex(node);
-    const end = getNodeEndIndex(node);
-    if (typeof start !== "number" || typeof end !== "number") {
-        return null;
-    }
-    return sourceText.slice(start, end);
 }
 
 function trimOuterParentheses(value: string): string {
@@ -344,6 +420,26 @@ function simplifyMathExpression(sourceText: string, node: any, _source?: string)
     return simplified;
 }
 
+function containsCommentSyntax(text: string): boolean {
+    const scanState = createStringCommentScanState();
+    const length = text.length;
+    for (let index = 0; index < length; ) {
+        const nextIndex = advanceStringCommentScan(text, length, index, scanState, true);
+        if (nextIndex !== index) {
+            if (scanState.inBlockComment || scanState.inLineComment) {
+                return true;
+            }
+
+            index = nextIndex;
+            continue;
+        }
+
+        index += 1;
+    }
+
+    return false;
+}
+
 function extractHalfLengthdirRotationExpression(node: any, variableName: string, sourceText: string): string | null {
     const unwrapped = unwrapParenthesized(node);
     if (!unwrapped || unwrapped.type !== "BinaryExpression" || unwrapped.operator !== "*") {
@@ -363,7 +459,7 @@ function extractHalfLengthdirRotationExpression(node: any, variableName: string,
         const rright = unwrapParenthesized(right.right);
         if (rleft?.type === "Literal" && rleft.value === 1 && rright?.type === "CallExpression") {
             const callee = rright.object;
-            if (callee?.type === "Identifier" && callee.name === "lengthdir_x") {
+            if (isIdentifierNode(callee) && callee.name === "lengthdir_x") {
                 const args = rright.arguments;
                 if (
                     args.length === 2 &&
@@ -568,7 +664,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
         if (expr && (expr.type === "UpdateExpression" || expr.type === "IncDecStatement")) {
             const arg = expr.argument;
             const idNode = unwrapParenthesized(arg);
-            if (idNode?.type === "Identifier") {
+            if (isIdentifierNode(idNode)) {
                 const name = idNode.name;
                 const current = updatesByVariable.get(name) || { delta: 0, indices: [] };
                 current.delta += expr.operator === "++" ? 1 : -1;
@@ -578,7 +674,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
             }
         } else if (expr && expr.type === "AssignmentExpression") {
             const idNode = unwrapParenthesized(expr.left);
-            if (idNode?.type === "Identifier") {
+            if (isIdentifierNode(idNode)) {
                 const name = idNode.name;
                 switch (expr.operator) {
                     case "+=":
@@ -625,71 +721,6 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
 }
 
 /**
- * Print an arbitrary expression AST back to source text using a very small
- * subset of the printer logic. The goal is not to be feature complete (Prettier
- * handles full-program formatting upstream) but rather to produce a syntactically
- * valid representation with conventional spacing so that the surrounding context
- * does not look jarring when the linter applies the edit.
- */
-function printExpression(node: any, sourceText: string): string {
-    if (!node || typeof node !== "object") {
-        return "";
-    }
-
-    switch (node.type) {
-        case "Literal": {
-            return String(node.value);
-        }
-        case "Identifier": {
-            return node.name;
-        }
-        case "ParenthesizedExpression": {
-            const inner = node.expression ? printExpression(node.expression, sourceText) : "";
-            return `(${inner})`;
-        }
-        case "BinaryExpression": {
-            const left = printExpression(node.left, sourceText);
-            const right = printExpression(node.right, sourceText);
-            return `${left} ${node.operator} ${right}`;
-        }
-        case "LogicalExpression": {
-            const left = printExpression(node.left, sourceText);
-            const right = printExpression(node.right, sourceText);
-            return `${left} ${node.operator} ${right}`;
-        }
-        case "UnaryExpression": {
-            const arg = printExpression(node.argument, sourceText);
-            if (node.prefix) {
-                return `${node.operator}${arg}`;
-            }
-            return `${arg}${node.operator}`;
-        }
-        case "CallExpression": {
-            const callee = printExpression(node.object || node.callee, sourceText);
-            const args = Array.isArray(node.arguments)
-                ? node.arguments.map((a: any) => printExpression(a, sourceText)).join(", ")
-                : "";
-            return `${callee}(${args})`;
-        }
-        case "MemberDotExpression": {
-            const object = printExpression(node.object, sourceText);
-            const property = printExpression(node.property, sourceText);
-            return `${object}.${property}`;
-        }
-        case "MemberIndexExpression": {
-            const object = printExpression(node.object, sourceText);
-            const index = printExpression(node.index, sourceText);
-            return `${object}[${index}]`;
-        }
-        default: {
-            // fall back to the original source slice if we don't know how to emit
-            const text = readNodeText(sourceText, node);
-            return text || "";
-        }
-    }
-}
-
-/**
  * Attempt to run the full manual-math normalization pipeline on a single
  * expression node and return the resulting source text if it changed.
  */
@@ -701,26 +732,28 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
 
     // run the full math normalization pipeline on the clone
     const context = { sourceText };
+    // Apply division to multiplication optimization
+    applyDivisionToMultiplication(clone as any);
+
     applyManualMathNormalization(clone, context as any);
     applyScalarCondensing(clone, context as any);
     simplifyZeroDivisionNumerators(clone, context as any);
     cleanupMultiplicativeIdentityParentheses(clone, context as any);
+
+    const original = readNodeText(sourceText, node) || "";
+    if (areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
+        return original;
+    }
 
     const printed = printExpression(clone, sourceText);
     if (!printed) {
         return null;
     }
 
-    const original = readNodeText(sourceText, node) || "";
-    // debug output for every check so we see what the transform is seeing
-    console.log("[opt-math] manualNorm check", JSON.stringify(original), "->", JSON.stringify(printed));
-
     if (trimOuterParentheses(original) === trimOuterParentheses(printed)) {
-        // nothing changed
         return null;
     }
 
-    console.log("[opt-math] manualNorm applied", JSON.stringify(original), "->", JSON.stringify(printed));
     return printed;
 }
 
@@ -757,6 +790,9 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
         if (targetNode) {
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
+                if (hasComment(targetNode) || containsCommentSyntax(sourceTextOfNode)) {
+                    return;
+                }
                 // manual normalization has the broadest coverage; try it first.
                 let replacement = attemptManualNormalization(sourceText, targetNode);
 
@@ -765,19 +801,6 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 }
 
                 if (replacement) {
-                    // debug: log problematic multiplications involving mousedx or small coefficients
-                    if (
-                        sourceTextOfNode.includes("mousedx") ||
-                        replacement.includes("mousedx") ||
-                        replacement.includes("0.1")
-                    ) {
-                        console.log(
-                            "[opt-math] simplify",
-                            JSON.stringify(sourceTextOfNode),
-                            "->",
-                            JSON.stringify(replacement)
-                        );
-                    }
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;
                     }

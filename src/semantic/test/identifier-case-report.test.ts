@@ -12,7 +12,7 @@ import {
     maybeReportIdentifierCaseDryRun,
     summarizeIdentifierCasePlan
 } from "../src/identifier-case/identifier-case-report.js";
-import { getPlugin } from "./plugin-loader.js";
+import { getFormat } from "./format-loader.js";
 
 function createSampleRenamePlan() {
     return {
@@ -94,13 +94,16 @@ async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagn
         diagnostics
     });
 
-    const Plugin = await getPlugin();
+    const Format = await getFormat();
 
-    return Plugin.format(source, {
+    const formatOptions = {
         filepath,
         diagnostics,
         logger
-    });
+    };
+    const formatted = await Format.format(source, formatOptions);
+    maybeReportIdentifierCaseDryRun(formatOptions);
+    return formatted;
 }
 
 void describe("identifier case reporting", () => {

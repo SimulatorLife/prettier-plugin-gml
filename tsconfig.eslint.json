@@ -6,7 +6,7 @@
     "paths": {
       "@gml-modules/core": ["src/core/index.ts"],
       "@gml-modules/parser": ["src/parser/index.ts"],
-      "@gml-modules/plugin": ["src/plugin/index.ts"],
+      "@gml-modules/format": ["src/format/index.ts"],
       "@gml-modules/semantic": ["src/semantic/index.ts"],
       "@gml-modules/transpiler": ["src/transpiler/index.ts"],
       "@gml-modules/refactor": ["src/refactor/index.ts"],

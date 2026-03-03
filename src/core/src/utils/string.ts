@@ -246,7 +246,7 @@ function normalizeIndefiniteArticle(label) {
     return `${STARTS_WITH_VOWEL_PATTERN.test(normalized) ? "an" : "a"} ${normalized}`;
 }
 
-function toSafeString(value: unknown) {
+function toSafeString(value: unknown): string {
     if (value == null) {
         return value === null ? "null" : "undefined";
     }
@@ -474,7 +474,7 @@ const SINGLE_QUOTE_CHARACTER = "'";
  *                   whitespace removed. Returns `""` when {@link value} is
  *                   `null` or `undefined`.
  */
-export function toNormalizedLowerCaseString(value?: unknown) {
+export function toNormalizedLowerCaseString(value?: unknown): string {
     if (value == null) {
         return "";
     }
@@ -522,8 +522,7 @@ export function capitalize(value?: unknown): string {
  *          use with `String#split`.
  */
 export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
-    /** @type {Array<{ pattern: string, length: number, order: number }>} */
-    const entries = [];
+    const entries: Array<{ pattern: string; length: number; order: number }> = [];
     const seenPatterns = new Set();
 
     const addEntry = (pattern, length) => {

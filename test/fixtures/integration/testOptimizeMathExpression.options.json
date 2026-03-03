@@ -1,6 +1,0 @@
-{
-  "printWidth": 120,
-  "lintRules": {
-    "feather/optimize-math-expressions": "error"
-  }
-}

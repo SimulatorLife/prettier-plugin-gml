@@ -9,66 +9,96 @@ import {
     isAstNodeRecord,
     isAstNodeWithType
 } from "../rule-base-helpers.js";
+import { shouldReportUnsafe } from "../rule-helpers.js";
+
+function isStringLiteralExpression(expression: unknown): boolean {
+    if (!isAstNodeRecord(expression) || expression.type !== "Literal") {
+        return false;
+    }
+    if (typeof expression.value !== "string") {
+        return false;
+    }
+    const raw = expression.value;
+    if (raw.length < 2) {
+        return false;
+    }
+    const first = raw.charAt(0);
+    const last = raw.at(-1);
+    if (first !== last) {
+        return false;
+    }
+    if (first === '"' || first === "'") {
+        return true;
+    }
+    return first === "@" && raw.charAt(1) === '"' && last === '"';
+}
+
+function getNodeTextFromContext(context: Rule.RuleContext, astNode: any): string {
+    if (typeof context.getSourceCode === "function") {
+        return context.getSourceCode().getText(astNode);
+    }
+    if (astNode && Array.isArray(astNode.range)) {
+        const txt = context.sourceCode.text;
+        const [start, end] = astNode.range;
+        return txt.slice(start, end);
+    }
+    return "";
+}
 
 export function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const reportUnsafe = shouldReportUnsafe(context);
+
+            function expressionContainsUnsafeMutation(node: unknown): boolean {
+                if (!node || typeof node !== "object") {
+                    return false;
+                }
+
+                if (Array.isArray(node)) {
+                    return node.some((entry) => expressionContainsUnsafeMutation(entry));
+                }
+
+                const candidate = node as AstNodeRecord;
+                if (candidate.type === "UpdateExpression" || candidate.type === "IncDecStatement") {
+                    return true;
+                }
+                if (
+                    candidate.type === "AssignmentExpression" &&
+                    typeof candidate.operator === "string" &&
+                    candidate.operator !== "="
+                ) {
+                    return true;
+                }
+
+                for (const [key, value] of Object.entries(candidate)) {
+                    if (key === "parent") {
+                        continue;
+                    }
+                    if (expressionContainsUnsafeMutation(value)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             // helper shared between the Program walker and regular visitor
             function handleBinary(node: any) {
                 if (node.operator !== "+") {
                     return;
                 }
 
-                // only true for actual string literals (including @"..." raw strings)
-                const isString = (expression: unknown): boolean => {
-                    if (!isAstNodeRecord(expression) || expression.type !== "Literal") {
-                        return false;
+                if (isStringLiteralExpression(node.left) || isStringLiteralExpression(node.right)) {
+                    if (!reportUnsafe && expressionContainsUnsafeMutation(node)) {
+                        return;
                     }
-                    if (typeof expression.value !== "string") {
-                        return false;
-                    }
-                    const raw = expression.value;
-                    if (raw.length < 2) {
-                        return false;
-                    }
-                    const first = raw.charAt(0);
-                    const last = raw.charAt(raw.length - 1);
-                    if (first !== last) {
-                        return false;
-                    }
-                    // covered quote types
-                    if (first === '"' || first === "'") {
-                        return true;
-                    }
-                    // verbatim @"..." strings start with @ then quote
-                    if (first === "@" && raw.charAt(1) === '"' && last === '"') {
-                        return true;
-                    }
-                    return false;
-                };
 
-                if (isString(node.left) || isString(node.right)) {
                     context.report({
                         node,
                         messageId: definition.messageId,
                         fix(fixer) {
-                            // helper for retrieving source text of a node that works in
-                            // both real ESLint contexts (sourceCode object provided) and
-                            // our lightweight test harness (only sourceCode.text exists).
-                            const getText = (node: any): string => {
-                                if (typeof context.getSourceCode === "function") {
-                                    return context.getSourceCode().getText(node);
-                                }
-                                // harness fallback: use raw text and node.range
-                                if (node && Array.isArray(node.range)) {
-                                    const txt = context.sourceCode.text as string;
-                                    const [start, end] = node.range;
-                                    return txt.slice(start, end);
-                                }
-                                return "";
-                            };
-
                             function buildTemplate(n: any): string {
                                 // Recursively flatten concatenation chain
                                 if (n && n.type === "BinaryExpression" && n.operator === "+") {
@@ -93,7 +123,7 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
                                     n.arguments.length === 1
                                 ) {
                                     const arg = n.arguments[0];
-                                    const inner = getText(arg);
+                                    const inner = getNodeTextFromContext(context, arg);
                                     // only surround with braces – the dollar prefix belongs
                                     // on the final template literal, not each fragment
                                     return `{${inner}}`;
@@ -101,13 +131,13 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
 
                                 if (isAstNodeRecord(n) && n.type === "Literal" && typeof n.value === "string") {
                                     // strip surrounding quotes from literal text
-                                    const txt = getText(n);
+                                    const txt = getNodeTextFromContext(context, n);
                                     // assume first and last char are quotes
                                     return txt.slice(1, -1);
                                 }
 
                                 // fallback expression – just wrap with braces
-                                const txt = getText(n);
+                                const txt = getNodeTextFromContext(context, n);
                                 return `{${txt}}`;
                             }
 

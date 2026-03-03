@@ -53,7 +53,7 @@ type MacroDirectiveNode = {
 
 ---
 
-## Workspace: Prettier-Plugin / Formatter (`@gml-modules/plugin`)
+## Workspace: Prettier Formatter (`@gml-modules/format`)
 
 **Responsibility:** Print `MacroDirective` reliably, regardless of whether the source used `#define` or `#macro`.
 

@@ -28,7 +28,7 @@ jobs:
       - name: Enable pnpm via Corepack
         run: |
           corepack enable
-          corepack prepare pnpm@10.28.0 --activate
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -38,7 +38,21 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          set -o pipefail
+          install_log="$(mktemp)"
+          if pnpm install --frozen-lockfile 2>&1 | tee "$install_log"; then
+            exit 0
+          fi
+
+          if grep -q "ERR_PNPM_OUTDATED_LOCKFILE" "$install_log"; then
+            echo "::warning::pnpm-lock.yaml is out of date. Retrying install with --no-frozen-lockfile."
+            pnpm install --no-frozen-lockfile
+            exit 0
+          fi
+
+          echo "::error::Dependency install failed for a reason other than outdated lockfile."
+          exit 1
 
       - name: Run test suite
         id: run_tests
@@ -72,7 +86,7 @@ jobs:
         formatting rules, choose one regression to address—implement the necessary
         production fix or feature for that specific case, leave the rest untouched,
         and document any remaining gaps. Never modify the existing golden files in
-        src/plugin/test/*.gml.
+        src/format/test/*.gml.
         If your fix targets only part of a failing test—meaning the broader test
         will still fail afterward—add a new, focused test (unit or integration)
         that explicitly demonstrates the corrected behavior. Even if the original
