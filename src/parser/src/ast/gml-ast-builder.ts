@@ -25,6 +25,16 @@ type MutableParserVisitor = ParserVisitorInstance & {
 };
 
 type ParserScopeTracker = ScopeTracker | null;
+type DirectiveKeyword = "define" | "macro";
+type DirectiveKeywordRange = {
+    start: number;
+    end: number;
+};
+type ParsedDefineMacroDirective = {
+    leadingWhitespace: string;
+    macroName: string;
+    macroValue: string;
+};
 
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
 
@@ -216,6 +226,115 @@ export default class GameMakerASTBuilder {
         if (!t) return null;
         const actual = Array.isArray(t) ? (t as any)[0] : (t as any);
         return typeof actual?.getText === "function" ? (actual as { getText: () => string }) : null;
+    }
+
+    private resolveParserToken(tokenCandidate: unknown): ParserToken | null {
+        if (!tokenCandidate || typeof tokenCandidate !== "object") {
+            return null;
+        }
+
+        const tokenRecord = tokenCandidate as ParserToken & {
+            symbol?: ParserToken | null;
+        };
+
+        if (tokenRecord.symbol && typeof tokenRecord.symbol === "object") {
+            return tokenRecord.symbol;
+        }
+
+        return tokenRecord;
+    }
+
+    private getTokenStartIndex(token: Token | ParserToken | null | undefined): number | null {
+        if (!token) {
+            return null;
+        }
+
+        if (typeof token.start === "number") {
+            return token.start;
+        }
+
+        if (typeof token.startIndex === "number") {
+            return token.startIndex;
+        }
+
+        return null;
+    }
+
+    private buildDirectiveKeywordRange(
+        token: Token | ParserToken | null | undefined,
+        keyword: DirectiveKeyword
+    ): DirectiveKeywordRange | null {
+        const start = this.getTokenStartIndex(token);
+        if (typeof start !== "number") {
+            return null;
+        }
+
+        return {
+            start,
+            end: start + `#${keyword}`.length
+        };
+    }
+
+    private parseDefineMacroDirective(rawText: string): ParsedDefineMacroDirective | null {
+        const macroMatch = rawText.match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*)(.*)$/u);
+        if (!macroMatch) {
+            return null;
+        }
+
+        const [, leadingWhitespace, macroName, rawValue = ""] = macroMatch;
+
+        return {
+            leadingWhitespace,
+            macroName,
+            macroValue: rawValue.trimStart()
+        };
+    }
+
+    private createDefineMacroIdentifierNode(
+        parsedMacroDirective: ParsedDefineMacroDirective,
+        regionToken: ParserToken | null
+    ): GameMakerAstNode {
+        const fallbackIdentifierNode: GameMakerAstNode = {
+            type: "Identifier",
+            name: parsedMacroDirective.macroName
+        };
+
+        if (!regionToken) {
+            return fallbackIdentifierNode;
+        }
+
+        const regionStartIndex = this.getTokenStartIndex(regionToken);
+        if (typeof regionStartIndex !== "number") {
+            return fallbackIdentifierNode;
+        }
+
+        const identifierStartIndex = regionStartIndex + parsedMacroDirective.leadingWhitespace.length;
+        const identifierEndIndex = identifierStartIndex + parsedMacroDirective.macroName.length - 1;
+
+        const startLocation: GameMakerAstLocation = {
+            index: identifierStartIndex
+        };
+        const endLocation: GameMakerAstLocation = {
+            index: identifierEndIndex
+        };
+
+        if (typeof regionToken.line === "number") {
+            startLocation.line = regionToken.line;
+            endLocation.line = regionToken.line;
+        }
+
+        if (typeof regionToken.column === "number") {
+            const identifierStartColumn = regionToken.column + parsedMacroDirective.leadingWhitespace.length;
+            startLocation.column = identifierStartColumn;
+            endLocation.column = identifierStartColumn + parsedMacroDirective.macroName.length - 1;
+        }
+
+        return {
+            type: "Identifier",
+            name: parsedMacroDirective.macroName,
+            start: startLocation,
+            end: endLocation
+        };
     }
 
     /**
@@ -1591,7 +1710,9 @@ export default class GameMakerASTBuilder {
         return this.astNode(ctx, {
             type: "MacroDeclaration",
             name,
-            tokens: this.visit(ctx.macroToken())
+            tokens: this.visit(ctx.macroToken()),
+            keyword: "macro",
+            keywordRange: this.buildDirectiveKeywordRange(ctx?.start, "macro")
         });
     }
 
@@ -1602,6 +1723,9 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#defineStatement.
     visitDefineStatement(ctx: ParserContext): any {
+        const defineKeywordRange = this.buildDirectiveKeywordRange(ctx?.start, "define");
+        const regionCharactersNode = this.ensureSingle(ctx.RegionCharacters());
+        const regionCharactersToken = this.resolveParserToken(regionCharactersNode);
         const regionCharacters = this.ensureToken(ctx.RegionCharacters());
         const rawText = regionCharacters ? regionCharacters.getText() : "";
         const trimmed = Core.getNonEmptyTrimmedString(rawText);
@@ -1630,12 +1754,23 @@ export default class GameMakerASTBuilder {
             });
         }
 
-        if (/^\s*[A-Za-z_][A-Za-z0-9_]*\b/.test(rawText)) {
+        const parsedMacroDirective = this.parseDefineMacroDirective(rawText);
+        if (parsedMacroDirective) {
+            const macroIdentifier = this.withIdentifierRole(
+                {
+                    type: "declaration",
+                    kind: "macro",
+                    tags: ["global"],
+                    scopeOverride: GLOBAL_SCOPE_OVERRIDE_KEYWORD
+                },
+                () => this.createDefineMacroIdentifierNode(parsedMacroDirective, regionCharactersToken)
+            );
             return this.astNode(ctx, {
-                type: "DefineStatement",
-                name: rawText,
-                replacementDirective: "#macro",
-                replacementSuffix: rawText
+                type: "MacroDeclaration",
+                name: macroIdentifier,
+                tokens: parsedMacroDirective.macroValue.length > 0 ? [parsedMacroDirective.macroValue] : [],
+                keyword: "define",
+                keywordRange: defineKeywordRange
             });
         }
 
