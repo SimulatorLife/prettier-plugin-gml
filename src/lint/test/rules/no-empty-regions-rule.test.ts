@@ -1,39 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import { Lint } from "@gml-modules/lint";
 
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
-
-function parseProgramNode(code: string): Record<string, unknown> {
-    const language = LintWorkspace.Lint.plugin.languages.gml as {
-        parse: (
-            file: { body: string; path: string; physicalPath: string; bom: boolean },
-            context: { languageOptions: { recovery: "none" | "limited" } }
-        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
-    };
-
-    const parseResult = language.parse(
-        {
-            body: code,
-            path: "test.gml",
-            physicalPath: "test.gml",
-            bom: false
-        },
-        {
-            languageOptions: { recovery: "limited" }
-        }
-    );
-
-    if (parseResult.ok) {
-        return parseResult.ast;
-    }
-
-    return { type: "Program", body: [] };
-}
+import {
+    applyFixOperations,
+    createLocResolver,
+    parseProgramNode,
+    type ReplaceTextRangeFixOperation
+} from "./rule-test-harness.js";
 
 function runNoEmptyRegionsRule(code: string): { messageCount: number; output: string } {
-    const rule = LintWorkspace.Lint.plugin.rules["no-empty-regions"];
+    const rule = Lint.plugin.rules["no-empty-regions"];
     const fixes: Array<ReplaceTextRangeFixOperation> = [];
     let messageCount = 0;
     const getLocFromIndex = createLocResolver(code);

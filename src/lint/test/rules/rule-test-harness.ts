@@ -1,3 +1,5 @@
+import { Lint } from "@gml-modules/lint";
+
 /**
  * Represents a fixer operation that replaces a text range with new text.
  */
@@ -193,4 +195,35 @@ export function lintWithFeatherRule(
         messages: messages.map((message) => ({ messageId: message.messageId })),
         output
     };
+}
+
+/**
+ * Parses a GML source string and returns the resulting program AST node.
+ * Falls back to a synthetic empty program if parsing fails.
+ */
+export function parseProgramNode(code: string): Record<string, unknown> {
+    const language = Lint.plugin.languages.gml as {
+        parse: (
+            file: { body: string; path: string; physicalPath: string; bom: boolean },
+            context: { languageOptions: { recovery: "none" | "limited" } }
+        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
+    };
+
+    const parseResult = language.parse(
+        {
+            body: code,
+            path: "test.gml",
+            physicalPath: "test.gml",
+            bom: false
+        },
+        {
+            languageOptions: { recovery: "limited" }
+        }
+    );
+
+    if (parseResult.ok) {
+        return parseResult.ast;
+    }
+
+    return { type: "Program", body: [] };
 }

@@ -1712,7 +1712,7 @@ export default class GameMakerASTBuilder {
             name,
             tokens: this.visit(ctx.macroToken()),
             keyword: "macro",
-            keywordRange: this.buildDirectiveKeywordRange(ctx?.start, "macro")
+            keywordRange: this.buildDirectiveKeywordRange(typeof ctx?.start === "number" ? null : ctx?.start, "macro")
         });
     }
 
@@ -1723,7 +1723,10 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#defineStatement.
     visitDefineStatement(ctx: ParserContext): any {
-        const defineKeywordRange = this.buildDirectiveKeywordRange(ctx?.start, "define");
+        const defineKeywordRange = this.buildDirectiveKeywordRange(
+            typeof ctx?.start === "number" ? null : ctx?.start,
+            "define"
+        );
         const regionCharactersNode = this.ensureSingle(ctx.RegionCharacters());
         const regionCharactersToken = this.resolveParserToken(regionCharactersNode);
         const regionCharacters = this.ensureToken(ctx.RegionCharacters());

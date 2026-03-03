@@ -3,7 +3,6 @@ import { Core } from "@gml-modules/core";
 const { toTrimmedString } = Core;
 
 const STRING_TYPE = "string";
-const NUMBER_TYPE = "number";
 
 const DOC_COMMENT_TAG_PATTERN = /^\s*\/+\s*@/i;
 const DOC_COMMENT_ALT_TAG_PATTERN = /^\s*\/+\s*\/\s*@/i;
@@ -110,15 +109,6 @@ export function parseDocCommentMetadata(line: unknown): DocCommentMetadata | nul
     return { tag, name: remainder };
 }
 
-function isInlineWhitespace(charCode: number) {
-    return (
-        charCode === 9 || // Tab
-        charCode === 10 || // Line feed
-        charCode === 13 || // Carriage return
-        charCode === 32 // Space
-    );
-}
-
 export function isDocLikeLeadingLine(value: unknown) {
     if (typeof value !== STRING_TYPE) {
         return false;
@@ -126,66 +116,4 @@ export function isDocLikeLeadingLine(value: unknown) {
 
     const trimmed = (value as string).trim();
     return trimmed.startsWith("///") || /^\/\/\s*\/\s*/.test(trimmed) || /^\/+\s*@/.test(trimmed);
-}
-
-export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
-    if (typeof text !== STRING_TYPE || typeof index !== NUMBER_TYPE) {
-        return false;
-    }
-
-    const normalizedText = text as string;
-    const normalizedIndex = index as number;
-
-    let cursor = normalizedIndex - 1;
-    while (cursor >= 0 && isInlineWhitespace(normalizedText.charCodeAt(cursor))) {
-        cursor -= 1;
-    }
-
-    if (cursor < 0) {
-        return false;
-    }
-
-    const lineEndExclusive = cursor + 1;
-    while (cursor >= 0) {
-        const charCode = normalizedText.charCodeAt(cursor);
-        if (charCode === 10 || charCode === 13) {
-            break;
-        }
-        cursor -= 1;
-    }
-
-    let lineStart = cursor + 1;
-    while (lineStart < lineEndExclusive && isInlineWhitespace(normalizedText.charCodeAt(lineStart))) {
-        lineStart += 1;
-    }
-
-    if (lineStart >= lineEndExclusive) {
-        return false;
-    }
-
-    let lineEnd = lineEndExclusive - 1;
-    while (lineEnd >= lineStart && isInlineWhitespace(normalizedText.charCodeAt(lineEnd))) {
-        lineEnd -= 1;
-    }
-
-    if (lineEnd < lineStart) {
-        return false;
-    }
-
-    const first = normalizedText.charCodeAt(lineStart);
-    const second = lineStart + 1 <= lineEnd ? normalizedText.charCodeAt(lineStart + 1) : -1;
-
-    if (first === 47) {
-        if (second === 47 || second === 42) {
-            return true;
-        }
-    } else if (first === 42) {
-        return true;
-    }
-
-    return (
-        lineEnd >= lineStart + 1 &&
-        normalizedText.charCodeAt(lineEnd) === 47 &&
-        normalizedText.charCodeAt(lineEnd - 1) === 42
-    );
 }

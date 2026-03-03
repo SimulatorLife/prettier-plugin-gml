@@ -12,6 +12,7 @@ import {
     createLocResolver,
     type InsertTextAfterRangeFixOperation,
     lintWithFeatherRule,
+    parseProgramNode,
     readNodeTextRange,
     type ReplaceTextRangeFixOperation,
     type RuleTestFixOperation
@@ -56,33 +57,6 @@ function resolveLoopHoistIdentifierForTests(
     }
 
     return null;
-}
-
-function parseProgramNode(code: string): Record<string, unknown> {
-    const language = Lint.plugin.languages.gml as {
-        parse: (
-            file: { body: string; path: string; physicalPath: string; bom: boolean },
-            context: { languageOptions: { recovery: "none" | "limited" } }
-        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
-    };
-
-    const parseResult = language.parse(
-        {
-            body: code,
-            path: "test.gml",
-            physicalPath: "test.gml",
-            bom: false
-        },
-        {
-            languageOptions: { recovery: "limited" }
-        }
-    );
-
-    if (parseResult.ok) {
-        return parseResult.ast;
-    }
-
-    return { type: "Program", body: [] };
 }
 
 function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
