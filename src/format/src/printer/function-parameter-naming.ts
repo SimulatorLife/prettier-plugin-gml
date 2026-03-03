@@ -1,18 +1,20 @@
 /**
- * Layout helpers used by the print dispatcher (`print.ts`).
+ * Printer utilities for function-parameter layout in the GML formatter.
  *
- * These utilities handle structural formatting concerns that do not constitute
- * semantic or content rewrites:
+ * This module is responsible for three formatter-owned operations:
  *
  * - Filtering misattached function doc-comments from variable declarators
  *   (workaround for a parser comment-attachment bug).
- * - Joining declarator doc-fragments with comma separators.
- * - Traversal helper to locate the nearest enclosing function declaration.
+ * - Finding the nearest enclosing `FunctionDeclaration` ancestor via path
+ *   traversal (layout-only structural query).
+ * - Joining an array of declarator doc fragments with ", " separators.
  *
- * NOTE: Semantic rewrites such as parameter renaming, redundant-alias removal,
- * and argument-initializer inference were removed from this module because they
- * violate the formatter/linter boundary defined in target-state.md §2.1, §3.2.
- * Any such logic must live in `@gml-modules/lint`.
+ * All semantic/content rewrites (parameter renaming from `@function` tags,
+ * filtering redundant `argument0`-style alias declarations) belong in
+ * `@gml-modules/lint`, not in the formatter. See target-state.md §2.2 and §3.2.
+ *
+ * Exported symbols are consumed by the printer (`print.ts`). All other symbols
+ * in this file are module-private helpers.
  */
 
 import type { AstPath } from "prettier";
@@ -23,6 +25,14 @@ import { findAncestorNode } from "./path-utils.js";
 // Path traversal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
+ * Prettier path. Used by the printer to determine doc-param optionality for
+ * `= undefined` default parameters.
+ *
+ * @param path - The Prettier AstPath to traverse upward
+ * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`
+ */
 export function findEnclosingFunctionDeclaration(path: AstPath<any>): unknown {
     return findAncestorNode(path, (node: unknown) => (node as { type?: string }).type === "FunctionDeclaration");
 }
