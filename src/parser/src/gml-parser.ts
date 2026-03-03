@@ -6,6 +6,7 @@ import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
+import { normalizeFunctionDocCommentAttachments } from "./ast/normalize-function-doc-comment-attachments.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
@@ -258,6 +259,7 @@ export class GMLParser {
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
+            normalizeFunctionDocCommentAttachments(astTree, this.comments, this.text);
         }
 
         const shouldConvertToESTree =

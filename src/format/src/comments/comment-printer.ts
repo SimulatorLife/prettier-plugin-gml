@@ -1186,6 +1186,11 @@ function handleOnlyComments(comment, options, ast /*, isLastComment */) {
 }
 
 function attachDocCommentToFollowingNode(comment, options, ast) {
+    if (comment?._gmlAttachedDocComment === true) {
+        comment.printed = true;
+        return true;
+    }
+
     const immediateFollowingNode = resolveFollowingNonCommentNode(comment);
     const followingNode =
         isDocCommentTargetNode(immediateFollowingNode) || !ast

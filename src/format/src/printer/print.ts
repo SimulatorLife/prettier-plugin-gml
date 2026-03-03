@@ -41,11 +41,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import {
-    filterMisattachedFunctionDocComments,
-    findEnclosingFunctionDeclaration,
-    joinDeclaratorPartsWithCommas
-} from "./function-parameter-naming.js";
+import { findEnclosingFunctionDeclaration, joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -571,28 +567,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
-            //
-            // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
-            // to the wrong variable declarator—typically the first variable in the file—when the
-            // actual function declaration appears later in the source. This causes incorrect
-            // comment placement during formatting.
-            //
-            // SOLUTION: When a single-declarator VariableDeclaration has a function doc-comment
-            // but the initializer is not a function, we mark the comment as printed and filter
-            // it out. This prevents the bogus comment from appearing in the formatted output.
-            //
-            // WHAT WOULD BREAK: Removing this filter would cause function documentation to appear
-            // on unrelated variable declarations, confusing readers and breaking doc-generation tools.
-            //
-            // LONG-TERM FIX: This is a parser-level issue. The comment attachment logic in the
-            // parser needs to be improved to correctly associate comments with their intended targets
-            // based on line proximity and syntactic context. See: <link to parser issue if available>
-            if (node.declarations.length === 1) {
-                const decl = node.declarations[0];
-                filterMisattachedFunctionDocComments(decl);
-            }
-
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
