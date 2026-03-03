@@ -31,6 +31,32 @@ jobs:
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: n, per_page: 100
             });
+
+            const protectedGoldenFixturePatterns = [
+              /^test\/fixtures\/plugin-integration\/.*\.gml$/u,
+              /^src\/parser\/test\/input\/.*\.gml$/u,
+              /^src\/lint\/test\/fixtures\/.*\.gml$/u
+            ];
+
+            const isProtectedGoldenFixture = (filename) =>
+              typeof filename === 'string' &&
+              protectedGoldenFixturePatterns.some((pattern) => pattern.test(filename));
+            
+            const changedFixtures = files.filter((f) => {
+              if (f.status === 'added') {
+                return false;
+              }
+
+              return (
+                isProtectedGoldenFixture(f.filename) ||
+                isProtectedGoldenFixture(f.previous_filename)
+              );
+            });
+            if (changedFixtures.length > 0) {
+              core.setFailed(`Golden .gml test fixtures cannot be modified or removed! Found: ${changedFixtures.map(f => f.filename).join(', ')}`);
+              return;
+            }
+
             core.notice(`PR changed files: ${files.length}`);
             core.setOutput('should_run_tests', files.length > 0 ? 'true' : 'false');
 
@@ -71,7 +97,7 @@ jobs:
       - name: Enable pnpm via Corepack (${{ matrix.target }})
         run: |
           corepack enable
-          corepack prepare pnpm@10.28.0 --activate
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Setup Node (${{ matrix.target }})
         uses: actions/setup-node@v4
@@ -81,7 +107,21 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install deps (${{ matrix.target }})
-        run: pnpm install --frozen-lockfile
+        run: |
+          set -o pipefail
+          install_log="$(mktemp)"
+          if pnpm install --frozen-lockfile 2>&1 | tee "$install_log"; then
+            exit 0
+          fi
+
+          if grep -q "ERR_PNPM_OUTDATED_LOCKFILE" "$install_log"; then
+            echo "::warning::pnpm-lock.yaml is out of date. Retrying install with --no-frozen-lockfile."
+            pnpm install --no-frozen-lockfile
+            exit 0
+          fi
+
+          echo "::error::Dependency install failed for a reason other than outdated lockfile."
+          exit 1
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       - name: Build typescript (${{ matrix.target }})
@@ -147,7 +187,7 @@ jobs:
       - name: Enable pnpm via Corepack (summary)
         run: |
           corepack enable
-          corepack prepare pnpm@10.28.0 --activate
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -157,7 +197,21 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install deps
-        run: pnpm install --frozen-lockfile
+        run: |
+          set -o pipefail
+          install_log="$(mktemp)"
+          if pnpm install --frozen-lockfile 2>&1 | tee "$install_log"; then
+            exit 0
+          fi
+
+          if grep -q "ERR_PNPM_OUTDATED_LOCKFILE" "$install_log"; then
+            echo "::warning::pnpm-lock.yaml is out of date. Retrying install with --no-frozen-lockfile."
+            pnpm install --no-frozen-lockfile
+            exit 0
+          fi
+
+          echo "::error::Dependency install failed for a reason other than outdated lockfile."
+          exit 1
 
       - name: Build typescript
         run: pnpm run build:ts

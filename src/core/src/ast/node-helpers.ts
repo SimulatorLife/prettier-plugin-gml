@@ -35,6 +35,8 @@ import type {
 // can reuse the same defensive checks without duplicating logic.
 
 const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
+const LOGICAL_AND_OPERATORS = new Set(["and", "&&"]);
+const LOGICAL_OR_OPERATORS = new Set(["or", "||"]);
 const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
 const ARITHMETIC_OPERATORS = new Set(["+", "-", "*", "/", "%", "^", "<<", ">>", ">>>", "|", "&"]);
 
@@ -1093,6 +1095,46 @@ export function isComparisonBinaryOperator(operator: string): boolean {
  */
 export function isLogicalBinaryOperator(operator: string): boolean {
     return LOGICAL_OPERATORS.has(operator);
+}
+
+/**
+ * Check whether {@link operator} is a logical AND operator.
+ *
+ * GML represents logical AND in two equivalent forms: the keyword `and` and
+ * the symbol `&&`. Both forms evaluate identically at runtime and share the
+ * same precedence. This predicate recognizes both so transforms and printers
+ * do not need to inline the dual-form check in every call site.
+ *
+ * The inline pattern `operator === "&&" || operator === "and"` was previously
+ * scattered across the formatter (`format/printer/type-guards.ts`) and linter
+ * (`optimize-math-expressions-rule.ts`, `condensation.ts`). Centralising it
+ * here ensures a single authoritative definition.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is `"and"` or `"&&"`.
+ */
+export function isLogicalAndOperator(operator: string): boolean {
+    return LOGICAL_AND_OPERATORS.has(operator);
+}
+
+/**
+ * Check whether {@link operator} is a logical OR operator.
+ *
+ * GML represents logical OR in two equivalent forms: the keyword `or` and the
+ * symbol `||`. Both forms evaluate identically at runtime and share the same
+ * precedence. This predicate recognizes both so transforms and printers do not
+ * need to inline the dual-form check in every call site.
+ *
+ * The inline pattern `operator === "||" || operator === "or"` was previously
+ * scattered across the formatter (`format/printer/type-guards.ts`) and linter
+ * (`optimize-math-expressions-rule.ts`, `condensation.ts`). Centralising it
+ * here ensures a single authoritative definition.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is `"or"` or `"||"`.
+ */
+export function isLogicalOrOperator(operator: string): boolean {
+    return LOGICAL_OR_OPERATORS.has(operator);
 }
 
 /**

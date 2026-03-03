@@ -21,6 +21,7 @@ const UNDEFINED_TYPE = "undefined";
 /**
  * Cached regex for detecting decorative banner-style comment lines.
  */
+// TODO: Decorative banner-comment are fixed by the linter, so some of this functionality should maybe live in the 'Core' module instead for reuse
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
     String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
 );
@@ -399,7 +400,7 @@ export function isLogicalComparisonClause(node: any): boolean {
         return false;
     }
 
-    if (!isLogicalOrOperator(clauseExpression.operator)) {
+    if (!Core.isLogicalOrOperator(clauseExpression.operator)) {
         return false;
     }
 
@@ -415,7 +416,7 @@ export function isComparisonAndConjunction(node: any): boolean {
         return false;
     }
 
-    if (!isLogicalAndOperator(expression.operator)) {
+    if (!Core.isLogicalAndOperator(expression.operator)) {
         return false;
     }
 
@@ -456,20 +457,6 @@ export function isSimpleLogicalOperand(node: any): boolean {
     }
 
     return isComparisonExpression(expression);
-}
-
-/**
- * Checks if an operator is a logical OR operator.
- */
-export function isLogicalOrOperator(operator: string): boolean {
-    return operator === "or" || operator === "||";
-}
-
-/**
- * Checks if an operator is a logical AND operator.
- */
-export function isLogicalAndOperator(operator: string): boolean {
-    return operator === "and" || operator === "&&";
 }
 
 // ============================================================================

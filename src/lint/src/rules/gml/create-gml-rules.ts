@@ -3,6 +3,7 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../catalog.js";
 import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-condition-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
+import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
 import { createNormalizeDirectivesRule } from "./rules/normalize-directives-rule.js";
 import { createNormalizeDocCommentsRule } from "./rules/normalize-doc-comments-rule.js";
@@ -12,19 +13,16 @@ import { createOptimizeMathExpressionsRule } from "./rules/optimize-math-express
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
 import { createPreferHoistableLoopAccessorsRule } from "./rules/prefer-hoistable-loop-accessors-rule.js";
 import { createPreferIsUndefinedCheckRule } from "./rules/prefer-is-undefined-check-rule.js";
-import { createPreferLoopLengthHoistRule } from "./rules/prefer-loop-length-hoist-rule.js";
 import { createPreferRepeatLoopsRule } from "./rules/prefer-repeat-loops-rule.js";
 import { createPreferStringInterpolationRule } from "./rules/prefer-string-interpolation-rule.js";
 import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-literal-assignments-rule.js";
 import { createRequireArgumentSeparatorsRule } from "./rules/require-argument-separators-rule.js";
 import { createRequireControlFlowBracesRule } from "./rules/require-control-flow-braces-rule.js";
 import { createRequireTrailingOptionalDefaultsRule } from "./rules/require-trailing-optional-defaults-rule.js";
+import { createSimplifyRealCallsRule } from "./rules/simplify-real-calls-rule.js";
 
 export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
-        case "prefer-loop-length-hoist": {
-            return createPreferLoopLengthHoistRule(definition);
-        }
         case "prefer-hoistable-loop-accessors": {
             return createPreferHoistableLoopAccessorsRule(definition);
         }
@@ -39,6 +37,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-globalvar": {
             return createNoGlobalvarRule(definition);
+        }
+        case "no-unnecessary-string-interpolation": {
+            return createNoUnnecessaryStringInterpolationRule(definition);
         }
         case "normalize-doc-comments": {
             return createNormalizeDocCommentsRule(definition);
@@ -75,6 +76,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-trailing-optional-defaults": {
             return createRequireTrailingOptionalDefaultsRule(definition);
+        }
+        case "simplify-real-calls": {
+            return createSimplifyRealCallsRule(definition);
         }
         default: {
             throw new Error(`Missing gml rule implementation for shortName '${definition.shortName}'.`);

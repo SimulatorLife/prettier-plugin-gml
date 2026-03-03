@@ -15,12 +15,12 @@ export type FlatConfig = Readonly<{
 export const GML_LINT_FILES_GLOB = Object.freeze(["**/*.gml"]);
 
 const RECOMMENDED_RULES = Object.freeze({
-    "gml/prefer-loop-length-hoist": "warn",
     "gml/prefer-hoistable-loop-accessors": "warn",
     "gml/prefer-repeat-loops": "warn",
     "gml/prefer-struct-literal-assignments": "warn",
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",
+    "gml/no-unnecessary-string-interpolation": "warn",
     "gml/normalize-doc-comments": "warn",
     "gml/normalize-directives": "warn",
     "gml/require-control-flow-braces": "warn",
@@ -30,7 +30,8 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/normalize-operator-aliases": "warn",
     "gml/prefer-string-interpolation": "warn",
     "gml/optimize-math-expressions": "warn",
-    "gml/require-argument-separators": "error"
+    "gml/require-argument-separators": "error",
+    "gml/simplify-real-calls": "warn"
 });
 
 const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = Object.freeze(
@@ -42,7 +43,7 @@ const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = O
 
 function createPerformanceRuleSet(): Readonly<Record<string, "off" | "warn" | "error">> {
     const rules: Record<string, "off" | "warn" | "error"> = {
-        "gml/prefer-loop-length-hoist": "off",
+        "gml/prefer-hoistable-loop-accessors": "off",
         "gml/prefer-struct-literal-assignments": "off",
         "gml/no-globalvar": "warn",
         "gml/prefer-string-interpolation": "off"

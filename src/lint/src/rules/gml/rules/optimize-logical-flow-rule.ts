@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
+import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
@@ -16,9 +17,7 @@ function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: n
     const sourceText = context.sourceCode.text;
     const rawStart = Core.getNodeStartIndex(node as any);
     const startIndex =
-        typeof rawStart === "number" && Number.isFinite(rawStart)
-            ? Math.max(0, Math.min(rawStart, sourceText.length))
-            : 0;
+        typeof rawStart === "number" && Number.isFinite(rawStart) ? Core.clamp(rawStart, 0, sourceText.length) : 0;
     const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
         getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
     };
@@ -94,7 +93,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
 
                     // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = Core.printExpression(cloned, context.sourceCode.text);
+                    const newText = printExpression(cloned, context.sourceCode.text);
 
                     // Check if changed.
                     // Note: `printExpression` might output different whitespace than source even if AST is same.

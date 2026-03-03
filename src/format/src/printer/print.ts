@@ -44,7 +44,6 @@ import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./en
 import {
     filterMisattachedFunctionDocComments,
     findEnclosingFunctionDeclaration,
-    getPreferredFunctionParameterName,
     joinDeclaratorPartsWithCommas
 } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
@@ -63,7 +62,6 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
-import { getNumericValueFromRealCall } from "./real-call-value.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
@@ -751,11 +749,6 @@ function printCallExpressionNode(node, path, options, print) {
         }
     }
 
-    const numericLiteralValue = getNumericValueFromRealCall(node);
-    if (numericLiteralValue) {
-        return numericLiteralValue;
-    }
-
     let printedArgs;
 
     if (node.arguments.length === 0) {
@@ -1186,16 +1179,7 @@ function tryPrintLiteralNode(node, path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
-            let identifierName = node.name;
-
-            if (isFunctionParameterIdentifierPath(path)) {
-                const preferredParamName = getPreferredFunctionParameterName(path, node, options);
-                if (Core.isNonEmptyString(preferredParamName)) {
-                    identifierName = preferredParamName;
-                }
-            }
-
-            return concat([prefix, identifierName]);
+            return concat([prefix, node.name]);
         }
         case "TemplateStringText": {
             return concat(node.value);
@@ -1241,41 +1225,6 @@ function tryPrintLiteralNode(node, path, options, print) {
             return print(node);
         }
     }
-}
-
-function isFunctionParameterIdentifierPath(path): boolean {
-    const parentNode = safeGetParentNode(path);
-    if (!parentNode || typeof parentNode !== "object") {
-        return false;
-    }
-
-    const parentType = (parentNode as { type?: string }).type;
-    if (parentType === "FunctionDeclaration" || parentType === "ConstructorDeclaration") {
-        const params = Core.toMutableArray((parentNode as { params?: unknown[] }).params ?? []);
-        return params.includes(path.getValue());
-    }
-
-    if (parentType === "DefaultParameter") {
-        const defaultParameterNode = parentNode as { left?: unknown };
-        if (defaultParameterNode.left !== path.getValue()) {
-            return false;
-        }
-
-        const functionNode = safeGetParentNode(path, 1);
-        if (!functionNode || typeof functionNode !== "object") {
-            return false;
-        }
-
-        const functionType = (functionNode as { type?: string }).type;
-        if (functionType !== "FunctionDeclaration" && functionType !== "ConstructorDeclaration") {
-            return false;
-        }
-
-        const params = Core.toMutableArray((functionNode as { params?: unknown[] }).params ?? []);
-        return params.includes(parentNode);
-    }
-
-    return false;
 }
 
 function printProgramNode(node, path, options, print) {
@@ -2455,13 +2404,6 @@ function handleTerminalTrailingSpacing({
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
-    const constructorBodyStatements =
-        containerNode?.type === "ConstructorDeclaration" && Array.isArray(containerNode?.body?.body)
-            ? containerNode.body.body
-            : [];
-    const constructorContainsOnlyStaticFunctions =
-        constructorBodyStatements.length > 0 &&
-        constructorBodyStatements.every((statement) => isStaticFunctionVariableDeclaration(statement));
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
@@ -2487,8 +2429,10 @@ function handleTerminalTrailingSpacing({
         ) {
             const nextCharacter =
                 originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
-            shouldPreserveTrailingBlankLine =
-                nextCharacter === "}" ? constructorContainsOnlyStaticFunctions : nextCharacter !== null;
+            // Never keep a trailing blank line when the next non-whitespace character is the
+            // constructor's closing brace; constructors should close without a blank gap
+            // regardless of whether all members are static function declarations.
+            shouldPreserveTrailingBlankLine = nextCharacter !== null && nextCharacter !== "}";
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
             const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             if (isConstructorBlock && nextCharacter !== "}") {

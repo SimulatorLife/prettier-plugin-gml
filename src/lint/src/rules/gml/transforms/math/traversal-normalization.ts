@@ -27,6 +27,32 @@ export type ConvertManualMathTransformOptions = {
     astRoot?: MutableGameMakerAstNode;
 };
 
+const RADIAN_TRIG_TO_DEGREE = new Map([
+    ["sin", "dsin"],
+    ["cos", "dcos"],
+    ["tan", "dtan"]
+]);
+
+const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
+    ["dsin", { name: "sin", expectedArgs: 1 }],
+    ["dcos", { name: "cos", expectedArgs: 1 }],
+    ["dtan", { name: "tan", expectedArgs: 1 }],
+    ["darcsin", { name: "arcsin", expectedArgs: 1 }],
+    ["darccos", { name: "arccos", expectedArgs: 1 }],
+    ["darctan", { name: "arctan", expectedArgs: 1 }],
+    ["darctan2", { name: "arctan2", expectedArgs: 2 }]
+]);
+
+const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
+    ["arcsin", { name: "darcsin", expectedArgs: 1 }],
+    ["arccos", { name: "darccos", expectedArgs: 1 }],
+    ["arctan", { name: "darctan", expectedArgs: 1 }],
+    ["arctan2", { name: "darctan2", expectedArgs: 2 }]
+]);
+
+const MIN_SAFE_DIVISOR = 1e-10;
+const MAX_SAFE_RECIPROCAL = 1e10;
+
 export function applyManualMathNormalization(ast: any, context: ConvertManualMathTransformOptions | null = null) {
     if (!isObjectLike(ast)) {
         return ast;
@@ -72,7 +98,7 @@ const CALL_SIMPLIFIERS: SimplificationHandler[] = [
     (node, context) => attemptConvertPowerToSqrt(node, context),
     (node, context) => attemptConvertPowerToExp(node, context),
     (node, context) => attemptConvertPointDirection(node, context),
-    (node) => attemptConvertTrigDegreeArguments(node)
+    (node) => attemptSimplifyTrigonometricCall(node)
 ];
 
 function applySimplifiers(
@@ -1206,6 +1232,21 @@ function attemptSimplifyDivisionByReciprocal(node, context) {
 
     if (Math.abs(numericValue - 1) > computeNumericTolerance(1)) {
         return false;
+    }
+
+    const reciprocalNumericValue = Core.getLiteralNumberValue(reciprocalFactor);
+    if (reciprocalNumericValue !== null) {
+        if (!Number.isFinite(reciprocalNumericValue)) {
+            return false;
+        }
+
+        if (Math.abs(reciprocalNumericValue) > MAX_SAFE_RECIPROCAL) {
+            return false;
+        }
+
+        if (Math.abs(1 / reciprocalNumericValue) < MIN_SAFE_DIVISOR) {
+            return false;
+        }
     }
 
     const leftClone = Core.cloneAstNode(node.left);
@@ -2512,13 +2553,31 @@ function attemptConvertPointDirection(node, context) {
     return true;
 }
 
-function attemptConvertTrigDegreeArguments(node) {
+function attemptSimplifyTrigonometricCall(node) {
     if (Core.hasComment(node)) {
         return false;
     }
 
-    const calleeName = getUnwrappedIdentifierName(node.object);
-    if (calleeName !== "sin" && calleeName !== "cos") {
+    const rawCalleeName = getUnwrappedIdentifierName(node.object);
+    if (typeof rawCalleeName !== "string") {
+        return false;
+    }
+
+    const calleeName = rawCalleeName.toLowerCase();
+
+    if (applyInnerDegreeWrapperConversion(node, calleeName)) {
+        return true;
+    }
+
+    if (calleeName === "degtorad") {
+        return applyOuterTrigConversion(node, DEGREE_TO_RADIAN_CONVERSIONS);
+    }
+
+    if (calleeName === "radtodeg") {
+        return applyOuterTrigConversion(node, RADIAN_TO_DEGREE_CONVERSIONS);
+    }
+
+    if (calleeName !== "sin" && calleeName !== "cos" && calleeName !== "tan") {
         return false;
     }
 
@@ -2536,6 +2595,79 @@ function attemptConvertTrigDegreeArguments(node) {
 
     node.arguments = [createCallExpressionNode("degtorad", [Core.cloneAstNode(angle)], argument)];
 
+    return true;
+}
+
+function applyInnerDegreeWrapperConversion(node, functionName) {
+    const mapping = RADIAN_TRIG_TO_DEGREE.get(functionName);
+    if (!mapping) {
+        return false;
+    }
+
+    const args = Core.getCallExpressionArguments(node);
+    if (args.length !== 1) {
+        return false;
+    }
+
+    const firstArg = args[0];
+    const wrappedCall = Core.unwrapParenthesizedExpression(firstArg);
+    if (
+        !wrappedCall ||
+        wrappedCall.type !== CALL_EXPRESSION ||
+        getUnwrappedIdentifierName(wrappedCall.object)?.toLowerCase() !== "degtorad"
+    ) {
+        return false;
+    }
+
+    if (Core.hasComment(firstArg) || Core.hasComment(wrappedCall)) {
+        return false;
+    }
+
+    const wrappedArgs = Core.getCallExpressionArguments(wrappedCall);
+    if (wrappedArgs.length !== 1) {
+        return false;
+    }
+
+    mutateToCallExpression(node, mapping, [Core.cloneAstNode(wrappedArgs[0])], node);
+    return true;
+}
+
+function applyOuterTrigConversion(node, conversionMap) {
+    const args = Core.getCallExpressionArguments(node);
+    if (args.length !== 1) {
+        return false;
+    }
+
+    const firstArg = Core.unwrapParenthesizedExpression(args[0]);
+    if (!firstArg || firstArg.type !== CALL_EXPRESSION || Core.hasComment(firstArg)) {
+        return false;
+    }
+
+    const innerName = getUnwrappedIdentifierName(firstArg.object);
+    if (typeof innerName !== "string") {
+        return false;
+    }
+
+    const mapping = conversionMap.get(innerName.toLowerCase());
+    if (!mapping) {
+        return false;
+    }
+
+    const innerArgs = Core.getCallExpressionArguments(firstArg);
+    if (innerArgs.length !== mapping.expectedArgs) {
+        return false;
+    }
+
+    if (innerArgs.some((argument) => Core.hasComment(argument))) {
+        return false;
+    }
+
+    mutateToCallExpression(
+        node,
+        mapping.name,
+        innerArgs.map((argument) => Core.cloneAstNode(argument)),
+        node
+    );
     return true;
 }
 

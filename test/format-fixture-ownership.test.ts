@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 const formatTestRoot = path.resolve(process.cwd(), "src", "format", "test");
-const formatFormattingFixtureRoot = path.resolve(formatTestRoot, "fixtures", "formatting");
+const formatFormattingFixtureRoot = path.resolve(formatTestRoot, "fixtures");
 const formatIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "integration");
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "applyFeatherFixes",
