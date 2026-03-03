@@ -87,6 +87,10 @@ export function printExpression(node: any, sourceText: string): string {
             const right = printExpression(node.right, sourceText);
             return `${left} ${node.operator} ${right}`;
         }
+        case "ReturnStatement": {
+            const arg = node.argument ? printExpression(node.argument, sourceText) : undefined;
+            return arg === undefined ? "return;" : `return ${arg};`;
+        }
         default: {
             const text = readNodeText(sourceText, node);
             return text || "";

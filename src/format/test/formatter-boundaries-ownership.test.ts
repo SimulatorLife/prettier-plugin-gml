@@ -258,6 +258,35 @@ void describe("formatter boundaries ownership", () => {
         assert.match(formatted, /var multiplication = 2 \* 2;/);
     });
 
+    void it("does not simplify boolean-return if/else to return expression (target-state §3.2)", async () => {
+        // Collapsing `if (cond) { return true; } else { return false; }` into
+        // `return cond;` is a semantic/content rewrite. The formatter must
+        // preserve the original control-flow structure; the `gml/optimize-logical-flow`
+        // lint rule owns this transformation.
+        const source = [
+            "function bool_passthrough(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /if \(condition\)/,
+            "Formatter must preserve the if statement structure — boolean-return collapse belongs in lint."
+        );
+        assert.doesNotMatch(
+            formatted,
+            /return condition;/,
+            "Formatter must not collapse if/else boolean returns into a single return statement."
+        );
+    });
+
     void it("preserves function declarations with no parameters", async () => {
         const source = ["function demo() {", "    return 42;", "}", ""].join("\n");
 

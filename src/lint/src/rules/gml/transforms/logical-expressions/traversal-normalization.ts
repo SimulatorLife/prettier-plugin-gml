@@ -1,6 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
-const { isObjectLike, isNode } = Core;
+const { isObjectLike, isNode, hasComment } = Core;
 
 /**
  * Apply logical expression simplifications using AST traversal.
@@ -105,11 +105,24 @@ function simplifyIfStatement(node: any): boolean {
     // Check structure: has consequent and alternate
     if (!node.consequent || !node.alternate) return false;
 
+    // Skip simplification if the IfStatement or either branch block has comments
+    // attached. Collapsing the if/else structure would silently discard those
+    // comments, producing incorrect output. This mirrors the formatter's own
+    // `printBooleanReturnIf` guard (which returns null when hasComment is true).
+    if (hasComment(node) || hasComment(node.consequent) || hasComment(node.alternate)) {
+        return false;
+    }
+
     // Normalize blocks to single statements if they contain only one statement
     const consequent = unwrapBlock(node.consequent);
     const alternate = unwrapBlock(node.alternate);
 
     if (consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
+        // Also guard against comments on the return statements themselves.
+        if (hasComment(consequent) || hasComment(alternate)) {
+            return false;
+        }
+
         const consArg = consequent.argument;
         const altArg = alternate.argument;
 
@@ -118,7 +131,12 @@ function simplifyIfStatement(node: any): boolean {
 
         const shouldNegate = resolveBooleanReturnNegation(consBool, altBool);
         if (shouldNegate !== null) {
-            const newReturn = createBooleanReturnStatement(node.test, node.start, node.end, shouldNegate);
+            // Strip the outer ParenthesizedExpression that GML's if-condition
+            // syntax always wraps around the test node (e.g. `if (cond)` parses
+            // as `test: ParenthesizedExpression(cond)`). Without this unwrap the
+            // generated return would read `return (cond);` instead of `return cond;`.
+            const rawTest = node.test?.type === "ParenthesizedExpression" ? node.test.expression : node.test;
+            const newReturn = createBooleanReturnStatement(rawTest, node.start, node.end, shouldNegate);
             replaceNode(node, newReturn);
             return true;
         }
@@ -621,8 +639,16 @@ function areNegations(node1: any, node2: any): boolean {
 }
 
 function getBooleanValue(node: any): boolean | undefined {
-    if (node.type === "Literal" && typeof node.value === "boolean") {
-        return node.value;
+    if (node.type === "Literal") {
+        // The GML parser stores boolean literals as strings ("true"/"false").
+        // Support both the string form produced by the GML parser and the native
+        // boolean form that synthetic AST nodes may use.
+        if (node.value === true || node.value === "true") {
+            return true;
+        }
+        if (node.value === false || node.value === "false") {
+            return false;
+        }
     }
     return undefined;
 }

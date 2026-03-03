@@ -13,6 +13,40 @@ function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
 }
 
+/**
+ * Returns true when the given text range contains at least one line comment
+ * or block comment.
+ *
+ * The GML parser attaches all comments to the Program-level `comments` array
+ * rather than to individual AST nodes, so `Core.hasComment(node)` cannot be
+ * relied upon inside lint-rule visitors. This helper scans the raw source text
+ * instead.
+ */
+function rangeContainsComment(sourceText: string, start: number, end: number): boolean {
+    let index = start;
+    while (index < end - 1) {
+        const ch = sourceText[index];
+        if (ch === "/" && sourceText[index + 1] === "/") {
+            return true;
+        }
+        if (ch === "/" && sourceText[index + 1] === "*") {
+            return true;
+        }
+        // Skip string literals to avoid false positives from `//` inside strings.
+        if (ch === '"') {
+            index++;
+            while (index < end && sourceText[index] !== '"') {
+                if (sourceText[index] === "\\") {
+                    index++;
+                }
+                index++;
+            }
+        }
+        index++;
+    }
+    return false;
+}
+
 function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
     const sourceText = context.sourceCode.text;
     const rawStart = Core.getNodeStartIndex(node as any);
@@ -60,15 +94,6 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                 // Candidates: LogicalExpression, UnaryExpression (!), IfStatement.
 
                 "LogicalExpression, UnaryExpression[operator='!'], IfStatement"(node: any) {
-                    // We need to be careful not to process nodes that are parts of already processed nodes?
-                    // ESLint traverses top-down usually.
-                    // But if we modify a child, the parent might have been visited.
-
-                    // Helper to check if simplification is possible without mutating yet.
-                    // Actually `applyLogicalNormalization` mutates.
-
-                    // Let's create a "check and fix" approach.
-                    // Copy the node.
                     const originalNode = node;
                     const nodeStart = Core.getNodeStartIndex(originalNode);
                     const nodeEnd = Core.getNodeEndIndex(originalNode);
@@ -82,50 +107,29 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
+                    // For IfStatement boolean-return simplification: skip when the
+                    // node's source range contains comments, since collapsing the
+                    // if/else structure would silently discard them. The GML parser
+                    // attaches all comments to the Program node rather than to
+                    // individual child nodes, so Core.hasComment() is unreliable
+                    // here; we therefore scan the text range for comment syntax.
+                    if (
+                        originalNode.type === "IfStatement" &&
+                        rangeContainsComment(context.sourceCode.text, nodeStart, nodeEnd)
+                    ) {
+                        return;
+                    }
+
                     const cloned = Core.cloneAstNode(node) as any;
-
-                    // Function to run ONE step of simplification on this node only.
-                    // My `applyLogicalNormalization` runs recursively.
-                    // I should probably expose `simplifyNode` logic separately?
-                    // Or just use `applyLogicalNormalization` on the cloned node and compare?
-
                     applyLogicalNormalization(cloned);
 
-                    // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
                     const newText = printExpression(cloned, context.sourceCode.text);
 
-                    // Check if changed.
-                    // Note: `printExpression` might output different whitespace than source even if AST is same.
-                    // This is risky.
-
-                    // Better approach:
-                    // Implement specific checks here instead of relying on `applyLogicalNormalization` generic pass.
-                    // Or trust `printExpression` to be close enough?
-
-                    // `printExpression` outputs minimal spacing.
-                    // `sourceText` has original spacing.
-                    // If I normalize `sourceText` (remove extra space) and compare?
-
-                    // If I detect a standard change pattern (e.g. `!(!A)` -> `A`), I can just verify the AST structure change.
-
-                    // Let's try to detect if `cloned` is structurally different (type changed, operator changed, children changed).
-                    // But deep comparison is hard.
-
-                    // Given the timeframe, I will rely on `applyLogicalNormalization` but restricts it to 1 pass or shallow check?
-                    // `applyLogicalNormalization` is iterative (up to 10 passes).
-
-                    // Let's try:
-                    // 1. Clone node.
-                    // 2. Run normalization.
-                    // 3. Print normalized node.
-                    // 4. If normalized != original (ignoring whitespace?), report fix.
-
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
-                        // It changed!
                         context.report({
                             loc: resolveSafeNodeLoc(context, originalNode),
-                            messageId: definition.messageId, // "optimizeLogicalFlow"
+                            messageId: definition.messageId,
                             fix(fixer) {
                                 return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
                             }
