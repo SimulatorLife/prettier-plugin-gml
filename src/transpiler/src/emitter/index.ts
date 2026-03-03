@@ -4,7 +4,7 @@ export { builtInFunctions } from "./builtins.js";
 export { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 export { tryFoldConstantExpression } from "./constant-folding.js";
 export { GmlToJsEmitter } from "./emitter.js";
-export { emitJavaScript, makeDummyOracle } from "./emitter-entrypoints.js";
+export { emitJavaScript } from "./emitter-entrypoints.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";
 export { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 export type { SemanticOracleOptions } from "./semantic-factory.js";

@@ -729,10 +729,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     const semanticOracle = Transpiler.createSemanticOracle({ scriptNames });
     const transpiler = new Transpiler.GmlTranspiler({
-        semantic: {
-            identifier: semanticOracle,
-            callTarget: semanticOracle
-        }
+        semantic: semanticOracle
     });
     const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
