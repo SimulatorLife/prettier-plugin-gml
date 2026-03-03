@@ -115,18 +115,17 @@ void test("createSemanticOracle creates oracle with builtin knowledge", () => {
     assert.equal(kind, "builtin", "Should recognize sqrt as builtin");
 });
 
-void test("makeDummyOracle creates minimal oracle", () => {
-    const oracle = Transpiler.makeDummyOracle();
+void test("createSemanticOracle can opt out of builtin classification", () => {
+    const oracle = Transpiler.createSemanticOracle({ builtinNames: new Set<string>() });
 
     const builtinNode = {
         type: "CallExpression" as const,
         object: { name: "sqrt" },
         arguments: []
     };
-    const kind = oracle.callTarget.callTargetKind(builtinNode as unknown as CallExpressionNode);
+    const kind = oracle.callTargetKind(builtinNode as unknown as CallExpressionNode);
 
-    // Dummy oracle still checks builtInFunctions map for basic recognition
-    assert.equal(kind, "builtin", "Dummy oracle recognizes builtins via builtInFunctions map");
+    assert.equal(kind, "unknown", "Empty builtin set should classify sqrt as unknown");
 });
 
 void test("semantic oracle identifies global variables", () => {

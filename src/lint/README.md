@@ -97,6 +97,7 @@ Built-in `gml/*` rule short names:
 - `prefer-struct-literal-assignments`
 - `optimize-logical-flow`
 - `no-globalvar`
+- `no-empty-regions`
 - `no-unnecessary-string-interpolation`
 - `normalize-doc-comments`
 - `normalize-directives`
@@ -125,11 +126,6 @@ pnpm --filter @gml-modules/lint run test
 
 ## TODO
 * When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
-* Add a rule for empty regions (`@gml/no-empty-regions`). Also add an auto-fix to remove empty regions. For example:
-    ```gml
-    #region Empty region
-    #endregion
-    ```
 * Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
 * **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.
 - The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?

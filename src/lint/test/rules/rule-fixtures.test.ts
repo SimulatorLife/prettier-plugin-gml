@@ -639,6 +639,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "optimize-logical-flow",
         "normalize-doc-comments",
         "normalize-directives",
+        "no-empty-regions",
         "no-unnecessary-string-interpolation",
         "require-control-flow-braces",
         "no-assignment-in-condition",
@@ -932,6 +933,11 @@ void test("full-file rewrite rules report the first changed source location", ()
         {
             ruleName: "normalize-directives",
             input: ["var keep = 1;", "// #region Setup", ""].join("\n"),
+            expectedLoc: { line: 2, column: 0 }
+        },
+        {
+            ruleName: "no-empty-regions",
+            input: ["var keep = 1;", "#region Setup", "#endregion", ""].join("\n"),
             expectedLoc: { line: 2, column: 0 }
         },
         {

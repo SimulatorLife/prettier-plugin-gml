@@ -67,6 +67,11 @@ const expectedRules = Object.freeze([
         schema: []
     },
     {
+        shortName: "no-empty-regions",
+        messageId: "noEmptyRegions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "no-unnecessary-string-interpolation",
         messageId: "noUnnecessaryStringInterpolation",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]

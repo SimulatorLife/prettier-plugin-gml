@@ -79,6 +79,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([])
     },
     {
+        mapKey: "GmlNoEmptyRegions",
+        shortName: "no-empty-regions",
+        fullId: "gml/no-empty-regions",
+        messageId: "noEmptyRegions",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNoUnnecessaryStringInterpolation",
         shortName: "no-unnecessary-string-interpolation",
         fullId: "gml/no-unnecessary-string-interpolation",
