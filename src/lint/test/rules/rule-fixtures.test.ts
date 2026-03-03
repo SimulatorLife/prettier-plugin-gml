@@ -1017,6 +1017,26 @@ void test("prefer-hoistable-loop-accessors reports unsafeFix when insertion requ
     assert.equal(result.output, input);
 });
 
+void test("prefer-hoistable-loop-accessors detects custom function repeated in while loop body", () => {
+    // Under the original implementation, the loop-body path hardcoded `new Set(["array_length"])`,
+    // so a user-configured function (e.g. ds_list_size) was silently ignored in non-ForStatement
+    // loops. This test proves the generalized path now uses enabledHoistFunctionNames for all
+    // loop types, not just ForStatement test expressions.
+    const input = [
+        "while (active) {",
+        "    var n = ds_list_size(myList);",
+        "    var m = ds_list_size(myList);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {
+        functionSuffixes: { ds_list_size: "len" }
+    });
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0]?.messageId, "preferHoistableLoopAccessor");
+});
+
 void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
     const input = [
         "if (p.DistanceTo(vertices[0][0].p) < self.vertLength * 1.5)",

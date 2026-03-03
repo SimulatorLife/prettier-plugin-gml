@@ -246,7 +246,7 @@ export function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefini
                         const loopCalls = collectLoopLengthAccessorCalls({
                             sourceText,
                             rootNode: loopNode,
-                            enabledFunctionNames: new Set(["array_length"])
+                            enabledFunctionNames: enabledHoistFunctionNames
                         });
                         if (loopCalls.length === 0) {
                             continue;
@@ -256,7 +256,7 @@ export function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefini
                             const testCalls = collectLoopLengthAccessorCalls({
                                 sourceText,
                                 rootNode: (loopNode as any).test,
-                                enabledFunctionNames: new Set(["array_length"])
+                                enabledFunctionNames: enabledHoistFunctionNames
                             });
                             if (testCalls.length > 0) {
                                 continue;
