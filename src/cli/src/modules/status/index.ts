@@ -1,4 +1,4 @@
-export type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
+export type { ServerEndpoint, ServerLifecycle } from "../server/shared-server-types.js";
 export {
     startStatusServer,
     type StatusServerEndpoint,
