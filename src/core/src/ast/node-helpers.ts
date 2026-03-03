@@ -35,6 +35,8 @@ import type {
 // can reuse the same defensive checks without duplicating logic.
 
 const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
+const LOGICAL_AND_OPERATORS = new Set(["and", "&&"]);
+const LOGICAL_OR_OPERATORS = new Set(["or", "||"]);
 const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
 const ARITHMETIC_OPERATORS = new Set(["+", "-", "*", "/", "%", "^", "<<", ">>", ">>>", "|", "&"]);
 
@@ -797,6 +799,43 @@ export function getLiteralStringValue(node: GameMakerAstNode | null | undefined)
     return value.toLowerCase();
 }
 
+/**
+ * Extract a finite numeric value from a literal node.
+ *
+ * GML represents numeric constants as either JavaScript `number` primitives or
+ * as string-encoded values depending on the parser pass. This helper normalises
+ * both representations into a single `number | null` result and rejects any
+ * non-finite values (`Infinity`, `NaN`) that would produce incorrect arithmetic
+ * downstream.
+ *
+ * Three independent copies of this logic previously existed across the
+ * `traversal-normalization`, `optimize-math-expressions`, and
+ * `optimize-math-expressions-rule` modules. This canonical implementation
+ * replaces all three.
+ *
+ * @param node Potential literal node.
+ * @returns Finite numeric value when the node is a numeric literal, otherwise
+ *     `null`.
+ */
+export function getLiteralNumberValue(node: GameMakerAstNode | null | undefined): number | null {
+    if (!isLiteralNode(node)) {
+        return null;
+    }
+
+    const { value } = node;
+
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
 type BooleanLiteralOptions =
     | boolean
     | {
@@ -1056,6 +1095,46 @@ export function isComparisonBinaryOperator(operator: string): boolean {
  */
 export function isLogicalBinaryOperator(operator: string): boolean {
     return LOGICAL_OPERATORS.has(operator);
+}
+
+/**
+ * Check whether {@link operator} is a logical AND operator.
+ *
+ * GML represents logical AND in two equivalent forms: the keyword `and` and
+ * the symbol `&&`. Both forms evaluate identically at runtime and share the
+ * same precedence. This predicate recognizes both so transforms and printers
+ * do not need to inline the dual-form check in every call site.
+ *
+ * The inline pattern `operator === "&&" || operator === "and"` was previously
+ * scattered across the formatter (`format/printer/type-guards.ts`) and linter
+ * (`optimize-math-expressions-rule.ts`, `condensation.ts`). Centralising it
+ * here ensures a single authoritative definition.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is `"and"` or `"&&"`.
+ */
+export function isLogicalAndOperator(operator: string): boolean {
+    return LOGICAL_AND_OPERATORS.has(operator);
+}
+
+/**
+ * Check whether {@link operator} is a logical OR operator.
+ *
+ * GML represents logical OR in two equivalent forms: the keyword `or` and the
+ * symbol `||`. Both forms evaluate identically at runtime and share the same
+ * precedence. This predicate recognizes both so transforms and printers do not
+ * need to inline the dual-form check in every call site.
+ *
+ * The inline pattern `operator === "||" || operator === "or"` was previously
+ * scattered across the formatter (`format/printer/type-guards.ts`) and linter
+ * (`optimize-math-expressions-rule.ts`, `condensation.ts`). Centralising it
+ * here ensures a single authoritative definition.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is `"or"` or `"||"`.
+ */
+export function isLogicalOrOperator(operator: string): boolean {
+    return LOGICAL_OR_OPERATORS.has(operator);
 }
 
 /**

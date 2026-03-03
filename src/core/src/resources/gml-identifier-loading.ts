@@ -22,8 +22,7 @@ export function loadBundledIdentifierMetadata() {
     return JSON.parse(contents);
 }
 
-/** @type {unknown | null} */
-let cachedIdentifierMetadata = null;
+let cachedIdentifierMetadata: unknown = null;
 
 /**
  * Cached Set of manual function names to avoid re-allocating on every call.
@@ -56,11 +55,7 @@ const cachedReservedIdentifierNames = new Map<string, Set<string>>();
  * @returns {unknown} Cached identifier metadata payload.
  */
 export function getIdentifierMetadata() {
-    if (cachedIdentifierMetadata === null) {
-        cachedIdentifierMetadata = loadBundledIdentifierMetadata();
-    }
-
-    return cachedIdentifierMetadata;
+    return loadIdentifierMetadata();
 }
 
 /**
@@ -153,7 +148,11 @@ function defaultLoadIdentifierMetadata() {
 }
 
 function loadIdentifierMetadata() {
-    return safelyLoadIdentifierMetadata(metadataLoader);
+    if (cachedIdentifierMetadata === null) {
+        cachedIdentifierMetadata = safelyLoadIdentifierMetadata(metadataLoader);
+    }
+
+    return cachedIdentifierMetadata;
 }
 
 /**

@@ -18,6 +18,15 @@ export interface BasePatch {
 export interface ScriptPatch extends BasePatch {
     kind: "script";
     js_body: string;
+    /**
+     * Optional override for the name used to look up and update this script
+     * in the GameMaker HTML5 runtime's internal tables (e.g. `JSON_game.Scripts`
+     * and the `gml_Script_*` / `gml_GlobalScript_*` globals). When absent, the
+     * patch `id` is used as-is. The transpiler sets this when the canonical GML
+     * script URI (`gml/script/<name>`) differs from the GameMaker-generated
+     * function name.
+     */
+    runtimeId?: string;
 }
 
 export interface EventPatch extends BasePatch {

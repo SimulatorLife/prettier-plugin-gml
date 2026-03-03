@@ -75,6 +75,23 @@ void describe("manual CLI helpers", () => {
         }, /createBar must be a function/);
     });
 
+    void it("creates a custom progress bar once per label", () => {
+        const stdout = createMockStdout();
+        const bar: ProgressBarLike = {
+            setTotal: () => {},
+            update: () => {},
+            start: () => {},
+            stop: () => {}
+        };
+        const createBar = mock.fn(() => bar);
+
+        renderProgressBar("Task", 0, 5, 10, { stdout, createBar });
+        renderProgressBar("Task", 1, 5, 10, { stdout, createBar });
+
+        assert.equal(createBar.mock.callCount(), 1);
+        assert.deepEqual(createBar.mock.calls[0]?.arguments, ["Task", 10, { stream: stdout }]);
+    });
+
     void it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();

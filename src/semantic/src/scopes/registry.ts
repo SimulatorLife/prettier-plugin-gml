@@ -11,6 +11,13 @@ export class GlobalIdentifierRegistry {
     }
 
     /**
+     * Returns the set of all known global identifier names.
+     */
+    public getGlobalIdentifierNames(): Set<string> {
+        return this.globalIdentifiers;
+    }
+
+    /**
      * Marks an AST node as representing a global identifier.
      */
     public markIdentifier(node: MutableGameMakerAstNode | null | undefined): void {

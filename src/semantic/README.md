@@ -15,7 +15,7 @@ Downstream tools consume semantic data:
 - `@gml-modules/refactor` uses semantic data to validate and plan workspace edits.
 - `@gml-modules/lint` uses semantic-backed/project-aware analysis services for lint rules.
 - `@gml-modules/cli` composes semantic consumers for lint/refactor command execution and formatter identifier-case runtime integration.
-- `@gml-modules/plugin` consumes only formatter runtime contracts, not semantic internals.
+- `@gml-modules/format` consumes only formatter runtime contracts, not semantic internals.
 
 ## Semantic Oracle
 
@@ -68,9 +68,14 @@ const callSymbol = oracle.callTargetSymbol({
 2. Built-in functions (matched against provided builtin set)
 3. Script names (matched against provided script set)
 4. Scope-resolved declarations (using scope chain walking)
-5. Default to `local` for unresolved identifiers
+5. Unresolved identifiers inside an object-event scope → `self_field`
+6. Default to `local` for all other unresolved identifiers
 
-**Note**: The oracle currently does not distinguish `self_field` or `other_field` kinds. These require richer context from the parser or project index and are deferred to future iterations.
+Step 5 covers the common GML pattern where an object event accesses an instance variable by bare name (e.g., `hp -= 1` inside `Step_0`). Because these variables are never declared as locals, the scope-chain lookup fails and the oracle returns `self_field`, directing the transpiler to emit `self.hp -= 1`.
+
+The scope kinds that trigger `self_field` classification are configurable via the `selfContextScopeKinds` constructor parameter (default: `{"object_event", "object_body"}`). Pass an empty set to disable `self_field` classification entirely.
+
+**Note**: `other_field` classification is not implemented. The `other` keyword in GML produces a member-expression node (`other.x`) at the parser level, so the transpiler handles it structurally without oracle involvement.
 
 ### SCIP Symbol Format
 

@@ -6,7 +6,7 @@ export function applyIndexAdjustmentsIfPresent(
     target: unknown,
     adjustments: unknown[],
     applyAdjustments: (target: unknown, adjustments: unknown[]) => void,
-    metadata: unknown | null | undefined
+    metadata: unknown
 ): void {
     if (!Array.isArray(adjustments) || adjustments.length === 0) {
         return;
