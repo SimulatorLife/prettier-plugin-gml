@@ -17,9 +17,7 @@ function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: n
     const sourceText = context.sourceCode.text;
     const rawStart = Core.getNodeStartIndex(node as any);
     const startIndex =
-        typeof rawStart === "number" && Number.isFinite(rawStart)
-            ? Math.max(0, Math.min(rawStart, sourceText.length))
-            : 0;
+        typeof rawStart === "number" && Number.isFinite(rawStart) ? Core.clamp(rawStart, 0, sourceText.length) : 0;
     const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
         getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
     };
