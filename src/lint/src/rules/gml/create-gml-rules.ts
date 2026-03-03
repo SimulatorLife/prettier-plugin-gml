@@ -2,6 +2,7 @@ import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../catalog.js";
 import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-condition-rule.js";
+import { createNoEmptyRegionsRule } from "./rules/no-empty-regions-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
 import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
@@ -37,6 +38,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-globalvar": {
             return createNoGlobalvarRule(definition);
+        }
+        case "no-empty-regions": {
+            return createNoEmptyRegionsRule(definition);
         }
         case "no-unnecessary-string-interpolation": {
             return createNoUnnecessaryStringInterpolationRule(definition);

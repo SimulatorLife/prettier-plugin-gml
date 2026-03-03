@@ -1015,10 +1015,9 @@ export default class GameMakerASTBuilder {
         if (ctx.postIncDecExpression() !== null) {
             const result = this.visit(ctx.postIncDecExpression());
             // See the note above for the prefix branch: postfix statements also
-            // surface as expression nodes and must be re-tagged so the printers,
-            // loop-size hoisting logic (`src/format/src/transforms/loop-size-hoisting/helpers.js`),
-            // and Feather fixups continue to recognise them as standalone
-            // statements instead of loose expressions.
+            // surface as expression nodes and must be re-tagged so printers,
+            // loop-hoisting analyzers, and Feather fixups continue to recognise
+            // them as standalone statements instead of loose expressions.
             result.type = "IncDecStatement";
             return result;
         }
