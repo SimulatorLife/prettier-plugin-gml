@@ -681,4 +681,35 @@ switch (x) {
         const source = "var a = (b + c).d;";
         assert.doesNotThrow(() => GMLParser.parse(source));
     });
+
+    void it("records the correct keywordRange for a #macro directive at the start of the file", () => {
+        // Regression: ctx.start is typed as Token | number; position 0 is falsy
+        // and was incorrectly treated as absent, producing a null keywordRange.
+        const source = "#macro FOO 1";
+        const ast = GMLParser.parse(source, { getLocations: true, simplifyLocations: true });
+        const macroDecl = ast.body[0];
+        assert.ok(macroDecl, "Expected a body node.");
+        assert.strictEqual(macroDecl.type, "MacroDeclaration");
+        const range = macroDecl.keywordRange;
+        assert.ok(range !== null && range !== undefined, "keywordRange must not be null for a #macro at position 0.");
+        assert.strictEqual(range.start, 0, "keywordRange.start should be 0 for a #macro at the start of the file.");
+        assert.strictEqual(range.end, "#macro".length, "keywordRange.end should equal the length of '#macro'.");
+    });
+
+    void it("records the correct keywordRange for a #macro directive at a non-zero position", () => {
+        const prefix = "// comment\n";
+        const source = `${prefix}#macro BAR 2`;
+        const ast = GMLParser.parse(source, { getLocations: true, simplifyLocations: true });
+        const macroDecl = ast.body[0];
+        assert.ok(macroDecl, "Expected a body node.");
+        assert.strictEqual(macroDecl.type, "MacroDeclaration");
+        const range = macroDecl.keywordRange;
+        assert.ok(range !== null && range !== undefined, "keywordRange must not be null for a non-zero #macro.");
+        assert.strictEqual(range.start, prefix.length, "keywordRange.start should point to the '#' character.");
+        assert.strictEqual(
+            range.end,
+            prefix.length + "#macro".length,
+            "keywordRange.end should span the '#macro' keyword."
+        );
+    });
 });
