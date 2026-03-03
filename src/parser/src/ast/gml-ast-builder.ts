@@ -261,9 +261,15 @@ export default class GameMakerASTBuilder {
     }
 
     private buildDirectiveKeywordRange(
-        token: Token | ParserToken | null | undefined,
+        token: Token | ParserToken | number | null | undefined,
         keyword: DirectiveKeyword
     ): DirectiveKeywordRange | null {
+        if (typeof token === "number") {
+            return {
+                start: token,
+                end: token + `#${keyword}`.length
+            };
+        }
         const start = this.getTokenStartIndex(token);
         if (typeof start !== "number") {
             return null;
