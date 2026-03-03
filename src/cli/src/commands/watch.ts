@@ -242,6 +242,8 @@ interface RuntimeContext
         WatchLifecycle {
     scriptNames: Set<string>;
     fileSnapshots: Map<string, number>;
+    /** Byte length from the latest successful read for each watched source file. */
+    fileSnapshotSizes: Map<string, number>;
     /** SHA-256 prefix of each file's last-transpiled source text.
      * Used to skip transpilation when a file's mtime changes but content is
      * identical (e.g., redundant editor saves or `touch` operations). */
@@ -754,6 +756,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         unknownScanPromise: null,
         unknownScanQueued: false,
         fileSnapshots: new Map(),
+        fileSnapshotSizes: new Map(),
         fileContentHashes: new Map(),
         dependencyTracker
     };
@@ -1212,9 +1215,11 @@ async function handleFileChange(
         try {
             const content = await readSourceFileWithTransientEmptyRetry(filePath);
             const lines = countSourceLines(content);
+            const previousFileSize = runtimeContext?.fileSnapshotSizes.get(filePath);
             if (runtimeContext) {
                 if (resolvedFileStats) {
                     runtimeContext.fileSnapshots.set(filePath, resolvedFileStats.mtimeMs);
+                    runtimeContext.fileSnapshotSizes.set(filePath, resolvedFileStats.size);
                 } else {
                     await updateFileSnapshot(runtimeContext, filePath);
                 }
@@ -1234,16 +1239,26 @@ async function handleFileChange(
             // the remaining scenario where an editor or tool updates the mtime without
             // changing the actual bytes (e.g. redundant saves, `touch`, auto-formatters
             // that produce no change).
-            const contentHash = hashSourceContent(content);
-            const lastContentHash = runtimeContext.fileContentHashes.get(filePath);
-            if (lastContentHash !== undefined && lastContentHash === contentHash) {
-                if (verbose && !quiet) {
-                    console.log("  ↳ Skipping transpilation: content unchanged");
-                }
-                return;
-            }
+            const canContentMatchExactly =
+                previousFileSize !== undefined &&
+                resolvedFileStats !== null &&
+                previousFileSize === resolvedFileStats.size;
 
-            runtimeContext.fileContentHashes.set(filePath, contentHash);
+            let shouldRefreshContentHash = false;
+            if (canContentMatchExactly) {
+                const contentHash = hashSourceContent(content);
+                const lastContentHash = runtimeContext.fileContentHashes.get(filePath);
+                if (lastContentHash !== undefined && lastContentHash === contentHash) {
+                    if (verbose && !quiet) {
+                        console.log("  ↳ Skipping transpilation: content unchanged");
+                    }
+                    return;
+                }
+
+                runtimeContext.fileContentHashes.set(filePath, contentHash);
+            } else {
+                shouldRefreshContentHash = true;
+            }
 
             ensureScriptNameRegistered(filePath, runtimeContext.scriptNames);
 
@@ -1254,6 +1269,10 @@ async function handleFileChange(
             });
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
+
+            if (shouldRefreshContentHash) {
+                runtimeContext.fileContentHashes.set(filePath, hashSourceContent(content));
+            }
         } catch (error) {
             if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
                 unregisterScriptName(filePath, runtimeContext.scriptNames);
@@ -1558,6 +1577,7 @@ function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: st
 function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
+    runtimeContext.fileSnapshotSizes.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
     const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
@@ -1578,8 +1598,10 @@ async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: stri
     try {
         const stats = await stat(filePath);
         runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
+        runtimeContext.fileSnapshotSizes.set(filePath, stats.size);
     } catch {
         runtimeContext.fileSnapshots.delete(filePath);
+        runtimeContext.fileSnapshotSizes.delete(filePath);
     }
 }
 
