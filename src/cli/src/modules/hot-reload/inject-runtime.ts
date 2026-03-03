@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
@@ -10,7 +9,7 @@ import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 
 const { getErrorMessageOrFallback, runSequentially } = Core;
 
-const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const MODULE_DIRECTORY = import.meta.dirname;
 const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
 
 function resolveRepositoryPath(...segments: Array<string>) {

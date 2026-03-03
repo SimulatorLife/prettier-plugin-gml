@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
@@ -14,9 +13,14 @@ const { readTextFileSync } = Core;
  * calculation across performance tooling and the format runtime. Keeping the
  * resolution logic in one place ensures every caller works with the same
  * canonical directories and avoids subtle drift when files relocate.
+ *
+ * `import.meta.dirname` is used here in preference to the older
+ * `path.dirname(fileURLToPath(import.meta.url))` workaround. The built-in
+ * has been stable since Node.js 21.2 and is the recommended approach for
+ * obtaining the current module's directory path in ESM code.
  */
 
-const SHARED_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const SHARED_DIRECTORY = import.meta.dirname;
 
 function readPackageName(candidateDirectory: string): string | null {
     try {

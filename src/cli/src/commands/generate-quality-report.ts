@@ -2,7 +2,6 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 import { Command } from "commander";
@@ -1257,7 +1256,7 @@ function runCli(options: any = {}) {
     return exitCode;
 }
 
-const isMainModule = process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
+const isMainModule = process.argv[1] ? path.resolve(process.argv[1]) === import.meta.filename : false;
 
 if (isMainModule) {
     try {

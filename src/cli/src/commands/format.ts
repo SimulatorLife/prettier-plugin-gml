@@ -11,7 +11,6 @@ import { lstat, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
@@ -72,7 +71,7 @@ const {
     withObjectLike
 } = Core;
 
-const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const WRAPPER_DIRECTORY = import.meta.dirname;
 const FORMAT_PATH = resolveCliFormatEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 
