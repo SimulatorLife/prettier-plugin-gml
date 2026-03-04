@@ -45,11 +45,11 @@ import {
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
+    type RuntimeTranspilerPatch,
     type TranspilationContext,
     type TranspilationResult,
     transpileFile,
-    type TranspilerProvider
-} from "../modules/transpilation/coordinator.js";
+    type TranspilerProvider} from "../modules/transpilation/coordinator.js";
 import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     getRuntimePathSegments,
@@ -246,6 +246,31 @@ interface RuntimeContext
      * Used to skip transpilation when a file's mtime changes but content is
      * identical (e.g., redundant editor saves or `touch` operations). */
     fileContentHashes: Map<string, string>;
+}
+
+/**
+ * Runtime state required to derive script names from changed files.
+ */
+interface ScriptNameRegistrationContext {
+    scriptNames: Set<string>;
+}
+
+/**
+ * Runtime state required when removing cached data for deleted files.
+ */
+interface FileRemovalCleanupContext {
+    dependencyTracker: DependencyTracker;
+    fileSnapshots: Map<string, number>;
+    fileContentHashes: Map<string, string>;
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
+    debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+}
+
+/**
+ * Runtime state required when recording file modification snapshots.
+ */
+interface FileSnapshotWriter {
+    fileSnapshots: Map<string, number>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
@@ -1476,7 +1501,7 @@ function mergeDependentFiles(
 }
 
 async function retranspileDependentFile(
-    runtimeContext: RuntimeContext,
+    runtimeContext: RuntimeContext & ScriptNameRegistrationContext,
     filePath: string,
     dependentFile: string,
     verbose: boolean,
@@ -1536,7 +1561,10 @@ function getSymbolIdFromFilePath(filePath: string): string {
     return `gml/script/${fileName}`;
 }
 
-function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: string): number {
+function removeCachedPatchesForFile(
+    runtimeContext: Pick<FileRemovalCleanupContext, "lastSuccessfulPatches">,
+    filePath: string
+): number {
     const symbolId = getSymbolIdFromFilePath(filePath);
     let removedCount = runtimeContext.lastSuccessfulPatches.delete(symbolId) ? 1 : 0;
 
@@ -1555,7 +1583,12 @@ function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: st
     return removedCount;
 }
 
-function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
+function cleanupRemovedFile(
+    runtimeContext: FileRemovalCleanupContext,
+    filePath: string,
+    verbose: boolean,
+    quiet: boolean
+): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
@@ -1574,7 +1607,7 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     }
 }
 
-async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: string): Promise<void> {
+async function updateFileSnapshot(runtimeContext: FileSnapshotWriter, filePath: string): Promise<void> {
     try {
         const stats = await stat(filePath);
         runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
