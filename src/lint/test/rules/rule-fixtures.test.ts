@@ -1400,6 +1400,69 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
     );
 });
 
+void test("optimize-logical-flow collapses if-else with opposite boolean returns into return", () => {
+    const input = [
+        "function bool_passthrough(condition) {",
+        "    if (condition) {",
+        "        return true;",
+        "    } else {",
+        "        return false;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = ["function bool_passthrough(condition) {", "    return condition;", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report a diagnostic for the if-else pattern");
+    assert.equal(result.output, expected, "optimize-logical-flow should simplify if-else bool returns to return cond");
+});
+
+void test("optimize-logical-flow collapses negated if-else with opposite boolean returns", () => {
+    const input = [
+        "function bool_negated(a, b) {",
+        "    if (a and b) {",
+        "        return false;",
+        "    } else {",
+        "        return true;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = ["function bool_negated(a, b) {", "    return !(a and b);", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report a diagnostic for the negated pattern");
+    assert.equal(
+        result.output,
+        expected,
+        "optimize-logical-flow should simplify if-else bool returns to return !(cond)"
+    );
+});
+
+void test("optimize-logical-flow preserves if-else with commented return branch", () => {
+    const input = [
+        "function bool_with_comment(condition) {",
+        "    if (condition) {",
+        "        // comment should stop simplification",
+        "        return true;",
+        "    } else {",
+        "        return false;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(
+        result.output,
+        input,
+        "optimize-logical-flow should not simplify if-else when a return branch has comments"
+    );
+});
+
 void test("feather migrated fixture rules apply local fixes", async () => {
     const fixtureRules = [
         "gm1003",

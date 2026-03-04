@@ -98,8 +98,6 @@ import {
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
 // `getCommentArray(...)`.
 const {
-    TERNARY_EXPRESSION,
-    LOGICAL_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
     BLOCK_STATEMENT,
     CALL_EXPRESSION,
@@ -216,10 +214,6 @@ function tryPrintControlStructureNode(node, path, options, print) {
             return printBlockStatementNode(node, path, options, print);
         }
         case "IfStatement": {
-            const simplifiedReturn = printBooleanReturnIf(path, print);
-            if (simplifiedReturn) {
-                return simplifiedReturn;
-            }
             return buildIfStatementDoc(path, options, print, node);
         }
         case "SwitchStatement": {
@@ -2861,53 +2855,6 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
     return functionNode.type === "FunctionDeclaration";
 }
 
-function printBooleanReturnIf(path, print) {
-    const node = path.getValue();
-    if (!node || node.type !== "IfStatement" || !node.consequent || !node.alternate || Core.hasComment(node)) {
-        return null;
-    }
-
-    const consequentReturn = getBooleanReturnBranch(node.consequent);
-    const alternateReturn = getBooleanReturnBranch(node.alternate);
-
-    if (!consequentReturn || !alternateReturn) {
-        return null;
-    }
-
-    if (consequentReturn.value === alternateReturn.value) {
-        return null;
-    }
-
-    const conditionDoc = printWithoutExtraParens(path, print, "test");
-    const conditionNode = node.test;
-
-    const argumentDoc =
-        consequentReturn.value === "true" ? conditionDoc : negateExpressionDoc(conditionDoc, conditionNode);
-
-    return concat(["return ", argumentDoc, optionalSemicolon("ReturnStatement")]);
-}
-
-function getBooleanReturnBranch(branchNode) {
-    if (!branchNode) {
-        return null;
-    }
-
-    if (branchNode.type === "BlockStatement") {
-        const onlyStatement = Core.getSingleBodyStatement(branchNode);
-        if (!onlyStatement || onlyStatement.type !== "ReturnStatement") {
-            return null;
-        }
-
-        return getBooleanReturnStatementInfo(onlyStatement);
-    }
-
-    if (branchNode.type === "ReturnStatement") {
-        return getBooleanReturnStatementInfo(branchNode);
-    }
-
-    return null;
-}
-
 /**
  * Builds the document representation for an if statement, ensuring that the
  * orchestration logic in the main printer delegates the clause assembly and
@@ -2948,38 +2895,6 @@ function buildIfAlternateDoc(path, options, print, node) {
     }
 
     return printInBlock(path, options, print, "alternate");
-}
-
-function getBooleanReturnStatementInfo(returnNode) {
-    if (!returnNode || Core.hasComment(returnNode)) {
-        return null;
-    }
-
-    const argument = returnNode.argument;
-    if (!argument || Core.hasComment(argument) || !Core.isBooleanLiteral(argument)) {
-        return null;
-    }
-
-    return { value: argument.value.toLowerCase() };
-}
-
-function negateExpressionDoc(expressionDoc, expressionNode) {
-    if (needsParensForNegation(expressionNode)) {
-        return group(["!", "(", expressionDoc, ")"]);
-    }
-    return group(["!", expressionDoc]);
-}
-
-function needsParensForNegation(node) {
-    if (!node) {
-        return true;
-    }
-
-    if (node.type === "ParenthesizedExpression") {
-        return needsParensForNegation(node.expression);
-    }
-
-    return [BINARY_EXPRESSION, ASSIGNMENT_EXPRESSION, TERNARY_EXPRESSION, LOGICAL_EXPRESSION].includes(node.type);
 }
 
 function ensurePreservedGlobalVarNames(options, statements) {

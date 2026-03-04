@@ -50,25 +50,221 @@ function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: n
     };
 }
 
+/**
+ * Returns `true` if the GML source text for a node's range contains a line or
+ * block comment. Used to guard boolean-return simplifications so that
+ * developer-visible annotations are never silently discarded.
+ *
+ * Note: the GML language plugin stores comments on the root `Program` node
+ * rather than attaching them to individual statement nodes. We therefore scan
+ * the raw source text while respecting string-literal boundaries to avoid
+ * treating `//` or `/*` inside a string as a comment.
+ */
+function branchSourceContainsComment(sourceText: string, branchNode: any): boolean {
+    const start = Core.getNodeStartIndex(branchNode);
+    const end = Core.getNodeEndIndex(branchNode);
+    if (typeof start !== "number" || typeof end !== "number") {
+        return false;
+    }
+
+    const text = sourceText.slice(start, end);
+    const len = text.length;
+
+    for (let i = 0; i < len; i++) {
+        const ch = text[i];
+
+        // Skip over string literals so that `"http://example.com"` does not
+        // trigger a false positive.
+        if (ch === '"' || ch === "'") {
+            const quote = ch;
+            i++;
+            while (i < len && text[i] !== quote) {
+                if (text[i] === "\\") {
+                    i++; // skip escaped character
+                }
+                i++;
+            }
+            continue;
+        }
+
+        if (ch === "/" && i + 1 < len && (text[i + 1] === "/" || text[i + 1] === "*")) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Resolves the boolean literal value of an AST node (`true` or `false`), or
+ * `null` if the node is not a boolean literal.
+ *
+ * GML represents boolean literals as `Literal { value: "true" }` (string),
+ * so we delegate to {@link Core.getBooleanLiteralValue} which handles both
+ * string-encoded and boolean-primitive forms.
+ */
+function resolveBooleanLiteralValue(node: any): boolean | null {
+    const raw = Core.getBooleanLiteralValue(node);
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return null;
+}
+
+/**
+ * Unwraps a single-statement `BlockStatement` to its body statement.
+ * Returns the original node if it is not a single-statement block.
+ */
+function unwrapSingleStatementBlock(node: any): any {
+    if (node?.type === "BlockStatement") {
+        const body: unknown[] = Array.isArray(node.body) ? node.body : [];
+        return body.length === 1 ? body[0] : null;
+    }
+    return node;
+}
+
+/**
+ * Returns the boolean value that a branch unconditionally returns, or `null`
+ * when the branch does not match a single boolean-literal return.
+ *
+ * Accepts both bare `ReturnStatement` nodes and single-statement
+ * `BlockStatement` wrappers. Comment detection is handled separately via
+ * {@link branchSourceContainsComment}.
+ */
+function resolveBoolReturnBranch(branchNode: any): boolean | null {
+    const stmt = unwrapSingleStatementBlock(branchNode);
+    if (!stmt || stmt.type !== "ReturnStatement") {
+        return null;
+    }
+    const argument = stmt.argument;
+    if (!argument) {
+        return null;
+    }
+    return resolveBooleanLiteralValue(argument);
+}
+
+/**
+ * Returns `true` when negating `node` requires wrapping it in parentheses to
+ * preserve operator-precedence semantics (e.g., `!(a and b)`).
+ *
+ * Logical, binary, assignment, and ternary expressions all bind more loosely
+ * than unary `!`, so they must be parenthesised. Any enclosing
+ * `ParenthesizedExpression` is unwrapped first so that `(a and b)` correctly
+ * reports the inner `LogicalExpression` as needing parens.
+ */
+function negationRequiresParens(node: any): boolean {
+    let unwrapped = node;
+    while (unwrapped?.type === "ParenthesizedExpression") {
+        unwrapped = unwrapped.expression;
+    }
+    const type: string = unwrapped?.type ?? "";
+    return (
+        type === "LogicalExpression" ||
+        type === "BinaryExpression" ||
+        type === "AssignmentExpression" ||
+        type === "TernaryExpression"
+    );
+}
+
+/**
+ * Resolves the innermost expression by stripping any `ParenthesizedExpression`
+ * wrappers, then returns its source text.
+ *
+ * The `if` statement's `test` node includes the surrounding parentheses as a
+ * `ParenthesizedExpression` in the GML AST. We want the condition text without
+ * those parens so the emitted `return <cond>` statement is correct.
+ */
+function resolveConditionText(sourceText: string, testNode: any): string | null {
+    let condNode = testNode;
+    while (condNode?.type === "ParenthesizedExpression" && condNode.expression) {
+        condNode = condNode.expression;
+    }
+    const start = Core.getNodeStartIndex(condNode);
+    const end = Core.getNodeEndIndex(condNode);
+    if (typeof start !== "number" || typeof end !== "number") {
+        return null;
+    }
+    return sourceText.slice(start, end);
+}
+
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
-                // Using a broad selector or Program traversal
-                // We'll iterate over nodes that are candidates for simplification.
-                // Candidates: LogicalExpression, UnaryExpression (!), IfStatement.
+                /**
+                 * Simplifies `if (cond) { return true; } else { return false; }` →
+                 * `return cond;` (or `return !(cond);` for the negated variant).
+                 *
+                 * This structural rewrite belongs in the linter per
+                 * `target-state.md §2.1`, which requires the formatter to remain
+                 * layout-only and prohibits semantic/content rewrites there.
+                 */
+                IfStatement(node: any) {
+                    if (!node.alternate) {
+                        return;
+                    }
 
-                "LogicalExpression, UnaryExpression[operator='!'], IfStatement"(node: any) {
-                    // We need to be careful not to process nodes that are parts of already processed nodes?
-                    // ESLint traverses top-down usually.
-                    // But if we modify a child, the parent might have been visited.
+                    const nodeStart = Core.getNodeStartIndex(node);
+                    const nodeEnd = Core.getNodeEndIndex(node);
+                    if (
+                        typeof nodeStart !== "number" ||
+                        typeof nodeEnd !== "number" ||
+                        !Number.isFinite(nodeStart) ||
+                        !Number.isFinite(nodeEnd) ||
+                        nodeEnd <= nodeStart
+                    ) {
+                        return;
+                    }
 
-                    // Helper to check if simplification is possible without mutating yet.
-                    // Actually `applyLogicalNormalization` mutates.
+                    // Guard: skip if the if-node itself or either branch contains a
+                    // comment. The GML language plugin stores all comments on the
+                    // root Program node rather than attaching them to individual
+                    // statement nodes, so we scan the raw source text instead.
+                    const sourceText = context.sourceCode.text;
+                    if (
+                        branchSourceContainsComment(sourceText, node.consequent) ||
+                        branchSourceContainsComment(sourceText, node.alternate)
+                    ) {
+                        return;
+                    }
 
-                    // Let's create a "check and fix" approach.
-                    // Copy the node.
+                    const consequentBool = resolveBoolReturnBranch(node.consequent);
+                    const alternateBool = resolveBoolReturnBranch(node.alternate);
+
+                    if (consequentBool === null || alternateBool === null || consequentBool === alternateBool) {
+                        return;
+                    }
+
+                    // Both branches unconditionally return opposite boolean literals.
+                    const condText = resolveConditionText(sourceText, node.test);
+                    if (condText === null) {
+                        return;
+                    }
+
+                    const isNegated = consequentBool === false;
+
+                    let fixText: string;
+                    if (isNegated) {
+                        fixText = negationRequiresParens(node.test) ? `return !(${condText});` : `return !${condText};`;
+                    } else {
+                        fixText = `return ${condText};`;
+                    }
+
+                    context.report({
+                        loc: resolveSafeNodeLoc(context, node),
+                        messageId: definition.messageId,
+                        fix(fixer) {
+                            return fixer.replaceTextRange([nodeStart, nodeEnd], fixText);
+                        }
+                    });
+                },
+
+                /**
+                 * Simplifies logical and unary expressions using algebraic
+                 * normalization (double-negation removal, De Morgan's laws,
+                 * absorption, etc.).
+                 */
+                "LogicalExpression, UnaryExpression[operator='!']"(node: any) {
                     const originalNode = node;
                     const nodeStart = Core.getNodeStartIndex(originalNode);
                     const nodeEnd = Core.getNodeEndIndex(originalNode);
@@ -83,49 +279,15 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     }
 
                     const cloned = Core.cloneAstNode(node) as any;
-
-                    // Function to run ONE step of simplification on this node only.
-                    // My `applyLogicalNormalization` runs recursively.
-                    // I should probably expose `simplifyNode` logic separately?
-                    // Or just use `applyLogicalNormalization` on the cloned node and compare?
-
                     applyLogicalNormalization(cloned);
 
-                    // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
                     const newText = printExpression(cloned, context.sourceCode.text);
 
-                    // Check if changed.
-                    // Note: `printExpression` might output different whitespace than source even if AST is same.
-                    // This is risky.
-
-                    // Better approach:
-                    // Implement specific checks here instead of relying on `applyLogicalNormalization` generic pass.
-                    // Or trust `printExpression` to be close enough?
-
-                    // `printExpression` outputs minimal spacing.
-                    // `sourceText` has original spacing.
-                    // If I normalize `sourceText` (remove extra space) and compare?
-
-                    // If I detect a standard change pattern (e.g. `!(!A)` -> `A`), I can just verify the AST structure change.
-
-                    // Let's try to detect if `cloned` is structurally different (type changed, operator changed, children changed).
-                    // But deep comparison is hard.
-
-                    // Given the timeframe, I will rely on `applyLogicalNormalization` but restricts it to 1 pass or shallow check?
-                    // `applyLogicalNormalization` is iterative (up to 10 passes).
-
-                    // Let's try:
-                    // 1. Clone node.
-                    // 2. Run normalization.
-                    // 3. Print normalized node.
-                    // 4. If normalized != original (ignoring whitespace?), report fix.
-
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
-                        // It changed!
                         context.report({
                             loc: resolveSafeNodeLoc(context, originalNode),
-                            messageId: definition.messageId, // "optimizeLogicalFlow"
+                            messageId: definition.messageId,
                             fix(fixer) {
                                 return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
                             }
