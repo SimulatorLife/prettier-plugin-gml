@@ -1,3 +1,4 @@
+import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
@@ -10,6 +11,9 @@ import {
     isAstNodeWithType
 } from "../rule-base-helpers.js";
 import { shouldReportUnsafe } from "../rule-helpers.js";
+
+const { unwrapParenthesizedExpression } = CoreWorkspace.Core;
+type UnwrapParenthesizedExpressionInput = Parameters<typeof CoreWorkspace.Core.unwrapParenthesizedExpression>[0];
 
 function isStringLiteralExpression(expression: unknown): boolean {
     if (!isAstNodeRecord(expression) || expression.type !== "Literal") {
@@ -37,24 +41,12 @@ function isBinaryStringConcatenationExpression(node: unknown): node is AstNodeRe
     return isAstNodeRecord(node) && node.type === "BinaryExpression" && node.operator === "+";
 }
 
-function isParenthesizedExpression(node: unknown): node is AstNodeRecord {
-    return isAstNodeRecord(node) && node.type === "ParenthesizedExpression";
-}
-
 function isTemplateStringExpression(node: unknown): node is AstNodeRecord {
     return isAstNodeRecord(node) && node.type === "TemplateStringExpression";
 }
 
 function isTemplateStringTextAtom(node: unknown): node is AstNodeRecord {
     return isAstNodeRecord(node) && node.type === "TemplateStringText" && typeof node.value === "string";
-}
-
-function unwrapParenthesizedExpression(node: unknown): unknown {
-    let current = node;
-    while (isParenthesizedExpression(current) && isAstNodeRecord(current.expression)) {
-        current = current.expression;
-    }
-    return current;
 }
 
 function getNodeTextFromContext(context: Rule.RuleContext, astNode: any): string {
@@ -109,7 +101,7 @@ function extractStringLiteralText(context: Rule.RuleContext, literalNode: AstNod
 }
 
 function collectConcatenationParts(node: unknown, output: Array<unknown>): void {
-    const candidate = unwrapParenthesizedExpression(node);
+    const candidate = unwrapParenthesizedExpression(node as UnwrapParenthesizedExpressionInput);
     if (isBinaryStringConcatenationExpression(candidate)) {
         collectConcatenationParts(candidate.left, output);
         collectConcatenationParts(candidate.right, output);
@@ -201,7 +193,7 @@ function buildTemplateBody(context: Rule.RuleContext, node: AstNodeRecord): stri
     };
 
     for (const part of concatenationParts) {
-        const segment = unwrapParenthesizedExpression(part);
+        const segment = unwrapParenthesizedExpression(part as UnwrapParenthesizedExpressionInput);
 
         if (isAstNodeRecord(segment) && isStringLiteralExpression(segment)) {
             const literalText = extractStringLiteralText(context, segment);
