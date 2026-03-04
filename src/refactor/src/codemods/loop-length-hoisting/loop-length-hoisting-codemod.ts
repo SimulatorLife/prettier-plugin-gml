@@ -94,19 +94,29 @@ function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string>
 }
 
 function collectForStatementContainerContexts(programNode: unknown): ReadonlyArray<ForStatementContainerContext> {
+    // walkAst passes arrays as `parent` (not the container object) when a node sits inside
+    // a body array. To determine whether a ForStatement is a direct child of a Program or
+    // BlockStatement body we first collect those arrays, then check the ForStatement's parent.
+    const safeBodyArrays = new Set<unknown>();
+    Core.walkAst(programNode, (node) => {
+        if (node?.type !== "Program" && node?.type !== "BlockStatement") {
+            return;
+        }
+
+        const body: unknown = node.body;
+        if (Array.isArray(body)) {
+            safeBodyArrays.add(body);
+        }
+    });
+
     const contexts: Array<ForStatementContainerContext> = [];
 
-    Core.walkAst(programNode, (node, parent, key) => {
+    Core.walkAst(programNode, (node, parent) => {
         if (node?.type !== "ForStatement") {
             return;
         }
 
-        const parentNode =
-            parent && typeof parent === "object" && !Array.isArray(parent) ? (parent as Record<string, unknown>) : null;
-        const canInsertHoistBeforeLoop =
-            parentNode !== null &&
-            key === "body" &&
-            (parentNode.type === "Program" || parentNode.type === "BlockStatement");
+        const canInsertHoistBeforeLoop = Array.isArray(parent) && safeBodyArrays.has(parent);
 
         contexts.push(
             Object.freeze({
