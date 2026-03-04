@@ -748,7 +748,7 @@ function printCallExpressionNode(node, path, options, print) {
         }
 
         structArgumentsToBreak.forEach((argument) => {
-            forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
+            forcedStructArgumentBreaks.set(argument, true);
         });
 
         const shouldFavorInlineArguments =
@@ -889,24 +889,9 @@ function printStructExpressionNode(node, path, options, print) {
 }
 
 function printPropertyNode(node, path, options, print) {
-    const parentNode = safeGetParentNode(path);
-    const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
     const nameDoc = print("name");
     const valueDoc = print("value");
     const trailingCommentSuffix = buildStructPropertyCommentSuffix(path, options);
-
-    if (alignmentInfo?.maxNameLength > 0) {
-        const nameLength = getStructPropertyNameLength(node, options);
-        const paddingWidth = Math.max(alignmentInfo.maxNameLength - nameLength + 1, 1);
-        const padding = " ".repeat(paddingWidth);
-
-        return concat([nameDoc, padding, ": ", valueDoc, trailingCommentSuffix]);
-    }
-
-    const originalPrefix = getStructPropertyPrefix(node, options);
-    if (originalPrefix) {
-        return concat([originalPrefix, valueDoc, trailingCommentSuffix]);
-    }
 
     return concat([nameDoc, ": ", valueDoc, trailingCommentSuffix]);
 }
@@ -946,7 +931,7 @@ function printNewExpressionNode(node, path, options, print) {
     }
 
     structArgumentsToBreak.forEach((argument) => {
-        forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
+        forcedStructArgumentBreaks.set(argument, true);
     });
 
     const shouldFavorInlineArguments =
@@ -1832,52 +1817,6 @@ function buildStructPropertyCommentSuffix(path, options) {
     return lineSuffix([lineSuffixBoundary, " ", commentDoc]);
 }
 
-function getStructAlignmentInfo(structNode, options) {
-    if (!structNode || structNode.type !== "StructExpression") {
-        return null;
-    }
-
-    const properties = Core.asArray(structNode.properties);
-
-    let maxNameLength = 0;
-
-    for (const property of properties) {
-        const nameLength = getStructPropertyNameLength(property, options);
-        if (nameLength > maxNameLength) {
-            maxNameLength = nameLength;
-        }
-    }
-
-    if (maxNameLength <= 0) {
-        return { maxNameLength: 0 };
-    }
-
-    return { maxNameLength };
-}
-
-function getStructPropertyNameLength(property, options) {
-    if (!property) {
-        return 0;
-    }
-
-    const nameNode = property.name ?? property.key;
-    if (typeof nameNode === STRING_TYPE) {
-        return nameNode.length;
-    }
-
-    if (!nameNode) {
-        return 0;
-    }
-
-    if (nameNode.type === IDENTIFIER) {
-        const identifierText = Core.getIdentifierText(nameNode);
-        return typeof identifierText === STRING_TYPE ? identifierText.length : 0;
-    }
-
-    const source = getSourceTextForNode(nameNode, options);
-    return typeof source === STRING_TYPE ? source.length : 0;
-}
-
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -2615,35 +2554,6 @@ function consumeBlockComment(source, startIndex) {
     }
 
     return { index: current, foundLineBreak: false };
-}
-
-function getStructPropertyPrefix(node, options) {
-    if (!node) {
-        return null;
-    }
-
-    const originalText = getOriginalTextFromOptions(options);
-
-    const propertyStart = Core.getNodeStartIndex(node);
-    const valueStart = Core.getNodeStartIndex(node?.value);
-
-    const prefix = sliceOriginalText(originalText, propertyStart, valueStart);
-
-    if (!prefix || !prefix.includes(":")) {
-        return null;
-    }
-
-    const colonIndex = prefix.indexOf(":");
-    const beforeColon = prefix.slice(0, colonIndex);
-    const afterColon = prefix.slice(colonIndex + 1);
-    const hasWhitespaceBefore = /\s$/.test(beforeColon);
-    const hasWhitespaceAfter = /^\s/.test(afterColon);
-
-    if (!hasWhitespaceBefore && !hasWhitespaceAfter) {
-        return null;
-    }
-
-    return prefix;
 }
 
 function shouldOmitDefaultValueForParameter(path, options) {
