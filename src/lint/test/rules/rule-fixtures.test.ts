@@ -1090,6 +1090,14 @@ void test("require-control-flow-braces does not rewrite multiline condition cont
     assert.equal(result.output, input);
 });
 
+void test("require-control-flow-braces keeps else-if chains intact when the branch statement is on the next line", () => {
+    const input = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
     const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
 `;
@@ -1366,6 +1374,13 @@ void test("normalize-operator-aliases rewrites code aliases without mutating com
 
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assert.equal(result.output, expected);
+});
+
+void test("normalize-operator-aliases does not rewrite escaped quote string content", () => {
+    const input = '__input_error("State \\"", __state, "\\" not recognised");\n';
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
