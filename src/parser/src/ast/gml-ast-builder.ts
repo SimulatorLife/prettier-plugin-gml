@@ -244,13 +244,21 @@ export default class GameMakerASTBuilder {
         return tokenRecord;
     }
 
-    private getTokenStartIndex(token: Token | ParserToken | number | null | undefined): number | null {
-        if (typeof token === "number") {
-            return token;
+    private getTokenStartIndex(token: number | Token | ParserToken | null | undefined): number | null {
+        if (!token && token !== 0) {
+            return null;
         }
 
-        if (!token) {
-            return null;
+        if (typeof token === "number") {
+            return Number.isFinite(token) ? token : null;
+        }
+
+        if (typeof token === "number") {
+            return Number.isFinite(token) ? token : null;
+        }
+
+        if (typeof token === "number") {
+            return token;
         }
 
         if (typeof token.start === "number") {
@@ -265,7 +273,7 @@ export default class GameMakerASTBuilder {
     }
 
     private buildDirectiveKeywordRange(
-        token: Token | ParserToken | number | null | undefined,
+        token: number | Token | ParserToken | null | undefined,
         keyword: DirectiveKeyword
     ): DirectiveKeywordRange | null {
         const start = this.getTokenStartIndex(token);

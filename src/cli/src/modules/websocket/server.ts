@@ -9,7 +9,7 @@
 import { Core } from "@gml-modules/core";
 import { type WebSocket, WebSocketServer } from "ws";
 
-import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../server/shared-server-types.js";
 
 const { describeValueForError } = Core;
 
