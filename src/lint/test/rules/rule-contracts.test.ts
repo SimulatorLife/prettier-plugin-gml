@@ -92,6 +92,11 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "normalize-banner-comments",
+        messageId: "normalizeBannerComments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "normalize-directives",
         messageId: "normalizeDirectives",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]

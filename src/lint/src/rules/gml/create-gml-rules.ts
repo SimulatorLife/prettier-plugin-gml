@@ -5,6 +5,7 @@ import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-cond
 import { createNoEmptyRegionsRule } from "./rules/no-empty-regions-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
 import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
+import { createNormalizeBannerCommentsRule } from "./rules/normalize-banner-comments-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
 import { createNormalizeDirectivesRule } from "./rules/normalize-directives-rule.js";
 import { createNormalizeDocCommentsRule } from "./rules/normalize-doc-comments-rule.js";
@@ -55,6 +56,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "normalize-doc-comments": {
             return createNormalizeDocCommentsRule(definition);
+        }
+        case "normalize-banner-comments": {
+            return createNormalizeBannerCommentsRule(definition);
         }
         case "normalize-directives": {
             return createNormalizeDirectivesRule(definition);

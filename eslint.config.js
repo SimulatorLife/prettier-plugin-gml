@@ -495,7 +495,12 @@ const tsConfig = defineConfig({
                             "cli"
                         ]
                     },
-                    { from: "test", allow: ["*"] }
+
+                    // Tests can import anything
+                    { from: "test", allow: ["*"] },
+
+                    // Integration tests can import anything
+                    { from: "integration", allow: ["*"] }
                 ]
             }
         ]
@@ -585,7 +590,12 @@ export default [
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override
     {
-        files: ["**/test/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+        files: [
+            "**/test/**/*.ts",
+            "test/**/*.ts",
+            "**/*.test.ts",
+            "**/*.spec.ts"
+        ],
         languageOptions: {
             parserOptions: {
                 // Use specific project configuration instead of project service to avoid
