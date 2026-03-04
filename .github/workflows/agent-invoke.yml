@@ -213,16 +213,23 @@ jobs:
       - name: Install dependencies and build (root/workspaces)
         run: |
           set -o pipefail
+
+          run_typescript_build_best_effort() {
+            if ! pnpm run build:ts; then
+              echo "::warning::TypeScript workspace build failed; continuing agent workflow setup."
+            fi
+          }
+
           install_log="$(mktemp)"
           if pnpm install --frozen-lockfile 2>&1 | tee "$install_log"; then
-            pnpm run build:ts
+            run_typescript_build_best_effort
             exit 0
           fi
 
           if grep -q "ERR_PNPM_OUTDATED_LOCKFILE" "$install_log"; then
             echo "::warning::pnpm-lock.yaml is out of date. Retrying install with --no-frozen-lockfile."
             pnpm install --no-frozen-lockfile
-            pnpm run build:ts
+            run_typescript_build_best_effort
             exit 0
           fi
 

@@ -23,27 +23,27 @@ void describe("line comment options resolver", () => {
 
     void it("uses custom resolver when one is set", () => {
         restoreDefaultLineCommentOptionsResolver();
+        const sqlPattern = /^SQL:/i;
 
         setLineCommentOptionsResolver(() => ({
-            boilerplateFragments: ["custom fragment"],
-            codeDetectionPatterns: []
+            codeDetectionPatterns: [...DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns, sqlPattern]
         }));
 
         const resolved = resolveLineCommentOptions();
 
-        assert.ok(resolved.boilerplateFragments.includes("custom fragment"));
+        assert.strictEqual(resolved.codeDetectionPatterns.at(-1), sqlPattern);
     });
 
     void it("restores the default state after clearing the resolver", () => {
         restoreDefaultLineCommentOptionsResolver();
+        const sqlPattern = /^SQL:/i;
 
         setLineCommentOptionsResolver(() => ({
-            boilerplateFragments: ["custom fragment"],
-            codeDetectionPatterns: []
+            codeDetectionPatterns: [...DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns, sqlPattern]
         }));
 
         const customResult = resolveLineCommentOptions();
-        assert.ok(customResult.boilerplateFragments.includes("custom fragment"));
+        assert.strictEqual(customResult.codeDetectionPatterns.at(-1), sqlPattern);
 
         const restored = restoreDefaultLineCommentOptionsResolver();
         assert.deepEqual(restored, DEFAULT_LINE_COMMENT_OPTIONS);

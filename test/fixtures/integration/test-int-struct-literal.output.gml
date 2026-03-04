@@ -1,11 +1,8 @@
-/// @funct my_custom_struct
-/// @returns {Struct.my_custom_struct}
 /// @param value
 function my_custom_struct(_value) constructor {
     value = _value;
 }
-/// @description child_struct
-/// @returns {undefined}
+
 /// @param foo
 /// @param value
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
@@ -13,14 +10,14 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     value = 0;
 
     /// @description Print a debug message showing foo value
-    /// @returns {void}
+    /// @returns {undefined}
     static print = function () {
         show_debug_message($"My foo is {self.foo}");
     };
 
+    /// @description Each time this is called, create new map
     /// @param {real} width
     /// @returns {undefined}
-    /// @description Each time this is called, create new map
     static generate = function () {
         points = poisson_disk_sample(width, height, point_space);
         create_nodes_from_points();
@@ -38,7 +35,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         }
     };
 
-    /// @returns {undefined}
     /// @description Draw points in array for debugging
     /// @returns {undefined}
     static draw_points = function () {
@@ -48,17 +44,16 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         }
     };
 }
-/// @param [_bar=0]
+
 /// @param foo
 /// @param value
 /// @param bar
-/// @returns {undefined}
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
     self.foo = _foo;
     value = 0;
     bar = _bar;
 
-/// @returns {undefined}
+    /// @returns {undefined}
     static print = function () {
         show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
     };
@@ -71,11 +66,11 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
 }
 
 // Print function with different scope
-/// @returns {undefined}
 var print = function () {
     show_debug_message("This is a different print function");
 };
 
+/// @returns {Struct}
 function keep_separate() {
     var foo = {};
     // the assignments below depend on runtime
@@ -87,21 +82,24 @@ function keep_separate() {
     return foo;
 }
 
+/// @returns {Struct}
 function trailing_comment() {
-    var stats = {
+    return {
         hp: 100, // base health
         mp: 50
     };
-    return stats;
 }
 
 /// @param value
+/// @returns {Struct}
 function dynamic_index(value) {
     var obj = {static_key: value};
     obj[$ get_key()] = value;
     return obj;
 }
+
 /// @param value
+/// @returns {Struct}
 function make_struct(value) {
     var foo = {alpha: 1, beta: value, gamma: call()};
     return foo;
@@ -113,13 +111,14 @@ function reuse_struct() {
     do_something(instance);
 }
 
+/// @returns {Struct}
 function assign_then_extend() {
     data = {label: "ok", value: 123};
     return data;
 }
-/// @param {real} button
+
 /// @description Input for a keyboard key
-/// @param button
+/// @param {real} button
 /// @returns {undefined}
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
     // Keyboard input handling goes here
