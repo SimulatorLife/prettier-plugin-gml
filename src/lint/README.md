@@ -5,12 +5,12 @@
 It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
 
 - Owns:
-  - ESLint language wiring for GML (`language: "gml/gml"`)
-  - Lint rules and autofix behavior
+    - ESLint language wiring for GML (`language: "gml/gml"`)
+    - Lint rules and autofix behavior
 - Does not own:
-  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
-  - Parser internals/grammar ownership
-  - Refactor transaction planning/execution
+    - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
+    - Parser internals/grammar ownership
+    - Refactor transaction planning/execution
 
 See [../../docs/target-state.md](../../docs/target-state.md) for the split contract.
 
@@ -95,10 +95,12 @@ Built-in `gml/*` rule short names:
 - `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
+- `prefer-compound-assignments`
 - `optimize-logical-flow`
 - `no-globalvar`
 - `no-empty-regions`
 - `no-unnecessary-string-interpolation`
+- `remove-default-comments`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`
@@ -111,6 +113,11 @@ Built-in `gml/*` rule short names:
 - `require-argument-separators`
 - `normalize-data-structure-accessors`
 - `require-trailing-optional-defaults`
+
+`prefer-compound-assignments` rewrites safe self-assignment forms
+`x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
+
+`remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
@@ -125,7 +132,9 @@ pnpm --filter @gml-modules/lint run test
 ```
 
 ## TODO
-* When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
-* Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
-* **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.
-- The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?
+
+- When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
+- Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
+- **Codemods** (AST-based rewrite tools): Project-aware and multi-file rewrites should live in `@gml-modules/refactor`, not in lint rules. Codemods parse code, apply structured changes, and rewrite files explicitly (often one-off) instead of on every save.
+
+* The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?
