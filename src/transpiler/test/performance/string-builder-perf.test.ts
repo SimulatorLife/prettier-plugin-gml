@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import { Parser } from "@gml-modules/parser";
 
-import { emitJavaScript } from "../src/emitter/emitter-entrypoints.js";
+import { emitJavaScript } from "../../src/emitter/emitter-entrypoints.js";
 
 /**
  * Micro-benchmarks for StringBuilder performance improvements.

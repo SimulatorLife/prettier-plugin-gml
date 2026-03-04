@@ -183,6 +183,7 @@ The test suite includes:
 - Expression generation
 - Error handling
 - Patch object creation
+- Performance-focused micro-benchmarks under `test/performance/`
 
 ## Design Principles
 
