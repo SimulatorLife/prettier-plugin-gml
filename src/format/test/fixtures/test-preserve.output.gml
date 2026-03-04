@@ -240,3 +240,26 @@ draw_set_color(c_white);
 draw_set_alpha(1);
 draw_text(10, 10, str);
 */
+
+// Feather disable all
+/// .__Destroy()
+///
+/// .__FromBuffer(buffer)
+///
+/// .__CopyFromBuffer(buffer)
+///
+/// .__FromString(string, ...)
+///
+/// .__Delete(position, count)
+///
+/// .__Insert(position, string, ...)
+///
+/// .__Overwrite(position, string, ...)
+///
+/// .__Prefix(string, ...)
+///
+/// .__Suffix(string, ...)
+///
+/// .__GetString()
+///
+/// .__GetBuffer()
