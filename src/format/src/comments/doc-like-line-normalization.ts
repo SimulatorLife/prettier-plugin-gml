@@ -237,6 +237,7 @@ function shouldPreserveRawFormatterLineComment(
         isLegacyDoubleSlashDocAnnotation(rawText) ||
         isLegacySingleSlashDocPrefix(rawText) ||
         isTripleSlashSeparatorLine(rawText) ||
+        isMethodListTripleSlashLine(rawText) ||
         isBannerLikeLineComment(rawText) ||
         isTripleSlashContinuationInDocBlock(comment, rawText, originalText) ||
         isTripleSlashLineAdjacentToDecorativeSeparator(comment, rawText, originalText)
@@ -280,14 +281,6 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
 
     if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
         return rawText.trimEnd();
-    }
-
-    const leadingWhitespaceMatch = formatted.match(/^\s*/u);
-    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
-    const trimmedFormatted = formatted.trimStart();
-
-    if (/^\/\/\/\s+\.[A-Za-z_]/u.test(trimmedFormatted)) {
-        return `${leadingWhitespace}// ${trimmedFormatted.slice(3).trimStart()}`;
     }
 
     return formatted;

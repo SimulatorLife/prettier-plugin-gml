@@ -77,7 +77,6 @@ import {
 import {
     shouldAddNewlinesAroundStatement,
     shouldForceBlankLineBetweenReturnPaths,
-    shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
 import {
@@ -2305,10 +2304,11 @@ function handleTerminalTrailingSpacing({
     suppressFollowingEmptyLine,
     isStaticDeclaration,
     hasFunctionInitializer,
-    containerNode
+    containerNode: _containerNode
 }) {
     let previousNodeHadNewlineAddedAfter = false;
     const parentNode = childPath.parent;
+    const isFunctionDeclarationNode = node?.type === "FunctionDeclaration";
     const trailingProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
@@ -2323,7 +2323,10 @@ function handleTerminalTrailingSpacing({
         Core.isNonEmptyArray(node?.docComments) ||
         Core.isNonEmptyArray(node?._syntheticDocLines);
     const requiresTrailingPadding =
-        enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
+        enforceTrailingPadding &&
+        parentNode?.type === "BlockStatement" &&
+        !suppressFollowingEmptyLine &&
+        !isFunctionDeclarationNode;
 
     if (parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine) {
         const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
@@ -2333,8 +2336,13 @@ function handleTerminalTrailingSpacing({
         const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
 
         if (enforceTrailingPadding) {
-            shouldPreserveTrailingBlankLine =
-                node?.type === "FunctionDeclaration" ? true : hasExplicitTrailingBlankLine;
+            if (isFunctionDeclarationNode) {
+                const nextCharacter =
+                    originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+                shouldPreserveTrailingBlankLine = hasExplicitTrailingBlankLine && nextCharacter !== "}";
+            } else {
+                shouldPreserveTrailingBlankLine = hasExplicitTrailingBlankLine;
+            }
         } else if (
             shouldPreserveConstructorStaticPadding &&
             hasExplicitTrailingBlankLine &&
@@ -2358,15 +2366,17 @@ function handleTerminalTrailingSpacing({
         }
     }
 
-    if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
-        if (shouldForceTrailingBlankLineForNestedFunction(node, parentNode, containerNode)) {
-            shouldPreserveTrailingBlankLine = true;
-        } else if (hasAttachedDocComment && blockParent?.type === "BlockStatement") {
-            const isFunctionLike = Core.isFunctionLikeDeclaration(node);
-            if (isFunctionLike) {
-                shouldPreserveTrailingBlankLine = true;
-            }
-        }
+    if (
+        !shouldPreserveTrailingBlankLine &&
+        !suppressFollowingEmptyLine &&
+        hasAttachedDocComment &&
+        blockParent?.type === "BlockStatement" &&
+        Core.isFunctionLikeDeclaration(node)
+    ) {
+        const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
+        const nextCharacter =
+            originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+        shouldPreserveTrailingBlankLine = nextCharacter !== "}";
     }
 
     if (shouldPreserveTrailingBlankLine || requiresTrailingPadding) {

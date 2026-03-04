@@ -101,6 +101,7 @@ Built-in `gml/*` rule short names:
 - `no-empty-regions`
 - `no-unnecessary-string-interpolation`
 - `remove-default-comments`
+- `normalize-banner-comments`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`
@@ -118,6 +119,8 @@ Built-in `gml/*` rule short names:
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
 
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
+
+`normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.

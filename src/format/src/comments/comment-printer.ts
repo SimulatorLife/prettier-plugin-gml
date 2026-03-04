@@ -1342,7 +1342,7 @@ function formatDecorativeBlockComment(comment, originalText) {
         return null;
     }
 
-    const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    const lines = value.split(/\r?\n/);
     if (containsCommentedOutCodeLines(lines)) {
         return null;
     }
@@ -1356,57 +1356,11 @@ function formatDecorativeBlockComment(comment, originalText) {
     }
 
     const sourceSpan = resolveCommentSourceSpan(comment, originalText);
-    const rawDecorativeComment =
-        sourceSpan === null
-            ? `/*${value.replaceAll("\t", "    ")}*/`
-            : sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
-
-    const slashSuffixLine = resolveDecorativeSlashSuffixLine(comment, originalText);
-    return normalizeDecorativeBannerBlockComment(rawDecorativeComment, slashSuffixLine);
-}
-
-function resolveDecorativeSlashSuffixLine(comment, originalText): string | null {
-    if (typeof originalText !== "string") {
-        return null;
+    if (sourceSpan !== null) {
+        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
     }
 
-    const followingComment = comment?.followingNode;
-    if (!Core.isCommentNode(followingComment) || followingComment.type !== "CommentLine") {
-        return null;
-    }
-
-    const rawFollowingComment = Core.getLineCommentRawText(followingComment, { originalText });
-    if (!/^\s*\/{6,}\s*$/u.test(rawFollowingComment)) {
-        return null;
-    }
-
-    return rawFollowingComment.trim();
-}
-
-function normalizeDecorativeBannerBlockComment(rawCommentText: string, slashSuffixLine: string | null): string {
-    const lines = rawCommentText.replaceAll("\t", "    ").split(/\r?\n/u);
-    if (lines.length <= 1) {
-        return rawCommentText.replaceAll("\t", "    ");
-    }
-
-    const normalizedLines = [lines[0].trimStart()];
-    for (let index = 1; index < lines.length - 1; index += 1) {
-        const line = lines[index];
-        const trimmed = line.trimStart();
-        if (trimmed.length === 0) {
-            continue;
-        }
-        normalizedLines.push(`    ${trimmed}`);
-    }
-
-    const trimmedClosingLine = (lines.at(-1) ?? "").trimStart();
-    if (slashSuffixLine === null) {
-        normalizedLines.push(trimmedClosingLine);
-    } else {
-        normalizedLines.push(`*${slashSuffixLine}/`);
-    }
-
-    return normalizedLines.join("\n");
+    return `/*${value}*/`;
 }
 
 function formatCanonicalTopLevelBlockComment(comment, originalText): string | null {
