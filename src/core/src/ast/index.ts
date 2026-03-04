@@ -1,5 +1,4 @@
 export * from "./binary-operators.js";
-export * from "./estree-converter.js";
 export * from "./index-adjustments.js";
 export * from "./location-keys.js";
 export * from "./location-manipulation.js";
