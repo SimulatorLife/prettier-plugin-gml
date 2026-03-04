@@ -96,26 +96,47 @@ function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string>
 function collectForStatementContainerContexts(programNode: unknown): ReadonlyArray<ForStatementContainerContext> {
     const contexts: Array<ForStatementContainerContext> = [];
 
-    Core.walkAst(programNode, (node, parent, key) => {
-        if (node?.type !== "ForStatement") {
+    const visitValue = (value: unknown, canInsertHoistBeforeLoop: boolean): void => {
+        if (!value || typeof value !== "object") {
             return;
         }
 
-        const parentNode =
-            parent && typeof parent === "object" && !Array.isArray(parent) ? (parent as Record<string, unknown>) : null;
-        const canInsertHoistBeforeLoop =
-            parentNode !== null &&
-            key === "body" &&
-            (parentNode.type === "Program" || parentNode.type === "BlockStatement");
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                visitValue(entry, false);
+            }
 
-        contexts.push(
-            Object.freeze({
-                forNode: node as Record<string, unknown>,
-                canInsertHoistBeforeLoop
-            })
-        );
-    });
+            return;
+        }
 
+        const node = value as Record<string, unknown>;
+        if (node.type === "ForStatement") {
+            contexts.push(
+                Object.freeze({
+                    forNode: node,
+                    canInsertHoistBeforeLoop
+                })
+            );
+        }
+
+        for (const [propertyName, propertyValue] of Object.entries(node)) {
+            if (
+                propertyName === "body" &&
+                Array.isArray(propertyValue) &&
+                (node.type === "Program" || node.type === "BlockStatement")
+            ) {
+                for (const statement of propertyValue) {
+                    visitValue(statement, true);
+                }
+
+                continue;
+            }
+
+            visitValue(propertyValue, false);
+        }
+    };
+
+    visitValue(programNode, false);
     return contexts;
 }
 
@@ -219,13 +240,15 @@ function createLoopLengthHoistRewrite(parameters: {
     const indentation = getLineIndentationAtOffset(parameters.sourceText, insertionOffset);
     const insertionText = `var ${hoistedName} = ${firstCall.callText};${parameters.lineEnding}${indentation}`;
 
-    const callRewrites = accessorCalls.map((call) =>
-        Object.freeze({
-            start: call.callStart,
-            end: call.callEnd,
-            text: hoistedName
-        })
-    );
+    const callRewrites = accessorCalls
+        .filter((call) => call.functionName === firstCall.functionName && call.callText === firstCall.callText)
+        .map((call) =>
+            Object.freeze({
+                start: call.callStart,
+                end: call.callEnd,
+                text: hoistedName
+            })
+        );
 
     return Object.freeze({
         insertionOffset,
