@@ -49,7 +49,8 @@ import {
     type TranspilationContext,
     type TranspilationResult,
     transpileFile,
-    type TranspilerProvider} from "../modules/transpilation/coordinator.js";
+    type TranspilerProvider
+} from "../modules/transpilation/coordinator.js";
 import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     getRuntimePathSegments,
