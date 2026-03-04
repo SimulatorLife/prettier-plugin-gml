@@ -1,5 +1,17 @@
 /**
- * Marks static constructor helper functions that override implementations inherited from parent constructors.
+ * Marks static constructor helper functions that override implementations
+ * inherited from parent constructors.
+ *
+ * This transform lives in the lint `transforms/comments` directory because its
+ * sole consumer is `synthetic-comments.ts`, which checks `_overridesStaticFunction`
+ * to decide whether to emit an `@override` doc-comment tag and to copy inherited
+ * doc lines from the ancestor static helper.
+ *
+ * Previously this file lived in `@gml-modules/refactor`
+ * (`refactor/src/annotate-static-overrides.ts`).  It was relocated here because
+ * the refactor workspace owns rename/restructuring transactions, not comment-level
+ * AST annotation passes; this transform is a lint-pipeline preprocessing step and
+ * must be co-located with the code that reads its output.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
@@ -129,7 +141,7 @@ function collectConstructorInfos(ast: MutableGameMakerAstNode): Map<string, Cons
 
         let parentName: string | null = null;
         if (Core.isNode(node.parent) && node.parent.type === "ConstructorParentClause") {
-            const parentId = (node.parent as any).id;
+            const parentId = (node.parent as MutableGameMakerAstNode & { id?: unknown }).id;
             parentName = Core.isIdentifierNode(parentId)
                 ? Core.getNonEmptyString(parentId.name)
                 : typeof parentId === "string"
