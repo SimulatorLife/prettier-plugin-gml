@@ -636,11 +636,13 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "prefer-hoistable-loop-accessors",
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
+        "prefer-compound-assignments",
         "optimize-logical-flow",
         "normalize-doc-comments",
         "normalize-directives",
         "no-empty-regions",
         "no-unnecessary-string-interpolation",
+        "remove-default-comments",
         "require-control-flow-braces",
         "no-assignment-in-condition",
         "prefer-is-undefined-check",
@@ -938,6 +940,13 @@ void test("full-file rewrite rules report the first changed source location", ()
         {
             ruleName: "no-empty-regions",
             input: ["var keep = 1;", "#region Setup", "#endregion", ""].join("\n"),
+            expectedLoc: { line: 2, column: 0 }
+        },
+        {
+            ruleName: "remove-default-comments",
+            input: ["var keep = 1;", "// Script assets have changed for v2.3.0 see", "function demo() {}", ""].join(
+                "\n"
+            ),
             expectedLoc: { line: 2, column: 0 }
         },
         {

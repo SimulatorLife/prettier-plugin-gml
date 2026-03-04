@@ -1,0 +1,188 @@
+import * as CoreWorkspace from "@gml-modules/core";
+import type { Rule } from "eslint";
+
+import type { GmlRuleDefinition } from "../../catalog.js";
+import {
+    type AstNodeRecord,
+    createMeta,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    isAstNodeRecord,
+    walkAstNodes
+} from "../rule-base-helpers.js";
+
+type SupportedArithmeticOperator = "-" | "*" | "/";
+type SupportedNullishOperator = "??";
+type SupportedBinaryOperator = SupportedArithmeticOperator | SupportedNullishOperator;
+type CompoundAssignmentOperator = "-=" | "*=" | "/=" | "??=";
+
+type IdentifierNode = AstNodeRecord &
+    Readonly<{
+        type: "Identifier";
+        name: string;
+    }>;
+
+type BinaryExpressionNode = AstNodeRecord &
+    Readonly<{
+        type: "BinaryExpression";
+        operator: SupportedBinaryOperator;
+        left: unknown;
+        right: unknown;
+    }>;
+
+type AssignmentExpressionNode = AstNodeRecord &
+    Readonly<{
+        type: "AssignmentExpression";
+        operator: "=";
+        left: unknown;
+        right: unknown;
+    }>;
+
+type CompoundAssignmentCandidate = Readonly<{
+    assignmentExpression: AssignmentExpressionNode;
+    leftIdentifier: IdentifierNode;
+    rightBinaryExpression: BinaryExpressionNode;
+    rightOperand: AstNodeRecord;
+    compoundOperator: CompoundAssignmentOperator;
+}>;
+
+type UnwrapParenthesizedExpressionInput = Parameters<typeof CoreWorkspace.Core.unwrapParenthesizedExpression>[0];
+
+const COMPOUND_OPERATOR_BY_BINARY_OPERATOR = Object.freeze({
+    "-": "-=",
+    "*": "*=",
+    "/": "/=",
+    "??": "??="
+} as const satisfies Readonly<Record<SupportedBinaryOperator, CompoundAssignmentOperator>>);
+
+function isIdentifierNode(node: unknown): node is IdentifierNode {
+    return isAstNodeRecord(node) && node.type === "Identifier" && typeof node.name === "string";
+}
+
+function isSupportedBinaryOperator(operator: unknown): operator is SupportedBinaryOperator {
+    return operator === "-" || operator === "*" || operator === "/" || operator === "??";
+}
+
+function isBinaryExpressionNode(node: unknown): node is BinaryExpressionNode {
+    return (
+        isAstNodeRecord(node) &&
+        node.type === "BinaryExpression" &&
+        isSupportedBinaryOperator(node.operator) &&
+        Object.hasOwn(node, "left") &&
+        Object.hasOwn(node, "right")
+    );
+}
+
+function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
+    return (
+        isAstNodeRecord(node) &&
+        node.type === "AssignmentExpression" &&
+        node.operator === "=" &&
+        Object.hasOwn(node, "left") &&
+        Object.hasOwn(node, "right")
+    );
+}
+
+function containsCommentToken(expressionText: string): boolean {
+    return expressionText.includes("//") || expressionText.includes("/*") || expressionText.includes("*/");
+}
+
+function tryGetCompoundAssignmentCandidate(node: unknown): CompoundAssignmentCandidate | null {
+    if (!isAssignmentExpressionNode(node)) {
+        return null;
+    }
+
+    if (!isIdentifierNode(node.left)) {
+        return null;
+    }
+
+    const rightExpressionNode = CoreWorkspace.Core.unwrapParenthesizedExpression(
+        node.right as UnwrapParenthesizedExpressionInput
+    );
+    if (!isBinaryExpressionNode(rightExpressionNode)) {
+        return null;
+    }
+
+    const rightLeftNode = CoreWorkspace.Core.unwrapParenthesizedExpression(
+        rightExpressionNode.left as UnwrapParenthesizedExpressionInput
+    );
+    if (!isIdentifierNode(rightLeftNode) || rightLeftNode.name !== node.left.name) {
+        return null;
+    }
+
+    if (!isAstNodeRecord(rightExpressionNode.right)) {
+        return null;
+    }
+
+    return Object.freeze({
+        assignmentExpression: node,
+        leftIdentifier: node.left,
+        rightBinaryExpression: rightExpressionNode,
+        rightOperand: rightExpressionNode.right,
+        compoundOperator: COMPOUND_OPERATOR_BY_BINARY_OPERATOR[rightExpressionNode.operator]
+    });
+}
+
+/**
+ * Creates the `gml/prefer-compound-assignments` rule.
+ *
+ * Reports and auto-fixes safe self-assignment patterns:
+ * `x = x - y`, `x = x * y`, `x = x / y`, and `x = x ?? y`.
+ */
+export function createPreferCompoundAssignmentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+
+                    walkAstNodes(programNode, (candidateNode) => {
+                        const candidate = tryGetCompoundAssignmentCandidate(candidateNode);
+                        if (!candidate) {
+                            return;
+                        }
+
+                        const assignmentStart = getNodeStartIndex(candidate.assignmentExpression);
+                        const assignmentEnd = getNodeEndIndex(candidate.assignmentExpression);
+                        const leftStart = getNodeStartIndex(candidate.leftIdentifier);
+                        const leftEnd = getNodeEndIndex(candidate.leftIdentifier);
+                        const rightExpressionStart = getNodeStartIndex(candidate.rightBinaryExpression);
+                        const rightExpressionEnd = getNodeEndIndex(candidate.rightBinaryExpression);
+                        const rightOperandStart = getNodeStartIndex(candidate.rightOperand);
+                        const rightOperandEnd = getNodeEndIndex(candidate.rightOperand);
+
+                        if (
+                            typeof assignmentStart !== "number" ||
+                            typeof assignmentEnd !== "number" ||
+                            typeof leftStart !== "number" ||
+                            typeof leftEnd !== "number" ||
+                            typeof rightExpressionStart !== "number" ||
+                            typeof rightExpressionEnd !== "number" ||
+                            typeof rightOperandStart !== "number" ||
+                            typeof rightOperandEnd !== "number"
+                        ) {
+                            return;
+                        }
+
+                        const rightExpressionText = sourceText.slice(rightExpressionStart, rightExpressionEnd);
+                        if (containsCommentToken(rightExpressionText)) {
+                            return;
+                        }
+
+                        const leftText = sourceText.slice(leftStart, leftEnd);
+                        const rightOperandText = sourceText.slice(rightOperandStart, rightOperandEnd);
+                        const rewrittenAssignment = `${leftText} ${candidate.compoundOperator} ${rightOperandText}`;
+
+                        context.report({
+                            node: candidate.assignmentExpression,
+                            messageId: definition.messageId,
+                            fix: (fixer) =>
+                                fixer.replaceTextRange([assignmentStart, assignmentEnd], rewrittenAssignment)
+                        });
+                    });
+                }
+            });
+        }
+    });
+}
