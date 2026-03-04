@@ -34,32 +34,29 @@ void describe("resolveLineCommentOptions", () => {
     });
 
     void it("normalizes inline option overrides when no resolver is installed", () => {
+        const sqlPattern = /^SQL:/i;
         const resolved = resolveLineCommentOptions({
-            boilerplateFragments: [...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments, "AUTO-GENERATED FILE"],
-            codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+            codeDetectionPatterns: [...DEFAULT_COMMENTED_OUT_CODE_PATTERNS, sqlPattern]
         });
 
         assert.notStrictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
-        assert.deepEqual(resolved.boilerplateFragments.slice(-1), ["AUTO-GENERATED FILE"]);
-        assert.strictEqual(resolved.codeDetectionPatterns, DEFAULT_COMMENTED_OUT_CODE_PATTERNS);
+        assert.strictEqual(resolved.codeDetectionPatterns.at(-1), sqlPattern);
     });
 
-    void it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
-        const customFragment = "// AUTO-GENERATED FILE";
+    void it("allows integrators to extend code-detection heuristics via resolver hook", () => {
+        const sqlPattern = /^SQL:/i;
         setLineCommentOptionsResolver(() => ({
-            boilerplateFragments: [...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments, customFragment]
+            codeDetectionPatterns: [...DEFAULT_COMMENTED_OUT_CODE_PATTERNS, sqlPattern]
         }));
 
         const resolved = resolveLineCommentOptions();
 
         assert.notStrictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
-        assert.deepEqual(resolved.boilerplateFragments.slice(-1), [customFragment]);
-        assert.strictEqual(resolved.codeDetectionPatterns, DEFAULT_COMMENTED_OUT_CODE_PATTERNS);
+        assert.strictEqual(resolved.codeDetectionPatterns.at(-1), sqlPattern);
     });
 
     void it("falls back to defaults when the resolver returns invalid data", () => {
         setLineCommentOptionsResolver(() => ({
-            boilerplateFragments: null,
             codeDetectionPatterns: ["/^SQL:/i"]
         }));
 
@@ -78,14 +75,13 @@ void describe("formatLineComment", () => {
         assert.equal(formatted, "// if (player.hp <= 0) return;");
     });
 
-    void it("respects sanitized override objects when supplied directly", () => {
+    void it("ignores unknown option keys and keeps regular line comments", () => {
         const comment = createLineComment(" AUTO-GENERATED FILE - do not edit", "// AUTO-GENERATED FILE - do not edit");
 
         const formatted = formatLineComment(comment, {
-            boilerplateFragments: [...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments, "AUTO-GENERATED FILE"],
             codeDetectionPatterns: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
         });
 
-        assert.equal(formatted, null);
+        assert.equal(formatted, "// AUTO-GENERATED FILE - do not edit");
     });
 });
