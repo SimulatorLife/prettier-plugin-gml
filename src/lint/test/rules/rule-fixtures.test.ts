@@ -801,6 +801,22 @@ void test("prefer-string-interpolation rewrites string coercion calls with non-t
     assert.equal(result.output, expected);
 });
 
+void test("prefer-string-interpolation rewrites nested concatenation chains with a single diagnostic", () => {
+    const input = 'message = ("HP: " + value) + " / 99";\n';
+    const expected = 'message = $"HP: {value} / 99";\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-string-interpolation flattens nested parenthesized string chains", () => {
+    const input = '__ChatterboxCompile(_substring_array, root_instruction, ((filename + ":") + title) + ":#");\n';
+    const expected = '__ChatterboxCompile(_substring_array, root_instruction, $"{filename}: {title}:#");\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, expected);
+});
+
 void test("prefer-is-undefined-check rewrites undefined comparisons in either operand position", () => {
     const input = [
         "if (score == undefined) return;",
