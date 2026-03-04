@@ -295,6 +295,14 @@ void test("normalize-doc-comments does not convert // // section comments into s
     assert.equal(output, input);
 });
 
+void test("normalize-doc-comments keeps operator comments that start with // / unchanged", () => {
+    const input = ["if (", "    _last_byte == 47 || // /=", ") {", '    show_debug_message("Yay");', "}"].join("\n");
+
+    const output = runNormalizeDocCommentsRule(input);
+    assert.match(output, /\/\/ \/=/u);
+    assert.doesNotMatch(output, /\/\/\/ =/u);
+});
+
 void test("normalize-doc-comments preserves function indentation for synthesized docs", () => {
     const input = ["if (enabled) {", "    function inner(_value) {", "        return _value;", "    }", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
