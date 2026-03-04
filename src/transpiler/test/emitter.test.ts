@@ -89,6 +89,31 @@ void test("GmlToJsEmitter folds string equality literals", () => {
     assert.ok(result.includes("isMatch = true"), "Should emit folded boolean constant for string equality");
 });
 
+void test("GmlToJsEmitter emits escaped literals for folded strings with control characters", () => {
+    const ast = {
+        type: "Program",
+        body: [
+            {
+                type: "ExpressionStatement",
+                expression: {
+                    type: "AssignmentExpression",
+                    operator: "=",
+                    left: { type: "Identifier", name: "value" },
+                    right: {
+                        type: "BinaryExpression",
+                        operator: "+",
+                        left: { type: "Literal", value: "line\nnext" },
+                        right: { type: "Literal", value: '\t"quoted"' }
+                    }
+                }
+            }
+        ]
+    } as unknown as Parameters<typeof Transpiler.emitJavaScript>[0];
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.equal(result, String.raw`value = "line\nnext\t\"quoted\"";`);
+});
+
 void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
     assert.equal(Transpiler.mapBinaryOperator("div"), "/");
 });

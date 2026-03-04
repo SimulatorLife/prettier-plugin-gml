@@ -81,7 +81,7 @@ export class GmlTranspiler {
     }
 
     private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
-        let unpacked = "";
+        const lines: string[] = [];
 
         for (let index = 0; index < func.params.length; index += 1) {
             const parameter = func.params[index];
@@ -107,10 +107,10 @@ export class GmlTranspiler {
                 continue;
             }
 
-            unpacked = unpacked ? `${unpacked}\n${line}` : line;
+            lines.push(line);
         }
 
-        return unpacked;
+        return lines.join("\n");
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
