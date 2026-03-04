@@ -217,6 +217,7 @@ interface WatchLifecycle {
     scanComplete: boolean;
     unknownScanPromise: Promise<void> | null;
     unknownScanQueued: boolean;
+    unknownScanConcurrency: number;
 }
 
 /**
@@ -396,6 +397,19 @@ export function countSourceLines(source: string): number {
  */
 export function hashSourceContent(source: string): string {
     return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
+}
+
+/**
+ * Resolves concurrency for unknown watcher event scans.
+ *
+ * Unknown events require probing tracked files to find changes on platforms
+ * that omit filenames. Keep probes bounded to avoid unbounded stat storms.
+ *
+ * @param {number} configuredMaximum - User-configured max concurrent directory reads.
+ * @returns {number} Safe unknown scan concurrency value (minimum 1).
+ */
+export function resolveUnknownScanConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
 }
 
 /**
@@ -779,6 +793,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         scanComplete: false,
         unknownScanPromise: null,
         unknownScanQueued: false,
+        unknownScanConcurrency: resolveUnknownScanConcurrency(maxConcurrentDirs),
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
         dependencyTracker
@@ -1314,22 +1329,26 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    const changedEntries = await Core.runInParallel(entries, async ([filePath, lastModified]) => {
-        try {
-            const stats = await stat(filePath);
-            if (stats.mtimeMs <= lastModified) {
+    const changedEntries = await Core.runInParallelWithLimit(
+        entries,
+        async ([filePath, lastModified]) => {
+            try {
+                const stats = await stat(filePath);
+                if (stats.mtimeMs <= lastModified) {
+                    return null;
+                }
+
+                return {
+                    filePath,
+                    stats
+                };
+            } catch {
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
                 return null;
             }
-
-            return {
-                filePath,
-                stats
-            };
-        } catch {
-            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
-            return null;
-        }
-    });
+        },
+        runtimeContext.unknownScanConcurrency
+    );
 
     await Core.runSequentially(changedEntries, async (entry) => {
         if (entry === null) {
