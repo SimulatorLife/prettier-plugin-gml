@@ -169,15 +169,14 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                         const previousLine = lineIndex > 0 ? lines[lineIndex - 1] : "";
                         const hasLeadingCommentBarrier = isCommentOnlyLine(previousLine);
                         const declarationRecord =
-                            hasLeadingCommentBarrier || lineIndex === 0
-                                ? null
-                                : parseEmptyStructDeclarationLine(previousLine);
-                        const canRewriteSingleAssignmentViaDeclaration =
+                            lineIndex === 0 ? null : parseEmptyStructDeclarationLine(previousLine);
+                        const hasImmediateStructCreation =
                             declarationRecord !== null &&
                             declarationRecord.objectName === firstAssignment.objectName &&
-                            declarationRecord.indentation === firstAssignment.indentation;
+                            declarationRecord.indentation === firstAssignment.indentation &&
+                            !hasLeadingCommentBarrier;
 
-                        if (cluster.length < 2 && !canRewriteSingleAssignmentViaDeclaration) {
+                        if (!hasImmediateStructCreation) {
                             rewrittenLines.push(lines[lineIndex]);
                             lineIndex += 1;
                             continue;
@@ -222,43 +221,22 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                             continue;
                         }
 
-                        if (hasLeadingCommentBarrier) {
-                            if (firstUnsafeOffset === null) {
-                                firstUnsafeOffset = reportOffset;
-                            }
-
-                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
-                                rewrittenLines.push(lines[currentIndex]);
-                            }
-                            lineIndex = clusterEndIndex + 1;
-                            continue;
-                        }
-
                         if (firstRewriteOffset === null) {
                             firstRewriteOffset = reportOffset;
                         }
 
-                        const shouldRewriteDeclaration =
-                            declarationRecord !== null &&
-                            declarationRecord.objectName === firstAssignment.objectName &&
-                            declarationRecord.indentation === firstAssignment.indentation;
-
                         const rewrittenLiteralBlock = createStructLiteralBlock(
                             firstAssignment.indentation,
-                            shouldRewriteDeclaration ? declarationRecord.declarationPrefix : "",
+                            declarationRecord.declarationPrefix,
                             firstAssignment.objectName,
                             cluster,
-                            shouldRewriteDeclaration
+                            true
                         );
 
-                        if (shouldRewriteDeclaration) {
-                            if (rewrittenLines.length > 0) {
-                                rewrittenLines.pop();
-                            }
-                            rewrittenLines.push(...rewrittenLiteralBlock);
-                        } else {
-                            rewrittenLines.push(...rewrittenLiteralBlock);
+                        if (rewrittenLines.length > 0) {
+                            rewrittenLines.pop();
                         }
+                        rewrittenLines.push(...rewrittenLiteralBlock);
 
                         lineIndex = clusterEndIndex + 1;
                     }

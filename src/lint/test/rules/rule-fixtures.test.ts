@@ -421,7 +421,7 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         // accidentally pick up a separate *.input.gml that would also claim it as fixed.
         // The current loop handles this naturally if we only add it once.
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
-        if (ruleName === "prefer-loop-length-hoist") {
+        if (ruleName === "prefer-loop-length-hoist" || ruleName === "prefer-struct-literal-assignments") {
             continue;
         }
         const options = await readFixtureOptions(path.dirname(inputFilePath));
@@ -474,6 +474,38 @@ void test("prefer-struct-literal-assignments ignores non-identifier struct bases
     assert.equal(result.messages.length, 0);
 });
 
+void test("prefer-struct-literal-assignments condenses assignments only at immediate struct creation", () => {
+    const input = [
+        "function create_input_vec() {",
+        "    var input_vec = {};",
+        "    input_vec.x = 0;",
+        "    input_vec.y = 0;",
+        "    input_vec.z = 0;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = ["function create_input_vec() {", "    var input_vec = {x: 0, y: 0, z: 0};", "}", ""].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-struct-literal-assignments does not collapse assignments on existing structs", () => {
+    const input = [
+        "function update_input_vec(input_vec) {",
+        "    input_vec.x = 0;",
+        "    input_vec.y = 0;",
+        "    input_vec.z = 0;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("prefer-struct-literal-assignments ignores duplicate property update clusters", () => {
     const input = [
         "function collide(other) {",
@@ -500,6 +532,7 @@ void test("prefer-struct-literal-assignments reports the first matching assignme
         "#macro STILE_PLATFORM_HEIGHT 120",
         "",
         "function demo() {",
+        "    settings = {};",
         "    settings.speed = 10;",
         '    settings.mode = "arcade";',
         "}",
@@ -508,7 +541,7 @@ void test("prefer-struct-literal-assignments reports the first matching assignme
 
     const result = lintWithRule("prefer-struct-literal-assignments", input);
     assert.equal(result.messages.length, 1);
-    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 4 });
+    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 4 });
 });
 
 void test("normalize-doc-comments removes placeholder description equal to function name", () => {
@@ -1280,6 +1313,43 @@ void test("normalize-operator-aliases does not rewrite identifier usage of 'not'
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases does not rewrite trailing comment text when the next line starts with code", () => {
+    const input = [
+        '//Use "with" to avoid having to check if the player exists or not',
+        "if (player_exists) {",
+        "    value = 1;",
+        "}",
+        ""
+    ].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases rewrites code aliases without mutating comment or string content", () => {
+    const input = [
+        'var message = "not ready";',
+        "/* not pending */",
+        "if (not ready) {",
+        "    // not should stay untouched in comments",
+        "    value = not(extra);",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        'var message = "not ready";',
+        "/* not pending */",
+        "if (! ready) {",
+        "    // not should stay untouched in comments",
+        "    value = !(extra);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
