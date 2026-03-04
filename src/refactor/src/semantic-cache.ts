@@ -106,87 +106,35 @@ export class SemanticQueryCache {
     /**
      * Get all occurrences of a symbol, using cached results if available.
      */
-    async getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        if (!this.config.enabled) {
-            return this.fetchSymbolOccurrences(symbolName);
-        }
-
-        const cached = this.getCached(this.occurrenceCache, symbolName);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchSymbolOccurrences(symbolName);
-        this.setCached(this.occurrenceCache, symbolName, result);
-        return result;
+    getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+        return this.getOrFetch(this.occurrenceCache, symbolName, () => this.fetchSymbolOccurrences(symbolName));
     }
 
     /**
      * Get symbols defined in a file, using cached results if available.
      */
-    async getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
-        if (!this.config.enabled) {
-            return this.fetchFileSymbols(filePath);
-        }
-
-        const cached = this.getCached(this.fileSymbolsCache, filePath);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchFileSymbols(filePath);
-        this.setCached(this.fileSymbolsCache, filePath, result);
-        return result;
+    getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
+        return this.getOrFetch(this.fileSymbolsCache, filePath, () => this.fetchFileSymbols(filePath));
     }
 
     /**
      * Get symbols that depend on the given symbols, using cached results if available.
      */
-    async getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
+    getDependents(symbolIds: Array<string>): Promise<Array<DependentSymbol>> {
         if (symbolIds.length === 0) {
-            return [];
-        }
-
-        if (!this.config.enabled) {
-            return this.fetchDependents(symbolIds);
+            return Promise.resolve<Array<DependentSymbol>>([]);
         }
 
         // Use sorted, joined symbolIds as cache key to ensure consistent lookup
         const cacheKey = [...symbolIds].toSorted().join(",");
-        const cached = this.getCached(this.dependentsCache, cacheKey);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchDependents(symbolIds);
-        this.setCached(this.dependentsCache, cacheKey, result);
-        return result;
+        return this.getOrFetch(this.dependentsCache, cacheKey, () => this.fetchDependents(symbolIds));
     }
 
     /**
      * Check if a symbol exists, using cached results if available.
      */
-    async hasSymbol(symbolId: string): Promise<boolean> {
-        if (!this.config.enabled) {
-            return this.fetchHasSymbol(symbolId);
-        }
-
-        const cached = this.getCached(this.existenceCache, symbolId);
-        if (cached !== null) {
-            this.stats.hits++;
-            return cached;
-        }
-
-        this.stats.misses++;
-        const result = await this.fetchHasSymbol(symbolId);
-        this.setCached(this.existenceCache, symbolId, result);
-        return result;
+    hasSymbol(symbolId: string): Promise<boolean> {
+        return this.getOrFetch(this.existenceCache, symbolId, () => this.fetchHasSymbol(symbolId));
     }
 
     /**
@@ -310,6 +258,28 @@ export class SemanticQueryCache {
     }
 
     /**
+     * Return a cached value if available, otherwise fetch, cache, and return it.
+     * Handles cache-enabled checks, hit/miss tracking, and storage in one place.
+     * @private
+     */
+    private async getOrFetch<T>(cache: Map<string, CacheEntry<T>>, key: string, fetcher: () => Promise<T>): Promise<T> {
+        if (!this.config.enabled) {
+            return fetcher();
+        }
+
+        const cached = this.getCached(cache, key);
+        if (cached !== null) {
+            this.stats.hits++;
+            return cached;
+        }
+
+        this.stats.misses++;
+        const result = await fetcher();
+        this.setCached(cache, key, result);
+        return result;
+    }
+
+    /**
      * Get a cached value if it exists and hasn't expired.
      * @private
      */
@@ -354,7 +324,7 @@ export class SemanticQueryCache {
      */
     private fetchSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
         if (!this.semantic || !Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
-            return Promise.resolve([]);
+            return Promise.resolve<Array<SymbolOccurrence>>([]);
         }
 
         return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName));
