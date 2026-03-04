@@ -383,6 +383,21 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     assert.deepEqual(offendingPaths, []);
 });
 
+void test("overlay guardrail ignores non-object resolved configs", async () => {
+    const eslint = {
+        async calculateConfigForFile(): Promise<unknown> {
+            return undefined;
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: [{ filePath: "/tmp/non-object-config.gml" }]
+    });
+
+    assert.deepEqual(offendingPaths, []);
+});
+
 void test("processor normalization treats default/none sentinels as equivalent", () => {
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);

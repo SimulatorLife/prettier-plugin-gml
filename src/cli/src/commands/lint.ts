@@ -53,6 +53,10 @@ type ResolvedConfigLike = {
     processor?: unknown;
 };
 
+function isResolvedConfigLike(value: unknown): value is ResolvedConfigLike {
+    return typeof value === "object" && value !== null;
+}
+
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
 const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
@@ -783,9 +787,14 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     const configEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
@@ -834,9 +843,14 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
     const resolvedEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
