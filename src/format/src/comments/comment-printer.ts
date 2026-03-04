@@ -1017,7 +1017,8 @@ function handleCommentAttachedToOpenBrace(comment, _text, _options, ast /*, isLa
         return false;
     }
 
-    if (!isCommentOnNodeStartLine(comment, enclosingNode)) {
+    const isCommentImmediatelyAfterOpeningBrace = comment?.leadingChar === "{";
+    if (!isCommentOnNodeStartLine(comment, enclosingNode) && !isCommentImmediatelyAfterOpeningBrace) {
         return false;
     }
 
