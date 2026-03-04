@@ -47,6 +47,7 @@ jobs:
               'henrykirk',
               reviewerLower
             ].filter(Boolean));
+            const staleCommitThresholdMs = 3 * 60 * 60 * 1000;
 
             const prs = await github.paginate(github.rest.pulls.list, {
               owner,
@@ -107,14 +108,65 @@ jobs:
               }
 
               const requestedReviewers = Array.isArray(pr.requested_reviewers) ? pr.requested_reviewers : [];
+              const requestedTeams = Array.isArray(pr.requested_teams) ? pr.requested_teams : [];
               const hasRequiredReviewer = requestedReviewers.some((reviewer) => {
                 const login = reviewer?.login?.toLowerCase() || '';
                 return requiredReviewers.has(login);
               });
+              const hasAnyReviewerAssigned = requestedReviewers.length > 0 || requestedTeams.length > 0;
 
-              if (!hasRequiredReviewer) {
-                core.info(`Skipping draft PR #${pr.number}: required reviewer is not requested.`);
+              let headCommitAgeHours = -1;
+              let headCommitIsStale = false;
+
+              if (!hasRequiredReviewer && !hasAnyReviewerAssigned) {
+                const headSha = pr.head?.sha || '';
+                if (!headSha) {
+                  core.info(`PR #${pr.number} has no head SHA available for stale commit checks.`);
+                } else {
+                  try {
+                    const { data: headCommit } = await github.rest.repos.getCommit({
+                      owner,
+                      repo,
+                      ref: headSha
+                    });
+                    const commitDateRaw =
+                      headCommit?.commit?.committer?.date
+                      || headCommit?.commit?.author?.date
+                      || '';
+                    const commitTimestamp = Date.parse(commitDateRaw);
+                    if (Number.isFinite(commitTimestamp)) {
+                      const ageMs = Math.max(0, Date.now() - commitTimestamp);
+                      headCommitAgeHours = ageMs / (60 * 60 * 1000);
+                      headCommitIsStale = ageMs >= staleCommitThresholdMs;
+                    } else {
+                      core.info(`PR #${pr.number} head commit date is unavailable or invalid.`);
+                    }
+                  } catch (error) {
+                    core.warning(`Unable to inspect head commit age for PR #${pr.number}: ${error.message}`);
+                  }
+                }
+              }
+
+              const shouldForcePublishStaleUnassignedDraft =
+                !hasRequiredReviewer
+                && !hasAnyReviewerAssigned
+                && headCommitIsStale;
+
+              if (!hasRequiredReviewer && !shouldForcePublishStaleUnassignedDraft) {
+                if (!hasAnyReviewerAssigned) {
+                  if (headCommitAgeHours >= 0) {
+                    core.info(`Skipping draft PR #${pr.number}: no reviewer is assigned and latest commit is ${headCommitAgeHours.toFixed(2)}h old (<3h).`);
+                  } else {
+                    core.info(`Skipping draft PR #${pr.number}: no reviewer is assigned and latest commit age is unavailable.`);
+                  }
+                } else {
+                  core.info(`Skipping draft PR #${pr.number}: required reviewer is not requested.`);
+                }
                 continue;
+              }
+
+              if (shouldForcePublishStaleUnassignedDraft) {
+                core.notice(`Publishing stale draft PR #${pr.number}: no reviewer assigned and latest commit is ${headCommitAgeHours.toFixed(2)}h old (>=3h).`);
               }
 
               let published = false;

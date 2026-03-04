@@ -127,18 +127,6 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
 }
 
 /**
- * Checks if a comment contains boilerplate text that should be suppressed.
- */
-function containsBoilerplate(trimmedValue: string, boilerplateFragments: string[]): boolean {
-    for (const lineFragment of boilerplateFragments) {
-        if (trimmedValue.includes(lineFragment)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/**
  * Classifies key properties of a comment for formatting decisions.
  */
 function analyzeCommentContext(comment, trimmedOriginal: string) {
@@ -452,7 +440,7 @@ function tryFormatPlainTripleSlash(
  */
 function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
+    const { codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment, lineCommentOptions);
     const trimmedOriginal = original.trim();
     const rawValue = getCommentValue(comment);
@@ -464,16 +452,6 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     // should be omitted from the formatted result, keeping the output clean and
     // preventing the accumulation of meaningless blank comment lines.
     if (trimmedValue.length === 0) {
-        return null;
-    }
-
-    // Guard: suppress boilerplate. Auto-generated or IDE-inserted placeholder
-    // comments (e.g., "TODO", "FIXME", generic section headers) clutter the
-    // codebase without conveying intent. By filtering these out during formatting,
-    // we ensure only meaningful, developer-authored comments survive in the final
-    // output. This keeps the formatted code focused on substantive documentation
-    // rather than stale scaffolding artifacts.
-    if (containsBoilerplate(trimmedValue, boilerplateFragments)) {
         return null;
     }
 

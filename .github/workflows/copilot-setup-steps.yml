@@ -55,8 +55,11 @@ jobs:
           echo "::error::Dependency install failed for a reason other than outdated lockfile."
           exit 1
 
-      - name: Build TypeScript workspaces
-        run: pnpm run build:ts
+      - name: Build TypeScript workspaces (best effort)
+        run: |
+          if ! pnpm run build:ts; then
+            echo "::warning::TypeScript workspace build failed; continuing environment setup."
+          fi
 
       - name: Protect golden test fixtures (local environment)
         run: |
