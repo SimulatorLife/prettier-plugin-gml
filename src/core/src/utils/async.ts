@@ -10,7 +10,7 @@ export type SequentialCallback<T> = (value: T, index: number) => void | Promise<
  *
  * @template T The type of values being processed
  * @param values The iterable collection to process
- * @param callback The async function to invoke for each value
+ * @param fn The async function to invoke for each value
  * @returns A promise that resolves when all callbacks complete
  *
  * @example
@@ -18,13 +18,11 @@ export type SequentialCallback<T> = (value: T, index: number) => void | Promise<
  *   console.log(`Processing ${num} at index ${index}`);
  * });
  */
-export async function runSequentially<T>(values: Iterable<T>, callback: SequentialCallback<T>): Promise<void> {
-    const entries = Array.from(values);
-
-    await entries.reduce(async (previousPromise, value, index) => {
-        await previousPromise;
-        return callback(value, index);
-    }, Promise.resolve());
+export function runSequentially<T>(values: Iterable<T>, fn: SequentialCallback<T>): Promise<void> {
+    return Array.from(values).reduce(
+        (chain: Promise<void>, value: T, index: number) => chain.then(() => fn(value, index)),
+        Promise.resolve()
+    );
 }
 
 /**
@@ -78,40 +76,33 @@ export async function runInParallelWithLimit<T, R>(
     callback: ParallelCallback<T, R>,
     limit: number
 ): Promise<Array<R>> {
-    const entries = Array.from(values);
-
     if (limit <= 0) {
         throw new Error("Concurrency limit must be at least 1");
     }
+
+    const entries = Array.from(values);
 
     if (entries.length === 0) {
         return [];
     }
 
-    // Pre-allocate array to preserve result order. When errors occur, Promise.all
-    // will reject immediately, so partial results won't be returned to the caller.
     const results: Array<R> = Array.from({ length: entries.length });
-    let currentIndex = 0;
+    let nextIndex = 0;
 
-    // Worker function pulls items from the shared queue and processes them recursively.
-    // Each worker continuously processes items until the queue is exhausted, enabling
-    // controlled concurrency without await-in-loop patterns.
-    const processNext = async (): Promise<void> => {
-        const indexToProcess = currentIndex;
-        currentIndex += 1;
-
-        if (indexToProcess >= entries.length) {
+    // Each worker claims the next available slot synchronously (before any await),
+    // so no two workers can process the same item. Workers recurse after completing
+    // one item, rather than looping, to comply with the no-await-in-loop rule.
+    const worker = async (): Promise<void> => {
+        const index = nextIndex;
+        if (index >= entries.length) {
             return;
         }
-
-        results[indexToProcess] = await callback(entries[indexToProcess], indexToProcess);
-
-        // Process the next item from the shared queue
-        await processNext();
+        nextIndex += 1;
+        results[index] = await callback(entries[index], index);
+        await worker();
     };
 
-    const workers = Array.from({ length: Math.min(limit, entries.length) }, () => processNext());
-    await Promise.all(workers);
+    await Promise.all(Array.from({ length: Math.min(limit, entries.length) }, worker));
 
     return results;
 }
