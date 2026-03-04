@@ -5,7 +5,14 @@ import { Core } from "@gml-modules/core";
 
 import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
-import type { GmlFeatherRenamePlanEntry } from "./index.js";
+import type {
+    GlobalVarRewriteContext,
+    GmlFeatherRenamePlanEntry,
+    IdentifierOccupancyContext,
+    IdentifierOccurrenceContext,
+    LoopHoistContext,
+    RenamePlanningContext
+} from "./index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
 
 const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
@@ -15,18 +22,13 @@ const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<Project
     "RENAME_CONFLICT_PLANNING"
 ]);
 
-export interface ProjectAnalysisSnapshot {
+export interface ProjectAnalysisSnapshot
+    extends IdentifierOccupancyContext,
+        IdentifierOccurrenceContext,
+        RenamePlanningContext,
+        GlobalVarRewriteContext,
+        LoopHoistContext {
     readonly capabilities: ReadonlySet<ProjectCapability>;
-    isIdentifierNameOccupiedInProject(identifierName: string): boolean;
-    listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string>;
-    planFeatherRenames(
-        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-    ): ReadonlyArray<GmlFeatherRenamePlanEntry>;
-    assessGlobalVarRewrite(
-        filePath: string | null,
-        hasInitializer: boolean
-    ): { allowRewrite: boolean; reason: string | null };
-    resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null;
 }
 
 export interface ProjectAnalysisProvider {
