@@ -62,6 +62,15 @@ void test("normalize-banner-comments converts prefixed banner headings to plain 
     assert.equal(output, ["// Banner comment", "var value = 1;"].join("\n"));
 });
 
+void test("normalize-banner-comments strips trailing backslash decorations from slash banners", () => {
+    const input = [
+        "//-------------Make a collider for the cluster------------------\\\\",
+        "instance_create_layer();"
+    ].join("\n");
+    const output = runNormalizeBannerCommentsRule(input);
+    assert.equal(output, ["// Make a collider for the cluster", "instance_create_layer();"].join("\n"));
+});
+
 void test("normalize-banner-comments leaves doc-tag comments untouched", () => {
     const input = [
         "// @description Top comment",

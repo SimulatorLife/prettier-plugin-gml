@@ -4,12 +4,12 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
-const DECORATIVE_BANNER_RUN_PATTERN = /[/_*#<>|:~-]{6,}/u;
-const DECORATIVE_CHARACTER_PATTERN = /^[\s/_*#<>|:~-]+$/u;
+const DECORATIVE_BANNER_RUN_PATTERN = /[/\\_*#<>|:~-]{6,}/u;
+const DECORATIVE_CHARACTER_PATTERN = /^[\s/\\_*#<>|:~-]+$/u;
 const TRIPLE_SLASH_LINE_PATTERN = /^(\s*)\/\/\/(.*)$/u;
 const METHOD_LIST_TRIPLE_SLASH_PATTERN = /^\.[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)\s*$/u;
-const LEADING_DECORATIVE_PATTERN = /^[\s/_*#<>|:~-]+/u;
-const TRAILING_DECORATIVE_PATTERN = /[\s/_*#<>|:~-]+$/u;
+const LEADING_DECORATIVE_PATTERN = /^[\s/\\_*#<>|:~-]+/u;
+const TRAILING_DECORATIVE_PATTERN = /[\s/\\_*#<>|:~-]+$/u;
 
 function isDocTagCommentLine(line: string): boolean {
     return /^\s*\/\/\/\s*@/u.test(line);
