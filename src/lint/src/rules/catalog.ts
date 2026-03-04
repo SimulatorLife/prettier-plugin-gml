@@ -57,6 +57,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferCompoundAssignments",
+        shortName: "prefer-compound-assignments",
+        fullId: "gml/prefer-compound-assignments",
+        messageId: "preferCompoundAssignments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",
@@ -90,6 +97,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-unnecessary-string-interpolation",
         fullId: "gml/no-unnecessary-string-interpolation",
         messageId: "noUnnecessaryStringInterpolation",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlRemoveDefaultComments",
+        shortName: "remove-default-comments",
+        fullId: "gml/remove-default-comments",
+        messageId: "removeDefaultComments",
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {

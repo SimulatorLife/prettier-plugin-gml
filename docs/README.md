@@ -17,6 +17,7 @@ then return here for deeper context.
   config that composes the `@gml-modules/lint` presets (without TypeScript requirement)
 
 ## Usage & rollout
+
 - [Quick start](../README.md#quick-start) &mdash; Installation flows for pnpm
   consumers and nightly testers, including side-by-side snippets for the
   published package versus the Git workspace install, plus wrapper scripts you
@@ -46,8 +47,8 @@ documentation for these hooks is pending; consult the source files for
 implementation details:
 
 - **Line-comment options resolver** (`@gml-modules/core`)
-  — Adjust the boilerplate stripping and commented-code heuristics without
-  forking the formatter. Normalization guards keep overrides safe even when hosts
+  — Adjust commented-code detection heuristics without forking the formatter.
+  Normalization guards keep overrides safe even when hosts
   provide partial data.
 - **Doc comment type normalization** (`src/format/src/comments/`)
   — Extend the doc-comment type synonym tables or resource prefixes without
@@ -73,4 +74,5 @@ implementation details:
   refresh them.
 
 ## TODO / Ideas
+
 - Create a new workspace for a GML-tooling MCP server that wraps/exposes the CLI's commands (`@gml-modules/mcp-server`) so an AI agent can interact/invoke the tools.

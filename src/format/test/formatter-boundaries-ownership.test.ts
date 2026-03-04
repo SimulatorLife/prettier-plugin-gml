@@ -198,6 +198,25 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not remove default placeholder comments (cleanup belongs in lint)", async () => {
+        const source = [
+            "// Script assets have changed for v2.3.0 see",
+            "// https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information",
+            "function demo() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /^\/\/ Script assets have changed for v2\.3\.0 see/m);
+        assert.match(
+            formatted,
+            /^\/\/ https:\/\/help\.yoyogames\.com\/hc\/en-us\/articles\/360005277377 for more information/m
+        );
+    });
+
     void it("keeps @function doc comments attached to the following function target", async () => {
         const source = [
             "var unrelated_value = 1;",
