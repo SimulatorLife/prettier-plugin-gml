@@ -101,6 +101,7 @@ Built-in `gml/*` rule short names:
 - `no-empty-regions`
 - `no-unnecessary-string-interpolation`
 - `remove-default-comments`
+- `normalize-banner-comments`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`
@@ -117,9 +118,15 @@ Built-in `gml/*` rule short names:
 `prefer-compound-assignments` rewrites safe self-assignment forms
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
 
+`prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
+
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 
-`normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
+`normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
+
+`normalize-doc-comments` canonicalizes doc tags/content, including removing legacy `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`).
+
+`normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code while skipping comments and string literals, and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`. All feather-namespace lint rules follow the naming pattern `feather/gm####`, where the lint rule diagnoses/fixes specificy/only the issue for the associated Feather rule/diagnostic. For example, lint rule `feather/gm1000` identifies and fixes the specific issue described in Feather rule `gm1000`: "No enclosing loop from which to break" This creates a clear, traceable link between each Feather rule and its corresponding lint rule(s), and allows us to easily add new lint rules for new Feather rules as they are added to the manifest.

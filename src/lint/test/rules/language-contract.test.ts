@@ -410,6 +410,24 @@ void test("require-argument-separators reports precise location and fixes commen
     assert.equal(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
+void test("require-control-flow-braces autofix does not break else-if chains into invalid nested blocks", async () => {
+    const source = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
+
+    const result = await lintTextWithConfiguredRules(
+        ESLint,
+        source,
+        {
+            "gml/no-globalvar": "off",
+            "gml/require-control-flow-braces": "error"
+        },
+        true
+    );
+
+    assert.equal(result.fatalErrorCount, 0);
+    assert.equal(result.errorCount, 0);
+    assert.equal(result.output ?? source, source);
+});
+
 void test("optimize-math-expressions fix pipeline converges without parenthesis oscillation", async () => {
     const source = [
         "if (global.disableDraw) {",

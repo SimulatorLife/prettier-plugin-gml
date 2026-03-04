@@ -421,7 +421,7 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         // accidentally pick up a separate *.input.gml that would also claim it as fixed.
         // The current loop handles this naturally if we only add it once.
         const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
-        if (ruleName === "prefer-loop-length-hoist") {
+        if (ruleName === "prefer-loop-length-hoist" || ruleName === "prefer-struct-literal-assignments") {
             continue;
         }
         const options = await readFixtureOptions(path.dirname(inputFilePath));
@@ -474,6 +474,38 @@ void test("prefer-struct-literal-assignments ignores non-identifier struct bases
     assert.equal(result.messages.length, 0);
 });
 
+void test("prefer-struct-literal-assignments condenses assignments only at immediate struct creation", () => {
+    const input = [
+        "function create_input_vec() {",
+        "    var input_vec = {};",
+        "    input_vec.x = 0;",
+        "    input_vec.y = 0;",
+        "    input_vec.z = 0;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = ["function create_input_vec() {", "    var input_vec = {x: 0, y: 0, z: 0};", "}", ""].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-struct-literal-assignments does not collapse assignments on existing structs", () => {
+    const input = [
+        "function update_input_vec(input_vec) {",
+        "    input_vec.x = 0;",
+        "    input_vec.y = 0;",
+        "    input_vec.z = 0;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("prefer-struct-literal-assignments ignores duplicate property update clusters", () => {
     const input = [
         "function collide(other) {",
@@ -500,6 +532,7 @@ void test("prefer-struct-literal-assignments reports the first matching assignme
         "#macro STILE_PLATFORM_HEIGHT 120",
         "",
         "function demo() {",
+        "    settings = {};",
         "    settings.speed = 10;",
         '    settings.mode = "arcade";',
         "}",
@@ -508,7 +541,7 @@ void test("prefer-struct-literal-assignments reports the first matching assignme
 
     const result = lintWithRule("prefer-struct-literal-assignments", input);
     assert.equal(result.messages.length, 1);
-    assert.deepEqual(result.messages[0]?.loc, { line: 4, column: 4 });
+    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 4 });
 });
 
 void test("normalize-doc-comments removes placeholder description equal to function name", () => {
@@ -765,6 +798,22 @@ void test("prefer-string-interpolation rewrites string coercion calls with non-t
     const input = 'message = "HP: " + string(random(99));\n';
     const expected = 'message = $"HP: {random(99)}";\n';
     const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-string-interpolation rewrites nested concatenation chains with a single diagnostic", () => {
+    const input = 'message = ("HP: " + value) + " / 99";\n';
+    const expected = 'message = $"HP: {value} / 99";\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.output, expected);
+});
+
+void test("prefer-string-interpolation flattens nested parenthesized string chains", () => {
+    const input = '__ChatterboxCompile(_substring_array, root_instruction, ((filename + ":") + title) + ":#");\n';
+    const expected = '__ChatterboxCompile(_substring_array, root_instruction, $"{filename}: {title}:#");\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assert.equal(result.messages.length, 1);
     assert.equal(result.output, expected);
 });
 
@@ -1041,6 +1090,14 @@ void test("require-control-flow-braces does not rewrite multiline condition cont
     assert.equal(result.output, input);
 });
 
+void test("require-control-flow-braces keeps else-if chains intact when the branch statement is on the next line", () => {
+    const input = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
     const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
 `;
@@ -1282,6 +1339,50 @@ void test("normalize-operator-aliases does not rewrite identifier usage of 'not'
     assert.equal(result.output, input);
 });
 
+void test("normalize-operator-aliases does not rewrite trailing comment text when the next line starts with code", () => {
+    const input = [
+        '//Use "with" to avoid having to check if the player exists or not',
+        "if (player_exists) {",
+        "    value = 1;",
+        "}",
+        ""
+    ].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
+void test("normalize-operator-aliases rewrites code aliases without mutating comment or string content", () => {
+    const input = [
+        'var message = "not ready";',
+        "/* not pending */",
+        "if (not ready) {",
+        "    // not should stay untouched in comments",
+        "    value = not(extra);",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        'var message = "not ready";',
+        "/* not pending */",
+        "if (! ready) {",
+        "    // not should stay untouched in comments",
+        "    value = !(extra);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-operator-aliases does not rewrite escaped quote string content", () => {
+    const input = '__input_error("State \\"", __state, "\\" not recognised");\n';
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
     const source = "if (left and right) {\n    value = 1;\n}\n";
     const operatorStart = source.indexOf("and");
@@ -1398,6 +1499,14 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
         expected,
         "optimize-logical-flow should remove !! but not collapse the if/return pattern"
     );
+});
+
+void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {
+    const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
 });
 
 void test("feather migrated fixture rules apply local fixes", async () => {

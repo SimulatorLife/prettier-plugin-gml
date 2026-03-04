@@ -143,6 +143,7 @@ const tsConfig = defineConfig({
         "boundaries/ignore": baseIgnorePatterns, // DO NOT put src/parser/generated/** here
         "boundaries/elements": [
             { type: "test", pattern: "src/**/test/**" }, // Put tests first to avoid matching other types
+            { type: "integration", pattern: "test/**" }, // Root-level integration tests
             { type: "core", pattern: "src/core/**" },
             { type: "parser", pattern: "src/parser/**" },
             { type: "parser-generated", pattern: "src/parser/generated/**" },
@@ -495,7 +496,12 @@ const tsConfig = defineConfig({
                             "cli"
                         ]
                     },
-                    { from: "test", allow: ["*"] }
+
+                    // Tests can import anything
+                    { from: "test", allow: ["*"] },
+
+                    // Integration tests can import anything
+                    { from: "integration", allow: ["*"] }
                 ]
             }
         ]
@@ -585,7 +591,12 @@ export default [
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override
     {
-        files: ["**/test/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+        files: [
+            "**/test/**/*.ts",
+            "test/**/*.ts",
+            "**/*.test.ts",
+            "**/*.spec.ts"
+        ],
         languageOptions: {
             parserOptions: {
                 // Use specific project configuration instead of project service to avoid

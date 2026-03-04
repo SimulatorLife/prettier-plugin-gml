@@ -5,7 +5,7 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 
 import { countTrailingBlankLines } from "../printer/semicolons.js";
-import { formatDocLikeLineComment } from "./doc-like-line-normalization.js";
+import { formatDocLikeLineComment, shouldPreserveRawFormatterLineComment } from "./doc-like-line-normalization.js";
 
 const { isObjectLike } = Core;
 
@@ -115,18 +115,8 @@ function shouldSuppressComment(comment, options) {
     if (comment.type !== "CommentLine") {
         return false;
     }
-    const rawCommentText = Core.getLineCommentRawText(comment, {
-        originalText: options?.originalText
-    });
-    if (typeof rawCommentText === "string" && rawCommentText.trim() === "///") {
-        return true;
-    }
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
-    const formattingOptions = {
-        ...lineCommentOptions,
-        originalText: options.originalText
-    };
-    const formatted = Core.formatLineComment(comment, formattingOptions);
+    const formatted = formatDocLikeLineComment(comment, lineCommentOptions, options?.originalText);
     return formatted === null || formatted === "";
 }
 
@@ -191,7 +181,7 @@ function printComment(commentPath, options) {
             if (preservedCommentedOut !== null) {
                 return preservedCommentedOut;
             }
-            const decorated = formatDecorativeBlockComment(comment);
+            const decorated = formatDecorativeBlockComment(comment, options?.originalText);
             if (decorated !== null) {
                 if (decorated === "") {
                     return "";
@@ -214,11 +204,12 @@ function printComment(commentPath, options) {
                 const isAttachedLeadingComment =
                     comment.trailing !== true && (comment as PrinterComment).followingNode != null;
 
-                // capture blank-line status *before* we potentially clear leadingWS for
-                // attached comments; the old implementation erased this information and
-                // prevented us from preserving blank lines that genuinely existed in the
-                // source text (see failing `testBanner` fixture).
-                const alreadyHasLeadingBlankLine = hasLeadingBlankLine(comment);
+                const hasSourceLeadingBlankLine = hasSimpleLeadingBlankLineInSource(comment, options?.originalText);
+                const hasLeadingWhitespaceBlankLine = hasLeadingBlankLineInWhitespace(comment);
+                const shouldPrependDecorativeBlankLine =
+                    comment._gmlForceLeadingBlankLine !== true &&
+                    !hasLeadingWhitespaceBlankLine &&
+                    hasSourceLeadingBlankLine;
 
                 if (isAttachedLeadingComment) {
                     comment.leadingWS = "";
@@ -230,9 +221,8 @@ function printComment(commentPath, options) {
                     comment.trailingWS = "\n";
                 }
 
-                const shouldPrependBlankLine = comment._gmlForceLeadingBlankLine === true || alreadyHasLeadingBlankLine;
                 const parts = [];
-                if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
+                if (shouldPrependDecorativeBlankLine) {
                     parts.push(hardline);
                 }
 
@@ -279,14 +269,19 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
+            const rawText = Core.getLineCommentRawText(comment, {
+                originalText: options?.originalText
+            });
+            const preserveRawLineComment = shouldPreserveRawFormatterLineComment(
+                comment,
+                rawText,
+                options?.originalText
+            );
             let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }
             if (normalized === "") {
-                const rawText = Core.getLineCommentRawText(comment, {
-                    originalText: options?.originalText
-                });
                 if (/^\s*\/\/\/\s*$/.test(rawText)) {
                     collapseSuppressedTripleSlashSeparatorWhitespace(comment);
                 }
@@ -298,11 +293,19 @@ function printComment(commentPath, options) {
             normalized = normalized.replace(/^[ \t]+/, "");
             const normalizedTrimmedStart = normalized.trimStart();
             const isMethodListCommentLine = /^\/\/\s+\.[A-Za-z_]/.test(normalizedTrimmedStart);
+            const preservedCommentShouldPrependBlankLine =
+                comment._gmlForceLeadingBlankLine === true ||
+                (!hasLeadingBlankLineInWhitespace(comment) &&
+                    hasSimpleLeadingBlankLineInSource(comment, options?.originalText));
+            const normalizedCommentShouldPrependBlankLine =
+                comment._gmlForceLeadingBlankLine === true ||
+                hasLeadingBlankLine(comment) ||
+                hasLeadingBlankLineInSource(comment, options?.originalText);
             const shouldPrependBlankLine =
                 !isMethodListCommentLine &&
-                (comment._gmlForceLeadingBlankLine === true ||
-                    hasLeadingBlankLine(comment) ||
-                    hasLeadingBlankLineInSource(comment, options?.originalText));
+                (preserveRawLineComment
+                    ? preservedCommentShouldPrependBlankLine
+                    : normalizedCommentShouldPrependBlankLine);
             if (shouldPrependBlankLine) {
                 return [hardline, normalized];
             }
@@ -428,6 +431,11 @@ function hasLeadingBlankLine(comment) {
     return commentLine >= precedingEndLine + 2;
 }
 
+function hasLeadingBlankLineInWhitespace(comment): boolean {
+    const leadingWhitespace = typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
+    return /\n[\t ]*\n/u.test(leadingWhitespace);
+}
+
 function hasLeadingBlankLineInSource(comment, originalText) {
     const sourceSpan = resolveCommentSourceSpan(comment, originalText);
     if (!sourceSpan) {
@@ -470,6 +478,39 @@ function hasLeadingBlankLineInSource(comment, originalText) {
         }
 
         break;
+    }
+
+    return newlineCount >= 2;
+}
+
+function hasSimpleLeadingBlankLineInSource(comment, originalText) {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (!sourceSpan) {
+        return false;
+    }
+
+    const { startIndex } = sourceSpan;
+    let newlineCount = 0;
+    let index = startIndex - 1;
+
+    while (index >= 0) {
+        const char = originalText[index];
+
+        if (char === "\n" || char === "\r") {
+            newlineCount += 1;
+            if (newlineCount >= 2) {
+                return true;
+            }
+            index -= 1;
+            continue;
+        }
+
+        if (char === " " || char === "\t") {
+            index -= 1;
+            continue;
+        }
+
+        return false;
     }
 
     return newlineCount >= 2;
@@ -752,7 +793,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
         return false;
     }
 
-    const decorated = formatDecorativeBlockComment(comment);
+    const decorated = formatDecorativeBlockComment(comment, text);
     if (decorated === null) {
         return false;
     }
@@ -794,9 +835,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     comment._gmlForceLeadingBlankLine = shouldForceLeadingBlankLine;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
 
-    if (!shouldForceLeadingBlankLine) {
-        comment.leadingWS = "";
-    } else if (!/\r|\n/.test(leadingWhitespace)) {
+    if (shouldForceLeadingBlankLine && !/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
     }
     comment.trailingWS = shouldForceLeadingBlankLine ? "\n" : "";
@@ -978,7 +1017,8 @@ function handleCommentAttachedToOpenBrace(comment, _text, _options, ast /*, isLa
         return false;
     }
 
-    if (!isCommentOnNodeStartLine(comment, enclosingNode)) {
+    const isCommentImmediatelyAfterOpeningBrace = comment?.leadingChar === "{";
+    if (!isCommentOnNodeStartLine(comment, enclosingNode) && !isCommentImmediatelyAfterOpeningBrace) {
         return false;
     }
 
@@ -1296,13 +1336,13 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
     return null;
 }
 
-function formatDecorativeBlockComment(comment) {
+function formatDecorativeBlockComment(comment, originalText) {
     const value = typeof comment?.value === "string" ? comment.value : null;
     if (value === null) {
         return null;
     }
 
-    const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    const lines = value.split(/\r?\n/);
     if (containsCommentedOutCodeLines(lines)) {
         return null;
     }
@@ -1315,20 +1355,12 @@ function formatDecorativeBlockComment(comment) {
         return null;
     }
 
-    const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
-    const textLines = significantLines
-        .filter((line) => !decorativeSlashLinePattern.test(line))
-        .map((line) => line.trim());
-
-    if (textLines.length === 0) {
-        return "";
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (sourceSpan !== null) {
+        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
     }
 
-    if (textLines.length === 1) {
-        return `/* ${textLines[0]} */`;
-    }
-
-    return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
+    return `/*${value}*/`;
 }
 
 function formatCanonicalTopLevelBlockComment(comment, originalText): string | null {

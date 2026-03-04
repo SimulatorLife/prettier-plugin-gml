@@ -296,12 +296,11 @@ export class GmlToJsEmitter {
         // Try constant folding first for compile-time optimization
         const folded = tryFoldConstantExpression(ast);
         if (folded !== null) {
-            // Emit the folded constant directly
-            // Strings need quotes, numbers and booleans don't
+            // Emit the folded constant directly.
+            // JSON.stringify guarantees valid JavaScript string escaping
+            // for control characters (newlines, tabs, etc.) and quotes.
             if (typeof folded === "string") {
-                // Escape special characters in the string
-                const escaped = folded.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`);
-                return `"${escaped}"`;
+                return JSON.stringify(folded);
             }
             return String(folded);
         }
