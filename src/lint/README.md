@@ -122,6 +122,8 @@ Built-in `gml/*` rule short names:
 
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 
+`normalize-doc-comments` canonicalizes doc tags/content, including removing legacy `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`).
+
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
