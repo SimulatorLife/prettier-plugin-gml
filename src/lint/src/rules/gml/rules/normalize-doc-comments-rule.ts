@@ -28,6 +28,9 @@ function normalizeDocCommentPrefixLine(line: string): string {
     const docSlashMatch = /^(\s*)\/\/\s*\/(?!\/)(.*)$/u.exec(line);
     if (docSlashMatch) {
         const content = docSlashMatch[2].trim();
+        if (/^[=+\-*/%<>!&|^]/u.test(content)) {
+            return line;
+        }
         if (content.length === 0) {
             return `${docSlashMatch[1]}///`;
         }
