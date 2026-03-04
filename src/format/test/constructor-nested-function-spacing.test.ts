@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { Format } from "../src/index.js";
 
 void describe("constructor nested function spacing", () => {
-    void it("inserts a blank line after nested functions before closing the constructor", async () => {
+    void it("omits a blank line after nested functions before closing the constructor", async () => {
         const source = [
             "function Outer() constructor {",
             "    function inner() {",
@@ -23,10 +23,10 @@ void describe("constructor nested function spacing", () => {
 
         assert.ok(closingBraceIndex > 0, "Formatted constructor should include a closing brace.");
 
-        assert.strictEqual(
+        assert.notStrictEqual(
             lines[closingBraceIndex - 1],
             "",
-            "Formatter should include a blank line between the nested function and the constructor closing brace."
+            "Formatter should not include a blank line between the nested function and the constructor closing brace."
         );
     });
 });

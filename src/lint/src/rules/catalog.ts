@@ -57,6 +57,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferCompoundAssignments",
+        shortName: "prefer-compound-assignments",
+        fullId: "gml/prefer-compound-assignments",
+        messageId: "preferCompoundAssignments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",
@@ -79,6 +86,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([])
     },
     {
+        mapKey: "GmlNoEmptyRegions",
+        shortName: "no-empty-regions",
+        fullId: "gml/no-empty-regions",
+        messageId: "noEmptyRegions",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNoUnnecessaryStringInterpolation",
         shortName: "no-unnecessary-string-interpolation",
         fullId: "gml/no-unnecessary-string-interpolation",
@@ -86,10 +100,24 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlRemoveDefaultComments",
+        shortName: "remove-default-comments",
+        fullId: "gml/remove-default-comments",
+        messageId: "removeDefaultComments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNormalizeDocComments",
         shortName: "normalize-doc-comments",
         fullId: "gml/normalize-doc-comments",
         messageId: "normalizeDocComments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNormalizeBannerComments",
+        shortName: "normalize-banner-comments",
+        fullId: "gml/normalize-banner-comments",
+        messageId: "normalizeBannerComments",
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {

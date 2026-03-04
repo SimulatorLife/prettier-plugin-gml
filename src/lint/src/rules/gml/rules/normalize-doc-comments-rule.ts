@@ -28,6 +28,9 @@ function normalizeDocCommentPrefixLine(line: string): string {
     const docSlashMatch = /^(\s*)\/\/\s*\/(?!\/)(.*)$/u.exec(line);
     if (docSlashMatch) {
         const content = docSlashMatch[2].trim();
+        if (/^[=+\-*/%<>!&|^]/u.test(content)) {
+            return line;
+        }
         if (content.length === 0) {
             return `${docSlashMatch[1]}///`;
         }
@@ -265,6 +268,15 @@ function normalizeUndefinedOptionalDefaultParamDocLine(line: string): string {
     }
 
     return `${normalized[1]}[${normalized[2]}]${normalized[3]}`;
+}
+
+function normalizeParamDescriptionSeparatorHyphen(line: string): string {
+    const normalized = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+(?:\[[^\]]+\]|[A-Za-z0-9_]+))\s+-\s+(.+)$/u.exec(line);
+    if (!normalized) {
+        return line;
+    }
+
+    return `${normalized[1]} ${normalized[2]}`;
 }
 
 type DocCommentParamMetadata = Readonly<{
@@ -740,6 +752,7 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         .map((line) => applyJsDocTagAliasLine(line))
         .map((line) => normalizeDocParamLineParameterName(line))
         .map((line) => normalizeUndefinedOptionalDefaultParamDocLine(line))
+        .map((line) => normalizeParamDescriptionSeparatorHyphen(line))
         .filter((line) => !emptyDescriptionPattern.test(line))
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 

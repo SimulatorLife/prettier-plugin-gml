@@ -41,11 +41,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import {
-    filterMisattachedFunctionDocComments,
-    findEnclosingFunctionDeclaration,
-    joinDeclaratorPartsWithCommas
-} from "./function-parameter-naming.js";
+import { findEnclosingFunctionDeclaration, joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -81,7 +77,6 @@ import {
 import {
     shouldAddNewlinesAroundStatement,
     shouldForceBlankLineBetweenReturnPaths,
-    shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
 import {
@@ -127,8 +122,7 @@ const {
     VARIABLE_DECLARATOR,
     WHILE_STATEMENT,
     WITH_STATEMENT,
-    GLOBAL_VAR_STATEMENT,
-    BINARY_EXPRESSION
+    GLOBAL_VAR_STATEMENT
 } = Core;
 
 const forcedStructArgumentBreaks = new WeakMap();
@@ -565,28 +559,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
         }
         case "VariableDeclaration": {
-            // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
-            //
-            // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
-            // to the wrong variable declarator—typically the first variable in the file—when the
-            // actual function declaration appears later in the source. This causes incorrect
-            // comment placement during formatting.
-            //
-            // SOLUTION: When a single-declarator VariableDeclaration has a function doc-comment
-            // but the initializer is not a function, we mark the comment as printed and filter
-            // it out. This prevents the bogus comment from appearing in the formatted output.
-            //
-            // WHAT WOULD BREAK: Removing this filter would cause function documentation to appear
-            // on unrelated variable declarations, confusing readers and breaking doc-generation tools.
-            //
-            // LONG-TERM FIX: This is a parser-level issue. The comment attachment logic in the
-            // parser needs to be improved to correctly associate comments with their intended targets
-            // based on line proximity and syntactic context. See: <link to parser issue if available>
-            if (node.declarations.length === 1) {
-                const decl = node.declarations[0];
-                filterMisattachedFunctionDocComments(decl);
-            }
-
             const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                 leadingNewline: false,
                 trailingNewline: false,
@@ -768,7 +740,7 @@ function printCallExpressionNode(node, path, options, print) {
         }
 
         structArgumentsToBreak.forEach((argument) => {
-            forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
+            forcedStructArgumentBreaks.set(argument, true);
         });
 
         const shouldFavorInlineArguments =
@@ -909,24 +881,9 @@ function printStructExpressionNode(node, path, options, print) {
 }
 
 function printPropertyNode(node, path, options, print) {
-    const parentNode = safeGetParentNode(path);
-    const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
     const nameDoc = print("name");
     const valueDoc = print("value");
     const trailingCommentSuffix = buildStructPropertyCommentSuffix(path, options);
-
-    if (alignmentInfo?.maxNameLength > 0) {
-        const nameLength = getStructPropertyNameLength(node, options);
-        const paddingWidth = Math.max(alignmentInfo.maxNameLength - nameLength + 1, 1);
-        const padding = " ".repeat(paddingWidth);
-
-        return concat([nameDoc, padding, ": ", valueDoc, trailingCommentSuffix]);
-    }
-
-    const originalPrefix = getStructPropertyPrefix(node, options);
-    if (originalPrefix) {
-        return concat([originalPrefix, valueDoc, trailingCommentSuffix]);
-    }
 
     return concat([nameDoc, ": ", valueDoc, trailingCommentSuffix]);
 }
@@ -966,7 +923,7 @@ function printNewExpressionNode(node, path, options, print) {
     }
 
     structArgumentsToBreak.forEach((argument) => {
-        forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
+        forcedStructArgumentBreaks.set(argument, true);
     });
 
     const shouldFavorInlineArguments =
@@ -1852,52 +1809,6 @@ function buildStructPropertyCommentSuffix(path, options) {
     return lineSuffix([lineSuffixBoundary, " ", commentDoc]);
 }
 
-function getStructAlignmentInfo(structNode, options) {
-    if (!structNode || structNode.type !== "StructExpression") {
-        return null;
-    }
-
-    const properties = Core.asArray(structNode.properties);
-
-    let maxNameLength = 0;
-
-    for (const property of properties) {
-        const nameLength = getStructPropertyNameLength(property, options);
-        if (nameLength > maxNameLength) {
-            maxNameLength = nameLength;
-        }
-    }
-
-    if (maxNameLength <= 0) {
-        return { maxNameLength: 0 };
-    }
-
-    return { maxNameLength };
-}
-
-function getStructPropertyNameLength(property, options) {
-    if (!property) {
-        return 0;
-    }
-
-    const nameNode = property.name ?? property.key;
-    if (typeof nameNode === STRING_TYPE) {
-        return nameNode.length;
-    }
-
-    if (!nameNode) {
-        return 0;
-    }
-
-    if (nameNode.type === IDENTIFIER) {
-        const identifierText = Core.getIdentifierText(nameNode);
-        return typeof identifierText === STRING_TYPE ? identifierText.length : 0;
-    }
-
-    const source = getSourceTextForNode(nameNode, options);
-    return typeof source === STRING_TYPE ? source.length : 0;
-}
-
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -2386,10 +2297,11 @@ function handleTerminalTrailingSpacing({
     suppressFollowingEmptyLine,
     isStaticDeclaration,
     hasFunctionInitializer,
-    containerNode
+    containerNode: _containerNode
 }) {
     let previousNodeHadNewlineAddedAfter = false;
     const parentNode = childPath.parent;
+    const isFunctionDeclarationNode = node?.type === "FunctionDeclaration";
     const trailingProbeIndex =
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
@@ -2404,7 +2316,10 @@ function handleTerminalTrailingSpacing({
         Core.isNonEmptyArray(node?.docComments) ||
         Core.isNonEmptyArray(node?._syntheticDocLines);
     const requiresTrailingPadding =
-        enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
+        enforceTrailingPadding &&
+        parentNode?.type === "BlockStatement" &&
+        !suppressFollowingEmptyLine &&
+        !isFunctionDeclarationNode;
 
     if (parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine) {
         const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
@@ -2414,8 +2329,13 @@ function handleTerminalTrailingSpacing({
         const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
 
         if (enforceTrailingPadding) {
-            shouldPreserveTrailingBlankLine =
-                node?.type === "FunctionDeclaration" ? true : hasExplicitTrailingBlankLine;
+            if (isFunctionDeclarationNode) {
+                const nextCharacter =
+                    originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+                shouldPreserveTrailingBlankLine = hasExplicitTrailingBlankLine && nextCharacter !== "}";
+            } else {
+                shouldPreserveTrailingBlankLine = hasExplicitTrailingBlankLine;
+            }
         } else if (
             shouldPreserveConstructorStaticPadding &&
             hasExplicitTrailingBlankLine &&
@@ -2439,15 +2359,17 @@ function handleTerminalTrailingSpacing({
         }
     }
 
-    if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
-        if (shouldForceTrailingBlankLineForNestedFunction(node, parentNode, containerNode)) {
-            shouldPreserveTrailingBlankLine = true;
-        } else if (hasAttachedDocComment && blockParent?.type === "BlockStatement") {
-            const isFunctionLike = Core.isFunctionLikeDeclaration(node);
-            if (isFunctionLike) {
-                shouldPreserveTrailingBlankLine = true;
-            }
-        }
+    if (
+        !shouldPreserveTrailingBlankLine &&
+        !suppressFollowingEmptyLine &&
+        hasAttachedDocComment &&
+        blockParent?.type === "BlockStatement" &&
+        Core.isFunctionLikeDeclaration(node)
+    ) {
+        const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
+        const nextCharacter =
+            originalText === null ? null : findNextTerminalCharacter(originalText, trailingProbeIndex, false);
+        shouldPreserveTrailingBlankLine = nextCharacter !== "}";
     }
 
     if (shouldPreserveTrailingBlankLine || requiresTrailingPadding) {
@@ -2635,35 +2557,6 @@ function consumeBlockComment(source, startIndex) {
     }
 
     return { index: current, foundLineBreak: false };
-}
-
-function getStructPropertyPrefix(node, options) {
-    if (!node) {
-        return null;
-    }
-
-    const originalText = getOriginalTextFromOptions(options);
-
-    const propertyStart = Core.getNodeStartIndex(node);
-    const valueStart = Core.getNodeStartIndex(node?.value);
-
-    const prefix = sliceOriginalText(originalText, propertyStart, valueStart);
-
-    if (!prefix || !prefix.includes(":")) {
-        return null;
-    }
-
-    const colonIndex = prefix.indexOf(":");
-    const beforeColon = prefix.slice(0, colonIndex);
-    const afterColon = prefix.slice(colonIndex + 1);
-    const hasWhitespaceBefore = /\s$/.test(beforeColon);
-    const hasWhitespaceAfter = /^\s/.test(afterColon);
-
-    if (!hasWhitespaceBefore && !hasWhitespaceAfter) {
-        return null;
-    }
-
-    return prefix;
 }
 
 function shouldOmitDefaultValueForParameter(path, options) {

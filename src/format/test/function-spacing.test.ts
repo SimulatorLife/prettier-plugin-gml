@@ -16,8 +16,9 @@ void test("omits adding a blank line before closing blocks after nested function
     const formatted = await Format.format(source);
     const trimmed = formatted.trim();
 
-    assert.notEqual(
+    assert.equal(
         trimmed.includes("    }\n\n}"),
+        false,
         "Unexpected blank line between nested function and enclosing block's closing brace."
     );
 });

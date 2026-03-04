@@ -1,29 +1,12 @@
-// TODO: Is this duplicating 'lint' logic for doc-comments?
 import { Core } from "@gml-modules/core";
 
 type LineComment = {
     value?: string;
     start?: number | { index?: number };
+    precedingNode?: unknown;
 };
 
 type LineCommentOptions = Record<string, unknown>;
-
-function resolveRawDocLikeRemainder(rawText: string): string {
-    const trimmed = rawText.trimStart();
-    const docLikePrefixMatch = trimmed.match(/^\/+/);
-    if (docLikePrefixMatch) {
-        return trimmed.slice(docLikePrefixMatch[0].length).trimStart();
-    }
-    return trimmed;
-}
-
-function resolveRawDocLikeRemainderWithIndent(rawText: string): string {
-    const match = rawText.match(/^\s*\/{3}/);
-    if (!match) {
-        return resolveRawDocLikeRemainder(rawText);
-    }
-    return rawText.slice(match[0].length);
-}
 
 function resolveCommentStartIndex(comment: LineComment): number | null {
     const start = comment.start;
@@ -49,11 +32,11 @@ function getLineEndIndex(text: string, index: number): number {
 }
 
 function isTripleSlashLine(line: string): boolean {
-    return /^\s*\/\/\//.test(line);
+    return /^\s*\/\/\//u.test(line);
 }
 
 function isDocTagLine(line: string): boolean {
-    return /^\s*\/\/\/\s*@/i.test(line);
+    return /^\s*\/\/\/\s*@/iu.test(line);
 }
 
 function hasDocTagInTripleSlashBlock(comment: LineComment, originalText: string | null | undefined): boolean {
@@ -105,6 +88,162 @@ function hasDocTagInTripleSlashBlock(comment: LineComment, originalText: string 
     return false;
 }
 
+function isLegacyDoubleSlashDocAnnotation(rawText: string): boolean {
+    return /^\s*\/\/\s*@/u.test(rawText);
+}
+
+function isLegacySingleSlashDocPrefix(rawText: string): boolean {
+    return /^\s*\/\/\s+\/(?!\/)/u.test(rawText);
+}
+
+function isTripleSlashSeparatorLine(rawText: string): boolean {
+    return rawText.trim() === "///";
+}
+
+function isMethodListTripleSlashLine(rawText: string): boolean {
+    return /^\s*\/\/\/\s+\.[A-Za-z_]/u.test(rawText);
+}
+
+function isBannerLikeLineComment(rawText: string): boolean {
+    const trimmed = rawText.trimStart();
+    if (!trimmed.startsWith("//")) {
+        return false;
+    }
+
+    if (/^\/{4,}/u.test(trimmed)) {
+        return true;
+    }
+
+    return /[/_*#<>|:~-]{6,}/u.test(trimmed);
+}
+
+function isDecorativeBlockCommentNode(node: unknown): boolean {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (Reflect.get(node, "type") !== "CommentBlock") {
+        return false;
+    }
+
+    const value = Reflect.get(node, "value");
+    return typeof value === "string" && /\/{6,}/u.test(value);
+}
+
+function isSlashOnlyLineComment(rawText: string): boolean {
+    return /^\s*\/{6,}\s*$/u.test(rawText);
+}
+
+function shouldSuppressDecorativeBlockSuffixLine(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    return (
+        isSlashOnlyLineComment(rawText) &&
+        (isDecorativeBlockCommentNode(comment.precedingNode) ||
+            isSlashSuffixLineAfterDecorativeBlockComment(comment, rawText, originalText))
+    );
+}
+
+function isSlashSuffixLineAfterDecorativeBlockComment(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    if (!isSlashOnlyLineComment(rawText) || typeof originalText !== "string") {
+        return false;
+    }
+
+    const startIndex = resolveCommentStartIndex(comment);
+    if (!Number.isInteger(startIndex) || startIndex <= 0) {
+        return false;
+    }
+
+    let cursor = startIndex - 1;
+    while (cursor >= 0) {
+        const char = originalText[cursor];
+        if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+            cursor -= 1;
+            continue;
+        }
+
+        break;
+    }
+
+    return cursor >= 1 && originalText[cursor] === "/" && originalText[cursor - 1] === "*";
+}
+
+function isTripleSlashDecorativeLine(rawText: string): boolean {
+    return /^\s*\/\/\/\s*[_*#<>|:~-]{3,}/u.test(rawText);
+}
+
+function isTripleSlashLineAdjacentToDecorativeSeparator(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    if (!rawText.trimStart().startsWith("///") || isDocTagLine(rawText)) {
+        return false;
+    }
+
+    const startIndex = resolveCommentStartIndex(comment);
+    if (startIndex === null || startIndex < 0 || startIndex > originalText.length) {
+        return false;
+    }
+
+    const lineStart = getLineStartIndex(originalText, startIndex);
+    const lineEnd = getLineEndIndex(originalText, startIndex);
+    const previousLineStart = lineStart > 0 ? getLineStartIndex(originalText, Math.max(0, lineStart - 1)) : null;
+    const previousLine =
+        previousLineStart === null
+            ? ""
+            : originalText.slice(previousLineStart, getLineEndIndex(originalText, previousLineStart));
+    const nextLineStart = lineEnd + 1;
+    const nextLine =
+        nextLineStart >= originalText.length
+            ? ""
+            : originalText.slice(nextLineStart, getLineEndIndex(originalText, nextLineStart));
+
+    return isTripleSlashDecorativeLine(previousLine) || isTripleSlashDecorativeLine(nextLine);
+}
+
+function isTripleSlashContinuationInDocBlock(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    if (!rawText.trimStart().startsWith("///")) {
+        return false;
+    }
+
+    if (isDocTagLine(rawText) || isMethodListTripleSlashLine(rawText)) {
+        return false;
+    }
+
+    return hasDocTagInTripleSlashBlock(comment, originalText);
+}
+
+function shouldPreserveRawFormatterLineComment(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    return (
+        isLegacyDoubleSlashDocAnnotation(rawText) ||
+        isLegacySingleSlashDocPrefix(rawText) ||
+        isTripleSlashSeparatorLine(rawText) ||
+        isMethodListTripleSlashLine(rawText) ||
+        isBannerLikeLineComment(rawText) ||
+        isTripleSlashContinuationInDocBlock(comment, rawText, originalText) ||
+        isTripleSlashLineAdjacentToDecorativeSeparator(comment, rawText, originalText)
+    );
+}
+
 function formatDocLikeLineComment(
     comment: LineComment,
     lineCommentOptions: LineCommentOptions,
@@ -114,33 +253,20 @@ function formatDocLikeLineComment(
     const rawText = Core.getLineCommentRawText(comment, {
         originalText: originalText ?? undefined
     });
-    if (rawText.trim() === "///") {
+
+    if (shouldSuppressDecorativeBlockSuffixLine(comment, rawText, originalText)) {
         return null;
     }
-    if (/^\s*\/\/\s+\/\s*$/.test(rawText)) {
-        return null;
-    }
-    const isDocTagLineRaw = /^\s*\/\/\/\s*@/i.test(rawText);
-    if (originalText === null && rawText.trimStart().startsWith("///") && !isDocTagLineRaw) {
-        const remainder = rawText.slice(rawText.indexOf("///") + 3);
-        if (remainder.trim().length === 0) {
-            return rawText.trimEnd();
-        }
-        if (/^[ \t]{2,}/.test(remainder)) {
-            return rawText.trimEnd();
-        }
+
+    if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
+        return rawText.trimEnd();
     }
 
     const formatted = Core.formatLineComment(comment, formattingOptions);
     if (typeof formatted !== "string") {
-        if (rawText.trimStart().startsWith("///") && hasDocTagInTripleSlashBlock(comment, originalText)) {
-            return rawText.trimEnd();
-        }
-        if (rawText.trimEnd() === "///") {
-            return rawText.trimEnd();
-        }
         return null;
     }
+
     return normalizeDocLikeLineComment(comment, formatted, originalText);
 }
 
@@ -149,123 +275,15 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
         originalText: originalText ?? undefined
     });
 
-    void comment;
-
     if (typeof formatted !== "string" || formatted.length === 0) {
         return formatted;
     }
 
-    const leadingWhitespaceMatch = formatted.match(/^\s*/);
-    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
-    const trimmedFormatted = formatted.trimStart();
-    const docLikeRawValue = rawText.trim();
-    const rawTrimmedStart = rawText.trimStart();
-    const rawRemainder = resolveRawDocLikeRemainder(rawText);
-    const rawRemainderWithIndent = resolveRawDocLikeRemainderWithIndent(rawText);
-    const hasDocTagBlock = hasDocTagInTripleSlashBlock(comment, originalText);
-
-    const bannerMatch = docLikeRawValue.match(/^\/{4,}(.*)$/);
-    if (bannerMatch) {
-        const bannerContent = bannerMatch[1].replace(/\/+$/, "").trim();
-        if (bannerContent.length === 0) {
-            return "";
-        }
-        return `${leadingWhitespace}// ${bannerContent}`;
-    }
-
-    const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![/])/);
-    if (docLikeRawMatch) {
-        const remainder = docLikeRawValue.slice(docLikeRawMatch[0].length).trimStart();
-        return `${leadingWhitespace}/// ${remainder}`;
-    }
-
-    if (docLikeRawValue.startsWith("/") && docLikeRawValue.slice(1).trim().length === 0) {
-        return "";
-    }
-
-    if (
-        rawTrimmedStart.startsWith("///") &&
-        trimmedFormatted.startsWith("//") &&
-        !trimmedFormatted.startsWith("///") &&
-        hasDocTagBlock
-    ) {
-        const trimmedRawRemainder = rawRemainderWithIndent.trim();
-        if (trimmedRawRemainder.length === 0) {
-            return `${leadingWhitespace}///`;
-        }
-        return `${leadingWhitespace}///${rawRemainderWithIndent}`;
-    }
-
-    if (trimmedFormatted.startsWith("///")) {
-        const normalizedRemainder = trimmedFormatted.slice(3).trimStart();
-        if (normalizedRemainder.startsWith("@")) {
-            return formatted;
-        }
-
-        if (normalizedRemainder.length === 0) {
-            return `${leadingWhitespace}///`;
-        }
-
-        if (hasDocTagBlock && /^\s+/.test(rawRemainderWithIndent)) {
-            return `${leadingWhitespace}///${rawRemainderWithIndent}`;
-        }
-
-        // If the comment was just slashes (e.g. ////////), remove it
-        if (rawRemainder.length === 0 && /^\/+$/.test(normalizedRemainder)) {
-            return "";
-        }
-
-        if (normalizedRemainder.startsWith("/") || !/[A-Za-z0-9]/.test(normalizedRemainder)) {
-            const fallback = rawRemainder.length > 0 ? rawRemainder : normalizedRemainder;
-            if (fallback.length === 0) {
-                return "";
-            }
-            return `${leadingWhitespace}// ${fallback}`;
-        }
-
-        if (normalizedRemainder.startsWith(".")) {
-            return `${leadingWhitespace}// ${normalizedRemainder}`;
-        }
-        return formatted;
-    }
-
-    const docLikeMatch = trimmedFormatted.match(/^\/\/\s+\/(?![/])/);
-    if (docLikeMatch) {
-        const formattedRemainder = trimmedFormatted.slice(docLikeMatch[0].length).trimStart();
-        if (formattedRemainder.startsWith("@")) {
-            return formatted;
-        }
-
-        if (formattedRemainder.length === 0) {
-            return `${leadingWhitespace}///`;
-        }
-
-        if (formattedRemainder.startsWith(".")) {
-            return `${leadingWhitespace}// ${formattedRemainder}`;
-        }
-
-        if (formattedRemainder.startsWith("/") || !/[A-Za-z0-9]/.test(formattedRemainder)) {
-            const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
-            const fallback = rawDocLikeRemainder.length > 0 ? rawDocLikeRemainder : formattedRemainder;
-            if (fallback.length === 0) {
-                return "";
-            }
-            return `${leadingWhitespace}/// ${fallback}`;
-        }
-
-        return `${leadingWhitespace}/// ${formattedRemainder}`;
-    }
-
-    // Handle banner-like comments (e.g. //////// Banner)
-    if (/^\/{4,}/.test(trimmedFormatted)) {
-        const bannerRemainder = resolveRawDocLikeRemainder(rawText);
-        if (bannerRemainder.length === 0) {
-            return "";
-        }
-        return `${leadingWhitespace}// ${bannerRemainder}`;
+    if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
+        return rawText.trimEnd();
     }
 
     return formatted;
 }
 
-export { formatDocLikeLineComment, normalizeDocLikeLineComment };
+export { formatDocLikeLineComment, normalizeDocLikeLineComment, shouldPreserveRawFormatterLineComment };

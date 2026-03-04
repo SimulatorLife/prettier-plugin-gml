@@ -1,4 +1,5 @@
 /// @param value
+/// @returns {Struct}
 function build_struct(value) {
     var foo = {};
     foo.alpha = 1;

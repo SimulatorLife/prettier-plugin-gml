@@ -17,8 +17,8 @@ function AttackController(attack_bonus = 10) constructor {
 value = 40;
 
 var _struct = instance_create_depth(0, 0, 0, Object2, {
-    value : 99,
-    func : function () {
+    value: 99,
+    func: function () {
         return self.value;
     }
 });

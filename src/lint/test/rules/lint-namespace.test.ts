@@ -30,6 +30,11 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
     }
 
     assert.equal((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
+    assert.equal(
+        (Lint.ruleIds as Record<string, string>).GmlPreferCompoundAssignments,
+        "gml/prefer-compound-assignments"
+    );
+    assert.equal((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
     assert.equal((Lint.ruleIds as Record<string, string>).FeatherGM1000, "feather/gm1000");
 });
 
@@ -50,6 +55,9 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     const [recommended] = Lint.configs.recommended;
     assert.equal(recommended.language, "gml/gml");
     assert.equal(recommended.rules["gml/require-argument-separators"], "error");
+    assert.equal(recommended.rules["gml/no-empty-regions"], "warn");
+    assert.equal(recommended.rules["gml/prefer-compound-assignments"], "warn");
+    assert.equal(recommended.rules["gml/remove-default-comments"], "warn");
 
     const [featherOverlay] = Lint.configs.feather;
     assert.equal(featherOverlay.plugins?.feather, Lint.featherPlugin);

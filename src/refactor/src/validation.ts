@@ -18,7 +18,8 @@ import {
     assertValidIdentifierName,
     DEFAULT_RESERVED_KEYWORDS,
     extractSymbolName,
-    parseSymbolIdParts
+    parseSymbolIdParts,
+    tryNormalizeIdentifierName
 } from "./validation-utils.js";
 
 /**
@@ -376,10 +377,8 @@ export async function batchValidateScopeConflicts(
         return conflicts;
     }
 
-    let normalizedNewName: string;
-    try {
-        normalizedNewName = assertValidIdentifierName(newName);
-    } catch {
+    const normalizedNewName = tryNormalizeIdentifierName(newName);
+    if (!normalizedNewName) {
         // Return early if the new name is syntactically invalid (e.g., reserved
         // keyword, contains illegal characters). There's no point checking for
         // conflicts when the rename target itself is malformed—validation will

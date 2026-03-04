@@ -51,6 +51,11 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-compound-assignments",
+        messageId: "preferCompoundAssignments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "optimize-logical-flow",
         messageId: "optimizeLogicalFlow",
         schema: [
@@ -67,13 +72,28 @@ const expectedRules = Object.freeze([
         schema: []
     },
     {
+        shortName: "no-empty-regions",
+        messageId: "noEmptyRegions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "no-unnecessary-string-interpolation",
         messageId: "noUnnecessaryStringInterpolation",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "remove-default-comments",
+        messageId: "removeDefaultComments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "normalize-doc-comments",
         messageId: "normalizeDocComments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "normalize-banner-comments",
+        messageId: "normalizeBannerComments",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {

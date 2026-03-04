@@ -53,6 +53,10 @@ type ResolvedConfigLike = {
     processor?: unknown;
 };
 
+function isResolvedConfigLike(value: unknown): value is ResolvedConfigLike {
+    return typeof value === "object" && value !== null;
+}
+
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
 const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
@@ -208,6 +212,15 @@ type LintResultLike = Readonly<{
 type LintFilesExecutor = Readonly<{
     lintFiles(filePatterns: string | Array<string>): Promise<Array<ESLint.LintResult>>;
 }>;
+
+type RecoverableLintTarget = Readonly<{
+    target: string;
+    fallbackFilePath: string;
+}>;
+
+type LintTargetCompletionHandler = (targetResults: Array<ESLint.LintResult>) => Promise<void>;
+
+type LintProgressLineWriter = (line: string) => void;
 
 function collectGmlFilesFromDirectory(directoryPath: string): Array<string> {
     const discoveredFilePaths: Array<string> = [];
@@ -391,33 +404,50 @@ async function lintTargetWithRuntimeRecovery(parameters: {
     }
 }
 
-async function lintTargetsWithRuntimeRecovery(parameters: {
+function lintTargetsWithRuntimeRecovery(parameters: {
     eslint: LintFilesExecutor;
     cwd: string;
     targets: ReadonlyArray<string>;
+    onTargetCompleted: LintTargetCompletionHandler;
 }): Promise<Array<ESLint.LintResult>> {
     const expandedTargets = expandLintTargetsForRecovery({
         cwd: parameters.cwd,
         targets: parameters.targets
     });
-    const lintResultGroups = await Promise.all([
+    const orderedTargets: Array<RecoverableLintTarget> = [
         ...expandedTargets.fileTargets.map((target) =>
-            lintTargetWithRuntimeRecovery({
-                eslint: parameters.eslint,
+            Object.freeze({
                 target,
                 fallbackFilePath: target
             })
         ),
         ...expandedTargets.passthroughTargets.map((target) =>
-            lintTargetWithRuntimeRecovery({
-                eslint: parameters.eslint,
+            Object.freeze({
                 target,
                 fallbackFilePath: path.resolve(parameters.cwd, target)
             })
         )
-    ]);
+    ];
 
-    return lintResultGroups.flat();
+    const aggregatedResults: Array<ESLint.LintResult> = [];
+
+    const lintTargetAtIndex = async (index: number): Promise<Array<ESLint.LintResult>> => {
+        if (index >= orderedTargets.length) {
+            return aggregatedResults;
+        }
+
+        const lintTarget = orderedTargets[index];
+        const targetResults = await lintTargetWithRuntimeRecovery({
+            eslint: parameters.eslint,
+            target: lintTarget.target,
+            fallbackFilePath: lintTarget.fallbackFilePath
+        });
+        await parameters.onTargetCompleted(targetResults);
+        aggregatedResults.push(...targetResults);
+        return lintTargetAtIndex(index + 1);
+    };
+
+    return lintTargetAtIndex(0);
 }
 
 function hasProjectManifest(directoryPath: string): boolean {
@@ -644,6 +674,42 @@ function setProcessExitCode(code: number): void {
     process.exitCode = code;
 }
 
+function toLintProgressDisplayPath(parameters: { cwd: string; filePath: string }): string {
+    const absoluteFilePath = path.resolve(parameters.filePath);
+    const absoluteCwd = path.resolve(parameters.cwd);
+    const relativePath = path.relative(absoluteCwd, absoluteFilePath);
+
+    if (absoluteFilePath === absoluteCwd) {
+        return ".";
+    }
+
+    if (relativePath.length > 0 && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)) {
+        return relativePath;
+    }
+
+    return absoluteFilePath;
+}
+
+function emitLintFixProgressForResults(parameters: {
+    cwd: string;
+    results: ReadonlyArray<LintResultLike>;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const emittedPaths = new Set<string>();
+    for (const result of parameters.results) {
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: result.filePath
+        });
+        if (emittedPaths.has(displayPath)) {
+            continue;
+        }
+
+        parameters.writeProgressLine(displayPath);
+        emittedPaths.add(displayPath);
+    }
+}
+
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
     const entries = LINT_NAMESPACE.configs.recommended.map((entry) => ({
         ...entry,
@@ -783,9 +849,14 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     const configEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
@@ -834,9 +905,14 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
     const resolvedEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
@@ -1063,16 +1139,26 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results = await lintTargetsWithRuntimeRecovery({
             eslint,
             cwd: commandCwd,
-            targets
+            targets,
+            onTargetCompleted: async (targetResults) => {
+                if (!options.fix) {
+                    return;
+                }
+
+                await ESLint.outputFixes(targetResults);
+                emitLintFixProgressForResults({
+                    cwd: commandCwd,
+                    results: targetResults,
+                    writeProgressLine: (line) => {
+                        process.stderr.write(`${line}\n`);
+                    }
+                });
+            }
         });
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
         setProcessExitCode(2);
         return;
-    }
-
-    if (options.fix) {
-        await ESLint.outputFixes(results);
     }
 
     await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
@@ -1160,6 +1246,8 @@ export const __lintCommandTest__ = Object.freeze({
     discoverFlatConfig,
     extractLintRuntimeFailureLocation,
     lintTargetsWithRuntimeRecovery,
+    toLintProgressDisplayPath,
+    emitLintFixProgressForResults,
     resolveEslintCwd,
     shouldPreferBundledDefaultsForExternalTargets,
     normalizeFormatterName,

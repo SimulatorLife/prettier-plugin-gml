@@ -34,6 +34,24 @@ export function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
+ * Attempt to normalize and validate an identifier name.
+ * Returns the validated name on success, or `null` if the name is syntactically
+ * invalid. This is a safe, non-throwing counterpart to `assertValidIdentifierName`
+ * for contexts where an invalid name should be silently skipped rather than
+ * propagated as an exception.
+ *
+ * @param name - The identifier name to validate
+ * @returns The validated name, or `null` if the name is invalid
+ */
+export function tryNormalizeIdentifierName(name: unknown): string | null {
+    try {
+        return assertValidIdentifierName(name);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Assert that a rename request object has symbolId and newName properties.
  * Validates presence and that symbolId is a string.
  * Note: newName type validation is left to assertValidIdentifierName.
