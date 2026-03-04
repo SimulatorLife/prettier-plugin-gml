@@ -7,19 +7,32 @@ const { isObjectLike, isNode } = Core;
  * Handles De Morgan's laws, double negation, and boolean constant simplification.
  */
 export function applyLogicalNormalization(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+    return applyLogicalNormalizationWithChangeMetadata(ast).ast;
+}
+
+/**
+ * Apply logical-expression normalization and surface whether any node changed.
+ */
+export function applyLogicalNormalizationWithChangeMetadata(
+    ast: MutableGameMakerAstNode
+): Readonly<{ ast: MutableGameMakerAstNode; changed: boolean }> {
     if (!isObjectLike(ast)) {
-        return ast;
+        return Object.freeze({ ast, changed: false });
     }
 
     // Repeatedly apply passes until no changes occur, or max limit reached
     let changed = true;
+    let changedAtLeastOnce = false;
     let iterations = 0;
     while (changed && iterations < 10) {
         changed = traverseAndSimplify(ast);
+        if (changed) {
+            changedAtLeastOnce = true;
+        }
         iterations++;
     }
 
-    return ast;
+    return Object.freeze({ ast, changed: changedAtLeastOnce });
 }
 
 function traverseAndSimplify(node: any): boolean {

@@ -1486,6 +1486,14 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
     );
 });
 
+void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {
+    const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});
+
 void test("feather migrated fixture rules apply local fixes", async () => {
     const fixtureRules = [
         "gm1003",

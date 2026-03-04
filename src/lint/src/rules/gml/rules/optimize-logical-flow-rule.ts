@@ -4,7 +4,7 @@ import type { Rule } from "eslint";
 import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
-import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
+import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
  * Normalize whitespace for structural expression comparisons.
@@ -89,11 +89,14 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // I should probably expose `simplifyNode` logic separately?
                     // Or just use `applyLogicalNormalization` on the cloned node and compare?
 
-                    applyLogicalNormalization(cloned);
+                    const normalizationResult = applyLogicalNormalizationWithChangeMetadata(cloned);
+                    if (!normalizationResult.changed) {
+                        return;
+                    }
 
                     // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = printExpression(cloned, context.sourceCode.text);
+                    const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
 
                     // Check if changed.
                     // Note: `printExpression` might output different whitespace than source even if AST is same.
