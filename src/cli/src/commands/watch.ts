@@ -577,18 +577,9 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            // Separate files and directories for optimal parallel processing
-            const files: Array<string> = [];
-            const directories: Array<string> = [];
-
-            for (const entry of entries) {
-                const fullPath = path.join(currentPath, entry.name);
-                if (entry.isDirectory()) {
-                    directories.push(fullPath);
-                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                    files.push(fullPath);
-                }
-            }
+            // Delegate low-level entry partitioning so this orchestration flow
+            // stays focused on high-level scan steps.
+            const { files, directories } = partitionScannedDirectoryEntries(currentPath, entries, extensionMatcher);
 
             // Process all files in this directory concurrently for maximum throughput
             await Core.runInParallel(files, async (filePath) => {
