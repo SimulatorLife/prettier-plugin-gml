@@ -244,6 +244,20 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not preserve source-only banner spacing gaps", async () => {
+        const sourceWithGap = ["var first = 1;", "", "//////// Banner comment", "var second = 2;", ""].join("\n");
+        const sourceWithoutGap = ["var first = 1;", "//////// Banner comment", "var second = 2;", ""].join("\n");
+
+        const formattedWithGap = await Format.format(sourceWithGap);
+        const formattedWithoutGap = await Format.format(sourceWithoutGap);
+
+        assert.equal(
+            formattedWithGap,
+            formattedWithoutGap,
+            "Formatter output must not depend on source-only gap preservation heuristics; normalization belongs to lint rules."
+        );
+    });
+
     void it("keeps @function doc comments attached to the following function target", async () => {
         const source = [
             "var unrelated_value = 1;",
