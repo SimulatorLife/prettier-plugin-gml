@@ -3,8 +3,7 @@ import { performance } from "node:perf_hooks";
 import { describe, it } from "node:test";
 
 import { Parser } from "@gml-modules/parser";
-
-import { emitJavaScript } from "../../src/emitter/emitter-entrypoints.js";
+import { Transpiler } from "@gml-modules/transpiler";
 
 /**
  * Micro-benchmarks for StringBuilder performance improvements.
@@ -22,7 +21,7 @@ function measureEmit(code: string, _label: string): number {
     const times: number[] = [];
     for (let i = 0; i < ITERATIONS; i++) {
         const start = performance.now();
-        emitJavaScript(ast);
+        Transpiler.emitJavaScript(ast);
         const end = performance.now();
         times.push(end - start);
     }
