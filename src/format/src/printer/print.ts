@@ -280,19 +280,13 @@ function printNodeDocComments(node, path, options) {
         : [];
     const plainLeadingLines: string[] = Array.isArray(node.plainLeadingLines) ? node.plainLeadingLines : [];
 
-    const isFunctionLikeNode = node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
-    if (isFunctionLikeNode) {
-        const sourceDocLines = collectDocLinesFromSource(node, options);
-        const sourceHasFunctionTag = sourceDocLines.some((docLine) =>
-            /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
-        );
-        const astHasFunctionTag = docCommentDocs.some(
-            (docLine) => typeof docLine === "string" && /^\/\/\/\s*@(?:function|func)\b/i.test(docLine.trim())
-        );
-        if (sourceHasFunctionTag && !astHasFunctionTag) {
-            docCommentDocs.splice(0, docCommentDocs.length, ...sourceDocLines);
-        }
-    }
+    // The formatter trusts the AST's `docComments` as authoritative. Legacy doc
+    // comment formats (e.g. `// @function`) are normalised by the lint rule
+    // `gml/normalize-doc-comments` before formatting, so no source-text fallback
+    // is needed here. The parser's `normalizeFunctionDocCommentAttachments` pass
+    // pre-attaches recognised `@function`-tag comments to the correct function
+    // node, removing the need for any formatter-side source-text scan.
+    // (target-state.md §2.2, §3.2, §3.5)
 
     sortDocCommentsBySourceOrder(docCommentDocs);
 
