@@ -18,6 +18,7 @@ It does not replace lint or formatter domains:
 - `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities
+
 - Query parser span data and semantic bindings to map identifiers to source ranges.
 - Plan edits that avoid scope capture or shadowing, and surface validation diagnostics.
 - Offer composable helpers so CLI commands can trigger explicit refactor transactions.
@@ -27,6 +28,25 @@ It does not replace lint or formatter domains:
 - Validate hot reload compatibility to ensure refactored code can be patched live.
 
 ## Features
+
+### Project-wide Codemod Execution
+
+Run loop-length hoisting as a single transaction across multiple files through the refactor engine:
+
+```javascript
+const engine = new RefactorEngine({ semantic, parser, formatter });
+
+const result = await engine.executeLoopLengthHoistingCodemod({
+    filePaths: ["scripts/player_step.gml", "scripts/enemy_step.gml"],
+    readFile: async (path) => await fs.promises.readFile(path, "utf8"),
+    writeFile: async (path, content) =>
+        await fs.promises.writeFile(path, content, "utf8")
+});
+
+console.log(result.changedFiles);
+```
+
+This keeps codemod execution project-aware and atomic by funneling all rewrites through a single `WorkspaceEdit` transaction.
 
 ### Rename Validation (Pre-flight Check)
 
@@ -54,6 +74,7 @@ if (!validation.valid) {
 ```
 
 This is especially useful for:
+
 - IDE integrations that need to show inline validation errors
 - CLI tools that want to provide friendly error messages before processing
 - Dry-run scenarios where you want to check feasibility without side effects
@@ -68,19 +89,22 @@ const engine = new RefactorEngine({ semantic, parser, formatter });
 // Validate batch rename request
 const validation = await engine.validateBatchRenameRequest([
     { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
-    { symbolId: "gml/script/scr_enemy_helper_old", newName: "scr_enemy_helper_new" }
+    {
+        symbolId: "gml/script/scr_enemy_helper_old",
+        newName: "scr_enemy_helper_new"
+    }
 ]);
 
 if (!validation.valid) {
     console.error("Batch rename has errors:", validation.errors);
-    
+
     // Show per-rename validation results
     for (const [symbolId, result] of validation.renameValidations) {
         if (!result.valid) {
             console.error(`  ${symbolId}:`, result.errors);
         }
     }
-    
+
     // Show conflicting sets (e.g., duplicate target names, circular renames)
     if (validation.conflictingSets.length > 0) {
         console.error("Conflicting rename sets detected:");
@@ -98,6 +122,7 @@ if (!validation.valid) {
 ```
 
 The batch validation detects:
+
 - Invalid individual rename requests
 - Duplicate target names (multiple symbols renamed to the same name)
 - Circular rename chains (A→B, B→A or A→B→C→A)
@@ -105,6 +130,7 @@ The batch validation detects:
 - Each rename's individual validation status with hot reload checks (if requested)
 
 This is essential for:
+
 - Large refactoring operations affecting multiple related symbols
 - IDE batch rename features
 - Automated refactoring tools
@@ -134,7 +160,9 @@ if (errors.length > 0) {
         if (error.severity === "warning") {
             console.warn(`  [${error.type}] ${error.message} in ${error.path}`);
         } else {
-            console.error(`  [${error.type}] ${error.message} in ${error.path}`);
+            console.error(
+                `  [${error.type}] ${error.message} in ${error.path}`
+            );
         }
     }
 } else {
@@ -143,6 +171,7 @@ if (errors.length > 0) {
 ```
 
 This validation is particularly useful for:
+
 - Multi-file refactorings where symbols are imported/exported
 - Detecting file-level symbol name conflicts before applying renames
 - Warning about large-scale renames that affect many occurrences in a single file
@@ -177,18 +206,21 @@ const workspace = await engine.planRename({
 ```
 
 This is especially useful for:
+
 - Fast validation in IDE real-time feedback (as users type)
 - CLI argument validation before expensive operations
 - API endpoint input validation
 - Early error detection in batch operations
 
 The function validates:
+
 - Request parameter presence and types
 - Identifier syntax (must match GML identifier pattern)
 - Symbol existence (if semantic resolver provided)
 - New name differs from old name
 
 Unlike full validation, this does **not** check for:
+
 - Shadowing conflicts (requires occurrence analysis)
 - Reserved keywords (handled by `detectRenameConflicts`)
 - Impact analysis (handled by `analyzeRenameImpact`)
@@ -223,12 +255,14 @@ if (conflicts.length > 0) {
 ```
 
 This method is especially useful for:
+
 - IDE integrations that need real-time conflict checking as users type
 - Custom refactoring tools that want low-level conflict information
 - Building advanced rename workflows with custom conflict resolution
 - Showing inline warnings before users commit to a rename operation
 
 The method detects:
+
 - Invalid identifier names (syntax errors)
 - Reserved keyword conflicts
 - Shadowing conflicts (new name collides with existing symbols in scope)
@@ -264,12 +298,14 @@ if (conflicts.size > 0) {
 ```
 
 This function is especially useful for:
+
 - Hot reload workflows that need to validate changes quickly before patching
 - IDE integrations that show scope-specific warnings in real-time
 - Batch rename operations where many occurrences need validation
 - Reducing validation overhead by checking each unique scope only once instead of per-occurrence
 
 Benefits:
+
 - Groups occurrences by scope automatically
 - Performs only one lookup per unique scope (not per occurrence)
 - Returns structured conflict information per scope
@@ -278,6 +314,7 @@ Benefits:
 ### Rename Operations
 
 #### Single Symbol Rename
+
 ```javascript
 const engine = new RefactorEngine({ semantic, parser, formatter });
 
@@ -291,18 +328,22 @@ const workspace = await engine.planRename({
 const result = await engine.executeRename({
     symbolId: "gml/script/scr_old_name",
     newName: "scr_new_name",
-    readFile: async (path) => await fs.readFile(path, 'utf8'),
+    readFile: async (path) => await fs.readFile(path, "utf8"),
     writeFile: async (path, content) => await fs.writeFile(path, content),
     prepareHotReload: true
 });
 ```
 
 #### Batch Rename
+
 ```javascript
 // Rename multiple related symbols atomically
 const workspace = await engine.planBatchRename([
     { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
-    { symbolId: "gml/script/scr_enemy_helper_old", newName: "scr_enemy_helper_new" }
+    {
+        symbolId: "gml/script/scr_enemy_helper_old",
+        newName: "scr_enemy_helper_new"
+    }
 ]);
 
 // Execute batch rename
@@ -352,7 +393,7 @@ if (!safety.safe) {
     console.error("Rename not safe:", safety.reason);
     if (safety.canAutoFix) {
         console.log("Auto-fix available. Suggestions:");
-        safety.suggestions.forEach(s => console.log(`  - ${s}`));
+        safety.suggestions.forEach((s) => console.log(`  - ${s}`));
     }
 } else {
     console.log("✓ Rename is hot-reload-safe");
@@ -385,7 +426,7 @@ if (!validation.valid) {
 }
 
 // Check warnings for potential issues
-validation.warnings.forEach(warning => {
+validation.warnings.forEach((warning) => {
     console.warn(warning);
 });
 ```
@@ -406,7 +447,7 @@ const validation = await engine.validateRename(workspace);
 
 // Apply edits
 const results = await engine.applyWorkspaceEdit(workspace, {
-    readFile: async (path) => await fs.readFile(path, 'utf8'),
+    readFile: async (path) => await fs.readFile(path, "utf8"),
     writeFile: async (path, content) => await fs.writeFile(path, content),
     dryRun: false
 });
@@ -421,7 +462,10 @@ Prepare and generate hot reload updates after a refactor:
 const hotReloadUpdates = await engine.prepareHotReloadUpdates(workspace);
 
 // Generate transpiler patches
-const patches = await engine.generateTranspilerPatches(hotReloadUpdates, readFile);
+const patches = await engine.generateTranspilerPatches(
+    hotReloadUpdates,
+    readFile
+);
 
 // patches array contains:
 // - symbolId: the symbol being patched
@@ -441,7 +485,7 @@ const workspace = await engine.planRename({
 });
 
 const results = await engine.applyWorkspaceEdit(workspace, {
-    readFile: async (path) => await fs.readFile(path, 'utf8'),
+    readFile: async (path) => await fs.readFile(path, "utf8"),
     writeFile: async (path, content) => await fs.writeFile(path, content)
 });
 
@@ -451,7 +495,7 @@ const validation = await engine.verifyPostEditIntegrity({
     oldName: "scr_old",
     newName: "scr_new",
     workspace,
-    readFile: async (path) => await fs.readFile(path, 'utf8')
+    readFile: async (path) => await fs.readFile(path, "utf8")
 });
 
 if (!validation.valid) {
@@ -476,18 +520,21 @@ Prepare a comprehensive plan for multiple coordinated renames before applying ch
 const engine = new RefactorEngine({ semantic, parser, formatter });
 
 // Plan multiple related renames with full validation and impact analysis
-const plan = await engine.prepareBatchRenamePlan([
-    { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
-    { symbolId: "gml/script/scr_helper_old", newName: "scr_helper_new" }
-], { 
-    validateHotReload: true,
-    hotReloadOptions: { checkTranspiler: true }
-});
+const plan = await engine.prepareBatchRenamePlan(
+    [
+        { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
+        { symbolId: "gml/script/scr_helper_old", newName: "scr_helper_new" }
+    ],
+    {
+        validateHotReload: true,
+        hotReloadOptions: { checkTranspiler: true }
+    }
+);
 
 // Check batch-level validation
 if (!plan.batchValidation.valid) {
     console.error("Batch validation failed:", plan.batchValidation.errors);
-    
+
     // Show conflicting sets (e.g., duplicate target names, circular renames)
     for (const set of plan.batchValidation.conflictingSets) {
         console.error("Conflicting symbols:", set);
@@ -497,16 +544,20 @@ if (!plan.batchValidation.valid) {
 
 // Review hot reload dependency cascade
 if (plan.cascadeResult) {
-    console.log(`Total symbols to reload: ${plan.cascadeResult.metadata.totalSymbols}`);
-    console.log(`Max dependency distance: ${plan.cascadeResult.metadata.maxDistance}`);
-    
+    console.log(
+        `Total symbols to reload: ${plan.cascadeResult.metadata.totalSymbols}`
+    );
+    console.log(
+        `Max dependency distance: ${plan.cascadeResult.metadata.maxDistance}`
+    );
+
     if (plan.cascadeResult.metadata.hasCircular) {
         console.warn("Circular dependencies detected:");
         for (const cycle of plan.cascadeResult.circular) {
             console.warn("  Cycle:", cycle.join(" → "));
         }
     }
-    
+
     // Show reload order
     console.log("Reload order:", plan.cascadeResult.order);
 }
@@ -519,14 +570,22 @@ for (const [symbolId, analysis] of plan.impactAnalyses) {
     console.log(`  Definitions: ${analysis.summary.definitionCount}`);
     console.log(`  References: ${analysis.summary.referenceCount}`);
     console.log(`  Hot reload required: ${analysis.summary.hotReloadRequired}`);
-    console.log(`  Dependent symbols: ${analysis.summary.dependentSymbols.length}`);
-    
+    console.log(
+        `  Dependent symbols: ${analysis.summary.dependentSymbols.length}`
+    );
+
     if (analysis.conflicts.length > 0) {
-        console.warn("  Conflicts:", analysis.conflicts.map(c => c.message));
+        console.warn(
+            "  Conflicts:",
+            analysis.conflicts.map((c) => c.message)
+        );
     }
-    
+
     if (analysis.warnings.length > 0) {
-        console.warn("  Warnings:", analysis.warnings.map(w => w.message));
+        console.warn(
+            "  Warnings:",
+            analysis.warnings.map((w) => w.message)
+        );
     }
 }
 
@@ -540,6 +599,7 @@ for (const [symbolId, analysis] of plan.impactAnalyses) {
 ```
 
 This method provides a complete preview of batch rename operations, making it ideal for:
+
 - IDE integrations that need to show comprehensive refactoring previews
 - CLI tools that want to present detailed impact reports before applying changes
 - Automated refactoring pipelines that need to validate complex multi-symbol renames
@@ -578,6 +638,7 @@ const cascade = await engine.computeHotReloadCascade([
 ```
 
 This is particularly useful for:
+
 - Ensuring all dependent code is reloaded when a base symbol changes
 - Detecting circular dependencies that could cause hot reload failures
 - Ordering hot reload operations to prevent temporary inconsistencies
@@ -602,9 +663,7 @@ for (const symbol of symbols) {
 }
 
 // Use with hot reload cascade to find all affected symbols
-const cascade = await engine.computeHotReloadCascade(
-    symbols.map(s => s.id)
-);
+const cascade = await engine.computeHotReloadCascade(symbols.map((s) => s.id));
 ```
 
 #### Compute Rename Impact Graph
@@ -613,23 +672,33 @@ Generate a detailed dependency graph showing how a rename will propagate through
 
 ```javascript
 // Get comprehensive impact visualization for a rename
-const impactGraph = await engine.computeRenameImpactGraph("gml/script/scr_base");
+const impactGraph = await engine.computeRenameImpactGraph(
+    "gml/script/scr_base"
+);
 
 console.log(`Rename will affect ${impactGraph.totalAffectedSymbols} symbols`);
 console.log(`Maximum dependency depth: ${impactGraph.maxDepth}`);
 console.log(`Critical path length: ${impactGraph.criticalPath.length}`);
-console.log(`Estimated total reload time: ${impactGraph.estimatedTotalReloadTime}ms`);
+console.log(
+    `Estimated total reload time: ${impactGraph.estimatedTotalReloadTime}ms`
+);
 
 // Visualize the dependency graph
 for (const [symbolId, node] of impactGraph.nodes) {
-    console.log(`${node.symbolName} (distance: ${node.distance}, reload: ${node.estimatedReloadTime}ms)`);
-    
+    console.log(
+        `${node.symbolName} (distance: ${node.distance}, reload: ${node.estimatedReloadTime}ms)`
+    );
+
     if (node.dependents.length > 0) {
-        console.log(`  Depends on this: ${node.dependents.map(id => id.split("/").pop()).join(", ")}`);
+        console.log(
+            `  Depends on this: ${node.dependents.map((id) => id.split("/").pop()).join(", ")}`
+        );
     }
-    
+
     if (node.dependsOn.length > 0) {
-        console.log(`  Depends on: ${node.dependsOn.map(id => id.split("/").pop()).join(", ")}`);
+        console.log(
+            `  Depends on: ${node.dependsOn.map((id) => id.split("/").pop()).join(", ")}`
+        );
     }
 }
 
@@ -644,12 +713,14 @@ for (let i = 0; i < impactGraph.criticalPath.length; i++) {
 ```
 
 This is particularly useful for:
+
 - Understanding the full scope of a rename before applying it
 - Estimating hot reload impact and timing
 - Identifying critical dependency chains that affect reload performance
 - Visualizing dependency relationships in IDE tooling
 - Planning batch renames to minimize reload cascades
-```
+
+````
 
 #### Query Symbol Dependencies
 
@@ -671,7 +742,7 @@ for (const dep of dependents) {
 for (const dep of dependents) {
     await recompileSymbol(dep.symbolId, dep.filePath);
 }
-```
+````
 
 These methods provide a clean interface to the semantic analyzer and handle
 cases where the analyzer is unavailable, making the refactor engine more
@@ -739,6 +810,7 @@ console.log(`Rename will affect ${fileCount} files`);
 ```
 
 These utilities are particularly useful for:
+
 - Building rename preview UIs that show occurrence breakdowns
 - Determining hot reload safety based on occurrence types
 - Providing detailed impact summaries in CLI tools
@@ -755,9 +827,9 @@ import { SemanticQueryCache } from "@gml-modules/refactor";
 
 // Create cache with custom configuration
 const cache = new SemanticQueryCache(semantic, {
-    maxSize: 100,      // Maximum entries per cache type (default: 100)
-    ttlMs: 60000,      // Time-to-live in milliseconds (default: 60000)
-    enabled: true      // Enable/disable caching (default: true)
+    maxSize: 100, // Maximum entries per cache type (default: 100)
+    ttlMs: 60000, // Time-to-live in milliseconds (default: 60000)
+    enabled: true // Enable/disable caching (default: true)
 });
 
 // First call queries the semantic analyzer
@@ -774,7 +846,9 @@ cache.invalidateFile("scripts/player.gml");
 
 // Check cache performance
 const stats = cache.getStats();
-console.log(`Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`);
+console.log(
+    `Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`
+);
 ```
 
 The cache is particularly beneficial for:
@@ -802,29 +876,31 @@ import { RenameValidationCache } from "@gml-modules/refactor";
 
 // Create cache with custom configuration
 const validationCache = new RenameValidationCache({
-    maxSize: 50,       // Maximum cached validation results (default: 50)
-    ttlMs: 30000,      // Time-to-live in milliseconds (default: 30000)
-    enabled: true      // Enable/disable caching (default: true)
+    maxSize: 50, // Maximum cached validation results (default: 50)
+    ttlMs: 30000, // Time-to-live in milliseconds (default: 30000)
+    enabled: true // Enable/disable caching (default: true)
 });
 
 // First validation: performs full validation with occurrence gathering and conflict detection
 const result1 = await validationCache.getOrCompute(
     "gml/script/scr_player",
     "scr_hero",
-    async () => engine.validateRenameRequest({
-        symbolId: "gml/script/scr_player",
-        newName: "scr_hero"
-    })
+    async () =>
+        engine.validateRenameRequest({
+            symbolId: "gml/script/scr_player",
+            newName: "scr_hero"
+        })
 );
 
 // Second validation within TTL: returns cached result instantly
 const result2 = await validationCache.getOrCompute(
     "gml/script/scr_player",
     "scr_hero",
-    async () => engine.validateRenameRequest({
-        symbolId: "gml/script/scr_player",
-        newName: "scr_hero"
-    })
+    async () =>
+        engine.validateRenameRequest({
+            symbolId: "gml/script/scr_player",
+            newName: "scr_hero"
+        })
 );
 
 // Invalidate specific symbol-name pair when symbol changes
@@ -838,7 +914,9 @@ validationCache.invalidateAll();
 
 // Check cache performance
 const stats = validationCache.getStats();
-console.log(`Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`);
+console.log(
+    `Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`
+);
 ```
 
 The validation cache is particularly beneficial for:
@@ -859,6 +937,7 @@ The validation cache is particularly beneficial for:
 - The cache stores the full validation result including errors, warnings, occurrence counts, and hot reload metadata
 
 ## Directory layout
+
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
 
@@ -869,13 +948,15 @@ The validation cache is particularly beneficial for:
 Main class for coordinating refactoring operations.
 
 **Constructor:**
+
 ```javascript
-new RefactorEngine({ parser, semantic, formatter })
+new RefactorEngine({ parser, semantic, formatter });
 ```
 
 **Methods:**
 
 #### Rename Operations
+
 - `async validateRenameRequest(request, options)` - Validate a single rename request without creating edits (returns validation results instead of throwing)
 - `async validateBatchRenameRequest(renames, options)` - Validate multiple rename requests before planning, detecting conflicts between renames
 - `async planRename(request)` - Plan a single symbol rename
@@ -884,6 +965,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async executeBatchRename(request)` - Execute multiple renames atomically
 
 #### Analysis &amp; Validation
+
 - `async analyzeRenameImpact(request)` - Analyze impact without applying changes
 - `async validateRename(workspace)` - Validate a workspace edit
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
@@ -891,17 +973,20 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async verifyPostEditIntegrity(request)` - Verify semantic integrity after applying edits
 
 #### Workspace Operations
+
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
 - `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
 
 #### Hot Reload Integration
+
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
 - `async generateTranspilerPatches(hotReloadUpdates, readFile)` - Generate transpiled patches
 - `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
 - `async computeRenameImpactGraph(symbolId)` - Compute detailed dependency impact graph with critical path analysis
 
 #### Symbol Queries
+
 - `async findSymbolAtLocation(filePath, offset)` - Find symbol at position
 - `async validateSymbolExists(symbolId)` - Check if symbol exists
 - `async gatherSymbolOccurrences(symbolName)` - Get all occurrences of a symbol
@@ -909,6 +994,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async getSymbolDependents(symbolIds)` - Query symbols that depend on given symbols
 
 #### Conflict Detection
+
 - `async detectRenameConflicts(request)` - Detect conflicts for a proposed rename operation without throwing errors
 
 ### Validation Functions
@@ -916,22 +1002,22 @@ new RefactorEngine({ parser, semantic, formatter })
 Standalone utilities for validating rename requests:
 
 - `async validateRenameStructure(symbolId, newName, resolver)` - Fast structural validation of rename parameters before planning
-  - Validates parameter presence, identifier syntax, and optional symbol existence
-  - Returns array of error messages (empty if valid)
-  - Enables fail-fast pattern without expensive occurrence gathering
+    - Validates parameter presence, identifier syntax, and optional symbol existence
+    - Returns array of error messages (empty if valid)
+    - Enables fail-fast pattern without expensive occurrence gathering
 - `detectCircularRenames(renames)` - Detect circular rename chains in batch operations
-  - Returns first detected cycle as array of symbol IDs (empty if no cycles)
+    - Returns first detected cycle as array of symbol IDs (empty if no cycles)
 - `async batchValidateScopeConflicts(occurrences, newName, resolver)` - Efficiently validate scope safety across multiple occurrences
-  - Groups occurrences by scope to minimize redundant lookups
-  - Returns map of scope IDs to conflict information
-  - Essential for hot reload scenarios where many symbols need validation quickly
-  - Reduces validation overhead by checking each unique scope only once
+    - Groups occurrences by scope to minimize redundant lookups
+    - Returns map of scope IDs to conflict information
+    - Essential for hot reload scenarios where many symbols need validation quickly
+    - Reduces validation overhead by checking each unique scope only once
 - `async validateCrossFileConsistency(symbolId, newName, occurrences, fileProvider)` - Validate cross-file semantic consistency for renames
-  - Checks whether renaming would create ambiguous references across files
-  - Detects file-level symbol conflicts where new name already exists
-  - Warns about large rename operations (>20 occurrences per file)
-  - Essential for multi-file refactorings and ensuring import/export consistency
-  - Returns array of conflict entries with file paths and severity levels
+    - Checks whether renaming would create ambiguous references across files
+    - Detects file-level symbol conflicts where new name already exists
+    - Warns about large rename operations (>20 occurrences per file)
+    - Essential for multi-file refactorings and ensuring import/export consistency
+    - Returns array of conflict entries with file paths and severity levels
 
 ### Occurrence Analysis Functions
 
@@ -953,6 +1039,7 @@ Utilities for generating human-readable previews and reports of rename operation
 - `formatOccurrencePreview(occurrences, oldName, newName)` - Format occurrence locations as a diff-style preview
 
 These functions are essential for:
+
 - IDE integrations that need to show diff-like previews before applying renames
 - CLI tools that want to present detailed impact reports to users
 - Automated refactoring pipelines that need to log changes before applying them
@@ -969,6 +1056,7 @@ Standalone utilities for hot reload coordination and analysis:
 - `computeRenameImpactGraph(symbolId, semantic)` - Compute detailed dependency impact graph with critical path analysis
 
 The `computeRenameImpactGraph` function is particularly useful for:
+
 - Visualizing the full scope of a rename's impact on the codebase
 - Understanding dependency relationships and reload propagation
 - Estimating hot reload timing and identifying performance bottlenecks
@@ -978,10 +1066,13 @@ The `computeRenameImpactGraph` function is particularly useful for:
 #### Example: Generating a Rename Preview
 
 ```javascript
-const plan = await engine.prepareRenamePlan({
-    symbolId: "gml/script/scr_player",
-    newName: "scr_hero"
-}, { validateHotReload: true });
+const plan = await engine.prepareRenamePlan(
+    {
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    },
+    { validateHotReload: true }
+);
 
 // Generate human-readable report
 const report = formatRenamePlanReport(plan);
@@ -1012,18 +1103,26 @@ console.log(report);
 // Generate detailed file-by-file preview
 const preview = generateRenamePreview(plan.workspace, "scr_player", "scr_hero");
 console.log(`Renaming ${preview.summary.oldName} → ${preview.summary.newName}`);
-console.log(`Will modify ${preview.summary.affectedFiles} files with ${preview.summary.totalEdits} edits`);
+console.log(
+    `Will modify ${preview.summary.affectedFiles} files with ${preview.summary.totalEdits} edits`
+);
 
 for (const file of preview.files) {
     console.log(`\n${file.filePath}: ${file.editCount} changes`);
     for (const edit of file.edits) {
-        console.log(`  Position ${edit.start}-${edit.end}: "${edit.oldText}" → "${edit.newText}"`);
+        console.log(
+            `  Position ${edit.start}-${edit.end}: "${edit.oldText}" → "${edit.newText}"`
+        );
     }
 }
 
 // Format occurrence preview for user review
 const occurrences = await engine.gatherSymbolOccurrences("scr_player");
-const occPreview = formatOccurrencePreview(occurrences, "scr_player", "scr_hero");
+const occPreview = formatOccurrencePreview(
+    occurrences,
+    "scr_player",
+    "scr_hero"
+);
 console.log(occPreview);
 
 // Output:
@@ -1055,11 +1154,13 @@ Container for text edits across multiple files.
 Caching layer for semantic analyzer queries during refactoring operations.
 
 **Constructor:**
+
 ```javascript
-new SemanticQueryCache(semantic, config)
+new SemanticQueryCache(semantic, config);
 ```
 
 **Configuration:**
+
 - `maxSize` - Maximum entries per cache type (default: 100)
 - `ttlMs` - Time-to-live in milliseconds (default: 60000)
 - `enabled` - Enable/disable caching (default: true)
@@ -1076,6 +1177,7 @@ new SemanticQueryCache(semantic, config)
 - `resetStats()` - Reset performance counters
 
 **Statistics:**
+
 - `hits` - Number of cache hits
 - `misses` - Number of cache misses
 - `evictions` - Number of entries evicted due to size limits
@@ -1086,11 +1188,13 @@ new SemanticQueryCache(semantic, config)
 Caching layer for rename validation results during interactive refactoring.
 
 **Constructor:**
+
 ```javascript
-new RenameValidationCache(config)
+new RenameValidationCache(config);
 ```
 
 **Configuration:**
+
 - `maxSize` - Maximum cached validation results (default: 50)
 - `ttlMs` - Time-to-live in milliseconds (default: 30000)
 - `enabled` - Enable/disable caching (default: true)
@@ -1105,12 +1209,14 @@ new RenameValidationCache(config)
 - `resetStats()` - Reset performance counters
 
 **Statistics:**
+
 - `hits` - Number of cache hits
 - `misses` - Number of cache misses
 - `evictions` - Number of entries evicted due to size limits
 - `size` - Current cache size
 
 ## Status
+
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
 hot reload validation, occurrence analysis utilities, rename preview and reporting utilities,
 advanced dependency cascade computation, detailed rename impact graph visualization, semantic
