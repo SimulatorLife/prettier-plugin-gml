@@ -9,6 +9,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import * as HotReload from "./hot-reload.js";
 import { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -21,6 +22,8 @@ import {
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
+    type ExecuteLoopLengthHoistingCodemodRequest,
+    type ExecuteLoopLengthHoistingCodemodResult,
     type ExecuteRenameRequest,
     type ExecuteRenameResult,
     type HotReloadCascadeResult,
@@ -1027,6 +1030,68 @@ export class RefactorEngine {
             hotReloadUpdates,
             fileRenames: [...workspace.fileRenames]
         };
+    }
+
+    /**
+     * Execute the loop-length hoisting codemod across the provided files.
+     *
+     * The engine parses each file exactly once, collects all codemod rewrites into a
+     * single workspace transaction, and applies them atomically via applyWorkspaceEdit.
+     */
+    async executeLoopLengthHoistingCodemod(
+        request: ExecuteLoopLengthHoistingCodemodRequest
+    ): Promise<ExecuteLoopLengthHoistingCodemodResult> {
+        const { filePaths, readFile, writeFile, options, dryRun = false } = request ?? {};
+
+        if (!Array.isArray(filePaths) || filePaths.length === 0) {
+            throw new TypeError("executeLoopLengthHoistingCodemod requires a non-empty filePaths array");
+        }
+
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
+        });
+        Core.assertFunction(writeFile, "writeFile", {
+            errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
+        });
+
+        const workspace = new WorkspaceEdit();
+        const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
+
+        const codemodResults = await Promise.all(
+            filePaths.map(async (filePath) => {
+                Core.assertNonEmptyString(filePath, {
+                    errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
+                });
+
+                const sourceText = await readFile(filePath);
+                return {
+                    filePath,
+                    sourceText,
+                    result: applyLoopLengthHoistingCodemod(sourceText, options)
+                };
+            })
+        );
+
+        for (const { filePath, sourceText, result } of codemodResults) {
+            if (!result.changed) {
+                continue;
+            }
+
+            workspace.addEdit(filePath, 0, sourceText.length, result.outputText);
+            changedFiles.push({
+                path: filePath,
+                appliedEditCount: result.appliedEdits.length,
+                diagnosticOffsets: [...result.diagnosticOffsets]
+            });
+        }
+
+        const applied = await this.applyWorkspaceEdit(workspace, {
+            readFile,
+            writeFile,
+            dryRun
+        });
+
+        return { workspace, applied, changedFiles };
     }
 
     /**
