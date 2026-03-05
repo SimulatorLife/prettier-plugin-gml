@@ -49,20 +49,6 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
 ]);
 const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
 
-function unwrapParenthesizedExpressionNode(node: unknown): unknown {
-    let current = node;
-    while (
-        current &&
-        typeof current === "object" &&
-        (current as { type?: unknown }).type === "ParenthesizedExpression" &&
-        "expression" in (current as Record<string, unknown>)
-    ) {
-        current = (current as { expression?: unknown }).expression;
-    }
-
-    return current;
-}
-
 function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
     if (left === right) {
         return true;
@@ -123,8 +109,8 @@ function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown
 
 function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
     return areAstValuesEquivalentIgnoringParentheses(
-        unwrapParenthesizedExpressionNode(left),
-        unwrapParenthesizedExpressionNode(right)
+        unwrapParenthesized(left as Parameters<typeof unwrapParenthesized>[0]),
+        unwrapParenthesized(right as Parameters<typeof unwrapParenthesized>[0])
     );
 }
 
