@@ -21,15 +21,6 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-// Re-export scope tracker types from Core for convenience
-export type {
-    GlobalIdentifierTracker,
-    IdentifierRoleManager,
-    ScopeLifecycle,
-    ScopeTracker,
-    ScopeTrackerOptions
-} from "@gml-modules/core";
-
 /**
  * Comment extraction options.
  *

@@ -1,15 +1,14 @@
-import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gml-modules/core";
+import {
+    Core,
+    type GameMakerAstLocation,
+    type GameMakerAstNode,
+    type ScopeTracker,
+    type ScopeTrackerOptions
+} from "@gml-modules/core";
 import type { Token } from "antlr4";
 
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
-import type {
-    ParserContext,
-    ParserContextWithMethods,
-    ParserOptions,
-    ParserToken,
-    ScopeTracker,
-    ScopeTrackerOptions
-} from "../types/index.js";
+import type { ParserContext, ParserContextWithMethods, ParserOptions, ParserToken } from "../types/index.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 
 type IdentifierRole = {
