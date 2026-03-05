@@ -268,6 +268,61 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not simplify if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return true; } else { return false; }`
+        // into `return cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // (target-state.md §2.2, §3.2 — "Format must not perform semantic/content rewrites")
+        const source = [
+            "function bool_passthrough(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return condition;/,
+            "Formatter must not simplify if/else boolean returns — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return true;/);
+        assert.match(formatted, /return false;/);
+    });
+
+    void it("does not simplify negated if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return false; } else { return true; }`
+        // into `return !cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        const source = [
+            "function bool_negated(condition) {",
+            "    if (condition) {",
+            "        return false;",
+            "    } else {",
+            "        return true;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return !condition;/,
+            "Formatter must not negate boolean return conditions — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return false;/);
+        assert.match(formatted, /return true;/);
+    });
+
     void it("does not apply math optimizations during formatting", async () => {
         const source = ["var division = 1 / 2;", "var multiplication = 2 * 2;"].join("\n");
 
