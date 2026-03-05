@@ -48,6 +48,8 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
+export type { CodemodRunnerResult, CodemodRunSummary, SingleFileCodemod } from "./codemods/codemod-runner.js";
+export { runCodemodAcrossFiles } from "./codemods/codemod-runner.js";
 export * as Codemods from "./codemods/index.js";
 export type {
     LoopLengthHoistFunctionSuffixes,
