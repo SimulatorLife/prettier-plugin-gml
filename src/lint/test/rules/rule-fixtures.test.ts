@@ -29,12 +29,7 @@ const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candida
 if (!fixtureRoot) {
     throw new Error(`Unable to resolve lint fixture root from candidates: ${fixtureRootCandidates.join(", ")}`);
 }
-const allCapabilities = new Set([
-    "IDENTIFIER_OCCUPANCY",
-    "IDENTIFIER_OCCURRENCES",
-    "LOOP_HOIST_NAME_RESOLUTION",
-    "RENAME_CONFLICT_PLANNING"
-]);
+const allCapabilities = new Set(["IDENTIFIER_OCCUPANCY", "IDENTIFIER_OCCURRENCES", "LOOP_HOIST_NAME_RESOLUTION"]);
 
 function resolveLoopHoistIdentifierForTests(
     preferredName: string,
@@ -130,15 +125,6 @@ function lintWithRule(ruleName: string, code: string, options?: Record<string, u
                         capabilities: allCapabilities,
                         isIdentifierNameOccupiedInProject: () => false,
                         listIdentifierOccurrenceFiles: () => new Set<string>(),
-                        planFeatherRenames: (
-                            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-                        ) =>
-                            requests.map((request) => ({
-                                identifierName: request.identifierName,
-                                preferredReplacementName: request.preferredReplacementName,
-                                safe: true,
-                                reason: null
-                            })),
                         assessGlobalVarRewrite: () => ({ allowRewrite: true, reason: null }),
                         resolveLoopHoistIdentifier: resolveLoopHoistIdentifierForTests
                     })
