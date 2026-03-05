@@ -113,6 +113,33 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
+        // Legacy double-slash `// @function` doc comments are normalised by the
+        // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter
+        // must preserve the comment exactly as written and never silently convert
+        // `// @function` to `/// @function`. (target-state.md §2.2, §3.2, §3.5)
+        //
+        // The parser's `normalizeFunctionDocCommentAttachments` still attaches the
+        // comment to `node.docComments`; the formatter prints it verbatim.
+        const source = [
+            "// @function legacy_func(val)",
+            "// @param val {real}",
+            "function legacy_func(val) {",
+            "    return val;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        // The formatter must NOT silently upgrade the double-slash format.
+        // That conversion belongs exclusively to @gml-modules/lint.
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @function legacy_func/m,
+            "Formatter must not upgrade // @function to /// @function — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+    });
+
     void it("never synthesizes function doc-comments for declarations or function assignments", async () => {
         const source = [
             "function declared(alpha, beta) {",
@@ -266,6 +293,61 @@ void describe("formatter boundaries ownership", () => {
             /^function draw_bezier\(x1,\s*y1/m,
             "Formatter must not rename parameters from @function tag"
         );
+    });
+
+    void it("does not simplify if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return true; } else { return false; }`
+        // into `return cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // (target-state.md §2.2, §3.2 — "Format must not perform semantic/content rewrites")
+        const source = [
+            "function bool_passthrough(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return condition;/,
+            "Formatter must not simplify if/else boolean returns — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return true;/);
+        assert.match(formatted, /return false;/);
+    });
+
+    void it("does not simplify negated if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return false; } else { return true; }`
+        // into `return !cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        const source = [
+            "function bool_negated(condition) {",
+            "    if (condition) {",
+            "        return false;",
+            "    } else {",
+            "        return true;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return !condition;/,
+            "Formatter must not negate boolean return conditions — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return false;/);
+        assert.match(formatted, /return true;/);
     });
 
     void it("does not apply math optimizations during formatting", async () => {

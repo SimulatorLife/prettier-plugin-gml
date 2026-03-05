@@ -1,7 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-import { isFunctionLikeDocCommentNode } from "./ast-contract.js";
-
 const {
     getIdentifierText,
     getNodeEndIndex,
@@ -261,7 +259,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             return;
         }
 
-        if (node !== functionNode && isFunctionLikeDocCommentNode(node)) {
+        if (node !== functionNode && Core.isFunctionLikeNode(node)) {
             return;
         }
 

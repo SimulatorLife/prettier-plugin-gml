@@ -1,5 +1,17 @@
 /**
- * Marks static constructor helper functions that override implementations inherited from parent constructors.
+ * Marks static constructor helper functions that override implementations
+ * inherited from parent constructors.
+ *
+ * This transform lives in the lint `transforms/comments` directory because its
+ * sole consumer is `synthetic-comments.ts`, which checks `_overridesStaticFunction`
+ * to decide whether to emit an `@override` doc-comment tag and to copy inherited
+ * doc lines from the ancestor static helper.
+ *
+ * Previously this file lived in `@gml-modules/refactor`
+ * (`refactor/src/annotate-static-overrides.ts`).  It was relocated here because
+ * the refactor workspace owns rename/restructuring transactions, not comment-level
+ * AST annotation passes; this transform is a lint-pipeline preprocessing step and
+ * must be co-located with the code that reads its output.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
@@ -102,6 +114,68 @@ function findAncestorStaticFunction(
 }
 
 /**
+ * Resolve the string name of a constructor node.
+ */
+function resolveConstructorName(node: MutableGameMakerAstNode): string | null {
+    if (Core.isIdentifierNode(node.id)) {
+        return Core.getNonEmptyString(node.id.name);
+    }
+
+    if (typeof node.id === "string") {
+        return Core.getNonEmptyString(node.id);
+    }
+
+    return null;
+}
+
+/**
+ * Resolve the parent constructor name from a ConstructorParentClause node.
+ */
+function resolveParentConstructorName(node: MutableGameMakerAstNode): string | null {
+    if (!Core.isNode(node.parent) || node.parent.type !== "ConstructorParentClause") {
+        return null;
+    }
+
+    const parentId = (node.parent as MutableGameMakerAstNode & { id?: unknown }).id;
+
+    if (Core.isIdentifierNode(parentId)) {
+        return Core.getNonEmptyString(parentId.name);
+    }
+
+    if (typeof parentId === "string") {
+        return Core.getNonEmptyString(parentId);
+    }
+
+    return null;
+}
+
+/**
+ * Collect the static function declarations from a constructor body into a name-keyed map.
+ */
+function collectStaticFunctions(node: MutableGameMakerAstNode): Map<string, MutableGameMakerAstNode> {
+    const staticFunctions = new Map<string, MutableGameMakerAstNode>();
+
+    const statements = Core.getBodyStatements(
+        (node as Record<string, unknown>).body as Record<string, unknown>
+    ) as MutableGameMakerAstNode[];
+
+    for (const statement of statements) {
+        if (!isStaticFunctionDeclaration(statement)) {
+            continue;
+        }
+
+        const staticName = extractStaticFunctionName(statement);
+        if (!staticName || staticFunctions.has(staticName)) {
+            continue;
+        }
+
+        staticFunctions.set(staticName, statement);
+    }
+
+    return staticFunctions;
+}
+
+/**
  * Build a map of constructors with their names, parents, and declared static helper functions.
  */
 function collectConstructorInfos(ast: MutableGameMakerAstNode): Map<string, ConstructorInfo> {
@@ -117,49 +191,15 @@ function collectConstructorInfos(ast: MutableGameMakerAstNode): Map<string, Cons
             continue;
         }
 
-        const name = Core.isIdentifierNode(node.id)
-            ? Core.getNonEmptyString(node.id.name)
-            : typeof node.id === "string"
-              ? Core.getNonEmptyString(node.id)
-              : null;
-
+        const name = resolveConstructorName(node as MutableGameMakerAstNode);
         if (!name) {
             continue;
         }
 
-        let parentName: string | null = null;
-        if (Core.isNode(node.parent) && node.parent.type === "ConstructorParentClause") {
-            const parentId = (node.parent as any).id;
-            parentName = Core.isIdentifierNode(parentId)
-                ? Core.getNonEmptyString(parentId.name)
-                : typeof parentId === "string"
-                  ? Core.getNonEmptyString(parentId)
-                  : null;
-        }
-
-        const staticFunctions = new Map<string, MutableGameMakerAstNode>();
-
-        const statements = Core.getBodyStatements(
-            (node as Record<string, unknown>).body as Record<string, unknown>
-        ) as MutableGameMakerAstNode[];
-
-        for (const statement of statements) {
-            if (!isStaticFunctionDeclaration(statement)) {
-                continue;
-            }
-
-            const staticName = extractStaticFunctionName(statement);
-            if (!staticName || staticFunctions.has(staticName)) {
-                continue;
-            }
-
-            staticFunctions.set(staticName, statement);
-        }
-
         constructors.set(name, {
             node: node as MutableGameMakerAstNode,
-            parentName,
-            staticFunctions
+            parentName: resolveParentConstructorName(node as MutableGameMakerAstNode),
+            staticFunctions: collectStaticFunctions(node as MutableGameMakerAstNode)
         });
     }
 

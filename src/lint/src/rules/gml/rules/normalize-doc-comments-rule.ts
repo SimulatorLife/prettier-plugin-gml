@@ -13,7 +13,7 @@ import {
     getLineIndexForOffset,
     getNodeEndIndex,
     reportFullTextRewrite,
-    walkAstNodes
+    walkAstNodesWithParent
 } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
@@ -76,8 +76,32 @@ function isFunctionInitializerNode(node: unknown): node is AstNodeWithType {
     );
 }
 
-function getFunctionCandidateForNode(node: AstNodeWithType): FunctionLineCandidate | null {
+function isStandaloneFunctionDeclarationContext(parent: AstNodeWithType | null, parentKey: string | null): boolean {
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "Program" && parentKey === "body") {
+        return true;
+    }
+
+    if (parent.type === "BlockStatement" && parentKey === "body") {
+        return true;
+    }
+
+    return false;
+}
+
+function getFunctionCandidateForNode(
+    node: AstNodeWithType,
+    parent: AstNodeWithType | null,
+    parentKey: string | null
+): FunctionLineCandidate | null {
     if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+        if (!isStandaloneFunctionDeclarationContext(parent, parentKey)) {
+            return null;
+        }
+
         return { functionNode: node, assignmentStyle: false, sourceNode: node };
     }
 
@@ -129,17 +153,13 @@ function collectFunctionNodesByStartLine(
     lineStartOffsets: ReadonlyArray<number>
 ): Map<number, Array<FunctionLineCandidate>> {
     const nodesByLine = new Map<number, Array<FunctionLineCandidate>>();
-    walkAstNodes(programNode, (node) => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        const candidate = getFunctionCandidateForNode(node as AstNodeWithType);
+    walkAstNodesWithParent(programNode, ({ node, parent, parentKey }) => {
+        const candidate = getFunctionCandidateForNode(node, parent, parentKey);
         if (!candidate) {
             return;
         }
 
-        const start = getNodeStartIndex(node as AstNodeWithType);
+        const start = getNodeStartIndex(node);
         if (typeof start !== "number") {
             return;
         }
