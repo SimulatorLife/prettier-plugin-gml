@@ -27,9 +27,12 @@ void test("function-parameter-naming module only exposes layout helpers", () => 
     // `filterMisattachedFunctionDocComments` was removed because it was a
     // parser-workaround; the parser's normalizeFunctionDocCommentAttachments
     // pass now pre-attaches @function-tag comments before the formatter runs.
+    // `findEnclosingFunctionDeclaration` was removed because it was only used
+    // for doc-param optionality resolution — a semantic decision that belongs
+    // in `@gml-modules/lint`, not in the formatter (target-state.md §2.2, §3.2).
     assert.deepStrictEqual(
         exports,
-        ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
+        ["joinDeclaratorPartsWithCommas"],
         "function-parameter-naming must only export layout helpers — semantic rewrites belong in @gml-modules/lint"
     );
 });
@@ -75,5 +78,18 @@ void test("function-parameter-naming does not export parser-workaround (filterMi
     assert.ok(
         !("filterMisattachedFunctionDocComments" in FunctionParameterNaming),
         "filterMisattachedFunctionDocComments was a parser-workaround and must not be re-introduced to the format workspace (target-state.md §3.5)"
+    );
+});
+
+void test("function-parameter-naming does not export doc-param optionality resolver (findEnclosingFunctionDeclaration)", () => {
+    // `findEnclosingFunctionDeclaration` was used to walk up the printer path
+    // and find the nearest enclosing function so the formatter could read
+    // `@param` doc-comment tags and decide whether to strip `= undefined`
+    // defaults. Deciding parameter optionality from doc-comment content is a
+    // semantic/content rewrite owned by `@gml-modules/lint`, not the formatter.
+    // (target-state.md §2.2, §3.2)
+    assert.ok(
+        !("findEnclosingFunctionDeclaration" in FunctionParameterNaming),
+        "findEnclosingFunctionDeclaration was used for doc-param optionality resolution — a semantic decision that must not live in the format workspace (target-state.md §2.2, §3.2)"
     );
 });

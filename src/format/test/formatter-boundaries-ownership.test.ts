@@ -58,6 +58,51 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not strip explicit = undefined default parameter values from function declarations", async () => {
+        // The formatter must preserve `= undefined` defaults exactly as written.
+        // Deciding whether a parameter is optional (and therefore whether its
+        // `= undefined` default should be removed) is a semantic/content rewrite
+        // owned exclusively by `@gml-modules/lint`. The formatter must never strip
+        // content from function signatures. (target-state.md §2.2, §3.2)
+        const source = [
+            "/// @param {Struct} structure",
+            "/// @return {any}",
+            "function get_value(structure, key, default_value = undefined) {",
+            "    return struct_get(structure, key) ?? default_value;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function get_value\(structure,\s*key,\s*default_value = undefined\)/,
+            "Formatter must not strip `= undefined` from function parameters — that is a lint-workspace responsibility"
+        );
+    });
+
+    void it("preserves = undefined even when @param doc marks it as required (not optional)", async () => {
+        // If a `@param` tag does not use `[paramName]` optional syntax, the
+        // formatter must still preserve any `= undefined` written in the source.
+        // Stripping or keeping `= undefined` based on doc-comment content is a
+        // semantic decision owned by `@gml-modules/lint`. (target-state.md §2.2, §3.2)
+        const source = [
+            "/// @param {Function} callback",
+            "/// @param {*} [extra]",
+            "function handle_event(callback = undefined, extra = undefined) {",
+            "    callback(extra);",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function handle_event\(callback = undefined,\s*extra = undefined\)/,
+            "Formatter must preserve `= undefined` regardless of whether the doc marks the param as optional"
+        );
+    });
+
     void it("does not strip non-undefined default parameter values from function declarations", async () => {
         const source = [
             "/// @function scr_dq_get_conjugate(dq, target_dq)",

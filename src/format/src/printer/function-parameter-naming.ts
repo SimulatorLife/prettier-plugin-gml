@@ -3,37 +3,16 @@
  *
  * This module is responsible for formatter-owned layout operations:
  *
- * - Finding the nearest enclosing `FunctionDeclaration` ancestor via path
- *   traversal (layout-only structural query).
  * - Joining an array of declarator doc fragments with ", " separators.
  *
  * All semantic/content rewrites (parameter renaming from `@function` tags,
- * filtering redundant `argument0`-style alias declarations) belong in
- * `@gml-modules/lint`, not in the formatter. See target-state.md §2.2 and §3.2.
+ * filtering redundant `argument0`-style alias declarations, determining
+ * parameter optionality from doc comments) belong in `@gml-modules/lint`,
+ * not in the formatter. See target-state.md §2.2 and §3.2.
  *
  * Exported symbols are consumed by the printer (`print.ts`). All other symbols
  * in this file are module-private helpers.
  */
-
-import type { AstPath } from "prettier";
-
-import { findAncestorNode } from "./path-utils.js";
-
-// ---------------------------------------------------------------------------
-// Path traversal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
- * Prettier path. Used by the printer to determine doc-param optionality for
- * `= undefined` default parameters.
- *
- * @param path - The Prettier AstPath to traverse upward
- * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`
- */
-export function findEnclosingFunctionDeclaration(path: AstPath<any>): unknown {
-    return findAncestorNode(path, (node: unknown) => (node as { type?: string }).type === "FunctionDeclaration");
-}
 
 /**
  * Joins an array of declarator doc fragments with comma separators.
