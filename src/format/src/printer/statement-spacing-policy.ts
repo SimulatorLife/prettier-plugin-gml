@@ -124,7 +124,14 @@ function shouldForceTrailingBlankLineForNestedFunction(node, blockNode, containe
         return false;
     }
 
-    return Core.isFunctionLikeDeclaration(containerNode);
+    if (!Core.isFunctionLikeDeclaration(containerNode)) {
+        return false;
+    }
+
+    // Trailing nested function declarations should close adjacent to their
+    // parent block terminator. Separation between statements is handled in the
+    // intermediate spacing path instead.
+    return false;
 }
 
 /**

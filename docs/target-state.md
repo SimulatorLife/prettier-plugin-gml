@@ -23,7 +23,8 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 ### 2.2 Doc-Comment Ownership
 
-- **Lint (`gml/normalize-doc-comments`)** owns legacy prefix/tag normalization, `@description` promotion/cleanup, and function-doc tag synthesis.
+- **Lint (`gml/normalize-doc-comments`)** owns legacy prefix/tag normalization, `@description` promotion/cleanup, `@param` separator normalization (for example, `name - description` to `name description`), and function-doc tag synthesis.
+- **Lint (`gml/normalize-banner-comments`)** owns decorative banner normalization (line-banner canonicalization, decorative block-banner collapse, non-doc-comment triple-slash comment normalization, and removal of decorative-only separators).
 - **Format** owns rendering and spacing of already-existing/normalized doc comments, and comment placement/layout that does not change text content.
 - **Core** owns shared doc-comment helpers used by lint/format.
 

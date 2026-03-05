@@ -298,7 +298,8 @@ void test("lintTargetsWithRuntimeRecovery records recoverable crashes and contin
     const results = await __lintCommandTest__.lintTargetsWithRuntimeRecovery({
         eslint: fakeEslint,
         cwd: tempRoot,
-        targets: [tempRoot]
+        targets: [tempRoot],
+        onTargetCompleted: async () => {}
     });
 
     assert.equal(results.length, 2);
@@ -308,6 +309,104 @@ void test("lintTargetsWithRuntimeRecovery records recoverable crashes and contin
     assert.equal(fatalResult?.fatalErrorCount, 1);
     assert.equal(fatalResult?.messages[0]?.line, 13);
 });
+
+void test("lintTargetsWithRuntimeRecovery runs targets sequentially", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-recovery-sequential-"));
+    const firstFile = path.join(tempRoot, "alpha.gml");
+    const secondFile = path.join(tempRoot, "beta.gml");
+    await fs.writeFile(firstFile, "var alpha = 1;\n", "utf8");
+    await fs.writeFile(secondFile, "var beta = 2;\n", "utf8");
+
+    let activeLints = 0;
+    let maxConcurrentLints = 0;
+    const completionOrder: Array<string> = [];
+    const lintStartOrder: Array<string> = [];
+
+    const fakeEslint = {
+        async lintFiles(filePatterns: string | Array<string>) {
+            if (typeof filePatterns === "string") {
+                return [];
+            }
+
+            const [filePath] = filePatterns;
+            if (typeof filePath !== "string") {
+                return [];
+            }
+
+            lintStartOrder.push(filePath);
+            activeLints += 1;
+            maxConcurrentLints = Math.max(maxConcurrentLints, activeLints);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 5);
+            });
+            activeLints -= 1;
+
+            return [
+                {
+                    filePath,
+                    messages: [],
+                    suppressedMessages: [],
+                    errorCount: 0,
+                    fatalErrorCount: 0,
+                    warningCount: 0,
+                    fixableErrorCount: 0,
+                    fixableWarningCount: 0,
+                    usedDeprecatedRules: []
+                }
+            ];
+        }
+    };
+
+    await __lintCommandTest__.lintTargetsWithRuntimeRecovery({
+        eslint: fakeEslint,
+        cwd: tempRoot,
+        targets: [tempRoot],
+        onTargetCompleted: async (targetResults) => {
+            completionOrder.push(targetResults[0]?.filePath ?? "");
+        }
+    });
+
+    assert.equal(maxConcurrentLints, 1);
+    assert.deepEqual(lintStartOrder, [firstFile, secondFile]);
+    assert.deepEqual(completionOrder, [firstFile, secondFile]);
+});
+
+void test("emitLintFixProgressForResults logs de-duplicated display paths", () => {
+    const cwd = "/tmp/workspace";
+    const writtenLines: Array<string> = [];
+    __lintCommandTest__.emitLintFixProgressForResults({
+        cwd,
+        results: [
+            { filePath: "/tmp/workspace/scripts/alpha.gml" },
+            { filePath: "/tmp/workspace/scripts/alpha.gml" },
+            { filePath: "/tmp/elsewhere/beta.gml" }
+        ],
+        writeProgressLine: (line) => {
+            writtenLines.push(line);
+        }
+    });
+
+    assert.deepEqual(writtenLines, ["scripts/alpha.gml", "/tmp/elsewhere/beta.gml"]);
+});
+
+void test("toLintProgressDisplayPath prefers relative paths inside cwd", () => {
+    assert.equal(
+        __lintCommandTest__.toLintProgressDisplayPath({
+            cwd: "/tmp/workspace",
+            filePath: "/tmp/workspace/scripts/example.gml"
+        }),
+        "scripts/example.gml"
+    );
+
+    assert.equal(
+        __lintCommandTest__.toLintProgressDisplayPath({
+            cwd: "/tmp/workspace",
+            filePath: "/tmp/other/example.gml"
+        }),
+        "/tmp/other/example.gml"
+    );
+});
+
 void test("fully wired overlay does not trigger guardrail", async () => {
     const eslint = {
         async calculateConfigForFile(): Promise<unknown> {
@@ -378,6 +477,21 @@ void test("configured but non-applied overlay does not trigger guardrail", async
     const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
         eslint,
         results: [{ filePath: "/tmp/not-applied.gml" }]
+    });
+
+    assert.deepEqual(offendingPaths, []);
+});
+
+void test("overlay guardrail ignores non-object resolved configs", async () => {
+    const eslint = {
+        async calculateConfigForFile(): Promise<unknown> {
+            return undefined;
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: [{ filePath: "/tmp/non-object-config.gml" }]
     });
 
     assert.deepEqual(offendingPaths, []);

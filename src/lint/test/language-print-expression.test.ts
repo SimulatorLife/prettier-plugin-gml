@@ -41,3 +41,23 @@ void test("printExpression renders parser-style property arrays for MemberIndexE
 
     assert.equal(rendered, "arr[k]");
 });
+
+void test("printExpression preserves parser member accessors for MemberIndexExpression", () => {
+    const rendered = printExpression(
+        {
+            type: "MemberIndexExpression",
+            object: { type: "Identifier", name: "_player_verb_struct" },
+            property: [
+                {
+                    type: "MemberIndexExpression",
+                    object: { type: "Identifier", name: "_verb_array" },
+                    property: [{ type: "Identifier", name: "_i" }]
+                }
+            ],
+            accessor: "[$"
+        },
+        ""
+    );
+
+    assert.equal(rendered, "_player_verb_struct[$_verb_array[_i]]");
+});

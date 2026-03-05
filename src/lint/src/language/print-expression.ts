@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
 
+const MEMBER_INDEX_ACCESSORS = new Set(["[", "[|", "[?", "[#", "[@", "[$"]);
+
 /**
  * Reads the original source text associated with an AST node range.
  */
@@ -66,6 +68,8 @@ export function printExpression(node: any, sourceText: string): string {
         }
         case "MemberIndexExpression": {
             const object = printExpression(node.object, sourceText);
+            const accessor =
+                typeof node.accessor === "string" && MEMBER_INDEX_ACCESSORS.has(node.accessor) ? node.accessor : "[";
             let index: string;
             if (Array.isArray(node.property)) {
                 index = node.property.map((entry: any) => printExpression(entry, sourceText)).join(", ");
@@ -74,7 +78,7 @@ export function printExpression(node: any, sourceText: string): string {
             } else {
                 index = printExpression(node.property, sourceText);
             }
-            return `${object}[${index}]`;
+            return `${object}${accessor}${index}]`;
         }
         case "ConditionalExpression": {
             const test = printExpression(node.test, sourceText);

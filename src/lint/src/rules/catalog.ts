@@ -114,6 +114,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlNormalizeBannerComments",
+        shortName: "normalize-banner-comments",
+        fullId: "gml/normalize-banner-comments",
+        messageId: "normalizeBannerComments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNormalizeDirectives",
         shortName: "normalize-directives",
         fullId: "gml/normalize-directives",

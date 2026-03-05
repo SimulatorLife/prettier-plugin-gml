@@ -69,10 +69,10 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
         "instances",
         obj_fx,
         {
-            z             : fx_z,
-            sprite_index  : sprite,
-            func_callback : func_fx_callback,
-            image_blend   : color
+            z: fx_z,
+            sprite_index: sprite,
+            func_callback: func_fx_callback,
+            image_blend: color
         }
     );
 }

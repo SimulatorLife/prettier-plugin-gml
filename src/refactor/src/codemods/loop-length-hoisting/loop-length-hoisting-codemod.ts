@@ -94,38 +94,49 @@ function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string>
 }
 
 function collectForStatementContainerContexts(programNode: unknown): ReadonlyArray<ForStatementContainerContext> {
-    // walkAst passes arrays as `parent` (not the container object) when a node sits inside
-    // a body array. To determine whether a ForStatement is a direct child of a Program or
-    // BlockStatement body we first collect those arrays, then check the ForStatement's parent.
-    const safeBodyArrays = new Set<unknown>();
-    Core.walkAst(programNode, (node) => {
-        if (node?.type !== "Program" && node?.type !== "BlockStatement") {
-            return;
-        }
-
-        const body: unknown = node.body;
-        if (Array.isArray(body)) {
-            safeBodyArrays.add(body);
-        }
-    });
-
     const contexts: Array<ForStatementContainerContext> = [];
 
-    Core.walkAst(programNode, (node, parent) => {
-        if (node?.type !== "ForStatement") {
+    const visitValue = (value: unknown, canInsertHoistBeforeLoop: boolean): void => {
+        if (!value || typeof value !== "object") {
             return;
         }
 
-        const canInsertHoistBeforeLoop = Array.isArray(parent) && safeBodyArrays.has(parent);
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                visitValue(entry, false);
+            }
 
-        contexts.push(
-            Object.freeze({
-                forNode: node as Record<string, unknown>,
-                canInsertHoistBeforeLoop
-            })
-        );
-    });
+            return;
+        }
 
+        const node = value as Record<string, unknown>;
+        if (node.type === "ForStatement") {
+            contexts.push(
+                Object.freeze({
+                    forNode: node,
+                    canInsertHoistBeforeLoop
+                })
+            );
+        }
+
+        for (const [propertyName, propertyValue] of Object.entries(node)) {
+            if (
+                propertyName === "body" &&
+                Array.isArray(propertyValue) &&
+                (node.type === "Program" || node.type === "BlockStatement")
+            ) {
+                for (const statement of propertyValue) {
+                    visitValue(statement, true);
+                }
+
+                continue;
+            }
+
+            visitValue(propertyValue, false);
+        }
+    };
+
+    visitValue(programNode, false);
     return contexts;
 }
 
@@ -229,13 +240,15 @@ function createLoopLengthHoistRewrite(parameters: {
     const indentation = getLineIndentationAtOffset(parameters.sourceText, insertionOffset);
     const insertionText = `var ${hoistedName} = ${firstCall.callText};${parameters.lineEnding}${indentation}`;
 
-    const callRewrites = accessorCalls.map((call) =>
-        Object.freeze({
-            start: call.callStart,
-            end: call.callEnd,
-            text: hoistedName
-        })
-    );
+    const callRewrites = accessorCalls
+        .filter((call) => call.functionName === firstCall.functionName && call.callText === firstCall.callText)
+        .map((call) =>
+            Object.freeze({
+                start: call.callStart,
+                end: call.callEnd,
+                text: hoistedName
+            })
+        );
 
     return Object.freeze({
         insertionOffset,
