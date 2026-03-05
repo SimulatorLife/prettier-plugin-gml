@@ -650,6 +650,34 @@ void test("normalize-doc-comments synthesizes concrete and undefined @returns me
     assert.equal(result.output, expected);
 });
 
+void test("normalize-doc-comments skips synthetic docs for inline struct property function values", () => {
+    const input = [
+        "/// @returns {undefined}",
+        "function configure_editor_state() {",
+        "    editor_state",
+        '        .add("edit", {',
+        "            leave: function() {",
+        "                instance_destroy(oEditor);",
+        "            }",
+        "        })",
+        '        .add("follow", {',
+        "            enter: function() {},",
+        "            step: function() {",
+        "                if (follow_id < 0) {",
+        "                    if (instance_exists(oPlayer)) {",
+        "                        follow_id = oPlayer.id;",
+        "                    }",
+        "                }",
+        "            }",
+        "        });",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, input);
+});
+
 void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
     const input = [
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);",
