@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ScopeTracker } from "../src/scopes/scope-tracker.js";
+import { ScopeTracker } from "../../src/scopes/scope-tracker.js";
 
 void describe("ScopeTracker performance optimizations", () => {
     void describe("descendant scope traversal", () => {
