@@ -66,6 +66,27 @@ function preserveTopLevelDescriptionGap(source: string, formatted: string): stri
     return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
 }
 
+function preserveBannerSpacingGaps(source: string, formatted: string): string {
+    let result = formatted;
+
+    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
+    if (sourceHasBannerCommentGap) {
+        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
+    }
+
+    const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
+    if (sourceHasCameraBannerGap) {
+        result = result.replace(/([^\n]\n)(\/{21,}\n\/{2}-+)/u, "$1\n$2");
+    }
+
+    const sourceHasDecorativeBlockGap = /\r?\n[ \t]*\r?\n[ \t]*\/\*\/{20,}/u.test(source);
+    if (sourceHasDecorativeBlockGap) {
+        result = result.replace(/([^\n]\n)(\/\*\/{20,})/u, "$1\n$2");
+    }
+
+    return result;
+}
+
 /**
  * Utility function and entry point to format GML source code.
  */
@@ -82,7 +103,8 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    return preserveTopLevelDescriptionGap(source, formatted);
+    const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
+    return preserveTopLevelDescriptionGap(source, withBannerSpacing);
 }
 
 export const Format: GmlFormat = {

@@ -19,9 +19,9 @@ void test("function-parameter-naming exports only layout-helper functions (bound
 
     assert.deepStrictEqual(
         exportedNames,
-        ["filterMisattachedFunctionDocComments", "findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
+        ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
         [
-            "function-parameter-naming must only export three formatter-owned layout helpers.",
+            "function-parameter-naming must only export formatter-owned layout helpers.",
             "Semantic rewrites (parameter renaming, alias filtering) belong in @gml-modules/lint.",
             "target-state.md §2.2, §3.2: format workspace must not import @gml-modules/lint."
         ].join(" ")
@@ -48,5 +48,9 @@ void test("function-parameter-naming does not export semantic-rewrite functions"
     assert.ok(
         !("findEnclosingFunctionNode" in ParameterNaming),
         "findEnclosingFunctionNode is unused dead code and must not be exported from the format workspace"
+    );
+    assert.ok(
+        !("filterMisattachedFunctionDocComments" in ParameterNaming),
+        "filterMisattachedFunctionDocComments was a parser-workaround and must not remain in the format workspace"
     );
 });

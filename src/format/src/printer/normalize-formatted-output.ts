@@ -172,13 +172,13 @@ type PlainLineCommentInfo = {
     isTopLevel: boolean;
 };
 
-function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo | null {
+function getLineCommentPrefixInfo(line: string | undefined): PlainLineCommentInfo | null {
     if (typeof line !== "string") {
         return null;
     }
 
     const trimmedStart = line.trimStart();
-    if (!trimmedStart.startsWith("//") || trimmedStart.startsWith("///")) {
+    if (!trimmedStart.startsWith("//")) {
         return null;
     }
 
@@ -187,6 +187,15 @@ function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo
         normalized: trimmedStart.trimEnd(),
         isTopLevel: trimmedStart === line
     };
+}
+
+function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo | null {
+    const info = getLineCommentPrefixInfo(line);
+    if (info === null || info.trimmedStart.startsWith("///")) {
+        return null;
+    }
+
+    return info;
 }
 
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
@@ -216,7 +225,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     for (const line of lines) {
         if (
             !insideBlockComment &&
-            isTopLevelPlainLineComment(line) &&
+            isTopLevelLineComment(line) &&
             shouldInsertBlankLineBeforeTopLevelComment(previousLine)
         ) {
             result.push("");
@@ -230,13 +239,13 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     return result.join("\n");
 }
 
-function isTopLevelPlainLineComment(line: string | undefined): boolean {
-    const info = getPlainLineCommentInfo(line);
+function isTopLevelLineComment(line: string | undefined): boolean {
+    const info = getLineCommentPrefixInfo(line);
     return info !== null && info.isTopLevel;
 }
 
 function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
-    return isNonEmptyTrimmedString(previousLine) && !isTopLevelPlainLineComment(previousLine);
+    return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
 }
 
 function isPlainLineCommentLine(line: string | undefined): boolean {

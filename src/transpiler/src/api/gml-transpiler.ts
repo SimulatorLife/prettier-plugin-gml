@@ -3,11 +3,11 @@ import { Parser } from "@gml-modules/parser";
 
 import {
     type CallTargetAnalyzer,
+    createSemanticOracle,
     type EmitOptions,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
-    makeDummyOracle,
     type ProgramNode
 } from "../emitter/index.js";
 
@@ -42,34 +42,22 @@ export interface ScriptPatch {
 }
 
 export interface TranspilerDependencies {
-    readonly semantic?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    };
+    readonly semantic?: IdentifierAnalyzer & CallTargetAnalyzer;
     readonly emitterOptions?: Partial<EmitOptions>;
 }
 
 export class GmlTranspiler {
-    private readonly semantic?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    };
+    private readonly semantic?: IdentifierAnalyzer & CallTargetAnalyzer;
     private readonly emitterOptions?: Partial<EmitOptions>;
-    private readonly fallbackSemantic: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    };
+    private readonly fallbackSemantic: IdentifierAnalyzer & CallTargetAnalyzer;
 
     constructor(dependencies: TranspilerDependencies = {}) {
         this.semantic = dependencies.semantic;
         this.emitterOptions = dependencies.emitterOptions;
-        this.fallbackSemantic = makeDummyOracle();
+        this.fallbackSemantic = createSemanticOracle();
     }
 
-    private getSemanticAnalyzers(): {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    } {
+    private getSemanticAnalyzers(): IdentifierAnalyzer & CallTargetAnalyzer {
         return this.semantic ?? this.fallbackSemantic;
     }
 
@@ -93,7 +81,7 @@ export class GmlTranspiler {
     }
 
     private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
-        let unpacked = "";
+        const lines: string[] = [];
 
         for (let index = 0; index < func.params.length; index += 1) {
             const parameter = func.params[index];
@@ -119,10 +107,10 @@ export class GmlTranspiler {
                 continue;
             }
 
-            unpacked = unpacked ? `${unpacked}\n${line}` : line;
+            lines.push(line);
         }
 
-        return unpacked;
+        return lines.join("\n");
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {

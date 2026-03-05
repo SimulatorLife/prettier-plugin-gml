@@ -74,25 +74,9 @@ export class GmlToJsEmitter {
     private readonly globalVars: Set<string>;
     private readonly visitNode = (node: GmlNode): string => this.visit(node);
 
-    constructor(
-        semantic:
-            | (IdentifierAnalyzer & CallTargetAnalyzer)
-            | {
-                  identifier: IdentifierAnalyzer;
-                  callTarget: CallTargetAnalyzer;
-              },
-        options: Partial<EmitOptions> = {}
-    ) {
-        // Support both the new simplified interface (single oracle) and
-        // the legacy interface (object with identifier/callTarget properties)
-        // for backward compatibility
-        if ("identifier" in semantic && "callTarget" in semantic) {
-            this.identifierAnalyzer = semantic.identifier;
-            this.callTargetAnalyzer = semantic.callTarget;
-        } else {
-            this.identifierAnalyzer = semantic;
-            this.callTargetAnalyzer = semantic;
-        }
+    constructor(semantic: IdentifierAnalyzer & CallTargetAnalyzer, options: Partial<EmitOptions> = {}) {
+        this.identifierAnalyzer = semantic;
+        this.callTargetAnalyzer = semantic;
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -312,12 +296,11 @@ export class GmlToJsEmitter {
         // Try constant folding first for compile-time optimization
         const folded = tryFoldConstantExpression(ast);
         if (folded !== null) {
-            // Emit the folded constant directly
-            // Strings need quotes, numbers and booleans don't
+            // Emit the folded constant directly.
+            // JSON.stringify guarantees valid JavaScript string escaping
+            // for control characters (newlines, tabs, etc.) and quotes.
             if (typeof folded === "string") {
-                // Escape special characters in the string
-                const escaped = folded.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`);
-                return `"${escaped}"`;
+                return JSON.stringify(folded);
             }
             return String(folded);
         }

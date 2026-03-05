@@ -4,7 +4,7 @@ import type { Rule } from "eslint";
 import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
-import { applyLogicalNormalization } from "../transforms/logical-expressions/traversal-normalization.js";
+import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
  * Normalize whitespace for structural expression comparisons.
@@ -173,19 +173,6 @@ function negationRequiresParens(node: any): boolean {
  * `ParenthesizedExpression` in the GML AST. We want the condition text without
  * those parens so the emitted `return <cond>` statement is correct.
  */
-function resolveConditionText(sourceText: string, testNode: any): string | null {
-    let condNode = testNode;
-    while (condNode?.type === "ParenthesizedExpression" && condNode.expression) {
-        condNode = condNode.expression;
-    }
-    const start = Core.getNodeStartIndex(condNode);
-    const end = Core.getNodeEndIndex(condNode);
-    if (typeof start !== "number" || typeof end !== "number") {
-        return null;
-    }
-    return sourceText.slice(start, end);
-}
-
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
@@ -235,9 +222,12 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
-                    // Both branches unconditionally return opposite boolean literals.
-                    const condText = resolveConditionText(sourceText, node.test);
-                    if (condText === null) {
+                    // Normalize the condition (e.g. remove double-negation) before
+                    // using it in the replacement text so we don't emit `!!!flag_b`.
+                    const clonedTest = Core.cloneAstNode(node.test) as any;
+                    applyLogicalNormalizationWithChangeMetadata(clonedTest);
+                    const condText = printExpression(clonedTest, sourceText);
+                    if (!condText) {
                         return;
                     }
 
@@ -245,7 +235,9 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
 
                     let fixText: string;
                     if (isNegated) {
-                        fixText = negationRequiresParens(node.test) ? `return !(${condText});` : `return !${condText};`;
+                        fixText = negationRequiresParens(clonedTest)
+                            ? `return !(${condText});`
+                            : `return !${condText};`;
                     } else {
                         fixText = `return ${condText};`;
                     }
@@ -279,10 +271,14 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     }
 
                     const cloned = Core.cloneAstNode(node) as any;
-                    applyLogicalNormalization(cloned);
+
+                    const normalizationResult = applyLogicalNormalizationWithChangeMetadata(cloned);
+                    if (!normalizationResult.changed) {
+                        return;
+                    }
 
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = printExpression(cloned, context.sourceCode.text);
+                    const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
 
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
                         context.report({

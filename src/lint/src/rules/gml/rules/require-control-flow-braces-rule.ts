@@ -126,15 +126,23 @@ function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleCla
 }
 
 function parseInlineElseClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(else)\b\s*(?!\{)(?!if\b)(.+)$/u.exec(line);
+    const match = /^([\t ]*)(else)\b\s*(?!\{)(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
+        return null;
+    }
+
+    const statement = match[3]?.trim() ?? "";
+    if (/^if\b/u.test(statement)) {
+        return null;
+    }
+    if (!statement.includes(";")) {
         return null;
     }
 
     return Object.freeze({
         indentation: match[1] ?? "",
         header: "else",
-        statement: match[3]?.trim() ?? ""
+        statement
     });
 }
 

@@ -1,10 +1,8 @@
 /**
  * Printer utilities for function-parameter layout in the GML formatter.
  *
- * This module is responsible for three formatter-owned operations:
+ * This module is responsible for formatter-owned layout operations:
  *
- * - Filtering misattached function doc-comments from variable declarators
- *   (workaround for a parser comment-attachment bug).
  * - Finding the nearest enclosing `FunctionDeclaration` ancestor via path
  *   traversal (layout-only structural query).
  * - Joining an array of declarator doc fragments with ", " separators.
@@ -35,39 +33,6 @@ import { findAncestorNode } from "./path-utils.js";
  */
 export function findEnclosingFunctionDeclaration(path: AstPath<any>): unknown {
     return findAncestorNode(path, (node: unknown) => (node as { type?: string }).type === "FunctionDeclaration");
-}
-
-/**
- * Filters out misattached function doc-comments from a declarator's comments array.
- *
- * Mutates the declarator in place by filtering its comments array and marking
- * filtered comments as printed. If all comments are filtered, deletes the comments property.
- *
- * This workaround addresses a parser issue where JSDoc function comments (@function, @func)
- * are incorrectly attached to variable declarators instead of their intended function targets.
- *
- * @param declarator - The variable declarator node to process
- */
-export function filterMisattachedFunctionDocComments(declarator: unknown): void {
-    const d = declarator as { comments?: Array<{ value: string; printed?: boolean }> };
-    if (!d.comments) {
-        return;
-    }
-
-    d.comments = d.comments.filter((comment) => {
-        const isFunctionComment = comment.value.includes("@function") || comment.value.includes("@func");
-
-        if (isFunctionComment) {
-            comment.printed = true;
-            return false;
-        }
-
-        return true;
-    });
-
-    if (d.comments.length === 0) {
-        delete d.comments;
-    }
 }
 
 /**

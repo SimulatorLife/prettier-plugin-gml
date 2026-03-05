@@ -1,11 +1,4 @@
-import { assertFunction, isNonEmptyString, isObjectLike, isRegExpLike } from "./utils.js";
-
-const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
-    "Script assets have changed for v2.3.0",
-    "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information",
-    "@description Insert description here",
-    "You can write your code in this editor"
-]);
+import { assertFunction, isObjectLike, isRegExpLike } from "./utils.js";
 
 const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
     /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function|try|catch|finally|throw|delete|new)\b(?!\s+(?:a|an|the)\s+\w)/i,
@@ -16,7 +9,6 @@ const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
 ]);
 
 const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
-    boilerplateFragments: DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
@@ -44,14 +36,6 @@ function normalizeArrayOption(candidate, { defaultValue, filter, map = (value) =
     return Object.freeze(normalized);
 }
 
-function normalizeBoilerplateFragments(fragments) {
-    return normalizeArrayOption(fragments, {
-        defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
-        filter: isNonEmptyString,
-        map: String
-    });
-}
-
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
@@ -68,18 +52,13 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    const boilerplateFragments = normalizeBoilerplateFragments(options.boilerplateFragments);
     const codeDetectionPatterns = normalizeCodeDetectionPatterns(options.codeDetectionPatterns);
 
-    if (
-        boilerplateFragments === DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&
-        codeDetectionPatterns === DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
-    ) {
+    if (codeDetectionPatterns === DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
     return Object.freeze({
-        boilerplateFragments,
         codeDetectionPatterns
     });
 }

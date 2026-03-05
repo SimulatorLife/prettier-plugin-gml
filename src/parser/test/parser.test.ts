@@ -400,6 +400,82 @@ void describe("GameMaker parser fixtures", () => {
         );
     });
 
+    void it("pre-attaches @function doc comments to the following function declaration", () => {
+        const source = [
+            "var unrelated_value = 1;",
+            "",
+            "/// @function scr_target",
+            "function scr_target() {",
+            "    return unrelated_value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getComments: true,
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [variableDeclaration, functionDeclaration] = ast.body;
+        assert.ok(
+            variableDeclaration?.type === "VariableDeclaration",
+            "Expected first statement to be a variable declaration."
+        );
+        assert.ok(
+            functionDeclaration?.type === "FunctionDeclaration",
+            "Expected second statement to be a function declaration."
+        );
+
+        assert.ok(
+            !Array.isArray(variableDeclaration.docComments) || variableDeclaration.docComments.length === 0,
+            "Parser should not attach @function doc comments to unrelated variable declarations."
+        );
+
+        assert.ok(
+            Array.isArray(functionDeclaration.docComments),
+            "Function declaration should have parser-attached doc comments."
+        );
+        assert.ok(functionDeclaration.docComments.length > 0, "Expected at least one parser-attached doc comment.");
+
+        const [functionDocComment] = functionDeclaration.docComments;
+        assert.ok(functionDocComment, "Expected a parser-attached @function doc comment.");
+        assert.strictEqual(functionDocComment._gmlAttachedDocComment, true);
+        assert.match(
+            String(functionDocComment.value),
+            /@function\b/i,
+            "Attached parser doc comment should preserve the @function tag."
+        );
+    });
+
+    void it("pre-attaches @function doc comments to function-initialized variable declarations", () => {
+        const source = [
+            "/// @function scr_assigned",
+            "var scr_assigned = function () {",
+            "    return 42;",
+            "};",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getComments: true,
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [variableDeclaration] = ast.body;
+        assert.ok(variableDeclaration?.type === "VariableDeclaration", "Expected a variable declaration target.");
+        assert.ok(
+            Array.isArray(variableDeclaration.docComments) && variableDeclaration.docComments.length > 0,
+            "Function-initialized variable declarations should keep parser-attached @function comments."
+        );
+
+        const [functionDocComment] = variableDeclaration.docComments;
+        assert.ok(functionDocComment, "Expected the parser to attach a function-tag doc comment.");
+        assert.strictEqual(functionDocComment._gmlAttachedDocComment, true);
+        assert.match(String(functionDocComment.value), /@function\b/i);
+    });
+
     void it("captures the full range of member access expressions", () => {
         const source = "function demo(arg = namespace.value) {\n  return arg;\n}\n";
         const ast = parseFixture(source, {

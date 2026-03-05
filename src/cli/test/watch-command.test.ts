@@ -10,6 +10,7 @@ import {
     createExtensionMatcher,
     createWatchCommand,
     hashSourceContent,
+    resolveUnknownScanConcurrency,
     runWatchCommand
 } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
@@ -77,6 +78,14 @@ void describe("watch command", () => {
             hashSourceContent("function foo() { return 1; }"),
             hashSourceContent("function foo() { return 2; }")
         );
+    });
+
+    void it("resolveUnknownScanConcurrency clamps values to at least one", () => {
+        assert.equal(resolveUnknownScanConcurrency(16), 16);
+        assert.equal(resolveUnknownScanConcurrency(1), 1);
+        assert.equal(resolveUnknownScanConcurrency(0), 1);
+        assert.equal(resolveUnknownScanConcurrency(-5), 1);
+        assert.equal(resolveUnknownScanConcurrency(8.7), 8);
     });
 });
 

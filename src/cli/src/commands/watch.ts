@@ -45,6 +45,7 @@ import {
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
+    type RuntimeTranspilerPatch,
     type TranspilationContext,
     type TranspilationResult,
     transpileFile,
@@ -216,6 +217,7 @@ interface WatchLifecycle {
     scanComplete: boolean;
     unknownScanPromise: Promise<void> | null;
     unknownScanQueued: boolean;
+    unknownScanConcurrency: number;
 }
 
 /**
@@ -246,6 +248,31 @@ interface RuntimeContext
      * Used to skip transpilation when a file's mtime changes but content is
      * identical (e.g., redundant editor saves or `touch` operations). */
     fileContentHashes: Map<string, string>;
+}
+
+/**
+ * Runtime state required to derive script names from changed files.
+ */
+interface ScriptNameRegistrationContext {
+    scriptNames: Set<string>;
+}
+
+/**
+ * Runtime state required when removing cached data for deleted files.
+ */
+interface FileRemovalCleanupContext {
+    dependencyTracker: DependencyTracker;
+    fileSnapshots: Map<string, number>;
+    fileContentHashes: Map<string, string>;
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
+    debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+}
+
+/**
+ * Runtime state required when recording file modification snapshots.
+ */
+interface FileSnapshotWriter {
+    fileSnapshots: Map<string, number>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
@@ -370,6 +397,19 @@ export function countSourceLines(source: string): number {
  */
 export function hashSourceContent(source: string): string {
     return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
+}
+
+/**
+ * Resolves concurrency for unknown watcher event scans.
+ *
+ * Unknown events require probing tracked files to find changes on platforms
+ * that omit filenames. Keep probes bounded to avoid unbounded stat storms.
+ *
+ * @param {number} configuredMaximum - User-configured max concurrent directory reads.
+ * @returns {number} Safe unknown scan concurrency value (minimum 1).
+ */
+export function resolveUnknownScanConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
 }
 
 /**
@@ -729,10 +769,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     const semanticOracle = Transpiler.createSemanticOracle({ scriptNames });
     const transpiler = new Transpiler.GmlTranspiler({
-        semantic: {
-            identifier: semanticOracle,
-            callTarget: semanticOracle
-        }
+        semantic: semanticOracle
     });
     const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
@@ -756,6 +793,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         scanComplete: false,
         unknownScanPromise: null,
         unknownScanQueued: false,
+        unknownScanConcurrency: resolveUnknownScanConcurrency(maxConcurrentDirs),
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
         dependencyTracker
@@ -1291,22 +1329,26 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    const changedEntries = await Core.runInParallel(entries, async ([filePath, lastModified]) => {
-        try {
-            const stats = await stat(filePath);
-            if (stats.mtimeMs <= lastModified) {
+    const changedEntries = await Core.runInParallelWithLimit(
+        entries,
+        async ([filePath, lastModified]) => {
+            try {
+                const stats = await stat(filePath);
+                if (stats.mtimeMs <= lastModified) {
+                    return null;
+                }
+
+                return {
+                    filePath,
+                    stats
+                };
+            } catch {
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
                 return null;
             }
-
-            return {
-                filePath,
-                stats
-            };
-        } catch {
-            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
-            return null;
-        }
-    });
+        },
+        runtimeContext.unknownScanConcurrency
+    );
 
     await Core.runSequentially(changedEntries, async (entry) => {
         if (entry === null) {
@@ -1479,7 +1521,7 @@ function mergeDependentFiles(
 }
 
 async function retranspileDependentFile(
-    runtimeContext: RuntimeContext,
+    runtimeContext: RuntimeContext & ScriptNameRegistrationContext,
     filePath: string,
     dependentFile: string,
     verbose: boolean,
@@ -1539,7 +1581,10 @@ function getSymbolIdFromFilePath(filePath: string): string {
     return `gml/script/${fileName}`;
 }
 
-function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: string): number {
+function removeCachedPatchesForFile(
+    runtimeContext: Pick<FileRemovalCleanupContext, "lastSuccessfulPatches">,
+    filePath: string
+): number {
     const symbolId = getSymbolIdFromFilePath(filePath);
     let removedCount = runtimeContext.lastSuccessfulPatches.delete(symbolId) ? 1 : 0;
 
@@ -1558,7 +1603,12 @@ function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: st
     return removedCount;
 }
 
-function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
+function cleanupRemovedFile(
+    runtimeContext: FileRemovalCleanupContext,
+    filePath: string,
+    verbose: boolean,
+    quiet: boolean
+): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
@@ -1577,7 +1627,7 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     }
 }
 
-async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: string): Promise<void> {
+async function updateFileSnapshot(runtimeContext: FileSnapshotWriter, filePath: string): Promise<void> {
     try {
         const stats = await stat(filePath);
         runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);
