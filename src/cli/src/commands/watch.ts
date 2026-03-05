@@ -58,8 +58,9 @@ import {
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
 import { type PatchWebSocketServer, startPatchWebSocketServer } from "../modules/websocket/server.js";
+import { readSourceFileWithTransientEmptyRetry } from "./file-read-retry.js";
 
-const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
+const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode, isAbortError } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -278,35 +279,8 @@ interface FileSnapshotWriter {
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
     fileStats?: Stats | null;
-}
-
-const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
-const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
-
-function delayFileReadRetry(durationMs: number): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(resolve, durationMs);
-    });
-}
-
-/**
- * Filesystem watch events can fire while an editor is still writing.
- * Retry briefly when the file is observed as empty so we do not treat
- * transient truncation windows as a permanent transpilation failure.
- */
-async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<string> {
-    const readAttempt = async (attempt: number): Promise<string> => {
-        const content = await readFile(filePath, "utf8");
-        const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
-        if (content.length > 0 || isFinalAttempt) {
-            return content;
-        }
-
-        await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS);
-        return readAttempt(attempt + 1);
-    };
-
-    return await readAttempt(0);
+    /** Optional cancellation token forwarded to abort-safe file-read retries. */
+    abortSignal?: AbortSignal | null;
 }
 
 async function runAutoInjectHotReload(
@@ -1069,7 +1043,10 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     if (!filename) {
                         const unknownKey = `${normalizedPath}::unknown`;
                         const triggerUnknown = () =>
-                            scheduleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                            scheduleUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal).catch((error) => {
+                                if (isAbortError(error)) {
+                                    return;
+                                }
                                 const message = getErrorMessage(error, {
                                     fallback: "Unknown file processing error"
                                 });
@@ -1113,8 +1090,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         handleFileChange(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         }).catch((error) => {
+                            if (isAbortError(error)) {
+                                return;
+                            }
                             const message = getErrorMessage(error, {
                                 fallback: "Unknown file processing error"
                             });
@@ -1126,6 +1107,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         if (!debouncedHandler) {
                             debouncedHandler = debounce((filePath: string, evt: string, opts: FileChangeOptions) => {
                                 handleFileChange(filePath, evt, opts).catch((error) => {
+                                    if (isAbortError(error)) {
+                                        return;
+                                    }
                                     const message = getErrorMessage(error, {
                                         fallback: "Unknown file processing error"
                                     });
@@ -1138,7 +1122,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         debouncedHandler(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         });
                     }
                 }
@@ -1183,11 +1168,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
  * @param {object} options.runtimeContext - Runtime context with transpiler and patch storage
+ * @param {AbortSignal | null} [options.abortSignal] - Cancellation token forwarded to retry delays
  */
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, quiet = false, runtimeContext, fileStats }: FileChangeOptions = {}
+    { verbose = false, quiet = false, runtimeContext, fileStats, abortSignal }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -1242,7 +1228,7 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readSourceFileWithTransientEmptyRetry(filePath);
+            const content = await readSourceFileWithTransientEmptyRetry(filePath, abortSignal);
             const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {
@@ -1287,6 +1273,11 @@ async function handleFileChange(
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
+            if (isAbortError(error)) {
+                // Abort is intentional - do not log it as an error.
+                return;
+            }
+
             if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
                 unregisterScriptName(filePath, runtimeContext.scriptNames);
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
@@ -1313,7 +1304,8 @@ async function handleFileChange(
 async function handleUnknownFileChanges(
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    abortSignal?: AbortSignal | null
 ): Promise<void> {
     const entries = Array.from(runtimeContext.fileSnapshots.entries());
     if (entries.length === 0) {
@@ -1350,7 +1342,8 @@ async function handleUnknownFileChanges(
             verbose,
             quiet,
             runtimeContext,
-            fileStats: entry.stats
+            fileStats: entry.stats,
+            abortSignal
         });
     });
 }
@@ -1358,26 +1351,34 @@ async function handleUnknownFileChanges(
 function processQueuedUnknownFileChanges(
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    abortSignal?: AbortSignal | null
 ): Promise<void> {
     runtimeContext.unknownScanQueued = false;
 
-    return handleUnknownFileChanges(runtimeContext, verbose, quiet).then(() =>
+    return handleUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal).then(() =>
         runtimeContext.unknownScanQueued
-            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet)
+            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal)
             : Promise.resolve()
     );
 }
 
-function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+function scheduleUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean,
+    abortSignal?: AbortSignal | null
+): Promise<void> {
     if (runtimeContext.unknownScanPromise !== null) {
         runtimeContext.unknownScanQueued = true;
         return runtimeContext.unknownScanPromise;
     }
 
-    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet).finally(() => {
-        runtimeContext.unknownScanPromise = null;
-    });
+    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal).finally(
+        () => {
+            runtimeContext.unknownScanPromise = null;
+        }
+    );
 
     runtimeContext.unknownScanPromise = unknownScanPromise;
     return unknownScanPromise;
