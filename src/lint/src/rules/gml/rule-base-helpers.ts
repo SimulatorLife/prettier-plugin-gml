@@ -86,6 +86,20 @@ export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     });
 }
 
+/**
+ * Reads program text once, applies a deterministic rewrite, and reports the
+ * resulting full-text fix when the rewrite changes output.
+ */
+export function reportProgramTextRewrite(
+    context: Rule.RuleContext,
+    definition: GmlRuleDefinition,
+    rewrite: (sourceText: string) => string
+): void {
+    const sourceText = context.sourceCode.text;
+    const rewrittenText = rewrite(sourceText);
+    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
+}
+
 export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodeParentVisitContext) => void): void {
     const pending: Array<AstNodeParentVisitContext> = [];
     if (isAstNodeWithType(root)) {
