@@ -27,25 +27,25 @@ if (a == getValue()) {
     // TODO
 }
 
-myVal = (h < 0) or (h > 1);
+myVal = h < 0 or h > 1;
 
 myVal2 = 5.5;
 
-myVal3 = a + (b * c);
+myVal3 = a + b * c;
 
-myVal4 = (a + b) + c;
+myVal4 = a + b + c;
 
-myVal5 = a + b * c;
+myVal5 = (a + b) * c;
 
-myVal6 = (a and b) or c;
+myVal6 = a and b or c;
 
 myVal7 = (a > b) and (c < d);
 
-myVal8 = (a - b) - c;
+myVal8 = a - b - c;
 
-myVal9 = a == (b + c);
+myVal9 = a == b + c;
 
-myVal10 = a + (b * c);
+myVal10 = a + b * c;
 
 myVal11 = (a and b) or (c and d);
 
@@ -70,7 +70,7 @@ function halve(value) {
 
 pos = is_undefined(pos) ? -1 : 0;
 
-if ((enemyPos.x - x) <= 0) {
+if (enemyPos.x - x <= 0) {
     state = "idle";
 }
 
