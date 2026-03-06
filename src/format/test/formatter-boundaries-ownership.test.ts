@@ -513,4 +513,92 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    // -------------------------------------------------------------------------
+    // Doc-tag alias normalization boundary (target-state.md §2.2)
+    //
+    // Tag-alias normalization (e.g. @func → @function, @arg → @param,
+    // @return → @returns) is a *content rewrite* owned exclusively by the lint
+    // rule `gml/normalize-doc-comments`.  The formatter must preserve any
+    // `/// @tag` line verbatim regardless of whether it is attached as a
+    // docComment node or reaches the formatter as a Prettier-managed comment.
+    // -------------------------------------------------------------------------
+
+    void it("preserves /// @func tag alias verbatim — tag normalization belongs in lint (target-state.md §2.2)", async () => {
+        // A `/// @func` comment that is not directly above a function declaration
+        // reaches the formatter as a Prettier-managed comment, not as a docComment
+        // node.  The formatter must NOT normalise `@func` → `@function`; that
+        // rewrite belongs to @gml-modules/lint (gml/normalize-doc-comments).
+        const source = ["/// @func orphaned_func_tag", "var x = 1;"].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/\s*@func\b/m,
+            "Formatter must preserve /// @func verbatim — @func → @function normalization belongs in lint (target-state.md §2.2)"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/\s*@function\b/m,
+            "Formatter must not silently normalise @func to @function; that is lint-workspace behaviour"
+        );
+    });
+
+    void it("preserves /// @arg tag alias verbatim — tag normalization belongs in lint (target-state.md §2.2)", async () => {
+        // A `/// @arg` comment that is not directly above a function declaration
+        // reaches the formatter as a Prettier-managed comment.  The formatter must
+        // NOT normalise `@arg` → `@param`; that belongs to lint.
+        const source = ["/// @arg {real} value", "var x = value;"].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/\s*@arg\b/m,
+            "Formatter must preserve /// @arg verbatim — @arg → @param normalization belongs in lint (target-state.md §2.2)"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/\s*@param\b/m,
+            "Formatter must not silently normalise @arg to @param; that is lint-workspace behaviour"
+        );
+    });
+
+    void it("preserves /// @return tag alias verbatim — tag normalization belongs in lint (target-state.md §2.2)", async () => {
+        // A `/// @return` comment that is not directly above a function declaration
+        // reaches the formatter as a Prettier-managed comment.  The formatter must
+        // NOT normalise `@return` → `@returns`; that belongs to lint.
+        const source = ["/// @return {real} the value", "var x = 1;"].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/\s*@return\b/m,
+            "Formatter must preserve /// @return verbatim — @return → @returns normalization belongs in lint (target-state.md §2.2)"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/\s*@returns\b/m,
+            "Formatter must not silently normalise @return to @returns; that is lint-workspace behaviour"
+        );
+    });
+
+    void it("preserves /// @func tag alias even when attached as docComment above function (target-state.md §2.2)", async () => {
+        // When a `/// @func` comment is attached as a docComment to a function
+        // declaration, the formatter must also preserve it verbatim.  This
+        // confirms that the docComment path is consistent with the Prettier-managed
+        // comment path (both must be lint-owned).
+        const source = ["/// @func my_func", "function my_func() {", "    return 1;", "}"].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/\s*@func\b/m,
+            "Formatter must preserve /// @func verbatim in docComment position too (target-state.md §2.2)"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/\s*@function\b/m,
+            "Formatter must not normalise @func to @function even in docComment position; that is lint-workspace behaviour"
+        );
+    });
 });

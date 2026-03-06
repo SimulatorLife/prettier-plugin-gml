@@ -232,6 +232,25 @@ function isTripleSlashContinuationInDocBlock(
     return hasDocTagInTripleSlashBlock(comment, originalText);
 }
 
+/**
+ * Returns `true` when the formatter must emit the raw source text of a line
+ * comment verbatim rather than passing it through `Core.formatLineComment`.
+ *
+ * The rule set here enforces the formatter/linter ownership boundary defined in
+ * `target-state.md §2.2`:
+ *
+ * - Double-slash doc annotations (`// @param`, `// @function`, …): preserved so
+ *   that the lint rule `gml/normalize-doc-comments` can upgrade them to triple-
+ *   slash form without the formatter racing ahead.
+ * - Triple-slash doc-tag lines (`/// @func`, `/// @arg`, `/// @return`, …):
+ *   preserved verbatim so that tag-alias normalization (e.g. `@func` → `@function`,
+ *   `@arg` → `@param`, `@return` → `@returns`) is performed exclusively by the
+ *   lint rule, not the formatter.  `Core.formatLineComment` applies
+ *   `applyJsDocTagAliasReplacements` internally; routing `/// @tag` lines through
+ *   that function would silently canonicalise tags that belong to lint.
+ * - All other special-case patterns (banners, separators, continuation lines,
+ *   decorative adjacency) preserve visual structure without mutating content.
+ */
 function shouldPreserveRawFormatterLineComment(
     comment: LineComment,
     rawText: string,
@@ -240,6 +259,7 @@ function shouldPreserveRawFormatterLineComment(
     return (
         isLegacyDoubleSlashDocAnnotation(rawText) ||
         isLegacySingleSlashDocPrefix(rawText) ||
+        isDocTagLine(rawText) ||
         isTripleSlashSeparatorLine(rawText) ||
         isMethodListTripleSlashLine(rawText) ||
         isBannerLikeLineComment(rawText) ||
