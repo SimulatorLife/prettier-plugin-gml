@@ -1,7 +1,7 @@
 some(
     thisArgumentIsQuiteLong,
     function foo(cool, f=function(){ez()}) : bar() constructor {
-        return cool
+        self.cool = cool; self.f=f;
     }
 )
 

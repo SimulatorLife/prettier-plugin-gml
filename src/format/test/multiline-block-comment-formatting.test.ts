@@ -30,6 +30,19 @@ var x = 1;
         assert.equal(formatted, input);
     });
 
+    void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {
+        const input = `/*
+This comment should remain plain text
+No doc-style stars should be inserted
+*/
+
+var x = 1;
+`;
+
+        const formatted = await Format.format(input, { parser: "gml" });
+        assert.strictEqual(formatted, input);
+    });
+
     void it("filters out empty lines from multi-line block comments", async () => {
         const input = `/*
 

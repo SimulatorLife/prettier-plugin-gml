@@ -1449,6 +1449,17 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         }
     }
 
+    const interiorLines = lines.slice(1, -1);
+    const hasInteriorBlankLines = interiorLines.some((line) => line.trim().length === 0);
+    if (!hasInteriorBlankLines) {
+        const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+        if (sourceSpan !== null) {
+            return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
+        }
+
+        return `/*${value}*/`;
+    }
+
     return ["/*", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
 }
 
