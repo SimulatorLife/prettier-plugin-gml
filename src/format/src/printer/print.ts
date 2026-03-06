@@ -325,11 +325,6 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             util.isPreviousLineEmpty(originalText, nodeStartIndex);
-        const shouldPreserveSourceBlankLineAfterDocComments =
-            originalText !== null &&
-            typeof nodeStartIndex === NUMBER_TYPE &&
-            hasExistingBlankLine &&
-            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentEntriesForMetadata, nodeStartIndex, originalText);
         const isTopOfFileDocBlock =
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
@@ -343,11 +338,7 @@ function printNodeDocComments(node, path, options) {
             parts.push(hardline);
         }
 
-        if (shouldPreserveSourceBlankLineAfterDocComments) {
-            parts.push(printableDocCommentBlock, hardline, hardline);
-        } else {
-            parts.push(printableDocCommentBlock, hardline);
-        }
+        parts.push(printableDocCommentBlock, hardline);
     } else {
         if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
             delete node[DOC_COMMENT_OUTPUT_FLAG];
@@ -494,30 +485,6 @@ function resolveDocCommentEndIndex(commentEntry: unknown): number | null {
     }
 
     return null;
-}
-
-function hasOnlyWhitespaceBetweenLastDocCommentAndNode(
-    docCommentDocs: MutableDocCommentLines,
-    nodeStartIndex: number,
-    originalText: string
-): boolean {
-    let lastDocCommentEndIndex: number | null = null;
-    for (const docCommentEntry of docCommentDocs) {
-        const endIndex = resolveDocCommentEndIndex(docCommentEntry);
-        if (endIndex === null) {
-            continue;
-        }
-        if (lastDocCommentEndIndex === null || endIndex > lastDocCommentEndIndex) {
-            lastDocCommentEndIndex = endIndex;
-        }
-    }
-
-    if (lastDocCommentEndIndex === null || nodeStartIndex <= lastDocCommentEndIndex) {
-        return false;
-    }
-
-    const sourceSlice = originalText.slice(lastDocCommentEndIndex + 1, nodeStartIndex);
-    return sourceSlice.trim().length === 0;
 }
 
 function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): void {
@@ -2288,9 +2255,7 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
         return false;
     }
 
-    const withoutBlockComments = betweenText.replaceAll(/\/\*[\s\S]*?\*\//gu, "");
-    const withoutComments = withoutBlockComments.replaceAll(/\/\/[^\r\n]*/gu, "");
-    return /\r?\n[ \t]*\r?\n/u.test(withoutComments);
+    return /\r?\n[ \t]*\r?\n/u.test(betweenText);
 }
 
 function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
@@ -2495,8 +2460,17 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
+        const nextNodePrintsDocCommentBlock =
+            Core.isNonEmptyArray(nextNode?.docComments) || Core.isNonEmptyArray(nextNode?._syntheticDocLines);
 
-        if ((!nextNodeHasLeadingComment && !nextNodeHasCommentGap) || nextNodeHasBlockCommentImmediatelyBefore) {
+        const shouldPreserveSourceGapBeforeDocCommentedNode =
+            nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
+
+        if (
+            (!nextNodeHasLeadingComment && !nextNodeHasCommentGap) ||
+            nextNodeHasBlockCommentImmediatelyBefore ||
+            shouldPreserveSourceGapBeforeDocCommentedNode
+        ) {
             parts.push(hardlineDoc);
         }
     }
