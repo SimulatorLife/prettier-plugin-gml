@@ -2637,14 +2637,6 @@ function resolveDocParamOptionality(functionNode, paramName, options) {
         }
     }
 
-    const sourceLines = collectDocLinesFromSource(functionNode, options);
-    if (sourceLines.length > 0) {
-        const optionalFlag = getDocParamOptionality(sourceLines, paramName);
-        if (optionalFlag !== null) {
-            return optionalFlag;
-        }
-    }
-
     return null;
 }
 
@@ -2673,44 +2665,6 @@ function collectDocLinesFromFunctionComments(functionNode, options) {
         }
 
         docLines.push(rawValue);
-    }
-
-    return docLines;
-}
-
-function collectDocLinesFromSource(functionNode, options) {
-    const originalText = getOriginalTextFromOptions(options);
-    if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
-        return [];
-    }
-
-    const fnStart = Core.getNodeStartIndex(functionNode);
-    if (typeof fnStart !== NUMBER_TYPE) {
-        return [];
-    }
-
-    const prefix = originalText.slice(0, fnStart);
-    const lines = Core.splitLines(prefix);
-    const docLines = [];
-
-    for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const trimmedLine = lines[i].trim();
-        if (trimmedLine === "") {
-            continue;
-        }
-
-        if (trimmedLine.startsWith("///")) {
-            docLines.unshift(trimmedLine);
-        } else if (trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/")) {
-            const content = trimmedLine.slice(2, -2).trim();
-            docLines.unshift(`/// ${content}`);
-        } else if (trimmedLine.startsWith("//")) {
-            if (trimmedLine.includes("@param") || trimmedLine.includes("@function")) {
-                docLines.unshift(`/// ${trimmedLine.replace(/^\/+/u, "").trim()}`);
-            }
-        } else {
-            break;
-        }
     }
 
     return docLines;

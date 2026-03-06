@@ -140,6 +140,24 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not infer optional defaults from raw legacy // @param text", async () => {
+        const source = [
+            "// @function legacy_optional(val)",
+            "// @param [val] {real}",
+            "function legacy_optional(val = undefined) {",
+            "    return val;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function legacy_optional\(val\)/,
+            "Formatter must not infer optional parameter semantics from raw legacy // comments; normalization and semantic interpretation belong in lint."
+        );
+    });
+
     void it("never synthesizes function doc-comments for declarations or function assignments", async () => {
         const source = [
             "function declared(alpha, beta) {",
