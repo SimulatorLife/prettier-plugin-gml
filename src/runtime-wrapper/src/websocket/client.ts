@@ -149,36 +149,35 @@ function deduplicatePatchQueueById(patches: Array<unknown>): {
     patches: Array<unknown>;
     duplicateCount: number;
 } {
-    // Track the last index in the batch for each patch ID.
-    const lastIndexById = new Map<string, number>();
-    let identifiedCount = 0;
+    // Walk backward so the first occurrence we encounter for each ID is the
+    // most-recent patch that should be retained.
+    const seenIds = new Set<string>();
+    const deduplicatedReversed: Array<unknown> = [];
+    let duplicateCount = 0;
 
-    for (const [i, patch] of patches.entries()) {
+    for (let i = patches.length - 1; i >= 0; i--) {
+        const patch = patches[i];
         const id = extractPatchId(patch);
-        if (id !== null) {
-            lastIndexById.set(id, i);
-            identifiedCount++;
+        if (id === null) {
+            deduplicatedReversed.push(patch);
+            continue;
         }
+
+        if (seenIds.has(id)) {
+            duplicateCount += 1;
+            continue;
+        }
+
+        seenIds.add(id);
+        deduplicatedReversed.push(patch);
     }
 
-    // Fast path: every patch with an ID has a unique ID — no duplicates present.
-    if (lastIndexById.size === identifiedCount) {
+    if (duplicateCount === 0) {
         return { patches, duplicateCount: 0 };
     }
 
-    // Build the deduplicated list: keep the last occurrence of each ID and
-    // always keep patches that have no string ID (they cannot be matched).
-    const lastIndices = new Set(lastIndexById.values());
-    const deduplicated: Array<unknown> = [];
-
-    for (const [i, patch] of patches.entries()) {
-        const id = extractPatchId(patch);
-        if (id === null || lastIndices.has(i)) {
-            deduplicated.push(patch);
-        }
-    }
-
-    return { patches: deduplicated, duplicateCount: patches.length - deduplicated.length };
+    deduplicatedReversed.reverse();
+    return { patches: deduplicatedReversed, duplicateCount };
 }
 
 /**

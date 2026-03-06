@@ -766,6 +766,70 @@ void test("patch queue deduplicates preserving the latest body of each patch", a
     }
 });
 
+void test("patch queue deduplication preserves patches without string IDs", async () => {
+    let capturedBatch: Array<unknown> | null = null;
+
+    const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 500,
+            maxQueueSize: 50
+        },
+        wrapperMutator: (wrapper) => {
+            wrapper.applyPatchBatch = (patches: Array<unknown>) => {
+                capturedBatch = patches;
+                return {
+                    success: true,
+                    version: wrapper.getVersion(),
+                    appliedCount: patches.length,
+                    rolledBack: false
+                };
+            };
+            return wrapper;
+        }
+    });
+
+    try {
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:stable", js_body: "return 1;" }));
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:stable", js_body: "return 2;" }));
+        ws.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: 42,
+                js_body: "return 99;"
+            })
+        );
+
+        await waitForQueueMetrics(
+            client,
+            "queue to capture duplicate and unidentifiable patches",
+            (snapshot) => snapshot.totalQueued === 3
+        );
+
+        client.flushPatchQueue();
+
+        const metrics = await waitForQueueMetrics(
+            client,
+            "queue to flush deduplicated and unidentifiable patches",
+            (snapshot) => snapshot.flushCount === 1,
+            300
+        );
+
+        assert.strictEqual(metrics.totalDeduplicated, 1, "Only duplicate string IDs should be deduplicated");
+        assert.ok(capturedBatch, "Expected applyPatchBatch to be invoked");
+        assert.strictEqual(capturedBatch.length, 2, "Latest duplicate and non-string-id patch should both be retained");
+
+        const latestStablePatch = capturedBatch[0] as { id: string; js_body: string };
+        const nonStringIdPatch = capturedBatch[1] as { id: number; js_body: string };
+        assert.strictEqual(latestStablePatch.id, "script:stable");
+        assert.strictEqual(latestStablePatch.js_body, "return 2;");
+        assert.strictEqual(nonStringIdPatch.id, 42);
+        assert.strictEqual(nonStringIdPatch.js_body, "return 99;");
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
 void test("patch queue does not deduplicate patches with different IDs", async () => {
     const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
         patchQueue: {
