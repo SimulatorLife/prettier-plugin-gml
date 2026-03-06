@@ -1,8 +1,8 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
-import { dominantLineEnding } from "../rule-helpers.js";
 
 const DECORATIVE_BANNER_RUN_PATTERN = /[/\\_*#<>|:~-]{6,}/u;
 const DECORATIVE_CHARACTER_PATTERN = /^[\s/\\_*#<>|:~-]+$/u;
@@ -238,7 +238,7 @@ export function createNormalizeBannerCommentsRule(definition: GmlRuleDefinition)
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(sourceText);
+                    const lineEnding = Core.dominantLineEnding(sourceText);
                     const sourceLines = sourceText.split(/\r?\n/u);
                     const rewrittenLines = normalizeBannerCommentLines(sourceLines);
                     const rewrittenText = rewrittenLines.join(lineEnding);

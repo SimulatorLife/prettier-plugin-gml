@@ -34,10 +34,6 @@ function isIdentifier(value: string): boolean {
     return Core.GML_IDENTIFIER_NAME_PATTERN.test(value);
 }
 
-function dominantLineEnding(sourceText: string): "\n" | "\r\n" {
-    return sourceText.includes("\r\n") ? "\r\n" : "\n";
-}
-
 function getLineStartOffset(sourceText: string, offset: number): number {
     return sourceText.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
 }
@@ -317,7 +313,7 @@ export function applyLoopLengthHoistingCodemod(
     }
 
     const localIdentifierNames = new Set(collectIdentifierNamesInSubtree(ast));
-    const lineEnding = dominantLineEnding(sourceText);
+    const lineEnding = Core.dominantLineEnding(sourceText);
     const loopContexts = collectForStatementContainerContexts(ast);
 
     const edits: Array<LoopLengthHoistingEdit> = [];
