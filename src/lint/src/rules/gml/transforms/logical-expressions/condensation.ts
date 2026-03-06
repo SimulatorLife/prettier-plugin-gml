@@ -1196,39 +1196,25 @@ function collapseAssociativeTerms(type, terms) {
     return result;
 }
 
-function applyAbsorption(type, terms) {
+function applyAbsorption(outerType, terms) {
     if (terms.length < 2) {
         return terms;
     }
 
-    if (type === BOOLEAN_NODE_TYPES.OR) {
-        return absorbOrTerms(terms);
-    }
-
-    return absorbAndTerms(terms);
+    return absorbTermsForOperator(outerType, terms);
 }
 
-function absorbOrTerms(terms) {
+// Absorption law: `(A ∧ B) ∨ A` → `A` (when outerType=OR, removes AND sub-terms absorbed by
+// a peer), and dually `(A ∨ B) ∧ A` → `A` (when outerType=AND, removes OR sub-terms).
+// The inner type to absorb is always the complement of the outer operator.
+function absorbTermsForOperator(outerType, terms) {
+    const innerType = outerType === BOOLEAN_NODE_TYPES.AND ? BOOLEAN_NODE_TYPES.OR : BOOLEAN_NODE_TYPES.AND;
+
     const result = [];
 
     for (let i = 0; i < terms.length; i++) {
         const term = terms[i];
-        if (term.type === BOOLEAN_NODE_TYPES.AND && hasContainingTerm(term.terms, terms, i)) {
-            continue;
-        }
-
-        result.push(term);
-    }
-
-    return result;
-}
-
-function absorbAndTerms(terms) {
-    const result = [];
-
-    for (let i = 0; i < terms.length; i++) {
-        const term = terms[i];
-        if (term.type === BOOLEAN_NODE_TYPES.OR && hasContainingTerm(term.terms, terms, i)) {
+        if (term.type === innerType && hasContainingTerm(term.terms, terms, i)) {
             continue;
         }
 
@@ -1328,13 +1314,8 @@ function factorBooleanExpression(expression) {
                 ? createBooleanAnd(factoredChildren)
                 : createBooleanOr(factoredChildren);
 
-        if (rebuilt.type === BOOLEAN_NODE_TYPES.OR) {
-            const factored = factorOrExpression(rebuilt);
-            return simplifyBooleanExpression(factored);
-        }
-
-        if (rebuilt.type === BOOLEAN_NODE_TYPES.AND) {
-            const factored = factorAndExpression(rebuilt);
+        if (rebuilt.type === BOOLEAN_NODE_TYPES.OR || rebuilt.type === BOOLEAN_NODE_TYPES.AND) {
+            const factored = factorAssociativeExpression(rebuilt);
             return simplifyBooleanExpression(factored);
         }
 
@@ -1348,77 +1329,32 @@ function factorBooleanExpression(expression) {
     return expression;
 }
 
-function factorOrExpression(expression) {
+// Factoring law: `(A ∧ B) ∨ (A ∧ C)` → `A ∧ (B ∨ C)`, and dually
+// `(A ∨ B) ∧ (A ∨ C)` → `A ∨ (B ∧ C)`.
+//
+// For an expression of `outerType` (AND or OR) this function looks for inner
+// sub-terms of the complementary `innerType` that share a common factor, then
+// rewrites the expression by lifting the shared factor out.  The two former
+// specialisations (`factorOrExpression` and `factorAndExpression`) were
+// structurally identical except with AND and OR swapped throughout; this
+// unified helper derives every operator/constructor pair from `outerType` so
+// the duality is expressed once and maintained in one place.
+function factorAssociativeExpression(expression) {
+    const outerType = expression.type; // BOOLEAN_NODE_TYPES.AND or .OR
+    const innerType = outerType === BOOLEAN_NODE_TYPES.AND ? BOOLEAN_NODE_TYPES.OR : BOOLEAN_NODE_TYPES.AND;
+    const createOuter = outerType === BOOLEAN_NODE_TYPES.AND ? createBooleanAnd : createBooleanOr;
+    const createInner = outerType === BOOLEAN_NODE_TYPES.AND ? createBooleanOr : createBooleanAnd;
+
     const candidateFactors = new Map();
-    const andTerms = [];
+    const innerTermCollections = [];
 
     for (const [index, term] of expression.terms.entries()) {
-        if (term.type === BOOLEAN_NODE_TYPES.AND) {
+        if (term.type === innerType) {
             const factors = term.terms.map((factor, position) => ({
                 factor,
                 position
             }));
-            andTerms.push({ term, index, factors });
-            for (const { factor } of factors) {
-                const key = booleanExpressionKey(factor);
-                const occurrences = getOrCreateMapEntry(candidateFactors, key, () => []);
-                occurrences.push({
-                    termIndex: index,
-                    factor
-                });
-            }
-        }
-    }
-
-    let best = null;
-
-    for (const [key, occurrences] of candidateFactors.entries()) {
-        if (occurrences.length < 2) {
-            continue;
-        }
-
-        const factor = occurrences[0].factor;
-        const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
-        const { residualTerms, factorPosition } = buildResidualTermsForKey(
-            andTerms,
-            involvedIndices,
-            key,
-            createBooleanAnd
-        );
-
-        if (factorPosition == undefined) {
-            continue;
-        }
-
-        const otherTerms = expression.terms.filter((_, index) => !involvedIndices.has(index));
-
-        const factoredOr = createBooleanOr(residualTerms);
-        const orderedAndTerms = factorPosition > 0 ? [factoredOr, factor] : [factor, factoredOr];
-        const candidate =
-            otherTerms.length === 0
-                ? createBooleanAnd(orderedAndTerms)
-                : createBooleanOr([createBooleanAnd(orderedAndTerms), ...otherTerms]);
-
-        const simplifiedCandidate = simplifyBooleanExpression(candidate);
-        if (!best || compareExpressionComplexity(simplifiedCandidate, best) < 0) {
-            best = simplifiedCandidate;
-        }
-    }
-
-    return best ?? expression;
-}
-
-function factorAndExpression(expression) {
-    const candidateFactors = new Map();
-    const orTerms = [];
-
-    for (const [index, term] of expression.terms.entries()) {
-        if (term.type === BOOLEAN_NODE_TYPES.OR) {
-            const factors = term.terms.map((factor, position) => ({
-                factor,
-                position
-            }));
-            orTerms.push({ term, index, factors });
+            innerTermCollections.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
                 const occurrences = getOrCreateMapEntry(candidateFactors, key, () => []);
@@ -1437,10 +1373,10 @@ function factorAndExpression(expression) {
         const factor = occurrences[0].factor;
         const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
         const { residualTerms, factorPosition } = buildResidualTermsForKey(
-            orTerms,
+            innerTermCollections,
             involvedIndices,
             key,
-            createBooleanOr
+            createInner
         );
 
         if (factorPosition == undefined) {
@@ -1449,12 +1385,12 @@ function factorAndExpression(expression) {
 
         const otherTerms = expression.terms.filter((_, index) => !involvedIndices.has(index));
 
-        const factoredAnd = createBooleanAnd(residualTerms);
-        const orderedOrTerms = factorPosition > 0 ? [factoredAnd, factor] : [factor, factoredAnd];
+        const factoredResult = createOuter(residualTerms);
+        const orderedTerms = factorPosition > 0 ? [factoredResult, factor] : [factor, factoredResult];
         const candidate =
             otherTerms.length === 0
-                ? createBooleanOr(orderedOrTerms)
-                : createBooleanAnd([createBooleanOr(orderedOrTerms), ...otherTerms]);
+                ? createInner(orderedTerms)
+                : createOuter([createInner(orderedTerms), ...otherTerms]);
 
         const simplifiedCandidate = simplifyBooleanExpression(candidate);
         if (!best || compareExpressionComplexity(simplifiedCandidate, best) < 0) {
