@@ -2,11 +2,6 @@ import { Core } from "@gml-modules/core";
 
 const { isNonEmptyTrimmedString } = Core;
 
-const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
-    "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";
-const KEEP_VERTEX_FORMAT_COMMENT_TEXT =
-    "// If a vertex format might be completed within a function call, then it should be kept";
-
 const VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN = /(vertex_format_begin\(\);\n)(?:[ \t]*\n)+([^\n]+)/g;
 const CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN = /([^\n]+\);\s*)\n(?:[ \t]*\n)+([^\n]*vertex_format_end\(\);)/g;
 
@@ -54,12 +49,6 @@ function isVertexFormatEndAssignmentLine(line: string): boolean {
     return /^(?:const|let|var\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=\s*vertex_format_end\(\)$/.test(
         normalized
     );
-}
-
-function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
-    const target = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
-    const replacement = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
-    return formatted.includes(target) ? formatted.replace(target, replacement) : formatted;
 }
 
 function collapseVertexFormatBeginSpacing(formatted: string): string {
@@ -266,7 +255,6 @@ function ensureTrailingNewline(formatted: string): string {
 
 export function normalizeFormattedOutput(formatted: string): string {
     const normalized = [
-        ensureBlankLineBetweenVertexFormatComments,
         collapseDuplicateBlankLines,
         collapseBlockOpeningBlankLines,
         ensureTrailingNewline,
