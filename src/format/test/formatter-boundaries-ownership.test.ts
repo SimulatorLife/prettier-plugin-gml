@@ -142,6 +142,47 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not normalize standalone /// @tag alias lines (normalization belongs in lint)", async () => {
+        // Standalone triple-slash doc-tag alias lines must be returned verbatim.
+        // Content rewrites — tag-alias normalization (@func → @function,
+        // @desc → @description, @return → @returns, @arg → @param) and
+        // parameter-list stripping (/// @function name(args) → name) — are
+        // owned exclusively by `gml/normalize-doc-comments` in @gml-modules/lint.
+        // (target-state.md §2.2, §3.2)
+        const source = [
+            "var x = 1;",
+            "/// @func my_helper(a)",
+            "/// @desc Returns a value",
+            "/// @return {real}",
+            "/// @arg {real} a",
+            "var y = 2;",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @func my_helper\(a\)$/m,
+            "Formatter must not normalize @func to @function — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @desc Returns a value$/m,
+            "Formatter must not normalize @desc to @description — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @return \{real\}$/m,
+            "Formatter must not normalize @return to @returns — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @arg \{real\} a$/m,
+            "Formatter must not normalize @arg to @param — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+    });
+
     void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
         // Legacy double-slash `// @function` doc comments are normalised by the
         // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter
