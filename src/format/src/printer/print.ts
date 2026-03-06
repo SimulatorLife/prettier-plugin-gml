@@ -1790,9 +1790,7 @@ function buildStructPropertyCommentSuffix(path, options) {
         }
     }
 
-    const filteredCommentDocs = commentDocs.filter(
-        (doc) => typeof doc === "string" && doc.trim() !== "/// @description"
-    );
+    const filteredCommentDocs = commentDocs.filter((doc) => typeof doc === "string");
 
     if (filteredCommentDocs.length === 0) {
         return "";

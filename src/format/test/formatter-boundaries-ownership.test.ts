@@ -410,4 +410,41 @@ void describe("formatter boundaries ownership", () => {
             ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join("\n")
         );
     });
+
+    void it("does not strip empty /// @description doc-comment lines (cleanup belongs in lint)", async () => {
+        // Removing empty `/// @description` tags is a doc-comment content rewrite
+        // owned by `@gml-modules/lint`'s `gml/normalize-doc-comments` rule
+        // (target-state.md §2.2 — "Lint owns `@description` promotion/cleanup").
+        // The formatter must preserve empty @description lines verbatim so that
+        // lint can make an intentional, auditable decision about whether to remove them.
+        const standaloneSource = ["/// @description", "function demo() {", "    return 1;", "}"].join("\n");
+
+        const standaloneFormatted = await Format.format(standaloneSource);
+
+        assert.match(
+            standaloneFormatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description tags — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+
+        // Struct literal context: the formatter must preserve empty @description
+        // as a leading doc-comment line on struct properties too.
+        const structSource = [
+            "var obj = {",
+            "    /// @description",
+            "    method: function () {",
+            "        return 1;",
+            "    }",
+            "};",
+            ""
+        ].join("\n");
+
+        const structFormatted = await Format.format(structSource);
+
+        assert.match(
+            structFormatted,
+            /^[ \t]*\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description from struct literal properties — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+    });
 });
