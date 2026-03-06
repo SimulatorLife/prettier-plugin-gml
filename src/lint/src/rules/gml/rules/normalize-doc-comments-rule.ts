@@ -15,7 +15,6 @@ import {
     reportFullTextRewrite,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
-import { dominantLineEnding } from "../rule-helpers.js";
 
 const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 
@@ -1029,7 +1028,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
             return Object.freeze({
                 Program(programNode) {
                     const text = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(text);
+                    const lineEnding = CoreWorkspace.Core.dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const lineStartOffsets = computeLineStartOffsets(text);
                     const functionNodesByLineIndex = collectFunctionNodesByStartLine(programNode, lineStartOffsets);

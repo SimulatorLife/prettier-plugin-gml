@@ -1,8 +1,8 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
-import { dominantLineEnding } from "../rule-helpers.js";
 
 type BracedSingleClause = Readonly<{
     indentation: string;
@@ -171,7 +171,7 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(text);
+                    const lineEnding = Core.dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines: Array<string> = [];
                     let inMacroContinuation = false;
