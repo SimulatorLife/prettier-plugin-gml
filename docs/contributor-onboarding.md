@@ -47,6 +47,9 @@ pnpm run lint
 pnpm run format:check
 ```
 
+Cross-module integration fixtures under `test/fixtures/integration/` are root-level
+integration coverage and run only through `pnpm run test`.
+
 Fixtures under `src/format/test/` and `src/parser/test/input/` are golden—do not
 edit them unless you are intentionally changing formatter or parser output.
 

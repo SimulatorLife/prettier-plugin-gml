@@ -274,13 +274,13 @@ async function runIntegrationLintPass(
 
 const integrationCases = await loadIntegrationCases();
 
-void describe("Format integration fixtures", () => {
-    void it("discovers integration fixture cases", () => {
+void describe("Cross-module integration fixtures", () => {
+    void it("discovers cross-module integration fixture cases", () => {
         assert.equal(integrationCases.length > 0, true, "Expected at least one integration fixture case.");
     });
 
     for (const { baseName, inputSource, expectedOutput, options, lintRules, expectParseError } of integrationCases) {
-        void it(`formats ${baseName}`, async () => {
+        void it(`runs integration case ${baseName}`, async () => {
             if (expectParseError) {
                 await assert.rejects(
                     Format.format(inputSource, options ?? undefined),
