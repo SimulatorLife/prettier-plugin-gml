@@ -545,7 +545,6 @@ void test("normalize-doc-comments removes placeholder description equal to funct
         "/// @param filename",
         "/// @param buffer",
         "/// @param compile",
-        "/// @returns {undefined}",
         "function __ChatterboxClassSource(_filename, _buffer, _compile) constructor { /* ... */ }",
         ""
     ].join("\n");
@@ -707,6 +706,16 @@ void test("normalize-doc-comments does not synthesize @returns for constructor a
     const input = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
     const result = lintWithRule("normalize-doc-comments", input, {});
     assert.equal(result.output, input);
+});
+
+void test("normalize-doc-comments removes existing @returns for constructor assignments", () => {
+    const input = ["/// @returns {undefined}", "item = function () constructor {", "    value = 1;", "};", ""].join(
+        "\n"
+    );
+    const expected = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
 });
 
 void test("normalize-doc-comments skips synthetic docs for inline struct property function values", () => {

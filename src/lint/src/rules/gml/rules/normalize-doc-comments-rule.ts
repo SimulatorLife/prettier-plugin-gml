@@ -667,6 +667,11 @@ function synthesizeFunctionDocCommentBlock(
     const existingParamTypesByName = collectDocCommentParamTypesByName(block);
     const existingReturnLines = block.filter((line) => /^\s*\/\/\/\s*@returns?/u.test(line));
     let hasReturns = existingReturnLines.length > 0;
+    const suppressSyntheticReturns = shouldSuppressSyntheticReturnsForFunctionNode(functionNode);
+    if (suppressSyntheticReturns && hasReturns) {
+        removeReturnDocLines(block);
+        hasReturns = false;
+    }
     for (const line of block) {
         const metadata = parseDocCommentParamMetadata(line);
         if (metadata) {
@@ -729,7 +734,7 @@ function synthesizeFunctionDocCommentBlock(
         returnInference,
         inferredReturnType,
         hasExistingReturnLine: hasReturns,
-        suppressSyntheticReturns: shouldSuppressSyntheticReturnsForFunctionNode(functionNode)
+        suppressSyntheticReturns
     });
 
     if (hasReturns && shouldSynthesizeReturnLine) {
@@ -797,26 +802,28 @@ function dropFloatingParamDocCommentLines(docLines: ReadonlyArray<string>): Read
         return docLines;
     }
 
-    return docLines
-        .filter((line) => !isParamDocCommentLine(line))
-        .filter((line) => line.trimStart() !== "///");
+    return docLines.filter((line) => !isParamDocCommentLine(line)).filter((line) => line.trimStart() !== "///");
 }
 
 function flushDetachedDocCommentBlock(
     rewrittenLines: Array<string>,
     pendingDocBlock: ReadonlyArray<string>,
-    pendingGapLines: ReadonlyArray<string>
+    pendingGapLines: ReadonlyArray<string>,
+    dropFloatingParamLines: boolean
 ): void {
     if (pendingDocBlock.length === 0) {
         return;
     }
 
-    const processedDetachedDocBlock = dropFloatingParamDocCommentLines(processDocBlock(Array.from(pendingDocBlock)));
-    if (processedDetachedDocBlock.length === 0) {
+    const processedDetachedDocBlock = processDocBlock(Array.from(pendingDocBlock));
+    const normalizedDetachedDocBlock = dropFloatingParamLines
+        ? dropFloatingParamDocCommentLines(processedDetachedDocBlock)
+        : processedDetachedDocBlock;
+    if (normalizedDetachedDocBlock.length === 0) {
         return;
     }
 
-    rewrittenLines.push(...processedDetachedDocBlock, ...pendingGapLines);
+    rewrittenLines.push(...normalizedDetachedDocBlock, ...pendingGapLines);
 }
 
 function applyJsDocTagAliasLine(line: string): string {
@@ -1000,6 +1007,9 @@ function synthesizeTextFallbackDocCommentBlock({
     );
     const functionHeaderCount = countTopLevelFunctionHeaders(lines);
     const isConstructorFunctionLine = isTextualConstructorFunctionLine(line);
+    if (isConstructorFunctionLine && hasReturnLine) {
+        removeReturnDocLines(fallbackBlock);
+    }
 
     if (!hasReturnLine && !isConstructorFunctionLine) {
         if (inferredReturnType !== null) {
@@ -1039,7 +1049,8 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                 flushDetachedDocCommentBlock(
                                     rewrittenLines,
                                     pendingDocBlock,
-                                    pendingGapLinesAfterDocBlock
+                                    pendingGapLinesAfterDocBlock,
+                                    true
                                 );
                                 pendingDocBlock = [];
                                 pendingGapLinesAfterDocBlock = [];
@@ -1100,8 +1111,8 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                 deferredDocBlocksByLineIndex
                             );
 
-                            if (synthesized && synthesized.length > 0) {
-                                if (!deferredSynthesisHandled) {
+                            if (synthesized !== null) {
+                                if (synthesized.length > 0 && !deferredSynthesisHandled) {
                                     rewrittenLines.push(...synthesized);
                                 }
                             } else if (processedBlock.length > 0) {
@@ -1110,7 +1121,12 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                             pendingDocBlock = [];
                             pendingGapLinesAfterDocBlock = [];
                         } else {
-                            flushDetachedDocCommentBlock(rewrittenLines, pendingDocBlock, pendingGapLinesAfterDocBlock);
+                            flushDetachedDocCommentBlock(
+                                rewrittenLines,
+                                pendingDocBlock,
+                                pendingGapLinesAfterDocBlock,
+                                false
+                            );
                             pendingDocBlock = [];
                             pendingGapLinesAfterDocBlock = [];
                         }
@@ -1123,7 +1139,12 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                     }
 
                     if (pendingDocBlock.length > 0) {
-                        flushDetachedDocCommentBlock(rewrittenLines, pendingDocBlock, pendingGapLinesAfterDocBlock);
+                        flushDetachedDocCommentBlock(
+                            rewrittenLines,
+                            pendingDocBlock,
+                            pendingGapLinesAfterDocBlock,
+                            false
+                        );
                     }
 
                     const rewritten = rewrittenLines.join(lineEnding);

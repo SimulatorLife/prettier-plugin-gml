@@ -371,3 +371,23 @@ void test("normalize-doc-comments still synthesizes @param tags for constructors
     assert.match(output, /^\/\/\/ @param \[amount=1\]$/m);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });
+
+void test("normalize-doc-comments removes existing @returns tags for constructors", () => {
+    const input = [
+        "/// @param value",
+        "/// @returns {undefined}",
+        "function __ChatterboxBufferBatch(_value) constructor {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+    const expected = [
+        "/// @param value",
+        "function __ChatterboxBufferBatch(_value) constructor {",
+        "    return;",
+        "}"
+    ].join("\n");
+
+    assert.equal(output, expected);
+    assert.doesNotMatch(output, /^\/\/\/ @returns/m);
+});
