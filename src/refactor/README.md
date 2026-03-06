@@ -311,6 +311,142 @@ Benefits:
 - Returns structured conflict information per scope
 - Handles both scoped and global (unscoped) occurrences correctly
 
+### Naming Convention Enforcement (Policy Config)
+
+The refactor module should support a single naming-policy config that defines
+how each symbol scope/type must be named, then use that policy during validation
+and rename planning.
+
+#### Policy Shape
+
+```ts
+type NamingCaseStyle =
+    | "lower"
+    | "upper"
+    | "camel"
+    | "snake"
+    | "pascal";
+
+type NamingRule = {
+    enabled: boolean;
+    prefix: string;
+    suffix: string;
+    caseStyle: NamingCaseStyle;
+};
+
+type NamingConventionPolicy = {
+    function: NamingRule;
+    constructorFunction: NamingRule;
+    eventHandlerFunction: NamingRule;
+    structDeclaration: NamingRule;
+    structMethod: NamingRule;
+    staticMethod: NamingRule;
+    localVariable: NamingRule;
+    loopIndexVariable: NamingRule;
+    temporaryVariable: NamingRule;
+    globalVariable: NamingRule;
+    instanceVariable: NamingRule;
+    staticVariable: NamingRule;
+    argument: NamingRule;
+    catchArgument: NamingRule;
+    macro: NamingRule;
+    enum: NamingRule;
+    enumMember: NamingRule;
+    structField: NamingRule;
+    scriptResourceName: NamingRule;
+    objectResourceName: NamingRule;
+    roomResourceName: NamingRule;
+    spriteResourceName: NamingRule;
+    audioResourceName: NamingRule;
+    timelineResourceName: NamingRule;
+    shaderResourceName: NamingRule;
+};
+```
+
+#### Example Config
+
+```json
+{
+    "namingConventionPolicy": {
+        "function": {
+            "enabled": true,
+            "prefix": "scr_",
+            "suffix": "",
+            "caseStyle": "snake_case"
+        },
+        "localVariable": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "camelcase"
+        },
+        "globalVariable": {
+            "enabled": true,
+            "prefix": "g_",
+            "suffix": "",
+            "caseStyle": "snake_case"
+        },
+        "instanceVariable": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "camelcase"
+        },
+        "staticVariable": {
+            "enabled": true,
+            "prefix": "s_",
+            "suffix": "",
+            "caseStyle": "snake_case"
+        },
+        "macro": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "uppercase"
+        },
+        "enum": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "pascalcase"
+        },
+        "enumMember": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "uppercase"
+        },
+        "structField": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "camelcase"
+        },
+        "argument": {
+            "enabled": true,
+            "prefix": "",
+            "suffix": "",
+            "caseStyle": "camelcase"
+        }
+    }
+}
+```
+
+#### Enforcement Model
+
+- Identify each symbol's scope/type from semantic data (function, local, global, etc.).
+- Resolve the corresponding rule from `namingConventionPolicy`.
+- Validate in this order: prefix -> suffix -> case style (on the core name).
+- Emit diagnostics for violations and provide refactor-driven rename plans to fix them.
+- Run existing rename conflict checks before applying any generated rename transaction.
+
+#### Notes
+
+- Prefix/suffix matching should be strict and case-sensitive.
+- Case style applies to the core name after removing configured prefix/suffix.
+- If `enabled` is `false` for a scope/type, no naming rule is enforced for that category.
+- This policy should remain centralized so IDE/CLI integrations enforce the same naming behavior.
+
 ### Rename Operations
 
 #### Single Symbol Rename
