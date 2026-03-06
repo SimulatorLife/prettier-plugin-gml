@@ -278,9 +278,6 @@ function printComment(commentPath, options) {
                 options?.originalText
             );
             let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
-            if (normalized.trim() === "/// @description") {
-                return "";
-            }
             if (normalized === "") {
                 if (/^\s*\/\/\/\s*$/.test(rawText)) {
                     collapseSuppressedTripleSlashSeparatorWhitespace(comment);
