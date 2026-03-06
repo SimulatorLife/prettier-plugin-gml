@@ -45,6 +45,27 @@ void test("executeLoopLengthHoistingCodemod supports dry-run mode", async () => 
     assert.equal(result.applied.has("/project/changed.gml"), true);
 });
 
+void test("executeLoopLengthHoistingCodemod de-duplicates repeated file paths", async () => {
+    const engine = new Refactor.RefactorEngine();
+    const reads: Array<string> = [];
+
+    const result = await engine.executeLoopLengthHoistingCodemod({
+        filePaths: ["/project/changed.gml", "/project/changed.gml"],
+        readFile: async (filePath) => {
+            reads.push(filePath);
+            return `for (var i = 0; i < array_length(items); i++) {
+    total += i;
+}
+`;
+        },
+        writeFile: async () => {}
+    });
+
+    assert.equal(reads.length, 2);
+    assert.deepEqual(new Set(reads), new Set(["/project/changed.gml"]));
+    assert.equal(result.changedFiles.length, 1);
+});
+
 void test("executeLoopLengthHoistingCodemod validates required file paths", async () => {
     const engine = new Refactor.RefactorEngine();
 

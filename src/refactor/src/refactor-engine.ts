@@ -1054,11 +1054,13 @@ export class RefactorEngine {
             errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
         });
 
+        const uniqueFilePaths = [...new Set(filePaths)];
+
         const workspace = new WorkspaceEdit();
         const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
 
         const codemodResults = await Promise.all(
-            filePaths.map(async (filePath) => {
+            uniqueFilePaths.map(async (filePath) => {
                 Core.assertNonEmptyString(filePath, {
                     errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
                 });
