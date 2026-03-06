@@ -2586,6 +2586,152 @@ export class ScopeTracker {
 
         return result;
     }
+
+    /**
+     * Sorts an iterable of file paths in dependency order suitable for
+     * incremental re-analysis.
+     *
+     * In the returned order a file that *declares* symbols consumed by another
+     * file in the input set comes *before* that consuming file. Parsing files in
+     * this order ensures that each file's declarations are already present in the
+     * scope tracker when the files that reference them are processed.
+     *
+     * **Typical hot-reload workflow**:
+     * 1. Call `getImpactedFilePaths` to compute the full re-analysis set.
+     * 2. Call `sortPathsForReanalysis` on that set *before* any scopes are cleared,
+     *    while the current dependency graph is still intact.
+     * 3. Call `clearScopesForPath` for each path in the impacted set.
+     * 4. Re-analyse (parse + declare/reference) each path in the order returned here.
+     *
+     * Scopes without a `path` in their metadata are excluded. Cycles are broken
+     * by appending the remaining paths in stable (alphabetical) order. Paths
+     * that have no registered scopes are included at the front of the result.
+     *
+     * @param paths - Iterable of file paths to order for re-analysis.
+     * @returns Ordered array of file paths: dependency providers come first.
+     */
+    public sortPathsForReanalysis(paths: Iterable<string>): string[] {
+        // --- 1. Collect and normalise unique input paths ----------------------
+        const normalizedToOriginal = new Map<string, string>();
+
+        for (const p of paths) {
+            if (!p || typeof p !== "string" || p.length === 0) {
+                continue;
+            }
+            const normalized = this.normalizeTrackedPath(p);
+            if (!normalizedToOriginal.has(normalized)) {
+                normalizedToOriginal.set(normalized, p);
+            }
+        }
+
+        if (normalizedToOriginal.size === 0) {
+            return [];
+        }
+
+        if (normalizedToOriginal.size === 1) {
+            return [...normalizedToOriginal.values()];
+        }
+
+        const pathSet = new Set(normalizedToOriginal.keys());
+
+        // --- 2. Build dependency edges (A → B means A must come after B) -----
+        // outEdges[A] = set of paths B where A depends on B
+        const outEdges = new Map<string, Set<string>>();
+        // inDegree[A] = number of paths in pathSet that A depends on
+        const inDegree = new Map<string, number>();
+        // reverseEdges[B] = set of paths A that depend on B (for propagation)
+        const reverseEdges = new Map<string, Set<string>>();
+
+        for (const normalized of pathSet) {
+            outEdges.set(normalized, new Set());
+            inDegree.set(normalized, 0);
+            reverseEdges.set(normalized, new Set());
+        }
+
+        for (const normalized of pathSet) {
+            const scopeIds = this.pathToScopesIndex.get(normalized);
+            if (!scopeIds) {
+                continue;
+            }
+
+            for (const scopeId of scopeIds) {
+                const deps = this.getScopeDependencies(scopeId);
+                for (const dep of deps) {
+                    const depScope = this.scopesById.get(dep.dependencyScopeId);
+                    if (!depScope?.metadata.path) {
+                        continue;
+                    }
+                    const depNormalized = this.normalizeTrackedPath(depScope.metadata.path);
+                    if (!pathSet.has(depNormalized) || depNormalized === normalized) {
+                        continue;
+                    }
+                    // normalized depends on depNormalized → edge: normalized → depNormalized
+                    const outs = outEdges.get(normalized);
+                    if (outs && !outs.has(depNormalized)) {
+                        outs.add(depNormalized);
+                        inDegree.set(normalized, (inDegree.get(normalized) ?? 0) + 1);
+                        reverseEdges.get(depNormalized)?.add(normalized);
+                    }
+                }
+            }
+        }
+
+        // --- 3. Kahn's algorithm (topological sort with stable ordering) ------
+        // Queue holds paths with in-degree 0 (no outstanding dependencies in the
+        // input set). Sort alphabetically for deterministic output.
+        const queue: string[] = [];
+        for (const [p, degree] of inDegree) {
+            if (degree === 0) {
+                queue.push(p);
+            }
+        }
+        queue.sort();
+
+        const result: string[] = [];
+
+        while (queue.length > 0) {
+            // Pop the lexicographically smallest path to keep output deterministic.
+            const current = queue.shift();
+            if (!current) {
+                continue;
+            }
+            result.push(current);
+
+            const dependents = reverseEdges.get(current);
+            if (!dependents) {
+                continue;
+            }
+
+            // Collect newly-unblocked paths in a temporary array so we can
+            // sort them before appending to the queue (maintains stable order).
+            const unblocked: string[] = [];
+            for (const dependent of dependents) {
+                const newDegree = (inDegree.get(dependent) ?? 1) - 1;
+                inDegree.set(dependent, newDegree);
+                if (newDegree === 0) {
+                    unblocked.push(dependent);
+                }
+            }
+            if (unblocked.length > 0) {
+                unblocked.sort();
+                for (const p of unblocked) {
+                    queue.push(p);
+                }
+            }
+        }
+
+        // --- 4. Handle cycles: append remaining paths in stable order ---------
+        if (result.length < pathSet.size) {
+            const inResult = new Set(result);
+            const cyclic = [...pathSet].filter((p) => !inResult.has(p)).sort();
+            for (const p of cyclic) {
+                result.push(p);
+            }
+        }
+
+        // --- 5. Map normalised paths back to original caller-supplied paths ---
+        return result.map((p) => normalizedToOriginal.get(p) ?? p);
+    }
 }
 
 export default ScopeTracker;
