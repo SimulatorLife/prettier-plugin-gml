@@ -206,6 +206,23 @@ void test("does not collapse multiple consecutive decorative banners into one-li
     assert.doesNotMatch(formatted, /\/\* Return an array \*\//u);
 });
 
+void test("does not drop slash-only line after decorative block comment", async () => {
+    const source = [
+        "function demo() {",
+        "    /*////////////////////////////////////////////////////",
+        "            Block docs",
+        "    */////////////////////////////////////////////////////",
+        "    //////////////////////////////////////////////////////",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.match(formatted, /^\s*\/{21,}\s*$/mu);
+});
+
 void test("does not convert adjacent multi-line block comment blocks into line comments", async () => {
     const source = [
         "function demo() {",
@@ -385,6 +402,7 @@ void test("normalizes top-level decorative banner indentation", async () => {
             "/*////////////////////////////////////////////////////",
             "    Banner docs",
             "*/////////////////////////////////////////////////////",
+            "////////////////////////////////////////////////////",
             "var value = 1;",
             ""
         ].join("\n")
