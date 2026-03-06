@@ -661,20 +661,32 @@ async function enforceSnapshotMemoryLimit() {
     }
 
     const snapshotsToRelease = inMemorySnapshotCount - MAX_IN_MEMORY_SNAPSHOTS;
-    const entries = [...formattedFileOriginalContents.entries()];
-
-    // Collect snapshots to release (oldest first): take the first N entries and filter for in-memory snapshots
-    const snapshotsToDelete = entries
-        .slice(0, snapshotsToRelease)
-        .flatMap(([filePath, snapshot]) =>
-            snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null ? [{ filePath, snapshot }] : []
-        );
+    const snapshotsToDelete = collectInlineSnapshotsForEviction(snapshotsToRelease);
 
     // Release snapshots sequentially to maintain correct accounting
     await Core.runSequentially(snapshotsToDelete, async ({ filePath, snapshot }) => {
         formattedFileOriginalContents.delete(filePath);
         await releaseSnapshot(snapshot);
     });
+}
+
+function collectInlineSnapshotsForEviction(snapshotsToRelease) {
+    if (!Number.isFinite(snapshotsToRelease) || snapshotsToRelease <= 0) {
+        return [];
+    }
+
+    const snapshotsToDelete = [];
+    for (const [filePath, snapshot] of formattedFileOriginalContents) {
+        if (snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null) {
+            snapshotsToDelete.push({ filePath, snapshot });
+        }
+
+        if (snapshotsToDelete.length >= snapshotsToRelease) {
+            break;
+        }
+    }
+
+    return snapshotsToDelete;
 }
 
 /**
@@ -2103,7 +2115,14 @@ export const __formatTest__ = Object.freeze({
         maxInMemorySnapshots: MAX_IN_MEMORY_SNAPSHOTS,
         processedFileCount,
         periodicCleanupInterval: PERIODIC_CLEANUP_INTERVAL,
-        formattedFileOriginalContentsSize: formattedFileOriginalContents.size
+        formattedFileOriginalContentsSize: formattedFileOriginalContents.size,
+        inlineSnapshotBytes: [...formattedFileOriginalContents.values()].reduce((total, snapshot) => {
+            if (!snapshot || typeof snapshot !== "object" || snapshot.inlineContents === null) {
+                return total;
+            }
+
+            return total + snapshot.inlineContents.length * 2;
+        }, 0)
     }),
     setInMemorySnapshotCountForTests: (count: number) => {
         inMemorySnapshotCount = count;
@@ -2128,6 +2147,7 @@ export const __formatTest__ = Object.freeze({
         formattedFileOriginalContents.clear();
         inMemorySnapshotCount = 0;
     },
+    collectInlineSnapshotsForEvictionForTests: collectInlineSnapshotsForEviction,
     enforceSnapshotMemoryLimitForTests: enforceSnapshotMemoryLimit,
     performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup
 });
