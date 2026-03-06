@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
+import { dominantLineEnding, getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
 
 void describe("line-breaks", () => {
     void describe("splitLines", () => {
@@ -45,6 +45,28 @@ void describe("line-breaks", () => {
                 { index: 19, length: 1 },
                 { index: 25, length: 1 }
             ]);
+        });
+    });
+
+    void describe("dominantLineEnding", () => {
+        void it("returns LF when no CRLF sequences are present", () => {
+            assert.strictEqual(dominantLineEnding("line1\nline2\nline3"), "\n");
+        });
+
+        void it("returns CRLF when CRLF outnumbers standalone LF", () => {
+            assert.strictEqual(dominantLineEnding("line1\r\nline2\r\nline3\n"), "\r\n");
+        });
+
+        void it("returns LF when standalone LF outnumbers CRLF", () => {
+            assert.strictEqual(dominantLineEnding("line1\nline2\nline3\r\n"), "\n");
+        });
+
+        void it("returns LF for empty string", () => {
+            assert.strictEqual(dominantLineEnding(""), "\n");
+        });
+
+        void it("returns LF when counts are equal (LF wins the tie)", () => {
+            assert.strictEqual(dominantLineEnding("a\r\nb\n"), "\n");
         });
     });
 });

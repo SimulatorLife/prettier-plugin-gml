@@ -112,3 +112,22 @@ export function splitLines(text) {
 
     return text.split(LINE_BREAK_SPLIT_PATTERN);
 }
+
+/**
+ * Determine which line-ending sequence is dominant in {@link text}.
+ *
+ * Counts every CRLF (`\r\n`) occurrence against every standalone LF (`\n`)
+ * occurrence and returns `"\r\n"` when CRLF outnumbers LF, otherwise `"\n"`.
+ * This is the standard heuristic for inferring the preferred line ending of a
+ * source file so that auto-fix rewrites, codemod insertions, and lint fixers
+ * all emit new lines that match the file's existing convention.
+ *
+ * @param {string} text Source text to inspect.
+ * @returns {"\r\n" | "\n"} The dominant line-ending sequence found in
+ *          {@link text}, or `"\n"` when no CRLF sequences are present.
+ */
+export function dominantLineEnding(text: string): "\r\n" | "\n" {
+    const crlfCount = (text.match(/\r\n/g) ?? []).length;
+    const lfCount = (text.match(/(?<!\r)\n/g) ?? []).length;
+    return crlfCount > lfCount ? "\r\n" : "\n";
+}
