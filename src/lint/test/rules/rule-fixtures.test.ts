@@ -554,6 +554,57 @@ void test("normalize-doc-comments removes placeholder description equal to funct
     assert.equal(result.output, expected);
 });
 
+void test("normalize-doc-comments attaches params across blank lines before a function", () => {
+    const input = ["/// @param value", "", "", "function echo(_value) {", "    return _value;", "}", ""].join("\n");
+    const expected = [
+        "/// @param value",
+        "/// @returns {any}",
+        "function echo(_value) {",
+        "    return _value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-doc-comments removes earlier floating param blocks and keeps the nearest block attached", () => {
+    const input = [
+        "/// @param localScope",
+        "/// @param filename",
+        "/// @param expression",
+        "/// @param behaviour",
+        "/// @param optionUUID",
+        "",
+        "/// @param local_scope",
+        "/// @param filename",
+        "/// @param expression",
+        "/// @param behaviour",
+        "/// @param optionUUID",
+        "",
+        "function __ChatterboxEvaluate(_local_scope, _filename, _expression, _behaviour, _optionUUID) {",
+        "    return _expression;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param local_scope",
+        "/// @param filename",
+        "/// @param expression",
+        "/// @param behaviour",
+        "/// @param optionUUID",
+        "/// @returns {any}",
+        "function __ChatterboxEvaluate(_local_scope, _filename, _expression, _behaviour, _optionUUID) {",
+        "    return _expression;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
 void test("normalize-doc-comments aligns multiline description continuations", () => {
     const input = ["/// Alpha summary", "/// Beta continuation", "function demo() {", "    return 1;", "}", ""].join(
         "\n"
@@ -634,6 +685,28 @@ void test("normalize-doc-comments synthesizes concrete and undefined @returns me
 
     const result = lintWithRule("normalize-doc-comments", input, {});
     assert.equal(result.output, expected);
+});
+
+void test("normalize-doc-comments does not synthesize @returns for constructor declarations", () => {
+    const input = ["function __ChatterboxBufferBatch(_buffer) constructor {", "    buffer = _buffer;", "}", ""].join(
+        "\n"
+    );
+    const expected = [
+        "/// @param buffer",
+        "function __ChatterboxBufferBatch(_buffer) constructor {",
+        "    buffer = _buffer;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, expected);
+});
+
+void test("normalize-doc-comments does not synthesize @returns for constructor assignments", () => {
+    const input = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assert.equal(result.output, input);
 });
 
 void test("normalize-doc-comments skips synthetic docs for inline struct property function values", () => {

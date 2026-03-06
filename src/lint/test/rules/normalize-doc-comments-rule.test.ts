@@ -352,3 +352,22 @@ void test("normalize-doc-comments removes @param separator hyphens for typed opt
     assert.doesNotMatch(output, /\[xup=0\] - The camera's up vector/m);
     assert.doesNotMatch(output, /\[yup=0\] - The camera's up vector/m);
 });
+
+void test("normalize-doc-comments does not synthesize @returns for constructor function declarations", () => {
+    const input = ["function __ChatterboxBufferBatch() constructor {", "    // ...", "}"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.equal(output, input);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
+});
+
+void test("normalize-doc-comments still synthesizes @param tags for constructors without adding @returns", () => {
+    const input = ["function __ChatterboxBufferBatch(_value, _amount = 1) constructor {", "    return;", "}"].join(
+        "\n"
+    );
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param value$/m);
+    assert.match(output, /^\/\/\/ @param \[amount=1\]$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns/m);
+});

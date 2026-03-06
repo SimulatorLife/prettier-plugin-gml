@@ -429,6 +429,10 @@ function isFunctionLikeNodeType(nodeType: string): boolean {
     );
 }
 
+function shouldSuppressSyntheticReturnsForFunctionNode(functionNode: AstNodeWithType): boolean {
+    return functionNode.type === "ConstructorDeclaration" || functionNode.type === "StructFunctionDeclaration";
+}
+
 function isUndefinedReturnArgument(argument: unknown): boolean {
     if (!argument || typeof argument !== "object") {
         return false;
@@ -724,7 +728,8 @@ function synthesizeFunctionDocCommentBlock(
         functionParameterNamesInOrder,
         returnInference,
         inferredReturnType,
-        hasExistingReturnLine: hasReturns
+        hasExistingReturnLine: hasReturns,
+        suppressSyntheticReturns: shouldSuppressSyntheticReturnsForFunctionNode(functionNode)
     });
 
     if (hasReturns && shouldSynthesizeReturnLine) {
@@ -781,6 +786,37 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
     const returnsNormalizedBlock = convertLegacyReturnsDescriptionLinesToMetadata(promotedBlock);
 
     return Array.from(alignDescriptionContinuationLines(returnsNormalizedBlock));
+}
+
+function isParamDocCommentLine(line: string): boolean {
+    return /^\s*\/\/\/\s*@param\b/u.test(line);
+}
+
+function dropFloatingParamDocCommentLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
+    if (!docLines.some((line) => isParamDocCommentLine(line))) {
+        return docLines;
+    }
+
+    return docLines
+        .filter((line) => !isParamDocCommentLine(line))
+        .filter((line) => line.trimStart() !== "///");
+}
+
+function flushDetachedDocCommentBlock(
+    rewrittenLines: Array<string>,
+    pendingDocBlock: ReadonlyArray<string>,
+    pendingGapLines: ReadonlyArray<string>
+): void {
+    if (pendingDocBlock.length === 0) {
+        return;
+    }
+
+    const processedDetachedDocBlock = dropFloatingParamDocCommentLines(processDocBlock(Array.from(pendingDocBlock)));
+    if (processedDetachedDocBlock.length === 0) {
+        return;
+    }
+
+    rewrittenLines.push(...processedDetachedDocBlock, ...pendingGapLines);
 }
 
 function applyJsDocTagAliasLine(line: string): string {
@@ -930,6 +966,10 @@ function countTopLevelFunctionHeaders(lines: ReadonlyArray<string>): number {
     return lines.filter((line) => /^\s*function\b/.test(line)).length;
 }
 
+function isTextualConstructorFunctionLine(line: string): boolean {
+    return /\bfunction\b/u.test(line) && /\bconstructor\b/u.test(line);
+}
+
 function synthesizeTextFallbackDocCommentBlock({
     processedBlock,
     line,
@@ -959,8 +999,9 @@ function synthesizeTextFallbackDocCommentBlock({
         fallbackParamTypesByName
     );
     const functionHeaderCount = countTopLevelFunctionHeaders(lines);
+    const isConstructorFunctionLine = isTextualConstructorFunctionLine(line);
 
-    if (!hasReturnLine) {
+    if (!hasReturnLine && !isConstructorFunctionLine) {
         if (inferredReturnType !== null) {
             fallbackBlock.push(`${indentation}/// @returns {${inferredReturnType}}`);
         } else if (!hasConcreteReturnText || functionHeaderCount === 1) {
@@ -986,6 +1027,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                     const deferredDocBlocksByLineIndex = new Map<number, Array<string>>();
 
                     let pendingDocBlock: Array<string> = [];
+                    let pendingGapLinesAfterDocBlock: Array<string> = [];
                     for (const [lineIndex, line] of lines.entries()) {
                         // accumulate any doc-like lines until we hit actual code
                         if (
@@ -993,7 +1035,21 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                             /^\s*\/\/\s*@/u.test(line) ||
                             /^\s*\/\/\s*\/(?!\/)/u.test(line)
                         ) {
+                            if (pendingDocBlock.length > 0 && pendingGapLinesAfterDocBlock.length > 0) {
+                                flushDetachedDocCommentBlock(
+                                    rewrittenLines,
+                                    pendingDocBlock,
+                                    pendingGapLinesAfterDocBlock
+                                );
+                                pendingDocBlock = [];
+                                pendingGapLinesAfterDocBlock = [];
+                            }
                             pendingDocBlock.push(line);
+                            continue;
+                        }
+
+                        if (pendingDocBlock.length > 0 && /^\s*$/u.test(line)) {
+                            pendingGapLinesAfterDocBlock.push(line);
                             continue;
                         }
 
@@ -1052,11 +1108,11 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                 rewrittenLines.push(...processedBlock);
                             }
                             pendingDocBlock = [];
+                            pendingGapLinesAfterDocBlock = [];
                         } else {
-                            if (pendingDocBlock.length > 0) {
-                                rewrittenLines.push(...processDocBlock(pendingDocBlock));
-                                pendingDocBlock = [];
-                            }
+                            flushDetachedDocCommentBlock(rewrittenLines, pendingDocBlock, pendingGapLinesAfterDocBlock);
+                            pendingDocBlock = [];
+                            pendingGapLinesAfterDocBlock = [];
                         }
 
                         rewrittenLines.push(normalizeDocCommentPrefixLine(line));
@@ -1067,7 +1123,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                     }
 
                     if (pendingDocBlock.length > 0) {
-                        rewrittenLines.push(...processDocBlock(pendingDocBlock));
+                        flushDetachedDocCommentBlock(rewrittenLines, pendingDocBlock, pendingGapLinesAfterDocBlock);
                     }
 
                     const rewritten = rewrittenLines.join(lineEnding);
@@ -1108,7 +1164,8 @@ function determineIfShouldSynthesizeReturnLine({
     functionParameterNamesInOrder,
     returnInference,
     inferredReturnType,
-    hasExistingReturnLine
+    hasExistingReturnLine,
+    suppressSyntheticReturns
 }: {
     assignmentStyle: boolean;
     hadInputDocLines: boolean;
@@ -1117,7 +1174,12 @@ function determineIfShouldSynthesizeReturnLine({
     returnInference: ReturnInferenceSummary;
     inferredReturnType: string;
     hasExistingReturnLine: boolean;
+    suppressSyntheticReturns: boolean;
 }): boolean {
+    if (suppressSyntheticReturns) {
+        return false;
+    }
+
     const suppressUndocumentedAssignmentWithoutParams =
         assignmentStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
     const suppressNestedUndocumentedNoParamConcreteReturn =
