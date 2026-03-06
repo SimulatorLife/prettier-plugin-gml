@@ -18,6 +18,11 @@ const DECORATIVE_COMMENT_BLANK_PATTERN = /\{\n[ \t]+\n(?=\s*\/\/)/g;
 
 const INLINE_TRAILING_COMMENT_SPACING_PATTERN = /(?<=[^\s/,])[ \t]{2,}(?=\/\/(?!\/))/g;
 
+const DOUBLE_INDENT_TO_SINGLE = new Map([
+    ["        ", "    "],
+    ["\t\t", "\t"]
+]);
+
 function stripInlineLineComment(line: string): string {
     const commentIndex = line.indexOf("//");
     return commentIndex === -1 ? line : line.slice(0, commentIndex);
@@ -149,14 +154,8 @@ function normalizeSingleCommentBlockIndentation(formatted: string): string {
         }
 
         const extraIndent = currentIndent.slice(closingIndent.length);
-        let normalizedExtraIndent: string | null = null;
-        if (extraIndent === "        ") {
-            normalizedExtraIndent = "    ";
-        } else if (extraIndent === "\t\t") {
-            normalizedExtraIndent = "\t";
-        }
-
-        if (normalizedExtraIndent === null) {
+        const normalizedExtraIndent = DOUBLE_INDENT_TO_SINGLE.get(extraIndent);
+        if (normalizedExtraIndent === undefined) {
             continue;
         }
 
@@ -166,36 +165,19 @@ function normalizeSingleCommentBlockIndentation(formatted: string): string {
     return lines.join("\n");
 }
 
-type PlainLineCommentInfo = {
-    trimmedStart: string;
-    normalized: string;
-    isTopLevel: boolean;
-};
-
-function getLineCommentPrefixInfo(line: string | undefined): PlainLineCommentInfo | null {
-    if (typeof line !== "string") {
-        return null;
-    }
-
-    const trimmedStart = line.trimStart();
-    if (!trimmedStart.startsWith("//")) {
-        return null;
-    }
-
-    return {
-        trimmedStart,
-        normalized: trimmedStart.trimEnd(),
-        isTopLevel: trimmedStart === line
-    };
+/** Returns `true` when `line` starts with `//` (including doc-comment `///`) at column 0 with no leading whitespace. */
+function isTopLevelLineComment(line: string | undefined): boolean {
+    return typeof line === "string" && line.startsWith("//");
 }
 
-function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo | null {
-    const info = getLineCommentPrefixInfo(line);
-    if (info === null || info.trimmedStart.startsWith("///")) {
-        return null;
-    }
+/** Returns `true` when a blank line should be inserted before a top-level comment at `previousLine`. */
+function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
+    return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
+}
 
-    return info;
+/** Returns `true` when `line` contains a plain `//` (not `///`) comment, optionally indented. */
+function isPlainLineComment(line: string | undefined): boolean {
+    return typeof line === "string" && /^\s*\/\/(?!\/)/.test(line);
 }
 
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
@@ -239,29 +221,8 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     return result.join("\n");
 }
 
-function isTopLevelLineComment(line: string | undefined): boolean {
-    const info = getLineCommentPrefixInfo(line);
-    return info !== null && info.isTopLevel;
-}
-
-function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
-    return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
-}
-
-function isPlainLineCommentLine(line: string | undefined): boolean {
-    return getPlainLineCommentInfo(line) !== null;
-}
-
 function getNextNonBlankLine(lines: string[], startIndex: number): string | undefined {
-    const length = lines.length;
-    for (let index = startIndex; index < length; index += 1) {
-        const current = lines[index];
-        if (current.trim().length > 0) {
-            return current;
-        }
-    }
-
-    return undefined;
+    return lines.slice(startIndex).find((line) => line.trim().length > 0);
 }
 
 function isGuardCommentSequence(lines: string[], commentIndex: number): boolean {
@@ -283,7 +244,7 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
         if (
             isBlankLine &&
             index + 1 < length &&
-            isPlainLineCommentLine(lines[index + 1]) &&
+            isPlainLineComment(lines[index + 1]) &&
             isGuardCommentSequence(lines, index + 1) &&
             previousNonBlankTrimmed?.endsWith("{")
         ) {
@@ -299,18 +260,12 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     return normalized.join("\n");
 }
 
-type NormalizationStep = (formatted: string) => string;
-
-function applyNormalizationSteps(formatted: string, steps: readonly NormalizationStep[]): string {
-    return steps.reduce((current, step) => step(current), formatted);
-}
-
 function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
 
 export function normalizeFormattedOutput(formatted: string): string {
-    const normalized = applyNormalizationSteps(formatted, [
+    const normalized = [
         ensureBlankLineBetweenVertexFormatComments,
         collapseDuplicateBlankLines,
         collapseBlockOpeningBlankLines,
@@ -325,7 +280,7 @@ export function normalizeFormattedOutput(formatted: string): string {
         collapseWhitespaceOnlyBlankLines,
         collapseLineCommentToBlockCommentBlankLines,
         removeBlankLinesBeforeGuardComments
-    ]);
+    ].reduce<string>((current, step) => step(current), formatted);
 
     return collapseWhitespaceOnlyBlankLines(normalized);
 }
