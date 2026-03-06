@@ -136,25 +136,14 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
     let currentValue = getDefaultLimit();
 
     return {
-        getValue: () => currentValue,
-        configure(limit) {
+        getLimit: () => currentValue,
+        configureLimit(limit) {
             currentValue = resolveLimit(limit);
             return currentValue;
         },
         reset() {
             currentValue = getDefaultLimit();
             return currentValue;
-        }
-    };
-}
-
-function createSampleLimitAccessors(state: { configure: (limit: unknown) => number; getValue: () => number }) {
-    return {
-        configureLimit(limit: unknown) {
-            state.configure(limit);
-        },
-        getLimit() {
-            return state.getValue();
         }
     };
 }
@@ -506,19 +495,16 @@ const skippedDirectorySampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
     resolveLimit: resolveSkippedDirectorySampleLimit
 });
-const skippedDirectorySampleLimitAccessors = createSampleLimitAccessors(skippedDirectorySampleLimitState);
 
 const ignoredFileSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultIgnoredFileSampleLimit,
     resolveLimit: resolveIgnoredFileSampleLimit
 });
-const ignoredFileSampleLimitAccessors = createSampleLimitAccessors(ignoredFileSampleLimitState);
 
 const unsupportedExtensionSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
     resolveLimit: resolveUnsupportedExtensionSampleLimit
 });
-const unsupportedExtensionSampleLimitAccessors = createSampleLimitAccessors(unsupportedExtensionSampleLimitState);
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -535,7 +521,7 @@ function resetSkippedDirectorySummary() {
 
 function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
-    const limit = skippedDirectorySampleLimitAccessors.getLimit();
+    const limit = skippedDirectorySampleLimitState.getLimit();
     tryAddSample(skippedDirectorySummary.ignoredSamples, directory, limit);
 }
 let baseProjectIgnorePaths = [];
@@ -1586,9 +1572,9 @@ async function prepareFormattingRun({
     checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
-    skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
-    ignoredFileSampleLimitAccessors.configureLimit(ignoredFileSampleLimit);
-    unsupportedExtensionSampleLimitAccessors.configureLimit(unsupportedExtensionSampleLimit);
+    skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
+    ignoredFileSampleLimitState.configureLimit(ignoredFileSampleLimit);
+    unsupportedExtensionSampleLimitState.configureLimit(unsupportedExtensionSampleLimit);
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
@@ -2085,7 +2071,7 @@ function areIgnoredFileSamplesEqual(existing, candidate) {
 function recordIgnoredFile({ filePath, sourceDescription }) {
     skippedFileSummary.ignored += 1;
 
-    const limit = ignoredFileSampleLimitAccessors.getLimit();
+    const limit = ignoredFileSampleLimitState.getLimit();
     const sample = { filePath, sourceDescription };
 
     if (tryAddSample(skippedFileSummary.ignoredSamples, sample, limit, areIgnoredFileSamplesEqual)) {
@@ -2094,7 +2080,7 @@ function recordIgnoredFile({ filePath, sourceDescription }) {
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
-    const limit = unsupportedExtensionSampleLimitAccessors.getLimit();
+    const limit = unsupportedExtensionSampleLimitState.getLimit();
     tryAddSample(skippedFileSummary.unsupportedExtensionSamples, filePath, limit);
 }
 
