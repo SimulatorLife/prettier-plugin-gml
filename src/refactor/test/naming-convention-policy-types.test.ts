@@ -15,7 +15,7 @@ void test("NamingCaseStyle supports all documented literals", () => {
 });
 
 void test("NamingCategory includes variable naming categories from the policy plan", () => {
-    const categories: Array<NamingCategory> = [
+    const categories: ReadonlySet<NamingCategory> = new Set([
         "variable",
         "localVariable",
         "globalVariable",
@@ -24,10 +24,10 @@ void test("NamingCategory includes variable naming categories from the policy pl
         "argument",
         "catchArgument",
         "loopIndexVariable"
-    ];
+    ]);
 
-    assert.ok(categories.includes("globalVariable"));
-    assert.ok(categories.includes("loopIndexVariable"));
+    assert.ok(categories.has("globalVariable"));
+    assert.ok(categories.has("loopIndexVariable"));
 });
 
 void test("NamingConventionPolicy supports category rules and explicit disablement", () => {

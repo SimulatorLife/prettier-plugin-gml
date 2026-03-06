@@ -2334,6 +2334,40 @@ function shouldForceVariableBlockBeforeLoopPadding(
     return variableBlockSize >= MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING;
 }
 
+function canForceAutomaticPadding(
+    nextLineEmpty,
+    shouldSuppressExtraEmptyLine,
+    sanitizedMacroHasExplicitBlankLine
+): boolean {
+    return !nextLineEmpty && !shouldSuppressExtraEmptyLine && !sanitizedMacroHasExplicitBlankLine;
+}
+
+function canForceAutomaticPaddingWithSuppressionGuard(
+    suppressFollowingEmptyLine,
+    nextLineEmpty,
+    shouldSuppressExtraEmptyLine,
+    sanitizedMacroHasExplicitBlankLine
+): boolean {
+    return (
+        !suppressFollowingEmptyLine &&
+        canForceAutomaticPadding(nextLineEmpty, shouldSuppressExtraEmptyLine, sanitizedMacroHasExplicitBlankLine)
+    );
+}
+
+function isRegionDirectiveNode(node): boolean {
+    return (
+        node?.type === "RegionStatement" ||
+        Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.REGION
+    );
+}
+
+function isEndRegionDirectiveNode(node): boolean {
+    return (
+        node?.type === "EndRegionStatement" ||
+        Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.END_REGION
+    );
+}
+
 function handleIntermediateTrailingSpacing({
     parts,
     statements,
@@ -2375,71 +2409,59 @@ function handleIntermediateTrailingSpacing({
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
         isSanitizedMacro && macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
+    const hasAutomaticPaddingCapacity = canForceAutomaticPadding(
+        nextLineEmpty,
+        shouldSuppressExtraEmptyLine,
+        sanitizedMacroHasExplicitBlankLine
+    );
+    const hasAutomaticPaddingCapacityWithSuppressionGuard = canForceAutomaticPaddingWithSuppressionGuard(
+        suppressFollowingEmptyLine,
+        nextLineEmpty,
+        shouldSuppressExtraEmptyLine,
+        sanitizedMacroHasExplicitBlankLine
+    );
 
     const isMacroLikeNode = Core.isMacroLikeStatement(node);
     const isDefineMacroReplacement =
         Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.MACRO;
     const shouldForceMacroPadding =
-        isMacroLikeNode &&
-        !isDefineMacroReplacement &&
-        !nextNodeIsMacro &&
-        !nextLineEmpty &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine;
+        isMacroLikeNode && !isDefineMacroReplacement && !nextNodeIsMacro && hasAutomaticPaddingCapacity;
     const isLoopStatement = isLoopLikeStatement(node);
     const nextNodeIsLoop = isLoopLikeStatement(nextNode);
     const nextNodeIsVariableDeclaration = nextNode?.type === VARIABLE_DECLARATION;
     const shouldForceLoopSectionPadding =
-        !suppressFollowingEmptyLine &&
+        hasAutomaticPaddingCapacityWithSuppressionGuard &&
         isLoopStatement &&
-        (nextNodeIsVariableDeclaration || nextNodeIsLoop) &&
-        !nextLineEmpty &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine;
+        (nextNodeIsVariableDeclaration || nextNodeIsLoop);
     const shouldForceVariableBlockLoopPadding =
-        !suppressFollowingEmptyLine &&
+        hasAutomaticPaddingCapacityWithSuppressionGuard &&
         shouldForceVariableBlockBeforeLoopPadding(
             statements,
             index,
             node,
             nextNode,
             typeof options.originalText === STRING_TYPE ? options.originalText : null
-        ) &&
-        !nextLineEmpty &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine;
+        );
     const shouldForceConstructorStaticSectionPadding =
-        !suppressFollowingEmptyLine &&
+        hasAutomaticPaddingCapacityWithSuppressionGuard &&
         containerNode?.type === "ConstructorDeclaration" &&
-        isStaticFunctionVariableDeclaration(nextNode) &&
-        !nextLineEmpty &&
-        !shouldSuppressExtraEmptyLine &&
-        !sanitizedMacroHasExplicitBlankLine;
+        isStaticFunctionVariableDeclaration(nextNode);
     const shouldForceEarlyReturnPadding =
         !suppressFollowingEmptyLine && shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
-    const shouldAddForcedPadding =
-        shouldForceMacroPadding ||
-        shouldForceLoopSectionPadding ||
-        shouldForceVariableBlockLoopPadding ||
-        shouldForceConstructorStaticSectionPadding ||
-        (forceFollowingEmptyLine &&
-            !nextLineEmpty &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine) ||
-        (shouldForceEarlyReturnPadding &&
-            !nextLineEmpty &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine);
+    const shouldAddForcedPadding = [
+        shouldForceMacroPadding,
+        shouldForceLoopSectionPadding,
+        shouldForceVariableBlockLoopPadding,
+        shouldForceConstructorStaticSectionPadding,
+        forceFollowingEmptyLine && hasAutomaticPaddingCapacity,
+        shouldForceEarlyReturnPadding && hasAutomaticPaddingCapacity
+    ].some(Boolean);
 
     // Suppress the blank line between a #region and an immediately following
     // #endregion (an empty region). Adding a blank line inside an empty region
     // would change the source round-trip and create unnecessary noise.
-    const isEmptyRegionPair =
-        (node?.type === "RegionStatement" ||
-            Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.REGION) &&
-        (nextNode?.type === "EndRegionStatement" ||
-            Core.getNormalizedDefineReplacementDirective(nextNode) === Core.DefineReplacementDirective.END_REGION);
+    const isEmptyRegionPair = isRegionDirectiveNode(node) && isEndRegionDirectiveNode(nextNode);
 
     const shouldAddPaddingWithNewline =
         !isEmptyRegionPair && (shouldAddForcedPadding || (currentNodeRequiresNewline && !nextLineEmpty));
@@ -3276,13 +3298,7 @@ function unwrapParenthesizedExpression(childPath, print) {
 }
 
 function getInnermostClauseExpression(node) {
-    let current = node;
-
-    while (current?.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-
-    return current;
+    return unwrapParensForInitializer(node);
 }
 
 function buildClauseGroup(doc) {
