@@ -447,4 +447,36 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not strip empty /// @description from struct literal properties — that is a lint-workspace responsibility (target-state.md §2.2)"
         );
     });
+
+    void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
+        const source = [
+            "/// @description",
+            "",
+            "// Cast a ray from high above to the ground so that the coin is placed onto the ground",
+            "var ray = cm_cast_ray(levelColmesh, cm_ray(x, y, 1000, x, y, -100));",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description\s*\n\n\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground/m
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground\s*\n\/\/\/ @description\s*\nvar ray/m
+        );
+    });
+
+    void it("does not synthesize empty /// @description tags for undocumented functions", async () => {
+        const source = ["function no_docs() {", "    return 1;", "}", ""].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not synthesize empty /// @description tags."
+        );
+    });
 });

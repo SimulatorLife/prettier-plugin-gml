@@ -1283,16 +1283,65 @@ function isDocCommentCandidate(comment, followingNode) {
     return isDocCommentTargetNode(followingNode);
 }
 
+function isFunctionLikeDocInitializer(node: unknown): boolean {
+    if (!isObjectLike(node)) {
+        return false;
+    }
+
+    const nodeRecord = node as Record<string, unknown>;
+    const initializerType = nodeRecord.type;
+    if (
+        initializerType === "FunctionDeclaration" ||
+        initializerType === "FunctionExpression" ||
+        initializerType === "ConstructorDeclaration"
+    ) {
+        return true;
+    }
+
+    if (initializerType === "ParenthesizedExpression") {
+        return isFunctionLikeDocInitializer(nodeRecord.expression);
+    }
+
+    return false;
+}
+
+function isFunctionInitializedVariableDeclaration(node: unknown): boolean {
+    if (!isObjectLike(node)) {
+        return false;
+    }
+
+    const nodeRecord = node as Record<string, unknown>;
+    if (nodeRecord.type !== "VariableDeclaration") {
+        return false;
+    }
+
+    const declarations = nodeRecord.declarations;
+    if (!Array.isArray(declarations) || declarations.length !== 1) {
+        return false;
+    }
+
+    const declarator = declarations[0];
+    if (!isObjectLike(declarator)) {
+        return false;
+    }
+
+    const declaratorRecord = declarator as Record<string, unknown>;
+    if (declaratorRecord.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    return isFunctionLikeDocInitializer(declaratorRecord.init);
+}
+
 function isDocCommentTargetNode(node) {
     if (!isObjectLike(node)) {
         return false;
     }
 
-    return (
-        node.type === "FunctionDeclaration" ||
-        node.type === "ConstructorDeclaration" ||
-        node.type === "VariableDeclaration"
-    );
+    const nodeType = Reflect.get(node, "type");
+    return nodeType === "FunctionDeclaration" || nodeType === "ConstructorDeclaration"
+        ? true
+        : isFunctionInitializedVariableDeclaration(node);
 }
 
 function resolveFollowingNonCommentNode(comment) {
