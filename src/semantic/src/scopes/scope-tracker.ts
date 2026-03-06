@@ -79,6 +79,20 @@ export class ScopeTracker {
     private lookupCache: Map<string, ScopeSymbolMetadata | null>;
     private lookupCacheDepth: number;
 
+    private collectUniqueSymbolNames(names: Iterable<string>): string[] {
+        const uniqueNames = new Set<string>();
+
+        for (const name of names) {
+            if (!name) {
+                continue;
+            }
+
+            uniqueNames.add(name);
+        }
+
+        return [...uniqueNames];
+    }
+
     private normalizeTrackedPath(path: string): string {
         return path.replaceAll("\\", "/");
     }
@@ -629,13 +643,10 @@ export class ScopeTracker {
 
     public getBatchSymbolOccurrences(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
         const results = new Map<string, SymbolOccurrence[]>();
+        const uniqueNames = this.collectUniqueSymbolNames(names);
 
         // Optimize by processing all symbols in one pass rather than calling getSymbolOccurrences repeatedly
-        for (const name of names) {
-            if (!name) {
-                continue;
-            }
-
+        for (const name of uniqueNames) {
             const scopeSummaryMap = this.symbolToScopesIndex.get(name);
             if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
@@ -752,12 +763,9 @@ export class ScopeTracker {
      */
     public getBatchSymbolOccurrencesUnsafe(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
         const results = new Map<string, SymbolOccurrence[]>();
+        const uniqueNames = this.collectUniqueSymbolNames(names);
 
-        for (const name of names) {
-            if (!name) {
-                continue;
-            }
-
+        for (const name of uniqueNames) {
             const scopeSummaryMap = this.symbolToScopesIndex.get(name);
             if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
