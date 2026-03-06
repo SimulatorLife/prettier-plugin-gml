@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
 
-import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 import type { ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
 
