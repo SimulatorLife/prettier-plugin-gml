@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
@@ -7,7 +8,7 @@ import {
     findFirstChangedCharacterOffset,
     isCommentOnlyLine
 } from "../rule-base-helpers.js";
-import { dominantLineEnding, isIdentifier, shouldReportUnsafe } from "../rule-helpers.js";
+import { isIdentifier, shouldReportUnsafe } from "../rule-helpers.js";
 
 type StructAssignmentRecord = Readonly<{
     indentation: string;
@@ -241,7 +242,7 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                         lineIndex = clusterEndIndex + 1;
                     }
 
-                    const rewrittenText = rewrittenLines.join(dominantLineEnding(text));
+                    const rewrittenText = rewrittenLines.join(Core.dominantLineEnding(text));
                     if (rewrittenText !== text) {
                         context.report({
                             loc: context.sourceCode.getLocFromIndex(
