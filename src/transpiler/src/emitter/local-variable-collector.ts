@@ -49,7 +49,7 @@ export function collectLocalVariables(ast: GmlNode | null | undefined): Set<stri
         return locals;
     }
 
-    Core.walkAst(ast, (node, parent) => {
+    Core.walkAst(ast, (node: Record<string, unknown>, parent) => {
         // Skip nested function/constructor declarations that introduce their own
         // lexical scope. The `parent !== null` guard ensures we still descend
         // into the root node itself (e.g., a ProgramNode or BlockStatementNode)
@@ -67,6 +67,8 @@ export function collectLocalVariables(ast: GmlNode | null | undefined): Set<stri
                 }
             }
         }
+
+        
     });
 
     return locals;

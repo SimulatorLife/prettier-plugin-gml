@@ -119,9 +119,9 @@ export class GmlTranspiler {
         return this.semantic ?? this.fallbackSemantic;
     }
 
-    private parseProgram(sourceText: string) {
+    private parseProgram(sourceText: string): unknown {
         const parser = new Parser.GMLParser(sourceText, {});
-        return parser.parse();
+        return parser.parse() as unknown;
     }
 
     private resolveProgramAst(request: TranspileScriptRequest | TranspileEventRequest): ProgramNode {
@@ -171,6 +171,31 @@ export class GmlTranspiler {
         return lines.join("\n");
     }
 
+    /**
+     * Emit the JavaScript body for a GML script.
+     *
+     * For GML 2.3+ scripts that consist of a single top-level function
+     * declaration, unwraps the function so the body can be hot-reloaded
+     * directly. Parameters are unpacked from the `args` array at the
+     * start of the body.
+     *
+     * For all other scripts, emits the program directly.
+     */
+    private emitScriptBody(ast: ProgramNode, emitter: GmlToJsEmitter): string {
+        if (ast.body.length !== 1 || ast.body[0].type !== "FunctionDeclaration") {
+            return emitter.emit(ast);
+        }
+
+        // Unwrap the single function declaration for hot-reload execution.
+        const func = ast.body[0] as unknown as FunctionDeclarationNode;
+        const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
+        const bodyRaw = emitter.emit(func.body).trim();
+        // Strip surrounding braces from the emitted BlockStatement.
+        const bodyContent = bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
+
+        return paramUnpacking ? `${paramUnpacking}\n${bodyContent}` : bodyContent;
+    }
+
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
         if (!request || typeof request !== "object") {
             throw new TypeError("transpileScript requires a request object");
@@ -190,26 +215,7 @@ export class GmlTranspiler {
         try {
             const ast = this.resolveProgramAst(request);
             const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
-            let jsBody = "";
-
-            // Special handling for GML 2.3+ scripts that contain a single function declaration.
-            // When hot-reloading, we want to execute the function body immediately when the patch is applied,
-            // rather than just defining the function in the local scope.
-            // We unwrap the function, generating code to unpack 'args' into the named parameters,
-            // and then emit the body of the function.
-            if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
-                const func = ast.body[0] as unknown as FunctionDeclarationNode;
-                const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
-
-                const bodyRaw = emitter.emit(func.body).trim();
-                // Strip surrounding braces if present (BlockStatement)
-                const bodyContent =
-                    bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
-
-                jsBody = paramUnpacking ? `${paramUnpacking}\n${bodyContent}` : bodyContent;
-            } else {
-                jsBody = emitter.emit(ast);
-            }
+            const jsBody = this.emitScriptBody(ast, emitter);
 
             const timestamp = Date.now();
             const patch: ScriptPatch = {
@@ -318,7 +324,7 @@ export class GmlTranspiler {
 
         try {
             const parser = new Parser.GMLParser(sourceText);
-            const ast = parser.parse();
+            const ast = parser.parse() as unknown as ProgramNode;
             const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             return emitter.emit(ast);
         } catch (error) {
