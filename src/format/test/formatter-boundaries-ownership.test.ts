@@ -129,6 +129,19 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not normalize legacy // @desc aliases to @description (normalization belongs in lint)", async () => {
+        const source = ["// @desc Legacy summary", "function legacy_desc() {", "    return 1;", "}", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /^\/\/ @desc Legacy summary$/m);
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description Legacy summary$/m,
+            "Formatter must not normalize legacy @desc tags; that is owned by gml/normalize-doc-comments in lint."
+        );
+    });
+
     void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
         // Legacy double-slash `// @function` doc comments are normalised by the
         // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter
