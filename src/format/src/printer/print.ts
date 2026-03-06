@@ -32,6 +32,7 @@ import {
     TRAILING_COMMA
 } from "../options/index.js";
 import {
+    DEFAULT_PRINT_WIDTH,
     INLINEABLE_SINGLE_STATEMENT_TYPES,
     MULTIPLICATIVE_BINARY_OPERATORS,
     NUMBER_TYPE,
@@ -289,13 +290,22 @@ function printNodeDocComments(node, path, options) {
 
     sortDocCommentsBySourceOrder(docCommentDocs);
 
+    const docCommentEntriesForMetadata = [...docCommentDocs];
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
+    const printableDocCommentBlock = joinDocCommentsPreservingSourceSpacing(
+        printableDocComments,
+        docCommentEntriesForMetadata,
+        originalText
+    );
 
     const parts: any[] = [];
     const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0;
 
     if (shouldEmitPlainLeadingLines) {
-        parts.push(join(hardline, plainLeadingLines), hardline, hardline);
+        parts.push(join(hardline, plainLeadingLines), hardline);
+        if (docCommentDocs.length === 0) {
+            parts.push(hardline);
+        }
     }
 
     if (docCommentDocs.length > 0) {
@@ -319,23 +329,24 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             hasExistingBlankLine &&
-            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentDocs, nodeStartIndex, originalText);
+            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentEntriesForMetadata, nodeStartIndex, originalText);
         const isTopOfFileDocBlock =
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             originalText.slice(0, nodeStartIndex).trim().length === 0;
 
-        if (
+        const shouldEmitConfiguredLeadingBlankLine =
             !suppressLeadingBlank &&
-            ((!isTopOfFileDocBlock && needsLeadingBlankLine) || (hasLeadingNonDocComment && !hasExistingBlankLine))
-        ) {
+            ((!isTopOfFileDocBlock && needsLeadingBlankLine) || (hasLeadingNonDocComment && !hasExistingBlankLine));
+
+        if (shouldEmitConfiguredLeadingBlankLine) {
             parts.push(hardline);
         }
 
         if (shouldPreserveSourceBlankLineAfterDocComments) {
-            parts.push(join(hardline, printableDocComments), hardline, hardline);
+            parts.push(printableDocCommentBlock, hardline, hardline);
         } else {
-            parts.push(join(hardline, printableDocComments), hardline);
+            parts.push(printableDocCommentBlock, hardline);
         }
     } else {
         if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
@@ -346,6 +357,54 @@ function printNodeDocComments(node, path, options) {
     markDocCommentsAsPrinted(node, path);
 
     return concat(parts);
+}
+
+function joinDocCommentsPreservingSourceSpacing(
+    printableDocComments: ReadonlyArray<unknown>,
+    docCommentDocs: MutableDocCommentLines,
+    originalText: string | null
+) {
+    if (!Core.isNonEmptyArray(printableDocComments)) {
+        return "";
+    }
+
+    if (originalText === null || printableDocComments.length !== docCommentDocs.length) {
+        return join(hardline, [...printableDocComments] as any[]);
+    }
+
+    const parts: any[] = [];
+    for (let index = 0; index < printableDocComments.length; index += 1) {
+        parts.push(printableDocComments[index]);
+
+        if (index >= printableDocComments.length - 1) {
+            continue;
+        }
+
+        const currentEntry = docCommentDocs[index];
+        const nextEntry = docCommentDocs[index + 1];
+        if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
+            parts.push(hardline, hardline);
+        } else {
+            parts.push(hardline);
+        }
+    }
+
+    return concat(parts);
+}
+
+function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: unknown, originalText: string): boolean {
+    const leftEndIndex = resolveDocCommentEndIndex(leftEntry);
+    const rightStartIndex = resolveDocCommentStartIndex(rightEntry);
+    if (leftEndIndex === null || rightStartIndex === null || rightStartIndex <= leftEndIndex) {
+        return false;
+    }
+
+    const slice = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    if (slice.length === 0) {
+        return false;
+    }
+
+    return /\r?\n[ \t]*\r?\n/u.test(slice);
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
@@ -586,6 +645,10 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
+            if (shouldBreakVariableInitializerOnAssignmentLine(node)) {
+                return group([print("id"), " =", indent([line, group(print("init"))])]);
+            }
+
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
@@ -2119,7 +2182,11 @@ function isLoopLikeStatement(node) {
     );
 }
 
-function countContiguousVariableDeclarationsBeforeIndex(statements, index): number {
+function countContiguousVariableDeclarationsBeforeIndexWithSource(
+    statements,
+    index,
+    originalText: string | null
+): number {
     if (!Array.isArray(statements) || index < 0 || index >= statements.length) {
         return 0;
     }
@@ -2129,18 +2196,48 @@ function countContiguousVariableDeclarationsBeforeIndex(statements, index): numb
         if (statements[cursor]?.type !== VARIABLE_DECLARATION) {
             break;
         }
+
+        if (
+            originalText !== null &&
+            cursor < index &&
+            hasCommentBetweenStatements(statements[cursor], statements[cursor + 1], originalText)
+        ) {
+            break;
+        }
+
         count += 1;
     }
 
     return count;
 }
 
-function shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode): boolean {
+function hasCommentBetweenStatements(leftNode, rightNode, originalText: string): boolean {
+    const leftEndIndex = Core.getNodeEndIndex(leftNode);
+    const rightStartIndex = Core.getNodeStartIndex(rightNode);
+    if (
+        typeof leftEndIndex !== NUMBER_TYPE ||
+        typeof rightStartIndex !== NUMBER_TYPE ||
+        rightStartIndex <= leftEndIndex
+    ) {
+        return false;
+    }
+
+    const betweenText = new Set(originalText.slice(leftEndIndex + 1, rightStartIndex));
+    return betweenText.has("//") || betweenText.has("/*");
+}
+
+function shouldForceVariableBlockBeforeLoopPadding(
+    statements,
+    index,
+    node,
+    nextNode,
+    originalText: string | null
+): boolean {
     if (node?.type !== VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
         return false;
     }
 
-    const variableBlockSize = countContiguousVariableDeclarationsBeforeIndex(statements, index);
+    const variableBlockSize = countContiguousVariableDeclarationsBeforeIndexWithSource(statements, index, originalText);
     return variableBlockSize >= MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING;
 }
 
@@ -2203,7 +2300,13 @@ function handleIntermediateTrailingSpacing({
         !sanitizedMacroHasExplicitBlankLine;
     const shouldForceVariableBlockLoopPadding =
         !suppressFollowingEmptyLine &&
-        shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode) &&
+        shouldForceVariableBlockBeforeLoopPadding(
+            statements,
+            index,
+            node,
+            nextNode,
+            typeof options.originalText === STRING_TYPE ? options.originalText : null
+        ) &&
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
@@ -2264,8 +2367,17 @@ function handleIntermediateTrailingSpacing({
             isTopLevel &&
             typeof nextNodeStartIndex === NUMBER_TYPE &&
             Core.hasCommentImmediatelyBefore(originalText, nextNodeStartIndex);
+        const nextNodeHasCommentGap =
+            isTopLevel &&
+            originalText !== null &&
+            nextNode != null &&
+            hasCommentBetweenStatements(node, nextNode, originalText);
+        const nextNodeHasAttachedDocComment =
+            nextNode?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
+            Core.isNonEmptyArray(nextNode?.docComments) ||
+            Core.isNonEmptyArray(nextNode?._syntheticDocLines);
 
-        if (!nextNodeHasLeadingComment) {
+        if (nextNodeHasAttachedDocComment || (!nextNodeHasLeadingComment && !nextNodeHasCommentGap)) {
             parts.push(hardlineDoc);
         }
     }
@@ -2925,7 +3037,7 @@ function shouldOmitSyntheticParens(path, _options) {
             if (childInfo && parentInfo && childInfo.prec > parentInfo.prec) {
                 // Aggressively strip non-synthetic parentheses for arithmetic operations.
                 if (childInfo.type === "arithmetic") {
-                    return true;
+                    return !hasImmediateExplicitArithmeticGrouping(expression);
                 }
 
                 // For comparison operations inside logical expressions, check for consistent grouping style.
@@ -2985,6 +3097,16 @@ function shouldOmitSyntheticParens(path, _options) {
             childInfo !== undefined &&
             childInfo.prec > parentInfo.prec &&
             shouldFlattenComparisonLogicalTest(parent, expression, path)
+        ) {
+            return true;
+        }
+
+        if (
+            childInfo !== undefined &&
+            childInfo.type === "arithmetic" &&
+            parentInfo.type === "arithmetic" &&
+            childInfo.prec > parentInfo.prec &&
+            !hasImmediateExplicitArithmeticGrouping(expression)
         ) {
             return true;
         }
@@ -3080,6 +3202,31 @@ function printTernaryExpressionNode(_node, path, _options, print) {
     return shouldWrapTernaryExpression(path) ? concat(["(", ternaryDoc, ")"]) : ternaryDoc;
 }
 
+function hasImmediateExplicitArithmeticGrouping(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    for (const operand of [node.left, node.right]) {
+        if (operand?.type !== "ParenthesizedExpression" || operand.synthetic === true) {
+            continue;
+        }
+
+        const innerExpression = operand.expression;
+        if (
+            (node.operator === "*" || node.operator === "/") &&
+            innerExpression?.type === "BinaryExpression" &&
+            (innerExpression.operator === "*" || innerExpression.operator === "/")
+        ) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 function shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression) {
     if (!parent || !expression) {
         return false;
@@ -3147,6 +3294,23 @@ function binaryExpressionContainsString(node) {
     }
 
     return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
+}
+
+function unwrapParensForInitializer(node) {
+    let current = node;
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+    return current;
+}
+
+function shouldBreakVariableInitializerOnAssignmentLine(node): boolean {
+    if (!node || node.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    const initializer = unwrapParensForInitializer(node.init);
+    return initializer?.type === "BinaryExpression" && binaryExpressionContainsString(initializer);
 }
 
 function shouldOmitUnaryPlus(argument) {
@@ -3259,7 +3423,6 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     let enclosingFunction = null;
-    let enclosingFunctionDepth = null;
     for (let depth = 0; ; depth += 1) {
         const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
@@ -3268,21 +3431,11 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
 
         if (Core.isFunctionLikeNode(ancestor)) {
             enclosingFunction = ancestor;
-            enclosingFunctionDepth = depth;
             break;
         }
     }
 
-    if (!enclosingFunction || enclosingFunctionDepth === null) {
-        return false;
-    }
-
-    if (enclosingFunction.type !== "FunctionDeclaration" && enclosingFunction.type !== "ConstructorDeclaration") {
-        return false;
-    }
-
-    const enclosingFunctionParent = safeGetParentNode(path, enclosingFunctionDepth + 1);
-    if (!enclosingFunctionParent || enclosingFunctionParent.type !== "Program") {
+    if (!enclosingFunction) {
         return false;
     }
 
@@ -3307,6 +3460,59 @@ function wrapInClauseParens(path, print, clauseKey) {
     return concat(["(", buildClauseGroup(clauseDoc), ")"]);
 }
 
+function resolveInlineClauseBodySourceText(bodyNode, options): string | null {
+    const bodySource = getSourceTextForNode(bodyNode, options);
+    if (typeof bodySource !== STRING_TYPE) {
+        return null;
+    }
+
+    const trimmedBodySource = bodySource.trim();
+    if (trimmedBodySource.length === 0) {
+        return null;
+    }
+
+    if (bodyNode?.type !== "BlockStatement") {
+        return trimmedBodySource;
+    }
+
+    if (!trimmedBodySource.startsWith("{") || !trimmedBodySource.endsWith("}")) {
+        return trimmedBodySource;
+    }
+
+    const inlineBodySource = trimmedBodySource.slice(1, -1).trim();
+    return inlineBodySource.length > 0 ? inlineBodySource : null;
+}
+
+function shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options): boolean {
+    if (!bodyNode) {
+        return false;
+    }
+
+    const clauseSource = getSourceTextForNode(clauseNode, options);
+    if (typeof clauseSource !== STRING_TYPE || clauseSource.trim().length === 0) {
+        return true;
+    }
+
+    if (clauseSource.includes("\n") || clauseSource.includes("\r")) {
+        return false;
+    }
+
+    const inlineBodySource = resolveInlineClauseBodySourceText(bodyNode, options);
+    if (inlineBodySource === null || inlineBodySource.includes("\n") || inlineBodySource.includes("\r")) {
+        return false;
+    }
+
+    const configuredPrintWidth =
+        typeof options?.printWidth === NUMBER_TYPE && Number.isFinite(options.printWidth) && options.printWidth > 0
+            ? options.printWidth
+            : DEFAULT_PRINT_WIDTH;
+
+    // `if (` + clause + `) { ` + body + ` }`
+    const estimatedInlineLength = keyword.length + 2 + clauseSource.trim().length + 4 + inlineBodySource.length + 2;
+
+    return estimatedInlineLength <= configuredPrintWidth;
+}
+
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
     const node = path.getValue();
@@ -3318,10 +3524,12 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText === true;
 
+    const allowCollapsedGuardWithOption =
+        allowSingleLineIfStatements && shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
+    const allowCollapsedGuardWithDisabledPolicy =
+        !allowSingleLineIfStatements && shouldInlineGuardWhenDisabled(path, options, bodyNode);
     const allowCollapsedGuard =
-        bodyNode &&
-        !clauseIsPreservedCall &&
-        (allowSingleLineIfStatements || shouldInlineGuardWhenDisabled(path, options, bodyNode));
+        bodyNode && !clauseIsPreservedCall && (allowCollapsedGuardWithOption || allowCollapsedGuardWithDisabledPolicy);
 
     if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
@@ -3533,7 +3741,25 @@ function shouldFlattenSyntheticBinary(parent, expression, _path) {
         return false;
     }
 
-    return parent.operator === expression.operator;
+    if (parent.operator === expression.operator) {
+        return true;
+    }
+
+    const parentKey = callPathMethod(_path, "getName");
+    const parentIsAdditive = parent.operator === "+" || parent.operator === "-";
+    const expressionIsAdditive = expression.operator === "+" || expression.operator === "-";
+    if (!parentIsAdditive || !expressionIsAdditive) {
+        return false;
+    }
+
+    // Flatten additive synthetic parentheses when associativity is preserved.
+    // Safe: (a + b) - c, (a - b) + c, a + (b - c), a + (b + c)
+    // Unsafe: a - (b + c), a - (b - c)
+    if (parentKey === "left") {
+        return true;
+    }
+
+    return parentKey === "right" && parent.operator === "+";
 }
 
 function shouldFlattenMultiplicationChain(parent, expression, _path) {

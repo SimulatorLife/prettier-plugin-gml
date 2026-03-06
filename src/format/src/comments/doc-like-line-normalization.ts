@@ -117,6 +117,10 @@ function isBannerLikeLineComment(rawText: string): boolean {
     return /[/_*#<>|:~-]{6,}/u.test(trimmed);
 }
 
+function isCommentedOutCodeLine(rawText: string): boolean {
+    return /^\s*\/\/\s*[A-Za-z_]\w*\s*:/u.test(rawText);
+}
+
 function isDecorativeBlockCommentNode(node: unknown): boolean {
     if (!node || typeof node !== "object") {
         return false;
@@ -239,6 +243,7 @@ function shouldPreserveRawFormatterLineComment(
         isTripleSlashSeparatorLine(rawText) ||
         isMethodListTripleSlashLine(rawText) ||
         isBannerLikeLineComment(rawText) ||
+        isCommentedOutCodeLine(rawText) ||
         isTripleSlashContinuationInDocBlock(comment, rawText, originalText) ||
         isTripleSlashLineAdjacentToDecorativeSeparator(comment, rawText, originalText)
     );

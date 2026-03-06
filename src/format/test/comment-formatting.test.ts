@@ -319,3 +319,74 @@ void test("formats top-level doc block comments without duplicating leading star
         ].join("\n")
     );
 });
+
+void test("preserves blank lines between adjacent function doc-comment tags", async () => {
+    const source = [
+        "/// @description Create collectible particles and inherit",
+        "",
+        "/// @function scr_bezier_4()",
+        "function scr_bezier_4() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/// @description Create collectible particles and inherit",
+            "",
+            "/// @function scr_bezier_4()",
+            "function scr_bezier_4() {}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("preserves source order for mixed function doc-comment prefixes", async () => {
+    const source = [
+        "/// @function scr_create_fx",
+        "// @param sprite_index",
+        "/* @description Create an effect */",
+        "/// @returns {Id.Instance} instance",
+        "function scr_create_fx() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/// @function scr_create_fx",
+            "// @param sprite_index",
+            "/* @description Create an effect */",
+            "/// @returns {Id.Instance} instance",
+            "function scr_create_fx() {}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("normalizes top-level decorative banner indentation", async () => {
+    const source = [
+        "\t/*////////////////////////////////////////////////////",
+        "\t    Banner docs",
+        "\t    */////////////////////////////////////////////////////",
+        "var value = 1;",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/*////////////////////////////////////////////////////",
+            "    Banner docs",
+            "*/////////////////////////////////////////////////////",
+            "var value = 1;",
+            ""
+        ].join("\n")
+    );
+});
