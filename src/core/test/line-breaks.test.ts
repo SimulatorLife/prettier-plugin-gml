@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
+import { dominantLineEnding, getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
 
 void describe("line-breaks", () => {
     void describe("splitLines", () => {
@@ -45,6 +45,35 @@ void describe("line-breaks", () => {
                 { index: 19, length: 1 },
                 { index: 25, length: 1 }
             ]);
+        });
+    });
+
+    void describe("dominantLineEnding", () => {
+        void it("returns LF for a file that uses only LF line endings", () => {
+            assert.strictEqual(dominantLineEnding("line1\nline2\nline3\n"), "\n");
+        });
+
+        void it("returns CRLF for a file that uses only CRLF line endings", () => {
+            assert.strictEqual(dominantLineEnding("line1\r\nline2\r\nline3\r\n"), "\r\n");
+        });
+
+        void it("returns the dominant ending when CRLF is strictly more common than LF", () => {
+            // 3 CRLF vs 1 bare LF → dominant is CRLF
+            assert.strictEqual(dominantLineEnding("a\r\nb\r\nc\r\nd\ne"), "\r\n");
+        });
+
+        void it("returns LF when LF is strictly more common than CRLF", () => {
+            // 1 CRLF vs 3 bare LF → dominant is LF
+            assert.strictEqual(dominantLineEnding("a\r\nb\nc\nd\ne"), "\n");
+        });
+
+        void it("returns LF as the tie-break default when counts are equal", () => {
+            // 1 CRLF vs 1 bare LF → tie, defaults to LF
+            assert.strictEqual(dominantLineEnding("a\r\nb\nc"), "\n");
+        });
+
+        void it("returns LF for text with no line breaks", () => {
+            assert.strictEqual(dominantLineEnding("no newlines here"), "\n");
         });
     });
 });
