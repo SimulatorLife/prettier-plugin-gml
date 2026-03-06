@@ -77,6 +77,22 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves explicit undefined default parameter values from function declarations", async () => {
+        const source = [
+            "function vertex_position_3d_ext(vbuff, px = 0, py = 0, pz = 0, trans_mat = undefined) {",
+            "    return [vbuff, px, py, pz, trans_mat];",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function vertex_position_3d_ext\(vbuff,\s*px = 0,\s*py = 0,\s*pz = 0,\s*trans_mat = undefined\)/,
+            "Formatter must preserve explicit `= undefined` default expressions in function parameters."
+        );
+    });
+
     void it("does not synthesize doc-comment tags during formatting", async () => {
         const source = [
             "function make_struct(value) {",
@@ -140,7 +156,7 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
-    void it("does not infer optional defaults from raw legacy // @param text", async () => {
+    void it("does not rewrite explicit undefined defaults from raw legacy // @param text", async () => {
         const source = [
             "// @function legacy_optional(val)",
             "// @param [val] {real}",
@@ -153,8 +169,8 @@ void describe("formatter boundaries ownership", () => {
 
         assert.match(
             formatted,
-            /function legacy_optional\(val\)/,
-            "Formatter must not infer optional parameter semantics from raw legacy // comments; normalization and semantic interpretation belong in lint."
+            /function legacy_optional\(val = undefined\)/,
+            "Formatter must preserve explicit `= undefined` defaults and must not perform semantic optionality rewrites from raw legacy // comments."
         );
     });
 

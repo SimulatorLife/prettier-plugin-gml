@@ -16,6 +16,90 @@ export type Range = { start: number; end: number };
 const { createEnumeratedOptionHelpers } = Core;
 
 /**
+ * Allowed naming case styles for naming-convention policy rules.
+ */
+export type NamingCaseStyle = "lower" | "upper" | "camel" | "lower_snake" | "upper_snake" | "pascal";
+
+/**
+ * Category keys that can be targeted by naming-convention policy rules.
+ */
+export type NamingCategory =
+    | "resource"
+    | "scriptResourceName"
+    | "objectResourceName"
+    | "roomResourceName"
+    | "spriteResourceName"
+    | "audioResourceName"
+    | "timelineResourceName"
+    | "shaderResourceName"
+    | "fontResourceName"
+    | "pathResourceName"
+    | "sequenceResourceName"
+    | "tilesetResourceName"
+    | "variable"
+    | "localVariable"
+    | "globalVariable"
+    | "instanceVariable"
+    | "staticVariable"
+    | "argument"
+    | "catchArgument"
+    | "loopIndexVariable"
+    | "callable"
+    | "function"
+    | "constructorFunction"
+    | "eventHandlerFunction"
+    | "structMethod"
+    | "staticMethod"
+    | "typeName"
+    | "structDeclaration"
+    | "enum"
+    | "member"
+    | "structField"
+    | "enumMember"
+    | "constant"
+    | "macro";
+
+/**
+ * Raw user-authored rule options for a single naming category.
+ */
+export interface NamingRuleConfig {
+    caseStyle?: NamingCaseStyle;
+    prefix?: string;
+    suffix?: string;
+    minChars?: number;
+    maxChars?: number;
+    bannedPrefixes?: Array<string>;
+    bannedSuffixes?: Array<string>;
+}
+
+/**
+ * User-authored naming policy consumed by rename validation and planning.
+ */
+export interface NamingConventionPolicy {
+    rules: Partial<Record<NamingCategory, NamingRuleConfig | false>>;
+    exclusivePrefixes?: Record<string, NamingCategory>;
+    exclusiveSuffixes?: Record<string, NamingCategory>;
+}
+
+/**
+ * Normalized rule values after inheritance/default resolution for a category.
+ */
+export interface ResolvedNamingRule {
+    prefix: string;
+    suffix: string;
+    caseStyle: NamingCaseStyle;
+    minChars: number | null;
+    maxChars: number | null;
+    bannedPrefixes: ReadonlyArray<string>;
+    bannedSuffixes: ReadonlyArray<string>;
+}
+
+/**
+ * Resolved rule map keyed by naming category.
+ */
+export type ResolvedNamingConventionRules = Partial<Record<NamingCategory, ResolvedNamingRule>>;
+
+/**
  * Create type-safe enum validators with case-sensitive matching.
  * Adapts Core's createEnumeratedOptionHelpers for strict enum validation.
  *

@@ -287,10 +287,11 @@ function printComment(commentPath, options) {
                 options?.originalText
             );
             const allowSourceDrivenBlankLinePrepend =
-                sourceIndentationWidth === 0 &&
+                (sourceIndentationWidth === 0 || previousSignificantCharacter === "{") &&
                 previousSignificantCharacter !== null &&
                 previousSignificantCharacter !== "/" &&
                 previousSignificantCharacter !== "*" &&
+                previousSignificantCharacter !== "}" &&
                 !hasTopLevelDocLineImmediatelyBeforeComment(comment, options?.originalText);
             let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized === "") {

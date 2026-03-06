@@ -50,6 +50,7 @@ Formatter doc-comment boundary guarantees:
 
 - Legacy annotations such as `/// @function ...` are preserved by the formatter and are never replaced/normalized.
 - The formatter never synthesizes `/// @description`, `/// @param`, `/// @returns`, or other function doc-comment tags.
+- The formatter preserves explicitly-authored function parameter defaults, including `= undefined`, and never infers/removes optional defaults from doc-comment semantics.
 - The formatter does not remove default/placeholder comments (for example, GameMaker migration banners or editor placeholder comments); this is lint-owned via `gml/remove-default-comments`.
 
 See the durable split contract and examples in [`docs/target-state.md`](../../docs/target-state.md).

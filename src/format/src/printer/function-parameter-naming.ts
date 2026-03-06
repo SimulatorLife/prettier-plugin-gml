@@ -36,8 +36,8 @@ import { findAncestorNode } from "./path-utils.js";
 
 /**
  * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
- * Prettier path. Used by the printer to determine doc-param optionality for
- * `= undefined` default parameters.
+ * Prettier path. This is a layout-only traversal helper for printer context
+ * lookups and must not be used for semantic/content rewrites.
  *
  * @param path - The Prettier AstPath to traverse upward
  * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`

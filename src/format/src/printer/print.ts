@@ -42,7 +42,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { findEnclosingFunctionDeclaration, joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
+import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -383,7 +383,11 @@ function joinDocCommentsPreservingSourceSpacing(
         const currentEntry = docCommentDocs[index];
         const nextEntry = docCommentDocs[index + 1];
         if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
-            parts.push(hardline, hardline);
+            if (shouldCollapseDescriptionToFunctionDocGap(docCommentDocs, index)) {
+                parts.push(hardline);
+            } else {
+                parts.push(hardline, hardline);
+            }
         } else {
             parts.push(hardline);
         }
@@ -405,6 +409,51 @@ function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: un
     }
 
     return /\r?\n[ \t]*\r?\n/u.test(slice);
+}
+
+function resolveDocCommentEntryText(commentEntry: unknown): string | null {
+    if (typeof commentEntry === "string") {
+        return commentEntry;
+    }
+
+    if (Core.isObjectLike(commentEntry)) {
+        const docText = (commentEntry as { _gmlDocText?: unknown })._gmlDocText;
+        if (typeof docText === "string") {
+            return docText;
+        }
+    }
+
+    const rawText = Core.getLineCommentRawText(commentEntry, {});
+    return typeof rawText === STRING_TYPE && rawText.length > 0 ? rawText : null;
+}
+
+function shouldCollapseDescriptionToFunctionDocGap(docCommentDocs: MutableDocCommentLines, leftIndex: number): boolean {
+    const leftText = resolveDocCommentEntryText(docCommentDocs[leftIndex]);
+    const rightText = resolveDocCommentEntryText(docCommentDocs[leftIndex + 1]);
+    if (leftText === null || rightText === null) {
+        return false;
+    }
+
+    if (!/^\/\/\/\s*@description\b/iu.test(leftText.trim())) {
+        return false;
+    }
+
+    if (!/^\/\/\/\s*@(?:function|func)\b/iu.test(rightText.trim())) {
+        return false;
+    }
+
+    for (let index = leftIndex + 2; index < docCommentDocs.length; index += 1) {
+        const trailingText = resolveDocCommentEntryText(docCommentDocs[index]);
+        if (trailingText === null) {
+            continue;
+        }
+
+        if (/^\/\/\/\s*@/iu.test(trailingText.trim())) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
@@ -590,9 +639,6 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
-            if (shouldOmitDefaultValueForParameter(path, options)) {
-                return concat(print("left"));
-            }
             return concat(printSimpleDeclaration(print("left"), print("right")));
         }
     }
@@ -2226,6 +2272,53 @@ function hasCommentBetweenStatements(leftNode, rightNode, originalText: string):
     return betweenText.has("//") || betweenText.has("/*");
 }
 
+function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string): boolean {
+    const leftEndIndex = Core.getNodeEndIndex(leftNode);
+    const rightStartIndex = Core.getNodeStartIndex(rightNode);
+    if (
+        typeof leftEndIndex !== NUMBER_TYPE ||
+        typeof rightStartIndex !== NUMBER_TYPE ||
+        rightStartIndex <= leftEndIndex
+    ) {
+        return false;
+    }
+
+    const betweenText = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    if (betweenText.length === 0) {
+        return false;
+    }
+
+    const withoutBlockComments = betweenText.replaceAll(/\/\*[\s\S]*?\*\//gu, "");
+    const withoutComments = withoutBlockComments.replaceAll(/\/\/[^\r\n]*/gu, "");
+    return /\r?\n[ \t]*\r?\n/u.test(withoutComments);
+}
+
+function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
+    const nodeStartIndex = Core.getNodeStartIndex(node);
+    if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
+        return false;
+    }
+
+    let cursor = nodeStartIndex - 1;
+    while (cursor >= 0) {
+        const character = originalText[cursor];
+        if (character === " " || character === "\t" || character === "\n" || character === "\r") {
+            cursor -= 1;
+            continue;
+        }
+
+        break;
+    }
+
+    if (cursor < 0) {
+        return false;
+    }
+
+    const lineStartIndex = originalText.lastIndexOf("\n", cursor);
+    const sourceLine = originalText.slice(lineStartIndex === -1 ? 0 : lineStartIndex + 1, cursor + 1).trimStart();
+    return sourceLine.startsWith("/*") || sourceLine.endsWith("*/");
+}
+
 function shouldForceVariableBlockBeforeLoopPadding(
     statements,
     index,
@@ -2269,10 +2362,15 @@ function handleIntermediateTrailingSpacing({
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
-
+    const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const hasSourceBlankLineBeforeNextNode =
+        !suppressFollowingEmptyLine &&
+        originalText !== null &&
+        nextNode != null &&
+        hasBlankLineBetweenStatements(node, nextNode, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
-        : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
+        : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
 
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
@@ -2361,7 +2459,6 @@ function handleIntermediateTrailingSpacing({
         // the comment. Emitting one here too would produce a double blank line.
         // Detect this by checking whether the original source has a comment
         // immediately before the next node; if so, let Prettier handle spacing.
-        const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
         const nextNodeStartIndex = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
         const nextNodeHasLeadingComment =
             isTopLevel &&
@@ -2372,12 +2469,12 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             hasCommentBetweenStatements(node, nextNode, originalText);
-        const nextNodeHasAttachedDocComment =
-            nextNode?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-            Core.isNonEmptyArray(nextNode?.docComments) ||
-            Core.isNonEmptyArray(nextNode?._syntheticDocLines);
+        const nextNodeHasBlockCommentImmediatelyBefore =
+            originalText !== null &&
+            nextNode != null &&
+            isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
 
-        if (nextNodeHasAttachedDocComment || (!nextNodeHasLeadingComment && !nextNodeHasCommentGap)) {
+        if ((!nextNodeHasLeadingComment && !nextNodeHasCommentGap) || nextNodeHasBlockCommentImmediatelyBefore) {
             parts.push(hardlineDoc);
         }
     }
@@ -2656,175 +2753,6 @@ function consumeBlockComment(source, startIndex) {
     }
 
     return { index: current, foundLineBreak: false };
-}
-
-function shouldOmitDefaultValueForParameter(path, options) {
-    const node = path.getValue();
-    if (!node || node.type !== "DefaultParameter") {
-        return false;
-    }
-
-    const hasInitializer = node.right != null;
-    const defaultIsUndefined = hasInitializer ? Core.isUndefinedSentinel(node.right) : false;
-
-    // Do not strip explicit non-undefined defaults. Formatter-owned optionality
-    // heuristics only apply to `= undefined` signatures.
-    if (hasInitializer && !defaultIsUndefined) {
-        return false;
-    }
-
-    const paramName = node.left && node.left.name ? node.left.name : null;
-    const functionNode = findEnclosingFunctionDeclaration(path);
-    if (defaultIsUndefined && functionNode && paramName) {
-        const optionalDocFlag = resolveDocParamOptionality(functionNode, paramName, options);
-        if (optionalDocFlag !== null) {
-            return !optionalDocFlag;
-        }
-    }
-
-    // If the parameter currently has no `right` expression it is a parser-
-    // side placeholder for a default. Treat this as an explicit undefined
-    // default for printing purposes so the signature remains explicit.
-    if (node.right == null) {
-        return false;
-    }
-
-    // Preserve synthesized materialized trailing `undefined` defaults in
-    // signatures even when docs are conservative about optionality. The
-    // parser marks materialized trailing undefined defaults with
-    // `_featherMaterializedTrailingUndefined`. When present, prefer to
-    // keep the explicit `= undefined` signature rather than omitting it.
-    try {
-        if (node._featherMaterializedTrailingUndefined === true) {
-            return false;
-        }
-    } catch {
-        // Swallow flag-check errors and fall back to default heuristics.
-        // REASON: If accessing _featherMaterializedTrailingUndefined throws (e.g.,
-        // due to a getter that fails or a malformed node), we proceed with the
-        // normal optionality logic below. The flag is a performance hint, not
-        // a required property, so failing to read it is non-fatal.
-        // WHAT WOULD BREAK: Propagating the exception would abort optionality
-        // determination for this parameter and potentially cause incorrect
-        // printing or missing default values in the formatted output.
-    }
-
-    if (!defaultIsUndefined || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    // fallback: follow the existing ancestor-based heuristic when no
-    // explicit doc cue is available. If a parameter was explicitly marked
-    // by parser-side transforms as optional, preserve it.
-    if (node._featherOptionalParameter === true) {
-        return false;
-    }
-
-    let depth = 0;
-    while (true) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (shouldOmitUndefinedDefaultForFunctionNode(ancestor)) {
-            // Omit undefined defaults for plain function declarations by
-            // default unless they were intentionally preserved via parser
-            // intent (the `_featherOptionalParameter` marker handled above)
-            return true;
-        }
-
-        depth += 1;
-    }
-
-    return false;
-}
-
-function resolveDocParamOptionality(functionNode, paramName, options) {
-    const commentLines = collectDocLinesFromFunctionComments(functionNode, options);
-    if (commentLines.length > 0) {
-        const optionalFlag = getDocParamOptionality(commentLines, paramName);
-        if (optionalFlag !== null) {
-            return optionalFlag;
-        }
-    }
-
-    return null;
-}
-
-function collectDocLinesFromFunctionComments(functionNode, options) {
-    const docComments = Array.isArray(functionNode.docComments)
-        ? functionNode.docComments
-        : Array.isArray(functionNode.comments)
-          ? functionNode.comments
-          : null;
-    if (!Core.isNonEmptyArray(docComments)) {
-        return [];
-    }
-
-    const lineCommentOptions = Core.resolveLineCommentOptions(options);
-    const formattingOptions = {
-        ...lineCommentOptions,
-        originalText: options?.originalText
-    };
-
-    const docLines = [];
-    for (const comment of docComments) {
-        const formatted = Core.formatLineComment(comment, formattingOptions);
-        const rawValue = formatted ?? (typeof comment?.value === "string" ? comment.value : null);
-        if (!Core.isNonEmptyString(rawValue)) {
-            continue;
-        }
-
-        docLines.push(rawValue);
-    }
-
-    return docLines;
-}
-
-function getDocParamOptionality(lines, paramName) {
-    for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const docLine = lines[i];
-        const match = docLine.match(/\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
-        if (!match) {
-            continue;
-        }
-        const raw = match[1];
-        const normalized = normalizeDocParamNameFromRaw(raw);
-        if (normalized === paramName) {
-            return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
-        }
-    }
-    return null;
-}
-
-function normalizeDocParamNameFromRaw(raw) {
-    let name = raw;
-    if (name.startsWith("[")) {
-        name = name.slice(1);
-    }
-    if (name.endsWith("]")) {
-        name = name.slice(0, -1);
-    }
-    if (name.endsWith("*")) {
-        name = name.slice(0, -1);
-    }
-    if (name.startsWith("*")) {
-        name = name.slice(1);
-    }
-    return name.trim();
-}
-
-function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
-    if (!functionNode || !functionNode.type) {
-        return false;
-    }
-
-    if (functionNode.type === "ConstructorDeclaration" || functionNode.type === "ConstructorParentClause") {
-        return false;
-    }
-
-    return functionNode.type === "FunctionDeclaration";
 }
 
 /**
