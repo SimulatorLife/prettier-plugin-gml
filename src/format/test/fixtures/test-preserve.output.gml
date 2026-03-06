@@ -98,6 +98,7 @@ var calc3 = 3 * 7 * 4 * 5;
 
 // The following line should be preserved; the local variable and instance variable are different scopes and do NOT conflict
 var val = 100;
+
 with (instance_create_layer(x, y, "Instances", obj_Fire)) {
     self.val = val;
 }
@@ -133,7 +134,6 @@ global.lighting.draw(
 // Wobbling in z-axis
 // Value between 0 and 2, this is subtracted from crabs height
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;
-
 /// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
 /// @param {real} [subimg=0]
@@ -204,7 +204,6 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
         return true;                                                       \
     }
-
 /// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @param inst_a
 /// @param inst_b

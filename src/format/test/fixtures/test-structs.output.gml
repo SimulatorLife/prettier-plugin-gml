@@ -74,6 +74,7 @@ var print = function () {
 
 function keep_separate() {
     var foo = {};
+
     // the assignments below depend on runtime
     foo.bar = 1;
     foo.baz = 2;

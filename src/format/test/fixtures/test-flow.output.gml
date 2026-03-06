@@ -111,7 +111,6 @@ function bool_with_comment(condition) {
         return false;
     }
 }
-
 /// @param list
 /// @param map
 /// @param grid

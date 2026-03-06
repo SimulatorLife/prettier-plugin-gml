@@ -44,7 +44,6 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
         ynet = yy;
     }
 }
-
 /// @function scr_create_fx
 // @param sprite_index
 //// @param {real} fx_x
@@ -76,16 +75,14 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
         }
     );
 }
-
 /// @param {Struct} structure
 /// @return {any}
-function scr_struct_get(structure, key, default_value) {
+function scr_struct_get(structure, key, default_value = undefined) {
     if (is_undefined(structure)) {
         return default_value;
     }
     return struct_get(structure, key) ?? default_value;
 }
-
 // Note: Multiple data types can also be listed, separated by a comma ,
 // For example String,Array<String>, Id.Instance,Asset.GMObject, etc.
 
@@ -97,7 +94,7 @@ function scr_struct_get(structure, key, default_value) {
 /// @param {Function/undefined} callback
 /// @param {*} [extra]
 /// @return {string}
-function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
+function scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 
@@ -110,7 +107,6 @@ var func_greet = function (greeting = "Hello, World!") {
     show_debug_message(greeting);
     return greeting;
 };
-
 /// Adds a custom function that can be called by expressions
 ///
 /// Custom functions can return values, but they should be numbers or strings.
@@ -135,6 +131,7 @@ var func_greet = function (greeting = "Hello, World!") {
 ///
 /// @param name      Script name; as a string
 /// @param in_function  Function to call
+
 function ChatterboxAddFunction(_name, _in_function) {
     // Implementation here
 }

@@ -286,12 +286,20 @@ function printComment(commentPath, options) {
                 comment,
                 options?.originalText
             );
+            const previousSignificantIndex = resolvePreviousSignificantSourceIndexBeforeComment(
+                comment,
+                options?.originalText
+            );
+            const previousSignificantIsCommentedOutBrace =
+                previousSignificantCharacter === "}" &&
+                previousSignificantIndex !== null &&
+                isSourceIndexInsideLineComment(previousSignificantIndex, options?.originalText);
             const allowSourceDrivenBlankLinePrepend =
                 (sourceIndentationWidth === 0 || previousSignificantCharacter === "{") &&
                 previousSignificantCharacter !== null &&
                 previousSignificantCharacter !== "/" &&
                 previousSignificantCharacter !== "*" &&
-                previousSignificantCharacter !== "}" &&
+                !previousSignificantIsCommentedOutBrace &&
                 !hasTopLevelDocLineImmediatelyBeforeComment(comment, options?.originalText);
             let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized === "") {
@@ -399,51 +407,6 @@ function resolveCommentSourceSpan(comment, originalText) {
     return { startIndex, endIndex, originalText };
 }
 
-function getCommentLine(comment) {
-    const start = comment?.start;
-    if (typeof start === "number") {
-        return Number.NaN;
-    }
-
-    if (start && typeof start.line === "number") {
-        return start.line;
-    }
-
-    return Number.NaN;
-}
-
-function getNodeEndLine(node) {
-    if (!node) {
-        return Number.NaN;
-    }
-
-    const end = node.end;
-    if (end && typeof end === "object" && typeof end.line === "number") {
-        return end.line;
-    }
-
-    return Number.NaN;
-}
-
-function hasLeadingBlankLine(comment) {
-    const leadingWhitespace = typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
-    if (/\n[\t ]*\n/.test(leadingWhitespace)) {
-        return true;
-    }
-
-    const commentLine = getCommentLine(comment);
-    if (!Number.isFinite(commentLine)) {
-        return false;
-    }
-
-    const precedingEndLine = getNodeEndLine(comment?.precedingNode);
-    if (!Number.isFinite(precedingEndLine)) {
-        return false;
-    }
-
-    return commentLine >= precedingEndLine + 2;
-}
-
 function hasLeadingBlankLineInWhitespace(comment): boolean {
     const leadingWhitespace = typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
     return /\n[\t ]*\n/u.test(leadingWhitespace);
@@ -467,6 +430,15 @@ function resolveCommentSourceIndentationWidth(comment, originalText): number | n
 }
 
 function resolvePreviousSignificantSourceCharacterBeforeComment(comment, originalText): string | null {
+    const sourceIndex = resolvePreviousSignificantSourceIndexBeforeComment(comment, originalText);
+    if (sourceIndex === null) {
+        return null;
+    }
+
+    return originalText[sourceIndex] ?? null;
+}
+
+function resolvePreviousSignificantSourceIndexBeforeComment(comment, originalText): number | null {
     const sourceSpan = resolveCommentSourceSpan(comment, originalText);
     if (!sourceSpan) {
         return null;
@@ -478,10 +450,20 @@ function resolvePreviousSignificantSourceCharacterBeforeComment(comment, origina
             continue;
         }
 
-        return char;
+        return index;
     }
 
     return null;
+}
+
+function isSourceIndexInsideLineComment(index: number, originalText: string | null | undefined): boolean {
+    if (typeof originalText !== "string" || index < 0 || index >= originalText.length) {
+        return false;
+    }
+
+    const lineStartIndex = originalText.lastIndexOf("\n", index);
+    const linePrefix = originalText.slice(lineStartIndex === -1 ? 0 : lineStartIndex + 1, index + 1);
+    return linePrefix.includes("//");
 }
 
 function hasTopLevelDocLineImmediatelyBeforeComment(comment, originalText): boolean {
