@@ -13,20 +13,10 @@ import {
     DEFAULT_PROJECT_INDEX_EXCLUDES
 } from "./project-lint-context-registry.js";
 
-export interface GmlFeatherRenamePlanEntry {
-    identifierName: string;
-    preferredReplacementName: string;
-    safe: boolean;
-    reason: string | null;
-}
-
 export interface GmlProjectContext {
     capabilities: ReadonlySet<ProjectCapability>;
     isIdentifierNameOccupiedInProject(identifierName: string): boolean;
     listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string>;
-    planFeatherRenames(
-        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-    ): ReadonlyArray<GmlFeatherRenamePlanEntry>;
     assessGlobalVarRewrite(
         filePath: string | null,
         hasInitializer: boolean

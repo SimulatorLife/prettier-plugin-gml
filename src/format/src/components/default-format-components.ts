@@ -31,7 +31,7 @@ export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
                 category: "gml",
                 default: false,
                 description:
-                    "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). When disabled, only guard-style single-line 'if' statements that already appear on one line stay collapsed; other bodies expand across multiple lines."
+                    "Collapse single-statement 'if' bodies to a single line when the complete statement fits within printWidth (for example, 'if (condition) { return; }'). When disabled, only guard-style single-line 'if' statements that already appear on one line stay collapsed; other bodies expand across multiple lines."
             },
             logicalOperatorsStyle: {
                 since: "0.0.0",

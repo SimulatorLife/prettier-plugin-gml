@@ -10,7 +10,7 @@ function normalizePathSeparator(value: string): string {
     return value.split(path.sep).join("/");
 }
 
-void test("root test discovery includes formatter, lint, and integration fixture suites", async () => {
+void test("root test discovery includes formatter, lint, and cross-module integration suites", async () => {
     const { stdout } = await execFileAsync("pnpm", ["-s", "test:files"], {
         cwd: process.cwd(),
         maxBuffer: 1024 * 1024 * 10
@@ -25,7 +25,7 @@ void test("root test discovery includes formatter, lint, and integration fixture
     const requiredFixtureSuites = [
         "src/format/dist/test/formatter-fixtures.test.js",
         "src/lint/dist/test/rules/rule-fixtures.test.js",
-        "test/dist/format-semantic-integration.test.js"
+        "test/dist/cross-module-integration.test.js"
     ];
 
     for (const requiredSuite of requiredFixtureSuites) {

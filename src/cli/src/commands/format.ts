@@ -207,7 +207,7 @@ function resolvePrettier() {
     return prettierModulePromise;
 }
 
-async function resolveFormatOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
+function resolveFormatOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
     if (formatOutputNormalizerPromise === null) {
         formatOutputNormalizerPromise = importFormatModule()
             .then((moduleValue) => {
@@ -222,7 +222,7 @@ async function resolveFormatOutputNormalizer(): Promise<null | ((formatted: stri
             .catch(() => null);
     }
 
-    return await formatOutputNormalizerPromise;
+    return formatOutputNormalizerPromise;
 }
 
 async function normalizeFormattedOutputWithFormat(formatted: string, source: string): Promise<string> {
@@ -1051,11 +1051,11 @@ async function collectExistingIgnoreFiles(candidatePaths) {
     return compactArray(discovered);
 }
 
-async function resolveProjectIgnorePaths(directory) {
+function resolveProjectIgnorePaths(directory) {
     const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return await collectExistingIgnoreFiles(candidatePaths);
+    return collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**

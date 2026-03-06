@@ -77,6 +77,22 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves explicit undefined default parameter values from function declarations", async () => {
+        const source = [
+            "function vertex_position_3d_ext(vbuff, px = 0, py = 0, pz = 0, trans_mat = undefined) {",
+            "    return [vbuff, px, py, pz, trans_mat];",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function vertex_position_3d_ext\(vbuff,\s*px = 0,\s*py = 0,\s*pz = 0,\s*trans_mat = undefined\)/,
+            "Formatter must preserve explicit `= undefined` default expressions in function parameters."
+        );
+    });
+
     void it("does not synthesize doc-comment tags during formatting", async () => {
         const source = [
             "function make_struct(value) {",
@@ -137,6 +153,24 @@ void describe("formatter boundaries ownership", () => {
             formatted,
             /^\/\/\/ @function legacy_func/m,
             "Formatter must not upgrade // @function to /// @function — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+    });
+
+    void it("does not rewrite explicit undefined defaults from raw legacy // @param text", async () => {
+        const source = [
+            "// @function legacy_optional(val)",
+            "// @param [val] {real}",
+            "function legacy_optional(val = undefined) {",
+            "    return val;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function legacy_optional\(val = undefined\)/,
+            "Formatter must preserve explicit `= undefined` defaults and must not perform semantic optionality rewrites from raw legacy // comments."
         );
     });
 
@@ -408,6 +442,75 @@ void describe("formatter boundaries ownership", () => {
         assert.strictEqual(
             formatted,
             ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join("\n")
+        );
+    });
+
+    void it("does not strip empty /// @description doc-comment lines (cleanup belongs in lint)", async () => {
+        // Removing empty `/// @description` tags is a doc-comment content rewrite
+        // owned by `@gml-modules/lint`'s `gml/normalize-doc-comments` rule
+        // (target-state.md §2.2 — "Lint owns `@description` promotion/cleanup").
+        // The formatter must preserve empty @description lines verbatim so that
+        // lint can make an intentional, auditable decision about whether to remove them.
+        const standaloneSource = ["/// @description", "function demo() {", "    return 1;", "}"].join("\n");
+
+        const standaloneFormatted = await Format.format(standaloneSource);
+
+        assert.match(
+            standaloneFormatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description tags — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+
+        // Struct literal context: the formatter must preserve empty @description
+        // as a leading doc-comment line on struct properties too.
+        const structSource = [
+            "var obj = {",
+            "    /// @description",
+            "    method: function () {",
+            "        return 1;",
+            "    }",
+            "};",
+            ""
+        ].join("\n");
+
+        const structFormatted = await Format.format(structSource);
+
+        assert.match(
+            structFormatted,
+            /^[ \t]*\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description from struct literal properties — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+    });
+
+    void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
+        const source = [
+            "/// @description",
+            "",
+            "// Cast a ray from high above to the ground so that the coin is placed onto the ground",
+            "var ray = cm_cast_ray(levelColmesh, cm_ray(x, y, 1000, x, y, -100));",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description\s*\n\n\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground/m
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground\s*\n\/\/\/ @description\s*\nvar ray/m
+        );
+    });
+
+    void it("does not synthesize empty /// @description tags for undocumented functions", async () => {
+        const source = ["function no_docs() {", "    return 1;", "}", ""].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not synthesize empty /// @description tags."
         );
     });
 });

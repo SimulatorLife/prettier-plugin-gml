@@ -1,1 +1,1 @@
-{"logicalOperatorStyle": "symbols", "printWidth": 150}
+{"logicalOperatorsStyle": "symbols", "printWidth": 150, "allowSingleLineIfStatements": false}

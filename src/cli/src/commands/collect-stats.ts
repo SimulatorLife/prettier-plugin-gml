@@ -82,7 +82,7 @@ function scanProjectHealth(rootDir: string) {
             largeFiles += 1;
         }
 
-        todos += (content.match(/\b(TODO|FIXME|HACK)\b/g) || []).length;
+        todos += (content.match(/\b(?:TODO|FIXME|HACK)\b/g) || []).length;
     }
 
     let totalBuildSize = 0;

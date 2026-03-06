@@ -63,6 +63,14 @@ function coerceDocCommentEntriesToRawLines(docCommentDocs: MutableDocCommentLine
             continue;
         }
 
+        if (Core.isObjectLike(entry)) {
+            const docText = (entry as { _gmlDocText?: unknown })._gmlDocText;
+            if (typeof docText === "string") {
+                docCommentDocs[index] = docText;
+                continue;
+            }
+        }
+
         const rawText = Core.getLineCommentRawText(entry, {});
         if (rawText !== null) {
             docCommentDocs[index] = rawText;

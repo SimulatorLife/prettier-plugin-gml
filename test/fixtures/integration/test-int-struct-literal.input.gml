@@ -120,6 +120,7 @@ instance[$ "score"] = 42;
 do_something(instance);
 }
 
+/// @description This function has a sideffect of defining an instance variable 'data' that must be preserved
 function assign_then_extend() {
 data = {};
 data.label = "ok";

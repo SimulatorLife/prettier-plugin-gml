@@ -32,6 +32,7 @@ import {
     TRAILING_COMMA
 } from "../options/index.js";
 import {
+    DEFAULT_PRINT_WIDTH,
     INLINEABLE_SINGLE_STATEMENT_TYPES,
     MULTIPLICATIVE_BINARY_OPERATORS,
     NUMBER_TYPE,
@@ -41,7 +42,7 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { findEnclosingFunctionDeclaration, joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
+import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -86,7 +87,6 @@ import {
     isComplexArgumentNode,
     isInlineEmptyBlockComment,
     isInLValueChain,
-    isInsideConstructorFunction,
     isLogicalComparisonClause,
     isNumericComputationNode,
     isSimpleCallArgument,
@@ -290,13 +290,22 @@ function printNodeDocComments(node, path, options) {
 
     sortDocCommentsBySourceOrder(docCommentDocs);
 
+    const docCommentEntriesForMetadata = [...docCommentDocs];
     const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
+    const printableDocCommentBlock = joinDocCommentsPreservingSourceSpacing(
+        printableDocComments,
+        docCommentEntriesForMetadata,
+        originalText
+    );
 
     const parts: any[] = [];
     const shouldEmitPlainLeadingLines = plainLeadingLines.length > 0;
 
     if (shouldEmitPlainLeadingLines) {
-        parts.push(join(hardline, plainLeadingLines), hardline, hardline);
+        parts.push(join(hardline, plainLeadingLines), hardline);
+        if (docCommentDocs.length === 0) {
+            parts.push(hardline);
+        }
     }
 
     if (docCommentDocs.length > 0) {
@@ -320,23 +329,24 @@ function printNodeDocComments(node, path, options) {
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             hasExistingBlankLine &&
-            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentDocs, nodeStartIndex, originalText);
+            hasOnlyWhitespaceBetweenLastDocCommentAndNode(docCommentEntriesForMetadata, nodeStartIndex, originalText);
         const isTopOfFileDocBlock =
             originalText !== null &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             originalText.slice(0, nodeStartIndex).trim().length === 0;
 
-        if (
+        const shouldEmitConfiguredLeadingBlankLine =
             !suppressLeadingBlank &&
-            ((!isTopOfFileDocBlock && needsLeadingBlankLine) || (hasLeadingNonDocComment && !hasExistingBlankLine))
-        ) {
+            ((!isTopOfFileDocBlock && needsLeadingBlankLine) || (hasLeadingNonDocComment && !hasExistingBlankLine));
+
+        if (shouldEmitConfiguredLeadingBlankLine) {
             parts.push(hardline);
         }
 
         if (shouldPreserveSourceBlankLineAfterDocComments) {
-            parts.push(join(hardline, printableDocComments), hardline, hardline);
+            parts.push(printableDocCommentBlock, hardline, hardline);
         } else {
-            parts.push(join(hardline, printableDocComments), hardline);
+            parts.push(printableDocCommentBlock, hardline);
         }
     } else {
         if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
@@ -347,6 +357,103 @@ function printNodeDocComments(node, path, options) {
     markDocCommentsAsPrinted(node, path);
 
     return concat(parts);
+}
+
+function joinDocCommentsPreservingSourceSpacing(
+    printableDocComments: ReadonlyArray<unknown>,
+    docCommentDocs: MutableDocCommentLines,
+    originalText: string | null
+) {
+    if (!Core.isNonEmptyArray(printableDocComments)) {
+        return "";
+    }
+
+    if (originalText === null || printableDocComments.length !== docCommentDocs.length) {
+        return join(hardline, [...printableDocComments] as any[]);
+    }
+
+    const parts: any[] = [];
+    for (let index = 0; index < printableDocComments.length; index += 1) {
+        parts.push(printableDocComments[index]);
+
+        if (index >= printableDocComments.length - 1) {
+            continue;
+        }
+
+        const currentEntry = docCommentDocs[index];
+        const nextEntry = docCommentDocs[index + 1];
+        if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
+            if (shouldCollapseDescriptionToFunctionDocGap(docCommentDocs, index)) {
+                parts.push(hardline);
+            } else {
+                parts.push(hardline, hardline);
+            }
+        } else {
+            parts.push(hardline);
+        }
+    }
+
+    return concat(parts);
+}
+
+function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: unknown, originalText: string): boolean {
+    const leftEndIndex = resolveDocCommentEndIndex(leftEntry);
+    const rightStartIndex = resolveDocCommentStartIndex(rightEntry);
+    if (leftEndIndex === null || rightStartIndex === null || rightStartIndex <= leftEndIndex) {
+        return false;
+    }
+
+    const slice = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    if (slice.length === 0) {
+        return false;
+    }
+
+    return /\r?\n[ \t]*\r?\n/u.test(slice);
+}
+
+function resolveDocCommentEntryText(commentEntry: unknown): string | null {
+    if (typeof commentEntry === "string") {
+        return commentEntry;
+    }
+
+    if (Core.isObjectLike(commentEntry)) {
+        const docText = (commentEntry as { _gmlDocText?: unknown })._gmlDocText;
+        if (typeof docText === "string") {
+            return docText;
+        }
+    }
+
+    const rawText = Core.getLineCommentRawText(commentEntry, {});
+    return typeof rawText === STRING_TYPE && rawText.length > 0 ? rawText : null;
+}
+
+function shouldCollapseDescriptionToFunctionDocGap(docCommentDocs: MutableDocCommentLines, leftIndex: number): boolean {
+    const leftText = resolveDocCommentEntryText(docCommentDocs[leftIndex]);
+    const rightText = resolveDocCommentEntryText(docCommentDocs[leftIndex + 1]);
+    if (leftText === null || rightText === null) {
+        return false;
+    }
+
+    if (!/^\/\/\/\s*@description\b/iu.test(leftText.trim())) {
+        return false;
+    }
+
+    if (!/^\/\/\/\s*@(?:function|func)\b/iu.test(rightText.trim())) {
+        return false;
+    }
+
+    for (let index = leftIndex + 2; index < docCommentDocs.length; index += 1) {
+        const trailingText = resolveDocCommentEntryText(docCommentDocs[index]);
+        if (trailingText === null) {
+            continue;
+        }
+
+        if (/^\/\/\/\s*@/iu.test(trailingText.trim())) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
@@ -532,9 +639,6 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
-            if (shouldOmitDefaultValueForParameter(path, options)) {
-                return concat(print("left"));
-            }
             return concat(printSimpleDeclaration(print("left"), print("right")));
         }
     }
@@ -587,6 +691,10 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([docComments, node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
+            if (shouldBreakVariableInitializerOnAssignmentLine(node)) {
+                return group([print("id"), " =", indent([line, group(print("init"))])]);
+            }
+
             const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
@@ -1790,9 +1898,7 @@ function buildStructPropertyCommentSuffix(path, options) {
         }
     }
 
-    const filteredCommentDocs = commentDocs.filter(
-        (doc) => typeof doc === "string" && doc.trim() !== "/// @description"
-    );
+    const filteredCommentDocs = commentDocs.filter((doc) => typeof doc === "string");
 
     if (filteredCommentDocs.length === 0) {
         return "";
@@ -1919,7 +2025,6 @@ function buildStatementPartsForPrinter({
     semi = normalizeStatementSemicolon({
         node,
         semi,
-        childPath,
         hasTerminatingSemicolon,
         isStaticDeclaration
     });
@@ -1996,7 +2101,7 @@ function addLeadingStatementSpacing({
     }
 }
 
-function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemicolon, isStaticDeclaration }) {
+function normalizeStatementSemicolon({ node, semi, hasTerminatingSemicolon, isStaticDeclaration }) {
     if (semi !== ";") {
         return semi;
     }
@@ -2010,10 +2115,6 @@ function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemi
 
     if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
         return semi;
-    }
-
-    if (!hasTerminatingSemicolon && node.type === ASSIGNMENT_EXPRESSION && isInsideConstructorFunction(childPath)) {
-        return "";
     }
 
     const assignmentExpressionForSemicolonCheck =
@@ -2127,7 +2228,11 @@ function isLoopLikeStatement(node) {
     );
 }
 
-function countContiguousVariableDeclarationsBeforeIndex(statements, index): number {
+function countContiguousVariableDeclarationsBeforeIndexWithSource(
+    statements,
+    index,
+    originalText: string | null
+): number {
     if (!Array.isArray(statements) || index < 0 || index >= statements.length) {
         return 0;
     }
@@ -2137,18 +2242,95 @@ function countContiguousVariableDeclarationsBeforeIndex(statements, index): numb
         if (statements[cursor]?.type !== VARIABLE_DECLARATION) {
             break;
         }
+
+        if (
+            originalText !== null &&
+            cursor < index &&
+            hasCommentBetweenStatements(statements[cursor], statements[cursor + 1], originalText)
+        ) {
+            break;
+        }
+
         count += 1;
     }
 
     return count;
 }
 
-function shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode): boolean {
+function hasCommentBetweenStatements(leftNode, rightNode, originalText: string): boolean {
+    const leftEndIndex = Core.getNodeEndIndex(leftNode);
+    const rightStartIndex = Core.getNodeStartIndex(rightNode);
+    if (
+        typeof leftEndIndex !== NUMBER_TYPE ||
+        typeof rightStartIndex !== NUMBER_TYPE ||
+        rightStartIndex <= leftEndIndex
+    ) {
+        return false;
+    }
+
+    const betweenText = new Set(originalText.slice(leftEndIndex + 1, rightStartIndex));
+    return betweenText.has("//") || betweenText.has("/*");
+}
+
+function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string): boolean {
+    const leftEndIndex = Core.getNodeEndIndex(leftNode);
+    const rightStartIndex = Core.getNodeStartIndex(rightNode);
+    if (
+        typeof leftEndIndex !== NUMBER_TYPE ||
+        typeof rightStartIndex !== NUMBER_TYPE ||
+        rightStartIndex <= leftEndIndex
+    ) {
+        return false;
+    }
+
+    const betweenText = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    if (betweenText.length === 0) {
+        return false;
+    }
+
+    const withoutBlockComments = betweenText.replaceAll(/\/\*[\s\S]*?\*\//gu, "");
+    const withoutComments = withoutBlockComments.replaceAll(/\/\/[^\r\n]*/gu, "");
+    return /\r?\n[ \t]*\r?\n/u.test(withoutComments);
+}
+
+function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
+    const nodeStartIndex = Core.getNodeStartIndex(node);
+    if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
+        return false;
+    }
+
+    let cursor = nodeStartIndex - 1;
+    while (cursor >= 0) {
+        const character = originalText[cursor];
+        if (character === " " || character === "\t" || character === "\n" || character === "\r") {
+            cursor -= 1;
+            continue;
+        }
+
+        break;
+    }
+
+    if (cursor < 0) {
+        return false;
+    }
+
+    const lineStartIndex = originalText.lastIndexOf("\n", cursor);
+    const sourceLine = originalText.slice(lineStartIndex === -1 ? 0 : lineStartIndex + 1, cursor + 1).trimStart();
+    return sourceLine.startsWith("/*") || sourceLine.endsWith("*/");
+}
+
+function shouldForceVariableBlockBeforeLoopPadding(
+    statements,
+    index,
+    node,
+    nextNode,
+    originalText: string | null
+): boolean {
     if (node?.type !== VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
         return false;
     }
 
-    const variableBlockSize = countContiguousVariableDeclarationsBeforeIndex(statements, index);
+    const variableBlockSize = countContiguousVariableDeclarationsBeforeIndexWithSource(statements, index, originalText);
     return variableBlockSize >= MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING;
 }
 
@@ -2180,10 +2362,15 @@ function handleIntermediateTrailingSpacing({
         node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
-
+    const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const hasSourceBlankLineBeforeNextNode =
+        !suppressFollowingEmptyLine &&
+        originalText !== null &&
+        nextNode != null &&
+        hasBlankLineBetweenStatements(node, nextNode, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
-        : util.isNextLineEmpty(options.originalText, nextLineProbeIndex);
+        : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
 
     const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
@@ -2211,7 +2398,13 @@ function handleIntermediateTrailingSpacing({
         !sanitizedMacroHasExplicitBlankLine;
     const shouldForceVariableBlockLoopPadding =
         !suppressFollowingEmptyLine &&
-        shouldForceVariableBlockBeforeLoopPadding(statements, index, node, nextNode) &&
+        shouldForceVariableBlockBeforeLoopPadding(
+            statements,
+            index,
+            node,
+            nextNode,
+            typeof options.originalText === STRING_TYPE ? options.originalText : null
+        ) &&
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
@@ -2266,14 +2459,22 @@ function handleIntermediateTrailingSpacing({
         // the comment. Emitting one here too would produce a double blank line.
         // Detect this by checking whether the original source has a comment
         // immediately before the next node; if so, let Prettier handle spacing.
-        const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
         const nextNodeStartIndex = nextNode == null ? null : Core.getNodeStartIndex(nextNode);
         const nextNodeHasLeadingComment =
             isTopLevel &&
             typeof nextNodeStartIndex === NUMBER_TYPE &&
             Core.hasCommentImmediatelyBefore(originalText, nextNodeStartIndex);
+        const nextNodeHasCommentGap =
+            isTopLevel &&
+            originalText !== null &&
+            nextNode != null &&
+            hasCommentBetweenStatements(node, nextNode, originalText);
+        const nextNodeHasBlockCommentImmediatelyBefore =
+            originalText !== null &&
+            nextNode != null &&
+            isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
 
-        if (!nextNodeHasLeadingComment) {
+        if ((!nextNodeHasLeadingComment && !nextNodeHasCommentGap) || nextNodeHasBlockCommentImmediatelyBefore) {
             parts.push(hardlineDoc);
         }
     }
@@ -2303,6 +2504,7 @@ function handleTerminalTrailingSpacing({
     const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
+    const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
@@ -2313,7 +2515,7 @@ function handleTerminalTrailingSpacing({
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&
         !suppressFollowingEmptyLine &&
-        !isFunctionDeclarationNode;
+        (!isFunctionDeclarationNode || (isFunctionDeclarationNode && constructorHasParentClause));
 
     if (parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine) {
         const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
@@ -2553,221 +2755,6 @@ function consumeBlockComment(source, startIndex) {
     return { index: current, foundLineBreak: false };
 }
 
-function shouldOmitDefaultValueForParameter(path, options) {
-    const node = path.getValue();
-    if (!node || node.type !== "DefaultParameter") {
-        return false;
-    }
-
-    const hasInitializer = node.right != null;
-    const defaultIsUndefined = hasInitializer ? Core.isUndefinedSentinel(node.right) : false;
-
-    // Do not strip explicit non-undefined defaults. Formatter-owned optionality
-    // heuristics only apply to `= undefined` signatures.
-    if (hasInitializer && !defaultIsUndefined) {
-        return false;
-    }
-
-    const paramName = node.left && node.left.name ? node.left.name : null;
-    const functionNode = findEnclosingFunctionDeclaration(path);
-    if (defaultIsUndefined && functionNode && paramName) {
-        const optionalDocFlag = resolveDocParamOptionality(functionNode, paramName, options);
-        if (optionalDocFlag !== null) {
-            return !optionalDocFlag;
-        }
-    }
-
-    // If the parameter currently has no `right` expression it is a parser-
-    // side placeholder for a default. Treat this as an explicit undefined
-    // default for printing purposes so the signature remains explicit.
-    if (node.right == null) {
-        return false;
-    }
-
-    // Preserve synthesized materialized trailing `undefined` defaults in
-    // signatures even when docs are conservative about optionality. The
-    // parser marks materialized trailing undefined defaults with
-    // `_featherMaterializedTrailingUndefined`. When present, prefer to
-    // keep the explicit `= undefined` signature rather than omitting it.
-    try {
-        if (node._featherMaterializedTrailingUndefined === true) {
-            return false;
-        }
-    } catch {
-        // Swallow flag-check errors and fall back to default heuristics.
-        // REASON: If accessing _featherMaterializedTrailingUndefined throws (e.g.,
-        // due to a getter that fails or a malformed node), we proceed with the
-        // normal optionality logic below. The flag is a performance hint, not
-        // a required property, so failing to read it is non-fatal.
-        // WHAT WOULD BREAK: Propagating the exception would abort optionality
-        // determination for this parameter and potentially cause incorrect
-        // printing or missing default values in the formatted output.
-    }
-
-    if (!defaultIsUndefined || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    // fallback: follow the existing ancestor-based heuristic when no
-    // explicit doc cue is available. If a parameter was explicitly marked
-    // by parser-side transforms as optional, preserve it.
-    if (node._featherOptionalParameter === true) {
-        return false;
-    }
-
-    let depth = 0;
-    while (true) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (shouldOmitUndefinedDefaultForFunctionNode(ancestor)) {
-            // Omit undefined defaults for plain function declarations by
-            // default unless they were intentionally preserved via parser
-            // intent (the `_featherOptionalParameter` marker handled above)
-            return true;
-        }
-
-        depth += 1;
-    }
-
-    return false;
-}
-
-function resolveDocParamOptionality(functionNode, paramName, options) {
-    const commentLines = collectDocLinesFromFunctionComments(functionNode, options);
-    if (commentLines.length > 0) {
-        const optionalFlag = getDocParamOptionality(commentLines, paramName);
-        if (optionalFlag !== null) {
-            return optionalFlag;
-        }
-    }
-
-    const sourceLines = collectDocLinesFromSource(functionNode, options);
-    if (sourceLines.length > 0) {
-        const optionalFlag = getDocParamOptionality(sourceLines, paramName);
-        if (optionalFlag !== null) {
-            return optionalFlag;
-        }
-    }
-
-    return null;
-}
-
-function collectDocLinesFromFunctionComments(functionNode, options) {
-    const docComments = Array.isArray(functionNode.docComments)
-        ? functionNode.docComments
-        : Array.isArray(functionNode.comments)
-          ? functionNode.comments
-          : null;
-    if (!Core.isNonEmptyArray(docComments)) {
-        return [];
-    }
-
-    const lineCommentOptions = Core.resolveLineCommentOptions(options);
-    const formattingOptions = {
-        ...lineCommentOptions,
-        originalText: options?.originalText
-    };
-
-    const docLines = [];
-    for (const comment of docComments) {
-        const formatted = Core.formatLineComment(comment, formattingOptions);
-        const rawValue = formatted ?? (typeof comment?.value === "string" ? comment.value : null);
-        if (!Core.isNonEmptyString(rawValue)) {
-            continue;
-        }
-
-        docLines.push(rawValue);
-    }
-
-    return docLines;
-}
-
-function collectDocLinesFromSource(functionNode, options) {
-    const originalText = getOriginalTextFromOptions(options);
-    if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
-        return [];
-    }
-
-    const fnStart = Core.getNodeStartIndex(functionNode);
-    if (typeof fnStart !== NUMBER_TYPE) {
-        return [];
-    }
-
-    const prefix = originalText.slice(0, fnStart);
-    const lines = Core.splitLines(prefix);
-    const docLines = [];
-
-    for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const trimmedLine = lines[i].trim();
-        if (trimmedLine === "") {
-            continue;
-        }
-
-        if (trimmedLine.startsWith("///")) {
-            docLines.unshift(trimmedLine);
-        } else if (trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/")) {
-            const content = trimmedLine.slice(2, -2).trim();
-            docLines.unshift(`/// ${content}`);
-        } else if (trimmedLine.startsWith("//")) {
-            if (trimmedLine.includes("@param") || trimmedLine.includes("@function")) {
-                docLines.unshift(`/// ${trimmedLine.replace(/^\/+/u, "").trim()}`);
-            }
-        } else {
-            break;
-        }
-    }
-
-    return docLines;
-}
-
-function getDocParamOptionality(lines, paramName) {
-    for (let i = lines.length - 1; i >= 0; i -= 1) {
-        const docLine = lines[i];
-        const match = docLine.match(/\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
-        if (!match) {
-            continue;
-        }
-        const raw = match[1];
-        const normalized = normalizeDocParamNameFromRaw(raw);
-        if (normalized === paramName) {
-            return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
-        }
-    }
-    return null;
-}
-
-function normalizeDocParamNameFromRaw(raw) {
-    let name = raw;
-    if (name.startsWith("[")) {
-        name = name.slice(1);
-    }
-    if (name.endsWith("]")) {
-        name = name.slice(0, -1);
-    }
-    if (name.endsWith("*")) {
-        name = name.slice(0, -1);
-    }
-    if (name.startsWith("*")) {
-        name = name.slice(1);
-    }
-    return name.trim();
-}
-
-function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
-    if (!functionNode || !functionNode.type) {
-        return false;
-    }
-
-    if (functionNode.type === "ConstructorDeclaration" || functionNode.type === "ConstructorParentClause") {
-        return false;
-    }
-
-    return functionNode.type === "FunctionDeclaration";
-}
-
 /**
  * Builds the document representation for an if statement, ensuring that the
  * orchestration logic in the main printer delegates the clause assembly and
@@ -2978,7 +2965,7 @@ function shouldOmitSyntheticParens(path, _options) {
             if (childInfo && parentInfo && childInfo.prec > parentInfo.prec) {
                 // Aggressively strip non-synthetic parentheses for arithmetic operations.
                 if (childInfo.type === "arithmetic") {
-                    return true;
+                    return !hasImmediateExplicitArithmeticGrouping(expression);
                 }
 
                 // For comparison operations inside logical expressions, check for consistent grouping style.
@@ -3038,6 +3025,16 @@ function shouldOmitSyntheticParens(path, _options) {
             childInfo !== undefined &&
             childInfo.prec > parentInfo.prec &&
             shouldFlattenComparisonLogicalTest(parent, expression, path)
+        ) {
+            return true;
+        }
+
+        if (
+            childInfo !== undefined &&
+            childInfo.type === "arithmetic" &&
+            parentInfo.type === "arithmetic" &&
+            childInfo.prec > parentInfo.prec &&
+            !hasImmediateExplicitArithmeticGrouping(expression)
         ) {
             return true;
         }
@@ -3133,6 +3130,31 @@ function printTernaryExpressionNode(_node, path, _options, print) {
     return shouldWrapTernaryExpression(path) ? concat(["(", ternaryDoc, ")"]) : ternaryDoc;
 }
 
+function hasImmediateExplicitArithmeticGrouping(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    for (const operand of [node.left, node.right]) {
+        if (operand?.type !== "ParenthesizedExpression" || operand.synthetic === true) {
+            continue;
+        }
+
+        const innerExpression = operand.expression;
+        if (
+            (node.operator === "*" || node.operator === "/") &&
+            innerExpression?.type === "BinaryExpression" &&
+            (innerExpression.operator === "*" || innerExpression.operator === "/")
+        ) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 function shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression) {
     if (!parent || !expression) {
         return false;
@@ -3200,6 +3222,23 @@ function binaryExpressionContainsString(node) {
     }
 
     return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
+}
+
+function unwrapParensForInitializer(node) {
+    let current = node;
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+    return current;
+}
+
+function shouldBreakVariableInitializerOnAssignmentLine(node): boolean {
+    if (!node || node.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    const initializer = unwrapParensForInitializer(node.init);
+    return initializer?.type === "BinaryExpression" && binaryExpressionContainsString(initializer);
 }
 
 function shouldOmitUnaryPlus(argument) {
@@ -3312,7 +3351,6 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     let enclosingFunction = null;
-    let enclosingFunctionDepth = null;
     for (let depth = 0; ; depth += 1) {
         const ancestor = safeGetParentNode(path, depth);
         if (!ancestor) {
@@ -3321,21 +3359,11 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
 
         if (Core.isFunctionLikeNode(ancestor)) {
             enclosingFunction = ancestor;
-            enclosingFunctionDepth = depth;
             break;
         }
     }
 
-    if (!enclosingFunction || enclosingFunctionDepth === null) {
-        return false;
-    }
-
-    if (enclosingFunction.type !== "FunctionDeclaration" && enclosingFunction.type !== "ConstructorDeclaration") {
-        return false;
-    }
-
-    const enclosingFunctionParent = safeGetParentNode(path, enclosingFunctionDepth + 1);
-    if (!enclosingFunctionParent || enclosingFunctionParent.type !== "Program") {
+    if (!enclosingFunction) {
         return false;
     }
 
@@ -3360,6 +3388,59 @@ function wrapInClauseParens(path, print, clauseKey) {
     return concat(["(", buildClauseGroup(clauseDoc), ")"]);
 }
 
+function resolveInlineClauseBodySourceText(bodyNode, options): string | null {
+    const bodySource = getSourceTextForNode(bodyNode, options);
+    if (typeof bodySource !== STRING_TYPE) {
+        return null;
+    }
+
+    const trimmedBodySource = bodySource.trim();
+    if (trimmedBodySource.length === 0) {
+        return null;
+    }
+
+    if (bodyNode?.type !== "BlockStatement") {
+        return trimmedBodySource;
+    }
+
+    if (!trimmedBodySource.startsWith("{") || !trimmedBodySource.endsWith("}")) {
+        return trimmedBodySource;
+    }
+
+    const inlineBodySource = trimmedBodySource.slice(1, -1).trim();
+    return inlineBodySource.length > 0 ? inlineBodySource : null;
+}
+
+function shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options): boolean {
+    if (!bodyNode) {
+        return false;
+    }
+
+    const clauseSource = getSourceTextForNode(clauseNode, options);
+    if (typeof clauseSource !== STRING_TYPE || clauseSource.trim().length === 0) {
+        return true;
+    }
+
+    if (clauseSource.includes("\n") || clauseSource.includes("\r")) {
+        return false;
+    }
+
+    const inlineBodySource = resolveInlineClauseBodySourceText(bodyNode, options);
+    if (inlineBodySource === null || inlineBodySource.includes("\n") || inlineBodySource.includes("\r")) {
+        return false;
+    }
+
+    const configuredPrintWidth =
+        typeof options?.printWidth === NUMBER_TYPE && Number.isFinite(options.printWidth) && options.printWidth > 0
+            ? options.printWidth
+            : DEFAULT_PRINT_WIDTH;
+
+    // `if (` + clause + `) { ` + body + ` }`
+    const estimatedInlineLength = keyword.length + 2 + clauseSource.trim().length + 4 + inlineBodySource.length + 2;
+
+    return estimatedInlineLength <= configuredPrintWidth;
+}
+
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
     const node = path.getValue();
@@ -3371,10 +3452,12 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText === true;
 
+    const allowCollapsedGuardWithOption =
+        allowSingleLineIfStatements && shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
+    const allowCollapsedGuardWithDisabledPolicy =
+        !allowSingleLineIfStatements && shouldInlineGuardWhenDisabled(path, options, bodyNode);
     const allowCollapsedGuard =
-        bodyNode &&
-        !clauseIsPreservedCall &&
-        (allowSingleLineIfStatements || shouldInlineGuardWhenDisabled(path, options, bodyNode));
+        bodyNode && !clauseIsPreservedCall && (allowCollapsedGuardWithOption || allowCollapsedGuardWithDisabledPolicy);
 
     if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
@@ -3586,7 +3669,25 @@ function shouldFlattenSyntheticBinary(parent, expression, _path) {
         return false;
     }
 
-    return parent.operator === expression.operator;
+    if (parent.operator === expression.operator) {
+        return true;
+    }
+
+    const parentKey = callPathMethod(_path, "getName");
+    const parentIsAdditive = parent.operator === "+" || parent.operator === "-";
+    const expressionIsAdditive = expression.operator === "+" || expression.operator === "-";
+    if (!parentIsAdditive || !expressionIsAdditive) {
+        return false;
+    }
+
+    // Flatten additive synthetic parentheses when associativity is preserved.
+    // Safe: (a + b) - c, (a - b) + c, a + (b - c), a + (b + c)
+    // Unsafe: a - (b + c), a - (b - c)
+    if (parentKey === "left") {
+        return true;
+    }
+
+    return parentKey === "right" && parent.operator === "+";
 }
 
 function shouldFlattenMultiplicationChain(parent, expression, _path) {

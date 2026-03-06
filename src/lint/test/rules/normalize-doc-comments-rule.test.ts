@@ -67,6 +67,30 @@ void test("normalize-doc-comments removes empty @description lines", () => {
     assert.doesNotMatch(output, /@description\s*$/m);
 });
 
+void test("normalize-doc-comments removes top-of-file empty @description lines before plain comments", () => {
+    const input = [
+        "/// @description",
+        "",
+        "// Cast a ray from high above to the ground so that the coin is placed onto the ground",
+        "var ray = cm_cast_ray(levelColmesh, cm_ray(x, y, 1000, x, y, -100));"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.doesNotMatch(output, /^\s*\/\/\/ @description\s*$/m);
+    assert.match(output, /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground$/m);
+});
+
+void test("normalize-doc-comments removes empty @description while preserving adjacent function doc tags", () => {
+    const input = ["/// @description", "/// @param value", "function test(value) {", "    return value;", "}"].join(
+        "\n"
+    );
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.doesNotMatch(output, /^\s*\/\/\/ @description\s*$/m);
+    assert.match(output, /^\/\/\/ @param value$/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}$/m);
+});
+
 void test("normalize-doc-comments preserves non-empty @description content", () => {
     const input = ["/// @description Initialize the sky background", "var a = 1;"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
@@ -87,6 +111,7 @@ void test("normalize-doc-comments synthesizes missing doc tags for undocumented 
     assert.match(output, /^\/\/\/ @param a/m);
     assert.match(output, /^\/\/\/ @param \[b=1\]/m);
     assert.match(output, /^\/\/\/ @returns \{undefined\}/m);
+    assert.doesNotMatch(output, /^\/\/\/ @description\s*$/m);
 });
 
 void test("normalize-doc-comments appends missing @param and @returns tags to existing doc blocks", () => {
@@ -326,4 +351,43 @@ void test("normalize-doc-comments removes @param separator hyphens for typed opt
     assert.match(output, /^\/\/\/ @param \{real\} \[yup=0\] The camera's up vector \(default \+Z axis\)$/m);
     assert.doesNotMatch(output, /\[xup=0\] - The camera's up vector/m);
     assert.doesNotMatch(output, /\[yup=0\] - The camera's up vector/m);
+});
+
+void test("normalize-doc-comments does not synthesize @returns for constructor function declarations", () => {
+    const input = ["function __ChatterboxBufferBatch() constructor {", "    // ...", "}"].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.equal(output, input);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
+});
+
+void test("normalize-doc-comments still synthesizes @param tags for constructors without adding @returns", () => {
+    const input = ["function __ChatterboxBufferBatch(_value, _amount = 1) constructor {", "    return;", "}"].join(
+        "\n"
+    );
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param value$/m);
+    assert.match(output, /^\/\/\/ @param \[amount=1\]$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns/m);
+});
+
+void test("normalize-doc-comments removes existing @returns tags for constructors", () => {
+    const input = [
+        "/// @param value",
+        "/// @returns {undefined}",
+        "function __ChatterboxBufferBatch(_value) constructor {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+    const expected = [
+        "/// @param value",
+        "function __ChatterboxBufferBatch(_value) constructor {",
+        "    return;",
+        "}"
+    ].join("\n");
+
+    assert.equal(output, expected);
+    assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });

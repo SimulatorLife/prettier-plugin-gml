@@ -7,7 +7,7 @@ import {
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
-    reportFullTextRewrite,
+    reportProgramTextRewrite,
     type SourceTextEdit
 } from "../rule-base-helpers.js";
 
@@ -144,9 +144,7 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
         create(context) {
             return Object.freeze({
                 Program() {
-                    const sourceText = context.sourceCode.text;
-                    const rewrittenText = rewriteLogicalNotAliasesOutsideTrivia(sourceText);
-                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
+                    reportProgramTextRewrite(context, definition, rewriteLogicalNotAliasesOutsideTrivia);
                 },
                 BinaryExpression(node) {
                     const normalized = Core.OPERATOR_ALIAS_MAP.get(node.operator);
