@@ -6,6 +6,7 @@
 
 import { Core } from "@gml-modules/core";
 
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -450,6 +451,35 @@ export interface ExecuteBatchRenameRequest {
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
+}
+
+/**
+ * Parameters for running the loop-length hoisting codemod across multiple files.
+ */
+export interface ExecuteLoopLengthHoistingCodemodRequest {
+    filePaths: Array<string>;
+    readFile: WorkspaceReadFile;
+    writeFile: WorkspaceWriteFile;
+    options?: LoopLengthHoistingCodemodOptions;
+    dryRun?: boolean;
+}
+
+/**
+ * Summary of loop-length hoisting codemod execution for a single file.
+ */
+export interface LoopLengthHoistingFileSummary {
+    path: string;
+    appliedEditCount: number;
+    diagnosticOffsets: Array<number>;
+}
+
+/**
+ * Result payload returned after executing a loop-length hoisting codemod transaction.
+ */
+export interface ExecuteLoopLengthHoistingCodemodResult {
+    workspace: WorkspaceEdit;
+    applied: Map<string, string>;
+    changedFiles: Array<LoopLengthHoistingFileSummary>;
 }
 
 export interface PrepareRenamePlanOptions {

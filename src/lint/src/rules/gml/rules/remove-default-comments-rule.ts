@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
+import { createMeta, reportProgramTextRewrite } from "../rule-base-helpers.js";
 import { dominantLineEnding } from "../rule-helpers.js";
 
 const DEFAULT_COMMENT_PLACEHOLDER_FRAGMENTS = Object.freeze([
@@ -47,12 +47,12 @@ export function createRemoveDefaultCommentsRule(definition: GmlRuleDefinition): 
         create(context) {
             return Object.freeze({
                 Program() {
-                    const sourceText = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(sourceText);
-                    const sourceLines = sourceText.split(/\r?\n/u);
-                    const rewrittenLines = sourceLines.filter((line) => !isDefaultPlaceholderCommentLine(line));
-                    const rewrittenText = rewrittenLines.join(lineEnding);
-                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
+                    reportProgramTextRewrite(context, definition, (sourceText) => {
+                        const lineEnding = dominantLineEnding(sourceText);
+                        const sourceLines = sourceText.split(/\r?\n/u);
+                        const rewrittenLines = sourceLines.filter((line) => !isDefaultPlaceholderCommentLine(line));
+                        return rewrittenLines.join(lineEnding);
+                    });
                 }
             });
         }

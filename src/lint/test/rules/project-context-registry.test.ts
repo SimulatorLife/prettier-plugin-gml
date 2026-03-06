@@ -230,25 +230,12 @@ void test("registry delegates snapshot construction to the configured analysis p
         buildSnapshot(projectRootPath, _options) {
             observedRoots.push(projectRootPath);
             return {
-                capabilities: new Set([
-                    "IDENTIFIER_OCCUPANCY",
-                    "IDENTIFIER_OCCURRENCES",
-                    "LOOP_HOIST_NAME_RESOLUTION",
-                    "RENAME_CONFLICT_PLANNING"
-                ]),
+                capabilities: new Set(["IDENTIFIER_OCCUPANCY", "IDENTIFIER_OCCURRENCES", "LOOP_HOIST_NAME_RESOLUTION"]),
                 isIdentifierNameOccupiedInProject(identifierName: string): boolean {
                     return identifierName === "score";
                 },
                 listIdentifierOccurrenceFiles(): ReadonlySet<string> {
                     return new Set([scriptFile]);
-                },
-                planFeatherRenames(requests) {
-                    return requests.map((request) => ({
-                        identifierName: request.identifierName,
-                        preferredReplacementName: request.preferredReplacementName,
-                        safe: true,
-                        reason: null
-                    }));
                 },
                 assessGlobalVarRewrite(_filePath, _hasInitializer) {
                     return { allowRewrite: true, reason: null };

@@ -30,16 +30,6 @@ function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider[
         listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
             return snapshot.listIdentifierOccurrenceFiles(identifierName);
         },
-        planFeatherRenames(
-            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-        ): ReadonlyArray<{
-            identifierName: string;
-            preferredReplacementName: string;
-            safe: boolean;
-            reason: string | null;
-        }> {
-            return snapshot.planFeatherRenames(requests);
-        },
         assessGlobalVarRewrite(
             filePath: string | null,
             hasInitializer: boolean
