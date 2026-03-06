@@ -30,4 +30,30 @@ void describe("constructor instance method semicolons", () => {
 
         assert.strictEqual(formatted, expected);
     });
+
+    void it("keeps constructor methods compact when no parent clause exists", async () => {
+        const source = [
+            "function Line() constructor {",
+            "    function set_points(x1, y1) {",
+            "        self.x1 = x1",
+            "        self.y1 = y1",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        const expected = [
+            "function Line() constructor {",
+            "    function set_points(x1, y1) {",
+            "        self.x1 = x1;",
+            "        self.y1 = y1;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
 });

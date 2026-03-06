@@ -86,7 +86,6 @@ import {
     isComplexArgumentNode,
     isInlineEmptyBlockComment,
     isInLValueChain,
-    isInsideConstructorFunction,
     isLogicalComparisonClause,
     isNumericComputationNode,
     isSimpleCallArgument,
@@ -1917,7 +1916,6 @@ function buildStatementPartsForPrinter({
     semi = normalizeStatementSemicolon({
         node,
         semi,
-        childPath,
         hasTerminatingSemicolon,
         isStaticDeclaration
     });
@@ -1994,7 +1992,7 @@ function addLeadingStatementSpacing({
     }
 }
 
-function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemicolon, isStaticDeclaration }) {
+function normalizeStatementSemicolon({ node, semi, hasTerminatingSemicolon, isStaticDeclaration }) {
     if (semi !== ";") {
         return semi;
     }
@@ -2008,10 +2006,6 @@ function normalizeStatementSemicolon({ node, semi, childPath, hasTerminatingSemi
 
     if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
         return semi;
-    }
-
-    if (!hasTerminatingSemicolon && node.type === ASSIGNMENT_EXPRESSION && isInsideConstructorFunction(childPath)) {
-        return "";
     }
 
     const assignmentExpressionForSemicolonCheck =
@@ -2301,6 +2295,7 @@ function handleTerminalTrailingSpacing({
     const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
     const isConstructorBlock =
         blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
+    const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
@@ -2311,7 +2306,7 @@ function handleTerminalTrailingSpacing({
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&
         !suppressFollowingEmptyLine &&
-        !isFunctionDeclarationNode;
+        (!isFunctionDeclarationNode || (isFunctionDeclarationNode && constructorHasParentClause));
 
     if (parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine) {
         const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
