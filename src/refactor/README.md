@@ -317,6 +317,12 @@ The refactor module should support a single naming-policy config that defines
 how each symbol scope/type must be named, then use that policy during validation
 and rename planning.
 
+#### Contract
+
+- `namingConventionPolicy` is user-authored project config.
+- `rule exists => enabled` is the contract.
+- There is no `enabled` property on naming rules. If a rule is present for a category, that category is enabled. If a category is set to `false`, it is disabled even if a parent has a rule.
+
 #### Policy Shape
 
 ```ts
@@ -324,109 +330,163 @@ type NamingCaseStyle =
     | "lower"
     | "upper"
     | "camel"
-    | "snake"
+    | "lower_snake"
+    | "upper_snake"
     | "pascal";
 
-type NamingRule = {
-    enabled: boolean;
-    prefix: string;
-    suffix: string;
-    caseStyle: NamingCaseStyle;
+type NamingCategory =
+    | "resource"
+    | "scriptResourceName"
+    | "objectResourceName"
+    | "roomResourceName"
+    | "spriteResourceName"
+    | "audioResourceName"
+    | "timelineResourceName"
+    | "shaderResourceName"
+    | "fontResourceName"
+    | "pathResourceName"
+    | "sequenceResourceName"
+    | "tilesetResourceName"
+    | "variable"
+    | "localVariable"
+    | "globalVariable"
+    | "instanceVariable"
+    | "staticVariable"
+    | "argument"
+    | "catchArgument"
+    | "loopIndexVariable"
+    | "callable"
+    | "function"
+    | "constructorFunction"
+    | "eventHandlerFunction"
+    | "structMethod"
+    | "staticMethod"
+    | "typeName"
+    | "structDeclaration"
+    | "enum"
+    | "member"
+    | "structField"
+    | "enumMember"
+    | "constant"
+    | "macro";
+
+type NamingRuleConfig = {
+    caseStyle?: NamingCaseStyle;
+    prefix?: string;
+    suffix?: string;
+    minChars?: number;
+    maxChars?: number;
+    bannedPrefixes?: string[];
+    bannedSuffixes?: string[];
 };
 
 type NamingConventionPolicy = {
-    function: NamingRule;
-    constructorFunction: NamingRule;
-    eventHandlerFunction: NamingRule;
-    structDeclaration: NamingRule;
-    structMethod: NamingRule;
-    staticMethod: NamingRule;
-    localVariable: NamingRule;
-    loopIndexVariable: NamingRule;
-    temporaryVariable: NamingRule;
-    globalVariable: NamingRule;
-    instanceVariable: NamingRule;
-    staticVariable: NamingRule;
-    argument: NamingRule;
-    catchArgument: NamingRule;
-    macro: NamingRule;
-    enum: NamingRule;
-    enumMember: NamingRule;
-    structField: NamingRule;
-    scriptResourceName: NamingRule;
-    objectResourceName: NamingRule;
-    roomResourceName: NamingRule;
-    spriteResourceName: NamingRule;
-    audioResourceName: NamingRule;
-    timelineResourceName: NamingRule;
-    shaderResourceName: NamingRule;
+    rules: Partial<Record<NamingCategory, NamingRuleConfig | false>>;
+    exclusivePrefixes?: Record<string, NamingCategory>;
+    exclusiveSuffixes?: Record<string, NamingCategory>;
+};
+
+type ResolvedNamingRule = {
+    prefix: string;
+    suffix: string;
+    caseStyle: NamingCaseStyle;
+    minChars: number | null;
+    maxChars: number | null;
+    bannedPrefixes: readonly string[];
+    bannedSuffixes: readonly string[];
+};
+
+type ResolvedNamingConventionRules = Partial<
+    Record<NamingCategory, ResolvedNamingRule>
+>;
+```
+
+#### Built-In Category Hierarchy
+
+The parent structure is built into the engine and does not need to be declared
+in user config:
+
+```ts
+const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
+    resource: null,
+    scriptResourceName: "resource",
+    objectResourceName: "resource",
+    roomResourceName: "resource",
+    spriteResourceName: "resource",
+    audioResourceName: "resource",
+    timelineResourceName: "resource",
+    shaderResourceName: "resource",
+    fontResourceName: "resource",
+    pathResourceName: "resource",
+    sequenceResourceName: "resource",
+    tilesetResourceName: "resource",
+
+    variable: null,
+    localVariable: "variable",
+    globalVariable: "variable",
+    instanceVariable: "variable",
+    staticVariable: "variable",
+    structVariable: "variable",
+    argument: "variable",
+    catchArgument: "variable",
+    loopIndexVariable: "localVariable",
+
+    callable: null,
+    function: "callable",
+    constructorFunction: "callable",
+    eventHandlerFunction: "callable",
+    structMethod: "callable",
+    staticMethod: "callable",
+
+    structDeclaration: null,
+    enum: null,
+    enumMember: null,
+    macro: null
 };
 ```
 
-#### Example Config
+#### Example User-Authored Config
 
 ```json
 {
     "namingConventionPolicy": {
-        "function": {
-            "enabled": true,
-            "prefix": "scr_",
-            "suffix": "",
-            "caseStyle": "snake_case"
+        "rules": {
+            "resource": {
+                "caseStyle": "lower"
+            },
+            "roomResourceName": {
+                "prefix": "rm_"
+            },
+            "audioResourceName": {
+                "prefix": "snd_"
+            },
+            "variable": {
+                "caseStyle": "camel",
+                "minChars": 2,
+                "maxChars": 32,
+                "bannedPrefixes": ["_"],
+                "bannedSuffixes": ["_"]
+            },
+            "globalVariable": {
+                "prefix": "g_",
+                "caseStyle": "lower_snake"
+            },
+            "loopIndexVariable": false,
+            "callable": {
+                "caseStyle": "camel"
+            },
+            "function": {
+                "prefix": "scr_"
+            },
+            "macro": {
+                "caseStyle": "upper_snake"
+            },
+            "objectResourceName": {
+                "prefix": "obj_"
+            }
         },
-        "localVariable": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "camelcase"
-        },
-        "globalVariable": {
-            "enabled": true,
-            "prefix": "g_",
-            "suffix": "",
-            "caseStyle": "snake_case"
-        },
-        "instanceVariable": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "camelcase"
-        },
-        "staticVariable": {
-            "enabled": true,
-            "prefix": "s_",
-            "suffix": "",
-            "caseStyle": "snake_case"
-        },
-        "macro": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "uppercase"
-        },
-        "enum": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "pascalcase"
-        },
-        "enumMember": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "uppercase"
-        },
-        "structField": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "camelcase"
-        },
-        "argument": {
-            "enabled": true,
-            "prefix": "",
-            "suffix": "",
-            "caseStyle": "camelcase"
+        "exclusivePrefixes": {
+            "rm_": "roomResourceName"
         }
     }
 }
@@ -434,18 +494,25 @@ type NamingConventionPolicy = {
 
 #### Enforcement Model
 
-- Identify each symbol's scope/type from semantic data (function, local, global, etc.).
-- Resolve the corresponding rule from `namingConventionPolicy`.
-- Validate in this order: prefix -> suffix -> case style (on the core name).
+- Identify each symbol's category key from semantic data (for example `roomResourceName`, `function`, `localVariable`).
+- Resolve each category using the built-in parent map (root -> leaf merge).
+- Apply only explicitly provided properties as overrides (`caseStyle`, `prefix`, `suffix`, `minChars`, `maxChars`, `bannedPrefixes`, `bannedSuffixes`).
+- If a category is set to `false`, disable that category even if a parent has a rule.
+- If no rule exists for a category after inheritance, that category is not enforced.
+- Validate in this order: banned affixes -> exclusive affixes -> required prefix/suffix -> length (`minChars`/`maxChars`) -> case style (on the core name after removing required prefix/suffix).
 - Emit diagnostics for violations and provide refactor-driven rename plans to fix them.
 - Run existing rename conflict checks before applying any generated rename transaction.
 
 #### Notes
 
-- Prefix/suffix matching should be strict and case-sensitive.
-- Case style applies to the core name after removing configured prefix/suffix.
-- If `enabled` is `false` for a scope/type, no naming rule is enforced for that category.
-- This policy should remain centralized so IDE/CLI integrations enforce the same naming behavior.
+- Prefix/suffix matching is strict and case-sensitive.
+- Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
+- `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.
+- `exclusivePrefixes` and `exclusiveSuffixes` are global reservations that apply even when a category has no required prefix/suffix.
+- If exclusive affixes overlap, use longest-match precedence to avoid ambiguous ownership.
+- `minChars` and `maxChars` are checked against the core name after removing required prefix/suffix.
+- Cache resolved rules by category key so validation and rename previews stay fast.
+- This policy remains centralized so IDE/CLI integrations enforce the same naming behavior.
 
 ### Rename Operations
 
