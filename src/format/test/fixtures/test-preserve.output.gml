@@ -196,7 +196,6 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         }
         return lt;
     };
-
 }
 
 // Debug-only macro guard for *use_fast_sampling* edits
