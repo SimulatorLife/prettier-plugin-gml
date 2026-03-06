@@ -2,7 +2,7 @@ import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
-import { normalizeLintFilePath } from "./path-normalization.js";
+import { normalizeLintFilePath } from "../services/path-normalization.js";
 import {
     createLimitedRecoveryProjection,
     type InsertedArgumentSeparatorRecovery,

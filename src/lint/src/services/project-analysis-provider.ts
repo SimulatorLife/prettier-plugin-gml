@@ -2,9 +2,9 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 
 const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
     "IDENTIFIER_OCCUPANCY",

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { normalizeLintFilePath } from "../language/path-normalization.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 
 function asDirectoryPath(projectPath: string): string {
     return projectPath.toLowerCase().endsWith(".yyp") ? path.dirname(projectPath) : projectPath;
