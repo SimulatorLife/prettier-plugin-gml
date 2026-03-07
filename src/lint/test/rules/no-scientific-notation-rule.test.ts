@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function parseProgramNode(code: string): Record<string, unknown> {
@@ -86,16 +87,16 @@ void test("no-scientific-notation auto-fixes negative-exponent scientific litera
     const input = "var epsilon = 1e-11;\n";
     const result = runNoScientificNotationRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, "var epsilon = 0.00000000001;\n");
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, "var epsilon = 0.00000000001;\n");
 });
 
 void test("no-scientific-notation auto-fixes all scientific notation forms in code", () => {
     const input = ["var a = 1e3;", "var b = .5E+2;", "var c = 4.50e-1;"].join("\n");
     const result = runNoScientificNotationRule(`${input}\n`);
 
-    assert.equal(result.messageCount, 3);
-    assert.equal(result.output, "var a = 1000;\nvar b = 50;\nvar c = 0.45;\n");
+    assertEquals(result.messageCount, 3);
+    assertEquals(result.output, "var a = 1000;\nvar b = 50;\nvar c = 0.45;\n");
 });
 
 void test("no-scientific-notation does not touch scientific notation text in comments and strings", () => {
@@ -107,8 +108,8 @@ void test("no-scientific-notation does not touch scientific notation text in com
     ].join("\n");
     const result = runNoScientificNotationRule(`${input}\n`);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, `${input}\n`);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, `${input}\n`);
 });
 
 void test("no-scientific-notation is enabled in the recommended config", () => {

@@ -1,4 +1,3 @@
-import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
 import { lintWithFeatherRule } from "./rule-test-harness.js";
 
@@ -221,11 +221,11 @@ const discoveredGmlFixturePairs = discoveredFixturePairs.filter((fixturePair) =>
 const discoveredFeatherFixturePairs = discoveredFixturePairs.filter((fixturePair) => fixturePair.kind === "feather");
 
 void test("discovers lint fixture input/fixed pairs", () => {
-    assert.equal(discoveredGmlFixturePairs.length > 0, true, "Expected at least one lint fixture input/fixed pair.");
+    assertEquals(discoveredGmlFixturePairs.length > 0, true, "Expected at least one lint fixture input/fixed pair.");
 });
 
 void test("discovers feather fixture input/fixed pairs", () => {
-    assert.equal(
+    assertEquals(
         discoveredFeatherFixturePairs.length > 0,
         true,
         "Expected at least one feather fixture input/fixed pair."
@@ -239,7 +239,7 @@ void describe("lint fixture auto-fix pairs", () => {
             const expected = await readFile(fixturePair.fixedFilePath, "utf8");
             const result = lintWithRule(fixturePair.ruleName, input, fixturePair.options);
 
-            assert.equal(
+            assertEquals(
                 result.output,
                 expected,
                 `${fixturePair.ruleName} should produce expected output\n${formatFixtureFailureContext(fixturePair)}`
@@ -255,7 +255,7 @@ void describe("feather fixture auto-fix pairs", () => {
             const expected = await readFile(fixturePair.fixedFilePath, "utf8");
             const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, fixturePair.ruleName, input);
 
-            assert.equal(
+            assertEquals(
                 result.output,
                 expected,
                 `${fixturePair.ruleName} should apply expected fixer\n${formatFixtureFailureContext(fixturePair)}`

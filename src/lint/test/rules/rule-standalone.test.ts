@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
 import { createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
@@ -18,7 +19,7 @@ void test("prefer-struct-literal-assignments ignores non-identifier struct bases
         ""
     ].join("\n");
     const result = lintWithRule("prefer-struct-literal-assignments", input);
-    assert.equal(result.messages.length, 0);
+    assertEquals(result.messages.length, 0);
 });
 
 void test("prefer-struct-literal-assignments condenses assignments only at immediate struct creation", () => {
@@ -34,8 +35,8 @@ void test("prefer-struct-literal-assignments condenses assignments only at immed
     const expected = ["function create_input_vec() {", "    var input_vec = {x: 0, y: 0, z: 0};", "}", ""].join("\n");
 
     const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-struct-literal-assignments does not collapse assignments on existing structs", () => {
@@ -49,8 +50,8 @@ void test("prefer-struct-literal-assignments does not collapse assignments on ex
     ].join("\n");
 
     const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-struct-literal-assignments ignores duplicate property update clusters", () => {
@@ -63,15 +64,15 @@ void test("prefer-struct-literal-assignments ignores duplicate property update c
     ].join("\n");
 
     const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-struct-literal-assignments never collapses built-in global property writes", () => {
     const input = ["global.AsyncLoaderQueue = ds_queue_create();", "global.AsyncLoaderHandle = -1;", ""].join("\n");
     const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
@@ -87,7 +88,7 @@ void test("prefer-struct-literal-assignments reports the first matching assignme
     ].join("\n");
 
     const result = lintWithRule("prefer-struct-literal-assignments", input);
-    assert.equal(result.messages.length, 1);
+    assertEquals(result.messages.length, 1);
     assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 4 });
 });
 
@@ -111,7 +112,7 @@ void test("normalize-doc-comments removes placeholder description equal to funct
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments attaches params across blank lines before a function", () => {
@@ -126,7 +127,7 @@ void test("normalize-doc-comments attaches params across blank lines before a fu
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments removes earlier floating param blocks and keeps the nearest block attached", () => {
@@ -162,7 +163,7 @@ void test("normalize-doc-comments removes earlier floating param blocks and keep
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments aligns multiline description continuations", () => {
@@ -179,7 +180,7 @@ void test("normalize-doc-comments aligns multiline description continuations", (
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
@@ -201,7 +202,7 @@ void test("normalize-doc-comments converts legacy returns description text to @r
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments synthesizes concrete and undefined @returns metadata", () => {
@@ -244,7 +245,7 @@ void test("normalize-doc-comments synthesizes concrete and undefined @returns me
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments does not synthesize @returns for constructor declarations", () => {
@@ -260,13 +261,13 @@ void test("normalize-doc-comments does not synthesize @returns for constructor d
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments does not synthesize @returns for constructor assignments", () => {
     const input = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-doc-comments removes existing @returns for constructor assignments", () => {
@@ -276,7 +277,7 @@ void test("normalize-doc-comments removes existing @returns for constructor assi
     const expected = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-doc-comments skips synthetic docs for inline struct property function values", () => {
@@ -304,7 +305,7 @@ void test("normalize-doc-comments skips synthetic docs for inline struct propert
     ].join("\n");
 
     const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
@@ -315,8 +316,8 @@ void test("normalize-directives preserves spacing and semicolons on canonical #m
     ].join("\n");
 
     const result = lintWithRule("normalize-directives", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("gml semantic fix rules do not reformat canonical macro declaration spacing", () => {
@@ -347,14 +348,14 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
 
     for (const ruleName of semanticFixRuleNames) {
         const result = lintWithRule(ruleName, input, {});
-        assert.equal(result.output, input, `${ruleName} should not apply formatter-owned macro spacing changes`);
+        assertEquals(result.output, input, `${ruleName} should not apply formatter-owned macro spacing changes`);
     }
 });
 
 void test("require-argument-separators preserves separator payload comments", () => {
     const input = "show_debug_message_ext(name /* keep */ payload);\n";
     const result = lintWithRule("require-argument-separators", input, {});
-    assert.equal(result.output, "show_debug_message_ext(name, /* keep */ payload);\n");
+    assertEquals(result.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
 void test("require-trailing-optional-defaults lifts leading argument_count ternary fallbacks into params", () => {
@@ -369,7 +370,7 @@ void test("require-trailing-optional-defaults lifts leading argument_count terna
     const expected = input;
 
     const result = lintWithRule("require-trailing-optional-defaults", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("require-trailing-optional-defaults condenses var+if argument_count fallback and adds trailing params", () => {
@@ -399,13 +400,13 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
     ].join("\n");
 
     const result = lintWithRule("require-trailing-optional-defaults", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("reportUnsafe=false suppresses unsafe-only diagnostics", () => {
     const input = 'message = "HP: " + string(_i++);\n';
     const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
-    assert.equal(result.messages.length, 0);
+    assertEquals(result.messages.length, 0);
 });
 
 void test("no-unnecessary-string-interpolation rewrites template strings without interpolation atoms", () => {
@@ -423,14 +424,14 @@ void test("no-unnecessary-string-interpolation rewrites template strings without
     ].join("\n");
 
     const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("no-unnecessary-string-interpolation keeps interpolated template strings unchanged", () => {
     const input = 'message = $"instances are: {myInstances}";\n';
     const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-string-interpolation rewrites string literal + string(variable) chains", () => {
@@ -448,30 +449,30 @@ void test("prefer-string-interpolation rewrites string literal + string(variable
     ].join("\n");
 
     const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-string-interpolation rewrites string coercion calls with non-trivial expressions", () => {
     const input = 'message = "HP: " + string(random(99));\n';
     const expected = 'message = $"HP: {random(99)}";\n';
     const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-string-interpolation rewrites nested concatenation chains with a single diagnostic", () => {
     const input = 'message = ("HP: " + value) + " / 99";\n';
     const expected = 'message = $"HP: {value} / 99";\n';
     const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-string-interpolation flattens nested parenthesized string chains", () => {
     const input = '__ChatterboxCompile(_substring_array, root_instruction, ((filename + ":") + title) + ":#");\n';
     const expected = '__ChatterboxCompile(_substring_array, root_instruction, $"{filename}: {title}:#");\n';
     const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-is-undefined-check rewrites undefined comparisons in either operand position", () => {
@@ -495,7 +496,7 @@ void test("prefer-is-undefined-check rewrites undefined comparisons in either op
     ].join("\n");
 
     const result = lintWithRule("prefer-is-undefined-check", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-is-undefined-check preserves grouped multiline conditions", () => {
@@ -519,7 +520,7 @@ void test("prefer-is-undefined-check preserves grouped multiline conditions", ()
     ].join("\n");
 
     const result = lintWithRule("prefer-is-undefined-check", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-epsilon-comparisons rewrites direct zero checks for preceding math assignments", () => {
@@ -540,7 +541,7 @@ void test("prefer-epsilon-comparisons rewrites direct zero checks for preceding 
     ].join("\n");
 
     const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-epsilon-comparisons does not rewrite non-math zero checks", () => {
@@ -549,7 +550,7 @@ void test("prefer-epsilon-comparisons does not rewrite non-math zero checks", ()
     );
 
     const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-epsilon-comparisons reuses existing epsilon declarations in a block", () => {
@@ -571,7 +572,7 @@ void test("prefer-epsilon-comparisons reuses existing epsilon declarations in a 
     ].join("\n");
 
     const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("no-assignment-in-condition does not rewrite grouped multiline conditions without assignments", () => {
@@ -586,7 +587,7 @@ void test("no-assignment-in-condition does not rewrite grouped multiline conditi
     ].join("\n");
 
     const result = lintWithRule("no-assignment-in-condition", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("no-globalvar diagnoses declared globals", () => {
@@ -602,8 +603,8 @@ void test("no-globalvar diagnoses declared globals", () => {
         ""
     ].join("\n");
     const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output, input);
 });
 
 void test("no-globalvar diagnoses comma-separated declarations", () => {
@@ -612,8 +613,8 @@ void test("no-globalvar diagnoses comma-separated declarations", () => {
     );
 
     const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-hoistable-loop-accessors respects null suffix override by disabling loop-test diagnostics", () => {
@@ -628,8 +629,8 @@ void test("prefer-hoistable-loop-accessors respects null suffix override by disa
             array_length: null
         }
     });
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, inputAndFixed);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, inputAndFixed);
 });
 
 void test("prefer-hoistable-loop-accessors is diagnostic-only and leaves source unchanged", () => {
@@ -637,15 +638,15 @@ void test("prefer-hoistable-loop-accessors is diagnostic-only and leaves source 
         "\n"
     );
     const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-repeat-loops skips conversion when loop iterator is used in body", () => {
     const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += i;", "}", ""].join("\n");
     const result = lintWithRule("prefer-repeat-loops", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("full-file rewrite rules report the first changed source location", () => {
@@ -691,7 +692,7 @@ void test("full-file rewrite rules report the first changed source location", ()
 
     for (const locationCase of locationCases) {
         const result = lintWithRule(locationCase.ruleName, locationCase.input, {});
-        assert.equal(result.messages.length, 1, `${locationCase.ruleName} should report exactly one diagnostic`);
+        assertEquals(result.messages.length, 1, `${locationCase.ruleName} should report exactly one diagnostic`);
         assert.deepEqual(
             result.messages[0]?.loc,
             locationCase.expectedLoc,
@@ -714,7 +715,7 @@ void test("prefer-hoistable-loop-accessors reports the first matching accessor l
     ].join("\n");
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input);
-    assert.equal(result.messages.length, 1);
+    assertEquals(result.messages.length, 1);
     assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 20 });
 });
 
@@ -724,8 +725,8 @@ void test("prefer-hoistable-loop-accessors reports loop-test accessor scenarios 
     );
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.messages[0]?.messageId, "preferHoistableLoopAccessor");
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.messages[0]?.messageId, "preferHoistableLoopAccessor");
 });
 
 void test("prefer-hoistable-loop-accessors reports unsafeFix when insertion requires brace synthesis", () => {
@@ -738,15 +739,15 @@ void test("prefer-hoistable-loop-accessors reports unsafeFix when insertion requ
     ].join("\n");
 
     const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(
+    assertEquals(
         result.messages.some((message) => message.messageId === "preferHoistableLoopAccessor"),
         true
     );
-    assert.equal(
+    assertEquals(
         result.messages.some((message) => message.messageId === "unsafeFix"),
         true
     );
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
@@ -760,58 +761,58 @@ void test("require-control-flow-braces does not rewrite multiline condition cont
     ].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("require-control-flow-braces keeps else-if chains intact when the branch statement is on the next line", () => {
     const input = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
     const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
 `;
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("if (_starting_font == undefined) {"), true);
-    assert.equal(
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output.includes("if (_starting_font == undefined) {"), true);
+    assertEquals(
         result.output.includes(
             String.raw`__scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`
         ),
         true
     );
-    assert.equal(result.output.trimEnd().endsWith("}"), true);
+    assertEquals(result.output.trimEnd().endsWith("}"), true);
 });
 
 void test("require-control-flow-braces rewrites legacy then inline if clauses", () => {
     const input = ["if my_var == your_var++ then their_var;", "if my_var == your_var THEN ++their_var;", ""].join("\n");
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("if (my_var == your_var++) {"), true);
-    assert.equal(result.output.includes("their_var;"), true);
-    assert.equal(result.output.includes("if (my_var == your_var) {"), true);
-    assert.equal(result.output.includes("++their_var;"), true);
-    assert.equal(result.output.split("}").length - 1, 2);
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output.includes("if (my_var == your_var++) {"), true);
+    assertEquals(result.output.includes("their_var;"), true);
+    assertEquals(result.output.includes("if (my_var == your_var) {"), true);
+    assertEquals(result.output.includes("++their_var;"), true);
+    assertEquals(result.output.split("}").length - 1, 2);
 });
 
 void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("repeat (_tag_parameter_count-1) {"), true);
-    assert.equal(result.output.includes('_command_string += "," + string(_tag_parameters[_j++]);'), true);
-    assert.equal(result.output.trimEnd().endsWith("}"), true);
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output.includes("repeat (_tag_parameter_count-1) {"), true);
+    assertEquals(result.output.includes('_command_string += "," + string(_tag_parameters[_j++]);'), true);
+    assertEquals(result.output.trimEnd().endsWith("}"), true);
 });
 
 void test("optimize-math-expressions skips formatting-only rewrites for decimal literals that already start with zero", () => {
     const input = "__fit_scale = _lower_limit + 0.5*(_upper_limit - _lower_limit);\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
@@ -820,8 +821,8 @@ void test("optimize-math-expressions does not rewrite decimal literals with miss
     // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
     const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
@@ -829,14 +830,14 @@ void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern 
     const expected = ["var s = size * 0.104;", "s = s * 0.5 * (1 - lengthdir_x(1, swim_rot));", ""].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
     const input = "var config = settings ?? global.default_settings;\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1 statements", () => {
@@ -844,7 +845,7 @@ void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1
     const expected = ["var s7 = (hp / max_hp) * 10;", "var s37b = width;", ""].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions auto-fixes manual math forms to built-in helpers", () => {
@@ -919,7 +920,7 @@ void test("optimize-math-expressions auto-fixes manual math forms to built-in he
     ].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions rewrites uncommented math expressions and preserves trailing line comments", () => {
@@ -935,7 +936,7 @@ void test("optimize-math-expressions rewrites uncommented math expressions and p
     ].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions simplifies trigonometric degree/radian wrapper pairs", () => {
@@ -959,7 +960,7 @@ void test("optimize-math-expressions simplifies trigonometric degree/radian wrap
     ].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions handles extreme reciprocals", () => {
@@ -979,40 +980,40 @@ void test("optimize-math-expressions handles extreme reciprocals", () => {
     ].join("\n");
 
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-math-expressions does not rewrite expressions with inline block comments even with trailing line comments", () => {
     const input = ["var squared = value /* keep */ * value; // trailing note", ""].join("\n");
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions does not rewrite expressions with inline trailing-line comments between operands", () => {
     const input = ["var squared = value // keep", "    * value;", ""].join("\n");
     const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, input);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
     const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
     const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-operator-aliases replaces invalid logical keyword 'not' with '!'", () => {
     const input = ["if (not ready) {", "    value = not extra;", "}", ""].join("\n");
     const expected = ["if (! ready) {", "    value = ! extra;", "}", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-operator-aliases does not rewrite identifier usage of 'not'", () => {
     const input = ["var not = 1;", "value = not + 2;", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-operator-aliases does not rewrite comment text containing 'not'", () => {
@@ -1024,8 +1025,8 @@ void test("normalize-operator-aliases does not rewrite comment text containing '
         ""
     ].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-operator-aliases rewrites code aliases without mutating comment or string content", () => {
@@ -1049,14 +1050,14 @@ void test("normalize-operator-aliases rewrites code aliases without mutating com
     ].join("\n");
 
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
+    assertEquals(result.output, expected);
 });
 
 void test("normalize-operator-aliases does not rewrite escaped quote string content", () => {
     const input = '__input_error("State \\"", __state, "\\" not recognised");\n';
     const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
@@ -1109,10 +1110,10 @@ void test("normalize-operator-aliases reports from explicit locations when node 
         }
     });
 
-    assert.equal(reports.length, 1);
+    assertEquals(reports.length, 1);
     assert.deepEqual(reports[0]?.loc, getLocFromIndex(operatorStart));
     assert.notDeepEqual(reports[0]?.loc, getLocFromIndex(expressionStart));
-    assert.equal(operatorEnd > operatorStart, true);
+    assertEquals(operatorEnd > operatorStart, true);
 });
 
 void test("require-control-flow-braces skips macro continuation blocks", () => {
@@ -1126,8 +1127,8 @@ void test("require-control-flow-braces skips macro continuation blocks", () => {
     ].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("require-control-flow-braces does not reinterpret already braced headers with trailing comments", () => {
@@ -1141,8 +1142,8 @@ void test("require-control-flow-braces does not reinterpret already braced heade
     ].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });
 
 void test("optimize-logical-flow removes double negation without collapsing if/return patterns", () => {
@@ -1170,7 +1171,7 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
 
     const result = lintWithRule("optimize-logical-flow", input, {});
     assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
-    assert.equal(
+    assertEquals(
         result.output,
         expected,
         "optimize-logical-flow should remove !! but not collapse the if/return pattern"
@@ -1181,6 +1182,6 @@ void test("optimize-logical-flow does not rewrite unchanged struct accessor cond
     const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
 
     const result = lintWithRule("optimize-logical-flow", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
 });

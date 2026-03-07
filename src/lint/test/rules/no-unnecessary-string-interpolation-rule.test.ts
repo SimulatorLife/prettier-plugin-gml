@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function parseProgramNode(code: string): Record<string, unknown> {
@@ -81,14 +81,14 @@ void test("no-unnecessary-string-interpolation removes unnecessary template mark
     const input = 'layer_name = $"instances";\n';
     const result = runNoUnnecessaryStringInterpolationRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, 'layer_name = "instances";\n');
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, 'layer_name = "instances";\n');
 });
 
 void test("no-unnecessary-string-interpolation preserves valid interpolation", () => {
     const input = 'layer_name = $"instances are: {myInstances}";\n';
     const result = runNoUnnecessaryStringInterpolationRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });

@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function parseProgramNode(code: string): Record<string, unknown> {
@@ -82,8 +82,8 @@ void test("prefer-compound-assignments rewrites subtraction, multiplication, and
     const expected = ["speed *= friction;", "lives -= 1;", "timer /= delta;", ""].join("\n");
 
     const result = runPreferCompoundAssignmentsRule(input);
-    assert.equal(result.messageCount, 3);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 3);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments preserves complex right operand text", () => {
@@ -91,8 +91,8 @@ void test("prefer-compound-assignments preserves complex right operand text", ()
     const expected = "x *= (a + b);\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments rewrites x = x ?? y to x ??= y", () => {
@@ -100,8 +100,8 @@ void test("prefer-compound-assignments rewrites x = x ?? y to x ??= y", () => {
     const expected = "x ??= y;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments rewrites nullish assignment with call-expression fallback", () => {
@@ -109,8 +109,8 @@ void test("prefer-compound-assignments rewrites nullish assignment with call-exp
     const expected = "cache ??= ds_map_create();\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments rewrites nullish assignment with member fallback", () => {
@@ -118,8 +118,8 @@ void test("prefer-compound-assignments rewrites nullish assignment with member f
     const expected = "config ??= global.default_config;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments rewrites parenthesized nullish expressions", () => {
@@ -127,61 +127,61 @@ void test("prefer-compound-assignments rewrites parenthesized nullish expression
     const expected = "value ??= (a + b);\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments does not rewrite when identifiers differ", () => {
     const input = "x = y - z;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments does not rewrite nullish assignments when identifiers differ", () => {
     const input = "x = y ?? z;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments does not rewrite non-identifier left-hand sides", () => {
     const input = "arr[i] = arr[i] - 1;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments does not rewrite nullish assignments on non-identifier left-hand sides", () => {
     const input = "arr[i] = arr[i] ?? 0;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments does not rewrite when comments exist in the right expression span", () => {
     const input = "lives = lives - /* keep */ 1;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments v1 does not rewrite plus assignments", () => {
     const input = "name = name + suffix;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-compound-assignments is included in the recommended config", () => {
     const recommended = LintWorkspace.Lint.configs.recommended;
     const allRules = recommended.flatMap((config) => Object.keys(config.rules ?? {}));
 
-    assert.equal(allRules.includes("gml/prefer-compound-assignments"), true);
+    assertEquals(allRules.includes("gml/prefer-compound-assignments"), true);
 });

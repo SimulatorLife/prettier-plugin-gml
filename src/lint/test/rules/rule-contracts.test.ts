@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
+
 type RuleMeta = Readonly<{
     docs: Readonly<Record<string, unknown>>;
     messages: Readonly<Record<string, string>>;
@@ -196,10 +198,10 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
             meta?: { messages?: Record<string, string>; schema?: ReadonlyArray<unknown>; fixable?: string };
         };
 
-        assert.equal(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
+        assertEquals(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
         if (ruleDefinition.shortName !== "no-globalvar") {
-            assert.equal(rule.meta?.fixable, "code");
+            assertEquals(rule.meta?.fixable, "code");
         }
     }
 });
@@ -216,20 +218,20 @@ void test("feather rules declare fixable metadata for autofix reports", () => {
         assert.match(shortName, /^gm\d{4}$/u, `Unexpected feather rule id: ${ruleId}`);
         const rule = LintWorkspace.Lint.featherPlugin.rules[shortName] as { meta?: { fixable?: string } };
         if (diagnosticOnlyFeatherRules.has(ruleId)) {
-            assert.equal(rule.meta?.fixable, undefined, `${ruleId} must remain diagnostic-only`);
+            assertEquals(rule.meta?.fixable, undefined, `${ruleId} must remain diagnostic-only`);
             continue;
         }
 
-        assert.equal(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
+        assertEquals(rule.meta?.fixable, "code", `${ruleId} must set meta.fixable to 'code'`);
     }
 });
 
 void test("all gml rules are local-only and do not require project context", () => {
     for (const { shortName: ruleId } of expectedRules) {
         const { docs, messages } = getRuleMeta(ruleId);
-        assert.equal(docs.requiresProjectContext, false, `${ruleId} should not require project context`);
-        assert.equal("gml" in docs, false, `${ruleId} should not declare docs.gml metadata`);
-        assert.equal(
+        assertEquals(docs.requiresProjectContext, false, `${ruleId} should not require project context`);
+        assertEquals("gml" in docs, false, `${ruleId} should not declare docs.gml metadata`);
+        assertEquals(
             "missingProjectContext" in messages,
             false,
             `${ruleId} should not declare missingProjectContext message`
@@ -259,7 +261,7 @@ void test("all registered lint rules return non-empty listeners (no silent place
             report: () => undefined
         } as never);
 
-        assert.equal(
+        assertEquals(
             Object.keys(listeners).length > 0,
             true,
             `${ruleShortName} unexpectedly returned an empty listener object`
@@ -280,7 +282,7 @@ void test("only gml/require-argument-separators may consume inserted separator r
 
     const recoveryModulePath = path.join(recoveryDirectory, "recovery.ts");
     const recoveryModuleSource = readFileSync(recoveryModulePath, "utf8");
-    assert.equal(
+    assertEquals(
         recoveryModuleSource.includes("INSERTED_ARGUMENT_SEPARATOR_KIND"),
         true,
         "Expected recovery contract constant to exist."

@@ -3,12 +3,14 @@ import test from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals, assertNotEquals } from "../assertions.js";
+
 const { Lint } = LintWorkspace;
 
 function assertIsFrozenObject(value: unknown, message: string) {
-    assert.equal(typeof value, "object", `${message} should be an object`);
-    assert.notEqual(value, null, `${message} should not be null`);
-    assert.equal(Object.isFrozen(value), true, `${message} should be frozen`);
+    assertEquals(typeof value, "object", `${message} should be an object`);
+    assertNotEquals(value, null, `${message} should not be null`);
+    assertEquals(Object.isFrozen(value), true, `${message} should be frozen`);
 }
 
 void test("Lint namespace exports plugin/configs/ruleIds/services and is deeply frozen at top level", () => {
@@ -29,13 +31,13 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
         assert.match(fullRuleId, /^(?:gml|feather)\/.+$/, `Unexpected canonical full rule id: ${fullRuleId}`);
     }
 
-    assert.equal((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
-    assert.equal(
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
+    assertEquals(
         (Lint.ruleIds as Record<string, string>).GmlPreferCompoundAssignments,
         "gml/prefer-compound-assignments"
     );
-    assert.equal((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
-    assert.equal((Lint.ruleIds as Record<string, string>).FeatherGM1000, "feather/gm1000");
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
+    assertEquals((Lint.ruleIds as Record<string, string>).FeatherGM1000, "feather/gm1000");
 });
 
 void test("config arrays are readonly FlatConfig[] values and share the pinned file glob", () => {
@@ -45,7 +47,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     const sets = [Lint.configs.recommended, Lint.configs.feather, Lint.configs.performance];
     for (const configSet of sets) {
         assert.ok(Array.isArray(configSet));
-        assert.equal(Object.isFrozen(configSet), true);
+        assertEquals(Object.isFrozen(configSet), true);
         assert.ok(configSet.length > 0);
         for (const config of configSet) {
             assert.deepEqual(config.files, expectedGlob);
@@ -53,21 +55,21 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     }
 
     const [recommended] = Lint.configs.recommended;
-    assert.equal(recommended.language, "gml/gml");
-    assert.equal(recommended.rules["gml/require-argument-separators"], "error");
-    assert.equal(recommended.rules["gml/no-empty-regions"], "warn");
-    assert.equal(recommended.rules["gml/no-scientific-notation"], "warn");
-    assert.equal(recommended.rules["gml/prefer-compound-assignments"], "warn");
-    assert.equal(recommended.rules["gml/remove-default-comments"], "warn");
+    assertEquals(recommended.language, "gml/gml");
+    assertEquals(recommended.rules["gml/require-argument-separators"], "error");
+    assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
+    assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
+    assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
+    assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
 
     const [featherOverlay] = Lint.configs.feather;
-    assert.equal(featherOverlay.plugins?.feather, Lint.featherPlugin);
+    assertEquals(featherOverlay.plugins?.feather, Lint.featherPlugin);
 });
 
 void test("semver-sensitive lint constants are pinned", () => {
-    assert.equal(Lint.services.featherManifest.schemaVersion, 1);
+    assertEquals(Lint.services.featherManifest.schemaVersion, 1);
     assert.ok(Array.isArray(Lint.services.performanceOverrideRuleIds));
-    assert.equal(Object.isFrozen(Lint.services.performanceOverrideRuleIds), true);
+    assertEquals(Object.isFrozen(Lint.services.performanceOverrideRuleIds), true);
     for (const ruleId of Lint.services.performanceOverrideRuleIds) {
         assert.match(ruleId, /^(?:gml|feather)\/.+$/);
     }

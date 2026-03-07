@@ -6,6 +6,7 @@ import test from "node:test";
 
 import * as LintWorkspace from "../../src/index.js";
 import type { ProjectAnalysisProvider } from "../../src/services/index.js";
+import { assertEquals, assertNotEquals } from "../assertions.js";
 
 function createProject(tempRoot: string, relativePath: string, projectName: string): string {
     const projectRoot = path.join(tempRoot, relativePath);
@@ -69,7 +70,7 @@ void test("nearest-ancestor detection supports multi-root trees deterministicall
     const contextFromParentRootFile = registry.getContext(path.join(parentProjectRoot, "scripts", "parent.gml"));
 
     assert.ok(contextFromNestedFile);
-    assert.notEqual(contextFromNestedFile, contextFromParentRootFile);
+    assertNotEquals(contextFromNestedFile, contextFromParentRootFile);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -95,8 +96,8 @@ void test("registry builds one immutable context per normalized root", () => {
     const secondContext = registry.getContext(secondFile);
 
     assert.ok(firstContext);
-    assert.equal(firstContext, secondContext);
-    assert.equal(Object.isFrozen(firstContext), true);
+    assertEquals(firstContext, secondContext);
+    assertEquals(Object.isFrozen(firstContext), true);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -121,9 +122,9 @@ void test("forced root behavior and out-of-root classification are deterministic
     });
 
     assert.ok(registry.getContext(insideFile));
-    assert.equal(registry.getContext(outsideFile), null);
-    assert.equal(registry.isOutOfForcedRoot(insideFile), false);
-    assert.equal(registry.isOutOfForcedRoot(outsideFile), true);
+    assertEquals(registry.getContext(outsideFile), null);
+    assertEquals(registry.isOutOfForcedRoot(insideFile), false);
+    assertEquals(registry.isOutOfForcedRoot(outsideFile), true);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -157,10 +158,10 @@ void test("hard excludes apply by default and --index-allow is monotonic", () =>
         analysisProvider: createProviderWithSnapshots(new Map([[projectRoot, semanticSnapshot]]))
     });
 
-    assert.equal(withoutAllow.getContext(excludedFile), null);
+    assertEquals(withoutAllow.getContext(excludedFile), null);
     const allowedContext = withAllow.getContext(excludedFile);
     assert.ok(allowedContext);
-    assert.equal(allowedContext?.isIdentifierNameOccupiedInProject("generated_score"), true);
+    assertEquals(allowedContext?.isIdentifierNameOccupiedInProject("generated_score"), true);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -192,15 +193,15 @@ void test("indexed project context exposes capability-backed identifier helpers"
         return;
     }
 
-    assert.equal(context.capabilities.has("IDENTIFIER_OCCUPANCY"), true);
-    assert.equal(context.capabilities.has("IDENTIFIER_OCCURRENCES"), true);
-    assert.equal(context.isIdentifierNameOccupiedInProject("player_score"), true);
-    assert.equal(context.isIdentifierNameOccupiedInProject("unknown_identifier"), false);
+    assertEquals(context.capabilities.has("IDENTIFIER_OCCUPANCY"), true);
+    assertEquals(context.capabilities.has("IDENTIFIER_OCCURRENCES"), true);
+    assertEquals(context.isIdentifierNameOccupiedInProject("player_score"), true);
+    assertEquals(context.isIdentifierNameOccupiedInProject("unknown_identifier"), false);
 
     const files = context.listIdentifierOccurrenceFiles("player_score");
-    assert.equal(files.size > 0, true);
-    assert.equal(context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"])), "player_score_1");
-    assert.equal(context.assessGlobalVarRewrite(path.resolve(scriptFile), true).allowRewrite, true);
+    assertEquals(files.size > 0, true);
+    assertEquals(context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"])), "player_score_1");
+    assertEquals(context.assessGlobalVarRewrite(path.resolve(scriptFile), true).allowRewrite, true);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -257,11 +258,11 @@ void test("registry delegates snapshot construction to the configured analysis p
     const firstContext = registry.getContext(scriptFile);
     const secondContext = registry.getContext(scriptFile);
     assert.ok(firstContext);
-    assert.equal(firstContext, secondContext);
-    assert.equal(observedRoots.length, 1);
-    assert.equal(LintWorkspace.Lint.services.isPathWithinBoundary(scriptFile, observedRoots[0] ?? ""), true);
-    assert.equal(firstContext?.isIdentifierNameOccupiedInProject("score"), true);
-    assert.equal(firstContext?.isIdentifierNameOccupiedInProject("other"), false);
+    assertEquals(firstContext, secondContext);
+    assertEquals(observedRoots.length, 1);
+    assertEquals(LintWorkspace.Lint.services.isPathWithinBoundary(scriptFile, observedRoots[0] ?? ""), true);
+    assertEquals(firstContext?.isIdentifierNameOccupiedInProject("score"), true);
+    assertEquals(firstContext?.isIdentifierNameOccupiedInProject("other"), false);
 
     rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -294,8 +295,8 @@ void test("identical project roots return consistent project-aware answers", () 
 
     assert.ok(firstContext);
     assert.ok(secondContext);
-    assert.equal(firstContext?.isIdentifierNameOccupiedInProject("shared_score"), true);
-    assert.equal(secondContext?.isIdentifierNameOccupiedInProject("shared_score"), true);
+    assertEquals(firstContext?.isIdentifierNameOccupiedInProject("shared_score"), true);
+    assertEquals(secondContext?.isIdentifierNameOccupiedInProject("shared_score"), true);
     assert.deepEqual(
         [...(firstContext?.listIdentifierOccurrenceFiles("shared_score") ?? new Set<string>())],
         [...(secondContext?.listIdentifierOccurrenceFiles("shared_score") ?? new Set<string>())]

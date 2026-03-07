@@ -12,6 +12,7 @@ import { describe, it } from "node:test";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { annotateStaticFunctionOverridesTransform } from "../src/rules/gml/transforms/comments/annotate-static-overrides.js";
+import { assertEquals } from "./assertions.js";
 
 /**
  * A node that may carry the annotation fields set by
@@ -71,7 +72,7 @@ function makeProgram(body: Record<string, unknown>[]): MutableGameMakerAstNode {
 
 void describe("annotateStaticFunctionOverridesTransform", () => {
     void it("has the expected transform name", () => {
-        assert.equal(annotateStaticFunctionOverridesTransform.name, "annotate-static-overrides");
+        assertEquals(annotateStaticFunctionOverridesTransform.name, "annotate-static-overrides");
     });
 
     void it("returns the AST unchanged when there are no constructors", () => {
@@ -87,8 +88,8 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
 
         annotateStaticFunctionOverridesTransform.transform(ast);
 
-        assert.equal(helper._overridesStaticFunction, undefined);
-        assert.equal(helper._overridesStaticFunctionNode, undefined);
+        assertEquals(helper._overridesStaticFunction, undefined);
+        assertEquals(helper._overridesStaticFunctionNode, undefined);
     });
 
     void it("annotates a static helper that shadows one from a direct parent", () => {
@@ -101,7 +102,7 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
 
         annotateStaticFunctionOverridesTransform.transform(ast);
 
-        assert.equal(childHelper._overridesStaticFunction, true);
+        assertEquals(childHelper._overridesStaticFunction, true);
         assert.strictEqual(childHelper._overridesStaticFunctionNode, parentHelper);
     });
 
@@ -115,7 +116,7 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
 
         annotateStaticFunctionOverridesTransform.transform(ast);
 
-        assert.equal(parentHelper._overridesStaticFunction, undefined);
+        assertEquals(parentHelper._overridesStaticFunction, undefined);
     });
 
     void it("annotates transitive overrides through a multi-level hierarchy", () => {
@@ -130,7 +131,7 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
 
         annotateStaticFunctionOverridesTransform.transform(ast);
 
-        assert.equal(grandchildHelper._overridesStaticFunction, true);
+        assertEquals(grandchildHelper._overridesStaticFunction, true);
         assert.strictEqual(grandchildHelper._overridesStaticFunctionNode, grandparentHelper);
     });
 
@@ -143,7 +144,7 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
             annotateStaticFunctionOverridesTransform.transform(ast);
         });
 
-        assert.equal(helper._overridesStaticFunction, undefined);
+        assertEquals(helper._overridesStaticFunction, undefined);
     });
 
     void it("skips non-function static declarations (e.g. plain values)", () => {
@@ -164,7 +165,7 @@ void describe("annotateStaticFunctionOverridesTransform", () => {
         // Plain static value should not be treated as an override
         annotateStaticFunctionOverridesTransform.transform(ast);
 
-        assert.equal(plainStatic._overridesStaticFunction, undefined);
+        assertEquals(plainStatic._overridesStaticFunction, undefined);
     });
 
     void it("handles circular inheritance references without throwing", () => {

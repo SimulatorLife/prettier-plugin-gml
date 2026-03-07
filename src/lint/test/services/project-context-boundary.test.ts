@@ -16,6 +16,7 @@ import { test } from "node:test";
 
 import type { GmlProjectContext, ProjectAnalysisProvider } from "../../src/services/index.js";
 import type { ProjectCapability } from "../../src/types/index.js";
+import { assertEquals } from "../assertions.js";
 
 /**
  * `RENAME_CONFLICT_PLANNING` is a cross-file project operation owned by the
@@ -42,7 +43,7 @@ void test("ProjectCapability does not include RENAME_CONFLICT_PLANNING (belongs 
     // were re-added to the ProjectCapability union:
     //   const invalid: ProjectCapability = "RENAME_CONFLICT_PLANNING"; // ← compile error
     // This test documents the contract at the source level.
-    assert.equal(allowedCapabilities.length, 3, "Lint must expose exactly 3 single-file capabilities");
+    assertEquals(allowedCapabilities.length, 3, "Lint must expose exactly 3 single-file capabilities");
     assert.ok(
         !allowedCapabilities.includes("RENAME_CONFLICT_PLANNING" as ProjectCapability),
         "RENAME_CONFLICT_PLANNING must not be a lint ProjectCapability — rename-conflict planning belongs in @gml-modules/refactor (target-state.md §2.3, §2.4)"

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { findFirstAstNodeBy, walkAstNodes } from "../../src/rules/gml/rule-base-helpers.js";
+import { assertEquals } from "../assertions.js";
 
 void test("findFirstAstNodeBy returns the first matching node in source order", () => {
     const astRoot = {
@@ -15,7 +16,7 @@ void test("findFirstAstNodeBy returns the first matching node in source order", 
     const matchedNode = findFirstAstNodeBy(astRoot, (node) => node.type === "Identifier");
 
     assert.ok(matchedNode);
-    assert.equal(matchedNode.name, "first");
+    assertEquals(matchedNode.name, "first");
 });
 
 void test("findFirstAstNodeBy ignores parent cycles and returns null when unmatched", () => {
@@ -31,7 +32,7 @@ void test("findFirstAstNodeBy ignores parent cycles and returns null when unmatc
 
     const matchedNode = findFirstAstNodeBy(astRoot, (node) => node.type === "BinaryExpression");
 
-    assert.equal(matchedNode, null);
+    assertEquals(matchedNode, null);
 });
 
 void test("walkAstNodes preserves source order when traversing array children", () => {

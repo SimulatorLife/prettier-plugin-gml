@@ -7,6 +7,8 @@ import { promisify } from "node:util";
 import * as LintWorkspace from "@gml-modules/lint";
 import { ESLint, type Linter } from "eslint";
 
+import { assertEquals } from "../assertions.js";
+
 const { Lint } = LintWorkspace;
 
 type ParseSuccess = {
@@ -185,17 +187,17 @@ async function runVersionCompatibilityProbe(packageName: string): Promise<void> 
 void test("language object pins ESLint v9 language behavior fields", () => {
     const language = Lint.plugin.languages.gml as Record<string, unknown>;
 
-    assert.equal(language.fileType, "text");
-    assert.equal(language.lineStart, 1);
-    assert.equal(language.columnStart, 0);
-    assert.equal(language.nodeTypeKey, "type");
+    assertEquals(language.fileType, "text");
+    assertEquals(language.lineStart, 1);
+    assertEquals(language.columnStart, 0);
+    assertEquals(language.nodeTypeKey, "type");
     assert.deepEqual(language.defaultLanguageOptions, { recovery: "limited" });
     assert.deepEqual(language.visitorKeys, {});
 });
 
 void test("language parse returns ESLint v9 parse channel with ok discriminator", () => {
     const result = parseWithOptions("var x = 1;", "limited");
-    assert.equal(result.ok, true);
+    assertEquals(result.ok, true);
 });
 
 void test("language parse projects loc/range metadata for try/catch branches", () => {
@@ -211,7 +213,7 @@ void test("language parse projects loc/range metadata for try/catch branches", (
         ""
     ].join("\n");
     const parseResult = parseWithOptions(source, "limited");
-    assert.equal(parseResult.ok, true);
+    assertEquals(parseResult.ok, true);
 
     if (!parseResult.ok) {
         return;
@@ -224,15 +226,16 @@ void test("language parse projects loc/range metadata for try/catch branches", (
 void test("language parse failure returns ESLint parse-failure channel", () => {
     const parseResult = parseWithOptions("if (", "limited");
 
-    assert.equal(parseResult.ok, false);
+    assertEquals(parseResult.ok, false);
     if (parseResult.ok) {
         return;
     }
 
-    assert.equal(parseResult.errors.length, 1);
-    assert.equal(typeof parseResult.errors[0]?.message, "string");
-    assert.equal(typeof parseResult.errors[0]?.line, "number");
-    assert.equal(typeof parseResult.errors[0]?.column, "number");
+    const parseFailure = parseResult as ParseFailure;
+    assertEquals(parseFailure.errors.length, 1);
+    assertEquals(typeof parseFailure.errors[0]?.message, "string");
+    assertEquals(typeof parseFailure.errors[0]?.line, "number");
+    assertEquals(typeof parseFailure.errors[0]?.column, "number");
 });
 
 void test("language hooks run successfully on minimum ESLint version", async () => {
@@ -241,23 +244,23 @@ void test("language hooks run successfully on minimum ESLint version", async () 
 
 void test("language hooks run successfully on latest ESLint version", async () => {
     const result = await lintTextWithESLintVersion(ESLint, "var x = 1;");
-    assert.equal(result.fatalErrorCount, 0);
+    assertEquals(result.fatalErrorCount, 0);
     await runVersionCompatibilityProbe("eslint");
 });
 
 void test("strict parse fails while limited recovery succeeds for missing argument separators", () => {
     const strictResult = parseWithOptions("show_debug_message(1 2);", "none");
-    assert.equal(strictResult.ok, false);
+    assertEquals(strictResult.ok, false);
 
     const limitedResult = parseWithOptions("show_debug_message(1 2);", "limited");
-    assert.equal(limitedResult.ok, true);
+    assertEquals(limitedResult.ok, true);
 
     if (!limitedResult.ok) {
         assert.fail("Expected limited recovery parse success.");
     }
 
-    assert.equal(limitedResult.parserServices.gml.recovery.length, 1);
-    assert.equal(limitedResult.parserServices.gml.recovery[0]?.kind, "inserted-argument-separator");
+    assertEquals(limitedResult.parserServices.gml.recovery.length, 1);
+    assertEquals(limitedResult.parserServices.gml.recovery[0]?.kind, "inserted-argument-separator");
 
     const recoveredArgumentRange = limitedResult.ast.body?.[0]?.arguments?.[1]?.range;
     assert.deepEqual(recoveredArgumentRange, [21, 22]);
@@ -266,10 +269,10 @@ void test("strict parse fails while limited recovery succeeds for missing argume
 void test("strict parse fails while limited recovery succeeds for scientific notation literals", () => {
     const source = "var epsilon = 1e-11;";
     const strictResult = parseWithOptions(source, "none");
-    assert.equal(strictResult.ok, false);
+    assertEquals(strictResult.ok, false);
 
     const limitedResult = parseWithOptions(source, "limited");
-    assert.equal(limitedResult.ok, true);
+    assertEquals(limitedResult.ok, true);
 
     if (!limitedResult.ok) {
         assert.fail("Expected limited recovery parse success.");
@@ -292,14 +295,14 @@ void test("switch cases expose estree consequent arrays for ESLint code-path ana
     ].join("\n");
     const result = await lintTextWithESLintVersion(ESLint, source);
 
-    assert.equal(result.fatalErrorCount, 0);
-    assert.equal(
+    assertEquals(result.fatalErrorCount, 0);
+    assertEquals(
         result.messages.some((message) => message.fatal),
         false
     );
 
     const parseResult = parseWithOptions(source, "limited");
-    assert.equal(parseResult.ok, true);
+    assertEquals(parseResult.ok, true);
     if (!parseResult.ok) {
         return;
     }
@@ -322,10 +325,10 @@ void test("switch blocks ignore non-case directives in cases array for ESLint co
     ].join("\n");
 
     const result = await lintTextWithESLintVersion(ESLint, source);
-    assert.equal(result.fatalErrorCount, 0);
+    assertEquals(result.fatalErrorCount, 0);
 
     const parseResult = parseWithOptions(source, "limited");
-    assert.equal(parseResult.ok, true);
+    assertEquals(parseResult.ok, true);
     if (!parseResult.ok) {
         return;
     }
@@ -338,7 +341,7 @@ void test("switch blocks ignore non-case directives in cases array for ESLint co
 void test("limited recovery preserves projected substring invariants for argument ranges", () => {
     const source = "show_debug_message(10 20);";
     const result = parseWithOptions(source, "limited");
-    assert.equal(result.ok, true);
+    assertEquals(result.ok, true);
 
     if (!result.ok) {
         assert.fail("Expected limited recovery parse success.");
@@ -348,25 +351,25 @@ void test("limited recovery preserves projected substring invariants for argumen
     assert.ok(Array.isArray(secondArgumentRange));
 
     const [start, end] = secondArgumentRange;
-    assert.equal(source.slice(start, end), "20");
-    assert.equal(result.parserServices.gml.recovery[0]?.originalOffset, 21);
+    assertEquals(source.slice(start, end), "20");
+    assertEquals(result.parserServices.gml.recovery[0]?.originalOffset, 21);
 });
 
 void test("limited recovery inserts exactly one separator across block-comment payload gaps", () => {
     const source = "show_debug_message_ext(name /* keep */ payload);\n";
 
     const strictResult = parseWithOptions(source, "none");
-    assert.equal(strictResult.ok, false);
+    assertEquals(strictResult.ok, false);
 
     const limitedResult = parseWithOptions(source, "limited");
-    assert.equal(limitedResult.ok, true);
+    assertEquals(limitedResult.ok, true);
 
     if (!limitedResult.ok) {
         assert.fail("Expected limited recovery parse success.");
     }
 
-    assert.equal(limitedResult.parserServices.gml.recovery.length, 1);
-    assert.equal(limitedResult.parserServices.gml.recovery[0]?.originalOffset, source.indexOf(" /* keep */"));
+    assertEquals(limitedResult.parserServices.gml.recovery.length, 1);
+    assertEquals(limitedResult.parserServices.gml.recovery[0]?.originalOffset, source.indexOf(" /* keep */"));
 });
 
 void test("require-argument-separators ignores macros, declarations, comments, and strings", async () => {
@@ -392,8 +395,8 @@ void test("require-argument-separators ignores macros, declarations, comments, a
         false
     );
 
-    assert.equal(result.fatalErrorCount, 0);
-    assert.equal(result.errorCount, 0);
+    assertEquals(result.fatalErrorCount, 0);
+    assertEquals(result.errorCount, 0);
 });
 
 void test("require-argument-separators reports precise location and fixes comment payload gaps", async () => {
@@ -410,10 +413,10 @@ void test("require-argument-separators reports precise location and fixes commen
         false
     );
 
-    assert.equal(diagnosticResult.fatalErrorCount, 0);
-    assert.equal(diagnosticResult.messages.length, 1);
-    assert.equal(diagnosticResult.messages[0]?.line, 1);
-    assert.equal(diagnosticResult.messages[0]?.column, expectedColumn);
+    assertEquals(diagnosticResult.fatalErrorCount, 0);
+    assertEquals(diagnosticResult.messages.length, 1);
+    assertEquals(diagnosticResult.messages[0]?.line, 1);
+    assertEquals(diagnosticResult.messages[0]?.column, expectedColumn);
 
     const fixedResult = await lintTextWithConfiguredRules(
         ESLint,
@@ -424,7 +427,7 @@ void test("require-argument-separators reports precise location and fixes commen
         },
         true
     );
-    assert.equal(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
+    assertEquals(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
 void test("require-control-flow-braces autofix does not break else-if chains into invalid nested blocks", async () => {
@@ -440,9 +443,9 @@ void test("require-control-flow-braces autofix does not break else-if chains int
         true
     );
 
-    assert.equal(result.fatalErrorCount, 0);
-    assert.equal(result.errorCount, 0);
-    assert.equal(result.output ?? source, source);
+    assertEquals(result.fatalErrorCount, 0);
+    assertEquals(result.errorCount, 0);
+    assertEquals(result.output ?? source, source);
 });
 
 void test("optimize-math-expressions fix pipeline converges without parenthesis oscillation", async () => {
@@ -469,19 +472,19 @@ void test("optimize-math-expressions fix pipeline converges without parenthesis 
     const stabilizedOutput = typeof firstPass.output === "string" ? firstPass.output : source;
     const secondPass = await lintTextWithConfiguredRules(ESLint, stabilizedOutput, rules, false);
 
-    assert.equal(secondPass.fatalErrorCount, 0);
-    assert.equal(secondPass.messages.length, 0);
+    assertEquals(secondPass.fatalErrorCount, 0);
+    assertEquals(secondPass.messages.length, 0);
 });
 
 void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
     const result = parseWithOptions("var x = 1;", "limited");
-    assert.equal(result.ok, true);
+    assertEquals(result.ok, true);
 
     if (!result.ok) {
         assert.fail("Expected parse success.");
     }
 
-    assert.equal(typeof result.parserServices.gml.filePath, "string");
+    assertEquals(typeof result.parserServices.gml.filePath, "string");
     assert.ok(result.parserServices.gml.filePath.endsWith("test.gml"));
     assert.deepEqual(result.parserServices.gml.directives, []);
     assert.deepEqual(result.parserServices.gml.enums, []);
@@ -491,7 +494,7 @@ void test("parser services contract always shapes canonical path, directives, en
 void test("utf-16 range projection stays aligned after limited recovery", () => {
     const source = 'show_debug_message("😀" 2);';
     const result = parseWithOptions(source, "limited");
-    assert.equal(result.ok, true);
+    assertEquals(result.ok, true);
 
     if (!result.ok) {
         assert.fail("Expected parse success.");
@@ -499,17 +502,17 @@ void test("utf-16 range projection stays aligned after limited recovery", () => 
 
     const firstArgumentRange = result.ast.body?.[0]?.arguments?.[0]?.range;
     assert.deepEqual(firstArgumentRange, [19, 23]);
-    assert.equal(source.slice(19, 23), '"😀"');
+    assertEquals(source.slice(19, 23), '"😀"');
 
     const secondArgumentRange = result.ast.body?.[0]?.arguments?.[1]?.range;
     assert.deepEqual(secondArgumentRange, [24, 25]);
-    assert.equal(source.slice(24, 25), "2");
+    assertEquals(source.slice(24, 25), "2");
 });
 
 void test("tokenization source remains original source under limited recovery", () => {
     const source = "show_debug_message(1 2); // tail";
     const result = parseWithOptions(source, "limited");
-    assert.equal(result.ok, true);
+    assertEquals(result.ok, true);
 
     if (!result.ok) {
         assert.fail("Expected parse success.");
@@ -532,6 +535,6 @@ void test("tokenization source remains original source under limited recovery", 
         }
 
         const [start, end] = comment.range;
-        assert.equal(source.slice(start, end).startsWith("//"), true);
+        assertEquals(source.slice(start, end).startsWith("//"), true);
     }
 });

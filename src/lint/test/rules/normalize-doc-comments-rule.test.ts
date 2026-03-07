@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function runNormalizeDocCommentsRule(code: string): string {
@@ -317,7 +318,7 @@ void test("normalize-doc-comments does not convert // // section comments into s
     ].join("\n");
 
     const output = runNormalizeDocCommentsRule(input);
-    assert.equal(output, input);
+    assertEquals(output, input);
 });
 
 void test("normalize-doc-comments keeps operator comments that start with // / unchanged", () => {
@@ -357,7 +358,7 @@ void test("normalize-doc-comments does not synthesize @returns for constructor f
     const input = ["function __ChatterboxBufferBatch() constructor {", "    // ...", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.equal(output, input);
+    assertEquals(output, input);
     assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
 });
 
@@ -388,6 +389,6 @@ void test("normalize-doc-comments removes existing @returns tags for constructor
         "}"
     ].join("\n");
 
-    assert.equal(output, expected);
+    assertEquals(output, expected);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });
