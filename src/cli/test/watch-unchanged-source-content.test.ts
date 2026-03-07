@@ -110,6 +110,43 @@ void describe("watch command source content hash guard", () => {
                     (afterChange.patchCount ?? 0) > expectedPatchCount,
                     "changed content should trigger a new transpilation"
                 );
+
+                // ── Step 5: size-changing edit still refreshes hash for no-op saves ─────
+                const largerContent = `function content_hash_script() {
+    return 1000;
+}`;
+                await writeFile(testFile, largerContent, "utf8");
+                listenerCapture.listener("change", path.basename(testFile));
+
+                const patchCountAfterLargerWriteTarget = (afterChange.patchCount ?? 0) + 1;
+                await waitForStatus(
+                    baseUrl,
+                    (status) => (status.patchCount ?? 0) >= patchCountAfterLargerWriteTarget,
+                    2000
+                );
+
+                await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 20);
+                });
+                await writeFile(testFile, largerContent, "utf8");
+                listenerCapture.listener("change", path.basename(testFile));
+
+                await writeFile(sentinelFile, sentinelContent, "utf8");
+                listenerCapture.listener("change", path.basename(sentinelFile));
+
+                const expectedPatchCountAfterNoOpLargeSave = patchCountAfterLargerWriteTarget + 1;
+                await waitForStatus(
+                    baseUrl,
+                    (status) => (status.patchCount ?? 0) >= expectedPatchCountAfterNoOpLargeSave,
+                    2000
+                );
+
+                const afterNoOpLargeSave = await fetchStatusPayload(baseUrl);
+                assert.equal(
+                    afterNoOpLargeSave.patchCount,
+                    expectedPatchCountAfterNoOpLargeSave,
+                    "no-op save after size change should still be skipped"
+                );
             }
         );
     });
