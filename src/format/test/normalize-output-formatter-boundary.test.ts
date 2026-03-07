@@ -6,10 +6,12 @@
  * semantic/content rewrite owned exclusively by the `@gml-modules/lint`
  * `normalize-doc-comments` rule.
  *
- * It must also not embed GML-domain knowledge about specific comment strings
+ * It must also not embed GML-domain knowledge about specific GML API names
+ * (e.g. `vertex_format_begin`, `vertex_format_end`) or comment strings
  * synthesized by lint rules (e.g. vertex-format diagnostic comments). Spacing
- * decisions that depend on semantic knowledge of particular lint-generated
- * comment text belong in the `@gml-modules/lint` workspace, not the formatter.
+ * decisions that depend on semantic knowledge of particular GML API calls or
+ * lint-generated comment text belong in the `@gml-modules/lint` workspace, not
+ * the formatter.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -99,5 +101,34 @@ void test("normalizeFormattedOutput does not alter spacing between GML-domain ve
         result,
         input,
         "normalizeFormattedOutput must not insert blank lines between GML-domain diagnostic comment strings — spacing based on lint-generated content belongs in @gml-modules/lint (target-state.md §2.1, §3.2)"
+    );
+});
+
+void test("normalizeFormattedOutput does not collapse blank lines around vertex_format_begin() calls (GML API knowledge belongs in lint, not formatter)", () => {
+    // The formatter must not hardcode knowledge of specific GML API function names
+    // such as vertex_format_begin() and vertex_format_end(). Collapsing blank lines
+    // based on the identity of surrounding GML API calls is a semantic/content
+    // rewrite that belongs in @gml-modules/lint, not the formatter's post-processing
+    // pipeline. (target-state.md §2.1, §3.2)
+    //
+    // The previously removed `collapseVertexFormatBeginSpacing` and
+    // `collapseCustomFunctionToFormatEndSpacing` functions violated this contract by
+    // recognising vertex_format_begin() and vertex_format_end() by name and
+    // collapsing the blank lines between them and adjacent function calls.
+    const input = [
+        "vertex_format_begin();",
+        "",
+        "scr_custom_function();",
+        "",
+        "format = vertex_format_end();",
+        ""
+    ].join("\n");
+
+    const result = normalizeFormattedOutput(input);
+
+    assert.strictEqual(
+        result,
+        input,
+        "normalizeFormattedOutput must not collapse blank lines around vertex_format_begin/end — that is GML API domain knowledge belonging in @gml-modules/lint (target-state.md §2.1, §3.2)"
     );
 });
