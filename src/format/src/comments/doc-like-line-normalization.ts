@@ -237,7 +237,13 @@ function shouldPreserveRawFormatterLineComment(
     rawText: string,
     originalText: string | null | undefined
 ): boolean {
+    // Triple-slash doc-tag lines (/// @tag …) must be returned verbatim.
+    // Tag-alias normalization (e.g. @func → @function, @desc → @description)
+    // and other content rewrites (parameter-list stripping, type annotation
+    // canonicalization) are owned exclusively by the lint rule
+    // `gml/normalize-doc-comments` (target-state.md §2.2, §3.2).
     return (
+        isDocTagLine(rawText) ||
         isLegacyDoubleSlashDocAnnotation(rawText) ||
         isLegacySingleSlashDocPrefix(rawText) ||
         isTripleSlashSeparatorLine(rawText) ||
