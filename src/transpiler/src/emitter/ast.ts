@@ -405,6 +405,20 @@ export interface EmitOptions {
      * Defaults to `globalThis.__resolve_with_targets`.
      */
     readonly resolveWithTargetsIdent: string;
+    /**
+     * When `true`, the emitter tracks `var`-declared names and function
+     * parameters, and prefixes any other unresolved identifier with `self.`
+     * inside function bodies and the top-level program scope.
+     *
+     * Set this to `true` for event patch emission, where the transpiled code
+     * runs inside a plain `new Function(...)` without the GML proxy `with`-
+     * wrapper that script patches rely on. In that context, bare identifiers
+     * do not automatically resolve to instance fields, so an explicit `self.`
+     * prefix is required for correctness.
+     *
+     * Defaults to `false` (the historic behavior used for script patches).
+     */
+    readonly emitSelfPrefix: boolean;
 }
 
 /**
