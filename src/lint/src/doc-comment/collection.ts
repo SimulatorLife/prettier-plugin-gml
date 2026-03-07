@@ -389,24 +389,6 @@ function appendFlattenedEntry(target: string[], entry: unknown): void {
     target.push(entry);
 }
 
-function getCommentIndexValue(comment: unknown, field: "start" | "end"): number | null {
-    if (!comment || typeof comment !== "object") {
-        return null;
-    }
-
-    const fieldValue = (comment as { [key: string]: unknown })[field];
-    if (typeof fieldValue === "number") {
-        return fieldValue;
-    }
-
-    if (!fieldValue || typeof fieldValue !== "object") {
-        return null;
-    }
-
-    const indexValue = (fieldValue as { index?: unknown }).index;
-    return typeof indexValue === "number" ? indexValue : null;
-}
-
 function isUnprintedLineComment(comment: unknown): comment is { [key: string]: unknown; type: "CommentLine" } {
     if (!comment || typeof comment !== "object") {
         return false;
@@ -446,8 +428,8 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        const commentEnd = getCommentIndexValue(comment, "end");
-        const commentStart = getCommentIndexValue(comment, "start");
+        const commentEnd = getCommentBoundaryIndex(comment, "end");
+        const commentStart = getCommentBoundaryIndex(comment, "start");
 
         if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
             continue;
@@ -465,12 +447,8 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        if (typeof sourceText === STRING_TYPE && typeof commentEnd === "number") {
-            const gapText = sourceText.slice(commentEnd, anchorIndex);
-            const blankLines = (gapText.match(/\n/g) || []).length;
-            if (blankLines >= 2) {
-                break;
-            }
+        if (hasTooManyBlankLinesBetween(sourceText, commentEnd, anchorIndex)) {
+            break;
         }
 
         comment.printed = true;
@@ -503,9 +481,7 @@ export function collectAdjacentLeadingSourceLineComments(node: any, options: any
         const trimmed = rawLine.trim();
 
         if (trimmed.length === 0) {
-            const gapText = sourceText.slice(lineStart, nodeStartIndex);
-            const blankLines = (gapText.match(/\n/g) || []).length;
-            if (blankLines >= 2) break;
+            if (hasTooManyBlankLinesBetween(sourceText, lineStart, nodeStartIndex)) break;
             anchorIndex = lineStart - 1;
             continue;
         }
