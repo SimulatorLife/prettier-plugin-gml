@@ -391,3 +391,37 @@ void test("normalize-doc-comments removes existing @returns tags for constructor
     assert.equal(output, expected);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });
+
+void test("normalize-doc-comments removes whitespace-only @description tags", () => {
+    // Exercises the toTrimmedString path inside filterEmptyDescriptionLines, which
+    // filterEmptyDescriptionTags delegates to.  A @description whose metadata.name
+    // is blank (or only whitespace) must be stripped, while non-blank ones are kept.
+    const input = [
+        "/// @description   ",
+        "/// @param value",
+        "function test(value) {}",
+        "",
+        "/// @description Valid description",
+        "/// @param x",
+        "function test2(x) {}"
+    ].join("\n");
+
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.doesNotMatch(output, /^\/\/\/ @description\s*$/m);
+    assert.match(output, /^\/\/\/ @description Valid description$/m);
+});
+
+void test("normalize-doc-comments synthesizes @returns for a function with a concrete return", () => {
+    // Exercises isReturnLine, which now delegates to docTagMatches.
+    // A function with a typed passthrough return statement should synthesize @returns.
+    const input = [
+        "/// @param {real} [angle=90]",
+        "function update_movement_passthrough(angle = 90) {",
+        "    return angle;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @returns \{real\}$/m);
+});

@@ -131,29 +131,15 @@ function filterEmptyDescriptionLines(
         }
 
         const metadata = parseDocCommentMetadata(line);
-        const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
 
-        return descriptionText.length > 0;
+        return toTrimmedString(metadata?.name).length > 0;
     }) as MutableDocCommentLines;
 }
 
 function filterEmptyDescriptionTags(docs: DocCommentLines): MutableDocCommentLines {
-    return toMutableArray(
-        docs.filter((line) => {
-            if (typeof line !== STRING_TYPE) {
-                return true;
-            }
-
-            if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
-                return true;
-            }
-
-            const metadata = parseDocCommentMetadata(line);
-            const descriptionText = toTrimmedString(metadata?.name);
-
-            return descriptionText.length > 0;
-        })
-    ) as MutableDocCommentLines;
+    return filterEmptyDescriptionLines(toMutableArray(docs) as MutableDocCommentLines, (line) =>
+        /^\/\/\/\s*@description\b/i.test(line.trim())
+    );
 }
 
 export function mergeSyntheticDocComments(
@@ -1033,10 +1019,7 @@ function docTagMatches(line: unknown, pattern: RegExp): boolean {
 }
 
 function isReturnLine(line: unknown): boolean {
-    if (typeof line !== "string") {
-        return false;
-    }
-    return /^\/\/\/\s*@returns?\b/i.test(line.trim());
+    return docTagMatches(line, /^\/\/\/\s*@returns?\b/i);
 }
 
 type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
