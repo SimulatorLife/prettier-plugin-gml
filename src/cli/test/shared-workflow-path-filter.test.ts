@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { createWorkflowPathFilter, ensureManualWorkflowArtifactsAllowed } from "../src/workflow/path-filter.js";
+import {
+    createWorkflowPathFilter,
+    DEFAULT_FIXTURE_DIRECTORIES,
+    ensureManualWorkflowArtifactsAllowed,
+    normalizeFixtureRoots
+} from "../src/workflow/path-filter.js";
 
 void describe("workflow path filter helpers", () => {
     void it("allows paths that satisfy the workflow filters", () => {
@@ -61,6 +66,20 @@ void describe("workflow path filter helpers", () => {
             (error) =>
                 error instanceof Error && /Manual cache root/.test(error.message) && error.message.includes(denied)
         );
+    });
+
+    void it("normalizes default fixture roots and deduplicates additional entries", () => {
+        const additional = [DEFAULT_FIXTURE_DIRECTORIES[0], path.join(DEFAULT_FIXTURE_DIRECTORIES[1], "..")];
+        const roots = normalizeFixtureRoots(additional);
+
+        assert.deepEqual(roots, DEFAULT_FIXTURE_DIRECTORIES);
+    });
+
+    void it("respects workflow allow filters when resolving fixture roots", () => {
+        const [parserFixtures] = DEFAULT_FIXTURE_DIRECTORIES;
+        const roots = normalizeFixtureRoots([], { allowPaths: [parserFixtures] });
+
+        assert.deepEqual(roots, [parserFixtures]);
     });
 
     void it("rejects files outside the workflow filters", () => {
