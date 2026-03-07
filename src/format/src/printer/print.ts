@@ -33,7 +33,6 @@ import {
     MULTIPLICATIVE_BINARY_OPERATORS,
     NUMBER_TYPE,
     OBJECT_TYPE,
-    PRESERVED_GLOBAL_VAR_NAMES,
     STRING_TYPE,
     UNDEFINED_TYPE
 } from "./constants.js";
@@ -104,7 +103,6 @@ const {
     FUNCTION_DECLARATION,
     EMPTY_STATEMENT,
     FUNCTION_EXPRESSION,
-    IDENTIFIER,
     IF_STATEMENT,
     LITERAL,
     MACRO_DECLARATION,
@@ -117,8 +115,7 @@ const {
     VARIABLE_DECLARATION,
     VARIABLE_DECLARATOR,
     WHILE_STATEMENT,
-    WITH_STATEMENT,
-    GLOBAL_VAR_STATEMENT
+    WITH_STATEMENT
 } = Core;
 
 const forcedStructArgumentBreaks = new WeakMap();
@@ -870,19 +867,6 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (node?.object?.type === IDENTIFIER && node.object.name === "global") {
-        const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
-        const propertyNode = node.property;
-        const propertyName = propertyNode?.type === IDENTIFIER ? Core.getIdentifierText(propertyNode) : null;
-        if (
-            preservedNames &&
-            preservedNames.size > 0 &&
-            typeof propertyName === STRING_TYPE &&
-            preservedNames.has(propertyName)
-        ) {
-            return print("property");
-        }
-    }
     if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
         const objectNode = path.getValue()?.object;
         const shouldAllowBreakBeforeDot =
@@ -1194,8 +1178,7 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(value);
         }
         case "Identifier": {
-            const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
-            return concat([prefix, node.name]);
+            return node.name;
         }
         case "TemplateStringText": {
             return concat(node.value);
@@ -1879,9 +1862,6 @@ function printStatements(path, options, print, childrenAttribute) {
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
-    if (statements && statements.length > 0) {
-        ensurePreservedGlobalVarNames(options, statements);
-    }
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const originalTextCache = sourceMetadata.originalText ?? options?.originalText ?? null;
@@ -2790,81 +2770,6 @@ function buildIfAlternateDoc(path, options, print, node) {
     }
 
     return printInBlock(path, options, print, "alternate");
-}
-
-function ensurePreservedGlobalVarNames(options, statements) {
-    if (!options || false || Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)) {
-        return options?.[PRESERVED_GLOBAL_VAR_NAMES] ?? null;
-    }
-
-    const names = new Set();
-    collectGlobalVarNamesFromNode(statements, names);
-    options[PRESERVED_GLOBAL_VAR_NAMES] = names;
-    return names;
-}
-
-function collectGlobalVarNamesFromNode(node, names) {
-    if (!node) {
-        return;
-    }
-
-    if (Array.isArray(node)) {
-        for (const entry of node) {
-            collectGlobalVarNamesFromNode(entry, names);
-        }
-        return;
-    }
-
-    if (typeof node !== "object") {
-        return;
-    }
-
-    if (node.type === GLOBAL_VAR_STATEMENT) {
-        const declarations = Core.asArray<any>(node.declarations);
-        for (const declarator of declarations) {
-            const identifierName = Core.getIdentifierText(declarator?.id ?? null);
-            if (Core.isNonEmptyString(identifierName)) {
-                names.add(identifierName);
-            }
-        }
-    }
-
-    Core.forEachNodeChild(node, (child) => collectGlobalVarNamesFromNode(child, names));
-}
-
-function shouldPrefixGlobalIdentifier(path, options) {
-    const node = path.getValue();
-    if (!node || !node.isGlobalIdentifier) return false;
-
-    const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
-    const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
-    if (
-        preservedNames &&
-        preservedNames.size > 0 &&
-        typeof identifierName === STRING_TYPE &&
-        preservedNames.has(identifierName)
-    ) {
-        return false;
-    }
-
-    const parent = safeGetParentNode(path);
-    if (!parent) return true;
-
-    const type = parent.type;
-
-    if (type === "MemberDotExpression" && parent.property === node) return false;
-    if ((type === "Property" || type === "EnumMember") && parent.name === node) return false;
-    if (
-        (type === "VariableDeclarator" ||
-            type === "FunctionDeclaration" ||
-            type === "ConstructorDeclaration" ||
-            type === "ConstructorParentClause") &&
-        parent.id === node
-    ) {
-        return false;
-    }
-
-    return true;
 }
 
 function docHasTrailingComment(doc) {

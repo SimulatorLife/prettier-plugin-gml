@@ -567,4 +567,43 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    void it("preserves global. prefix on member expressions even when name was declared with globalvar (prefix removal belongs in lint)", async () => {
+        // The formatter must not strip `global.` from member expressions whose
+        // property name was also declared via `globalvar` in the same file.
+        // Normalizing `global.xxx` → `xxx` (or vice-versa) is a semantic content
+        // rewrite that belongs exclusively in the `@gml-modules/lint` workspace
+        // (e.g., the `gml/no-globalvar` rule). (target-state.md §2.1, §3.2)
+        const source = ["globalvar score;", "global.score = 1;", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /global\.score = 1;/,
+            "Formatter must not strip global. from member expressions — that is a lint-workspace responsibility (gml/no-globalvar)"
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^score = 1;/m,
+            "Formatter must not rewrite global.score to bare score — that is a semantic content rewrite belonging in lint"
+        );
+    });
+
+    void it("does not add global. prefix to bare identifiers annotated by semantic analysis (prefix synthesis belongs in lint)", async () => {
+        // The formatter must not synthesize `global.` prefixes on bare identifiers
+        // even when they have been annotated as global by a semantic pass. Global
+        // identifier normalization is a semantic content rewrite owned exclusively
+        // by the `@gml-modules/lint` workspace. (target-state.md §2.1, §3.2)
+        const source = ["globalvar score;", "score = 1;", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /^score = 1;/m, "Formatter must preserve bare score without adding global. prefix");
+        assert.doesNotMatch(
+            formatted,
+            /global\.score = 1;/,
+            "Formatter must not synthesize global. prefix — that is a lint-workspace responsibility (gml/no-globalvar)"
+        );
+    });
 });
