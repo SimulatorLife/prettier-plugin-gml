@@ -904,15 +904,132 @@ function resolveResultsMap(resultSet) {
     return ensureMap(results);
 }
 
-function createRegressionRecord({ baseResults, key, targetRecord }) {
+/** Shared record shape for test-case entries in the results maps. */
+type TestRecordNode = { file?: string; name?: string };
+type TestRecordEntry = { status?: string; node?: TestRecordNode };
+
+/** Separator used when combining file path and test name into a lookup key. */
+const FILE_NAME_SEPARATOR = "::";
+
+/**
+ * Build a secondary lookup of base failures keyed by `(file, testName)`.
+ *
+ * This is used to detect when a failing target test corresponds to an already-failing
+ * base test that was "renamed" due to a change in the JUnit XML suite hierarchy (e.g.,
+ * a malformed `<undefined>` wrapper produced by node's JUnit reporter when a test file
+ * triggers an IPC-deserialization error). Without this check, such a renamed failure
+ * would incorrectly appear as a brand-new regression.
+ */
+function buildBaseFailuresByFileAndName(baseResults: Map<string, unknown>): Set<string> {
+    const index = new Set<string>();
+    for (const record of baseResults.values()) {
+        const r = record as TestRecordEntry;
+        if (r.status !== TestCaseStatus.FAILED) {
+            continue;
+        }
+        const file = typeof r.node?.file === "string" ? r.node.file.trim() : "";
+        const name = typeof r.node?.name === "string" ? r.node.name.trim() : "";
+        if (file && name) {
+            index.add(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`);
+        }
+    }
+    return index;
+}
+
+/**
+ * Build a set of file paths that have at least one PASSING test case in the target
+ * results.
+ *
+ * This is used to detect node test runner file-level crash records: when the runner
+ * itself encounters an IPC-deserialization error, it emits a synthetic testcase whose
+ * `name` equals the (relative) file path. If the file already has passing inner tests,
+ * the file-level failure is an infrastructure artifact and must not be reported as a
+ * code regression.
+ */
+function buildTargetFilesWithPassingTests(targetResults: Map<string, unknown>): Set<string> {
+    const passingFiles = new Set<string>();
+    for (const record of targetResults.values()) {
+        const r = record as TestRecordEntry;
+        if (r.status === TestCaseStatus.PASSED) {
+            const file = typeof r.node?.file === "string" ? r.node.file.trim().toLowerCase() : "";
+            if (file) {
+                passingFiles.add(file);
+            }
+        }
+    }
+    return passingFiles;
+}
+
+/**
+ * Return true if a failing testcase looks like a node test runner file-level crash
+ * record rather than an actual test failure.
+ *
+ * Node's JUnit reporter emits a synthetic `<testcase>` whose `name` equals the
+ * relative test-file path (e.g. `src/cli/dist/test/foo.test.js`) when the test
+ * subprocess crashes mid-execution (for example, due to an IPC deserialization
+ * error). The `file` attribute on that record is the absolute path to the same
+ * file. If other inner tests in that file passed successfully in the target, the
+ * crash is an infrastructure artifact that should not block auto-merge.
+ */
+function isNodeRunnerFileLevelCrash(targetRecord: TestRecordEntry, targetFilesWithPassingTests: Set<string>): boolean {
+    const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
+    const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
+    if (!file || !name) {
+        return false;
+    }
+    // The synthetic record's name is the relative path portion of the absolute file path.
+    if (!file.toLowerCase().endsWith(name.toLowerCase())) {
+        return false;
+    }
+    // Confirm it looks like a test file path.
+    if (!name.endsWith(".test.js") && !name.endsWith(".test.mjs")) {
+        return false;
+    }
+    // If passing inner tests exist for this file, the crash is a runner artefact.
+    return targetFilesWithPassingTests.has(file.toLowerCase());
+}
+
+function createRegressionRecord({
+    baseResults,
+    key,
+    targetRecord,
+    baseFailuresByFileAndName,
+    targetFilesWithPassingTests
+}: {
+    baseResults: Map<string, unknown>;
+    key: string;
+    targetRecord: TestRecordEntry | null | undefined;
+    baseFailuresByFileAndName: Set<string>;
+    targetFilesWithPassingTests: Set<string>;
+}): { key: string; from: string; to: string; detail: unknown } | null {
     if (!targetRecord || targetRecord.status !== TestCaseStatus.FAILED) {
         return null;
     }
 
-    const baseRecord = baseResults.get(key);
+    const baseRecord = baseResults.get(key) as { status?: string } | undefined;
     const baseStatus = baseRecord?.status;
     if (baseStatus === TestCaseStatus.FAILED) {
         return null;
+    }
+
+    // If there is no base record with this exact key, check whether this test
+    // corresponds to a base failure that was already failing under a different key.
+    // This happens when a test runner bug produces a malformed JUnit XML structure
+    // (e.g., `<undefined>` wrapper tags), causing the suite-path prefix of existing
+    // tests to change. Those renamed failures must not be reported as new regressions.
+    if (baseStatus === undefined) {
+        const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
+        const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
+        if (file && name && baseFailuresByFileAndName.has(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`)) {
+            return null;
+        }
+        // Detect node test runner file-level crash records: synthetic testcases where
+        // the name equals the file path and the file has other passing inner tests.
+        // These are infrastructure artefacts produced by the test runner itself (e.g.,
+        // IPC-deserialization errors) and must not be reported as code regressions.
+        if (isNodeRunnerFileLevelCrash(targetRecord, targetFilesWithPassingTests)) {
+            return null;
+        }
     }
 
     return {
@@ -928,12 +1045,16 @@ function createRegressionRecord({ baseResults, key, targetRecord }) {
  */
 function collectRegressions({ baseResults, targetResults }) {
     const regressions = [];
+    const baseFailuresByFileAndName = buildBaseFailuresByFileAndName(baseResults);
+    const targetFilesWithPassingTests = buildTargetFilesWithPassingTests(targetResults);
 
     for (const [key, targetRecord] of targetResults.entries()) {
         const regression = createRegressionRecord({
             baseResults,
             key,
-            targetRecord
+            targetRecord,
+            baseFailuresByFileAndName,
+            targetFilesWithPassingTests
         });
 
         if (regression) {
