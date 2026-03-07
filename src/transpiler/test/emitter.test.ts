@@ -114,8 +114,11 @@ void test("GmlToJsEmitter emits escaped literals for folded strings with control
     assert.equal(result, String.raw`value = "line\nnext\t\"quoted\"";`);
 });
 
-void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
-    assert.equal(Transpiler.mapBinaryOperator("div"), "/");
+void test("GmlToJsEmitter lowers GML div to Math.trunc (not simple division)", () => {
+    // div is integer division (truncation), not float division.
+    // mapBinaryOperator no longer handles div; the emitter lowers it specially.
+    assert.notEqual(Transpiler.mapBinaryOperator("div"), "/");
+    assert.equal(Transpiler.mapBinaryOperator("div"), "div"); // passes through unchanged
 });
 
 void test("GmlToJsEmitter maps GML mod operator to JavaScript modulo", () => {
@@ -1930,4 +1933,28 @@ void test("Transpiler.emitJavaScript does not fold unary with variable operand",
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.strictEqual(result, "var x = -(y);");
+});
+
+void test("Transpiler.emitJavaScript emits Math.trunc for non-constant div expression", () => {
+    // GML's div is integer division (truncation toward zero), not float division.
+    // It must lower to Math.trunc(a / b), never to (a / b).
+    const code = "var q = a div b;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.trunc"), "Non-constant div must emit Math.trunc");
+    assert.ok(result.includes("a / b"), "Non-constant div must emit division inside Math.trunc");
+    assert.ok(!result.includes("a div b"), "Raw GML div operator must not appear in output");
+});
+
+void test("Transpiler.emitJavaScript emits Math.trunc for div with unary-negated dividend", () => {
+    // Even when the dividend is a unary negation (e.g. -7 div 2), the emitter
+    // must lower to Math.trunc(... / ...) and not use plain division.
+    // (-7 is parsed as UnaryExpression(-)(Literal(7)), so this tests the runtime path.)
+    const code = "var q = -7 div 2;";
+    const parser = new Parser.GMLParser(code);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.trunc"), "div with unary-negated dividend must still emit Math.trunc");
+    assert.ok(result.includes("/ 2"), "Should emit division by 2 inside Math.trunc");
 });
