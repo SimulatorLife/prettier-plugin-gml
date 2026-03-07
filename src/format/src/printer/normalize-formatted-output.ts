@@ -2,9 +2,6 @@ import { Core } from "@gml-modules/core";
 
 const { isNonEmptyTrimmedString } = Core;
 
-const VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN = /(vertex_format_begin\(\);\n)(?:[ \t]*\n)+([^\n]+)/g;
-const CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN = /([^\n]+\);\s*)\n(?:[ \t]*\n)+([^\n]*vertex_format_end\(\);)/g;
-
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const WHITESPACE_ONLY_BLANK_LINE_PATTERN = /\n[ \t]+\n/g;
 const LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN = /(\/\/(?!\/)[^\n]*\n)(?:\s*\n)+(?=\s*\/\*)/g;
@@ -17,64 +14,6 @@ const DOUBLE_INDENT_TO_SINGLE = new Map([
     ["        ", "    "],
     ["\t\t", "\t"]
 ]);
-
-function stripInlineLineComment(line: string): string {
-    const commentIndex = line.indexOf("//");
-    return commentIndex === -1 ? line : line.slice(0, commentIndex);
-}
-
-function isSimpleFunctionCallLine(line: string): boolean {
-    const trimmed = stripInlineLineComment(line).trim();
-    if (!trimmed.endsWith(";")) {
-        return false;
-    }
-
-    const withoutSemicolon = trimmed.slice(0, -1).trim();
-    const parenIndex = withoutSemicolon.indexOf("(");
-    if (parenIndex === -1) {
-        return false;
-    }
-
-    const identifierPortion = withoutSemicolon.slice(0, parenIndex).trim();
-    if (identifierPortion.length === 0 || identifierPortion.includes("=")) {
-        return false;
-    }
-
-    return /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(identifierPortion);
-}
-
-function isVertexFormatEndAssignmentLine(line: string): boolean {
-    const trimmed = stripInlineLineComment(line).trim();
-    const normalized = trimmed.endsWith(";") ? trimmed.slice(0, -1).trim() : trimmed;
-    return /^(?:const|let|var\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=\s*vertex_format_end\(\)$/.test(
-        normalized
-    );
-}
-
-function collapseVertexFormatBeginSpacing(formatted: string): string {
-    const collapsedBegin = formatted.replaceAll(
-        VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN,
-        (match, prefix, candidateLine) => {
-            if (!isSimpleFunctionCallLine(candidateLine)) {
-                return match;
-            }
-
-            return `${prefix}${candidateLine}`;
-        }
-    );
-
-    return collapseCustomFunctionToFormatEndSpacing(collapsedBegin);
-}
-
-function collapseCustomFunctionToFormatEndSpacing(formatted: string): string {
-    return formatted.replaceAll(CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN, (match, functionLine, formatLine) => {
-        if (!isSimpleFunctionCallLine(functionLine) || !isVertexFormatEndAssignmentLine(formatLine)) {
-            return match;
-        }
-
-        return `${functionLine}\n${formatLine}`;
-    });
-}
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
@@ -259,7 +198,6 @@ export function normalizeFormattedOutput(formatted: string): string {
         collapseBlockOpeningBlankLines,
         ensureTrailingNewline,
         collapseDuplicateBlankLines,
-        collapseVertexFormatBeginSpacing,
         normalizeInlineTrailingCommentSpacing,
         normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,

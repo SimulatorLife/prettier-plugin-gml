@@ -1,15 +1,15 @@
 /**
- * Enforces the formatter/linter split contract (target-state.md §2.2, §3.2):
+ * Enforces the formatter/linter split contract across multiple target-state.md sections:
  *
- * `normalizeFormattedOutput` is a layout-only post-processing pass. It must
- * not strip or rewrite `@func`/`@function` doc comment tags — that is a
- * semantic/content rewrite owned exclusively by the `@gml-modules/lint`
- * `normalize-doc-comments` rule.
+ * §2.2, §3.2 — `normalizeFormattedOutput` is a layout-only post-processing pass. It must
+ * not strip or rewrite `@func`/`@function` doc comment tags — that is a semantic/content
+ * rewrite owned exclusively by the `@gml-modules/lint` `normalize-doc-comments` rule.
  *
- * It must also not embed GML-domain knowledge about specific comment strings
- * synthesized by lint rules (e.g. vertex-format diagnostic comments). Spacing
- * decisions that depend on semantic knowledge of particular lint-generated
- * comment text belong in the `@gml-modules/lint` workspace, not the formatter.
+ * §2.1, §3.2 — It must also not embed GML-domain knowledge about specific comment strings
+ * synthesized by lint rules (e.g. vertex-format diagnostic comments), or hard-code specific
+ * GML built-in API call names (e.g. `vertex_format_begin`, `vertex_format_end`). Spacing
+ * decisions that depend on semantic or domain knowledge of particular GML API calls or
+ * lint-generated content belong in the `@gml-modules/lint` workspace, not the formatter.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -99,5 +99,30 @@ void test("normalizeFormattedOutput does not alter spacing between GML-domain ve
         result,
         input,
         "normalizeFormattedOutput must not insert blank lines between GML-domain diagnostic comment strings — spacing based on lint-generated content belongs in @gml-modules/lint (target-state.md §2.1, §3.2)"
+    );
+});
+
+void test("normalizeFormattedOutput does not collapse blank lines between vertex_format_begin() and subsequent calls (GML API domain knowledge must not live in formatter)", () => {
+    // The formatter must not hard-code GML built-in API call names such as
+    // `vertex_format_begin()` and `vertex_format_end()` in its post-processing
+    // pipeline. The previously removed `collapseVertexFormatBeginSpacing`
+    // function did exactly that, violating the formatter boundary contract
+    // (target-state.md §2.1, §3.2). Spacing decisions that depend on domain
+    // knowledge of specific GML API semantics belong exclusively in the
+    // `@gml-modules/lint` workspace, not the formatter.
+    const input = [
+        "vertex_format_begin();",
+        "",
+        "vertex_format_add_position_3d();",
+        "vertex_format_add_colour();",
+        ""
+    ].join("\n");
+
+    const result = normalizeFormattedOutput(input);
+
+    assert.strictEqual(
+        result,
+        input,
+        "normalizeFormattedOutput must not collapse blank lines between vertex_format_begin() and subsequent calls — that is GML API domain knowledge that belongs in @gml-modules/lint (target-state.md §2.1, §3.2)"
     );
 });
