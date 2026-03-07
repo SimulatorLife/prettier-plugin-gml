@@ -93,6 +93,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlNoScientificNotation",
+        shortName: "no-scientific-notation",
+        fullId: "gml/no-scientific-notation",
+        messageId: "noScientificNotation",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlNoUnnecessaryStringInterpolation",
         shortName: "no-unnecessary-string-interpolation",
         fullId: "gml/no-unnecessary-string-interpolation",

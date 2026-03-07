@@ -4,6 +4,7 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-condition-rule.js";
 import { createNoEmptyRegionsRule } from "./rules/no-empty-regions-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
+import { createNoScientificNotationRule } from "./rules/no-scientific-notation-rule.js";
 import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeBannerCommentsRule } from "./rules/normalize-banner-comments-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
@@ -47,6 +48,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-empty-regions": {
             return createNoEmptyRegionsRule(definition);
+        }
+        case "no-scientific-notation": {
+            return createNoScientificNotationRule(definition);
         }
         case "no-unnecessary-string-interpolation": {
             return createNoUnnecessaryStringInterpolationRule(definition);

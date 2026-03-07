@@ -3638,7 +3638,61 @@ function normalizeNumericCoefficient(value: number, precision = 12): string | nu
         return "0";
     }
 
-    return rounded.toString();
+    const str = rounded.toString();
+    // GML does not support scientific-notation literals (e.g. 1e-11).
+    // Convert any scientific-notation result to a plain decimal string.
+    if (!str.includes("e") && !str.includes("E")) {
+        return str;
+    }
+
+    return scientificToPlainDecimal(rounded);
+}
+
+/**
+ * Converts a JavaScript number that `toString()` would represent in scientific
+ * notation (e.g. `1e-11`) into an equivalent plain decimal string accepted by
+ * GML (e.g. `"0.00000000001"`).  Large integers are returned as-is.
+ */
+function scientificToPlainDecimal(value: number): string | null {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+
+    const isNegative = value < 0;
+    const abs = Math.abs(value);
+    const str = abs.toString();
+
+    const eIndex = str.indexOf("e");
+    if (eIndex === -1) {
+        return isNegative ? `-${str}` : str;
+    }
+
+    const mantissaStr = str.slice(0, eIndex);
+    const exponentStr = str.slice(eIndex + 1);
+    const exponent = Number.parseInt(exponentStr, 10);
+    if (!Number.isFinite(exponent)) {
+        return null;
+    }
+
+    const [intPart, fracPart = ""] = mantissaStr.split(".");
+    const digits = `${intPart}${fracPart}`;
+    const decimalPos = intPart.length + exponent;
+
+    let result: string;
+    if (decimalPos <= 0) {
+        result = `0.${"0".repeat(-decimalPos)}${digits}`;
+    } else if (decimalPos >= digits.length) {
+        result = `${digits}${"0".repeat(decimalPos - digits.length)}`;
+    } else {
+        result = `${digits.slice(0, decimalPos)}.${digits.slice(decimalPos)}`;
+    }
+
+    // Trim trailing fractional zeros
+    if (result.includes(".")) {
+        result = result.replace(/\.?0+$/u, "");
+    }
+
+    return isNegative ? `-${result}` : result;
 }
 
 function toApproxInteger(value) {
