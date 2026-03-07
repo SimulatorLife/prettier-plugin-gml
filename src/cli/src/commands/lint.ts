@@ -670,6 +670,33 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
     return 0;
 }
 
+/** Totals aggregated from a set of ESLint lint results. */
+type LintTotals = {
+    errorCount: number;
+    warningCount: number;
+};
+
+/** Minimal shape of a lint result needed for aggregating totals. */
+type LintResultCountFields = Pick<ESLint.LintResult, "errorCount" | "fatalErrorCount" | "warningCount">;
+
+/** Minimal shape of a lint result needed for path-based filtering. */
+type LintResultPathField = Pick<ESLint.LintResult, "filePath">;
+
+/**
+ * Sum the error and warning counts across all lint results.
+ * `fatalErrorCount` (parse failures) is folded into `errorCount` because
+ * ESLint itself treats fatal errors as errors when computing exit codes.
+ */
+function aggregateLintTotals(results: ReadonlyArray<LintResultCountFields>): LintTotals {
+    return results.reduce<LintTotals>(
+        (accumulator, result) => ({
+            errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
+            warningCount: accumulator.warningCount + result.warningCount
+        }),
+        { errorCount: 0, warningCount: 0 }
+    );
+}
+
 function setProcessExitCode(code: number): void {
     process.exitCode = code;
 }
@@ -1033,6 +1060,40 @@ async function configureLintConfig(parameters: {
     return 0;
 }
 
+/** Maximum number of out-of-root file paths shown in warnings and error messages. */
+const OUT_OF_ROOT_DISPLAY_LIMIT = 20;
+
+/**
+ * Collect the file paths from lint results that fall outside the forced project
+ * root, as reported by the project registry. Returns an empty array when no
+ * forced root is configured.
+ */
+function collectOutOfRootFilePaths(
+    results: ReadonlyArray<LintResultPathField>,
+    projectRegistry: { isOutOfForcedRoot(filePath: string): boolean }
+): Array<string> {
+    return results.map((result) => result.filePath).filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+}
+
+/**
+ * Render up to `OUT_OF_ROOT_DISPLAY_LIMIT` paths as a newline-separated
+ * string, appending "and N more…" when the list is truncated.
+ */
+function formatPathSample(paths: ReadonlyArray<string>): string {
+    const sample = paths.slice(0, OUT_OF_ROOT_DISPLAY_LIMIT);
+    const suffix = paths.length > sample.length ? `\nand ${paths.length - sample.length} more...` : "";
+    return `${sample.join("\n")}${suffix}`;
+}
+
+/**
+ * Format the `GML_PROJECT_OUT_OF_ROOT` warning message for the given list of
+ * out-of-root paths. When the list exceeds {@link OUT_OF_ROOT_DISPLAY_LIMIT}
+ * entries a trailing "and N more…" line is appended.
+ */
+function formatOutOfRootWarning(outOfRootPaths: ReadonlyArray<string>): string {
+    return `GML_PROJECT_OUT_OF_ROOT:\n${formatPathSample(outOfRootPaths)}`;
+}
+
 export function createLintCommand(): Command {
     return applyStandardCommandOptions(
         new Command("lint")
@@ -1182,21 +1243,16 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const outOfRootPaths = results
-        .map((result) => result.filePath)
-        .filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+    const outOfRootPaths = collectOutOfRootFilePaths(results, projectRegistry);
 
     if (!options.quiet && outOfRootPaths.length > 0) {
-        const sample = outOfRootPaths.slice(0, 20);
-        const suffix =
-            outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
-        console.warn(`GML_PROJECT_OUT_OF_ROOT:\n${sample.join("\n")}${suffix}`);
+        console.warn(formatOutOfRootWarning(outOfRootPaths));
     }
 
     if (options.projectStrict && outOfRootPaths.length > 0) {
         console.error(
             `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
-                `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
+                `Offending paths:\n${formatPathSample(outOfRootPaths)}`
         );
         setProcessExitCode(2);
         return;
@@ -1214,18 +1270,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const totals = results.reduce(
-        (accumulator, result) => {
-            return {
-                errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
-                warningCount: accumulator.warningCount + result.warningCount
-            };
-        },
-        {
-            errorCount: 0,
-            warningCount: 0
-        }
-    );
+    const totals = aggregateLintTotals(results);
 
     setProcessExitCode(
         resolveExitCode({
@@ -1258,5 +1303,10 @@ export const __lintCommandTest__ = Object.freeze({
     normalizeProcessorIdentityForEnforcement,
     enforceProcessorPolicyForGmlFiles,
     PROCESSOR_UNSUPPORTED_ERROR_CODE,
-    PROCESSOR_OBSERVABILITY_WARNING_CODE
+    PROCESSOR_OBSERVABILITY_WARNING_CODE,
+    aggregateLintTotals,
+    collectOutOfRootFilePaths,
+    formatPathSample,
+    formatOutOfRootWarning,
+    OUT_OF_ROOT_DISPLAY_LIMIT
 });
