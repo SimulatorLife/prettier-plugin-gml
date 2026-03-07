@@ -360,7 +360,9 @@ export async function saveProjectIndexCache(
         projectIndex: sanitizedProjectIndex
     };
 
-    const serialized = JSON.stringify(payload);
+    const serialized = Core.stringifyJsonForFile(payload, {
+        includeTrailingNewline: false
+    });
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
     const sizeDecision = evaluateProjectIndexCacheSizePolicy({

@@ -7,19 +7,32 @@ const { isObjectLike, isNode } = Core;
  * Handles De Morgan's laws, double negation, and boolean constant simplification.
  */
 export function applyLogicalNormalization(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+    return applyLogicalNormalizationWithChangeMetadata(ast).ast;
+}
+
+/**
+ * Apply logical-expression normalization and surface whether any node changed.
+ */
+export function applyLogicalNormalizationWithChangeMetadata(
+    ast: MutableGameMakerAstNode
+): Readonly<{ ast: MutableGameMakerAstNode; changed: boolean }> {
     if (!isObjectLike(ast)) {
-        return ast;
+        return Object.freeze({ ast, changed: false });
     }
 
     // Repeatedly apply passes until no changes occur, or max limit reached
     let changed = true;
+    let changedAtLeastOnce = false;
     let iterations = 0;
     while (changed && iterations < 10) {
         changed = traverseAndSimplify(ast);
+        if (changed) {
+            changedAtLeastOnce = true;
+        }
         iterations++;
     }
 
-    return ast;
+    return Object.freeze({ ast, changed: changedAtLeastOnce });
 }
 
 function traverseAndSimplify(node: any): boolean {
@@ -86,35 +99,9 @@ function simplifyStatementList(body: any[]): boolean {
                 const consBool = getBooleanValue(consequent.argument);
                 const nextBool = getBooleanValue(next.argument);
 
-                if (consBool === true && nextBool === false) {
-                    // return cond;
-                    // Replace 'current' with newReturn, remove 'next'.
-                    const newReturn = {
-                        type: "ReturnStatement",
-                        argument: current.test,
-                        start: current.start,
-                        end: next.end
-                    };
-                    body[i] = newReturn;
-                    body.splice(i + 1, 1);
-                    changed = true;
-                    // Decrement / handle index shift if we continue loop?
-                    // We just continue, next iteration checks new current vs next next.
-                } else if (consBool === false && nextBool === true) {
-                    // return !cond;
-                    const newNot = {
-                        type: "UnaryExpression",
-                        operator: "!",
-                        prefix: true,
-                        argument: current.test
-                    };
-                    const newReturn = {
-                        type: "ReturnStatement",
-                        argument: newNot,
-                        start: current.start,
-                        end: next.end
-                    };
-                    body[i] = newReturn;
+                const shouldNegate = resolveBooleanReturnNegation(consBool, nextBool);
+                if (shouldNegate !== null) {
+                    body[i] = createBooleanReturnStatement(current.test, current.start, next.end, shouldNegate);
                     body.splice(i + 1, 1);
                     changed = true;
                 }
@@ -142,32 +129,9 @@ function simplifyIfStatement(node: any): boolean {
         const consBool = getBooleanValue(consArg);
         const altBool = getBooleanValue(altArg);
 
-        if (consBool === true && altBool === false) {
-            // return cond;
-            const newReturn = {
-                type: "ReturnStatement",
-                argument: node.test,
-                start: node.start,
-                end: node.end
-            };
-            replaceNode(node, newReturn);
-            return true;
-        }
-
-        if (consBool === false && altBool === true) {
-            // return !cond;
-            const newNot = {
-                type: "UnaryExpression",
-                operator: "!",
-                prefix: true,
-                argument: node.test
-            };
-            const newReturn = {
-                type: "ReturnStatement",
-                argument: newNot,
-                start: node.start,
-                end: node.end
-            };
+        const shouldNegate = resolveBooleanReturnNegation(consBool, altBool);
+        if (shouldNegate !== null) {
+            const newReturn = createBooleanReturnStatement(node.test, node.start, node.end, shouldNegate);
             replaceNode(node, newReturn);
             return true;
         }
@@ -240,6 +204,46 @@ function simplifyIfStatement(node: any): boolean {
     }
 
     return false;
+}
+
+function resolveBooleanReturnNegation(firstValue: boolean | null, secondValue: boolean | null): boolean | null {
+    if (firstValue === true && secondValue === false) {
+        return false;
+    }
+
+    if (firstValue === false && secondValue === true) {
+        return true;
+    }
+
+    return null;
+}
+
+function createBooleanReturnStatement(
+    test: any,
+    start: number | undefined,
+    end: number | undefined,
+    negate: boolean
+): any {
+    if (negate) {
+        return {
+            type: "ReturnStatement",
+            argument: {
+                type: "UnaryExpression",
+                operator: "!",
+                prefix: true,
+                argument: test
+            },
+            start,
+            end
+        };
+    }
+
+    return {
+        type: "ReturnStatement",
+        argument: test,
+        start,
+        end
+    };
 }
 
 function unwrapBlock(node: any): any {

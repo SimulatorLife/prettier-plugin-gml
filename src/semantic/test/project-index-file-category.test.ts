@@ -28,7 +28,10 @@ void test("normalizeProjectFileCategory accepts known categories", () => {
 });
 
 void test("normalizeProjectFileCategory rejects unknown categories", () => {
-    assert.throws(() => normalizeProjectFileCategory("yaml"), /Project file category must be one of: /);
+    assert.throws(
+        () => normalizeProjectFileCategory("yaml"),
+        /Project file category must be one of: gml, yy\. Received 'yaml'\./
+    );
 });
 
 void test("resolveProjectFileCategory recognises GML source files", () => {

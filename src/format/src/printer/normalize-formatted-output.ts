@@ -2,14 +2,6 @@ import { Core } from "@gml-modules/core";
 
 const { isNonEmptyTrimmedString } = Core;
 
-const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
-    "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";
-const KEEP_VERTEX_FORMAT_COMMENT_TEXT =
-    "// If a vertex format might be completed within a function call, then it should be kept";
-
-const VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN = /(vertex_format_begin\(\);\n)(?:[ \t]*\n)+([^\n]+)/g;
-const CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN = /([^\n]+\);\s*)\n(?:[ \t]*\n)+([^\n]*vertex_format_end\(\);)/g;
-
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const WHITESPACE_ONLY_BLANK_LINE_PATTERN = /\n[ \t]+\n/g;
 const LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN = /(\/\/(?!\/)[^\n]*\n)(?:\s*\n)+(?=\s*\/\*)/g;
@@ -18,69 +10,10 @@ const DECORATIVE_COMMENT_BLANK_PATTERN = /\{\n[ \t]+\n(?=\s*\/\/)/g;
 
 const INLINE_TRAILING_COMMENT_SPACING_PATTERN = /(?<=[^\s/,])[ \t]{2,}(?=\/\/(?!\/))/g;
 
-function stripInlineLineComment(line: string): string {
-    const commentIndex = line.indexOf("//");
-    return commentIndex === -1 ? line : line.slice(0, commentIndex);
-}
-
-function isSimpleFunctionCallLine(line: string): boolean {
-    const trimmed = stripInlineLineComment(line).trim();
-    if (!trimmed.endsWith(";")) {
-        return false;
-    }
-
-    const withoutSemicolon = trimmed.slice(0, -1).trim();
-    const parenIndex = withoutSemicolon.indexOf("(");
-    if (parenIndex === -1) {
-        return false;
-    }
-
-    const identifierPortion = withoutSemicolon.slice(0, parenIndex).trim();
-    if (identifierPortion.length === 0 || identifierPortion.includes("=")) {
-        return false;
-    }
-
-    return /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(identifierPortion);
-}
-
-function isVertexFormatEndAssignmentLine(line: string): boolean {
-    const trimmed = stripInlineLineComment(line).trim();
-    const normalized = trimmed.endsWith(";") ? trimmed.slice(0, -1).trim() : trimmed;
-    return /^(?:const|let|var\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=\s*vertex_format_end\(\)$/.test(
-        normalized
-    );
-}
-
-function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
-    const target = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
-    const replacement = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
-    return formatted.includes(target) ? formatted.replace(target, replacement) : formatted;
-}
-
-function collapseVertexFormatBeginSpacing(formatted: string): string {
-    const collapsedBegin = formatted.replaceAll(
-        VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN,
-        (match, prefix, candidateLine) => {
-            if (!isSimpleFunctionCallLine(candidateLine)) {
-                return match;
-            }
-
-            return `${prefix}${candidateLine}`;
-        }
-    );
-
-    return collapseCustomFunctionToFormatEndSpacing(collapsedBegin);
-}
-
-function collapseCustomFunctionToFormatEndSpacing(formatted: string): string {
-    return formatted.replaceAll(CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN, (match, functionLine, formatLine) => {
-        if (!isSimpleFunctionCallLine(functionLine) || !isVertexFormatEndAssignmentLine(formatLine)) {
-            return match;
-        }
-
-        return `${functionLine}\n${formatLine}`;
-    });
-}
+const DOUBLE_INDENT_TO_SINGLE = new Map([
+    ["        ", "    "],
+    ["\t\t", "\t"]
+]);
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
@@ -149,14 +82,8 @@ function normalizeSingleCommentBlockIndentation(formatted: string): string {
         }
 
         const extraIndent = currentIndent.slice(closingIndent.length);
-        let normalizedExtraIndent: string | null = null;
-        if (extraIndent === "        ") {
-            normalizedExtraIndent = "    ";
-        } else if (extraIndent === "\t\t") {
-            normalizedExtraIndent = "\t";
-        }
-
-        if (normalizedExtraIndent === null) {
+        const normalizedExtraIndent = DOUBLE_INDENT_TO_SINGLE.get(extraIndent);
+        if (normalizedExtraIndent === undefined) {
             continue;
         }
 
@@ -166,27 +93,19 @@ function normalizeSingleCommentBlockIndentation(formatted: string): string {
     return lines.join("\n");
 }
 
-type PlainLineCommentInfo = {
-    trimmedStart: string;
-    normalized: string;
-    isTopLevel: boolean;
-};
+/** Returns `true` when `line` starts with `//` (including doc-comment `///`) at column 0 with no leading whitespace. */
+function isTopLevelLineComment(line: string | undefined): boolean {
+    return typeof line === "string" && line.startsWith("//");
+}
 
-function getPlainLineCommentInfo(line: string | undefined): PlainLineCommentInfo | null {
-    if (typeof line !== "string") {
-        return null;
-    }
+/** Returns `true` when a blank line should be inserted before a top-level comment at `previousLine`. */
+function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
+    return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
+}
 
-    const trimmedStart = line.trimStart();
-    if (!trimmedStart.startsWith("//") || trimmedStart.startsWith("///")) {
-        return null;
-    }
-
-    return {
-        trimmedStart,
-        normalized: trimmedStart.trimEnd(),
-        isTopLevel: trimmedStart === line
-    };
+/** Returns `true` when `line` contains a plain `//` (not `///`) comment, optionally indented. */
+function isPlainLineComment(line: string | undefined): boolean {
+    return typeof line === "string" && /^\s*\/\/(?!\/)/.test(line);
 }
 
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
@@ -216,7 +135,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     for (const line of lines) {
         if (
             !insideBlockComment &&
-            isTopLevelPlainLineComment(line) &&
+            isTopLevelLineComment(line) &&
             shouldInsertBlankLineBeforeTopLevelComment(previousLine)
         ) {
             result.push("");
@@ -230,29 +149,8 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     return result.join("\n");
 }
 
-function isTopLevelPlainLineComment(line: string | undefined): boolean {
-    const info = getPlainLineCommentInfo(line);
-    return info !== null && info.isTopLevel;
-}
-
-function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
-    return isNonEmptyTrimmedString(previousLine) && !isTopLevelPlainLineComment(previousLine);
-}
-
-function isPlainLineCommentLine(line: string | undefined): boolean {
-    return getPlainLineCommentInfo(line) !== null;
-}
-
 function getNextNonBlankLine(lines: string[], startIndex: number): string | undefined {
-    const length = lines.length;
-    for (let index = startIndex; index < length; index += 1) {
-        const current = lines[index];
-        if (current.trim().length > 0) {
-            return current;
-        }
-    }
-
-    return undefined;
+    return lines.slice(startIndex).find((line) => line.trim().length > 0);
 }
 
 function isGuardCommentSequence(lines: string[], commentIndex: number): boolean {
@@ -274,7 +172,7 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
         if (
             isBlankLine &&
             index + 1 < length &&
-            isPlainLineCommentLine(lines[index + 1]) &&
+            isPlainLineComment(lines[index + 1]) &&
             isGuardCommentSequence(lines, index + 1) &&
             previousNonBlankTrimmed?.endsWith("{")
         ) {
@@ -290,24 +188,16 @@ function removeBlankLinesBeforeGuardComments(formatted: string): string {
     return normalized.join("\n");
 }
 
-type NormalizationStep = (formatted: string) => string;
-
-function applyNormalizationSteps(formatted: string, steps: readonly NormalizationStep[]): string {
-    return steps.reduce((current, step) => step(current), formatted);
-}
-
 function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
 
 export function normalizeFormattedOutput(formatted: string): string {
-    const normalized = applyNormalizationSteps(formatted, [
-        ensureBlankLineBetweenVertexFormatComments,
+    const normalized = [
         collapseDuplicateBlankLines,
         collapseBlockOpeningBlankLines,
         ensureTrailingNewline,
         collapseDuplicateBlankLines,
-        collapseVertexFormatBeginSpacing,
         normalizeInlineTrailingCommentSpacing,
         normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,
@@ -316,7 +206,7 @@ export function normalizeFormattedOutput(formatted: string): string {
         collapseWhitespaceOnlyBlankLines,
         collapseLineCommentToBlockCommentBlankLines,
         removeBlankLinesBeforeGuardComments
-    ]);
+    ].reduce<string>((current, step) => step(current), formatted);
 
     return collapseWhitespaceOnlyBlankLines(normalized);
 }

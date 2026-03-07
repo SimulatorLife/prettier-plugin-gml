@@ -1,8 +1,0 @@
-{
-  "printWidth": 120,
-  "allowSingleLineIfStatements": false,
-  "lintRules": {
-    "gml/normalize-doc-comments": "error",
-    "gml/prefer-struct-literal-assignments": "error"
-  }
-}

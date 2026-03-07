@@ -1,2 +1,0 @@
-/// @foo
-var foo = function() {}

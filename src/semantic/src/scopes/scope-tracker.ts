@@ -79,6 +79,20 @@ export class ScopeTracker {
     private lookupCache: Map<string, ScopeSymbolMetadata | null>;
     private lookupCacheDepth: number;
 
+    private collectUniqueSymbolNames(names: Iterable<string>): string[] {
+        const uniqueNames = new Set<string>();
+
+        for (const name of names) {
+            if (!name) {
+                continue;
+            }
+
+            uniqueNames.add(name);
+        }
+
+        return [...uniqueNames];
+    }
+
     private normalizeTrackedPath(path: string): string {
         return path.replaceAll("\\", "/");
     }
@@ -397,7 +411,7 @@ export class ScopeTracker {
 
         node.scopeId = scopeId;
         node.declaration = Core.assignClonedLocation({ scopeId: scopeId ?? undefined }, metadata);
-        node.classifications = classifications as any;
+        node.classifications = classifications;
 
         const occurrence = createOccurrence("declaration", metadata, node, metadata);
         this.recordScopeOccurrence(scope, name, occurrence);
@@ -430,7 +444,7 @@ export class ScopeTracker {
         const classifications = this.buildClassifications(combinedRole, false);
 
         node.scopeId = scopeId;
-        node.classifications = classifications as any;
+        node.classifications = classifications;
 
         node.declaration = declaration
             ? Core.assignClonedLocation({ scopeId: declaration.scopeId }, declaration)
@@ -629,13 +643,10 @@ export class ScopeTracker {
 
     public getBatchSymbolOccurrences(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
         const results = new Map<string, SymbolOccurrence[]>();
+        const uniqueNames = this.collectUniqueSymbolNames(names);
 
         // Optimize by processing all symbols in one pass rather than calling getSymbolOccurrences repeatedly
-        for (const name of names) {
-            if (!name) {
-                continue;
-            }
-
+        for (const name of uniqueNames) {
             const scopeSummaryMap = this.symbolToScopesIndex.get(name);
             if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
@@ -752,12 +763,9 @@ export class ScopeTracker {
      */
     public getBatchSymbolOccurrencesUnsafe(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
         const results = new Map<string, SymbolOccurrence[]>();
+        const uniqueNames = this.collectUniqueSymbolNames(names);
 
-        for (const name of names) {
-            if (!name) {
-                continue;
-            }
-
+        for (const name of uniqueNames) {
             const scopeSummaryMap = this.symbolToScopesIndex.get(name);
             if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
@@ -1345,6 +1353,10 @@ export class ScopeTracker {
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
     ): Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>> {
         const results = new Map<string, Array<{ scopeId: string; scopeKind: string; reason: string }>>();
+        const normalizedPathResultsCache = new Map<
+            string,
+            Array<{ scopeId: string; scopeKind: string; reason: string }>
+        >();
         const transitiveDependentsCache = new Map<
             string,
             Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
@@ -1361,8 +1373,15 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(path);
+            const cachedInvalidationSet = normalizedPathResultsCache.get(trackedPath);
+            if (cachedInvalidationSet) {
+                results.set(path, cachedInvalidationSet);
+                continue;
+            }
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
+                normalizedPathResultsCache.set(trackedPath, []);
                 results.set(path, []);
                 continue;
             }
@@ -1428,6 +1447,7 @@ export class ScopeTracker {
                 }
             }
 
+            normalizedPathResultsCache.set(trackedPath, pathInvalidationSet);
             results.set(path, pathInvalidationSet);
         }
 
@@ -1568,6 +1588,47 @@ export class ScopeTracker {
         const paths = new Set<string>();
         for (const [scopeId, summary] of scopeSummaryMap) {
             if (!summary.hasReference) {
+                continue;
+            }
+            const scope = this.scopesById.get(scopeId);
+            const path = scope?.metadata.path;
+            if (path) {
+                paths.add(this.normalizeTrackedPath(path));
+            }
+        }
+
+        return paths;
+    }
+
+    /**
+     * Returns the set of file paths where the named symbol has at least one
+     * declaration occurrence.
+     *
+     * This is the counterpart to {@link getFilePathsReferencingSymbol}:
+     * together they provide the full picture of which files declare a symbol
+     * and which files consume it. Hot-reload pipelines use the declaration
+     * paths to determine the root files that must be re-analysed to refresh
+     * a symbol's definition before propagating updates to all referencing files.
+     *
+     * Only scopes with a `path` in their metadata are included. Scopes
+     * without a path (e.g., anonymous or synthetic scopes) are silently skipped.
+     *
+     * @param name - Symbol name to query
+     * @returns Set of file paths containing at least one declaration of the symbol
+     */
+    public getFilePathsDeclaringSymbol(name: string | null | undefined): Set<string> {
+        if (!name || !this.enabled) {
+            return new Set();
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return new Set();
+        }
+
+        const paths = new Set<string>();
+        for (const [scopeId, summary] of scopeSummaryMap) {
+            if (!summary.hasDeclaration) {
                 continue;
             }
             const scope = this.scopesById.get(scopeId);
@@ -1976,7 +2037,7 @@ export class ScopeTracker {
     }
 
     public get globalIdentifiers(): Set<string> {
-        return (this.globalIdentifierRegistry as any).globalIdentifiers;
+        return this.globalIdentifierRegistry.getGlobalIdentifierNames();
     }
 
     public markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void {
@@ -2481,6 +2542,11 @@ export class ScopeTracker {
      */
     public getImpactedFilePaths(changedPaths: Iterable<string>): Set<string> {
         const result = new Set<string>();
+        const seenTrackedPaths = new Set<string>();
+        const transitiveDependentsCache = new Map<
+            string,
+            Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }>
+        >();
 
         for (const filePath of changedPaths) {
             if (!filePath || typeof filePath !== "string" || filePath.length === 0) {
@@ -2488,6 +2554,11 @@ export class ScopeTracker {
             }
 
             const trackedPath = this.normalizeTrackedPath(filePath);
+            if (seenTrackedPaths.has(trackedPath)) {
+                continue;
+            }
+            seenTrackedPaths.add(trackedPath);
+
             const scopeIds = this.pathToScopesIndex.get(trackedPath);
             if (!scopeIds || scopeIds.size === 0) {
                 continue;
@@ -2497,7 +2568,12 @@ export class ScopeTracker {
             result.add(filePath);
 
             for (const scopeId of scopeIds) {
-                const transitiveDeps = this.getTransitiveDependents(scopeId);
+                let transitiveDeps = transitiveDependentsCache.get(scopeId);
+                if (!transitiveDeps) {
+                    transitiveDeps = this.getTransitiveDependents(scopeId);
+                    transitiveDependentsCache.set(scopeId, transitiveDeps);
+                }
+
                 for (const dep of transitiveDeps) {
                     const depScope = this.scopesById.get(dep.dependentScopeId);
                     const depPath = depScope?.metadata.path;

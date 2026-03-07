@@ -53,6 +53,10 @@ type ResolvedConfigLike = {
     processor?: unknown;
 };
 
+function isResolvedConfigLike(value: unknown): value is ResolvedConfigLike {
+    return typeof value === "object" && value !== null;
+}
+
 const OVERLAY_WARNING_CODE = "GML_OVERLAY_WITHOUT_LANGUAGE_WIRING";
 const OVERLAY_WARNING_MAX_PATH_SAMPLE = 20;
 const PROCESSOR_UNSUPPORTED_ERROR_CODE = "GML_PROCESSOR_UNSUPPORTED";
@@ -208,6 +212,15 @@ type LintResultLike = Readonly<{
 type LintFilesExecutor = Readonly<{
     lintFiles(filePatterns: string | Array<string>): Promise<Array<ESLint.LintResult>>;
 }>;
+
+type RecoverableLintTarget = Readonly<{
+    target: string;
+    fallbackFilePath: string;
+}>;
+
+type LintTargetCompletionHandler = (targetResults: Array<ESLint.LintResult>) => Promise<void>;
+
+type LintProgressLineWriter = (line: string) => void;
 
 function collectGmlFilesFromDirectory(directoryPath: string): Array<string> {
     const discoveredFilePaths: Array<string> = [];
@@ -391,33 +404,50 @@ async function lintTargetWithRuntimeRecovery(parameters: {
     }
 }
 
-async function lintTargetsWithRuntimeRecovery(parameters: {
+function lintTargetsWithRuntimeRecovery(parameters: {
     eslint: LintFilesExecutor;
     cwd: string;
     targets: ReadonlyArray<string>;
+    onTargetCompleted: LintTargetCompletionHandler;
 }): Promise<Array<ESLint.LintResult>> {
     const expandedTargets = expandLintTargetsForRecovery({
         cwd: parameters.cwd,
         targets: parameters.targets
     });
-    const lintResultGroups = await Promise.all([
+    const orderedTargets: Array<RecoverableLintTarget> = [
         ...expandedTargets.fileTargets.map((target) =>
-            lintTargetWithRuntimeRecovery({
-                eslint: parameters.eslint,
+            Object.freeze({
                 target,
                 fallbackFilePath: target
             })
         ),
         ...expandedTargets.passthroughTargets.map((target) =>
-            lintTargetWithRuntimeRecovery({
-                eslint: parameters.eslint,
+            Object.freeze({
                 target,
                 fallbackFilePath: path.resolve(parameters.cwd, target)
             })
         )
-    ]);
+    ];
 
-    return lintResultGroups.flat();
+    const aggregatedResults: Array<ESLint.LintResult> = [];
+
+    const lintTargetAtIndex = async (index: number): Promise<Array<ESLint.LintResult>> => {
+        if (index >= orderedTargets.length) {
+            return aggregatedResults;
+        }
+
+        const lintTarget = orderedTargets[index];
+        const targetResults = await lintTargetWithRuntimeRecovery({
+            eslint: parameters.eslint,
+            target: lintTarget.target,
+            fallbackFilePath: lintTarget.fallbackFilePath
+        });
+        await parameters.onTargetCompleted(targetResults);
+        aggregatedResults.push(...targetResults);
+        return lintTargetAtIndex(index + 1);
+    };
+
+    return lintTargetAtIndex(0);
 }
 
 function hasProjectManifest(directoryPath: string): boolean {
@@ -640,8 +670,71 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
     return 0;
 }
 
+/** Totals aggregated from a set of ESLint lint results. */
+type LintTotals = {
+    errorCount: number;
+    warningCount: number;
+};
+
+/** Minimal shape of a lint result needed for aggregating totals. */
+type LintResultCountFields = Pick<ESLint.LintResult, "errorCount" | "fatalErrorCount" | "warningCount">;
+
+/** Minimal shape of a lint result needed for path-based filtering. */
+type LintResultPathField = Pick<ESLint.LintResult, "filePath">;
+
+/**
+ * Sum the error and warning counts across all lint results.
+ * `fatalErrorCount` (parse failures) is folded into `errorCount` because
+ * ESLint itself treats fatal errors as errors when computing exit codes.
+ */
+function aggregateLintTotals(results: ReadonlyArray<LintResultCountFields>): LintTotals {
+    return results.reduce<LintTotals>(
+        (accumulator, result) => ({
+            errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
+            warningCount: accumulator.warningCount + result.warningCount
+        }),
+        { errorCount: 0, warningCount: 0 }
+    );
+}
+
 function setProcessExitCode(code: number): void {
     process.exitCode = code;
+}
+
+function toLintProgressDisplayPath(parameters: { cwd: string; filePath: string }): string {
+    const absoluteFilePath = path.resolve(parameters.filePath);
+    const absoluteCwd = path.resolve(parameters.cwd);
+    const relativePath = path.relative(absoluteCwd, absoluteFilePath);
+
+    if (absoluteFilePath === absoluteCwd) {
+        return ".";
+    }
+
+    if (relativePath.length > 0 && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)) {
+        return relativePath;
+    }
+
+    return absoluteFilePath;
+}
+
+function emitLintFixProgressForResults(parameters: {
+    cwd: string;
+    results: ReadonlyArray<LintResultLike>;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const emittedPaths = new Set<string>();
+    for (const result of parameters.results) {
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: result.filePath
+        });
+        if (emittedPaths.has(displayPath)) {
+            continue;
+        }
+
+        parameters.writeProgressLine(displayPath);
+        emittedPaths.add(displayPath);
+    }
 }
 
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
@@ -783,9 +876,14 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     const configEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
@@ -834,9 +932,14 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
     const resolvedEntries = await Promise.all(
         gmlFilePaths.map(async (filePath) => {
             try {
+                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
+                if (!isResolvedConfigLike(resolvedConfig)) {
+                    return null;
+                }
+
                 return {
                     filePath,
-                    config: (await parameters.eslint.calculateConfigForFile(filePath)) as ResolvedConfigLike
+                    config: resolvedConfig
                 };
             } catch {
                 return null;
@@ -957,6 +1060,40 @@ async function configureLintConfig(parameters: {
     return 0;
 }
 
+/** Maximum number of out-of-root file paths shown in warnings and error messages. */
+const OUT_OF_ROOT_DISPLAY_LIMIT = 20;
+
+/**
+ * Collect the file paths from lint results that fall outside the forced project
+ * root, as reported by the project registry. Returns an empty array when no
+ * forced root is configured.
+ */
+function collectOutOfRootFilePaths(
+    results: ReadonlyArray<LintResultPathField>,
+    projectRegistry: { isOutOfForcedRoot(filePath: string): boolean }
+): Array<string> {
+    return results.map((result) => result.filePath).filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+}
+
+/**
+ * Render up to `OUT_OF_ROOT_DISPLAY_LIMIT` paths as a newline-separated
+ * string, appending "and N more…" when the list is truncated.
+ */
+function formatPathSample(paths: ReadonlyArray<string>): string {
+    const sample = paths.slice(0, OUT_OF_ROOT_DISPLAY_LIMIT);
+    const suffix = paths.length > sample.length ? `\nand ${paths.length - sample.length} more...` : "";
+    return `${sample.join("\n")}${suffix}`;
+}
+
+/**
+ * Format the `GML_PROJECT_OUT_OF_ROOT` warning message for the given list of
+ * out-of-root paths. When the list exceeds {@link OUT_OF_ROOT_DISPLAY_LIMIT}
+ * entries a trailing "and N more…" line is appended.
+ */
+function formatOutOfRootWarning(outOfRootPaths: ReadonlyArray<string>): string {
+    return `GML_PROJECT_OUT_OF_ROOT:\n${formatPathSample(outOfRootPaths)}`;
+}
+
 export function createLintCommand(): Command {
     return applyStandardCommandOptions(
         new Command("lint")
@@ -1063,16 +1200,26 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         results = await lintTargetsWithRuntimeRecovery({
             eslint,
             cwd: commandCwd,
-            targets
+            targets,
+            onTargetCompleted: async (targetResults) => {
+                if (!options.fix) {
+                    return;
+                }
+
+                await ESLint.outputFixes(targetResults);
+                emitLintFixProgressForResults({
+                    cwd: commandCwd,
+                    results: targetResults,
+                    writeProgressLine: (line) => {
+                        process.stderr.write(`${line}\n`);
+                    }
+                });
+            }
         });
     } catch (error) {
         console.error(Core.isErrorLike(error) ? error.message : String(error));
         setProcessExitCode(2);
         return;
-    }
-
-    if (options.fix) {
-        await ESLint.outputFixes(results);
     }
 
     await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
@@ -1096,21 +1243,16 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const outOfRootPaths = results
-        .map((result) => result.filePath)
-        .filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+    const outOfRootPaths = collectOutOfRootFilePaths(results, projectRegistry);
 
     if (!options.quiet && outOfRootPaths.length > 0) {
-        const sample = outOfRootPaths.slice(0, 20);
-        const suffix =
-            outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
-        console.warn(`GML_PROJECT_OUT_OF_ROOT:\n${sample.join("\n")}${suffix}`);
+        console.warn(formatOutOfRootWarning(outOfRootPaths));
     }
 
     if (options.projectStrict && outOfRootPaths.length > 0) {
         console.error(
             `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
-                `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
+                `Offending paths:\n${formatPathSample(outOfRootPaths)}`
         );
         setProcessExitCode(2);
         return;
@@ -1128,18 +1270,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const totals = results.reduce(
-        (accumulator, result) => {
-            return {
-                errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
-                warningCount: accumulator.warningCount + result.warningCount
-            };
-        },
-        {
-            errorCount: 0,
-            warningCount: 0
-        }
-    );
+    const totals = aggregateLintTotals(results);
 
     setProcessExitCode(
         resolveExitCode({
@@ -1160,6 +1291,8 @@ export const __lintCommandTest__ = Object.freeze({
     discoverFlatConfig,
     extractLintRuntimeFailureLocation,
     lintTargetsWithRuntimeRecovery,
+    toLintProgressDisplayPath,
+    emitLintFixProgressForResults,
     resolveEslintCwd,
     shouldPreferBundledDefaultsForExternalTargets,
     normalizeFormatterName,
@@ -1170,5 +1303,10 @@ export const __lintCommandTest__ = Object.freeze({
     normalizeProcessorIdentityForEnforcement,
     enforceProcessorPolicyForGmlFiles,
     PROCESSOR_UNSUPPORTED_ERROR_CODE,
-    PROCESSOR_OBSERVABILITY_WARNING_CODE
+    PROCESSOR_OBSERVABILITY_WARNING_CODE,
+    aggregateLintTotals,
+    collectOutOfRootFilePaths,
+    formatPathSample,
+    formatOutOfRootWarning,
+    OUT_OF_ROOT_DISPLAY_LIMIT
 });

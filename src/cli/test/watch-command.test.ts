@@ -9,6 +9,8 @@ import {
     countSourceLines,
     createExtensionMatcher,
     createWatchCommand,
+    hashSourceContent,
+    resolveUnknownScanConcurrency,
     runWatchCommand
 } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
@@ -57,6 +59,33 @@ void describe("watch command", () => {
         assert.equal(countSourceLines("one\ntwo\nthree"), 3);
         assert.equal(countSourceLines("one\r\ntwo\r\nthree"), 3);
         assert.equal(countSourceLines("one\u2028two\u2029three"), 3);
+    });
+
+    void it("hashSourceContent returns a stable 32-character hex digest", () => {
+        const digest = hashSourceContent("function foo() { return 1; }");
+        assert.equal(typeof digest, "string");
+        assert.equal(digest.length, 32);
+        assert.ok(/^[0-9a-f]{32}$/.test(digest), "digest should be lowercase hex");
+    });
+
+    void it("hashSourceContent returns the same digest for identical input", () => {
+        const source = "function foo() { return 1; }";
+        assert.equal(hashSourceContent(source), hashSourceContent(source));
+    });
+
+    void it("hashSourceContent returns different digests for different inputs", () => {
+        assert.notEqual(
+            hashSourceContent("function foo() { return 1; }"),
+            hashSourceContent("function foo() { return 2; }")
+        );
+    });
+
+    void it("resolveUnknownScanConcurrency clamps values to at least one", () => {
+        assert.equal(resolveUnknownScanConcurrency(16), 16);
+        assert.equal(resolveUnknownScanConcurrency(1), 1);
+        assert.equal(resolveUnknownScanConcurrency(0), 1);
+        assert.equal(resolveUnknownScanConcurrency(-5), 1);
+        assert.equal(resolveUnknownScanConcurrency(8.7), 8);
     });
 });
 

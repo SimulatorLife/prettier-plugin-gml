@@ -2,25 +2,20 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { ProjectCapability } from "../types/index.js";
-import type { GmlFeatherRenamePlanEntry } from "./index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 
 const ALL_PROJECT_CAPABILITIES: ReadonlySet<ProjectCapability> = new Set<ProjectCapability>([
     "IDENTIFIER_OCCUPANCY",
     "IDENTIFIER_OCCURRENCES",
-    "LOOP_HOIST_NAME_RESOLUTION",
-    "RENAME_CONFLICT_PLANNING"
+    "LOOP_HOIST_NAME_RESOLUTION"
 ]);
 
 export interface ProjectAnalysisSnapshot {
     readonly capabilities: ReadonlySet<ProjectCapability>;
     isIdentifierNameOccupiedInProject(identifierName: string): boolean;
     listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string>;
-    planFeatherRenames(
-        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-    ): ReadonlyArray<GmlFeatherRenamePlanEntry>;
     assessGlobalVarRewrite(
         filePath: string | null,
         hasInitializer: boolean
@@ -92,39 +87,6 @@ function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnap
             const files = index.identifierToFiles.get(Core.toNormalizedLowerCaseString(identifierName));
             return files ?? new Set<string>();
         },
-        planFeatherRenames(
-            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-        ): ReadonlyArray<GmlFeatherRenamePlanEntry> {
-            return requests.map((request) => {
-                if (request.identifierName === request.preferredReplacementName) {
-                    return {
-                        identifierName: request.identifierName,
-                        preferredReplacementName: request.preferredReplacementName,
-                        safe: false,
-                        reason: "no-op-rename"
-                    };
-                }
-
-                const normalizedPreferredReplacementName = Core.toNormalizedLowerCaseString(
-                    request.preferredReplacementName
-                );
-                if (index.identifierToFiles.has(normalizedPreferredReplacementName)) {
-                    return {
-                        identifierName: request.identifierName,
-                        preferredReplacementName: request.preferredReplacementName,
-                        safe: false,
-                        reason: "name-collision"
-                    };
-                }
-
-                return {
-                    identifierName: request.identifierName,
-                    preferredReplacementName: request.preferredReplacementName,
-                    safe: true,
-                    reason: null
-                };
-            });
-        },
         assessGlobalVarRewrite(
             filePath: string | null,
             hasInitializer: boolean
@@ -153,16 +115,6 @@ function createMissingProjectAnalysisSnapshot(): ProjectAnalysisSnapshot {
         },
         listIdentifierOccurrenceFiles(): ReadonlySet<string> {
             return new Set<string>();
-        },
-        planFeatherRenames(
-            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-        ): ReadonlyArray<GmlFeatherRenamePlanEntry> {
-            return requests.map((request) => ({
-                identifierName: request.identifierName,
-                preferredReplacementName: request.preferredReplacementName,
-                safe: false,
-                reason: "missing-project-context"
-            }));
         },
         assessGlobalVarRewrite(): { allowRewrite: boolean; reason: string | null } {
             return { allowRewrite: false, reason: "missing-project-context" };

@@ -135,6 +135,10 @@ The semantic oracle provides:
 - ✅ Object-oriented features:
   - ✅ Constructor calls with `new` keyword (new Vector2(x, y))
   - ✅ Delete operator for removing struct members (delete obj.prop)
+- ✅ Event transpilation:
+  - ✅ `transpileEvent()` – produces an `EventPatch` for GML object events
+  - ✅ `EventContextOracle` – treats undeclared identifiers as `self.<name>` in event scope
+  - ✅ `collectLocalVariables()` – pre-collects `var`-declared locals to avoid misclassifying them as instance fields
 
 ### Planned Features
 
@@ -143,7 +147,7 @@ The semantic oracle provides:
 - [x] Semantic oracle integration for identifier classification
 - [x] Script call indirection through runtime wrapper
 - [x] Compound assignment operators (+=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=)
-- [ ] Scope-aware identifier resolution with scope tracker (self, other fields)
+- [x] Event transpilation with `transpileEvent()` and `EventContextOracle`
 - [ ] Additional built-in function mapping (array functions, data structure functions, drawing functions)
 
 ## Operator Mapping
@@ -183,6 +187,7 @@ The test suite includes:
 - Expression generation
 - Error handling
 - Patch object creation
+- Performance-focused micro-benchmarks under `test/performance/`
 
 ## Design Principles
 

@@ -1,10 +1,10 @@
 import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import type { ProjectCapability, UnsafeReasonCode } from "../../types/index.js";
 import type { GmlRuleDefinition } from "../catalog.js";
 
 const {
+    clamp,
     isObjectLike,
     getNodeStartIndex,
     getNodeEndIndex,
@@ -66,39 +66,16 @@ export interface SourceTextEdit {
 }
 
 export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
-    const docs: {
-        description: string;
-        recommended: false;
-        requiresProjectContext: boolean;
-        gml?: {
-            requiredCapabilities: ReadonlyArray<ProjectCapability>;
-            unsafeReasonCodes: ReadonlyArray<UnsafeReasonCode>;
-        };
-    } = {
+    const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
-        requiresProjectContext: definition.requiresProjectContext
+        requiresProjectContext: false
     };
-
-    if (definition.requiresProjectContext) {
-        docs.gml = {
-            requiredCapabilities: definition.requiredCapabilities,
-            unsafeReasonCodes: definition.unsafeReasonCodes
-        };
-    }
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`
+        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
-
-    if (definition.unsafeReasonCodes.length > 0) {
-        messages.unsafeFix = "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted.";
-    }
-
-    if (definition.requiresProjectContext) {
-        messages.missingProjectContext =
-            "Missing project context. Run via CLI with --project or disable this rule in direct ESLint usage.";
-    }
 
     return Object.freeze({
         type: "suggestion",
@@ -107,6 +84,20 @@ export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
         schema: definition.schema,
         messages: Object.freeze(messages)
     });
+}
+
+/**
+ * Reads program text once, applies a deterministic rewrite, and reports the
+ * resulting full-text fix when the rewrite changes output.
+ */
+export function reportProgramTextRewrite(
+    context: Rule.RuleContext,
+    definition: GmlRuleDefinition,
+    rewrite: (sourceText: string) => string
+): void {
+    const sourceText = context.sourceCode.text;
+    const rewrittenText = rewrite(sourceText);
+    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
 }
 
 export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodeParentVisitContext) => void): void {
@@ -172,7 +163,7 @@ export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodePa
     }
 }
 
-export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+function walkAstNodesUntil(root: unknown, visit: (node: object) => boolean): void {
     if (!root || typeof root !== "object") {
         return;
     }
@@ -198,7 +189,9 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
         }
 
         visited.add(current);
-        visit(current);
+        if (visit(current)) {
+            return;
+        }
 
         for (const key of Object.keys(current)) {
             if (key === "parent") {
@@ -213,6 +206,13 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
             stack.push(value);
         }
     }
+}
+
+export function walkAstNodes(root: unknown, visit: (node: any) => void) {
+    walkAstNodesUntil(root, (node) => {
+        visit(node);
+        return false;
+    });
 }
 
 /**
@@ -233,57 +233,21 @@ export function walkAstNodes(root: unknown, visit: (node: any) => void) {
  * - Arrays are expanded in-place; elements are visited in source order.
  */
 export function findFirstAstNodeBy(root: unknown, predicate: (node: any) => boolean): AstNodeRecord | null {
-    if (!root || typeof root !== "object") {
-        return null;
-    }
-
-    const visited = new WeakSet<object>();
-    const stack: unknown[] = [root];
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-        if (!current || typeof current !== "object") {
-            continue;
+    let matchedNode: AstNodeRecord | null = null;
+    walkAstNodesUntil(root, (node) => {
+        if (!isAstNodeRecord(node)) {
+            return false;
         }
 
-        if (Array.isArray(current)) {
-            // Push elements in reverse so that index 0 lands on top of the stack
-            // and is therefore visited first, preserving source order.
-            for (let index = current.length - 1; index >= 0; index -= 1) {
-                stack.push(current[index]);
-            }
-            continue;
+        if (!predicate(node)) {
+            return false;
         }
 
-        if (visited.has(current)) {
-            continue;
-        }
+        matchedNode = node;
+        return true;
+    });
 
-        visited.add(current);
-
-        if (!isAstNodeRecord(current)) {
-            continue;
-        }
-
-        if (predicate(current)) {
-            return current;
-        }
-
-        for (const key of Object.keys(current)) {
-            if (key === "parent") {
-                continue;
-            }
-
-            const value = current[key];
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            stack.push(value);
-        }
-    }
-
-    return null;
+    return matchedNode;
 }
 
 export function findFirstChangedCharacterOffset(originalText: string, rewrittenText: string): number {
@@ -337,7 +301,7 @@ export function reportFullTextRewrite(
 }
 
 function resolveLineColumnFromOffset(sourceText: string, offset: number): { line: number; column: number } {
-    const clampedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    const clampedOffset = clamp(offset, 0, sourceText.length);
     let line = 1;
     let lastLineStart = 0;
     for (let index = 0; index < clampedOffset; index += 1) {
@@ -414,7 +378,7 @@ export function getLineIndexForOffset(lineStartOffsets: ReadonlyArray<number>, o
         return middle;
     }
 
-    return Math.max(0, Math.min(lineStartOffsets.length - 1, low));
+    return clamp(low, 0, lineStartOffsets.length - 1);
 }
 
 export function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
@@ -440,7 +404,7 @@ export function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: nu
 }
 
 export function readLineIndentationBeforeOffset(sourceText: string, offset: number): string {
-    const boundedOffset = Math.max(0, Math.min(offset, sourceText.length));
+    const boundedOffset = clamp(offset, 0, sourceText.length);
     let lineStart = sourceText.lastIndexOf("\n", boundedOffset - 1);
     if (lineStart < 0) {
         lineStart = 0;

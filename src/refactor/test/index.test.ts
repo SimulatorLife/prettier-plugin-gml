@@ -383,6 +383,24 @@ void test("prepareHotReloadUpdates uses semantic file symbols when available", a
     assert.equal(updates[0].symbolId, "gml/script/scr_test");
 });
 
+void test("prepareHotReloadUpdates falls back to file-level updates when getFileSymbols throws", async () => {
+    const mockSemantic = {
+        getFileSymbols: async () => {
+            throw new Error("semantic index unavailable");
+        }
+    };
+
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("scripts/test.gml", 0, 10, "newcode");
+
+    const updates = await engine.prepareHotReloadUpdates(ws);
+    assert.equal(updates.length, 1);
+    assert.equal(updates[0].symbolId, "file://scripts/test.gml");
+    assert.equal(updates[0].action, "recompile");
+    assert.equal(updates[0].filePath, "scripts/test.gml");
+});
+
 void test("prepareHotReloadUpdates includes transitive dependents from cascade", async () => {
     const mockSemantic = {
         getFileSymbols: () => [{ id: "gml/script/scr_root" }],

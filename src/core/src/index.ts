@@ -31,11 +31,7 @@ type CoreNamespace = typeof AST &
     typeof FS &
     typeof Resources &
     typeof IdentifierMetadata &
-    typeof Comments & {
-        // Explicitly include capability probe for WorkspaceEdit-like objects
-        // to support polymorphic refactor operations across module boundaries.
-        isWorkspaceEditLike(value: unknown): boolean;
-    };
+    typeof Comments;
 
 // Public namespace flattening mirrors the monorepo convention: expose each
 // helper directly flattened into the Core namespace so consumers always
@@ -44,7 +40,6 @@ export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
     ...Utils,
-    isWorkspaceEditLike: Utils.isWorkspaceEditLike,
     ...Resources,
     ...IdentifierMetadata,
     ...Comments

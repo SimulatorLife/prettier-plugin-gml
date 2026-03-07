@@ -5,13 +5,12 @@
 It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
 
 - Owns:
-  - ESLint language wiring for GML (`language: "gml/gml"`)
-  - Lint rules and autofix behavior
-  - Project-aware lint context contracts consumed through ESLint `settings.gml.project`
+    - ESLint language wiring for GML (`language: "gml/gml"`)
+    - Lint rules and autofix behavior
 - Does not own:
-  - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
-  - Parser internals/grammar ownership
-  - Refactor transaction planning/execution
+    - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
+    - Parser internals/grammar ownership
+    - Refactor transaction planning/execution
 
 See [../../docs/target-state.md](../../docs/target-state.md) for the split contract.
 
@@ -54,7 +53,7 @@ export default [
 ];
 ```
 
-For a full "all rules enabled" config (including all `feather/*` rules plus project-context wiring for project-aware `gml/*` rules), see:
+For a full "all rules enabled" config (including all `feather/*` rules), see:
 `docs/examples/example.eslint.all-rules.config.js`.
 
 ## Language Behavior
@@ -93,12 +92,17 @@ LintWorkspace.Lint;
 
 Built-in `gml/*` rule short names:
 
-- `prefer-loop-length-hoist`
-- `prefer-hoistable-loop-accessors`
+- `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
+- `prefer-compound-assignments`
 - `optimize-logical-flow`
 - `no-globalvar`
+- `no-empty-regions`
+- `no-scientific-notation`
+- `no-unnecessary-string-interpolation`
+- `remove-default-comments`
+- `normalize-banner-comments`
 - `normalize-doc-comments`
 - `normalize-directives`
 - `require-control-flow-braces`
@@ -111,8 +115,20 @@ Built-in `gml/*` rule short names:
 - `require-argument-separators`
 - `normalize-data-structure-accessors`
 - `require-trailing-optional-defaults`
+- `simplify-real-calls`
 
-`normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` and avoids style rewrites.
+`prefer-compound-assignments` rewrites safe self-assignment forms
+`x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
+
+`prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
+
+`remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
+
+`normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
+
+`normalize-doc-comments` canonicalizes doc tags/content, including removing `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`). It synthesizes missing tags for declaration/assignment-style function docs, but constructor/struct-function definitions never retain synthetic `@returns` tags: existing `@returns` lines are stripped and new ones are not generated. The rule intentionally skips inline anonymous function values inside struct/object properties.
+
+`normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`. All feather-namespace lint rules follow the naming pattern `feather/gm####`, where the lint rule diagnoses/fixes specificy/only the issue for the associated Feather rule/diagnostic. For example, lint rule `feather/gm1000` identifies and fixes the specific issue described in Feather rule `gm1000`: "No enclosing loop from which to break" This creates a clear, traceable link between each Feather rule and its corresponding lint rule(s), and allows us to easily add new lint rules for new Feather rules as they are added to the manifest.
@@ -125,11 +141,7 @@ pnpm --filter @gml-modules/lint run test
 ```
 
 ## TODO
-* When run through the CLI, the lint plugin should automatically receive project context from the CLI's project index. This is currently a manual injection step when using ESLint directly. The CLI wiring should be the canonical reference for how to set this up in other contexts. Also, if no eslint configuration file is detected in the project, the CLI should fall back to a default config with the recommended rules.
-* Add a rule for empty regions (`@gml/no-empty-regions`). Also add an auto-fix to remove empty regions. For example:
-    ```gml
-    #region Empty region
-    #endregion
-    ```
-* Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
-* **Codemods** (AST-based rewrite tools): We're currently doing large, project-aware rewrites in the lint workspace. But, common pattern is to use codemods / migration transforms: standalone programs that parse code, apply structured changes, and rewrite files—run explicitly (often once) rather than on every save. Codemods are used for large, mechanical refactors across many files. For JavaScript/TypeScript, common ones are jscodeshift, Babel transforms, recast, and ts-morph. Other ecosystems have equivalents (e.g., clang-tidy for C/C++, gofmt/go fixers, etc.) Can rename APIs, change call signatures, rewrite imports, reorder args, etc. Usually run via CLI in CI or as one-off migrations. Characteristics: `Parse → transform AST → print`
+
+- When run through the CLI, if no eslint configuration file is detected in the project, the CLI should fall back to a default, recommended ruleset.
+- Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
+- The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?

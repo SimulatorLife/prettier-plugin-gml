@@ -3,11 +3,14 @@ import { Parser } from "@gml-modules/parser";
 
 import {
     type CallTargetAnalyzer,
+    collectLocalVariables,
+    createSemanticOracle,
     type EmitOptions,
+    EventContextOracle,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
-    makeDummyOracle
+    type ProgramNode
 } from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
@@ -26,29 +29,24 @@ export interface TranspileScriptRequest {
     readonly ast?: unknown;
 }
 
-/**
- * Request parameters for transpiling a GML object event body.
- *
- * Object events (Create, Step, Draw, etc.) are raw GML statement sequences—
- * they are not wrapped in an explicit function declaration. The transpiled
- * `js_body` is intended for the runtime wrapper's `EventPatch`, which executes
- * the body inside `new Function("self", argsDecl, js_body)`.
- */
 export interface TranspileEventRequest {
     /**
-     * Absolute or workspace-relative path to the GML source file for diagnostics.
+     * Absolute or workspace-relative file path that produced the source.
+     * Surfaced in patch metadata for runtime diagnostics.
      */
     readonly sourcePath?: string;
-    /** Raw GML source text for the event body. */
     readonly sourceText: string;
-    /** SCIP-style symbol identifier, e.g. `"gml/event/obj_player/Create_0"`. */
     readonly symbolId: string;
     /**
-     * Pre-parsed AST to reuse instead of parsing `sourceText` again.
-     * Useful for callers that have already parsed the source (e.g., the CLI
-     * watcher) to avoid redundant parsing overhead.
+     * Pre-parsed AST to reuse instead of re-parsing `sourceText`.
+     * Eliminates redundant parsing when the caller already has the AST.
      */
     readonly ast?: unknown;
+    /**
+     * Name to use as the `this` binding in the emitted patch.
+     * Defaults to `"self"` when not provided.
+     */
+    readonly thisName?: string;
 }
 
 export interface PatchMetadata {
@@ -65,41 +63,90 @@ export interface ScriptPatch {
     readonly metadata?: PatchMetadata;
 }
 
-/**
- * A patch object produced by transpiling a GML object event body.
- *
- * Compatible with the runtime wrapper's `EventPatch` type. The `js_body`
- * uses explicit `self.` prefixes for instance-variable access so it runs
- * correctly inside `new Function("self", argsDecl, js_body)` without
- * requiring the GML proxy `with`-wrapper that script patches rely on.
- */
 export interface EventPatch {
     readonly kind: "event";
     readonly id: string;
     readonly js_body: string;
     readonly sourceText: string;
     readonly version: number;
+    /**
+     * The name used as the `this` binding for the event body.
+     * Always `"self"` in standard GameMaker HTML5 export code.
+     */
+    readonly this_name: string;
     readonly metadata?: PatchMetadata;
 }
 
 export interface TranspilerDependencies {
-    readonly semantic?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    };
+    readonly semantic?: IdentifierAnalyzer & CallTargetAnalyzer;
     readonly emitterOptions?: Partial<EmitOptions>;
 }
 
 export class GmlTranspiler {
-    private readonly semantic?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    };
+    private readonly semantic?: IdentifierAnalyzer & CallTargetAnalyzer;
     private readonly emitterOptions?: Partial<EmitOptions>;
+    private readonly fallbackSemantic: IdentifierAnalyzer & CallTargetAnalyzer;
 
     constructor(dependencies: TranspilerDependencies = {}) {
         this.semantic = dependencies.semantic;
         this.emitterOptions = dependencies.emitterOptions;
+        this.fallbackSemantic = createSemanticOracle();
+    }
+
+    private getSemanticAnalyzers(): IdentifierAnalyzer & CallTargetAnalyzer {
+        return this.semantic ?? this.fallbackSemantic;
+    }
+
+    private parseProgram(sourceText: string) {
+        const parser = new Parser.GMLParser(sourceText, {});
+        return parser.parse();
+    }
+
+    private resolveProgramAst(request: TranspileScriptRequest): ProgramNode {
+        const astCandidate = request.ast ?? this.parseProgram(request.sourceText);
+        if (!Core.isObjectLike(astCandidate)) {
+            throw new TypeError("transpileScript requires ast to be a Program-like object when provided");
+        }
+
+        const astRecord = astCandidate as Record<string, unknown>;
+        if (!Array.isArray(astRecord.body)) {
+            throw new TypeError("transpileScript requires ast.body to be an array when ast is provided");
+        }
+
+        return astCandidate as ProgramNode;
+    }
+
+    private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
+        const lines: string[] = [];
+
+        for (let index = 0; index < func.params.length; index += 1) {
+            const parameter = func.params[index];
+            let line = "";
+
+            if (typeof parameter === "string") {
+                continue;
+            }
+
+            if (parameter.type === "Identifier") {
+                line = `var ${parameter.name} = args[${index}];`;
+            } else if (parameter.type === "DefaultParameter" && parameter.left.type === "Identifier") {
+                const name = parameter.left.name;
+                if (parameter.right) {
+                    const defaultValue = emitter.emit(parameter.right);
+                    line = `var ${name} = args[${index}] === undefined ? ${defaultValue} : args[${index}];`;
+                } else {
+                    line = `var ${name} = args[${index}];`;
+                }
+            }
+
+            if (!line) {
+                continue;
+            }
+
+            lines.push(line);
+        }
+
+        return lines.join("\n");
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
@@ -119,14 +166,8 @@ export class GmlTranspiler {
         }
 
         try {
-            const ast =
-                request.ast ??
-                (() => {
-                    const parser = new Parser.GMLParser(sourceText, {});
-                    return parser.parse();
-                })();
-            const oracle = this.semantic ?? makeDummyOracle();
-            const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
+            const ast = this.resolveProgramAst(request);
+            const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             let jsBody = "";
 
             // Special handling for GML 2.3+ scripts that contain a single function declaration.
@@ -136,29 +177,7 @@ export class GmlTranspiler {
             // and then emit the body of the function.
             if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
                 const func = ast.body[0] as unknown as FunctionDeclarationNode;
-                const params = func.params || [];
-                const paramLines = params.map((p, i) => {
-                    if (typeof p === "string") {
-                        // Should not happen in AST, params are nodes
-                        return null;
-                    }
-                    if (p.type === "Identifier") {
-                        return `var ${p.name} = args[${i}];`;
-                    }
-                    if (p.type === "DefaultParameter") {
-                        const left = p.left;
-                        if (left.type === "Identifier") {
-                            const name = left.name;
-                            if (p.right) {
-                                const defaultVal = emitter.emit(p.right);
-                                return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
-                            }
-                            return `var ${name} = args[${i}];`;
-                        }
-                    }
-                    return null;
-                });
-                const paramUnpacking = Core.compactArray(paramLines).join("\n");
+                const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
 
                 const bodyRaw = emitter.emit(func.body).trim();
                 // Strip surrounding braces if present (BlockStatement)
@@ -199,8 +218,7 @@ export class GmlTranspiler {
         try {
             const parser = new Parser.GMLParser(sourceText);
             const ast = parser.parse();
-            const oracle = this.semantic ?? makeDummyOracle();
-            const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
+            const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             return emitter.emit(ast);
         } catch (error) {
             const message = Core.isErrorLike(error) ? error.message : String(error);
@@ -213,21 +231,23 @@ export class GmlTranspiler {
     /**
      * Transpile a GML object event body into an `EventPatch`.
      *
-     * Unlike `transpileScript`, event bodies are never wrapped in an explicit
-     * function declaration, and the resulting `js_body` is executed inside
-     * `new Function("self", argsDecl, js_body)` without the GML proxy
-     * `with`-wrapper. Therefore the emitter is configured with
-     * `emitSelfPrefix: true` so that instance-variable accesses are emitted
-     * as explicit `self.<name>` references.
+     * Object events in GameMaker are plain statement sequences (no wrapping
+     * function declaration) that execute in the context of a specific object
+     * instance. Identifier resolution follows these rules:
+     *
+     *   - `var`-declared names in the event body → local variables (bare JS names)
+     *   - All other undeclared identifiers → instance fields (emitted as `self.<name>`)
+     *   - Built-in functions (abs, sqrt, etc.) → emitted as bare calls
+     *   - Known scripts → routed through the hot-reload runtime wrapper
      *
      * @example
      * ```typescript
-     * const transpiler = new GmlTranspiler();
      * const patch = transpiler.transpileEvent({
-     *   sourceText: "x += speed;\nif (hp <= 0) { instance_destroy(); }",
-     *   symbolId: "gml/event/obj_player/Step_0",
+     *   sourceText: "var spd = 5; x += spd; health -= 1;",
+     *   symbolId: "gml/event/obj_player/create"
      * });
-     * // patch.js_body ≈ "self.x += self.speed;\nif ((self.hp <= 0)) { instance_destroy(); }"
+     * // patch.js_body ≈ "var spd = 5; x += spd; self.health -= 1;"
+     * //                              ^^^^ local   ^^^^^^^^^^^^ self field
      * ```
      */
     transpileEvent(request: TranspileEventRequest): EventPatch {
@@ -247,20 +267,15 @@ export class GmlTranspiler {
         }
 
         try {
-            const ast =
-                request.ast ??
-                (() => {
-                    const parser = new Parser.GMLParser(sourceText, {});
-                    return parser.parse();
-                })();
-            const oracle = this.semantic ?? makeDummyOracle();
-            // Events run without the GML proxy `with`-wrapper, so instance variables
-            // must be emitted with an explicit `self.` prefix.
-            const emitter = new GmlToJsEmitter(oracle, {
-                ...this.emitterOptions,
-                emitSelfPrefix: true
-            });
+            const ast = this.resolveProgramAst(request);
+
+            // Pre-collect var-declared locals before building the oracle so the
+            // EventContextOracle can distinguish them from instance fields.
+            const localVars = collectLocalVariables(ast);
+            const eventOracle = new EventContextOracle(this.getSemanticAnalyzers(), localVars);
+            const emitter = new GmlToJsEmitter(eventOracle, this.emitterOptions);
             const jsBody = emitter.emit(ast);
+
             const timestamp = Date.now();
             const patch: EventPatch = {
                 kind: "event",
@@ -268,6 +283,7 @@ export class GmlTranspiler {
                 js_body: jsBody,
                 sourceText,
                 version: timestamp,
+                this_name: request.thisName ?? "self",
                 metadata: {
                     ...(sourcePath ? { sourcePath } : {}),
                     timestamp

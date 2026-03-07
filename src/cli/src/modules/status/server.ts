@@ -9,7 +9,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 
-import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../server/shared-server-types.js";
 import {
     DEFAULT_STATUS_HEALTH_POLICY_CONFIG,
     evaluateReadiness,

@@ -1,8 +1,8 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
-import { dominantLineEnding } from "../rule-helpers.js";
 
 function isValidMacroIdentifier(name: string): boolean {
     return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name);
@@ -100,7 +100,7 @@ export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Ru
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(text);
+                    const lineEnding = Core.dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines = lines.map((line, index) => {
                         let normalized = normalizeDefineMacroLine(line);

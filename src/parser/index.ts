@@ -1,4 +1,5 @@
 export { Parser } from "./src/index.js";
+export type { CommentFixResult } from "./src/source-preprocessing.js";
 export type {
     CommentProcessingOptions,
     GlobalIdentifierTracker,

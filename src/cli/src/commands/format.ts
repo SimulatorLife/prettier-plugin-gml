@@ -136,25 +136,14 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
     let currentValue = getDefaultLimit();
 
     return {
-        getValue: () => currentValue,
-        configure(limit) {
+        getLimit: () => currentValue,
+        configureLimit(limit) {
             currentValue = resolveLimit(limit);
             return currentValue;
         },
         reset() {
             currentValue = getDefaultLimit();
             return currentValue;
-        }
-    };
-}
-
-function createSampleLimitAccessors(state: { configure: (limit: unknown) => number; getValue: () => number }) {
-    return {
-        configureLimit(limit: unknown) {
-            state.configure(limit);
-        },
-        getLimit() {
-            return state.getValue();
         }
     };
 }
@@ -218,7 +207,7 @@ function resolvePrettier() {
     return prettierModulePromise;
 }
 
-async function resolveFormatOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
+function resolveFormatOutputNormalizer(): Promise<null | ((formatted: string, source: string) => string)> {
     if (formatOutputNormalizerPromise === null) {
         formatOutputNormalizerPromise = importFormatModule()
             .then((moduleValue) => {
@@ -233,7 +222,7 @@ async function resolveFormatOutputNormalizer(): Promise<null | ((formatted: stri
             .catch(() => null);
     }
 
-    return await formatOutputNormalizerPromise;
+    return formatOutputNormalizerPromise;
 }
 
 async function normalizeFormattedOutputWithFormat(formatted: string, source: string): Promise<string> {
@@ -506,19 +495,16 @@ const skippedDirectorySampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
     resolveLimit: resolveSkippedDirectorySampleLimit
 });
-const skippedDirectorySampleLimitAccessors = createSampleLimitAccessors(skippedDirectorySampleLimitState);
 
 const ignoredFileSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultIgnoredFileSampleLimit,
     resolveLimit: resolveIgnoredFileSampleLimit
 });
-const ignoredFileSampleLimitAccessors = createSampleLimitAccessors(ignoredFileSampleLimitState);
 
 const unsupportedExtensionSampleLimitState = createSampleLimitState({
     getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
     resolveLimit: resolveUnsupportedExtensionSampleLimit
 });
-const unsupportedExtensionSampleLimitAccessors = createSampleLimitAccessors(unsupportedExtensionSampleLimitState);
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -535,7 +521,7 @@ function resetSkippedDirectorySummary() {
 
 function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
-    const limit = skippedDirectorySampleLimitAccessors.getLimit();
+    const limit = skippedDirectorySampleLimitState.getLimit();
     tryAddSample(skippedDirectorySummary.ignoredSamples, directory, limit);
 }
 let baseProjectIgnorePaths = [];
@@ -675,20 +661,32 @@ async function enforceSnapshotMemoryLimit() {
     }
 
     const snapshotsToRelease = inMemorySnapshotCount - MAX_IN_MEMORY_SNAPSHOTS;
-    const entries = [...formattedFileOriginalContents.entries()];
-
-    // Collect snapshots to release (oldest first): take the first N entries and filter for in-memory snapshots
-    const snapshotsToDelete = entries
-        .slice(0, snapshotsToRelease)
-        .flatMap(([filePath, snapshot]) =>
-            snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null ? [{ filePath, snapshot }] : []
-        );
+    const snapshotsToDelete = collectInlineSnapshotsForEviction(snapshotsToRelease);
 
     // Release snapshots sequentially to maintain correct accounting
     await Core.runSequentially(snapshotsToDelete, async ({ filePath, snapshot }) => {
         formattedFileOriginalContents.delete(filePath);
         await releaseSnapshot(snapshot);
     });
+}
+
+function collectInlineSnapshotsForEviction(snapshotsToRelease) {
+    if (!Number.isFinite(snapshotsToRelease) || snapshotsToRelease <= 0) {
+        return [];
+    }
+
+    const snapshotsToDelete = [];
+    for (const [filePath, snapshot] of formattedFileOriginalContents) {
+        if (snapshot && typeof snapshot === "object" && snapshot.inlineContents !== null) {
+            snapshotsToDelete.push({ filePath, snapshot });
+        }
+
+        if (snapshotsToDelete.length >= snapshotsToRelease) {
+            break;
+        }
+    }
+
+    return snapshotsToDelete;
 }
 
 /**
@@ -1065,11 +1063,11 @@ async function collectExistingIgnoreFiles(candidatePaths) {
     return compactArray(discovered);
 }
 
-async function resolveProjectIgnorePaths(directory) {
+function resolveProjectIgnorePaths(directory) {
     const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return await collectExistingIgnoreFiles(candidatePaths);
+    return collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**
@@ -1586,9 +1584,9 @@ async function prepareFormattingRun({
     checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
-    skippedDirectorySampleLimitAccessors.configureLimit(skippedDirectorySampleLimit);
-    ignoredFileSampleLimitAccessors.configureLimit(ignoredFileSampleLimit);
-    unsupportedExtensionSampleLimitAccessors.configureLimit(unsupportedExtensionSampleLimit);
+    skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
+    ignoredFileSampleLimitState.configureLimit(ignoredFileSampleLimit);
+    unsupportedExtensionSampleLimitState.configureLimit(unsupportedExtensionSampleLimit);
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
@@ -2085,7 +2083,7 @@ function areIgnoredFileSamplesEqual(existing, candidate) {
 function recordIgnoredFile({ filePath, sourceDescription }) {
     skippedFileSummary.ignored += 1;
 
-    const limit = ignoredFileSampleLimitAccessors.getLimit();
+    const limit = ignoredFileSampleLimitState.getLimit();
     const sample = { filePath, sourceDescription };
 
     if (tryAddSample(skippedFileSummary.ignoredSamples, sample, limit, areIgnoredFileSamplesEqual)) {
@@ -2094,7 +2092,7 @@ function recordIgnoredFile({ filePath, sourceDescription }) {
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
-    const limit = unsupportedExtensionSampleLimitAccessors.getLimit();
+    const limit = unsupportedExtensionSampleLimitState.getLimit();
     tryAddSample(skippedFileSummary.unsupportedExtensionSamples, filePath, limit);
 }
 
@@ -2117,7 +2115,14 @@ export const __formatTest__ = Object.freeze({
         maxInMemorySnapshots: MAX_IN_MEMORY_SNAPSHOTS,
         processedFileCount,
         periodicCleanupInterval: PERIODIC_CLEANUP_INTERVAL,
-        formattedFileOriginalContentsSize: formattedFileOriginalContents.size
+        formattedFileOriginalContentsSize: formattedFileOriginalContents.size,
+        inlineSnapshotBytes: [...formattedFileOriginalContents.values()].reduce((total, snapshot) => {
+            if (!snapshot || typeof snapshot !== "object" || snapshot.inlineContents === null) {
+                return total;
+            }
+
+            return total + snapshot.inlineContents.length * 2;
+        }, 0)
     }),
     setInMemorySnapshotCountForTests: (count: number) => {
         inMemorySnapshotCount = count;
@@ -2142,6 +2147,7 @@ export const __formatTest__ = Object.freeze({
         formattedFileOriginalContents.clear();
         inMemorySnapshotCount = 0;
     },
+    collectInlineSnapshotsForEvictionForTests: collectInlineSnapshotsForEviction,
     enforceSnapshotMemoryLimitForTests: enforceSnapshotMemoryLimit,
     performPeriodicMemoryCleanupForTests: performPeriodicMemoryCleanup
 });

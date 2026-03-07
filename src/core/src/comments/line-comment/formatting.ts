@@ -1,5 +1,5 @@
 import { getCommentBoundaryIndex, getCommentValue } from "../comment-utils.js";
-import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
+import { applyJsDocReplacements } from "../doc-comment/type-normalization.js";
 import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
@@ -124,18 +124,6 @@ function normalizeBannerCommentText(candidate, options: BannerNormalizationOptio
     }
 
     return normalized;
-}
-
-/**
- * Checks if a comment contains boilerplate text that should be suppressed.
- */
-function containsBoilerplate(trimmedValue: string, boilerplateFragments: string[]): boolean {
-    for (const lineFragment of boilerplateFragments) {
-        if (trimmedValue.includes(lineFragment)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 /**
@@ -325,14 +313,6 @@ function tryFormatExistingDocComment(
     const content = trimmedValue.replace(/^\/+\s*/, "");
     const formatted = applyJsDocReplacements(`/// ${content}`) as string;
 
-    if (content.toLowerCase().startsWith("@description")) {
-        // intentionally left blank to avoid leaking debug info
-    }
-
-    if (formatted.trim() === "/// @description") {
-        return "";
-    }
-
     return applyInlinePadding(comment, formatted);
 }
 
@@ -352,10 +332,6 @@ function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: s
 
     let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
     formattedCommentLine = applyJsDocReplacements(formattedCommentLine) as string;
-
-    if (formattedCommentLine.trim() === "/// @description") {
-        return "";
-    }
 
     return applyInlinePadding(comment, formattedCommentLine);
 }
@@ -452,7 +428,7 @@ function tryFormatPlainTripleSlash(
  */
 function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
+    const { codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment, lineCommentOptions);
     const trimmedOriginal = original.trim();
     const rawValue = getCommentValue(comment);
@@ -464,16 +440,6 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     // should be omitted from the formatted result, keeping the output clean and
     // preventing the accumulation of meaningless blank comment lines.
     if (trimmedValue.length === 0) {
-        return null;
-    }
-
-    // Guard: suppress boilerplate. Auto-generated or IDE-inserted placeholder
-    // comments (e.g., "TODO", "FIXME", generic section headers) clutter the
-    // codebase without conveying intent. By filtering these out during formatting,
-    // we ensure only meaningful, developer-authored comments survive in the final
-    // output. This keeps the formatted code focused on substantive documentation
-    // rather than stale scaffolding artifacts.
-    if (containsBoilerplate(trimmedValue, boilerplateFragments)) {
         return null;
     }
 

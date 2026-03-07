@@ -30,6 +30,25 @@ void describe("Semicolons helper utilities", () => {
         assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x41), false);
     });
 
+    void it("ASCII fast-path covers all six ASCII whitespace code points and excludes non-whitespace", () => {
+        // All six ASCII whitespace characters must be recognized without
+        // allocating a string (the fast path handles charCode < 128).
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x09), true, "HT (tab)");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x0a), true, "LF");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x0b), true, "VT");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x0c), true, "FF");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x0d), true, "CR");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x20), true, "SP (space)");
+
+        // Non-whitespace ASCII characters must not be classified as whitespace.
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x08), false, "BS (not whitespace)");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x21), false, "! (not whitespace)");
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x7f), false, "DEL (not whitespace)");
+
+        // ASCII boundary: 0x7f is the last ASCII char and must not leak through.
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x7f), false, "boundary 0x7f");
+    });
+
     void it("determines whether the path references the last statement", () => {
         const body = ["first", "second", "third"];
         const parent = { body };
