@@ -478,7 +478,7 @@ export const gmlLanguage = Object.freeze({
             }
 
             const recoveryProjection = createLimitedRecoveryProjection(sourceText);
-            if (recoveryProjection.insertions.length === 0) {
+            if (recoveryProjection.insertions.length === 0 && recoveryProjection.parseSource === sourceText) {
                 const details = getErrorLineColumn(strictParseError);
                 return {
                     ok: false,

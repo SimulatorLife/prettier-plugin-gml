@@ -56,6 +56,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assert.equal(recommended.language, "gml/gml");
     assert.equal(recommended.rules["gml/require-argument-separators"], "error");
     assert.equal(recommended.rules["gml/no-empty-regions"], "warn");
+    assert.equal(recommended.rules["gml/no-scientific-notation"], "warn");
     assert.equal(recommended.rules["gml/prefer-compound-assignments"], "warn");
     assert.equal(recommended.rules["gml/remove-default-comments"], "warn");
 

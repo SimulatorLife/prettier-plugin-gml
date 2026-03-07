@@ -263,6 +263,23 @@ void test("strict parse fails while limited recovery succeeds for missing argume
     assert.deepEqual(recoveredArgumentRange, [21, 22]);
 });
 
+void test("strict parse fails while limited recovery succeeds for scientific notation literals", () => {
+    const source = "var epsilon = 1e-11;";
+    const strictResult = parseWithOptions(source, "none");
+    assert.equal(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assert.equal(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    // Scientific-notation recovery is parser-local and range-preserving, so no
+    // inserted separator metadata should be produced.
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
 void test("switch cases expose estree consequent arrays for ESLint code-path analysis", async () => {
     const source = [
         "switch (state) {",

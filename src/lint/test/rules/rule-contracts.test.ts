@@ -77,6 +77,11 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "no-scientific-notation",
+        messageId: "noScientificNotation",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "no-unnecessary-string-interpolation",
         messageId: "noUnnecessaryStringInterpolation",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
@@ -157,6 +162,11 @@ const expectedRules = Object.freeze([
     {
         shortName: "require-trailing-optional-defaults",
         messageId: "requireTrailingOptionalDefaults",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "simplify-real-calls",
+        messageId: "simplifyRealCalls",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     }
 ]);

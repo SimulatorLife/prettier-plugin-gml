@@ -99,6 +99,7 @@ Built-in `gml/*` rule short names:
 - `optimize-logical-flow`
 - `no-globalvar`
 - `no-empty-regions`
+- `no-scientific-notation`
 - `no-unnecessary-string-interpolation`
 - `remove-default-comments`
 - `normalize-banner-comments`
@@ -114,6 +115,7 @@ Built-in `gml/*` rule short names:
 - `require-argument-separators`
 - `normalize-data-structure-accessors`
 - `require-trailing-optional-defaults`
+- `simplify-real-calls`
 
 `prefer-compound-assignments` rewrites safe self-assignment forms
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
