@@ -465,10 +465,30 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
         }
     }
 
-    if (localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
+    // Add `= undefined` to trailing params that have no default but follow a param that does.
+    // This enforces the rule that once any parameter has a default, all following ones must too.
+    const firstDefaultIndex = rewrittenSegments.findIndex((segment) => segment.includes("="));
+    if (firstDefaultIndex !== -1) {
+        let changed = false;
+        for (let i = firstDefaultIndex + 1; i < rewrittenSegments.length; i += 1) {
+            const segment = rewrittenSegments[i] ?? "";
+            if (!segment.includes("=")) {
+                const name = getIdentifierNameFromParameterSegment(segment);
+                if (name) {
+                    rewrittenSegments[i] = `${name} = undefined`;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed && localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
+            // Segments were rewritten only by adding undefined defaults; still need to produce edit.
+        } else if (!changed && localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
+            return null;
+        }
+    } else if (localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
         return null;
     }
-
     const newParamsText = rewrittenSegments.join(", ");
     const headText = sourceText.slice(functionStart, parameterRange.start);
     const tailText = sourceText.slice(parameterRange.end, functionEnd);

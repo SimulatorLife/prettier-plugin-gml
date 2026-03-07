@@ -13,6 +13,29 @@ function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
 }
 
+/**
+ * Render a simplified AST node (expression or simple statement) back to source text.
+ * Falls back to `printExpression` for expression nodes; handles ReturnStatement and
+ * ExpressionStatement for statement-level rewrites produced by the logical optimizer.
+ */
+function printAstNode(node: any, sourceText: string): string {
+    if (!node || typeof node !== "object") {
+        return "";
+    }
+
+    if (node.type === "ReturnStatement") {
+        const arg = node.argument ? printExpression(node.argument, sourceText) : "";
+        return arg ? `return ${arg};` : "return;";
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expr = printExpression(node.expression, sourceText);
+        return expr ? `${expr};` : "";
+    }
+
+    return printExpression(node, sourceText);
+}
+
 function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
     const sourceText = context.sourceCode.text;
     const rawStart = Core.getNodeStartIndex(node as any);
@@ -96,7 +119,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
 
                     // Compare printed version of original vs cloned.
                     const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
+                    const newText = printAstNode(normalizationResult.ast, context.sourceCode.text);
 
                     // Check if changed.
                     // Note: `printExpression` might output different whitespace than source even if AST is same.
