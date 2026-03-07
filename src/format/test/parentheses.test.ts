@@ -126,6 +126,13 @@ void test("reformats logical comparisons without introducing synthetic parenthes
     assert.strictEqual(formatted, "if (i > 0 and i < 1) {\n    do_thing();\n}\n");
 });
 
+void test("wraps comparison operands for logical or clauses", async () => {
+    const source = "if (h < 0 or h > 1) {\n    exit;\n}\n";
+    const formatted = await Format.format(source);
+
+    assert.strictEqual(formatted, "if ((h < 0) or (h > 1)) {\n    exit;\n}\n");
+});
+
 void test("preserves explicit comparator grouping inside logical expressions", async () => {
     const source = "var myVal = (h < 0) or (h > 1);\n";
     const formatted = await Format.format(source);
