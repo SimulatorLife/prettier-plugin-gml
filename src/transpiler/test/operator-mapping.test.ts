@@ -4,8 +4,8 @@ import { describe, it } from "node:test";
 import { mapBinaryOperator, mapUnaryOperator } from "../src/emitter/operator-mapping.js";
 
 void describe("mapBinaryOperator", () => {
-    void it("maps GML div operator to JavaScript division", () => {
-        assert.strictEqual(mapBinaryOperator("div"), "/");
+    void it("passes through the GML div operator unchanged (div is lowered in the emitter, not here)", () => {
+        assert.strictEqual(mapBinaryOperator("div"), "div");
     });
 
     void it("maps GML mod operator to JavaScript modulo", () => {
