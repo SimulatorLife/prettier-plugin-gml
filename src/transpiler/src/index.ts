@@ -6,4 +6,11 @@ export const Transpiler = Object.freeze({
     ...Emitter
 });
 
-export type { GmlTranspiler, ScriptPatch, TranspilerDependencies, TranspileScriptRequest } from "./api/index.js";
+export type {
+    EventPatch,
+    GmlTranspiler,
+    ScriptPatch,
+    TranspileEventRequest,
+    TranspilerDependencies,
+    TranspileScriptRequest
+} from "./api/index.js";
