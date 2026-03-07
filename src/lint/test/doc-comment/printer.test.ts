@@ -91,3 +91,32 @@ void test("collectAdjacentLeadingSourceLineComments gathers contiguous source li
 
     assert.deepStrictEqual(lines, ["// first", "// second"]);
 });
+
+void test("collectAdjacentLeadingSourceLineComments stops at double blank line", () => {
+    const sourceText = ["// far away", "", "", "// close", "function go() {}"].join("\n");
+    const node = { start: { index: sourceText.indexOf("function") } };
+
+    const lines = Lint.collectAdjacentLeadingSourceLineComments(node, {}, sourceText);
+
+    assert.deepStrictEqual(lines, ["// close"]);
+});
+
+void test("collectLeadingProgramLineComments stops at double blank line", () => {
+    const sourceText = "// far\n\n\n// close\nfunction go() {}";
+    const farCommentEnd = "// far".length;
+    const closeCommentStart = sourceText.indexOf("// close");
+    const closeCommentEnd = closeCommentStart + "// close".length;
+    const nodeStart = sourceText.indexOf("function");
+
+    const programNode = {
+        comments: [
+            createLineComment("// far", 0, farCommentEnd),
+            createLineComment("// close", closeCommentStart, closeCommentEnd)
+        ]
+    };
+    const node = { start: { index: nodeStart } };
+
+    const lines = Lint.collectLeadingProgramLineComments(node, programNode, {}, sourceText);
+
+    assert.deepStrictEqual(lines, ["// close"]);
+});
