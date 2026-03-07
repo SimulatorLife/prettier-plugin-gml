@@ -18,12 +18,8 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
-import {
-    buildPrintableDocCommentLines,
-    printComment,
-    printDanglingComments,
-    printDanglingCommentsAsGroup
-} from "../comments/index.js";
+import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/comment-printer.js";
+import { buildPrintableDocCommentLines } from "../comments/description-doc.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle,

@@ -12,4 +12,8 @@ void test("comments barrel excludes doc-like content normalizers", () => {
         !("normalizeDocLikeLineComment" in Comments),
         "format comments barrel must not expose content-normalization helpers"
     );
+    assert.ok(
+        !("buildPrintableDocCommentLines" in Comments),
+        "format comments barrel must not expose doc-comment conversion internals"
+    );
 });
