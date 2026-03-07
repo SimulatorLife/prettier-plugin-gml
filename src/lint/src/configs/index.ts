@@ -22,6 +22,7 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",
     "gml/no-empty-regions": "warn",
+    "gml/no-scientific-notation": "warn",
     "gml/no-unnecessary-string-interpolation": "warn",
     "gml/remove-default-comments": "warn",
     "gml/normalize-doc-comments": "warn",

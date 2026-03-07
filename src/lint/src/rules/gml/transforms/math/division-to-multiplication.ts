@@ -83,6 +83,12 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
             return null;
         }
 
+        // Prevent conversions where the resulting multiplier would itself be too
+        // small to represent as a plain decimal GML literal (e.g. 1e-11).
+        if (Math.abs(reciprocal) < MIN_SAFE_DIVISOR) {
+            return null;
+        }
+
         return reciprocal;
     }
 
