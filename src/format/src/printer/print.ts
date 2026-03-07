@@ -2231,8 +2231,8 @@ function hasCommentBetweenStatements(leftNode, rightNode, originalText: string):
         return false;
     }
 
-    const betweenText = new Set(originalText.slice(leftEndIndex + 1, rightStartIndex));
-    return betweenText.has("//") || betweenText.has("/*");
+    const betweenText = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    return /\/\/|\/\*/u.test(betweenText);
 }
 
 function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string): boolean {
@@ -2246,7 +2246,7 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
         return false;
     }
 
-    const betweenText = originalText.slice(leftEndIndex + 1, rightStartIndex);
+    const betweenText = originalText.slice(leftEndIndex, rightStartIndex);
     if (betweenText.length === 0) {
         return false;
     }
@@ -2462,8 +2462,11 @@ function handleIntermediateTrailingSpacing({
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
 
+        const shouldApplyGenericSourceBlankLineSpacing =
+            !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
+
         if (
-            (!nextNodeHasLeadingComment && !nextNodeHasCommentGap) ||
+            shouldApplyGenericSourceBlankLineSpacing ||
             nextNodeHasBlockCommentImmediatelyBefore ||
             shouldPreserveSourceGapBeforeDocCommentedNode
         ) {
