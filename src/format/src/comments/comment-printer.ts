@@ -314,19 +314,11 @@ function printComment(commentPath, options) {
             normalized = normalized.replace(/^[ \t]+/, "");
             const normalizedTrimmedStart = normalized.trimStart();
             const isMethodListCommentLine = /^\/\/\s+\.[A-Za-z_]/.test(normalizedTrimmedStart);
-            const preservedCommentShouldPrependBlankLine =
-                comment._gmlForceLeadingBlankLine === true ||
-                (allowSourceDrivenBlankLinePrepend &&
-                    !hasLeadingBlankLineInWhitespace(comment) &&
-                    hasSimpleLeadingBlankLineInSource(comment, options?.originalText));
-            const normalizedCommentShouldPrependBlankLine =
-                comment._gmlForceLeadingBlankLine === true ||
-                (allowSourceDrivenBlankLinePrepend && hasLeadingBlankLineInSource(comment, options?.originalText));
             const shouldPrependBlankLine =
                 !isMethodListCommentLine &&
-                (preserveRawLineComment
-                    ? preservedCommentShouldPrependBlankLine
-                    : normalizedCommentShouldPrependBlankLine);
+                (comment._gmlForceLeadingBlankLine === true ||
+                    (allowSourceDrivenBlankLinePrepend &&
+                        hasSourceDrivenBlankLineBeforeComment(comment, preserveRawLineComment, options?.originalText)));
             if (shouldPrependBlankLine) {
                 return [hardline, normalized];
             }
@@ -483,6 +475,24 @@ function hasTopLevelDocLineImmediatelyBeforeComment(comment, originalText): bool
     }
 
     return false;
+}
+
+/**
+ * Returns true if the source text has a blank line immediately before this
+ * comment. When `preserveRawLineComment` is true the check is stricter: the
+ * blank line must be present in the raw leading whitespace *and* not already
+ * represented by prettier's internal whitespace tracking, so we skip any
+ * decorative doc-line run only in the permissive (normalized) path.
+ */
+function hasSourceDrivenBlankLineBeforeComment(
+    comment: unknown,
+    preserveRawLineComment: boolean,
+    originalText: string | undefined
+): boolean {
+    if (preserveRawLineComment) {
+        return !hasLeadingBlankLineInWhitespace(comment) && hasSimpleLeadingBlankLineInSource(comment, originalText);
+    }
+    return hasLeadingBlankLineInSource(comment, originalText);
 }
 
 function hasLeadingBlankLineInSource(comment, originalText) {
