@@ -1,0 +1,99 @@
+import { Core } from "@gml-modules/core";
+
+const MEMBER_INDEX_ACCESSORS = new Set(["[", "[|", "[?", "[#", "[@", "[$"]);
+
+/**
+ * Reads the original source text associated with an AST node range.
+ */
+export function readNodeText(sourceText: string, node: any): string | null {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const start = Core.getNodeStartIndex(node);
+    const end = Core.getNodeEndIndex(node);
+    if (typeof start === "number" && typeof end === "number") {
+        return sourceText.slice(start, end);
+    }
+    return null;
+}
+
+/**
+ * Produces a minimal expression string for lint autofixes.
+ */
+export function printExpression(node: any, sourceText: string): string {
+    if (!node || typeof node !== "object") {
+        return "";
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            return String(node.value);
+        }
+        case "Identifier": {
+            return node.name;
+        }
+        case "ParenthesizedExpression": {
+            const inner = node.expression ? printExpression(node.expression, sourceText) : "";
+            return `(${inner})`;
+        }
+        case "BinaryExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "LogicalExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        case "UnaryExpression": {
+            const arg = printExpression(node.argument, sourceText);
+            if (node.prefix) {
+                return `${node.operator}${arg}`;
+            }
+            return `${arg}${node.operator}`;
+        }
+        case "CallExpression": {
+            const callee = printExpression(node.object || node.callee, sourceText);
+            const args = Array.isArray(node.arguments)
+                ? node.arguments.map((argument: any) => printExpression(argument, sourceText)).join(", ")
+                : "";
+            return `${callee}(${args})`;
+        }
+        case "MemberDotExpression": {
+            const object = printExpression(node.object, sourceText);
+            const property = printExpression(node.property, sourceText);
+            return `${object}.${property}`;
+        }
+        case "MemberIndexExpression": {
+            const object = printExpression(node.object, sourceText);
+            const accessor =
+                typeof node.accessor === "string" && MEMBER_INDEX_ACCESSORS.has(node.accessor) ? node.accessor : "[";
+            let index: string;
+            if (Array.isArray(node.property)) {
+                index = node.property.map((entry: any) => printExpression(entry, sourceText)).join(", ");
+            } else if (node.index) {
+                index = printExpression(node.index, sourceText);
+            } else {
+                index = printExpression(node.property, sourceText);
+            }
+            return `${object}${accessor}${index}]`;
+        }
+        case "ConditionalExpression": {
+            const test = printExpression(node.test, sourceText);
+            const consequent = printExpression(node.consequent, sourceText);
+            const alternate = printExpression(node.alternate, sourceText);
+            return `${test} ? ${consequent} : ${alternate}`;
+        }
+        case "AssignmentExpression": {
+            const left = printExpression(node.left, sourceText);
+            const right = printExpression(node.right, sourceText);
+            return `${left} ${node.operator} ${right}`;
+        }
+        default: {
+            const text = readNodeText(sourceText, node);
+            return text || "";
+        }
+    }
+}
