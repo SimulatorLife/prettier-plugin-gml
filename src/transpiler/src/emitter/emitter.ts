@@ -307,6 +307,12 @@ export class GmlToJsEmitter {
         // Fall back to runtime evaluation
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
+        // GML's `div` operator performs integer division, truncating toward zero.
+        // Example: 7 div 2 = 3, -7 div 2 = -3.
+        // JavaScript's `/` yields floating-point results, so we use Math.trunc.
+        if (ast.operator === "div") {
+            return `Math.trunc(${left} / ${right})`;
+        }
         const op = mapBinaryOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }
