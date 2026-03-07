@@ -9,12 +9,12 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { buildProjectIndex } from "../src/project-index/index.js";
-import { getFormat } from "./format-loader.js";
 import {
     createAssetCollisionProject,
     createAssetRenameProject,
     createTempProjectWorkspace
 } from "./identifier-case-asset-helpers.js";
+import { getFormat } from "./identifier-case-test-helpers.js";
 
 async function createAssetReservedProject() {
     const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-reserved-");
