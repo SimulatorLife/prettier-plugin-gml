@@ -220,7 +220,47 @@ void test("does not drop slash-only line after decorative block comment", async 
 
     const formatted = await Format.format(source);
 
-    assert.match(formatted, /^\s*\/{21,}\s*$/mu);
+    const slashOnlyBannerLines = formatted.match(/^\s*\/{21,}\s*$/gmu) ?? [];
+    assert.equal(slashOnlyBannerLines.length, 1);
+});
+
+void test("does not duplicate same-line slash suffix after decorative block comments", async () => {
+    const source = [
+        "/*////////////////////////////////////////////////////////////////",
+        "    Orthogonalize the P2 direction to the vector from P1 to P3",
+        "*/////////////////////////////////////////////////////////////////",
+        "",
+        "/*////////////////////////////////////////////////////////////////////////////////////////////////////////",
+        "    The idea behind the algorithm is to imagine a sphere placed at P1 with radius of the first bone, and",
+        "    another sphere at P3 with the radius of the second bone. The intersection between these spheres is a",
+        "    circle representing all the possible placements of P2.",
+        "    The first step is to find the middle point of this circle, and the radius of this intersection circle",
+        "*/////////////////////////////////////////////////////////////////////////////////////////////////////////",
+        "var p1_p3sqr = p1_p3 * p1_p3",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source, { printWidth: 120 });
+
+    assert.equal(
+        formatted,
+        [
+            "/*////////////////////////////////////////////////////////////////",
+            "    Orthogonalize the P2 direction to the vector from P1 to P3",
+            "*/////////////////////////////////////////////////////////////////",
+            "",
+            "/*////////////////////////////////////////////////////////////////////////////////////////////////////////",
+            "    The idea behind the algorithm is to imagine a sphere placed at P1 with radius of the first bone, and",
+            "    another sphere at P3 with the radius of the second bone. The intersection between these spheres is a",
+            "    circle representing all the possible placements of P2.",
+            "    The first step is to find the middle point of this circle, and the radius of this intersection circle",
+            "*/////////////////////////////////////////////////////////////////////////////////////////////////////////",
+            "var p1_p3sqr = p1_p3 * p1_p3;",
+            ""
+        ].join("\n")
+    );
+    const slashOnlyBannerLines = formatted.match(/^\s*\/{21,}\s*$/gmu) ?? [];
+    assert.equal(slashOnlyBannerLines.length, 0);
 });
 
 void test("does not convert adjacent multi-line block comment blocks into line comments", async () => {
@@ -402,7 +442,6 @@ void test("normalizes top-level decorative banner indentation", async () => {
             "/*////////////////////////////////////////////////////",
             "    Banner docs",
             "*/////////////////////////////////////////////////////",
-            "////////////////////////////////////////////////////",
             "var value = 1;",
             ""
         ].join("\n")
