@@ -219,25 +219,6 @@ export function isCallbackArgument(argument: any): boolean {
 }
 
 /**
- * Determines if a call expression is a numeric call expression.
- *
- * Numeric call expressions are calls to numeric functions like sqr(), sqrt(), etc.
- */
-export function isNumericCallExpression(node: any): boolean {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const calleeName = Core.getIdentifierText(node.object);
-    if (typeof calleeName !== STRING_TYPE) {
-        return false;
-    }
-
-    const normalized = calleeName.toLowerCase();
-    return normalized === "sqr" || normalized === "sqrt";
-}
-
-/**
  * Determines if a node represents a numeric computation.
  */
 export function isNumericComputationNode(node: any): boolean {
