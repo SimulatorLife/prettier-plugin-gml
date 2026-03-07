@@ -7,6 +7,10 @@ const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqu
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;
     denyPaths?: Iterable<unknown>;
+    allow?: Iterable<unknown>;
+    deny?: Iterable<unknown>;
+    includePaths?: Iterable<unknown>;
+    excludePaths?: Iterable<unknown>;
     allowsPath?: (candidate: string) => boolean;
     allowsDirectory?: (candidate: string) => boolean;
 }
@@ -59,15 +63,15 @@ export function createWorkflowPathFilter(
         typeof filters.allowsPath === "function"
     ) {
         return {
-            allowList: normalizeWorkflowPathList(filters.allowPaths),
-            denyList: normalizeWorkflowPathList(filters.denyPaths),
+            allowList: resolveWorkflowPathListFromInputs(filters, "allow"),
+            denyList: resolveWorkflowPathListFromInputs(filters, "deny"),
             allowsPath: filters.allowsPath,
             allowsDirectory: filters.allowsDirectory
         };
     }
 
-    const allowList = normalizeWorkflowPathList(filters?.allowPaths);
-    const denyList = normalizeWorkflowPathList(filters?.denyPaths);
+    const allowList = resolveWorkflowPathListFromInputs(filters, "allow");
+    const denyList = resolveWorkflowPathListFromInputs(filters, "deny");
     const allows = (candidate, { treatAsDirectory = false } = {}) => {
         if (typeof candidate !== "string") {
             return false;
@@ -97,6 +101,37 @@ export function createWorkflowPathFilter(
         allowsPath,
         allowsDirectory
     };
+}
+
+interface WorkflowPathAliasRegistry {
+    allow: Array<keyof WorkflowPathFilterOptions>;
+    deny: Array<keyof WorkflowPathFilterOptions>;
+}
+
+const WORKFLOW_PATH_ALIAS_REGISTRY: WorkflowPathAliasRegistry = {
+    allow: ["allowPaths", "allow", "includePaths"],
+    deny: ["denyPaths", "deny", "excludePaths"]
+};
+
+/**
+ * Resolve workflow allow/deny path lists from supported input aliases.
+ *
+ * This keeps the path-filter surface stable for existing callers while also
+ * supporting common workflow input names used by CI pipelines.
+ */
+export function resolveWorkflowPathListFromInputs(
+    filters: WorkflowPathFilterOptions | null | undefined,
+    kind: keyof WorkflowPathAliasRegistry
+): Array<string> {
+    const aliases = WORKFLOW_PATH_ALIAS_REGISTRY[kind];
+    const mergedCandidates: Array<unknown> = [];
+
+    for (const alias of aliases) {
+        const values = filters?.[alias];
+        mergedCandidates.push(...toArray(values));
+    }
+
+    return normalizeWorkflowPathList(mergedCandidates);
 }
 
 /**
