@@ -83,4 +83,32 @@ void describe("resolveCliVersion", { concurrency: 1 }, () => {
             }
         }
     });
+
+    void test("resolveCliVersion skips blank-string and undefined env candidates and falls back to package.json", () => {
+        const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
+        const originalNpmVersion = process.env.npm_package_version;
+
+        try {
+            process.env.PRETTIER_PLUGIN_GML_VERSION = "   ";
+            process.env.npm_package_version = "";
+
+            // Both env vars are blank/empty, so the version must come from package.json
+            const version = resolveCliVersion();
+            assert.notEqual(version, "");
+            assert.notEqual(version, "   ");
+            assert.equal(version, cliPackageVersion);
+        } finally {
+            if (originalEnv === undefined) {
+                delete process.env.PRETTIER_PLUGIN_GML_VERSION;
+            } else {
+                process.env.PRETTIER_PLUGIN_GML_VERSION = originalEnv;
+            }
+
+            if (originalNpmVersion === undefined) {
+                delete process.env.npm_package_version;
+            } else {
+                process.env.npm_package_version = originalNpmVersion;
+            }
+        }
+    });
 });
