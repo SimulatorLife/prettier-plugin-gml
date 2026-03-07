@@ -4,7 +4,6 @@ import {
     applyPatchInternal,
     calculateTimingMetrics,
     captureSnapshot,
-    collectPatchDurations,
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
@@ -40,6 +39,22 @@ const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
 const DEFAULT_MAX_ERROR_HISTORY_SIZE = 100;
 
+function getRuntimeFallbackErrorMessage(error: unknown): string {
+    if (error === null || error === undefined) {
+        return UNKNOWN_ERROR_MESSAGE;
+    }
+
+    if (typeof error === "number" || typeof error === "boolean") {
+        return String(error);
+    }
+
+    return "Non-Error object thrown";
+}
+
+function getRuntimeErrorMessage(error: unknown): string {
+    return Core.getErrorMessageOrFallback(error, { fallback: UNKNOWN_ERROR_MESSAGE });
+}
+
 export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): RuntimeWrapper {
     const baseRegistry = createRegistry(options.registry);
 
@@ -59,19 +74,11 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     const onChange = options.onChange;
 
     function recordError(patch: Patch, category: PatchErrorCategory, error: unknown): void {
-        let errorMessage: string;
-        if (Core.isErrorLike(error)) {
-            errorMessage = error.message;
-        } else if (error === null || error === undefined) {
-            errorMessage = UNKNOWN_ERROR_MESSAGE;
-        } else if (typeof error === "string") {
-            errorMessage = error;
-        } else if (typeof error === "number" || typeof error === "boolean") {
-            errorMessage = String(error);
-        } else {
-            errorMessage = "Non-Error object thrown";
-        }
-        const stackTrace = Core.isErrorLike(error) && error.stack ? error.stack : undefined;
+        const errorMessage = Core.getErrorMessage(error, { fallback: getRuntimeFallbackErrorMessage });
+        const stackTrace =
+            Core.isErrorLike(error) && typeof (error as { stack?: unknown }).stack === "string"
+                ? (error as { stack: string }).stack
+                : undefined;
 
         state.errorHistory.push({
             patchId: patch.id,
@@ -174,7 +181,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             return result;
         } catch (error) {
             recordError(patch, "application", error);
-            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = getRuntimeErrorMessage(error);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -303,7 +310,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
 
-            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = getRuntimeErrorMessage(error);
 
             state.patchHistory.push({
                 patch: {
@@ -386,7 +393,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 }
             } catch (error) {
                 recordError(patch, "validation", error);
-                const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+                const message = getRuntimeErrorMessage(error);
                 return {
                     success: false,
                     error: message,
@@ -424,7 +431,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 state.undoStack.pop();
             }
 
-            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = getRuntimeErrorMessage(error);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
@@ -496,12 +503,15 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
 
         const uniqueIds = new Set<string>();
+        const durations: Array<number> = [];
 
         for (const entry of state.patchHistory) {
             switch (entry.action) {
                 case "apply": {
                     stats.appliedPatches++;
-
+                    if (typeof entry.durationMs === "number") {
+                        durations.push(entry.durationMs);
+                    }
                     break;
                 }
                 case "undo": {
@@ -536,7 +546,6 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             }
         }
 
-        const durations = collectPatchDurations(state.patchHistory);
         const timingMetrics = calculateTimingMetrics(durations);
 
         if (timingMetrics) {

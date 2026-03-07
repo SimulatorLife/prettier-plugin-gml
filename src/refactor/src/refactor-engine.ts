@@ -9,6 +9,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import * as HotReload from "./hot-reload.js";
 import { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -21,6 +22,8 @@ import {
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
+    type ExecuteLoopLengthHoistingCodemodRequest,
+    type ExecuteLoopLengthHoistingCodemodResult,
     type ExecuteRenameRequest,
     type ExecuteRenameResult,
     type HotReloadCascadeResult,
@@ -34,6 +37,7 @@ import {
     type RefactorEngineDependencies,
     type RefactorProjectAnalysisProvider,
     type RenameImpactAnalysis,
+    type RenameImpactGraph,
     type RenamePlanSummary,
     type RenameRequest,
     type SymbolLocation,
@@ -45,8 +49,19 @@ import {
     type WorkspaceReadFile
 } from "./types.js";
 import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
-import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
-import { getWorkspaceArrays, type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
+import {
+    assertRenameRequest,
+    assertValidIdentifierName,
+    extractSymbolName,
+    tryNormalizeIdentifierName
+} from "./validation-utils.js";
+import {
+    getWorkspaceArrays,
+    type GroupedTextEdits,
+    isWorkspaceEditLike,
+    type TextEdit,
+    WorkspaceEdit
+} from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -445,13 +460,8 @@ export class RefactorEngine {
                 continue;
             }
 
-            try {
-                const normalizedNewName = assertValidIdentifierName(rename.newName);
-                if (!newNameToSymbols.has(normalizedNewName)) {
-                    newNameToSymbols.set(normalizedNewName, []);
-                }
-                newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
-            } catch {
+            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+            if (!normalizedNewName) {
                 // Skip invalid identifier names (e.g., reserved keywords, names with
                 // illegal characters) because they will be reported by the per-rename
                 // validation pass below. Continuing here allows the batch validator
@@ -459,6 +469,10 @@ export class RefactorEngine {
                 // cascading failures from syntactically invalid targets.
                 continue;
             }
+            if (!newNameToSymbols.has(normalizedNewName)) {
+                newNameToSymbols.set(normalizedNewName, []);
+            }
+            newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
         }
 
         // Detect conflicting renames (multiple symbols renamed to the same name)
@@ -504,15 +518,9 @@ export class RefactorEngine {
                 oldNames.add(oldName);
             }
 
-            try {
-                const normalizedNewName = assertValidIdentifierName(rename.newName);
+            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+            if (normalizedNewName) {
                 newNames.add(normalizedNewName);
-            } catch {
-                // Skip invalid identifier names during the collection phase.
-                // These will be caught and reported as errors in the individual
-                // rename validation pass, so continuing here lets the confusion-
-                // detection logic operate on the well-formed subset without failing.
-                continue;
             }
         }
 
@@ -523,23 +531,22 @@ export class RefactorEngine {
                 continue;
             }
 
-            try {
-                const normalizedNewName = assertValidIdentifierName(rename.newName);
-
-                // Warn if this new name matches any old name in the batch (potential confusion)
-                // but exclude the case where it's the same symbol (already caught as same-name rename)
-                if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
-                    warnings.push(
-                        `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
-                    );
-                }
-            } catch {
+            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+            if (!normalizedNewName) {
                 // Skip invalid identifier names during the confusion-detection pass.
                 // Errors for these names will be surfaced in the main validation
                 // results, so continuing here prevents duplicate error reporting while
                 // still allowing the logic to warn about valid renames that might shadow
                 // original symbol names.
                 continue;
+            }
+
+            // Warn if this new name matches any old name in the batch (potential confusion)
+            // but exclude the case where it's the same symbol (already caught as same-name rename)
+            if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
+                warnings.push(
+                    `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
+                );
             }
         }
 
@@ -648,7 +655,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -753,7 +760,7 @@ export class RefactorEngine {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
         const { dryRun = false, readFile, writeFile } = opts;
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
@@ -1026,6 +1033,70 @@ export class RefactorEngine {
     }
 
     /**
+     * Execute the loop-length hoisting codemod across the provided files.
+     *
+     * The engine parses each file exactly once, collects all codemod rewrites into a
+     * single workspace transaction, and applies them atomically via applyWorkspaceEdit.
+     */
+    async executeLoopLengthHoistingCodemod(
+        request: ExecuteLoopLengthHoistingCodemodRequest
+    ): Promise<ExecuteLoopLengthHoistingCodemodResult> {
+        const { filePaths, readFile, writeFile, options, dryRun = false } = request ?? {};
+
+        if (!Array.isArray(filePaths) || filePaths.length === 0) {
+            throw new TypeError("executeLoopLengthHoistingCodemod requires a non-empty filePaths array");
+        }
+
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
+        });
+        Core.assertFunction(writeFile, "writeFile", {
+            errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
+        });
+
+        const uniqueFilePaths = [...new Set(filePaths)];
+
+        const workspace = new WorkspaceEdit();
+        const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
+
+        const codemodResults = await Promise.all(
+            uniqueFilePaths.map(async (filePath) => {
+                Core.assertNonEmptyString(filePath, {
+                    errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
+                });
+
+                const sourceText = await readFile(filePath);
+                return {
+                    filePath,
+                    sourceText,
+                    result: applyLoopLengthHoistingCodemod(sourceText, options)
+                };
+            })
+        );
+
+        for (const { filePath, sourceText, result } of codemodResults) {
+            if (!result.changed) {
+                continue;
+            }
+
+            workspace.addEdit(filePath, 0, sourceText.length, result.outputText);
+            changedFiles.push({
+                path: filePath,
+                appliedEditCount: result.appliedEdits.length,
+                diagnosticOffsets: [...result.diagnosticOffsets]
+            });
+        }
+
+        const applied = await this.applyWorkspaceEdit(workspace, {
+            readFile,
+            writeFile,
+            dryRun
+        });
+
+        return { workspace, applied, changedFiles };
+    }
+
+    /**
      * Prepare a rename plan with validation and optional hot reload checks.
      * Bundles the planning, validation, and impact analysis phases so callers
      * can present a complete preview before writing any files.
@@ -1293,7 +1364,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -1684,7 +1755,7 @@ export class RefactorEngine {
      *     }
      * }
      */
-    async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
+    async computeRenameImpactGraph(symbolId: string): Promise<RenameImpactGraph> {
         return await HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
@@ -1734,7 +1805,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }

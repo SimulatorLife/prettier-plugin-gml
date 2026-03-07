@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/prefer-is-undefined-check": "error"
+  }
+}

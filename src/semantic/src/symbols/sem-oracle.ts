@@ -74,6 +74,14 @@ export interface CallTargetAnalyzer {
 }
 
 /**
+ * Default set of scope kinds that represent an object instance (self) context.
+ * Identifiers that cannot be resolved as locals, builtins, or scripts inside
+ * one of these scopes are classified as `self_field` so the transpiler can
+ * emit `self.<name>` instead of a bare identifier.
+ */
+const DEFAULT_SELF_CONTEXT_SCOPE_KINDS: ReadonlySet<string> = new Set(["object_event", "object_body"]);
+
+/**
  * Basic semantic oracle implementation that bridges the scope tracker and
  * transpiler. Provides identifier classification and symbol resolution using
  * scope chain lookups without requiring full project analysis.
@@ -90,6 +98,7 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
     private readonly tracker: ScopeTracker | null;
     private readonly builtinNames: Set<string>;
     private readonly scriptNames: Set<string>;
+    private readonly selfContextScopeKinds: ReadonlySet<string>;
 
     /**
      * @param tracker Optional scope tracker instance. If null, falls back to
@@ -98,15 +107,42 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
      *                     classification. Defaults to empty set.
      * @param scriptNames Set of known script names for script classification
      *                    and SCIP symbol generation. Defaults to empty set.
+     * @param selfContextScopeKinds Set of scope kinds that indicate an object
+     *                              instance (self) context. When an identifier
+     *                              cannot be resolved in the scope chain and the
+     *                              current scope stack contains one of these
+     *                              kinds, the identifier is classified as
+     *                              `self_field`. Defaults to
+     *                              `{"object_event", "object_body"}`.
      */
     constructor(
         tracker: ScopeTracker | null = null,
         builtinNames: Set<string> = new Set(),
-        scriptNames: Set<string> = new Set()
+        scriptNames: Set<string> = new Set(),
+        selfContextScopeKinds: ReadonlySet<string> = DEFAULT_SELF_CONTEXT_SCOPE_KINDS
     ) {
         this.tracker = tracker;
         this.builtinNames = builtinNames;
         this.scriptNames = scriptNames;
+        this.selfContextScopeKinds = selfContextScopeKinds;
+    }
+
+    /**
+     * Returns true when the current scope stack contains at least one scope
+     * whose kind is listed in `selfContextScopeKinds`. This indicates that
+     * unresolved identifiers should be treated as instance (self) fields.
+     */
+    private isInSelfContext(): boolean {
+        if (!this.tracker) {
+            return false;
+        }
+        const stack = this.tracker.getScopeStack();
+        for (let i = stack.length - 1; i >= 0; i--) {
+            if (this.selfContextScopeKinds.has(stack[i].kind)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private resolveKnownNameKind(name: string): "builtin" | "script" | null {
@@ -130,11 +166,19 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
      * 2. Built-in functions (matched against known builtin set)
      * 3. Script names (matched against provided script set)
      * 4. Locally declared variables (resolved in scope chain)
-     * 5. Default to "local" for unresolved identifiers
+     * 5. Unresolved identifiers inside an object-event scope → `self_field`
+     * 6. Default to "local" for all other unresolved identifiers
      *
-     * Note: This implementation does not yet distinguish "self_field" or
-     * "other_field" kinds. Those require richer context from the parser or
-     * project index and are deferred to future iterations.
+     * Step 5 handles the common GML pattern where an object event accesses an
+     * instance variable by bare name (e.g., `hp -= 1` inside `Step_0`). Because
+     * these variables are never declared as locals, the scope-chain lookup fails
+     * and the oracle falls back to `self_field`, directing the transpiler to emit
+     * `self.hp -= 1` instead of a bare `hp -= 1`.
+     *
+     * Note: `other_field` classification is not yet implemented. Access through
+     * the `other` keyword is syntactically represented as a member expression
+     * (`other.x`) by the parser, so the transpiler can handle it structurally
+     * without oracle involvement.
      */
     kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind {
         if (!node?.name) {
@@ -158,6 +202,13 @@ export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyz
                     return "global_field";
                 }
                 return "local";
+            }
+
+            // Identifier not declared in the local scope chain. If we are inside
+            // an object-event scope, treat it as an instance (self) field so the
+            // transpiler emits `self.<name>` rather than a bare identifier.
+            if (this.isInSelfContext()) {
+                return "self_field";
             }
         }
 

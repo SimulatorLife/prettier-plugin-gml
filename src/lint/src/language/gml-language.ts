@@ -2,7 +2,7 @@ import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { SourceCode } from "eslint";
 
-import { normalizeLintFilePath } from "./path-normalization.js";
+import { normalizeLintFilePath } from "../services/path-normalization.js";
 import {
     createLimitedRecoveryProjection,
     type InsertedArgumentSeparatorRecovery,
@@ -312,34 +312,7 @@ function projectLocationsToOriginalSource(
     sourceText: string,
     insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>
 ): void {
-    const childKeys = [
-        "body",
-        "arguments",
-        "object",
-        "left",
-        "right",
-        "expression",
-        "expressions",
-        "declarations",
-        "declaration",
-        "init",
-        "test",
-        "update",
-        "consequent",
-        "alternate",
-        "cases",
-        "statements",
-        "property",
-        "properties",
-        "elements",
-        "comments",
-        "tokens",
-        "params",
-        "id",
-        "key",
-        "value"
-    ] as const;
-
+    const skippedChildKeys = new Set(["start", "end", "loc", "range", "parent", "next", "prev", "previous"]);
     const seen = new Set<object>();
 
     const visit = (candidate: unknown): void => {
@@ -365,6 +338,10 @@ function projectLocationsToOriginalSource(
         }
 
         const record = candidate;
+        if (typeof record.type !== "string") {
+            return;
+        }
+
         const startLocation = toIndexedLocation(record.start);
         if (typeof startLocation?.index === "number") {
             startLocation.index = mapRecoveredIndexToOriginal(startLocation.index, insertions);
@@ -377,10 +354,11 @@ function projectLocationsToOriginalSource(
 
         ensureRangeAndLocFromStartEnd(record, sourceText);
 
-        for (const key of childKeys) {
-            if (Object.hasOwn(record, key)) {
-                visit(record[key]);
+        for (const [key, value] of Object.entries(record)) {
+            if (skippedChildKeys.has(key)) {
+                continue;
             }
+            visit(value);
         }
     };
 
@@ -500,7 +478,7 @@ export const gmlLanguage = Object.freeze({
             }
 
             const recoveryProjection = createLimitedRecoveryProjection(sourceText);
-            if (recoveryProjection.insertions.length === 0) {
+            if (recoveryProjection.insertions.length === 0 && recoveryProjection.parseSource === sourceText) {
                 const details = getErrorLineColumn(strictParseError);
                 return {
                     ok: false,

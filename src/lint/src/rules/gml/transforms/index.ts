@@ -1,16 +1,26 @@
-import { type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
-import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-import { stripCommentsTransform } from "./strip-comments.js";
+import { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
+import { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
+
+const { stripCommentsTransform } = Core;
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
  * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
+ *
+ * ORDER MATTERS:
+ * 1. `annotateStaticFunctionOverridesTransform` – must run first so that
+ *    `_overridesStaticFunction` annotations are present before any downstream
+ *    pass (e.g., `synthetic-comments.ts`) reads them.
+ * 2. `stripCommentsTransform` – removes comment nodes; must run before rules
+ *    that expect a clean comment-free AST.
+ * 3. `markCallsMissingArgumentSeparatorsTransform` – marks call-argument
+ *    separator gaps; depends on the AST being otherwise normalized.
  */
 const TRANSFORM_REGISTRY_ENTRIES = [
+    annotateStaticFunctionOverridesTransform,
     stripCommentsTransform,
-    enforceVariableBlockSpacingTransform,
     markCallsMissingArgumentSeparatorsTransform
 ] as const;
 
@@ -77,12 +87,12 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
+export { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
+export { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
-export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-export { stripCommentsTransform } from "./strip-comments.js";
-export { CommentTracker } from "./utils/comment-tracker.js";
+export { stripCommentsTransform };
+export { CommentTracker } from "./comments/comment-tracker.js";

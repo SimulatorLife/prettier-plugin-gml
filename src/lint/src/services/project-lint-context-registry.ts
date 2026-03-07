@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
 
-import { normalizeLintFilePath } from "../language/path-normalization.js";
 import type { GmlProjectContext, GmlProjectSettings } from "./index.js";
 import { isDirectoryExcludedBySegments } from "./path-boundary.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 import type { ProjectAnalysisProvider } from "./project-analysis-provider.js";
 import { resolveForcedProjectRoot, resolveNearestProjectRoot } from "./project-root.js";
 
@@ -29,16 +29,6 @@ function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider[
         },
         listIdentifierOccurrenceFiles(identifierName: string): ReadonlySet<string> {
             return snapshot.listIdentifierOccurrenceFiles(identifierName);
-        },
-        planFeatherRenames(
-            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>
-        ): ReadonlyArray<{
-            identifierName: string;
-            preferredReplacementName: string;
-            safe: boolean;
-            reason: string | null;
-        }> {
-            return snapshot.planFeatherRenames(requests);
         },
         assessGlobalVarRewrite(
             filePath: string | null,

@@ -1,3 +1,4 @@
+import * as CodemodsAPI from "./codemods/index.js";
 import * as HotReloadAPI from "./hot-reload.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as ProjectAnalysisProviderAPI from "./project-analysis-provider.js";
@@ -25,6 +26,7 @@ import { WorkspaceEdit } from "./workspace-edit.js";
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     ...ProjectAnalysisProviderAPI,
+    ...CodemodsAPI,
     WorkspaceEdit,
     SemanticQueryCache,
     RenameValidationCache,
@@ -46,6 +48,14 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
+export * as Codemods from "./codemods/index.js";
+export type {
+    LoopLengthHoistFunctionSuffixes,
+    LoopLengthHoistingCodemodOptions,
+    LoopLengthHoistingCodemodResult,
+    LoopLengthHoistingEdit
+} from "./codemods/loop-length-hoisting/index.js";
+export { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 export {
     checkHotReloadSafety,
     computeHotReloadCascade,
@@ -90,6 +100,8 @@ export type {
     DependentSymbol,
     EditValidator,
     ExecuteBatchRenameRequest,
+    ExecuteLoopLengthHoistingCodemodRequest,
+    ExecuteLoopLengthHoistingCodemodResult,
     ExecuteRenameRequest,
     ExecuteRenameResult,
     FileSymbol,
@@ -100,7 +112,12 @@ export type {
     HotReloadUpdate,
     HotReloadValidationOptions,
     KeywordProvider,
+    LoopLengthHoistingFileSummary,
     MaybePromise,
+    NamingCaseStyle,
+    NamingCategory,
+    NamingConventionPolicy,
+    NamingRuleConfig,
     OccurrenceKindValue,
     OccurrenceTracker,
     ParserBridge,
@@ -115,6 +132,8 @@ export type {
     RenameImpactSummary,
     RenamePlanSummary,
     RenameRequest,
+    ResolvedNamingConventionRules,
+    ResolvedNamingRule,
     SemanticAnalyzer,
     SemanticValidationResult,
     SymbolKindValue,

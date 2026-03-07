@@ -80,6 +80,20 @@ void test("omits redundant parentheses around grouped logical clauses when not n
     assert.equal(formatted, "if ((a and b) or (c and d)) {\n    exit;\n}\n");
 });
 
+void test("omits synthetic additive grouping on the left side of subtraction chains", async () => {
+    const source = "var x_body = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);\n";
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, "var x_body = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);\n");
+});
+
+void test("preserves explicit additive grouping nested inside multiplicative terms", async () => {
+    const source = "z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;\n";
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, "z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;\n");
+});
+
 void test("omits synthetic multiplicative parentheses in comparison operands", async () => {
     const source =
         "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {\n    exit;\n}\n";

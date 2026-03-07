@@ -61,11 +61,7 @@ const cachedReservedIdentifierNames = new Map<string, Set<string>>();
  * @returns {unknown} Cached identifier metadata payload.
  */
 export function getIdentifierMetadata() {
-    if (cachedIdentifierMetadata === null) {
-        cachedIdentifierMetadata = loadBundledIdentifierMetadata();
-    }
-
-    return cachedIdentifierMetadata;
+    return loadIdentifierMetadata();
 }
 
 /**
@@ -159,7 +155,11 @@ function defaultLoadIdentifierMetadata() {
 }
 
 function loadIdentifierMetadata() {
-    return safelyLoadIdentifierMetadata(metadataLoader);
+    if (cachedIdentifierMetadata === null) {
+        cachedIdentifierMetadata = safelyLoadIdentifierMetadata(metadataLoader);
+    }
+
+    return cachedIdentifierMetadata;
 }
 
 /**

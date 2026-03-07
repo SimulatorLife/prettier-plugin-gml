@@ -81,4 +81,46 @@ void describe("patch websocket server client cleanup", () => {
             await server.stop();
         }
     });
+
+    void it("logs structured close errors when client shutdown fails", async (testContext) => {
+        let serverSocket: WebSocketType;
+        const loggedErrors: Array<string> = [];
+
+        testContext.mock.method(console, "error", (...args: Array<unknown>): void => {
+            loggedErrors.push(args.map(String).join(" "));
+        });
+
+        const server = await startPatchWebSocketServer({
+            host: "127.0.0.1",
+            port: 0,
+            verbose: true,
+            onClientConnect: (_clientId, socket) => {
+                serverSocket = socket;
+            }
+        });
+
+        const client = new WebSocket(server.url);
+
+        try {
+            await waitForOpen(client);
+            assert.ok(serverSocket, "expected server-side socket to be available");
+
+            serverSocket.close = () => {
+                throw new Error("socket close crash");
+            };
+
+            serverSocket.emit("error", new Error("synthetic client error"));
+
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            const hasCloseFailureLog = loggedErrors.some(
+                (entry) =>
+                    entry.includes("[WebSocket] Failed to close client socket") && entry.includes("socket close crash")
+            );
+            assert.equal(hasCloseFailureLog, true, "expected close failure to be logged with fallback error details");
+        } finally {
+            client.terminate();
+            await server.stop();
+        }
+    });
 });

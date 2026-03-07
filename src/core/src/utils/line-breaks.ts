@@ -112,3 +112,27 @@ export function splitLines(text) {
 
     return text.split(LINE_BREAK_SPLIT_PATTERN);
 }
+
+/**
+ * Determine the dominant line ending used in {@link text}.
+ *
+ * Counts CRLF (`\r\n`) and bare LF (`\n`) occurrences separately and returns
+ * whichever appears more often. When counts are equal (or the text has no line
+ * breaks), `"\n"` is returned as the tie-break default.
+ *
+ * This is the canonical shared implementation for lint rules and codemods that
+ * must emit new text using the same line ending already present in the source
+ * file, rather than each workspace duplicating the logic independently.
+ *
+ * Architecture note: this utility belongs in `@gml-modules/core` because it is
+ * a pure text utility shared across the `lint` and `refactor` workspaces.
+ * (target-state.md §2.1)
+ *
+ * @param {string} text The source text to analyse.
+ * @returns {"\r\n" | "\n"} The dominant line ending sequence.
+ */
+export function dominantLineEnding(text: string): "\r\n" | "\n" {
+    const crlfCount = (text.match(/\r\n/g) ?? []).length;
+    const lfCount = (text.match(/(?<!\r)\n/g) ?? []).length;
+    return crlfCount > lfCount ? "\r\n" : "\n";
+}

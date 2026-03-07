@@ -10,23 +10,17 @@ Command-line interface for the prettier-plugin-gml project. Provides utilities f
 
 Contract migration mapping:
 
-- `globalvar` rewrite => `gml/no-globalvar`
-- loop-length hoist => `gml/prefer-loop-length-hoist`
+- `globalvar` rewrite => `gml/no-globalvar` (diagnostic only, no autofix)
+- loop-length hoist / hoistable loop accessors => `gml/prefer-hoistable-loop-accessors`
 - missing separators => `gml/require-argument-separators`
 - doc comment text normalization => `gml/normalize-doc-comments`
 
-To publish the current project-aware rule list derived from rule metadata (`meta.docs.requiresProjectContext`):
-
-```bash
-pnpm run generate:lint-rule-docs
-```
-
 ## Architecture Role: Composition Root
 
-The CLI wires formatter-only runtime integration and lint project-context settings.
+The CLI wires formatter-only runtime integration and lint execution.
 
 - `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` injects project-context settings consumed by `@gml-modules/lint` project-aware rules.
+- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
 - Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
 Ownership summary:
@@ -60,6 +54,29 @@ inconsistent multi-extension formatting behavior.
 **Environment Variables:**
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
+
+### `lint` - Lint and Auto-Fix GML Files
+
+Runs `@gml-modules/lint` over one or more paths, with optional ESLint autofix support.
+
+```bash
+pnpm run cli -- lint path/to/project
+pnpm run cli -- lint --fix path/to/project
+```
+
+**Options:**
+- `--fix` - Apply automatic fixes
+- `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
+- `--max-warnings <count>` - Fail when warning count exceeds limit
+- `--config <path>` - Use an explicit flat config
+- `--no-default-config` - Disable bundled fallback config
+- `--project <path>` - Force project root directory or `.yyp` path
+- `--project-strict` - Fail when linted files are outside forced project root
+- `--index-allow <dir...>` - Include directories that are normally excluded from project indexing
+- `--quiet` - Suppress fallback/config discovery warnings
+- `--verbose` - Enable verbose lint command diagnostics
+
+`lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -737,7 +754,7 @@ Provides ANTLR-based GML parsing used by the transpiler.
 ✅ **Integrated** - Converts GML AST to JavaScript for hot-reload patches.
 
 ### Semantic (`src/semantic`)
-✅ **Integrated** - Supplies analysis data consumed by lint project-context services and refactor planning.
+✅ **Integrated** - Supplies analysis data consumed by refactor planning and hot-reload dependency tracking.
 
 ### Runtime Wrapper (`src/runtime-wrapper`)
 ✅ **Ready** - Has WebSocket client and patch application, ready to receive patches.

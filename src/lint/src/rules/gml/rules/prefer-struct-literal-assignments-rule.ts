@@ -1,14 +1,14 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { reportMissingProjectContextOncePerFile, resolveProjectContextForRule } from "../../project-context.js";
 import {
     computeLineStartOffsets,
     createMeta,
     findFirstChangedCharacterOffset,
     isCommentOnlyLine
 } from "../rule-base-helpers.js";
-import { dominantLineEnding, isIdentifier, shouldReportUnsafe } from "../rule-helpers.js";
+import { isIdentifier, shouldReportUnsafe } from "../rule-helpers.js";
 
 type StructAssignmentRecord = Readonly<{
     indentation: string;
@@ -170,15 +170,14 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                         const previousLine = lineIndex > 0 ? lines[lineIndex - 1] : "";
                         const hasLeadingCommentBarrier = isCommentOnlyLine(previousLine);
                         const declarationRecord =
-                            hasLeadingCommentBarrier || lineIndex === 0
-                                ? null
-                                : parseEmptyStructDeclarationLine(previousLine);
-                        const canRewriteSingleAssignmentViaDeclaration =
+                            lineIndex === 0 ? null : parseEmptyStructDeclarationLine(previousLine);
+                        const hasImmediateStructCreation =
                             declarationRecord !== null &&
                             declarationRecord.objectName === firstAssignment.objectName &&
-                            declarationRecord.indentation === firstAssignment.indentation;
+                            declarationRecord.indentation === firstAssignment.indentation &&
+                            !hasLeadingCommentBarrier;
 
-                        if (cluster.length < 2 && !canRewriteSingleAssignmentViaDeclaration) {
+                        if (!hasImmediateStructCreation) {
                             rewrittenLines.push(lines[lineIndex]);
                             lineIndex += 1;
                             continue;
@@ -223,48 +222,27 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                             continue;
                         }
 
-                        if (hasLeadingCommentBarrier) {
-                            if (firstUnsafeOffset === null) {
-                                firstUnsafeOffset = reportOffset;
-                            }
-
-                            for (let currentIndex = lineIndex; currentIndex <= clusterEndIndex; currentIndex += 1) {
-                                rewrittenLines.push(lines[currentIndex]);
-                            }
-                            lineIndex = clusterEndIndex + 1;
-                            continue;
-                        }
-
                         if (firstRewriteOffset === null) {
                             firstRewriteOffset = reportOffset;
                         }
 
-                        const shouldRewriteDeclaration =
-                            declarationRecord !== null &&
-                            declarationRecord.objectName === firstAssignment.objectName &&
-                            declarationRecord.indentation === firstAssignment.indentation;
-
                         const rewrittenLiteralBlock = createStructLiteralBlock(
                             firstAssignment.indentation,
-                            shouldRewriteDeclaration ? declarationRecord.declarationPrefix : "",
+                            declarationRecord.declarationPrefix,
                             firstAssignment.objectName,
                             cluster,
-                            shouldRewriteDeclaration
+                            true
                         );
 
-                        if (shouldRewriteDeclaration) {
-                            if (rewrittenLines.length > 0) {
-                                rewrittenLines.pop();
-                            }
-                            rewrittenLines.push(...rewrittenLiteralBlock);
-                        } else {
-                            rewrittenLines.push(...rewrittenLiteralBlock);
+                        if (rewrittenLines.length > 0) {
+                            rewrittenLines.pop();
                         }
+                        rewrittenLines.push(...rewrittenLiteralBlock);
 
                         lineIndex = clusterEndIndex + 1;
                     }
 
-                    const rewrittenText = rewrittenLines.join(dominantLineEnding(text));
+                    const rewrittenText = rewrittenLines.join(Core.dominantLineEnding(text));
                     if (rewrittenText !== text) {
                         context.report({
                             loc: context.sourceCode.getLocFromIndex(
@@ -283,11 +261,6 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                     }
                 }
             };
-
-            const projectContext = resolveProjectContextForRule(context, definition);
-            if (!projectContext.available) {
-                return reportMissingProjectContextOncePerFile(context, listener);
-            }
 
             return Object.freeze(listener);
         }
