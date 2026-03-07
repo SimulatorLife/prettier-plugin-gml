@@ -37,14 +37,21 @@ type FixturePair = Readonly<{
     options: Record<string, unknown>;
 }>;
 
+type ParsedFixtureOptions = Readonly<{
+    lintRules: Record<string, string>;
+    ruleOptions: Record<string, unknown>;
+}>;
+
 function normalizeFixtureRelativePath(absolutePath: string): string {
     return path.relative(fixtureRoot, absolutePath).split(path.sep).join("/");
 }
 
-async function readFixtureOptions(fixtureDirectoryPath: string): Promise<Record<string, unknown>> {
+async function readFixtureOptions(fixtureDirectoryPath: string): Promise<ParsedFixtureOptions> {
     const optionsPath = path.join(fixtureDirectoryPath, "options.json");
     if (!existsSync(optionsPath)) {
-        return {};
+        throw new Error(
+            `Fixture directory is missing options.json: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+        );
     }
 
     const optionsJson = await readFile(optionsPath, "utf8");
@@ -53,27 +60,91 @@ async function readFixtureOptions(fixtureDirectoryPath: string): Promise<Record<
         throw new TypeError(`Fixture options must be an object: ${normalizeFixtureRelativePath(optionsPath)}`);
     }
 
-    return parsed as Record<string, unknown>;
+    const rawOptions = parsed as Record<string, unknown>;
+    const rawLintRules = rawOptions.lintRules;
+    if (!rawLintRules || typeof rawLintRules !== "object" || Array.isArray(rawLintRules)) {
+        throw new TypeError(
+            `Fixture options must define lintRules as an object: ${normalizeFixtureRelativePath(optionsPath)}`
+        );
+    }
+    const lintRulesEntries = Object.entries(rawLintRules as Record<string, unknown>);
+    if (lintRulesEntries.length === 0) {
+        throw new TypeError(
+            `Fixture options lintRules must include at least one rule entry: ${normalizeFixtureRelativePath(optionsPath)}`
+        );
+    }
+
+    const lintRules: Record<string, string> = {};
+    for (const [ruleId, ruleSeverity] of lintRulesEntries) {
+        if (ruleId.length === 0) {
+            throw new TypeError(
+                `Fixture options lintRules cannot contain an empty rule id: ${normalizeFixtureRelativePath(optionsPath)}`
+            );
+        }
+        if (ruleSeverity !== "off" && ruleSeverity !== "warn" && ruleSeverity !== "error") {
+            throw new TypeError(
+                `Fixture options lintRules entries must use "off", "warn", or "error": ${normalizeFixtureRelativePath(optionsPath)}`
+            );
+        }
+        lintRules[ruleId] = ruleSeverity;
+    }
+
+    const ruleOptions = Object.fromEntries(
+        Object.entries(rawOptions).filter(([optionKey]) => optionKey !== "lintRules")
+    ) as Record<string, unknown>;
+
+    return Object.freeze({
+        lintRules,
+        ruleOptions
+    });
 }
 
 function resolveFixtureRuleName(
     fixtureRuleInfo: Readonly<{ kind: FixtureRuleKind; ruleName: string }>,
-    rawOptions: Record<string, unknown>
-): Readonly<{ ruleName: string; ruleOptions: Record<string, unknown> }> {
-    const candidateRuleName = rawOptions.ruleName;
-    if (candidateRuleName !== undefined && typeof candidateRuleName !== "string") {
-        throw new TypeError(`Fixture option ruleName must be a string when provided.`);
+    parsedOptions: ParsedFixtureOptions
+): Readonly<{
+    enabledRules: ReadonlyArray<string>;
+    invalidRuleIds: ReadonlyArray<string>;
+    ruleName: string | null;
+    ruleOptions: Record<string, unknown>;
+}> {
+    const expectedRuleIdPrefix = fixtureRuleInfo.kind === "gml" ? "gml/" : "feather/";
+    const enabledRules: Array<string> = [];
+    const invalidRuleIds: Array<string> = [];
+
+    for (const [ruleId, ruleSeverity] of Object.entries(parsedOptions.lintRules)) {
+        if (ruleSeverity !== "error") {
+            continue;
+        }
+
+        if (!ruleId.startsWith(expectedRuleIdPrefix)) {
+            invalidRuleIds.push(ruleId);
+            continue;
+        }
+
+        const normalizedRuleName = ruleId.slice(expectedRuleIdPrefix.length);
+        if (normalizedRuleName.length === 0) {
+            invalidRuleIds.push(ruleId);
+            continue;
+        }
+
+        enabledRules.push(normalizedRuleName);
     }
 
-    const ruleName = typeof candidateRuleName === "string" ? candidateRuleName : fixtureRuleInfo.ruleName;
-    if (candidateRuleName === undefined) {
-        return Object.freeze({ ruleName, ruleOptions: rawOptions });
-    }
+    const deduplicatedEnabledRules = [...new Set(enabledRules)];
+    const pathDerivedRuleName = fixtureRuleInfo.ruleName;
+    const ruleName = deduplicatedEnabledRules.includes(pathDerivedRuleName)
+        ? pathDerivedRuleName
+        : deduplicatedEnabledRules.length === 1
+          ? (deduplicatedEnabledRules[0] ?? null)
+          : null;
 
-    const ruleOptions = Object.fromEntries(
-        Object.entries(rawOptions).filter(([optionKey]) => optionKey !== "ruleName")
-    ) as Record<string, unknown>;
-    return Object.freeze({ ruleName, ruleOptions });
+    return Object.freeze({
+        enabledRules: Object.freeze(deduplicatedEnabledRules),
+        invalidRuleIds: Object.freeze(invalidRuleIds),
+        ruleName,
+        ruleOptions: parsedOptions.ruleOptions
+    });
 }
 
 async function collectFixtureDirectoriesRecursively(directoryPath: string): Promise<Array<string>> {
@@ -167,24 +238,59 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         const hasInput = fileNames.includes("input.gml");
         const hasFixed = fileNames.includes("fixed.gml");
         const hasInputFixed = fileNames.includes("input.fixed.gml");
+        const hasOptions = fileNames.includes("options.json");
 
         const isInputFixedFixture = hasInputFixed && !hasInput && !hasFixed;
         const isInputFixedPairFixture = hasInput && hasFixed && !hasInputFixed;
         if (!isInputFixedFixture && !isInputFixedPairFixture) {
             validationErrors.push(
-                `Fixture directory must contain only input.gml+fixed.gml or input.fixed.gml (options.json optional): ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+                `Fixture directory must contain only input.gml+fixed.gml or input.fixed.gml: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!hasOptions) {
+            validationErrors.push(
+                `Fixture directory must include options.json: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
             );
             continue;
         }
 
         const rawOptions = await readFixtureOptions(fixtureDirectoryPath);
         const resolvedFixtureRule = resolveFixtureRuleName(fixtureRuleInfo, rawOptions);
+        if (resolvedFixtureRule.invalidRuleIds.length > 0) {
+            validationErrors.push(
+                `Fixture options lintRules contain invalid rule ids for ${fixtureRuleInfo.kind} fixtures (${resolvedFixtureRule.invalidRuleIds.join(", ")}): ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
 
-        const ruleExists =
-            fixtureRuleInfo.kind === "gml"
-                ? Object.hasOwn(Lint.plugin.rules, resolvedFixtureRule.ruleName)
-                : Object.hasOwn(Lint.featherPlugin.rules, resolvedFixtureRule.ruleName);
-        if (!ruleExists) {
+        if (resolvedFixtureRule.enabledRules.length === 0) {
+            validationErrors.push(
+                `Fixture options lintRules must enable at least one ${fixtureRuleInfo.kind} rule at "error": ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!resolvedFixtureRule.ruleName) {
+            validationErrors.push(
+                `Fixture options lintRules must either enable ${fixtureRuleInfo.kind}/${fixtureRuleInfo.ruleName} or define a single enabled ${fixtureRuleInfo.kind} rule: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        const availableRules = fixtureRuleInfo.kind === "gml" ? Lint.plugin.rules : Lint.featherPlugin.rules;
+        const missingEnabledRules = resolvedFixtureRule.enabledRules.filter(
+            (enabledRule) => !Object.hasOwn(availableRules, enabledRule)
+        );
+        if (missingEnabledRules.length > 0) {
+            validationErrors.push(
+                `Fixture options enabledRules contain unknown ${fixtureRuleInfo.kind} rules (${missingEnabledRules.join(", ")}): ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!Object.hasOwn(availableRules, resolvedFixtureRule.ruleName)) {
             validationErrors.push(
                 `Fixture directory does not map to a known ${fixtureRuleInfo.kind} rule: ${normalizeFixtureRelativePath(fixtureDirectoryPath)} -> ${resolvedFixtureRule.ruleName}`
             );
