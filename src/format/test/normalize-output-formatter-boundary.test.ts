@@ -101,3 +101,31 @@ void test("normalizeFormattedOutput does not alter spacing between GML-domain ve
         "normalizeFormattedOutput must not insert blank lines between GML-domain diagnostic comment strings — spacing based on lint-generated content belongs in @gml-modules/lint (target-state.md §2.1, §3.2)"
     );
 });
+
+void test("normalizeFormattedOutput does not collapse blank lines around vertex_format_begin/vertex_format_end calls (GML-domain knowledge must not live in formatter)", () => {
+    // `vertex_format_begin()` and `vertex_format_end()` are GML built-in API
+    // functions. Collapsing blank lines between them based on knowledge of these
+    // specific function names is a GML-domain-aware semantic rewrite, not a pure
+    // layout operation. According to target-state.md §2.1 and §3.2, the formatter
+    // must not perform semantic/content rewrites — any spacing rules that rely on
+    // knowledge of specific GML API calls belong in the `@gml-modules/lint` workspace.
+    //
+    // The previously present `collapseVertexFormatBeginSpacing` and
+    // `collapseCustomFunctionToFormatEndSpacing` functions violated this contract
+    // and have been removed.
+    const input = [
+        "vertex_format_begin();",
+        "",
+        "vertex_format_attrib_position();",
+        "var fmt = vertex_format_end();",
+        ""
+    ].join("\n");
+
+    const result = normalizeFormattedOutput(input);
+
+    assert.match(
+        result,
+        /vertex_format_begin\(\);\n\nvertex_format_attrib_position\(\);/,
+        "normalizeFormattedOutput must not collapse blank lines around vertex_format_begin — GML-domain spacing belongs in @gml-modules/lint (target-state.md §2.1, §3.2)"
+    );
+});
