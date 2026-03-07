@@ -138,18 +138,6 @@ function isSlashOnlyLineComment(rawText: string): boolean {
     return /^\s*\/{6,}\s*$/u.test(rawText);
 }
 
-function shouldSuppressDecorativeBlockSuffixLine(
-    comment: LineComment,
-    rawText: string,
-    originalText: string | null | undefined
-): boolean {
-    return (
-        isSlashOnlyLineComment(rawText) &&
-        (isDecorativeBlockCommentNode(comment.precedingNode) ||
-            isSlashSuffixLineAfterDecorativeBlockComment(comment, rawText, originalText))
-    );
-}
-
 function isSlashSuffixLineAfterDecorativeBlockComment(
     comment: LineComment,
     rawText: string,
@@ -265,8 +253,14 @@ function formatDocLikeLineComment(
         originalText: originalText ?? undefined
     });
 
-    if (shouldSuppressDecorativeBlockSuffixLine(comment, rawText, originalText)) {
-        return null;
+    // Decorative banner/comment-content cleanup is lint-owned (`gml/normalize-banner-comments`).
+    // The formatter must keep source comment text and only apply layout operations.
+    if (isSlashOnlyLineComment(rawText) && isDecorativeBlockCommentNode(comment.precedingNode)) {
+        return rawText.trimEnd();
+    }
+
+    if (isSlashSuffixLineAfterDecorativeBlockComment(comment, rawText, originalText)) {
+        return rawText.trimEnd();
     }
 
     if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
