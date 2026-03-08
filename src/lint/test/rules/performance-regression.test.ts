@@ -33,6 +33,32 @@ function buildNonLogicalConditionBatchSource(statementCount: number): string {
     return lines.join("\n");
 }
 
+function buildHeavyIfGuardBatchSource(statementCount: number): string {
+    const lines: string[] = [];
+    for (let index = 0; index < statementCount; index += 1) {
+        lines.push(
+            `if (is_array(_arg_${index}) && !is_undefined(_arg_${index})) {`,
+            `    _sum += array_length(_arg_${index});`,
+            `    _flag = _flag || (_sum > ${index});`,
+            "    _count += 1;",
+            "}"
+        );
+    }
+
+    lines.push("");
+    return lines.join("\n");
+}
+
+function buildArithmeticChainBatchSource(statementCount: number): string {
+    const lines: string[] = [];
+    for (let index = 0; index < statementCount; index += 1) {
+        lines.push(`result_${index} = a_${index} * b_${index} + c_${index} * d_${index} + e_${index} * f_${index};`);
+    }
+
+    lines.push("");
+    return lines.join("\n");
+}
+
 async function lintSingleRuleWithTiming(ruleId: string, sourceText: string): Promise<TimedLintRunResult> {
     const eslint = new ESLint({
         overrideConfigFile: true,
@@ -100,5 +126,40 @@ void test("optimize-logical-flow skips non-logical batches without deep clone ov
     assert.ok(
         timedRun.elapsedMilliseconds < 8000,
         `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("optimize-logical-flow avoids deep-cloning large guard bodies that cannot be simplified", async () => {
+    const source = buildHeavyIfGuardBatchSource(300);
+    const timedRun = await lintSingleRuleWithTiming("gml/optimize-logical-flow", source);
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.equal(timedRun.outputText, source);
+    assert.ok(
+        timedRun.ruleMilliseconds < 7000,
+        `expected optimize-logical-flow rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 9000,
+        `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("optimize-math-expressions scales linearly for long arithmetic assignment batches", async () => {
+    const source = buildArithmeticChainBatchSource(250);
+    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.ok(
+        timedRun.outputText.includes("dot_product_3d"),
+        "expected optimize-math-expressions to keep applying arithmetic normalization"
+    );
+    assert.ok(
+        timedRun.ruleMilliseconds < 7000,
+        `expected optimize-math-expressions rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 9000,
+        `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
