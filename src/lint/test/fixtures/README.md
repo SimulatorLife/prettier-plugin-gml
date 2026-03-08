@@ -10,3 +10,23 @@ Treat these as **golden fixtures**:
 - Update linter logic and tests first, then regenerate/adjust fixture expectations only when intentionally changing expected behavior.
 
 This directory follows a test-driven workflow: fixtures document what the linter should do, and implementation must conform to that expected result.
+
+Each fixture directory must include an `options.json` file. The file must explicitly enable the rule(s) under test via `lintRules`:
+
+```json
+{
+  "lintRules": {
+    "gml/rule-name-under-test": "error"
+  }
+}
+```
+
+Feather fixtures use the `feather/` namespace:
+
+```json
+{
+  "lintRules": {
+    "feather/gm1000": "error"
+  }
+}
+```

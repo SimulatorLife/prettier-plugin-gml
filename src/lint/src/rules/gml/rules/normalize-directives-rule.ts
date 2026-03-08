@@ -4,123 +4,165 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
 
+type LineCommentParts = Readonly<{
+    codeText: string;
+    commentText: string;
+}>;
+
 function isValidMacroIdentifier(name: string): boolean {
     return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name);
 }
 
-/**
- * Strips a trailing semicolon from the macro VALUE portion of a string,
- * preserving any inline line comment that follows.
- *
- * Examples:
- *   "123456789;"       → "123456789"
- *   "2; // keep"       → "2 // keep"
- *   "2 // no semi"     → "2 // no semi"
- */
-function stripMacroValueTrailingSemicolon(valueText: string): string {
-    // Split off any inline line comment (// ...) so we don't touch it
-    const commentIndex = valueText.indexOf("//");
-    if (commentIndex !== -1) {
-        const valuePart = valueText.slice(0, commentIndex).trimEnd();
-        const commentPart = valueText.slice(commentIndex);
-        const stripped = valuePart.endsWith(";") ? valuePart.slice(0, -1).trimEnd() : valuePart;
-        return stripped.length > 0 ? `${stripped} ${commentPart}` : commentPart;
+function splitLineCommentOutsideStringLiterals(line: string): LineCommentParts {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let isEscapedCharacter = false;
+
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (isEscapedCharacter) {
+            isEscapedCharacter = false;
+            continue;
+        }
+
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            isEscapedCharacter = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return Object.freeze({
+                codeText: line.slice(0, index),
+                commentText: line.slice(index)
+            });
+        }
     }
 
-    return valueText.endsWith(";") ? valueText.slice(0, -1).trimEnd() : valueText;
+    return Object.freeze({
+        codeText: line,
+        commentText: ""
+    });
+}
+
+function appendTrailingLineComment(lineWithoutComment: string, commentText: string): string {
+    const trimmedComment = commentText.trim();
+    if (trimmedComment.length === 0) {
+        return lineWithoutComment;
+    }
+
+    return `${lineWithoutComment} ${trimmedComment}`;
+}
+
+function normalizeDefineRegionLine(leadingWhitespace: string, directiveBody: string): string | null {
+    const regionMatch = /^region(?:\s+(.*))?$/iu.exec(directiveBody);
+    if (regionMatch) {
+        const regionName = regionMatch[1]?.trim() ?? "";
+        return regionName.length === 0 ? `${leadingWhitespace}#region` : `${leadingWhitespace}#region ${regionName}`;
+    }
+
+    const endRegionMatch = /^(?:end\s+region|endregion)(?:\s+(.*))?$/iu.exec(directiveBody);
+    if (!endRegionMatch) {
+        return null;
+    }
+
+    const regionName = endRegionMatch[1]?.trim() ?? "";
+    return regionName.length === 0 ? `${leadingWhitespace}#endregion` : `${leadingWhitespace}#endregion ${regionName}`;
 }
 
 function normalizeDefineMacroLine(line: string): string {
-    const trimmed = line.trimStart();
-    if (!trimmed.startsWith("#define")) {
+    const defineMatch = /^(\s*)#define\b(.*)$/u.exec(line);
+    if (!defineMatch) {
         return line;
     }
 
-    const match = trimmed.match(/^(\s*)#define\s+(\S+)(.*)$/u);
-    if (!match) {
+    const leadingWhitespace = defineMatch[1] ?? "";
+    const directiveBody = (defineMatch[2] ?? "").trim();
+    if (directiveBody.length === 0) {
         return line;
     }
 
-    const [, leadingWhitespace, directiveName, remainder] = match;
-    const newline = line.endsWith("\n") ? "\n" : "";
-
-    // Handle #define region / #define end region
-    if (/^region$/iu.test(directiveName ?? "")) {
-        const regionName = remainder.trim();
-        return `${leadingWhitespace ?? ""}#region ${regionName}${newline}`;
+    const normalizedRegionLine = normalizeDefineRegionLine(leadingWhitespace, directiveBody);
+    if (normalizedRegionLine) {
+        return normalizedRegionLine;
     }
 
-    // Handle #define end region X or #define endregion X
-    if (/^endregion$/iu.test(directiveName ?? "")) {
-        const regionName = remainder.trim();
-        return `${leadingWhitespace ?? ""}#endregion ${regionName}${newline}`;
+    const lineCommentParts = splitLineCommentOutsideStringLiterals(directiveBody);
+    const directiveCodeText = lineCommentParts.codeText.trim();
+    const directiveParts = directiveCodeText.split(/\s+/u);
+    const directiveName = directiveParts[0] ?? "";
+
+    if (!isValidMacroIdentifier(directiveName)) {
+        return line;
     }
 
-    // Handle the two-word form: `#define end region X` where directiveName="end"
-    // and remainder starts with " region"
-    if (/^end$/iu.test(directiveName ?? "") && /^\s+region(?:\s|$)/iu.test(remainder ?? "")) {
-        const afterRegion = (remainder ?? "").replace(/^\s+region\s*/iu, "");
-        const regionName = afterRegion.trim();
-        return regionName.length > 0
-            ? `${leadingWhitespace ?? ""}#endregion ${regionName}${newline}`
-            : `${leadingWhitespace ?? ""}#endregion${newline}`;
-    }
+    const directiveValueText = directiveCodeText.slice(directiveName.length).trim();
+    const normalizedDirectiveValue = directiveValueText.endsWith(";")
+        ? directiveValueText.slice(0, -1).trimEnd()
+        : directiveValueText;
+    const normalizedMacroLine =
+        normalizedDirectiveValue.length === 0
+            ? `${leadingWhitespace}#macro ${directiveName}`
+            : `${leadingWhitespace}#macro ${directiveName} ${normalizedDirectiveValue}`;
 
-    // Handle valid macro identifiers
-    if (isValidMacroIdentifier(directiveName ?? "")) {
-        const trimmedRemainder = (remainder ?? "").trim();
-
-        if (trimmedRemainder.length === 0) {
-            return `${leadingWhitespace ?? ""}#macro ${directiveName ?? ""}${newline}`;
-        }
-
-        const cleanedValue = stripMacroValueTrailingSemicolon(trimmedRemainder);
-        return `${leadingWhitespace ?? ""}#macro ${directiveName ?? ""} ${cleanedValue}${newline}`;
-    }
-
-    // Invalid macro identifier – leave as-is (normalizeLegacyDirectiveLine won't comment it out)
-    return line;
+    return appendTrailingLineComment(normalizedMacroLine, lineCommentParts.commentText);
 }
 
 function normalizeCommentedDirectiveLine(line: string): string {
-    const match = line.match(/^(\s*)\/\/\s*#(region|endregion)\s*(.*)$/u);
+    const match = /^(\s*)\/\/\s*#(region|endregion)\b(.*)$/u.exec(line);
     if (!match) {
         return line;
     }
 
-    const [, leadingWhitespace, directive, name] = match;
-    const trimmedName = (name ?? "").trim();
-
-    if (trimmedName.length === 0) {
-        return `${leadingWhitespace ?? ""}#${directive ?? ""}${line.endsWith("\n") ? "\n" : ""}`;
+    const leadingWhitespace = match[1] ?? "";
+    const directive = match[2] ?? "";
+    const name = match[3]?.trim() ?? "";
+    if (name.length === 0) {
+        return `${leadingWhitespace}#${directive}`;
     }
 
-    return `${leadingWhitespace ?? ""}#${directive ?? ""} ${trimmedName}${line.endsWith("\n") ? "\n" : ""}`;
+    return `${leadingWhitespace}#${directive} ${name}`;
 }
 
-/**
- * Converts GML 1.x-style `begin`/`end` block delimiters to `{`/`}` on a
- * single line.  Only standalone `begin`/`end` tokens that appear at a line
- * boundary are transformed; identifiers that contain those words (e.g.
- * `beginGame`) are left alone.
- */
-function normalizeBeginEndLine(line: string): string {
-    const newline = line.endsWith("\n") ? "\n" : "";
-    const stripped = newline.length > 0 ? line.slice(0, -1) : line;
+function normalizeLegacyBlockKeywordLine(line: string): string {
+    const beginBlockMatch = /^(\s*)begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (beginBlockMatch) {
+        const indentation = beginBlockMatch[1] ?? "";
+        const commentText = beginBlockMatch[2] ?? "";
+        return appendTrailingLineComment(`${indentation}{`, commentText);
+    }
 
-    // `begin` at end of line (optionally preceded by whitespace / code) → `{`
-    const beginEndReplaced = stripped
-        // "begin" as a trailing token after a statement (e.g. `if (x) begin`)
-        .replace(/\bbegin\s*$/u, "{")
-        // standalone `begin;` or `begin` on its own line
-        .replace(/^(\s*)begin;?\s*$/u, "$1{")
-        // `end` followed by optional comment → `}`
-        .replace(/^(\s*)end(;?\s*(?:\/\/[^\n]*)?)$/u, (_, indent, suffix) => {
-            const comment = /\/\//u.test(suffix ?? "") ? ` ${suffix.trim()}` : "";
-            return `${indent as string}}${comment}`;
-        });
+    const endBlockMatch = /^(\s*)end\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (endBlockMatch) {
+        const indentation = endBlockMatch[1] ?? "";
+        const commentText = endBlockMatch[2] ?? "";
+        return appendTrailingLineComment(`${indentation}}`, commentText);
+    }
 
-    return beginEndReplaced + newline;
+    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (!inlineBeginMatch) {
+        return line;
+    }
+
+    const indentation = inlineBeginMatch[1] ?? "";
+    const header = inlineBeginMatch[2]?.trimEnd() ?? "";
+    const commentText = inlineBeginMatch[3] ?? "";
+    if (header.length === 0 || header.startsWith("#") || header.startsWith("//") || header.endsWith("{")) {
+        return line;
+    }
+
+    return appendTrailingLineComment(`${indentation}${header} {`, commentText);
 }
 
 export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -135,7 +177,7 @@ export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Ru
                     const rewrittenLines = lines.map((line, index) => {
                         let normalized = normalizeDefineMacroLine(line);
                         normalized = normalizeCommentedDirectiveLine(normalized);
-                        normalized = normalizeBeginEndLine(normalized);
+                        normalized = normalizeLegacyBlockKeywordLine(normalized);
 
                         const isLastLine = index === lines.length - 1;
                         if (isLastLine && normalized.endsWith("\n")) {

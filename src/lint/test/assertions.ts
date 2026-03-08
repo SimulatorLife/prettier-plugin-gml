@@ -4,12 +4,40 @@ function normalizeWhitespaceAndLineEndings(value: string): string {
     return value.replaceAll(/\r\n?/gu, "\n").replaceAll(/\s+/gu, "");
 }
 
+function normalizeLineEndings(value: string): string {
+    return value.replaceAll(/\r\n?/gu, "\n");
+}
+
+function buildAssertionMessage(defaultMessage: string, message?: string): string {
+    if (!message || message.length === 0) {
+        return defaultMessage;
+    }
+
+    return `${message}\n${defaultMessage}`;
+}
+
 /**
  * Asserts equality while treating whitespace/newline-only differences in strings as equal.
  */
 export function assertEquals(actual: unknown, expected: unknown, message?: string): void {
     if (typeof actual === "string" && typeof expected === "string") {
-        assert.equal(normalizeWhitespaceAndLineEndings(actual), normalizeWhitespaceAndLineEndings(expected), message);
+        const normalizedActual = normalizeWhitespaceAndLineEndings(actual);
+        const normalizedExpected = normalizeWhitespaceAndLineEndings(expected);
+        if (normalizedActual === normalizedExpected) {
+            return;
+        }
+
+        throw new assert.AssertionError({
+            actual: normalizeLineEndings(actual),
+            expected: normalizeLineEndings(expected),
+            operator: "assertEquals(normalized)",
+            message: buildAssertionMessage(
+                "Expected values to be equal after whitespace/newline normalization.",
+                message
+            ),
+            stackStartFn: assertEquals
+        });
+
         return;
     }
 
@@ -21,11 +49,23 @@ export function assertEquals(actual: unknown, expected: unknown, message?: strin
  */
 export function assertNotEquals(actual: unknown, expected: unknown, message?: string): void {
     if (typeof actual === "string" && typeof expected === "string") {
-        assert.notEqual(
-            normalizeWhitespaceAndLineEndings(actual),
-            normalizeWhitespaceAndLineEndings(expected),
-            message
-        );
+        const normalizedActual = normalizeWhitespaceAndLineEndings(actual);
+        const normalizedExpected = normalizeWhitespaceAndLineEndings(expected);
+        if (normalizedActual !== normalizedExpected) {
+            return;
+        }
+
+        throw new assert.AssertionError({
+            actual: normalizeLineEndings(actual),
+            expected: normalizeLineEndings(expected),
+            operator: "assertNotEquals(normalized)",
+            message: buildAssertionMessage(
+                "Expected values to be different after whitespace/newline normalization.",
+                message
+            ),
+            stackStartFn: assertNotEquals
+        });
+
         return;
     }
 

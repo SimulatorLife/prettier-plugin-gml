@@ -1,4 +1,4 @@
-## TODO: Normalize `#define` → `#macro`
+## Directive normalization status
 
 ### Goal
 
@@ -73,27 +73,20 @@ type MacroDirectiveNode = {
 
 ## Workspace: Linter (`@gml-modules/lint`)
 
-**Responsibility:** Enforce supported directive spelling and provide the targeted text replacement.
+**Responsibility:** Apply tolerant single-file source rewrites for legacy directive spellings and legacy block keywords before formatter-owned layout work.
 
-**Rule:** `no-define-directive`
+**Rule:** `normalize-directives`
 
-**Trigger when:**
-- `node.type === "MacroDirective"`
-- `node.keyword === "define"`
-
-**Autofix:**
-Replace only the directive token using the recorded `keywordRange`.
-
-```ts
-fixer.replaceTextRange(
-  [node.keywordRange.start, node.keywordRange.end],
-  "#macro"
-);
-```
+**Current behavior:**
+- rewrites valid `#define NAME ...` directives to `#macro NAME ...`
+- rewrites `#define region ...` / `#define end region ...` to `#region` / `#endregion`
+- uncomments legacy `//#region` / `//#endregion` lines
+- rewrites legacy `begin` / `end` block keywords to `{` / `}`
+- preserves invalid `#define` spellings verbatim instead of guessing or commenting them out
 
 **Important:**
-- Do NOT reprint/replace the entire directive text.
-- Only replace the keyword portion so strings/comments/spacing remain intact.
+- The rule is intentionally tolerant and line-oriented so it can run during Phase A safe-fix processing.
+- Canonical `#macro` declarations are left unchanged; formatter-owned spacing is not normalized here.
 
 ---
 
@@ -110,10 +103,10 @@ fixer.replaceTextRange(
 - [ ] Choose policy A (preserve) or B (normalize to `#macro`)
 
 ### Linter
-- [ ] Implement `no-define-directive`
-- [ ] Autofix uses only `keywordRange` → `#macro`
+- [x] Implement `normalize-directives`
+- [x] Rewrite valid legacy directive spellings and legacy block keywords during lint safe-fix passes
 
 ### Tests
 - [ ] `#define ...` parses into `MacroDirective(keyword="define")`
 - [ ] Printer output matches chosen policy
-- [ ] Lint autofix edits only the directive token
+- [x] Lint covers valid `#define` macros, region directives, and legacy `begin` / `end` rewrites

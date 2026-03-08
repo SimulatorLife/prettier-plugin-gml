@@ -278,14 +278,37 @@ interface FileSnapshotWriter {
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
     fileStats?: Stats | null;
+    abortSignal?: AbortSignal;
 }
 
 const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
 const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
 
-function delayFileReadRetry(durationMs: number): Promise<void> {
+/**
+ * Waits before retrying a transient empty-file read and supports abort-driven teardown.
+ *
+ * @param durationMs - Delay duration in milliseconds.
+ * @param abortSignal - Optional signal used to cancel the pending retry timer.
+ * @returns Promise that resolves to true when delay elapsed, or false when aborted.
+ */
+export function delayFileReadRetry(durationMs: number, abortSignal?: AbortSignal): Promise<boolean> {
+    if (abortSignal?.aborted) {
+        return Promise.resolve(false);
+    }
+
     return new Promise((resolve) => {
-        setTimeout(resolve, durationMs);
+        const handleAbort = () => {
+            clearTimeout(timeoutId);
+            abortSignal?.removeEventListener("abort", handleAbort);
+            resolve(false);
+        };
+
+        const timeoutId = setTimeout(() => {
+            abortSignal?.removeEventListener("abort", handleAbort);
+            resolve(true);
+        }, durationMs);
+
+        abortSignal?.addEventListener("abort", handleAbort, { once: true });
     });
 }
 
@@ -294,7 +317,10 @@ function delayFileReadRetry(durationMs: number): Promise<void> {
  * Retry briefly when the file is observed as empty so we do not treat
  * transient truncation windows as a permanent transpilation failure.
  */
-async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<string> {
+async function readSourceFileWithTransientEmptyRetry(
+    filePath: string,
+    abortSignal?: AbortSignal
+): Promise<string | null> {
     const readAttempt = async (attempt: number): Promise<string> => {
         const content = await readFile(filePath, "utf8");
         const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
@@ -302,9 +328,17 @@ async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<
             return content;
         }
 
-        await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS);
+        const shouldRetry = await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS, abortSignal);
+        if (!shouldRetry) {
+            return content;
+        }
+
         return readAttempt(attempt + 1);
     };
+
+    if (abortSignal?.aborted) {
+        return null;
+    }
 
     return await readAttempt(0);
 }
@@ -1113,7 +1147,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         handleFileChange(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         }).catch((error) => {
                             const message = getErrorMessage(error, {
                                 fallback: "Unknown file processing error"
@@ -1138,7 +1173,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         debouncedHandler(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         });
                     }
                 }
@@ -1187,7 +1223,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, quiet = false, runtimeContext, fileStats }: FileChangeOptions = {}
+    { verbose = false, quiet = false, runtimeContext, fileStats, abortSignal }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -1242,7 +1278,10 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readSourceFileWithTransientEmptyRetry(filePath);
+            const content = await readSourceFileWithTransientEmptyRetry(filePath, abortSignal);
+            if (content === null) {
+                return;
+            }
             const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {

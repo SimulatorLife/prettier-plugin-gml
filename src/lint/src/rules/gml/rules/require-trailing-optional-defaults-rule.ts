@@ -295,6 +295,39 @@ function getIdentifierNameFromParameterSegment(segment: string): string | null {
     return match ? match[1] : null;
 }
 
+function normalizeTrailingOptionalParameterSegments(
+    parameterSegments: ReadonlyArray<string>
+): Readonly<{ changed: boolean; segments: ReadonlyArray<string> }> {
+    let changed = false;
+    let encounteredOptionalParameter = false;
+
+    const normalizedSegments = parameterSegments.map((parameterSegment) => {
+        const trimmedSegment = parameterSegment.trim();
+        const hasExplicitDefault = trimmedSegment.includes("=");
+        if (hasExplicitDefault) {
+            encounteredOptionalParameter = true;
+            return parameterSegment;
+        }
+
+        if (!encounteredOptionalParameter) {
+            return parameterSegment;
+        }
+
+        const parameterName = getIdentifierNameFromParameterSegment(trimmedSegment);
+        if (!parameterName) {
+            return parameterSegment;
+        }
+
+        changed = true;
+        return `${trimmedSegment} = undefined`;
+    });
+
+    return Object.freeze({
+        changed,
+        segments: Object.freeze(normalizedSegments)
+    });
+}
+
 function matchLeadingTernaryFallback(statement: any, sourceText: string): LeadingArgumentFallback | null {
     const declarator = getVariableDeclarator(statement);
     if (!declarator) {
@@ -465,30 +498,17 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
         }
     }
 
-    // Add `= undefined` to trailing params that have no default but follow a param that does.
-    // This enforces the rule that once any parameter has a default, all following ones must too.
-    const firstDefaultIndex = rewrittenSegments.findIndex((segment) => segment.includes("="));
-    if (firstDefaultIndex !== -1) {
-        let changed = false;
-        for (let i = firstDefaultIndex + 1; i < rewrittenSegments.length; i += 1) {
-            const segment = rewrittenSegments[i] ?? "";
-            if (!segment.includes("=")) {
-                const name = getIdentifierNameFromParameterSegment(segment);
-                if (name) {
-                    rewrittenSegments[i] = `${name} = undefined`;
-                    changed = true;
-                }
-            }
-        }
+    const normalizedTrailingOptionalSegments = normalizeTrailingOptionalParameterSegments(rewrittenSegments);
+    rewrittenSegments = [...normalizedTrailingOptionalSegments.segments];
 
-        if (changed && localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
-            // Segments were rewritten only by adding undefined defaults; still need to produce edit.
-        } else if (!changed && localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
-            return null;
-        }
-    } else if (localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
+    if (
+        localEdits.length === 0 &&
+        rewrittenSegments.length === originalSegments.length &&
+        !normalizedTrailingOptionalSegments.changed
+    ) {
         return null;
     }
+
     const newParamsText = rewrittenSegments.join(", ");
     const headText = sourceText.slice(functionStart, parameterRange.start);
     const tailText = sourceText.slice(parameterRange.end, functionEnd);

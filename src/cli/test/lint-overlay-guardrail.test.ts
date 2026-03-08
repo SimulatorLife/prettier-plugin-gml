@@ -320,6 +320,7 @@ void test("lintTargetsWithRuntimeRecovery runs targets sequentially", async () =
     let activeLints = 0;
     let maxConcurrentLints = 0;
     const completionOrder: Array<string> = [];
+    const elapsedTimings: Array<bigint> = [];
     const lintStartOrder: Array<string> = [];
 
     const fakeEslint = {
@@ -361,14 +362,17 @@ void test("lintTargetsWithRuntimeRecovery runs targets sequentially", async () =
         eslint: fakeEslint,
         cwd: tempRoot,
         targets: [tempRoot],
-        onTargetCompleted: async (targetResults) => {
+        onTargetCompleted: async ({ targetResults, elapsedNanoseconds }) => {
             completionOrder.push(targetResults[0]?.filePath ?? "");
+            elapsedTimings.push(elapsedNanoseconds);
         }
     });
 
     assert.equal(maxConcurrentLints, 1);
     assert.deepEqual(lintStartOrder, [firstFile, secondFile]);
     assert.deepEqual(completionOrder, [firstFile, secondFile]);
+    assert.equal(elapsedTimings.length, 2);
+    assert.ok(elapsedTimings.every((value) => value >= 0n));
 });
 
 void test("emitLintFixProgressForResults logs de-duplicated display paths", () => {
@@ -560,8 +564,7 @@ void test("runLintCommand maps semantic provider prebuild failures to exit code 
                                 noDefaultConfig: true,
                                 verbose: false,
                                 project: path.join(tempRoot, "missing", "missing.yyp"),
-                                projectStrict: false,
-                                indexAllow: []
+                                projectStrict: false
                             };
                         }
                     });
