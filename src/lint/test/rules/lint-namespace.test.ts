@@ -82,7 +82,9 @@ void test("services namespace excludes project-aware analysis helpers", () => {
         "createPrebuiltProjectAnalysisProvider",
         "createProjectLintContextRegistry",
         "createProjectSettingsFromRegistry",
-        "defaultProjectIndexExcludes"
+        "defaultProjectIndexExcludes",
+        "resolveNearestProjectRoot",
+        "resolveForcedProjectRoot"
     ];
 
     for (const serviceName of forbiddenServiceNames) {

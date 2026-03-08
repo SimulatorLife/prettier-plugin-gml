@@ -36,7 +36,7 @@ type AssignmentExpressionNode = Readonly<{
 
 type IdentifierNode = Readonly<{
     type: "Identifier";
-    name?: unknown;
+    name: string;
 }>;
 
 type AccessorEventNode = AssignmentExpressionNode | MemberIndexExpressionNode | VariableDeclaratorNode;
@@ -76,7 +76,12 @@ function getNormalizedIdentifierName(node: unknown): string | null {
         return null;
     }
 
-    return node.name.toLowerCase();
+    const identifierName = node.name;
+    if (typeof identifierName !== "string") {
+        return null;
+    }
+
+    return identifierName.toLowerCase();
 }
 
 function resolveExplicitConstructorAccessor(node: unknown): ProvenAccessorToken | null {
