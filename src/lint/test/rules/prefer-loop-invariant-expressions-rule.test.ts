@@ -215,6 +215,19 @@ void test("prefer-loop-invariant-expressions hoists safe subexpressions while pr
     expectAutoFix(input, expected);
 });
 
+void test("prefer-loop-invariant-expressions keeps earliest candidate selection when multiple subexpressions tie", () => {
+    const input = ["repeat (count) {", "    total += (a + b) + random(3) + (c + d);", "}", ""].join("\n");
+    const expected = [
+        "var cached_value = a + b;",
+        "repeat (count) {",
+        "    total += (cached_value) + random(3) + (c + d);",
+        "}",
+        ""
+    ].join("\n");
+
+    expectAutoFix(input, expected);
+});
+
 void test("prefer-loop-invariant-expressions hoists complex boolean conditions safely", () => {
     const input = [
         "repeat (count) {",

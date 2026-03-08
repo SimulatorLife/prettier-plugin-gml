@@ -528,7 +528,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm2054",
         ruleName: "gm2054",
         assertOutput: (output) => {
+            assertEquals(output.includes("gpu_set_alphatestref(128);"), true);
             assertEquals(output.includes("gpu_set_alphatestref(0);"), true);
+            assertEquals(
+                /gpu_set_alphatestref\s*\(\s*0\s*\)\s*;\s*\ngpu_set_alphatestenable\s*\(\s*false\s*\)\s*;/u.test(
+                    output
+                ),
+                true
+            );
         }
     },
     {
@@ -588,4 +595,17 @@ runner = function () constructor {
     assertEquals(output.includes("static strike = function () {"), true);
     assertEquals(output.includes("runner = function () constructor {"), true);
     assertEquals(output.includes("};"), true);
+});
+
+void test("gm2054 preserves active threshold and inserts reset before alpha-test disable", () => {
+    const input = `gpu_set_alphatestenable(true);
+gpu_set_alphatestref(128);
+draw_self();
+gpu_set_alphatestenable(false);
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2054", input);
+
+    assertEquals(output.includes("gpu_set_alphatestref(128);"), true);
+    assertEquals(output.includes("gpu_set_alphatestref(0);\ngpu_set_alphatestenable(false);"), true);
 });

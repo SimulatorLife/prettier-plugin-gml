@@ -46,7 +46,6 @@ type LoopCandidate = Readonly<{
     expressionNode: AstNodeWithType;
     expressionStart: number;
     expressionEnd: number;
-    expressionText: string;
     preferredHoistName: string;
     score: number;
 }>;
@@ -100,8 +99,23 @@ function normalizeIdentifierName(identifierName: string): string {
     return Core.toNormalizedLowerCaseString(identifierName);
 }
 
-function containsCommentToken(sourceText: string): boolean {
-    return sourceText.includes("//") || sourceText.includes("/*") || sourceText.includes("*/");
+function rangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
+    if (end - start < 2) {
+        return false;
+    }
+
+    for (let index = start; index < end - 1; index += 1) {
+        const character = sourceText[index];
+        const nextCharacter = sourceText[index + 1];
+        if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
+            return true;
+        }
+        if (character === "*" && nextCharacter === "/") {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function isLoopNode(node: unknown): node is LoopNode {
@@ -390,186 +404,224 @@ function isDisallowedContextForReplacement(parent: AstNodeWithType | null, paren
     return false;
 }
 
+function evaluateTemplateStringExpressionHoistability(
+    templateExpression: AstNodeRecord,
+    mutationSummary: LoopMutationSummary,
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>
+): ExpressionAssessment | null {
+    const atomNodes = Array.isArray(templateExpression.atoms) ? templateExpression.atoms : [];
+    let complexity = 1;
+    let readsMemberAccess = false;
+
+    for (const atom of atomNodes) {
+        if (!isAstNodeRecord(atom) || atom.type === "TemplateStringText") {
+            continue;
+        }
+
+        const atomAssessment = evaluateExpressionHoistability(atom, mutationSummary, assessmentCache);
+        if (!atomAssessment) {
+            return null;
+        }
+
+        complexity += atomAssessment.complexity;
+        readsMemberAccess = readsMemberAccess || atomAssessment.readsMemberAccess;
+    }
+
+    return { complexity, readsMemberAccess };
+}
+
+function evaluateMemberAccessHoistability(
+    expression: AstNodeRecord,
+    mutationSummary: LoopMutationSummary,
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>
+): ExpressionAssessment | null {
+    const objectAssessment = evaluateExpressionHoistability(expression.object, mutationSummary, assessmentCache);
+    const rootIdentifierName = readRootIdentifierName(expression.object);
+    if (!objectAssessment || !rootIdentifierName) {
+        return null;
+    }
+
+    const normalizedRootIdentifierName = normalizeIdentifierName(rootIdentifierName);
+    if (
+        mutationSummary.declaredInsideLoop.has(normalizedRootIdentifierName) ||
+        mutationSummary.mutatedIdentifierNames.has(normalizedRootIdentifierName) ||
+        mutationSummary.mutatedMemberRoots.has(normalizedRootIdentifierName)
+    ) {
+        return null;
+    }
+
+    if (expression.type === "MemberDotExpression") {
+        return readIdentifierName(expression.property)
+            ? { complexity: objectAssessment.complexity + 1, readsMemberAccess: true }
+            : null;
+    }
+
+    if (typeof expression.accessor !== "string" || !SAFE_INDEX_ACCESSORS.has(expression.accessor)) {
+        return null;
+    }
+
+    const properties = Array.isArray(expression.property) ? expression.property : [];
+    if (properties.length !== 1) {
+        return null;
+    }
+
+    const propertyAssessment = evaluateExpressionHoistability(properties[0], mutationSummary, assessmentCache);
+    if (!propertyAssessment) {
+        return null;
+    }
+
+    return {
+        complexity: objectAssessment.complexity + propertyAssessment.complexity + 1,
+        readsMemberAccess: true
+    };
+}
+
+function evaluateCallExpressionHoistability(
+    callExpression: AstNodeRecord,
+    mutationSummary: LoopMutationSummary,
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>
+): ExpressionAssessment | null {
+    const functionName = Core.getCallExpressionIdentifierName(callExpression);
+    if (!isPureFunctionName(functionName)) {
+        return null;
+    }
+
+    const callArguments = Core.getCallExpressionArguments(callExpression);
+    let complexity = 1;
+    let readsMemberAccess = false;
+
+    for (const argumentNode of callArguments) {
+        const argumentAssessment = evaluateExpressionHoistability(argumentNode, mutationSummary, assessmentCache);
+        if (!argumentAssessment) {
+            return null;
+        }
+
+        complexity += argumentAssessment.complexity;
+        readsMemberAccess = readsMemberAccess || argumentAssessment.readsMemberAccess;
+    }
+
+    return { complexity, readsMemberAccess };
+}
+
 function evaluateExpressionHoistability(
     expressionNode: unknown,
-    mutationSummary: LoopMutationSummary
+    mutationSummary: LoopMutationSummary,
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>
 ): ExpressionAssessment | null {
     const normalizedExpression = unwrapParenthesizedExpression(expressionNode);
     if (!isAstNodeRecord(normalizedExpression)) {
         return null;
     }
 
-    if (normalizedExpression.type === "Literal") {
-        return Object.freeze({ complexity: 1, readsMemberAccess: false });
+    if (assessmentCache.has(normalizedExpression)) {
+        return assessmentCache.get(normalizedExpression) ?? null;
     }
 
-    if (normalizedExpression.type === "Identifier") {
-        if (typeof normalizedExpression.name !== "string") {
-            return null;
+    let assessment: ExpressionAssessment | null;
+    switch (normalizedExpression.type) {
+        case "Literal": {
+            assessment = { complexity: 1, readsMemberAccess: false };
+            break;
         }
-
-        if (!isIdentifierInvariant(normalizedExpression.name, mutationSummary)) {
-            return null;
+        case "Identifier": {
+            assessment =
+                typeof normalizedExpression.name === "string" &&
+                isIdentifierInvariant(normalizedExpression.name, mutationSummary)
+                    ? { complexity: 1, readsMemberAccess: false }
+                    : null;
+            break;
         }
-
-        return Object.freeze({ complexity: 1, readsMemberAccess: false });
+        case "UnaryExpression": {
+            const argumentAssessment = evaluateExpressionHoistability(
+                normalizedExpression.argument,
+                mutationSummary,
+                assessmentCache
+            );
+            assessment = argumentAssessment
+                ? {
+                      complexity: argumentAssessment.complexity + 1,
+                      readsMemberAccess: argumentAssessment.readsMemberAccess
+                  }
+                : null;
+            break;
+        }
+        case "BinaryExpression": {
+            const leftAssessment = evaluateExpressionHoistability(
+                normalizedExpression.left,
+                mutationSummary,
+                assessmentCache
+            );
+            const rightAssessment = evaluateExpressionHoistability(
+                normalizedExpression.right,
+                mutationSummary,
+                assessmentCache
+            );
+            assessment =
+                leftAssessment && rightAssessment
+                    ? {
+                          complexity: leftAssessment.complexity + rightAssessment.complexity + 1,
+                          readsMemberAccess: leftAssessment.readsMemberAccess || rightAssessment.readsMemberAccess
+                      }
+                    : null;
+            break;
+        }
+        case "TernaryExpression": {
+            const testAssessment = evaluateExpressionHoistability(
+                normalizedExpression.test,
+                mutationSummary,
+                assessmentCache
+            );
+            const consequentAssessment = evaluateExpressionHoistability(
+                normalizedExpression.consequent,
+                mutationSummary,
+                assessmentCache
+            );
+            const alternateAssessment = evaluateExpressionHoistability(
+                normalizedExpression.alternate,
+                mutationSummary,
+                assessmentCache
+            );
+            assessment =
+                testAssessment && consequentAssessment && alternateAssessment
+                    ? {
+                          complexity:
+                              testAssessment.complexity +
+                              consequentAssessment.complexity +
+                              alternateAssessment.complexity +
+                              1,
+                          readsMemberAccess:
+                              testAssessment.readsMemberAccess ||
+                              consequentAssessment.readsMemberAccess ||
+                              alternateAssessment.readsMemberAccess
+                      }
+                    : null;
+            break;
+        }
+        case "TemplateStringExpression": {
+            assessment = evaluateTemplateStringExpressionHoistability(
+                normalizedExpression,
+                mutationSummary,
+                assessmentCache
+            );
+            break;
+        }
+        case "MemberDotExpression":
+        case "MemberIndexExpression": {
+            assessment = evaluateMemberAccessHoistability(normalizedExpression, mutationSummary, assessmentCache);
+            break;
+        }
+        case "CallExpression": {
+            assessment = evaluateCallExpressionHoistability(normalizedExpression, mutationSummary, assessmentCache);
+            break;
+        }
+        default: {
+            assessment = null;
+            break;
+        }
     }
 
-    if (normalizedExpression.type === "UnaryExpression") {
-        const argumentAssessment = evaluateExpressionHoistability(normalizedExpression.argument, mutationSummary);
-        if (!argumentAssessment) {
-            return null;
-        }
-
-        return Object.freeze({
-            complexity: argumentAssessment.complexity + 1,
-            readsMemberAccess: argumentAssessment.readsMemberAccess
-        });
-    }
-
-    if (normalizedExpression.type === "BinaryExpression") {
-        const leftAssessment = evaluateExpressionHoistability(normalizedExpression.left, mutationSummary);
-        const rightAssessment = evaluateExpressionHoistability(normalizedExpression.right, mutationSummary);
-        if (!leftAssessment || !rightAssessment) {
-            return null;
-        }
-
-        return Object.freeze({
-            complexity: leftAssessment.complexity + rightAssessment.complexity + 1,
-            readsMemberAccess: leftAssessment.readsMemberAccess || rightAssessment.readsMemberAccess
-        });
-    }
-
-    if (normalizedExpression.type === "TernaryExpression") {
-        const testAssessment = evaluateExpressionHoistability(normalizedExpression.test, mutationSummary);
-        const consequentAssessment = evaluateExpressionHoistability(normalizedExpression.consequent, mutationSummary);
-        const alternateAssessment = evaluateExpressionHoistability(normalizedExpression.alternate, mutationSummary);
-        if (!testAssessment || !consequentAssessment || !alternateAssessment) {
-            return null;
-        }
-
-        return Object.freeze({
-            complexity:
-                testAssessment.complexity + consequentAssessment.complexity + alternateAssessment.complexity + 1,
-            readsMemberAccess:
-                testAssessment.readsMemberAccess ||
-                consequentAssessment.readsMemberAccess ||
-                alternateAssessment.readsMemberAccess
-        });
-    }
-
-    if (normalizedExpression.type === "TemplateStringExpression") {
-        const atomNodes = Array.isArray(normalizedExpression.atoms) ? normalizedExpression.atoms : [];
-        let complexity = 1;
-        let readsMemberAccess = false;
-
-        for (const atom of atomNodes) {
-            if (!isAstNodeRecord(atom)) {
-                continue;
-            }
-
-            if (atom.type === "TemplateStringText") {
-                continue;
-            }
-
-            const atomAssessment = evaluateExpressionHoistability(atom, mutationSummary);
-            if (!atomAssessment) {
-                return null;
-            }
-
-            complexity += atomAssessment.complexity;
-            readsMemberAccess = readsMemberAccess || atomAssessment.readsMemberAccess;
-        }
-
-        return Object.freeze({ complexity, readsMemberAccess });
-    }
-
-    if (normalizedExpression.type === "MemberDotExpression") {
-        const objectAssessment = evaluateExpressionHoistability(normalizedExpression.object, mutationSummary);
-        const propertyName = readIdentifierName(normalizedExpression.property);
-        const rootIdentifierName = readRootIdentifierName(normalizedExpression.object);
-        if (!objectAssessment || !propertyName || !rootIdentifierName) {
-            return null;
-        }
-
-        const normalizedRootIdentifierName = normalizeIdentifierName(rootIdentifierName);
-        if (
-            mutationSummary.declaredInsideLoop.has(normalizedRootIdentifierName) ||
-            mutationSummary.mutatedIdentifierNames.has(normalizedRootIdentifierName) ||
-            mutationSummary.mutatedMemberRoots.has(normalizedRootIdentifierName)
-        ) {
-            return null;
-        }
-
-        return Object.freeze({
-            complexity: objectAssessment.complexity + 1,
-            readsMemberAccess: true
-        });
-    }
-
-    if (normalizedExpression.type === "MemberIndexExpression") {
-        if (
-            typeof normalizedExpression.accessor !== "string" ||
-            !SAFE_INDEX_ACCESSORS.has(normalizedExpression.accessor)
-        ) {
-            return null;
-        }
-
-        const objectAssessment = evaluateExpressionHoistability(normalizedExpression.object, mutationSummary);
-        const rootIdentifierName = readRootIdentifierName(normalizedExpression.object);
-        if (!objectAssessment || !rootIdentifierName) {
-            return null;
-        }
-
-        const normalizedRootIdentifierName = normalizeIdentifierName(rootIdentifierName);
-        if (
-            mutationSummary.declaredInsideLoop.has(normalizedRootIdentifierName) ||
-            mutationSummary.mutatedIdentifierNames.has(normalizedRootIdentifierName) ||
-            mutationSummary.mutatedMemberRoots.has(normalizedRootIdentifierName)
-        ) {
-            return null;
-        }
-
-        const properties = Array.isArray(normalizedExpression.property) ? normalizedExpression.property : [];
-        if (properties.length !== 1) {
-            return null;
-        }
-
-        const propertyAssessment = evaluateExpressionHoistability(properties[0], mutationSummary);
-        if (!propertyAssessment) {
-            return null;
-        }
-
-        return Object.freeze({
-            complexity: objectAssessment.complexity + propertyAssessment.complexity + 1,
-            readsMemberAccess: true
-        });
-    }
-
-    if (normalizedExpression.type === "CallExpression") {
-        const functionName = Core.getCallExpressionIdentifierName(normalizedExpression);
-        if (!isPureFunctionName(functionName)) {
-            return null;
-        }
-
-        const callArguments = Core.getCallExpressionArguments(normalizedExpression);
-        let complexity = 1;
-        let readsMemberAccess = false;
-
-        for (const argumentNode of callArguments) {
-            const argumentAssessment = evaluateExpressionHoistability(argumentNode, mutationSummary);
-            if (!argumentAssessment) {
-                return null;
-            }
-
-            complexity += argumentAssessment.complexity;
-            readsMemberAccess = readsMemberAccess || argumentAssessment.readsMemberAccess;
-        }
-
-        return Object.freeze({ complexity, readsMemberAccess });
-    }
-
-    return null;
+    assessmentCache.set(normalizedExpression, assessment);
+    return assessment;
 }
 
 function choosePreferredHoistName(
@@ -600,7 +652,8 @@ function findBestLoopCandidate(parameters: {
     loopContext: LoopContainerContext;
     mutationSummary: LoopMutationSummary;
 }): LoopCandidate | null {
-    const candidates: Array<LoopCandidate> = [];
+    let bestCandidate: LoopCandidate | null = null;
+    const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
 
     walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
         const { node, parent, parentKey } = visitContext;
@@ -623,7 +676,7 @@ function findBestLoopCandidate(parameters: {
             return;
         }
 
-        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary);
+        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, assessmentCache);
         if (!assessment) {
             return;
         }
@@ -637,39 +690,30 @@ function findBestLoopCandidate(parameters: {
             return;
         }
 
-        const expressionText = parameters.sourceText.slice(expressionStart, expressionEnd);
-        if (containsCommentToken(expressionText)) {
+        if (rangeContainsCommentToken(parameters.sourceText, expressionStart, expressionEnd)) {
             return;
         }
 
         const preferredHoistName = choosePreferredHoistName(parent, parentKey, node);
-        const score = assessment.complexity * 1000 + expressionText.length;
-        candidates.push(
-            Object.freeze({
-                loopContext: parameters.loopContext,
-                expressionNode: node,
-                expressionStart,
-                expressionEnd,
-                expressionText,
-                preferredHoistName,
-                score
-            })
-        );
-    });
-
-    if (candidates.length === 0) {
-        return null;
-    }
-
-    candidates.sort((left, right) => {
-        if (right.score !== left.score) {
-            return right.score - left.score;
+        const score = assessment.complexity * 1000 + (expressionEnd - expressionStart);
+        const candidate: LoopCandidate = {
+            loopContext: parameters.loopContext,
+            expressionNode: node,
+            expressionStart,
+            expressionEnd,
+            preferredHoistName,
+            score
+        };
+        if (
+            bestCandidate === null ||
+            candidate.score > bestCandidate.score ||
+            (candidate.score === bestCandidate.score && candidate.expressionStart < bestCandidate.expressionStart)
+        ) {
+            bestCandidate = candidate;
         }
-
-        return left.expressionStart - right.expressionStart;
     });
 
-    return candidates[0] ?? null;
+    return bestCandidate;
 }
 
 function resolveProjectContext(ruleContext: Rule.RuleContext): GmlProjectContext | null {
@@ -767,9 +811,12 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         }
 
                         const indentation = getLineIndentationAtOffset(sourceText, loopStart);
+                        const expressionText = sourceText.slice(
+                            bestCandidate.expressionStart,
+                            bestCandidate.expressionEnd
+                        );
                         const declarationText =
-                            `${indentation}var ${hoistIdentifierName} = ${bestCandidate.expressionText};` +
-                            `${lineEnding}`;
+                            `${indentation}var ${hoistIdentifierName} = ${expressionText};` + `${lineEnding}`;
 
                         context.report({
                             node: bestCandidate.expressionNode,

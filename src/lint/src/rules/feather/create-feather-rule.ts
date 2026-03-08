@@ -1065,11 +1065,38 @@ function createGm2054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return sourceText;
         }
 
-        let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\bgpu_set_alphatestref\s*\(\s*\d+\s*\)\s*;/g, "gpu_set_alphatestref(0);");
-        if (!rewritten.includes("gpu_set_alphatestref(0);")) {
-            rewritten = appendLineIfMissing(rewritten, "gpu_set_alphatestref(0);");
+        const lineEnding = sourceText.includes("\r\n") ? "\r\n" : "\n";
+        let insertedResetBeforeDisable = false;
+        const rewritten = sourceText.replaceAll(
+            /^([ \t]*)gpu_set_alphatestenable\s*\(\s*false\s*\)\s*;/gm,
+            (fullMatch: string, indentation: string, offset: number, fullText: string) => {
+                const precedingLines = fullText.slice(0, offset).split(/\r?\n/u);
+                for (let index = precedingLines.length - 1; index >= 0; index -= 1) {
+                    const trimmed = precedingLines[index]?.trim() ?? "";
+                    if (trimmed.length === 0) {
+                        continue;
+                    }
+
+                    if (/^gpu_set_alphatestref\s*\(\s*0\s*\)\s*;$/u.test(trimmed)) {
+                        return fullMatch;
+                    }
+
+                    break;
+                }
+
+                insertedResetBeforeDisable = true;
+                return `${indentation}gpu_set_alphatestref(0);${lineEnding}${fullMatch}`;
+            }
+        );
+
+        if (insertedResetBeforeDisable) {
+            return rewritten;
         }
+
+        if (!/\bgpu_set_alphatestref\s*\(\s*0\s*\)\s*;/.test(rewritten)) {
+            return appendLineIfMissing(rewritten, "gpu_set_alphatestref(0);");
+        }
+
         return rewritten;
     });
 }

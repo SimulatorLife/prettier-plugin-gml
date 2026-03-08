@@ -59,6 +59,26 @@ function buildArithmeticChainBatchSource(statementCount: number): string {
     return lines.join("\n");
 }
 
+function buildLoopInvariantStressBatchSource(loopCount: number, invariantTermsPerLoop: number): string {
+    const lines: string[] = [];
+
+    for (let loopIndex = 0; loopIndex < loopCount; loopIndex += 1) {
+        let invariantExpression = `(a_${loopIndex}_0 + b_${loopIndex}_0)`;
+        for (let termIndex = 1; termIndex < invariantTermsPerLoop; termIndex += 1) {
+            invariantExpression = `(${invariantExpression} + (a_${loopIndex}_${termIndex} + b_${loopIndex}_${termIndex}))`;
+        }
+
+        lines.push(
+            `repeat (count_${loopIndex}) {`,
+            `    total_${loopIndex} += (${invariantExpression}) + random(3);`,
+            "}"
+        );
+    }
+
+    lines.push("");
+    return lines.join("\n");
+}
+
 async function lintSingleRuleWithTiming(ruleId: string, sourceText: string): Promise<TimedLintRunResult> {
     const eslint = new ESLint({
         overrideConfigFile: true,
@@ -161,5 +181,43 @@ void test("optimize-math-expressions scales linearly for long arithmetic assignm
     assert.ok(
         timedRun.elapsedMilliseconds < 9000,
         `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("optimize-math-expressions keeps dot-product auto-fixes within bounded runtime on large batches", async () => {
+    const source = buildArithmeticChainBatchSource(1000);
+    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.ok(
+        timedRun.outputText.includes("dot_product_3d"),
+        "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
+    );
+    assert.ok(
+        timedRun.ruleMilliseconds < 500,
+        `expected optimize-math-expressions rule runtime under 500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 2000,
+        `expected total lint runtime under 2000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions", async () => {
+    const source = buildLoopInvariantStressBatchSource(120, 30);
+    const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.ok(
+        timedRun.outputText.includes("var cached_value ="),
+        "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
+    );
+    assert.ok(
+        timedRun.ruleMilliseconds < 3000,
+        `expected prefer-loop-invariant-expressions rule runtime under 3000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 6000,
+        `expected total lint runtime under 6000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
