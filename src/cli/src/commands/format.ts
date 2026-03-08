@@ -43,6 +43,11 @@ import {
 } from "../runtime-options/sample-limits.js";
 import { CLI_COMMAND_NAMES } from "../shared/command-names.js";
 import {
+    calculateElapsedNanoseconds,
+    formatElapsedNanosecondsAsMilliseconds,
+    readMonotonicNanoseconds
+} from "../shared/elapsed-time.js";
+import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
@@ -405,7 +410,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             (value) => parseErrorActionOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PARSE_ERROR_ACTION
         )
-        .option("--verbose", "Enable verbose output with detailed diagnostics")
+        .option("--verbose", "Enable verbose output with detailed diagnostics and timing")
         .addHelpText("after", () =>
             [
                 "",
@@ -477,6 +482,9 @@ const skippedDirectorySummary = {
 let checkModeEnabled = false;
 let pendingFormatCount = 0;
 let formattedFileCount = 0;
+let verboseTimingEnabled = false;
+let formattingRunStartedAtNanoseconds = 0n;
+let timedFormattableFileCount = 0;
 
 function resetCheckModeTracking() {
     pendingFormatCount = 0;
@@ -486,9 +494,44 @@ function resetFormattedFileTracking() {
     formattedFileCount = 0;
 }
 
+function resetVerboseTimingTracking() {
+    verboseTimingEnabled = false;
+    formattingRunStartedAtNanoseconds = 0n;
+    timedFormattableFileCount = 0;
+}
+
 function configureCheckMode(enabled) {
     checkModeEnabled = Boolean(enabled);
     resetCheckModeTracking();
+}
+
+function formatTimingSuffixFromNanoseconds(elapsedNanoseconds: bigint): string {
+    return ` (${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)})`;
+}
+
+function logVerbosePerFileTiming(parameters: {
+    filePath: string;
+    phase: "checked" | "would-format" | "formatted";
+    elapsedNanoseconds: bigint;
+}) {
+    if (!verboseTimingEnabled) {
+        return;
+    }
+
+    const timingSuffix = formatTimingSuffixFromNanoseconds(parameters.elapsedNanoseconds);
+    if (parameters.phase === "checked") {
+        console.log(
+            `Checked ${formatPathForDisplay(parameters.filePath)} (already formatted, ${formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds)})`
+        );
+        return;
+    }
+
+    if (parameters.phase === "would-format") {
+        console.log(`Would format ${formatPathForDisplay(parameters.filePath)}${timingSuffix}`);
+        return;
+    }
+
+    console.log(`Formatted ${parameters.filePath}${timingSuffix}`);
 }
 
 const skippedDirectorySampleLimitState = createSampleLimitState({
@@ -745,6 +788,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
+    resetVerboseTimingTracking();
     clearFormattingCache();
     inMemorySnapshotCount = 0;
     processedFileCount = 0;
@@ -1386,6 +1430,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
+    const formatFileStartedAtNanoseconds = readMonotonicNanoseconds();
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
         const prettier = await resolvePrettier();
@@ -1408,6 +1453,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         }
 
         encounteredFormattableFile = true;
+        timedFormattableFileCount += 1;
 
         const data = await readTextFile(filePath);
         const cacheKey = createFormattingCacheKey(data, formattingOptions);
@@ -1420,19 +1466,47 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         const normalizedOutput = await normalizeFormattedOutputWithFormat(formatted, data);
 
         if (normalizedOutput === data) {
+            logVerbosePerFileTiming({
+                filePath,
+                phase: "checked",
+                elapsedNanoseconds: calculateElapsedNanoseconds({
+                    startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                    completedAtNanoseconds: readMonotonicNanoseconds()
+                })
+            });
             return;
         }
 
         if (checkModeEnabled) {
             pendingFormatCount += 1;
-            console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            logVerbosePerFileTiming({
+                filePath,
+                phase: "would-format",
+                elapsedNanoseconds: calculateElapsedNanoseconds({
+                    startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                    completedAtNanoseconds: readMonotonicNanoseconds()
+                })
+            });
+            if (!verboseTimingEnabled) {
+                console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            }
             return;
         }
 
         await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
-        console.log(`Formatted ${filePath}`);
+        logVerbosePerFileTiming({
+            filePath,
+            phase: "formatted",
+            elapsedNanoseconds: calculateElapsedNanoseconds({
+                startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            })
+        });
+        if (!verboseTimingEnabled) {
+            console.log(`Formatted ${filePath}`);
+        }
 
         // Increment processed file counter and perform periodic cleanup
         processedFileCount += 1;
@@ -1581,7 +1655,8 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimit,
     ignoredFileSampleLimit,
     unsupportedExtensionSampleLimit,
-    checkMode
+    checkMode,
+    verbose
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
@@ -1590,6 +1665,8 @@ async function prepareFormattingRun({
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
+    verboseTimingEnabled = verbose;
+    formattingRunStartedAtNanoseconds = readMonotonicNanoseconds();
 }
 
 /**
@@ -1676,6 +1753,17 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
         logFormattingErrorSummary();
         process.exitCode = 1;
     }
+
+    if (verboseTimingEnabled) {
+        const elapsedNanoseconds = calculateElapsedNanoseconds({
+            startedAtNanoseconds: formattingRunStartedAtNanoseconds,
+            completedAtNanoseconds: readMonotonicNanoseconds()
+        });
+        const label = timedFormattableFileCount === 1 ? "file" : "files";
+        console.log(
+            `Verbose timing: processed ${timedFormattableFileCount} formattable ${label} in ${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)}.`
+        );
+    }
 }
 
 /**
@@ -1737,7 +1825,8 @@ export async function runFormatCommand(command) {
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,
-        checkMode: commandOptions.checkMode
+        checkMode: commandOptions.checkMode,
+        verbose: commandOptions.verbose
     });
 
     try {

@@ -11,6 +11,11 @@ import { ESLint } from "eslint";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+import {
+    calculateElapsedNanoseconds,
+    formatElapsedNanosecondsAsMilliseconds,
+    readMonotonicNanoseconds
+} from "../shared/elapsed-time.js";
 
 const FLAT_CONFIG_CANDIDATES = Object.freeze([
     "eslint.config.js",
@@ -218,7 +223,11 @@ type RecoverableLintTarget = Readonly<{
     fallbackFilePath: string;
 }>;
 
-type LintTargetCompletionHandler = (targetResults: Array<ESLint.LintResult>) => Promise<void>;
+type LintTargetCompletionHandler = (completion: {
+    target: string;
+    targetResults: Array<ESLint.LintResult>;
+    elapsedNanoseconds: bigint;
+}) => Promise<void>;
 
 type LintProgressLineWriter = (line: string) => void;
 
@@ -437,12 +446,20 @@ function lintTargetsWithRuntimeRecovery(parameters: {
         }
 
         const lintTarget = orderedTargets[index];
+        const targetStartedAtNanoseconds = readMonotonicNanoseconds();
         const targetResults = await lintTargetWithRuntimeRecovery({
             eslint: parameters.eslint,
             target: lintTarget.target,
             fallbackFilePath: lintTarget.fallbackFilePath
         });
-        await parameters.onTargetCompleted(targetResults);
+        await parameters.onTargetCompleted({
+            target: lintTarget.target,
+            targetResults,
+            elapsedNanoseconds: calculateElapsedNanoseconds({
+                startedAtNanoseconds: targetStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            })
+        });
         aggregatedResults.push(...targetResults);
         return lintTargetAtIndex(index + 1);
     };
@@ -735,6 +752,58 @@ function emitLintFixProgressForResults(parameters: {
         parameters.writeProgressLine(displayPath);
         emittedPaths.add(displayPath);
     }
+}
+
+function emitVerboseLintTargetTiming(parameters: {
+    cwd: string;
+    target: string;
+    targetResults: ReadonlyArray<LintResultLike>;
+    elapsedNanoseconds: bigint;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    if (parameters.targetResults.length === 0) {
+        parameters.writeProgressLine(
+            `[timing] Lint target '${parameters.target}' completed in ${elapsedText} (no files matched).`
+        );
+        return;
+    }
+
+    if (parameters.targetResults.length === 1) {
+        const firstResult = parameters.targetResults[0];
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: firstResult.filePath
+        });
+        parameters.writeProgressLine(`[timing] Linted ${displayPath} in ${elapsedText}.`);
+        return;
+    }
+
+    const emittedPaths = new Set<string>();
+    for (const result of parameters.targetResults) {
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: result.filePath
+        });
+        if (emittedPaths.has(displayPath)) {
+            continue;
+        }
+
+        parameters.writeProgressLine(`[timing] Linted ${displayPath} in ${elapsedText} (target batch).`);
+        emittedPaths.add(displayPath);
+    }
+}
+
+function emitVerboseLintRunTimingSummary(parameters: {
+    lintedFileCount: number;
+    elapsedNanoseconds: bigint;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const fileLabel = parameters.lintedFileCount === 1 ? "file" : "files";
+    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    parameters.writeProgressLine(
+        `[timing] Completed lint run for ${parameters.lintedFileCount} ${fileLabel} in ${elapsedText}.`
+    );
 }
 
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
@@ -1108,7 +1177,7 @@ export function createLintCommand(): Command {
             .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
             .option("--index-allow <dir...>", "Include directories that are hard-excluded from project indexing")
             .option("--quiet", "Suppress fallback warnings", false)
-            .option("--verbose", "Enable verbose command output", false)
+            .option("--verbose", "Enable verbose command output and timing diagnostics", false)
     );
 }
 
@@ -1195,13 +1264,30 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
+    const lintRunStartedAtNanoseconds = readMonotonicNanoseconds();
+    let lintedFileCount = 0;
+
     let results: Array<ESLint.LintResult>;
     try {
         results = await lintTargetsWithRuntimeRecovery({
             eslint,
             cwd: commandCwd,
             targets,
-            onTargetCompleted: async (targetResults) => {
+            onTargetCompleted: async ({ target, targetResults, elapsedNanoseconds }) => {
+                lintedFileCount += targetResults.length;
+
+                if (options.verbose) {
+                    emitVerboseLintTargetTiming({
+                        cwd: commandCwd,
+                        target,
+                        targetResults,
+                        elapsedNanoseconds,
+                        writeProgressLine: (line) => {
+                            process.stderr.write(`${line}\n`);
+                        }
+                    });
+                }
+
                 if (!options.fix) {
                     return;
                 }
@@ -1222,63 +1308,79 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
-
-    const processorPolicy = await enforceProcessorPolicyForGmlFiles({
-        eslint,
-        results,
-        verbose: options.verbose
-    });
-
-    if (processorPolicy.warning) {
-        console.warn(processorPolicy.warning);
-    }
-
-    if (processorPolicy.exitCode !== 0) {
-        if (processorPolicy.message) {
-            console.error(processorPolicy.message);
-        }
-
-        setProcessExitCode(processorPolicy.exitCode);
-        return;
-    }
-
-    const outOfRootPaths = collectOutOfRootFilePaths(results, projectRegistry);
-
-    if (!options.quiet && outOfRootPaths.length > 0) {
-        console.warn(formatOutOfRootWarning(outOfRootPaths));
-    }
-
-    if (options.projectStrict && outOfRootPaths.length > 0) {
-        console.error(
-            `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
-                `Offending paths:\n${formatPathSample(outOfRootPaths)}`
-        );
-        setProcessExitCode(2);
-        return;
-    }
-
     try {
-        const formatter = await loadRequestedFormatter(eslint, options.formatter);
-        const formatterOutput = formatter.format(results);
-        if (formatterOutput.length > 0) {
-            process.stdout.write(`${formatterOutput}\n`);
+        await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
+
+        const processorPolicy = await enforceProcessorPolicyForGmlFiles({
+            eslint,
+            results,
+            verbose: options.verbose
+        });
+
+        if (processorPolicy.warning) {
+            console.warn(processorPolicy.warning);
         }
-    } catch (error) {
-        console.error(Core.isErrorLike(error) ? error.message : String(error));
-        setProcessExitCode(2);
-        return;
+
+        if (processorPolicy.exitCode !== 0) {
+            if (processorPolicy.message) {
+                console.error(processorPolicy.message);
+            }
+
+            setProcessExitCode(processorPolicy.exitCode);
+            return;
+        }
+
+        const outOfRootPaths = collectOutOfRootFilePaths(results, projectRegistry);
+
+        if (!options.quiet && outOfRootPaths.length > 0) {
+            console.warn(formatOutOfRootWarning(outOfRootPaths));
+        }
+
+        if (options.projectStrict && outOfRootPaths.length > 0) {
+            console.error(
+                `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
+                    `Offending paths:\n${formatPathSample(outOfRootPaths)}`
+            );
+            setProcessExitCode(2);
+            return;
+        }
+
+        try {
+            const formatter = await loadRequestedFormatter(eslint, options.formatter);
+            const formatterOutput = formatter.format(results);
+            if (formatterOutput.length > 0) {
+                process.stdout.write(`${formatterOutput}\n`);
+            }
+        } catch (error) {
+            console.error(Core.isErrorLike(error) ? error.message : String(error));
+            setProcessExitCode(2);
+            return;
+        }
+
+        const totals = aggregateLintTotals(results);
+
+        setProcessExitCode(
+            resolveExitCode({
+                errorCount: totals.errorCount,
+                warningCount: totals.warningCount,
+                maxWarnings: options.maxWarnings
+            })
+        );
+    } finally {
+        if (options.verbose) {
+            const elapsedNanoseconds = calculateElapsedNanoseconds({
+                startedAtNanoseconds: lintRunStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            });
+            emitVerboseLintRunTimingSummary({
+                lintedFileCount,
+                elapsedNanoseconds,
+                writeProgressLine: (line) => {
+                    process.stderr.write(`${line}\n`);
+                }
+            });
+        }
     }
-
-    const totals = aggregateLintTotals(results);
-
-    setProcessExitCode(
-        resolveExitCode({
-            errorCount: totals.errorCount,
-            warningCount: totals.warningCount,
-            maxWarnings: options.maxWarnings
-        })
-    );
 }
 
 export const __lintCommandTest__ = Object.freeze({
