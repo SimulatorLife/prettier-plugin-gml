@@ -63,6 +63,7 @@ type GmlParserServices = {
 };
 
 type IndexedLocation = { line?: unknown; index?: unknown; column?: unknown };
+type LineStartIndexMap = Readonly<{ lineStarts: ReadonlyArray<number> }>;
 
 type GMLLanguage = {
     fileType: "text";
@@ -237,31 +238,66 @@ function toIndexedLocation(value: unknown): IndexedLocation | null {
     return value && typeof value === "object" ? (value as IndexedLocation) : null;
 }
 
-function mapIndexToLoc(sourceText: string, index: number): { line: number; column: number } {
-    const boundedIndex = Math.max(0, Math.min(index, sourceText.length));
-    let line = 1;
-    let lineStart = 0;
-    for (let cursor = 0; cursor < boundedIndex; cursor += 1) {
-        const character = sourceText[cursor] ?? "";
+function createLineStartIndexMap(sourceText: string): LineStartIndexMap {
+    const lineStarts: number[] = [0];
+    for (let index = 0; index < sourceText.length; index += 1) {
+        const character = sourceText[index] ?? "";
         if (character === "\n") {
-            line += 1;
-            lineStart = cursor + 1;
+            lineStarts.push(index + 1);
             continue;
         }
 
         if (character === "\r") {
-            if (sourceText[cursor + 1] === "\n") {
-                cursor += 1;
+            if (sourceText[index + 1] === "\n") {
+                index += 1;
             }
-            line += 1;
-            lineStart = cursor + 1;
+            lineStarts.push(index + 1);
         }
     }
 
-    return { line, column: boundedIndex - lineStart };
+    return Object.freeze({
+        lineStarts: Object.freeze(lineStarts)
+    });
 }
 
-function ensureRangeAndLocFromStartEnd(record: Record<string, unknown>, sourceText: string): void {
+function resolveLineStartIndexForOffset(lineStartMap: LineStartIndexMap, boundedIndex: number): number {
+    let low = 0;
+    let high = lineStartMap.lineStarts.length - 1;
+
+    while (low <= high) {
+        const middle = (low + high) >> 1;
+        const lineStart = lineStartMap.lineStarts[middle] ?? 0;
+        if (lineStart <= boundedIndex) {
+            low = middle + 1;
+            continue;
+        }
+
+        high = middle - 1;
+    }
+
+    return Math.max(0, high);
+}
+
+function mapIndexToLoc(
+    sourceText: string,
+    lineStartMap: LineStartIndexMap,
+    index: number
+): { line: number; column: number } {
+    const boundedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const lineStartIndex = resolveLineStartIndexForOffset(lineStartMap, boundedIndex);
+    const lineStart = lineStartMap.lineStarts[lineStartIndex] ?? 0;
+
+    return {
+        line: lineStartIndex + 1,
+        column: boundedIndex - lineStart
+    };
+}
+
+function ensureRangeAndLocFromStartEnd(
+    record: Record<string, unknown>,
+    sourceText: string,
+    lineStartMap: LineStartIndexMap
+): void {
     const startLocation = toIndexedLocation(record.start);
     const endLocation = toIndexedLocation(record.end);
     const startIndex = typeof startLocation?.index === "number" ? startLocation.index : null;
@@ -271,8 +307,8 @@ function ensureRangeAndLocFromStartEnd(record: Record<string, unknown>, sourceTe
     }
 
     const endExclusive = Math.max(startIndex, endIndexInclusive + 1);
-    const startLoc = mapIndexToLoc(sourceText, startIndex);
-    const endLoc = mapIndexToLoc(sourceText, endExclusive);
+    const startLoc = mapIndexToLoc(sourceText, lineStartMap, startIndex);
+    const endLoc = mapIndexToLoc(sourceText, lineStartMap, endExclusive);
 
     record.range = [startIndex, endExclusive];
     record.loc = {
@@ -280,7 +316,9 @@ function ensureRangeAndLocFromStartEnd(record: Record<string, unknown>, sourceTe
         end: Object.assign({}, endLoc, { index: endExclusive })
     };
     record.start = Object.assign({}, startLoc, { index: startIndex });
-    record.end = Object.assign({}, mapIndexToLoc(sourceText, endIndexInclusive), { index: endIndexInclusive });
+    record.end = Object.assign({}, mapIndexToLoc(sourceText, lineStartMap, endIndexInclusive), {
+        index: endIndexInclusive
+    });
 }
 
 function assignRangesRecursively(node: unknown): void {
@@ -312,6 +350,7 @@ function projectLocationsToOriginalSource(
     sourceText: string,
     insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>
 ): void {
+    const lineStartMap = createLineStartIndexMap(sourceText);
     const skippedChildKeys = new Set(["start", "end", "loc", "range", "parent", "next", "prev", "previous"]);
     const seen = new Set<object>();
 
@@ -352,7 +391,7 @@ function projectLocationsToOriginalSource(
             endLocation.index = mapRecoveredIndexToOriginal(endLocation.index, insertions);
         }
 
-        ensureRangeAndLocFromStartEnd(record, sourceText);
+        ensureRangeAndLocFromStartEnd(record, sourceText, lineStartMap);
 
         for (const [key, value] of Object.entries(record)) {
             if (skippedChildKeys.has(key)) {

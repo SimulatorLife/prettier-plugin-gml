@@ -93,6 +93,7 @@ LintWorkspace.Lint;
 Built-in `gml/*` rule short names:
 
 - `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
+- `prefer-loop-invariant-expressions`
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
 - `prefer-compound-assignments`
@@ -122,6 +123,8 @@ Built-in `gml/*` rule short names:
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
+`prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.
+
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
@@ -130,6 +133,10 @@ Built-in `gml/*` rule short names:
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
+
+`optimize-logical-flow` and `optimize-math-expressions` now clone candidate AST fragments using a traversal-link-stripping helper (skipping `parent`/context pointers) so autofix performance remains stable on very large scripts.
+`prefer-loop-invariant-expressions` memoizes subtree hoistability checks per loop, caches normalized in-scope identifier names across loop iterations, and uses indexed comment-token range checks so large loop-heavy files avoid repeated full-source rescans.
+`optimize-math-expressions` only performs reciprocal-term cancellation on side-effect-free operands (identifiers/member accesses/literals). Call-expression operands are intentionally excluded from that cancellation path.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`. All feather-namespace lint rules follow the naming pattern `feather/gm####`, where the lint rule diagnoses/fixes specificy/only the issue for the associated Feather rule/diagnostic. For example, lint rule `feather/gm1000` identifies and fixes the specific issue described in Feather rule `gm1000`: "No enclosing loop from which to break" This creates a clear, traceable link between each Feather rule and its corresponding lint rule(s), and allows us to easily add new lint rules for new Feather rules as they are added to the manifest.
 

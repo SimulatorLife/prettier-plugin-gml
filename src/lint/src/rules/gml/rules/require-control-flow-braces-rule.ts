@@ -155,8 +155,47 @@ function parseLineOnlyDoHeader(line: string): string | null {
     return match?.[1] ?? null;
 }
 
+function findLineCommentStartOutsideStringLiterals(line: string): number {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let isEscapedCharacter = false;
+
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (isEscapedCharacter) {
+            isEscapedCharacter = false;
+            continue;
+        }
+
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            isEscapedCharacter = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
 function lineUsesMacroContinuation(line: string): boolean {
-    return line.trimEnd().endsWith("\\");
+    const lineCommentStart = findLineCommentStartOutsideStringLiterals(line);
+    const contentBeforeComment = lineCommentStart === -1 ? line : line.slice(0, lineCommentStart);
+    return contentBeforeComment.trimEnd().endsWith("\\");
 }
 
 function parseLineOnlyUntilFooter(line: string): string | null {

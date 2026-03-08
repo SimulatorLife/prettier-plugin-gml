@@ -1,6 +1,5 @@
 var value = 1;
 
-/// @returns {undefined}
 function demo() {
     var value2 = 2;
     switch (value2) {
