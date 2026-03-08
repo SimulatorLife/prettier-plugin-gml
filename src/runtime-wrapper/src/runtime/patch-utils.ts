@@ -136,17 +136,54 @@ function resolveNamedFunctionId(runtimeId: string): string | null {
 }
 
 function resolveObjectEventKey(eventName: string): string | null {
+    // More specific prefixes must be checked before their general prefix
+    // to avoid incorrect matches (e.g. "StepBegin_0" must not match "Step").
+
+    // Create / PreCreate
+    if (eventName.startsWith("PreCreate")) {
+        return "PreCreateEvent";
+    }
     if (eventName.startsWith("Create")) {
         return "CreateEvent";
+    }
+
+    // Destroy / CleanUp
+    if (eventName.startsWith("CleanUp")) {
+        return "CleanUpEvent";
+    }
+    if (eventName.startsWith("Destroy")) {
+        return "DestroyEvent";
+    }
+
+    // Step variants (most specific first)
+    if (eventName.startsWith("StepBegin")) {
+        return "StepBeginEvent";
+    }
+    if (eventName.startsWith("StepEnd")) {
+        return "StepEndEvent";
     }
     if (eventName.startsWith("Step")) {
         return "StepNormalEvent";
     }
+
+    // Draw variants (most specific first to avoid false "DrawEvent" matches)
+    if (eventName.startsWith("DrawGUIBegin")) {
+        return "DrawGUIBegin";
+    }
+    if (eventName.startsWith("DrawGUIEnd")) {
+        return "DrawGUIEnd";
+    }
+    if (eventName.startsWith("DrawGUI")) {
+        return "DrawGUI";
+    }
+    if (eventName.startsWith("DrawEventBegin") || eventName.startsWith("DrawBegin")) {
+        return "DrawEventBegin";
+    }
+    if (eventName.startsWith("DrawEventEnd") || eventName.startsWith("DrawEnd")) {
+        return "DrawEventEnd";
+    }
     if (eventName.startsWith("Draw")) {
         return "DrawEvent";
-    }
-    if (eventName.startsWith("Destroy")) {
-        return "DestroyEvent";
     }
 
     return null;
