@@ -377,3 +377,57 @@ void test("prefer-loop-invariant-expressions does not hoist variable_instance_ge
     const input = ["repeat (count) {", '    total += variable_instance_get(id, "hp");', "}", ""].join("\n");
     expectNoAutoFix(input);
 });
+
+void test("prefer-loop-invariant-expressions resolves hoist names case-insensitively against in-scope identifiers", () => {
+    const input = ["var CACHED_VALUE = 99;", "repeat (count) {", "    total += (a + b) * c;", "}", ""].join("\n");
+    const expected = [
+        "var CACHED_VALUE = 99;",
+        "var cached_value_1 = (a + b) * c;",
+        "repeat (count) {",
+        "    total += cached_value_1;",
+        "}",
+        ""
+    ].join("\n");
+
+    expectAutoFix(input, expected);
+});
+
+void test("prefer-loop-invariant-expressions keeps generated hoist names unique across multiple loops", () => {
+    const input = [
+        "repeat (count_a) {",
+        "    total_a += x_a * y_a;",
+        "}",
+        "",
+        "repeat (count_b) {",
+        "    total_b += x_b * y_b;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var cached_value = x_a * y_a;",
+        "repeat (count_a) {",
+        "    total_a += cached_value;",
+        "}",
+        "",
+        "var cached_value_1 = x_b * y_b;",
+        "repeat (count_b) {",
+        "    total_b += cached_value_1;",
+        "}",
+        ""
+    ].join("\n");
+
+    expectAutoFix(input, expected);
+});
+
+void test("prefer-loop-invariant-expressions skips comment-spanning candidates while hoisting safe alternatives", () => {
+    const input = ["repeat (count) {", "    total += (a /* keep */ + b) + (c + d);", "}", ""].join("\n");
+    const expected = [
+        "var cached_value = c + d;",
+        "repeat (count) {",
+        "    total += (a /* keep */ + b) + (cached_value);",
+        "}",
+        ""
+    ].join("\n");
+
+    expectAutoFix(input, expected);
+});

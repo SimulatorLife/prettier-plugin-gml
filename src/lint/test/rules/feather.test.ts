@@ -474,6 +474,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         assertOutput: (output) => {
             assertEquals(output.includes("var i = 0;"), true);
             assertEquals(output.includes("var i = 34;"), false);
+            assertEquals(output.includes("var _msg;"), true);
+            assertEquals(output.includes('var _msg = "Something happened!";'), false);
+            assertEquals(output.includes("if (something_occurred) {"), true);
         }
     },
     {

@@ -56,6 +56,11 @@ type ParentVisitContext = Readonly<{
     parentKey: string | null;
 }>;
 
+type CommentTokenRangeIndex = Readonly<{
+    prefixCounts: Uint32Array;
+    sourceLength: number;
+}>;
+
 type ProjectSettingsShape = Readonly<{
     gml?: Readonly<{
         project?: Readonly<{
@@ -99,23 +104,49 @@ function normalizeIdentifierName(identifierName: string): string {
     return Core.toNormalizedLowerCaseString(identifierName);
 }
 
-function rangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
+function isCommentTokenBoundary(sourceText: string, index: number): boolean {
+    const character = sourceText[index];
+    const nextCharacter = sourceText[index + 1];
+    if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
+        return true;
+    }
+
+    return character === "*" && nextCharacter === "/";
+}
+
+function createCommentTokenRangeIndex(sourceText: string): CommentTokenRangeIndex {
+    const sourceLength = sourceText.length;
+    const prefixCounts = new Uint32Array(sourceLength + 1);
+
+    for (let index = 0; index < sourceLength; index += 1) {
+        prefixCounts[index + 1] = prefixCounts[index];
+        if (index < sourceLength - 1 && isCommentTokenBoundary(sourceText, index)) {
+            prefixCounts[index + 1] += 1;
+        }
+    }
+
+    return {
+        prefixCounts,
+        sourceLength
+    };
+}
+
+function rangeContainsCommentToken(
+    commentTokenRangeIndex: CommentTokenRangeIndex,
+    start: number,
+    end: number
+): boolean {
     if (end - start < 2) {
         return false;
     }
 
-    for (let index = start; index < end - 1; index += 1) {
-        const character = sourceText[index];
-        const nextCharacter = sourceText[index + 1];
-        if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
-            return true;
-        }
-        if (character === "*" && nextCharacter === "/") {
-            return true;
-        }
+    const clampedStart = Math.min(Math.max(start, 0), commentTokenRangeIndex.sourceLength);
+    const clampedEndExclusive = Math.min(Math.max(end - 1, 0), commentTokenRangeIndex.sourceLength);
+    if (clampedEndExclusive <= clampedStart) {
+        return false;
     }
 
-    return false;
+    return commentTokenRangeIndex.prefixCounts[clampedEndExclusive] > commentTokenRangeIndex.prefixCounts[clampedStart];
 }
 
 function isLoopNode(node: unknown): node is LoopNode {
@@ -259,6 +290,15 @@ function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<stri
     });
 
     return names;
+}
+
+function collectNormalizedIdentifierNames(identifierNames: ReadonlySet<string>): Set<string> {
+    const normalizedNames = new Set<string>();
+    for (const identifierName of identifierNames) {
+        normalizedNames.add(normalizeIdentifierName(identifierName));
+    }
+
+    return normalizedNames;
 }
 
 function collectMutatedNamesFromTarget(
@@ -648,7 +688,7 @@ function choosePreferredHoistName(
 }
 
 function findBestLoopCandidate(parameters: {
-    sourceText: string;
+    commentTokenRangeIndex: CommentTokenRangeIndex;
     loopContext: LoopContainerContext;
     mutationSummary: LoopMutationSummary;
 }): LoopCandidate | null {
@@ -690,7 +730,7 @@ function findBestLoopCandidate(parameters: {
             return;
         }
 
-        if (rangeContainsCommentToken(parameters.sourceText, expressionStart, expressionEnd)) {
+        if (rangeContainsCommentToken(parameters.commentTokenRangeIndex, expressionStart, expressionEnd)) {
             return;
         }
 
@@ -735,13 +775,9 @@ function resolveProjectContext(ruleContext: Rule.RuleContext): GmlProjectContext
 function resolveUniqueHoistIdentifierName(parameters: {
     preferredName: string;
     localIdentifierNames: ReadonlySet<string>;
+    normalizedLocalIdentifierNames: ReadonlySet<string>;
     projectContext: GmlProjectContext | null;
 }): string | null {
-    const normalizedNames = new Set<string>();
-    for (const identifierName of parameters.localIdentifierNames) {
-        normalizedNames.add(normalizeIdentifierName(identifierName));
-    }
-
     const projectResolvedName =
         parameters.projectContext?.capabilities.has("LOOP_HOIST_NAME_RESOLUTION") === true
             ? parameters.projectContext.resolveLoopHoistIdentifier(
@@ -750,14 +786,17 @@ function resolveUniqueHoistIdentifierName(parameters: {
               )
             : null;
 
-    if (projectResolvedName && !normalizedNames.has(normalizeIdentifierName(projectResolvedName))) {
+    if (
+        projectResolvedName &&
+        !parameters.normalizedLocalIdentifierNames.has(normalizeIdentifierName(projectResolvedName))
+    ) {
         return projectResolvedName;
     }
 
     const baseName = parameters.preferredName.length > 0 ? parameters.preferredName : "cached_value";
     for (let suffix = 0; suffix <= 1000; suffix += 1) {
         const candidateName = suffix === 0 ? baseName : `${baseName}_${suffix}`;
-        if (!normalizedNames.has(normalizeIdentifierName(candidateName))) {
+        if (!parameters.normalizedLocalIdentifierNames.has(normalizeIdentifierName(candidateName))) {
             return candidateName;
         }
     }
@@ -780,13 +819,15 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                     const sourceText = context.sourceCode.text;
                     const lineEnding = Core.dominantLineEnding(sourceText);
                     const localIdentifierNames = new Set(collectIdentifierNamesInProgram(programNode));
+                    const normalizedLocalIdentifierNames = collectNormalizedIdentifierNames(localIdentifierNames);
                     const projectContext = resolveProjectContext(context);
                     const loopContexts = collectLoopContainerContexts(programNode);
+                    const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
 
                     for (const loopContext of loopContexts) {
                         const mutationSummary = collectLoopMutationSummary(loopContext.loopNode);
                         const bestCandidate = findBestLoopCandidate({
-                            sourceText,
+                            commentTokenRangeIndex,
                             loopContext,
                             mutationSummary
                         });
@@ -797,6 +838,7 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         const hoistIdentifierName = resolveUniqueHoistIdentifierName({
                             preferredName: bestCandidate.preferredHoistName,
                             localIdentifierNames,
+                            normalizedLocalIdentifierNames,
                             projectContext
                         });
                         if (!hoistIdentifierName) {
@@ -804,6 +846,7 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         }
 
                         localIdentifierNames.add(hoistIdentifierName);
+                        normalizedLocalIdentifierNames.add(normalizeIdentifierName(hoistIdentifierName));
 
                         const loopStart = getNodeStartIndex(loopContext.loopNode);
                         if (typeof loopStart !== "number") {
