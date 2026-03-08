@@ -156,7 +156,7 @@ The transpiler maps GML-specific operators to their JavaScript equivalents:
 
 | GML Operator | JavaScript Equivalent |
 |--------------|-----------------------|
-| `div`        | `/`                  |
+| `div`        | `Math.trunc(a / b)`  |
 | `mod`        | `%`                  |
 | `and`        | `&&`                 |
 | `or`         | `||`                 |
