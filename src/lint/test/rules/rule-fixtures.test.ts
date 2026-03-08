@@ -38,7 +38,6 @@ type FixturePair = Readonly<{
 }>;
 
 type ParsedFixtureOptions = Readonly<{
-    active: boolean;
     lintRules: Record<string, string>;
     ruleOptions: Record<string, unknown>;
 }>;
@@ -62,14 +61,6 @@ async function readFixtureOptions(fixtureDirectoryPath: string): Promise<ParsedF
     }
 
     const rawOptions = parsed as Record<string, unknown>;
-    const active = rawOptions.active;
-    if (active !== undefined && typeof active !== "boolean") {
-        throw new TypeError(
-            `Fixture options active must be a boolean when provided: ${normalizeFixtureRelativePath(optionsPath)}`
-        );
-    }
-    const isActive = active === undefined ? true : active;
-
     const rawLintRules = rawOptions.lintRules;
     if (!rawLintRules || typeof rawLintRules !== "object" || Array.isArray(rawLintRules)) {
         throw new TypeError(
@@ -103,7 +94,6 @@ async function readFixtureOptions(fixtureDirectoryPath: string): Promise<ParsedF
     ) as Record<string, unknown>;
 
     return Object.freeze({
-        active: isActive,
         lintRules,
         ruleOptions
     });
@@ -267,10 +257,6 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
         }
 
         const rawOptions = await readFixtureOptions(fixtureDirectoryPath);
-        if (!rawOptions.active) {
-            continue;
-        }
-
         const resolvedFixtureRule = resolveFixtureRuleName(fixtureRuleInfo, rawOptions);
         if (resolvedFixtureRule.invalidRuleIds.length > 0) {
             validationErrors.push(
