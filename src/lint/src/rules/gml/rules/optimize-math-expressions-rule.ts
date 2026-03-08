@@ -511,6 +511,21 @@ function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<So
     return edits.some((edit) => start < edit.end && end > edit.start);
 }
 
+type SourceTextRange = Readonly<{ start: number; end: number }>;
+
+const MATH_OPTIMIZATION_SIGNAL_PATTERN =
+    /[*/%+-]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
+
+function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: ReadonlyArray<SourceTextRange>): boolean {
+    return containerRanges.some((containerRange) => {
+        return range.start >= containerRange.start && range.end <= containerRange.end;
+    });
+}
+
+function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): boolean {
+    return MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode);
+}
+
 function performHalfLengthdirOptimizations(bodyStatements: any[], sourceText: string, edits: SourceTextEdit[]) {
     for (let index = 0; index + 1 < bodyStatements.length; index += 1) {
         const current = bodyStatements[index];
@@ -716,11 +731,8 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
         return null;
     }
 
-    // run the full math normalization pipeline on the clone
     const context = { sourceText };
-    // Apply division to multiplication optimization
     applyDivisionToMultiplication(clone as any);
-
     applyManualMathNormalization(clone, context as any);
     applyScalarCondensing(clone, context as any);
     simplifyZeroDivisionNumerators(clone, context as any);
@@ -728,7 +740,7 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
 
     const original = readNodeText(sourceText, node) || "";
     if (areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
-        return original;
+        return null;
     }
 
     const printed = printExpression(clone, sourceText);
@@ -744,6 +756,8 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
 }
 
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
+    const normalizedExpressionRanges: SourceTextRange[] = [];
+
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode } = visitContext;
 
@@ -774,11 +788,27 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
             }
 
         if (targetNode) {
+            const start = getNodeStartIndex(targetNode);
+            const end = getNodeEndIndex(targetNode);
+            if (typeof start !== "number" || typeof end !== "number") {
+                return;
+            }
+
+            const targetRange: SourceTextRange = { start, end };
+            if (isRangeInsideAnyRange(targetRange, normalizedExpressionRanges)) {
+                return;
+            }
+
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
                 if (hasComment(targetNode) || containsCommentSyntax(sourceTextOfNode)) {
                     return;
                 }
+
+                if (!containsPotentialMathOptimizationSyntax(sourceTextOfNode)) {
+                    return;
+                }
+
                 // manual normalization has the broadest coverage; try it first.
                 let replacement = attemptManualNormalization(sourceText, targetNode);
 
@@ -786,18 +816,14 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
                 }
 
-                if (replacement) {
+                if (replacement && replacement !== sourceTextOfNode) {
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;
                     }
-                    const start = getNodeStartIndex(targetNode);
-                    const end = getNodeEndIndex(targetNode);
-                    if (
-                        typeof start === "number" &&
-                        typeof end === "number" &&
-                        !hasOverlappingRange(start, end, edits)
-                    ) {
+
+                    if (!hasOverlappingRange(start, end, edits)) {
                         edits.push({ start, end, text: replacement });
+                        normalizedExpressionRanges.push(targetRange);
                     }
                 }
             }
