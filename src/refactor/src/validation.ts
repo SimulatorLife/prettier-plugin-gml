@@ -1,6 +1,7 @@
 /**
  * Validation module for refactoring operations.
  * Handles conflict detection, circular rename detection, and batch rename validation.
+ * Also provides focused helpers for the batch rename validation orchestrator.
  */
 
 import { Core } from "@gml-modules/core";
@@ -505,4 +506,211 @@ export async function validateCrossFileConsistency(
     }
 
     return errors;
+}
+
+// ---------------------------------------------------------------------------
+// Batch rename validation helpers
+// ---------------------------------------------------------------------------
+// These focused helpers are extracted from the validateBatchRenameRequest
+// orchestrator so each concern lives at a single abstraction layer and can be
+// tested independently.
+// ---------------------------------------------------------------------------
+
+/**
+ * Detects duplicate symbolId entries in a batch of rename requests.
+ * When the same symbol appears more than once the intent is ambiguous and
+ * the generated edits would conflict with each other.
+ *
+ * @param renames - Batch of rename requests to inspect
+ * @returns Errors and conflictingSets arrays for duplicate symbolId entries
+ *
+ * @example
+ * const { errors, conflictingSets } = detectDuplicateSymbolIdRenames([
+ *   { symbolId: "gml/script/scr_a", newName: "scr_x" },
+ *   { symbolId: "gml/script/scr_a", newName: "scr_y" }
+ * ]);
+ * // errors → ["Duplicate rename request for symbolId 'gml/script/scr_a' (2 entries)"]
+ */
+export function detectDuplicateSymbolIdRenames(renames: Array<RenameRequest>): {
+    errors: Array<string>;
+    conflictingSets: Array<Array<string>>;
+} {
+    const symbolIdCounts = new Map<string, number>();
+    for (const rename of renames) {
+        if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
+            const count = (symbolIdCounts.get(rename.symbolId) ?? 0) + 1;
+            symbolIdCounts.set(rename.symbolId, count);
+        }
+    }
+
+    const errors: Array<string> = [];
+    const conflictingSets: Array<Array<string>> = [];
+    for (const [symbolId, count] of symbolIdCounts.entries()) {
+        if (count > 1) {
+            errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
+            conflictingSets.push(Array.from({ length: count }, () => symbolId));
+        }
+    }
+
+    return { errors, conflictingSets };
+}
+
+/**
+ * Detects rename requests that share the same normalized target name.
+ * Renaming multiple distinct symbols to the same new name creates ambiguous
+ * references and would leave the symbol table in a corrupt state.
+ *
+ * Entries that are structurally malformed (missing fields, non-string values)
+ * or that carry an invalid identifier name are silently skipped here; their
+ * errors are already surfaced in the per-rename validation pass.
+ *
+ * @param renames - Batch of rename requests to inspect
+ * @returns Errors and conflictingSets arrays for duplicate target name entries
+ *
+ * @example
+ * const { errors, conflictingSets } = detectDuplicateTargetNameRenames([
+ *   { symbolId: "gml/script/scr_a", newName: "scr_x" },
+ *   { symbolId: "gml/script/scr_b", newName: "scr_x" }
+ * ]);
+ * // errors → ["Multiple symbols cannot be renamed to 'scr_x': gml/script/scr_a, gml/script/scr_b"]
+ */
+export function detectDuplicateTargetNameRenames(renames: Array<RenameRequest>): {
+    errors: Array<string>;
+    conflictingSets: Array<Array<string>>;
+} {
+    const newNameToSymbols = new Map<string, Array<string>>();
+    for (const rename of renames) {
+        if (
+            !rename ||
+            typeof rename !== "object" ||
+            !rename.newName ||
+            typeof rename.newName !== "string" ||
+            !rename.symbolId ||
+            typeof rename.symbolId !== "string"
+        ) {
+            // Skip structural validation failures that were already flagged in the
+            // per-rename validation pass. Continuing here prevents the duplicate-name
+            // detection logic from crashing on malformed entries.
+            continue;
+        }
+
+        const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+        if (!normalizedNewName) {
+            // Skip invalid identifier names (e.g., reserved keywords, names with
+            // illegal characters) because they will be reported by the per-rename
+            // validation pass. Continuing here lets the batch validator collect
+            // duplicate-name conflicts for the valid subset.
+            continue;
+        }
+
+        const existingGroup = newNameToSymbols.get(normalizedNewName);
+        if (existingGroup) {
+            existingGroup.push(rename.symbolId);
+        } else {
+            newNameToSymbols.set(normalizedNewName, [rename.symbolId]);
+        }
+    }
+
+    const errors: Array<string> = [];
+    const conflictingSets: Array<Array<string>> = [];
+    for (const [newName, symbolIds] of newNameToSymbols.entries()) {
+        if (symbolIds.length > 1) {
+            errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
+            conflictingSets.push(symbolIds);
+        }
+    }
+
+    return { errors, conflictingSets };
+}
+
+/**
+ * Filters a batch of rename requests to only those with structurally valid
+ * `symbolId` and `newName` string fields.
+ *
+ * Malformed entries are silently excluded because their structural errors are
+ * already reported in the per-rename validation pass. This helper exists so the
+ * batch orchestrator does not repeat the same guard clauses in every subsequent
+ * validation phase.
+ *
+ * @param renames - Batch of rename requests to filter
+ * @returns Array containing only the structurally valid rename requests
+ *
+ * @example
+ * const valid = filterStructurallyValidRenames([
+ *   { symbolId: "gml/script/scr_a", newName: "scr_x" },
+ *   null,
+ *   { symbolId: 42, newName: "scr_y" }
+ * ]);
+ * // valid → [{ symbolId: "gml/script/scr_a", newName: "scr_x" }]
+ */
+export function filterStructurallyValidRenames(renames: Array<RenameRequest>): Array<RenameRequest> {
+    return renames.filter(
+        (rename) =>
+            rename &&
+            typeof rename === "object" &&
+            rename.symbolId &&
+            typeof rename.symbolId === "string" &&
+            rename.newName &&
+            typeof rename.newName === "string"
+    );
+}
+
+/**
+ * Warns when a rename's target name matches another symbol's original name in
+ * the same batch, creating potential confusion about which symbol is being
+ * referenced after the edits are applied.
+ *
+ * For example, renaming `foo→bar` in a batch that also renames `bar→baz` is
+ * suspicious because call sites that previously referenced `bar` would silently
+ * start calling the symbol that was formerly named `foo`.
+ *
+ * Only entries whose `symbolId` and `newName` fields can be successfully
+ * normalized are considered; malformed entries are skipped.
+ *
+ * @param renames - Structurally valid rename requests to check
+ * @returns Warning messages for each detected name-confusion pair
+ *
+ * @example
+ * const warnings = detectCrossRenameNameConfusion([
+ *   { symbolId: "gml/script/foo", newName: "bar" },
+ *   { symbolId: "gml/script/bar", newName: "baz" }
+ * ]);
+ * // warnings → ["Rename introduces potential confusion: 'gml/script/foo' renamed to 'bar' which was an original symbol name in this batch"]
+ */
+export function detectCrossRenameNameConfusion(renames: Array<RenameRequest>): Array<string> {
+    // First pass: collect all original symbol names in this batch
+    const oldNames = new Set<string>();
+    for (const rename of renames) {
+        const oldName = extractSymbolName(rename.symbolId);
+        if (oldName) {
+            oldNames.add(oldName);
+        }
+    }
+
+    // Second pass: warn when a target name shadows an existing name in the batch
+    const warnings: Array<string> = [];
+    for (const rename of renames) {
+        const oldName = extractSymbolName(rename.symbolId);
+        if (!oldName) {
+            continue;
+        }
+
+        const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+        if (!normalizedNewName) {
+            // Skip invalid identifier names during the confusion-detection pass.
+            // Errors for these names will be surfaced in the main validation
+            // results, so continuing here prevents duplicate error reporting.
+            continue;
+        }
+
+        // Warn if this new name matches any old name in the batch (potential confusion)
+        // but exclude the case where it's the same symbol (already caught as same-name rename)
+        if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
+            warnings.push(
+                `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
+            );
+        }
+    }
+
+    return warnings;
 }

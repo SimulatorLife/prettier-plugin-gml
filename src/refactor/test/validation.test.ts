@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { ConflictType, type SymbolOccurrence, type SymbolResolver } from "../src/types.js";
-import { batchValidateScopeConflicts, detectRenameConflicts, validateRenameStructure } from "../src/validation.js";
+import { ConflictType, type RenameRequest, type SymbolOccurrence, type SymbolResolver } from "../src/types.js";
+import {
+    batchValidateScopeConflicts,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSymbolIdRenames,
+    detectDuplicateTargetNameRenames,
+    detectRenameConflicts,
+    filterStructurallyValidRenames,
+    validateRenameStructure
+} from "../src/validation.js";
 
 void describe("validateRenameStructure", () => {
     void test("returns error for missing symbolId", async () => {
@@ -390,5 +398,176 @@ void describe("detectRenameConflicts", () => {
         assert.equal(conflicts.length, 1);
         assert.equal(conflicts[0].type, ConflictType.SHADOW);
         assert.equal(conflicts[0].path, "scripts/player.gml");
+    });
+});
+
+void describe("detectDuplicateSymbolIdRenames", () => {
+    void test("returns empty arrays for a batch with no duplicates", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ];
+        const { errors, conflictingSets } = detectDuplicateSymbolIdRenames(renames);
+        assert.deepEqual(errors, []);
+        assert.deepEqual(conflictingSets, []);
+    });
+
+    void test("detects a symbolId that appears twice", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_a", newName: "scr_y" }
+        ];
+        const { errors, conflictingSets } = detectDuplicateSymbolIdRenames(renames);
+        assert.equal(errors.length, 1);
+        assert.ok(errors[0].includes("scr_a"));
+        assert.ok(errors[0].includes("2 entries"));
+        assert.equal(conflictingSets.length, 1);
+        assert.equal(conflictingSets[0].length, 2);
+    });
+
+    void test("detects a symbolId that appears three times", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_a", newName: "scr_y" },
+            { symbolId: "gml/script/scr_a", newName: "scr_z" }
+        ];
+        const { errors, conflictingSets } = detectDuplicateSymbolIdRenames(renames);
+        assert.equal(errors.length, 1);
+        assert.ok(errors[0].includes("3 entries"));
+        assert.equal(conflictingSets[0].length, 3);
+    });
+
+    void test("silently skips malformed entries", () => {
+        const renames = [null, { symbolId: 42, newName: "scr_x" }] as unknown as Array<RenameRequest>;
+        const { errors, conflictingSets } = detectDuplicateSymbolIdRenames(renames);
+        assert.deepEqual(errors, []);
+        assert.deepEqual(conflictingSets, []);
+    });
+});
+
+void describe("detectDuplicateTargetNameRenames", () => {
+    void test("returns empty arrays when all target names are unique", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ];
+        const { errors, conflictingSets } = detectDuplicateTargetNameRenames(renames);
+        assert.deepEqual(errors, []);
+        assert.deepEqual(conflictingSets, []);
+    });
+
+    void test("detects two symbols renamed to the same target name", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_x" }
+        ];
+        const { errors, conflictingSets } = detectDuplicateTargetNameRenames(renames);
+        assert.equal(errors.length, 1);
+        assert.ok(errors[0].includes("scr_x"));
+        assert.ok(errors[0].includes("scr_a"));
+        assert.ok(errors[0].includes("scr_b"));
+        assert.equal(conflictingSets.length, 1);
+        assert.equal(conflictingSets[0].length, 2);
+    });
+
+    void test("skips entries with invalid identifier target names", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "123invalid" },
+            { symbolId: "gml/script/scr_b", newName: "123invalid" }
+        ];
+        // Both have invalid newName → skipped → no duplicate conflict
+        const { errors, conflictingSets } = detectDuplicateTargetNameRenames(renames);
+        assert.deepEqual(errors, []);
+        assert.deepEqual(conflictingSets, []);
+    });
+
+    void test("skips structurally malformed entries", () => {
+        const renames = [null, { symbolId: "gml/script/scr_a", newName: null }] as unknown as Array<RenameRequest>;
+        const { errors, conflictingSets } = detectDuplicateTargetNameRenames(renames);
+        assert.deepEqual(errors, []);
+        assert.deepEqual(conflictingSets, []);
+    });
+});
+
+void describe("filterStructurallyValidRenames", () => {
+    void test("keeps entries with valid symbolId and newName strings", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ];
+        const valid = filterStructurallyValidRenames(renames);
+        assert.equal(valid.length, 2);
+    });
+
+    void test("removes null entries", () => {
+        const renames = [null, { symbolId: "gml/script/scr_a", newName: "scr_x" }] as unknown as Array<RenameRequest>;
+        const valid = filterStructurallyValidRenames(renames);
+        assert.equal(valid.length, 1);
+        assert.equal(valid[0].symbolId, "gml/script/scr_a");
+    });
+
+    void test("removes entries with non-string symbolId", () => {
+        const renames = [{ symbolId: 42, newName: "scr_x" }] as unknown as Array<RenameRequest>;
+        assert.equal(filterStructurallyValidRenames(renames).length, 0);
+    });
+
+    void test("removes entries with missing newName", () => {
+        const renames = [{ symbolId: "gml/script/scr_a" }] as unknown as Array<RenameRequest>;
+        assert.equal(filterStructurallyValidRenames(renames).length, 0);
+    });
+
+    void test("removes entries with empty symbolId string", () => {
+        const renames = [{ symbolId: "", newName: "scr_x" }] as unknown as Array<RenameRequest>;
+        assert.equal(filterStructurallyValidRenames(renames).length, 0);
+    });
+});
+
+void describe("detectCrossRenameNameConfusion", () => {
+    void test("returns no warnings for non-overlapping batch", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/foo", newName: "alpha" },
+            { symbolId: "gml/script/bar", newName: "beta" }
+        ];
+        const warnings = detectCrossRenameNameConfusion(renames);
+        assert.deepEqual(warnings, []);
+    });
+
+    void test("warns when target name matches an existing symbol name in the batch", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/foo", newName: "bar" },
+            { symbolId: "gml/script/bar", newName: "baz" }
+        ];
+        const warnings = detectCrossRenameNameConfusion(renames);
+        assert.equal(warnings.length, 1);
+        assert.ok(warnings[0].includes("foo"));
+        assert.ok(warnings[0].includes("bar"));
+        assert.ok(warnings[0].includes("confusion"));
+    });
+
+    void test("does not warn when a symbol is being renamed to itself (same-name guard)", () => {
+        // Renaming foo→foo: this is the same-name case, not cross-rename confusion
+        const renames: Array<RenameRequest> = [{ symbolId: "gml/script/foo", newName: "foo" }];
+        const warnings = detectCrossRenameNameConfusion(renames);
+        assert.deepEqual(warnings, []);
+    });
+
+    void test("skips entries with invalid identifier new names", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/foo", newName: "123invalid" },
+            { symbolId: "gml/script/bar", newName: "baz" }
+        ];
+        const warnings = detectCrossRenameNameConfusion(renames);
+        assert.deepEqual(warnings, []);
+    });
+
+    void test("produces multiple warnings for a multi-step confusion chain", () => {
+        const renames: Array<RenameRequest> = [
+            { symbolId: "gml/script/a", newName: "b" },
+            { symbolId: "gml/script/b", newName: "c" },
+            { symbolId: "gml/script/c", newName: "d" }
+        ];
+        const warnings = detectCrossRenameNameConfusion(renames);
+        // 'a' is renamed to 'b' (which exists), 'b' is renamed to 'c' (which exists)
+        assert.equal(warnings.length, 2);
     });
 });
