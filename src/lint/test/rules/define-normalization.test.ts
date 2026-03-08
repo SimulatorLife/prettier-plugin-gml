@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { lintWithRule } from "./lint-rule-test-harness.js";
+
 const { Lint } = LintWorkspace;
 
 void describe("define directive normalization", () => {
@@ -39,5 +41,49 @@ void describe("define directive normalization", () => {
         assert.strictEqual(messages.length, 1);
         assert.strictEqual(messages[0]?.messageId, "normalizeDirectives");
         assert.strictEqual(messages[0]?.fix?.[0]?.text, expected);
+    });
+
+    void it("preserves invalid legacy defines while normalizing regions and begin-end blocks", () => {
+        const input = [
+            "#define region Utility Scripts",
+            "#define end region Utility Scripts",
+            "//#region Setup",
+            "//#endregion",
+            "#define 123 not valid",
+            "if (ready) begin",
+            "    do_work();",
+            "end // done",
+            "begin;",
+            "    nested += 1;",
+            "end;",
+            ""
+        ].join("\n");
+        const expected = [
+            "#region Utility Scripts",
+            "#endregion Utility Scripts",
+            "#region Setup",
+            "#endregion",
+            "#define 123 not valid",
+            "if (ready) {",
+            "    do_work();",
+            "} // done",
+            "{",
+            "    nested += 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const result = lintWithRule("normalize-directives", input, {});
+
+        assert.strictEqual(result.output, expected);
+    });
+
+    void it("removes trailing semicolons from normalized legacy macros while preserving comments", () => {
+        const input = ["#define BAR 2; // keep comment", ""].join("\n");
+        const expected = ["#macro BAR 2 // keep comment", ""].join("\n");
+
+        const result = lintWithRule("normalize-directives", input, {});
+
+        assert.strictEqual(result.output, expected);
     });
 });
