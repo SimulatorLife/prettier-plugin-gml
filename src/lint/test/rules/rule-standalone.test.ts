@@ -75,6 +75,31 @@ void test("prefer-struct-literal-assignments never collapses built-in global pro
     assertEquals(result.output, input);
 });
 
+void test("prefer-struct-literal-assignments inlines immediate var struct returns", () => {
+    const input = [
+        "function create_stats() {",
+        "    var stats = {};",
+        "    stats.hp = 100; // base health",
+        "    stats.mp = 50;",
+        "    return stats;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "function create_stats() {",
+        "    return {",
+        "        hp: 100, // base health",
+        "        mp: 50",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
+});
+
 void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
     const input = [
         "#macro STILE_PLATFORM_HEIGHT 120",

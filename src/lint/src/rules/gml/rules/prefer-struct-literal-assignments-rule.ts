@@ -82,6 +82,22 @@ function parseEmptyStructDeclarationLine(line: string): Readonly<{
     });
 }
 
+function parseReturnStatementLine(line: string): Readonly<{
+    indentation: string;
+    returnedName: string;
+}> | null {
+    const returnStatementPattern = /^(\s*)return\s+([A-Za-z_][A-Za-z0-9_]*)\s*;\s*$/u;
+    const returnStatementMatch = returnStatementPattern.exec(line);
+    if (!returnStatementMatch) {
+        return null;
+    }
+
+    return Object.freeze({
+        indentation: returnStatementMatch[1],
+        returnedName: returnStatementMatch[2]
+    });
+}
+
 function createStructLiteralBlock(
     indentation: string,
     declarationPrefix: string,
@@ -104,6 +120,38 @@ function createStructLiteralBlock(
 
     const entryIndentation = `${indentation}    `;
     const blockLines: Array<string> = [`${indentation}${declarationPrefix}${objectName} = {`];
+    for (const [assignmentIndex, assignment] of assignments.entries()) {
+        const isLastAssignment = assignmentIndex === assignments.length - 1;
+        const separator = isLastAssignment ? "" : ",";
+        const trailingCommentSuffix = assignment.trailingComment === null ? "" : ` // ${assignment.trailingComment}`;
+        blockLines.push(
+            `${entryIndentation}${assignment.propertyName}: ${assignment.valueText}${separator}${trailingCommentSuffix}`
+        );
+    }
+    blockLines.push(`${indentation}};`);
+    return Object.freeze(blockLines);
+}
+
+function createStructLiteralReturnBlock(
+    indentation: string,
+    assignments: ReadonlyArray<StructAssignmentRecord>,
+    compactLiteralSpacing: boolean
+): ReadonlyArray<string> {
+    const hasTrailingComments = assignments.some((assignment) => typeof assignment.trailingComment === "string");
+
+    if (!hasTrailingComments) {
+        const propertyInitializers = assignments.map(
+            (assignment) => `${assignment.propertyName}: ${assignment.valueText}`
+        );
+        const openingBrace = compactLiteralSpacing ? "{" : "{ ";
+        const closingBrace = compactLiteralSpacing ? "}" : " }";
+        return Object.freeze([
+            `${indentation}return ${openingBrace}${propertyInitializers.join(", ")}${closingBrace};`
+        ]);
+    }
+
+    const entryIndentation = `${indentation}    `;
+    const blockLines: Array<string> = [`${indentation}return {`];
     for (const [assignmentIndex, assignment] of assignments.entries()) {
         const isLastAssignment = assignmentIndex === assignments.length - 1;
         const separator = isLastAssignment ? "" : ",";
@@ -234,9 +282,26 @@ export function createPreferStructLiteralAssignmentsRule(definition: GmlRuleDefi
                             true
                         );
 
+                        const nextLine = clusterEndIndex + 1 < lines.length ? lines[clusterEndIndex + 1] : "";
+                        const returnRecord = parseReturnStatementLine(nextLine);
+                        const declarationUsesVarPrefix = declarationRecord.declarationPrefix.trim() === "var";
+                        const canInlineStructLiteralReturn =
+                            declarationUsesVarPrefix &&
+                            returnRecord !== null &&
+                            returnRecord.returnedName === firstAssignment.objectName &&
+                            returnRecord.indentation === firstAssignment.indentation;
+
                         if (rewrittenLines.length > 0) {
                             rewrittenLines.pop();
                         }
+                        if (canInlineStructLiteralReturn) {
+                            rewrittenLines.push(
+                                ...createStructLiteralReturnBlock(firstAssignment.indentation, cluster, true)
+                            );
+                            lineIndex = clusterEndIndex + 2;
+                            continue;
+                        }
+
                         rewrittenLines.push(...rewrittenLiteralBlock);
 
                         lineIndex = clusterEndIndex + 1;
