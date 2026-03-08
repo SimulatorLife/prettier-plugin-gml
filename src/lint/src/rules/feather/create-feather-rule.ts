@@ -759,27 +759,29 @@ function createGm1041Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1051Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createDiagnosticOnlyRule(entry, (sourceText) => {
-        const lines = sourceText.split(/\r?\n/u);
-        for (const line of lines) {
-            if (!/^\s*#macro\b/.test(line)) {
-                continue;
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/^[^\r\n]*$/gmu, (line) => {
+            if (!/^\s*#macro\b/u.test(line)) {
+                return line;
             }
 
-            const inlineCommentStart = line.search(/\/\/|\/\*/);
+            const inlineCommentStart = line.search(/\/\/|\/\*/u);
             const body = inlineCommentStart === -1 ? line : line.slice(0, inlineCommentStart);
-            const sanitizedBody = body.replace(/;\s*$/, "");
-            if (/\w;\w/.test(sanitizedBody)) {
-                continue;
+            const trailingSemicolon = /;\s*$/u.exec(body);
+            if (!trailingSemicolon) {
+                return line;
             }
 
-            if (sanitizedBody !== body) {
-                return true;
+            const semicolonIndex = trailingSemicolon.index;
+            const bodyWithoutTrailingSemicolon = `${body.slice(0, semicolonIndex)}${body.slice(semicolonIndex + 1)}`;
+            if (/\w;\w/u.test(bodyWithoutTrailingSemicolon)) {
+                return line;
             }
-        }
 
-        return false;
-    });
+            const commentSuffix = inlineCommentStart === -1 ? "" : line.slice(inlineCommentStart);
+            return `${bodyWithoutTrailingSemicolon}${commentSuffix}`;
+        })
+    );
 }
 
 function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {

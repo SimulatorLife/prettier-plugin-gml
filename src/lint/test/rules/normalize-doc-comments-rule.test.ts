@@ -329,6 +329,24 @@ void test("normalize-doc-comments keeps operator comments that start with // / u
     assert.doesNotMatch(output, /\/\/\/ =/u);
 });
 
+void test("normalize-doc-comments preserves non-typed @returns payload while cleaning malformed // / docs", () => {
+    const input = [
+        "// / Parse one row",
+        "// /",
+        "/// @returns Parsed row object",
+        "function parse_row(_row) {",
+        "    return _row;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description Parse one row$/m);
+    assert.match(output, /^\/\/\/ @param row$/m);
+    assert.match(output, /^\/\/\/ @returns Parsed row object$/m);
+    assert.doesNotMatch(output, /^\/\/\/\s*$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{any\}$/m);
+});
+
 void test("normalize-doc-comments preserves function indentation for synthesized docs", () => {
     const input = ["if (enabled) {", "    function inner(_value) {", "        return _value;", "    }", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);

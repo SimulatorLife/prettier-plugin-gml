@@ -235,6 +235,40 @@ void test("normalize-doc-comments repairs malformed optional @param defaults whi
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments normalizes malformed csv docs while preserving parameter descriptions", () => {
+    const input = [
+        "// / Decodes an CSV string and outputs a 2D array",
+        "// /",
+        "/// @returns 2D array that represents the contents of the CSV string",
+        "// /",
+        "// / @param string              The CSV string to be decoded",
+        "/// @param [cellDelimiter]     Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma",
+        "/// @param [stringDelimiter]   Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote",
+        "// /",
+        "/// @jujuadams 2020-06-28",
+        "",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Decodes an CSV string and outputs a 2D array",
+        "/// @jujuadams 2020-06-28",
+        "/// @param csv_string The CSV string to be decoded",
+        '/// @param [cell_delimiter=","] Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma',
+        String.raw`/// @param [string_delimiter="\""] Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote`,
+        "/// @returns 2D array that represents the contents of the CSV string",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
     const input = [
         "/// Summary",
