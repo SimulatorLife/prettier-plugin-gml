@@ -557,6 +557,18 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not synthesize source-aware banner spacing around plain comments", async () => {
+        const source = ["var left = 1;", "//////// Banner", "var right = 2;", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.equal(
+            formatted,
+            ["var left = 1;", "//////// Banner", "var right = 2;", ""].join("\n"),
+            "Formatter must not apply source-sensitive banner-spacing rewrites keyed on comment text; semantic/comment normalization belongs in @gml-modules/lint."
+        );
+    });
+
     void it("does not synthesize empty /// @description tags for undocumented functions", async () => {
         const source = ["function no_docs() {", "    return 1;", "}", ""].join("\n");
         const formatted = await Format.format(source);
