@@ -114,8 +114,16 @@ void test("GmlToJsEmitter emits escaped literals for folded strings with control
     assert.equal(result, String.raw`value = "line\nnext\t\"quoted\"";`);
 });
 
-void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
-    assert.equal(Transpiler.mapBinaryOperator("div"), "/");
+void test("GmlToJsEmitter passes through GML div operator unchanged (div is special-cased in the emitter)", () => {
+    assert.equal(Transpiler.mapBinaryOperator("div"), "div");
+});
+
+void test("GmlToJsEmitter emits Math.trunc for GML div operator", () => {
+    const source = "result = a div b";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.match(result, /Math\.trunc\(a \/ b\)/, "Should emit Math.trunc(a / b) for integer division");
 });
 
 void test("GmlToJsEmitter maps GML mod operator to JavaScript modulo", () => {

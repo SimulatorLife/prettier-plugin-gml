@@ -11,16 +11,18 @@
  * Maps GML binary operators to their JavaScript equivalents.
  *
  * Transformations include:
- * - GML-specific operators (`div` → `/`, `mod` → `%`, `and` → `&&`, `or` → `||`)
+ * - GML-specific operators (`mod` → `%`, `and` → `&&`, `or` → `||`)
  * - Strict equality conversion (`==` → `===`, `!=` → `!==`)
  * - Bitwise operators (preserved but documented for clarity)
+ *
+ * Note: the `div` operator is NOT handled here. It requires a `Math.trunc`
+ * call and is emitted as a special case in the emitter's visitBinaryExpression.
  *
  * @param operatorToken - The GML operator to map
  * @returns The equivalent JavaScript operator
  *
  * @example
  * ```typescript
- * mapBinaryOperator("div") // → "/"
  * mapBinaryOperator("and") // → "&&"
  * mapBinaryOperator("==")  // → "==="
  * mapBinaryOperator("+")   // → "+" (passthrough for standard operators)
@@ -51,7 +53,6 @@ export function mapUnaryOperator(operatorToken: string): string {
 }
 
 const BINARY_OPERATOR_MAPPINGS: Readonly<Record<string, string>> = Object.freeze({
-    div: "/",
     mod: "%",
     and: "&&",
     or: "||",
