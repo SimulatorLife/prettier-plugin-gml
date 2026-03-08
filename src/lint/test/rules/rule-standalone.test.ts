@@ -874,6 +874,18 @@ void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1
     assertEquals(result.output, expected);
 });
 
+void test("optimize-math-expressions does not cancel reciprocal call pairs that may carry side effects", () => {
+    const input = "result = update() * (1 / update());\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
+});
+
+void test("optimize-math-expressions keeps denominators inside nested log2 calls", () => {
+    const input = "oct_size = minregionsize * power(2, ceil(log2(obj_size / minregionsize)));\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
+});
+
 void test("optimize-math-expressions rewrites nested call-argument expressions without relying on nested duplicate passes", () => {
     const input = "var draw_value = draw_text_ext((width * width), 0, 0);\n";
     const expected = "var draw_value = draw_text_ext(sqr(width), 0, 0);\n";
