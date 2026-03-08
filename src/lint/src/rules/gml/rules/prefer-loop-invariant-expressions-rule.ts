@@ -782,7 +782,8 @@ function resolveUniqueHoistIdentifierName(parameters: {
         parameters.projectContext?.capabilities.has("LOOP_HOIST_NAME_RESOLUTION") === true
             ? parameters.projectContext.resolveLoopHoistIdentifier(
                   parameters.preferredName,
-                  parameters.localIdentifierNames
+                  parameters.localIdentifierNames,
+                  parameters.normalizedLocalIdentifierNames
               )
             : null;
 

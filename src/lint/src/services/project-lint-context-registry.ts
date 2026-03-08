@@ -36,8 +36,16 @@ function createContextFromSnapshot(snapshot: ReturnType<ProjectAnalysisProvider[
         ): { allowRewrite: boolean; reason: string | null } {
             return snapshot.assessGlobalVarRewrite(filePath, hasInitializer);
         },
-        resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
-            return snapshot.resolveLoopHoistIdentifier(preferredName, localIdentifierNames);
+        resolveLoopHoistIdentifier(
+            preferredName: string,
+            localIdentifierNames: ReadonlySet<string>,
+            normalizedLocalIdentifierNames: ReadonlySet<string>
+        ): string | null {
+            return snapshot.resolveLoopHoistIdentifier(
+                preferredName,
+                localIdentifierNames,
+                normalizedLocalIdentifierNames
+            );
         }
     });
 }

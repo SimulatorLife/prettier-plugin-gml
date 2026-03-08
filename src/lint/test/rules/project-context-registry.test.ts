@@ -200,7 +200,10 @@ void test("indexed project context exposes capability-backed identifier helpers"
 
     const files = context.listIdentifierOccurrenceFiles("player_score");
     assertEquals(files.size > 0, true);
-    assertEquals(context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"])), "player_score_1");
+    assertEquals(
+        context.resolveLoopHoistIdentifier("player_score", new Set(["player_score"]), new Set(["player_score"])),
+        "player_score_1"
+    );
     assertEquals(context.assessGlobalVarRewrite(path.resolve(scriptFile), true).allowRewrite, true);
 
     rmSync(tempRoot, { recursive: true, force: true });
@@ -241,7 +244,7 @@ void test("registry delegates snapshot construction to the configured analysis p
                 assessGlobalVarRewrite(_filePath, _hasInitializer) {
                     return { allowRewrite: true, reason: null };
                 },
-                resolveLoopHoistIdentifier(preferredName, _localIdentifierNames) {
+                resolveLoopHoistIdentifier(preferredName, _localIdentifierNames, _normalizedLocalIdentifierNames) {
                     return preferredName;
                 }
             };

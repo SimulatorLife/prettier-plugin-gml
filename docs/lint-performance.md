@@ -1,6 +1,6 @@
-# Lint performance: optimize-math-expressions fast path
+# Lint performance notes
 
-## Summary
+## `gml/optimize-math-expressions` fast path
 
 On **March 7, 2026**, lint profiling identified `gml/optimize-math-expressions` as the slowest auto-fix rule across the lint fixture corpus.
 
@@ -62,3 +62,32 @@ Performance coverage:
 - `src/lint/test/rules/performance-regression.test.ts`
 
 These tests run in the normal lint workspace test suite (`pnpm test`, `pnpm test:ci`), so CI executes both correctness and performance checks for this optimization.
+
+## `gml/prefer-loop-invariant-expressions` project-aware hoist-name fast path
+
+On **March 7, 2026**, profiling of a large real-world SMF script highlighted the project-aware hoist-name resolver as a secondary hot path for `gml/prefer-loop-invariant-expressions`.
+
+The expensive behavior was not the AST walk itself. It was repeated hoist-name collision resolution across large files and large project indexes:
+
+- every loop hoist request rebuilt a normalized copy of the full local identifier set,
+- then re-ran project occupancy checks for the same `cached_value[_N]` candidates.
+
+The optimization now:
+
+- reuses the rule's already-computed normalized local identifier set,
+- threads that set through the project-analysis snapshot API,
+- caches normalized project occupancy lookups inside the snapshot.
+
+This keeps the rule's diagnostics and fixes unchanged while removing repeated $O(n)$ local-name normalization work from every hoist candidate.
+
+### Regression coverage
+
+Correctness coverage:
+
+- `src/lint/test/rules/prefer-loop-invariant-expressions-rule.test.ts`
+
+Performance coverage:
+
+- `src/lint/test/rules/performance-regression.test.ts`
+
+These tests run in the standard lint workspace suite, so CI now guards both the hoist-name correctness path and the collision-heavy performance path.
