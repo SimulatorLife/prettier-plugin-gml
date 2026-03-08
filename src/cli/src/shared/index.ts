@@ -1,6 +1,7 @@
 export * as Reporting from "./byte-format.js";
 export * from "./command-names.js";
 export * from "./directory-traversal.js";
+export * from "./elapsed-time.js";
 export * from "./ensure-dir.js";
 export * from "./error-guards.js";
 export { safeStatOrNull, writeFileArtifact, writeJsonArtifact } from "./fs-artifacts.js";

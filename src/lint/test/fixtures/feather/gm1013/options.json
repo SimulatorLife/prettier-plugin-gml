@@ -1,6 +1,6 @@
 {
   "lintRules": {
-    "feather/gm1013": "error"
-  },
-  "printWidth": 200
+    "feather/gm1013": "error",
+    "gml/normalize-doc-comments": "off"
+  }
 }

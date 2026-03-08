@@ -329,6 +329,24 @@ void test("normalize-doc-comments keeps operator comments that start with // / u
     assert.doesNotMatch(output, /\/\/\/ =/u);
 });
 
+void test("normalize-doc-comments preserves non-typed @returns payload while cleaning malformed // / docs", () => {
+    const input = [
+        "// / Parse one row",
+        "// /",
+        "/// @returns Parsed row object",
+        "function parse_row(_row) {",
+        "    return _row;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description Parse one row$/m);
+    assert.match(output, /^\/\/\/ @param row$/m);
+    assert.match(output, /^\/\/\/ @returns Parsed row object$/m);
+    assert.doesNotMatch(output, /^\/\/\/\s*$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{any\}$/m);
+});
+
 void test("normalize-doc-comments preserves function indentation for synthesized docs", () => {
     const input = ["if (enabled) {", "    function inner(_value) {", "        return _value;", "    }", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
@@ -352,6 +370,26 @@ void test("normalize-doc-comments removes @param separator hyphens for typed opt
     assert.match(output, /^\/\/\/ @param \{real\} \[yup=0\] The camera's up vector \(default \+Z axis\)$/m);
     assert.doesNotMatch(output, /\[xup=0\] - The camera's up vector/m);
     assert.doesNotMatch(output, /\[yup=0\] - The camera's up vector/m);
+});
+
+void test("normalize-doc-comments repairs malformed optional @param defaults with extra brackets", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param cylinder$/m);
+    assert.match(output, /^\/\/\/ @param collider$/m);
+    assert.match(output, /^\/\/\/ @param \[mask=collider\[CM\.MASK\]\]$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @param \[mask=\[CM\.MASK\]/m);
+    assert.doesNotMatch(output, /\]\]\]\]\]/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}$/m);
 });
 
 void test("normalize-doc-comments does not synthesize @returns for constructor function declarations", () => {

@@ -8,7 +8,7 @@ import {
     MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
     setMaxFormatIterations
 } from "../src/commands/memory.js";
-import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
+import { buildEnvConfiguredValueTests } from "./test-helpers/env-configured-value-test-builder.js";
 
 void describe("memory format iteration limit configuration", () => {
     buildEnvConfiguredValueTests({

@@ -183,6 +183,92 @@ void test("normalize-doc-comments aligns multiline description continuations", (
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults with trailing brackets", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=collider[CM.MASK]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-doc-comments repairs malformed optional @param defaults while preserving descriptions", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=collider[CM.MASK]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-doc-comments normalizes malformed csv docs while preserving parameter descriptions", () => {
+    const input = [
+        "// / Decodes an CSV string and outputs a 2D array",
+        "// /",
+        "/// @returns 2D array that represents the contents of the CSV string",
+        "// /",
+        "// / @param string              The CSV string to be decoded",
+        "/// @param [cellDelimiter]     Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma",
+        "/// @param [stringDelimiter]   Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote",
+        "// /",
+        "/// @jujuadams 2020-06-28",
+        "",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Decodes an CSV string and outputs a 2D array",
+        "/// @jujuadams 2020-06-28",
+        "/// @param csv_string The CSV string to be decoded",
+        '/// @param [cell_delimiter=","] Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma',
+        String.raw`/// @param [string_delimiter="\""] Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote`,
+        "/// @returns 2D array that represents the contents of the CSV string",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
     const input = [
         "/// Summary",
@@ -325,6 +411,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);\n";
     const semanticFixRuleNames = [
         "prefer-hoistable-loop-accessors",
+        "prefer-loop-invariant-expressions",
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "prefer-compound-assignments",
@@ -843,6 +930,26 @@ void test("optimize-math-expressions keeps non-math expressions unchanged", () =
 void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1 statements", () => {
     const input = ["var s7 = ((hp / max_hp) * 100) / 10;", "var s37b = 1 * width;", "s37b *= 1;", ""].join("\n");
     const expected = ["var s7 = (hp / max_hp) * 10;", "var s37b = width;", ""].join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("optimize-math-expressions does not cancel reciprocal call pairs that may carry side effects", () => {
+    const input = "result = update() * (1 / update());\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
+});
+
+void test("optimize-math-expressions keeps denominators inside nested log2 calls", () => {
+    const input = "oct_size = minregionsize * power(2, ceil(log2(obj_size / minregionsize)));\n";
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
+});
+
+void test("optimize-math-expressions rewrites nested call-argument expressions without relying on nested duplicate passes", () => {
+    const input = "var draw_value = draw_text_ext((width * width), 0, 0);\n";
+    const expected = "var draw_value = draw_text_ext(sqr(width), 0, 0);\n";
 
     const result = lintWithRule("optimize-math-expressions", input, {});
     assertEquals(result.output, expected);
