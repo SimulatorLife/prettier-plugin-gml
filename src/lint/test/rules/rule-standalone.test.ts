@@ -439,6 +439,26 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
     }
 });
 
+void test("normalize-data-structure-accessors only rewrites invalid multi-coordinate access to grid accessors", () => {
+    const input = [
+        "var item = lst_items[? 0];",
+        'var value = my_map[| "key"];',
+        "var cell = level_grid[| 1, 2];",
+        "var passthrough = some_var[? 0];",
+        ""
+    ].join("\n");
+    const expected = [
+        "var item = lst_items[? 0];",
+        'var value = my_map[| "key"];',
+        "var cell = level_grid[# 1, 2];",
+        "var passthrough = some_var[? 0];",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("require-argument-separators preserves separator payload comments", () => {
     const input = "show_debug_message_ext(name /* keep */ payload);\n";
     const result = lintWithRule("require-argument-separators", input, {});

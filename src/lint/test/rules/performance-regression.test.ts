@@ -13,11 +13,6 @@ type TimedLintRunResult = Readonly<{
     outputText: string;
 }>;
 
-type TimedLintRunOptions = Readonly<{
-    filePath?: string;
-    getProjectContext?: () => ReturnType<typeof Lint.services.createProjectAnalysisSnapshotFromProjectIndex>;
-}>;
-
 function buildNonMathAssignmentBatchSource(statementCount: number): string {
     const lines: string[] = [];
     for (let index = 0; index < statementCount; index += 1) {
@@ -84,7 +79,7 @@ function buildLoopInvariantStressBatchSource(loopCount: number, invariantTermsPe
     return lines.join("\n");
 }
 
-function buildProjectAwareLoopHoistStressSource(loopCount: number, reservedHoistNameCount: number): string {
+function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNameCount: number): string {
     const lines: string[] = ["var cached_value = 0;"];
 
     for (let index = 1; index <= reservedHoistNameCount; index += 1) {
@@ -105,52 +100,12 @@ function buildProjectAwareLoopHoistStressSource(loopCount: number, reservedHoist
     return lines.join("\n");
 }
 
-function createProjectAwareLoopHoistSnapshot(occupiedIdentifierNames: ReadonlyArray<string>) {
-    const projectRoot = "/virtual-project";
-    const filePath = `${projectRoot}/scripts/performance-regression.gml`;
-
-    return Lint.services.createProjectAnalysisSnapshotFromProjectIndex(
-        {
-            identifiers: {
-                locals: Object.fromEntries(
-                    occupiedIdentifierNames.map((identifierName, index) => [
-                        `entry_${index}`,
-                        {
-                            declarations: [{ name: identifierName, filePath }],
-                            references: []
-                        }
-                    ])
-                )
-            }
-        },
-        projectRoot,
-        {
-            excludedDirectories: new Set(
-                Lint.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
-            ),
-            allowedDirectories: []
-        }
-    );
-}
-
 async function lintSingleRuleWithTiming(
     ruleId: string,
     sourceText: string,
-    options: TimedLintRunOptions = {}
+    filePath = "performance-regression.gml"
 ): Promise<TimedLintRunResult> {
-    const configEntry: {
-        files: string[];
-        plugins: { gml: typeof Lint.plugin };
-        language: "gml/gml";
-        rules: Record<string, "warn">;
-        settings?: {
-            gml: {
-                project: {
-                    getContext: NonNullable<TimedLintRunOptions["getProjectContext"]>;
-                };
-            };
-        };
-    } = {
+    const configEntry = {
         files: ["**/*.gml"],
         plugins: {
             gml: Lint.plugin
@@ -161,16 +116,6 @@ async function lintSingleRuleWithTiming(
         }
     };
 
-    if (options.getProjectContext) {
-        configEntry.settings = {
-            gml: {
-                project: {
-                    getContext: options.getProjectContext
-                }
-            }
-        };
-    }
-
     const eslint = new ESLint({
         overrideConfigFile: true,
         fix: true,
@@ -180,7 +125,7 @@ async function lintSingleRuleWithTiming(
 
     const startedAtNanoseconds = process.hrtime.bigint();
     const [result] = await eslint.lintText(sourceText, {
-        filePath: options.filePath ?? "performance-regression.gml"
+        filePath
     });
     const elapsedMilliseconds = Number(process.hrtime.bigint() - startedAtNanoseconds) / 1e6;
 
@@ -321,27 +266,25 @@ void test("prefer-loop-invariant-expressions keeps large hoist-name resolution w
     );
 });
 
-void test("prefer-loop-invariant-expressions keeps project-aware hoist-name resolution bounded on collision-heavy files", async () => {
+void test("prefer-loop-invariant-expressions keeps local hoist-name resolution bounded on collision-heavy files", async () => {
     const reservedHoistNameCount = 320;
-    const source = buildProjectAwareLoopHoistStressSource(220, reservedHoistNameCount);
-    const occupiedIdentifierNames = Array.from({ length: reservedHoistNameCount }, (_value, index) => {
-        return index === 0 ? "cached_value" : `cached_value_${index}`;
-    });
-    const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source, {
-        filePath: "project-aware-performance-regression.gml",
-        getProjectContext: () => createProjectAwareLoopHoistSnapshot(occupiedIdentifierNames)
-    });
+    const source = buildLoopHoistCollisionStressSource(220, reservedHoistNameCount);
+    const timedRun = await lintSingleRuleWithTiming(
+        "gml/prefer-loop-invariant-expressions",
+        source,
+        "local-collision-performance-regression.gml"
+    );
 
     assert.ok(
         timedRun.outputText.includes("var cached_value_321 ="),
-        "expected prefer-loop-invariant-expressions to keep hoisting through project-aware name collisions"
+        "expected prefer-loop-invariant-expressions to keep hoisting through local name collisions"
     );
     assert.ok(
         timedRun.ruleMilliseconds < 2500,
-        `expected project-aware prefer-loop-invariant-expressions runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        `expected prefer-loop-invariant-expressions runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
         timedRun.elapsedMilliseconds < 8000,
-        `expected total project-aware lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });

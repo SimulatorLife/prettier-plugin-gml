@@ -1,41 +1,84 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import {
+    applySourceTextEdits,
+    createMeta,
+    getNodeEndIndex,
+    isAstNodeRecord,
+    reportFullTextRewrite,
+    walkAstNodes
+} from "../rule-base-helpers.js";
+
+type MemberIndexExpressionNode = Readonly<{
+    type: "MemberIndexExpression";
+    object?: unknown;
+    property?: unknown;
+    accessor?: unknown;
+}>;
+
+function isMemberIndexExpressionNode(node: unknown): node is MemberIndexExpressionNode {
+    return isAstNodeRecord(node) && node.type === "MemberIndexExpression";
+}
+
+function shouldNormalizeMemberIndexAccessorToGrid(node: MemberIndexExpressionNode): boolean {
+    return node.accessor !== "[#" && Array.isArray(node.property) && node.property.length > 1;
+}
+
+function findMemberIndexAccessorRange(
+    sourceText: string,
+    memberIndexExpression: MemberIndexExpressionNode
+): { start: number; end: number } | null {
+    const objectEnd = getNodeEndIndex(memberIndexExpression.object);
+    const nodeEnd = getNodeEndIndex(memberIndexExpression);
+    if (
+        typeof objectEnd !== "number" ||
+        !Number.isFinite(objectEnd) ||
+        typeof nodeEnd !== "number" ||
+        !Number.isFinite(nodeEnd) ||
+        nodeEnd <= objectEnd
+    ) {
+        return null;
+    }
+
+    const memberText = sourceText.slice(objectEnd, nodeEnd);
+    const bracketOffset = memberText.indexOf("[");
+    if (bracketOffset === -1) {
+        return null;
+    }
+
+    const start = objectEnd + bracketOffset;
+    return { start, end: start + 2 };
+}
 
 export function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
             return Object.freeze({
-                Program() {
-                    const text = context.sourceCode.text;
-                    const rewrites: Array<{ start: number; end: number; replacement: string }> = [];
-                    const memberPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[\?|\[\||\[#)\s*/g;
-                    for (const match of text.matchAll(memberPattern)) {
-                        const variableName = match[1];
-                        const accessor = match[2];
-                        const lowerName = (variableName ?? "").toLowerCase();
+                Program(programNode: unknown) {
+                    const sourceText = context.sourceCode.text;
+                    const edits: Array<{ start: number; end: number; text: string }> = [];
 
-                        if (
-                            (accessor === "[?" &&
-                                (lowerName === "ds_map_find_value" || lowerName === "ds_map_find_next")) ||
-                            (accessor === "[|" && lowerName === "ds_list_find_value") ||
-                            (accessor === "[#" && lowerName === "ds_grid_get")
-                        ) {
-                            const start = match.index ?? 0;
-                            const end = start + (match[0]?.length ?? 0);
-                            rewrites.push({ start, end, replacement: accessor });
+                    walkAstNodes(programNode, (node: unknown) => {
+                        if (!isMemberIndexExpressionNode(node) || !shouldNormalizeMemberIndexAccessorToGrid(node)) {
+                            return;
                         }
-                    }
 
-                    for (const rewrite of rewrites.toReversed()) {
-                        context.report({
-                            loc: context.sourceCode.getLocFromIndex(rewrite.start),
-                            messageId: definition.messageId,
-                            fix: (fixer) => fixer.replaceTextRange([rewrite.start, rewrite.end], rewrite.replacement)
+                        const accessorRange = findMemberIndexAccessorRange(sourceText, node);
+                        if (!accessorRange) {
+                            return;
+                        }
+
+                        edits.push({
+                            start: accessorRange.start,
+                            end: accessorRange.end,
+                            text: "[#"
                         });
-                    }
+                    });
+
+                    const rewrittenText = applySourceTextEdits(sourceText, edits);
+                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
                 }
             });
         }
