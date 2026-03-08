@@ -212,7 +212,7 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 });
 
 void test("feather rules declare fixable metadata for autofix reports", () => {
-    const diagnosticOnlyFeatherRules = new Set(["feather/gm1033", "feather/gm1051", "feather/gm2007"]);
+    const diagnosticOnlyFeatherRules = new Set(["feather/gm1033", "feather/gm2007"]);
     const allRuleIds = Object.values(LintWorkspace.Lint.ruleIds as Record<string, string>);
     for (const ruleId of allRuleIds) {
         if (!ruleId.startsWith("feather/")) {
