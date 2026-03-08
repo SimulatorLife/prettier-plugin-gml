@@ -74,7 +74,7 @@ pnpm run cli -- lint --fix path/to/project
 - `--project <path>` - Force project root directory or `.yyp` path
 - `--project-strict` - Fail when linted files are outside forced project root
 - `--quiet` - Suppress fallback/config discovery warnings
-- `--verbose` - Emit per-file lint timing and total run duration diagnostics
+- `--verbose` - Emit per-file lint/format timing and total run duration diagnostics
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
