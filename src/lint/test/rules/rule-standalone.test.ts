@@ -439,6 +439,110 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
     }
 });
 
+void test("normalize-data-structure-accessors only rewrites invalid multi-coordinate access to grid accessors", () => {
+    const input = [
+        "var my_map = ds_map_create();",
+        'var value = my_map[| "key"];',
+        "var item = lst_items[? 0];",
+        "var cell = level_grid[| 1, 2];",
+        "var cell_alt = myGrid[? 1, 2];",
+        "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
+        ""
+    ].join("\n");
+    const expected = [
+        "var my_map = ds_map_create();",
+        'var value = my_map[? "key"];',
+        "var item = lst_items[? 0];",
+        "var cell = level_grid[# 1, 2];",
+        "var cell_alt = myGrid[# 1, 2];",
+        "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-data-structure-accessors does not keep stale constructor inference after reassignment", () => {
+    const input = ["var my_map = ds_map_create();", "my_map = some_var;", 'var value = my_map[| "key"];', ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, input);
+});
+
+void test("normalize-data-structure-accessors ignores malformed identifier metadata without throwing", () => {
+    const sourceText = 'var value = my_map[| "key"];\n';
+    const messages: Array<{ messageId: string }> = [];
+    const rule = Lint.plugin.rules["normalize-data-structure-accessors"];
+
+    const context = {
+        options: [{}],
+        sourceCode: { text: sourceText },
+        report(descriptor: { messageId: string }) {
+            messages.push({ messageId: descriptor.messageId });
+        }
+    };
+
+    const visitor = rule.create(context as never);
+    const programNode = {
+        type: "Program",
+        start: 0,
+        end: sourceText.length,
+        body: [
+            {
+                type: "VariableDeclarator",
+                start: 0,
+                end: 8,
+                id: {
+                    type: "Identifier",
+                    name: 123,
+                    start: 0,
+                    end: 3
+                },
+                init: {
+                    type: "CallExpression",
+                    start: 0,
+                    end: 8,
+                    object: {
+                        type: "Identifier",
+                        name: "ds_map_create",
+                        start: 0,
+                        end: 13
+                    },
+                    arguments: []
+                }
+            },
+            {
+                type: "MemberIndexExpression",
+                accessor: "[|",
+                start: 12,
+                end: sourceText.length - 1,
+                object: {
+                    type: "Identifier",
+                    name: "my_map",
+                    start: 12,
+                    end: 18
+                },
+                property: [
+                    {
+                        type: "Literal",
+                        value: '"key"',
+                        start: 21,
+                        end: 26
+                    }
+                ]
+            }
+        ]
+    };
+
+    assert.doesNotThrow(() => visitor.Program?.(programNode as never));
+    assertEquals(messages.length, 0);
+});
+
 void test("require-argument-separators preserves separator payload comments", () => {
     const input = "show_debug_message_ext(name /* keep */ payload);\n";
     const result = lintWithRule("require-argument-separators", input, {});
@@ -483,6 +587,21 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
         "}",
         "",
         "my_func4(undefined);",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-trailing-optional-defaults", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-trailing-optional-defaults appends undefined defaults after existing optional params", () => {
+    const input = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}", ""].join(
+        "\n"
+    );
+    const expected = [
+        "function demo(first, second = 1, third = undefined) {",
+        "    return [first, second, third];",
+        "}",
         ""
     ].join("\n");
 

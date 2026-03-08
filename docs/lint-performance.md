@@ -1,6 +1,6 @@
-# Lint performance: optimize-math-expressions fast path
+# Lint performance notes
 
-## Summary
+## `gml/optimize-math-expressions` fast path
 
 On **March 7, 2026**, lint profiling identified `gml/optimize-math-expressions` as the slowest auto-fix rule across the lint fixture corpus.
 
@@ -62,3 +62,27 @@ Performance coverage:
 - `src/lint/test/rules/performance-regression.test.ts`
 
 These tests run in the normal lint workspace test suite (`pnpm test`, `pnpm test:ci`), so CI executes both correctness and performance checks for this optimization.
+
+## `gml/prefer-loop-invariant-expressions` local hoist-name fast path
+
+On **March 7, 2026**, profiling of a large real-world SMF script highlighted hoist-name collision handling as a secondary hot path for `gml/prefer-loop-invariant-expressions`.
+
+Lint now keeps this rule strictly single-file:
+
+- hoist-name resolution only considers identifiers already declared in the current file,
+- the rule reuses its precomputed normalized local identifier set,
+- collision-heavy files avoid repeated $O(n)$ renormalization work for `cached_value[_N]` candidates.
+
+Project-wide identifier indexing and cross-file safety checks belong in `@gml-modules/refactor`, not in the lint workspace.
+
+### Regression coverage
+
+Correctness coverage:
+
+- `src/lint/test/rules/prefer-loop-invariant-expressions-rule.test.ts`
+
+Performance coverage:
+
+- `src/lint/test/rules/performance-regression.test.ts`
+
+These tests run in the standard lint workspace suite, so CI now guards both the hoist-name correctness path and the collision-heavy single-file performance path.

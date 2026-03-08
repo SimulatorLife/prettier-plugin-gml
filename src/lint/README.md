@@ -6,10 +6,11 @@ It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fi
 
 - Owns:
     - ESLint language wiring for GML (`language: "gml/gml"`)
-    - Lint rules and autofix behavior
+    - Lint rules and single-file-safe autofix behavior
 - Does not own:
     - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
     - Parser internals/grammar ownership
+    - Project-wide identifier indexing, rename safety, or hoist-name generation
     - Refactor transaction planning/execution
 
 See [../../docs/target-state.md](../../docs/target-state.md) for the split contract.
@@ -87,6 +88,7 @@ LintWorkspace.Lint;
 - `featherPlugin`: ESLint plugin object for `feather/*` (`rules`)
 - `configs`: `recommended`, `feather`
 - `ruleIds`: PascalCase map keys to canonical full IDs (`gml/...`, `feather/...`)
+- `services`: single-file-safe support values only; no project registries, project roots, or semantic indexes
 
 ## GML Rule IDs
 
@@ -130,6 +132,8 @@ Built-in `gml/*` rule short names:
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 
 `normalize-doc-comments` canonicalizes doc tags/content, including removing `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`). It synthesizes missing tags for declaration/assignment-style function docs, but constructor/struct-function definitions never retain synthetic `@returns` tags: existing `@returns` lines are stripped and new ones are not generated. The rule intentionally skips inline anonymous function values inside struct/object properties.
+
+`normalize-data-structure-accessors` only applies repairs when the syntax or surrounding code provides enough evidence. Multi-coordinate structured access is normalized to `[# ...]`, because grids are the only GameMaker data structure that support more than one coordinate. The rule intentionally does not guess list/map accessors from variable naming conventions, and any constructor-based accessor provenance is cleared immediately when the tracked variable is reassigned.
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.

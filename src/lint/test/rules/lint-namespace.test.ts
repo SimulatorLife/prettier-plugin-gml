@@ -76,6 +76,22 @@ void test("semver-sensitive lint constants are pinned", () => {
     }
 });
 
+void test("services namespace excludes project-aware analysis helpers", () => {
+    const forbiddenServiceNames = [
+        "createProjectAnalysisSnapshotFromProjectIndex",
+        "createPrebuiltProjectAnalysisProvider",
+        "createProjectLintContextRegistry",
+        "createProjectSettingsFromRegistry",
+        "defaultProjectIndexExcludes",
+        "resolveNearestProjectRoot",
+        "resolveForcedProjectRoot"
+    ];
+
+    for (const serviceName of forbiddenServiceNames) {
+        assert.equal(serviceName in Lint.services, false, `${serviceName} must not be exported from Lint.services`);
+    }
+});
+
 void test("feather namespace rule IDs are strictly feather/gm#### only", () => {
     const featherRuleShortNames = Object.keys(Lint.featherPlugin.rules);
     assert.ok(featherRuleShortNames.length > 0);

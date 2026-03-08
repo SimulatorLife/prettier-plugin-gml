@@ -62,35 +62,30 @@ void test("aggregateLintTotals handles mixed errors, fatal errors, and warnings"
 // ---------------------------------------------------------------------------
 
 void test("collectOutOfRootFilePaths returns empty array when no results", () => {
-    const registry = { isOutOfForcedRoot: () => false };
-    const paths = collectOutOfRootFilePaths([], registry);
+    const paths = collectOutOfRootFilePaths([], "/project");
     assert.deepEqual(paths, []);
 });
 
 void test("collectOutOfRootFilePaths filters to only out-of-root paths", () => {
-    const outOfRootSet = new Set(["/other/file.gml", "/remote/file.gml"]);
-    const registry = { isOutOfForcedRoot: (fp: string) => outOfRootSet.has(fp) };
     const results = [
         { filePath: "/project/in-root.gml" },
         { filePath: "/other/file.gml" },
         { filePath: "/project/also-in-root.gml" },
         { filePath: "/remote/file.gml" }
     ];
-    const paths = collectOutOfRootFilePaths(results, registry);
+    const paths = collectOutOfRootFilePaths(results, "/project");
     assert.deepEqual(paths, ["/other/file.gml", "/remote/file.gml"]);
 });
 
 void test("collectOutOfRootFilePaths returns all paths when all are out-of-root", () => {
-    const registry = { isOutOfForcedRoot: () => true };
     const results = [{ filePath: "/a/b.gml" }, { filePath: "/c/d.gml" }];
-    const paths = collectOutOfRootFilePaths(results, registry);
+    const paths = collectOutOfRootFilePaths(results, "/project");
     assert.deepEqual(paths, ["/a/b.gml", "/c/d.gml"]);
 });
 
 void test("collectOutOfRootFilePaths returns empty array when all paths are in-root", () => {
-    const registry = { isOutOfForcedRoot: () => false };
     const results = [{ filePath: "/project/a.gml" }, { filePath: "/project/b.gml" }];
-    const paths = collectOutOfRootFilePaths(results, registry);
+    const paths = collectOutOfRootFilePaths(results, "/project");
     assert.deepEqual(paths, []);
 });
 
