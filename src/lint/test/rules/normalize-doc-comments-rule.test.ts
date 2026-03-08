@@ -354,6 +354,26 @@ void test("normalize-doc-comments removes @param separator hyphens for typed opt
     assert.doesNotMatch(output, /\[yup=0\] - The camera's up vector/m);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults with extra brackets", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param cylinder$/m);
+    assert.match(output, /^\/\/\/ @param collider$/m);
+    assert.match(output, /^\/\/\/ @param \[mask=collider\[CM\.MASK\]\]$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @param \[mask=\[CM\.MASK\]/m);
+    assert.doesNotMatch(output, /\]\]\]\]\]/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}$/m);
+});
+
 void test("normalize-doc-comments does not synthesize @returns for constructor function declarations", () => {
     const input = ["function __ChatterboxBufferBatch() constructor {", "    // ...", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);

@@ -183,6 +183,32 @@ void test("normalize-doc-comments aligns multiline description continuations", (
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults with trailing brackets", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=collider[CM.MASK]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
     const input = [
         "/// Summary",

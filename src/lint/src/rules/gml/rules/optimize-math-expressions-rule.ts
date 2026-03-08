@@ -47,72 +47,6 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "MemberIndexExpression",
     "CallExpression"
 ]);
-const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
-
-function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
-    if (left === right) {
-        return true;
-    }
-
-    if (left === null || right === null) {
-        return false;
-    }
-
-    if (Array.isArray(left) || Array.isArray(right)) {
-        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-            return false;
-        }
-
-        for (const [index, element] of left.entries()) {
-            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    if (typeof left !== typeof right) {
-        return false;
-    }
-
-    if (typeof left !== "object" || typeof right !== "object") {
-        return false;
-    }
-
-    const leftRecord = left as Record<string, unknown>;
-    const rightRecord = right as Record<string, unknown>;
-    const leftKeys = Object.keys(leftRecord)
-        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
-        .sort((a, b) => a.localeCompare(b));
-    const rightKeys = Object.keys(rightRecord)
-        .filter((key) => !IGNORED_AST_METADATA_KEYS.has(key))
-        .sort((a, b) => a.localeCompare(b));
-
-    if (leftKeys.length !== rightKeys.length) {
-        return false;
-    }
-
-    for (const [index, leftKey] of leftKeys.entries()) {
-        const rightKey = rightKeys[index];
-        if (leftKey !== rightKey) {
-            return false;
-        }
-
-        if (!areExpressionNodesEquivalentIgnoringParentheses(leftRecord[leftKey], rightRecord[rightKey])) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
-    return areAstValuesEquivalentIgnoringParentheses(
-        unwrapParenthesized(left as Parameters<typeof unwrapParenthesized>[0]),
-        unwrapParenthesized(right as Parameters<typeof unwrapParenthesized>[0])
-    );
-}
 
 function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
@@ -739,10 +673,6 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
     cleanupMultiplicativeIdentityParentheses(clone, context as any);
 
     const original = readNodeText(sourceText, node) || "";
-    if (areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
-        return null;
-    }
-
     const printed = printExpression(clone, sourceText);
     if (!printed) {
         return null;
@@ -755,11 +685,42 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
     return printed;
 }
 
+function shouldSkipBinaryExpressionCandidate(parentNode: unknown, parentKey: string | null): boolean {
+    if (!parentNode || typeof parentNode !== "object") {
+        return false;
+    }
+
+    const parentType = (parentNode as { type?: unknown }).type;
+    if (typeof parentType !== "string") {
+        return false;
+    }
+
+    if (
+        parentType === "BinaryExpression" ||
+        parentType === "UnaryExpression" ||
+        parentType === "LogicalExpression" ||
+        parentType === "ParenthesizedExpression"
+    ) {
+        return true;
+    }
+
+    if (
+        (parentType === "VariableDeclarator" && parentKey === "init") ||
+        (parentType === "AssignmentExpression" && parentKey === "right") ||
+        (parentType === "IfStatement" && parentKey === "test") ||
+        (parentType === "ReturnStatement" && parentKey === "argument")
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
     const normalizedExpressionRanges: SourceTextRange[] = [];
 
     walkAstNodesWithParent(node, (visitContext) => {
-        const { node: visitedNode } = visitContext;
+        const { node: visitedNode, parent, parentKey } = visitContext;
 
         let targetNode: any = null;
         let isIfTest = false;
@@ -779,7 +740,15 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
 
                     break;
                 }
+                case "ReturnStatement": {
+                    targetNode = visitedNode.argument;
+                    break;
+                }
                 case "BinaryExpression": {
+                    if (shouldSkipBinaryExpressionCandidate(parent, parentKey)) {
+                        break;
+                    }
+
                     targetNode = visitedNode;
 
                     break;
