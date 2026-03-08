@@ -1050,9 +1050,11 @@ export class RefactorEngine {
         Core.assertFunction(readFile, "readFile", {
             errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
         });
-        Core.assertFunction(writeFile, "writeFile", {
-            errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
-        });
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
+            });
+        }
 
         const uniqueFilePaths = [...new Set(filePaths)];
 
