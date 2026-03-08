@@ -77,7 +77,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 - **Recommended Config**: `Lint.configs.recommended` is a complete flat-config preset.
 - **AST/Token/Comment Contract**: Output model is ESTree-compatible plus explicit GML extension node types. `range` is `[start, end)` in UTF-16 code-unit offsets.
 - **Parse Errors and Recovery**: Language parse never throws uncaught exceptions to ESLint. Parse failures are returned through ESLint v9’s documented language parse-failure channel.
-- **Project Context**: CLI adds `--project <path>` as explicit project-root override. Runtime owns one invocation-scoped `ProjectLintContextRegistry`.
+- **Project Context**: CLI may use `--project <path>` as an explicit project-root override for target classification only. Lint rules do not receive project-aware registries, semantic indexes, or cross-file safety services.
 
 ### 3.4 Rule System Contracts
 
@@ -88,7 +88,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 ### 3.5 Implementation Status & Audit Findings (Snapshot 2026-02-17)
 
 - Formatter/linter split migration is largely complete on runtime behavior.
-- Remaining work includes implementing a semantic-backed `ProjectAnalysisProvider`, adding shared-provider parity contract tests, and isolating dormant migrated semantic transform modules from formatter workspace exports.
+- Remaining work includes isolating dormant migrated semantic transform modules from formatter workspace exports and continuing to push any project-aware edit planning into `@gml-modules/refactor` rather than `@gml-modules/lint`.
 - Any existing/left-over functionality in the `format` workspace that goes beyond pure layout formatting should be identified and migrated into the `lint` and/or `core` workspaces.
 
 ## 4. Semantic Analysis & Symbol Indexing

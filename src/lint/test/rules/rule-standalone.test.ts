@@ -441,22 +441,37 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
 
 void test("normalize-data-structure-accessors only rewrites invalid multi-coordinate access to grid accessors", () => {
     const input = [
-        "var item = lst_items[? 0];",
+        "var my_map = ds_map_create();",
         'var value = my_map[| "key"];',
+        "var item = lst_items[? 0];",
         "var cell = level_grid[| 1, 2];",
+        "var cell_alt = myGrid[? 1, 2];",
         "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
         ""
     ].join("\n");
     const expected = [
+        "var my_map = ds_map_create();",
+        'var value = my_map[? "key"];',
         "var item = lst_items[? 0];",
-        'var value = my_map[| "key"];',
         "var cell = level_grid[# 1, 2];",
+        "var cell_alt = myGrid[# 1, 2];",
         "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
         ""
     ].join("\n");
 
     const result = lintWithRule("normalize-data-structure-accessors", input, {});
     assertEquals(result.output, expected);
+});
+
+void test("normalize-data-structure-accessors does not keep stale constructor inference after reassignment", () => {
+    const input = ["var my_map = ds_map_create();", "my_map = some_var;", 'var value = my_map[| "key"];', ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, input);
 });
 
 void test("require-argument-separators preserves separator payload comments", () => {
