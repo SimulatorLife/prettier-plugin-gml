@@ -125,7 +125,7 @@ function collectAccessorEventNodes(programNode: unknown): Array<AccessorEventNod
     });
 }
 
-function resolveSafeAccessorForMemberIndex(
+function resolveProvenAccessorForMemberIndex(
     node: MemberIndexExpressionNode,
     explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, ProvenAccessorToken>
 ): ProvenAccessorToken | null {
@@ -203,7 +203,7 @@ export function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDef
                             continue;
                         }
 
-                        const replacementAccessor = resolveSafeAccessorForMemberIndex(
+                        const replacementAccessor = resolveProvenAccessorForMemberIndex(
                             node,
                             explicitConstructorAccessorsByIdentifier
                         );
