@@ -486,13 +486,16 @@ function createGm1010Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         rewritten = rewritten.replaceAll(/(?<=\b\d+\s*\+\s*)"(-?\d+(?:\.\d+)?)"/g, "$1");
         rewritten = rewritten.replaceAll(/(?<==\s*)"(-?\d+(?:\.\d+)?)"\s*(?=\+\s*[A-Za-z_]\w*)/g, "$1");
-        rewritten = rewritten.replaceAll(/\+\s*([A-Za-z_]\w*)\b/g, (fullMatch, identifier: string) => {
-            if (!/num/i.test(identifier)) {
-                return fullMatch;
-            }
+        rewritten = rewritten.replaceAll(
+            /(\b-?\d+(?:\.\d+)?\s*\+\s*)([A-Za-z_]\w*)\b/g,
+            (fullMatch, numericPrefix: string, identifier: string) => {
+                if (!/num/i.test(identifier)) {
+                    return fullMatch;
+                }
 
-            return `+ real(${identifier})`;
-        });
+                return `${numericPrefix}real(${identifier})`;
+            }
+        );
         return rewritten;
     });
 }
