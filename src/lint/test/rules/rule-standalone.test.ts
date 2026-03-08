@@ -209,6 +209,28 @@ void test("normalize-doc-comments repairs malformed optional @param defaults wit
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
+    const input = [
+        "/// Summary",
+        "/// Returns: Boolean, indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Summary",
+        "/// @returns {Boolean} Indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments repairs malformed optional @param defaults while preserving descriptions", () => {
     const input = [
         "/// @param cylinder",
