@@ -110,8 +110,10 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
                 return rightNumber === 0 ? null : leftNumber / rightNumber;
             }
             case "div": {
-                // GML's div performs integer division (floor division)
-                return rightNumber === 0 ? null : Math.floor(leftNumber / rightNumber);
+                // GML's div performs integer division truncating toward zero (like C int/int).
+                // Math.trunc is correct here; Math.floor would give wrong results for
+                // negative operands (e.g. -7 div 2 should be -3, not -4).
+                return rightNumber === 0 ? null : Math.trunc(leftNumber / rightNumber);
             }
             case "%":
             case "mod": {

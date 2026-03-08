@@ -307,6 +307,11 @@ export class GmlToJsEmitter {
         // Fall back to runtime evaluation
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
+        // Special case: GML `div` is integer division truncating toward zero.
+        // There is no single JavaScript operator for this; lower to Math.trunc(a / b).
+        if (ast.operator === "div") {
+            return `Math.trunc(${left} / ${right})`;
+        }
         const op = mapBinaryOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }
