@@ -2586,6 +2586,167 @@ export class ScopeTracker {
 
         return result;
     }
+
+    /**
+     * Sorts a collection of file paths into dependency order for re-analysis.
+     *
+     * Paths whose scopes have no dependencies on other paths in the collection
+     * are placed first (topological order). Paths that depend on others are
+     * placed after their dependencies, ensuring that when callers re-analyse
+     * each path in the returned order the declarations of a path's dependencies
+     * are always registered before the dependents are processed.
+     *
+     * **Must be called before `clearScopesForPath`**: scope metadata is
+     * consumed to compute the path-level dependency graph, so sorting must
+     * happen while the current (possibly stale) scopes are still registered.
+     *
+     * Cycles in the dependency graph are handled gracefully: after all acyclic
+     * nodes are emitted, any remaining cycle members are appended in
+     * lexicographic order to produce a deterministic result.
+     *
+     * Paths with no registered scopes (not yet indexed) carry no dependency
+     * information and are treated as independent — they appear first among
+     * zero-in-degree nodes in lexicographic order.
+     *
+     * @param paths - Paths to sort, typically the result of `getImpactedFilePaths`.
+     * @returns Array of paths ordered so that dependencies precede dependents.
+     */
+    public sortPathsForReanalysis(paths: Iterable<string>): string[] {
+        // Collect unique, non-empty paths and normalise them for consistent
+        // comparison with the internal path index.
+        const inputPaths = new Map<string, string>(); // normalisedPath → originalPath
+        for (const p of paths) {
+            if (!p || typeof p !== "string" || p.length === 0) {
+                continue;
+            }
+            const normalised = this.normalizeTrackedPath(p);
+            if (!inputPaths.has(normalised)) {
+                inputPaths.set(normalised, p);
+            }
+        }
+
+        if (inputPaths.size === 0) {
+            return [];
+        }
+
+        // Build path-level dependency graph.
+        // `edges.get(depPath)` → Set of paths in the input set that depend on depPath.
+        // `inDegree.get(path)` → number of paths in the input set this path depends on.
+        const edges = new Map<string, Set<string>>();
+        const inDegree = new Map<string, number>();
+        for (const normalisedPath of inputPaths.keys()) {
+            inDegree.set(normalisedPath, 0);
+            edges.set(normalisedPath, new Set());
+        }
+
+        for (const normalisedPath of inputPaths.keys()) {
+            if (!this.enabled) {
+                continue;
+            }
+
+            const scopeIds = this.pathToScopesIndex.get(normalisedPath);
+            if (!scopeIds || scopeIds.size === 0) {
+                continue;
+            }
+
+            for (const scopeId of scopeIds) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                for (const [name, entry] of scope.occurrences) {
+                    if (entry.references.length === 0) {
+                        continue;
+                    }
+
+                    // Skip symbols declared locally within this scope — they
+                    // don't create a cross-file dependency.
+                    if (scope.symbolMetadata.has(name)) {
+                        continue;
+                    }
+
+                    const resolved = this.resolveIdentifier(name, scopeId);
+                    if (!resolved?.scopeId || resolved.scopeId === scopeId) {
+                        continue;
+                    }
+
+                    const declaringScope = this.scopesById.get(resolved.scopeId);
+                    const declaringPath = declaringScope?.metadata.path;
+                    if (!declaringPath) {
+                        continue;
+                    }
+
+                    const normalisedDeclaringPath = this.normalizeTrackedPath(declaringPath);
+                    if (normalisedDeclaringPath === normalisedPath || !inputPaths.has(normalisedDeclaringPath)) {
+                        // Dependency is outside the input set or is self — skip.
+                        continue;
+                    }
+
+                    // normalisedPath depends on normalisedDeclaringPath.
+                    const outEdges = edges.get(normalisedDeclaringPath);
+                    if (outEdges && !outEdges.has(normalisedPath)) {
+                        outEdges.add(normalisedPath);
+                        inDegree.set(normalisedPath, (inDegree.get(normalisedPath) ?? 0) + 1);
+                    }
+                }
+            }
+        }
+
+        // Kahn's algorithm: seed with all zero-in-degree nodes (sorted
+        // lexicographically for a deterministic output within the same wave).
+        const queue: string[] = [];
+        for (const [normalisedPath, degree] of inDegree) {
+            if (degree === 0) {
+                queue.push(normalisedPath);
+            }
+        }
+        queue.sort();
+
+        const result: string[] = [];
+        while (queue.length > 0) {
+            // shift() keeps FIFO / BFS order so each wave is processed before
+            // the next, preserving the level-by-level lexicographic guarantee.
+            const current = queue.shift();
+            const original = inputPaths.get(current);
+            if (original !== undefined) {
+                result.push(original);
+            }
+
+            const dependents = edges.get(current);
+            if (dependents) {
+                const newlyReady: string[] = [];
+                for (const dep of dependents) {
+                    const newDegree = (inDegree.get(dep) ?? 1) - 1;
+                    inDegree.set(dep, newDegree);
+                    if (newDegree === 0) {
+                        newlyReady.push(dep);
+                    }
+                }
+                // Sort within each new wave for deterministic output.
+                newlyReady.sort();
+                for (const p of newlyReady) {
+                    queue.push(p);
+                }
+            }
+        }
+
+        // Any paths still in the graph are part of cycles; append in
+        // lexicographic order to guarantee a deterministic result.
+        const cycleNodes: string[] = [];
+        for (const [normalisedPath, degree] of inDegree) {
+            if (degree > 0) {
+                const original = inputPaths.get(normalisedPath);
+                if (original !== undefined) {
+                    cycleNodes.push(original);
+                }
+            }
+        }
+        cycleNodes.sort();
+        result.push(...cycleNodes);
+
+        return result;
+    }
 }
 
 export default ScopeTracker;
