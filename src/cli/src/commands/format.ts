@@ -14,7 +14,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 
@@ -905,7 +904,7 @@ async function reportAndTrackFormattingError(error, filePath) {
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
     // intentionally malformed fixtures.
-    const isParseError = Parser.GameMakerSyntaxError.isParseError(error);
+    const isParseError = Core.isGmlParseError(error);
 
     // When the user specifies `--parse-error-action=SKIP`, they're explicitly opting
     // into a workflow where parse errors are treated as non-fatal: the CLI should

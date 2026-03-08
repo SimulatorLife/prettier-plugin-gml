@@ -163,7 +163,7 @@ function formatErrorObject(error: ErrorWithMetadata, seen: Set<unknown>): string
 
     const errored = error;
     const isUsageError = isCliUsageError(error);
-    const isParseError = error.name === "GameMakerSyntaxError";
+    const isParseError = Core.isGmlParseError(error);
     const stack = !isUsageError && !isParseError && typeof errored.stack === "string" ? errored.stack : null;
     const sections = Core.compactArray([
         formatErrorHeader(error),
