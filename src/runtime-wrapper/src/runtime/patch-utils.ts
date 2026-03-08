@@ -6,7 +6,6 @@ import type {
     ClosurePatch,
     EventPatch,
     Patch,
-    PatchHistoryEntry,
     PatchSnapshot,
     RuntimeFunction,
     RuntimeRegistry,
@@ -912,16 +911,4 @@ function calculatePercentile(sorted: Array<number>, percentile: number): number 
 
     const weight = index - lower;
     return sorted[lower] * (1 - weight) + sorted[upper] * weight;
-}
-
-export function collectPatchDurations(history: Array<PatchHistoryEntry>): Array<number> {
-    const durations: Array<number> = [];
-
-    for (const entry of history) {
-        if (entry.action === "apply" && entry.durationMs !== undefined) {
-            durations.push(entry.durationMs);
-        }
-    }
-
-    return durations;
 }

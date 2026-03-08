@@ -5,8 +5,6 @@
  * scope capture and shadowing.
  */
 
-import path from "node:path";
-
 import { Core } from "@gml-modules/core";
 
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";

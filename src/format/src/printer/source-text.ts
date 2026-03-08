@@ -254,25 +254,6 @@ export function hasBlankLineBeforeLeadingComment(
     return hasBlankLineInSlice(textBeforeComment, "trailing", false);
 }
 
-export function hasBlankLineAfterOpeningBrace(
-    blockNode: unknown,
-    sourceMetadata: PrinterSourceMetadata,
-    firstStatementStartIndex: number | null
-): boolean {
-    const interiorSlice = getInteriorSliceForLeadingComment(
-        blockNode,
-        sourceMetadata,
-        sourceMetadata.originalText,
-        firstStatementStartIndex
-    );
-
-    if (!interiorSlice) {
-        return false;
-    }
-
-    return hasBlankLineInSlice(interiorSlice, "trailing", true);
-}
-
 /**
  * Determine whether a trailing blank line exists between the final comment and
  * a block's closing brace.

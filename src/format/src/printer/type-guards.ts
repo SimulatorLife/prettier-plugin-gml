@@ -219,25 +219,6 @@ export function isCallbackArgument(argument: any): boolean {
 }
 
 /**
- * Determines if a call expression is a numeric call expression.
- *
- * Numeric call expressions are calls to numeric functions like sqr(), sqrt(), etc.
- */
-export function isNumericCallExpression(node: any): boolean {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const calleeName = Core.getIdentifierText(node.object);
-    if (typeof calleeName !== STRING_TYPE) {
-        return false;
-    }
-
-    const normalized = calleeName.toLowerCase();
-    return normalized === "sqr" || normalized === "sqrt";
-}
-
-/**
  * Determines if a node represents a numeric computation.
  */
 export function isNumericComputationNode(node: any): boolean {
@@ -293,44 +274,6 @@ export function isNumericComputationNode(node: any): boolean {
 // ============================================================================
 
 /**
- * Determines if the current node is inside a constructor function.
- */
-export function isInsideConstructorFunction(path: any): boolean {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    let functionAncestorDepth: number | null = null;
-
-    for (let depth = 0; ; depth += 1) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (functionAncestorDepth === null && ancestor.type === "FunctionDeclaration") {
-            const functionParent = path.getParentNode(depth + 1);
-            if (!functionParent || functionParent.type !== "BlockStatement") {
-                return false;
-            }
-
-            functionAncestorDepth = depth;
-            continue;
-        }
-
-        if (ancestor.type === "ConstructorDeclaration") {
-            return functionAncestorDepth !== null;
-        }
-
-        if (ancestor.type === "Program") {
-            break;
-        }
-    }
-
-    return false;
-}
-
-/**
  * Checks if synthetic parenthesis flattening is enabled in the current context.
  */
 export function isSyntheticParenFlatteningEnabled(path: any): boolean {
@@ -378,13 +321,6 @@ export function isInLValueChain(path: any): boolean {
  */
 export function isLValueExpression(nodeType: string): boolean {
     return nodeType === "MemberIndexExpression" || nodeType === "CallExpression" || nodeType === "MemberDotExpression";
-}
-
-/**
- * Checks if a name is a valid JavaScript/GML identifier.
- */
-export function isValidIdentifierName(name: any): boolean {
-    return typeof name === STRING_TYPE && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
 // ============================================================================
