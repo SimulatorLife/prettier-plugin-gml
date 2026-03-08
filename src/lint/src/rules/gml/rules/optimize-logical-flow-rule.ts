@@ -3,7 +3,7 @@ import type { Rule } from "eslint";
 
 import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
@@ -343,7 +343,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
-                    const cloned = Core.cloneAstNode(node) as any;
+                    const cloned = cloneAstNodeWithoutTraversalLinks(node);
                     if (!cloned) {
                         return;
                     }
