@@ -3,8 +3,8 @@
  * the current accessor provably invalid.
  *
  * Multi-coordinate structured access can only target grids in GameMaker, so a
- * `MemberIndexExpression` with more than one property entry is safely rewritten
- * to use `[#`.
+ * `MemberIndexExpression` with more than one property entry is rewritten to use
+ * `[#` because that arity proves grid access.
  */
 
 import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gml-modules/core";
@@ -107,7 +107,7 @@ function getPropertyCount(memberNode: MemberIndexNode): number {
     return Array.isArray(memberNode.property) ? memberNode.property.length : 0;
 }
 
-function resolveSafeAccessorForMemberIndex(
+function resolveProvenAccessorForMemberIndex(
     memberNode: MemberIndexNode,
     explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, ProvenAccessorToken>
 ): ProvenAccessorToken | null {
@@ -189,7 +189,7 @@ function visitAndNormalize(node: unknown): void {
             continue;
         }
 
-        const replacementAccessor = resolveSafeAccessorForMemberIndex(
+        const replacementAccessor = resolveProvenAccessorForMemberIndex(
             eventNode,
             explicitConstructorAccessorsByIdentifier
         );
@@ -215,7 +215,7 @@ function normalizeAccessors(ast: MutableGameMakerAstNode): void {
  * Transform that normalizes only syntactically provable grid accessors.
  *
  * This transform intentionally avoids list/map rewrites based on naming
- * conventions because those edits are not semantically safe.
+ * conventions because names alone do not provide enough evidence.
  */
 export const normalizeDataStructureAccessorsTransform = Core.createParserTransform<EmptyTransformOptions>(
     "normalize-data-structure-accessors",
