@@ -558,6 +558,88 @@ function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): bool
     return MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode);
 }
 
+function collectAdditiveTermsForDotProduct(node: any, terms: any[]): boolean {
+    const expression = unwrapParenthesized(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (expression.type === "BinaryExpression" && expression.operator === "+") {
+        if (hasComment(expression)) {
+            return false;
+        }
+
+        return (
+            collectAdditiveTermsForDotProduct(expression.left, terms) &&
+            collectAdditiveTermsForDotProduct(expression.right, terms)
+        );
+    }
+
+    terms.push(expression);
+    return true;
+}
+
+function tryBuildFastDotProductReplacement(sourceText: string, node: any): string | null {
+    const expression = unwrapParenthesized(node);
+    if (
+        !expression ||
+        expression.type !== "BinaryExpression" ||
+        expression.operator !== "+" ||
+        hasComment(expression)
+    ) {
+        return null;
+    }
+
+    const terms: any[] = [];
+    if (!collectAdditiveTermsForDotProduct(expression, terms)) {
+        return null;
+    }
+
+    if (terms.length !== 2 && terms.length !== 3) {
+        return null;
+    }
+
+    const leftVectorTerms: string[] = [];
+    const rightVectorTerms: string[] = [];
+
+    for (const term of terms) {
+        const multiplicativeExpression = unwrapParenthesized(term);
+        if (
+            !multiplicativeExpression ||
+            multiplicativeExpression.type !== "BinaryExpression" ||
+            multiplicativeExpression.operator !== "*" ||
+            hasComment(multiplicativeExpression)
+        ) {
+            return null;
+        }
+
+        const leftOperand = unwrapParenthesized(multiplicativeExpression.left);
+        const rightOperand = unwrapParenthesized(multiplicativeExpression.right);
+        if (!leftOperand || !rightOperand) {
+            return null;
+        }
+
+        // Preserve existing behavior: avoid rewriting square-style terms (x*x)
+        // so those cases can continue through the full normalization pipeline.
+        if (areExpressionNodesEquivalentIgnoringParentheses(leftOperand, rightOperand)) {
+            return null;
+        }
+
+        const leftText = readNodeText(sourceText, leftOperand);
+        const rightText = readNodeText(sourceText, rightOperand);
+        if (!leftText || !rightText) {
+            return null;
+        }
+
+        leftVectorTerms.push(trimOuterParentheses(leftText));
+        rightVectorTerms.push(trimOuterParentheses(rightText));
+    }
+
+    const functionName = terms.length === 2 ? "dot_product" : "dot_product_3d";
+    const argumentTexts = [...leftVectorTerms, ...rightVectorTerms];
+    return `${functionName}(${argumentTexts.join(", ")})`;
+}
+
 function performHalfLengthdirOptimizations(bodyStatements: any[], sourceText: string, edits: SourceTextEdit[]) {
     for (let index = 0; index + 1 < bodyStatements.length; index += 1) {
         const current = bodyStatements[index];
@@ -880,7 +962,10 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     return;
                 }
 
-                let replacement = attemptManualNormalization(sourceText, targetNode);
+                let replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+                if (!replacement) {
+                    replacement = attemptManualNormalization(sourceText, targetNode);
+                }
                 if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
                     replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
                 } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
