@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import { printExpression } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
+import { printExpression } from "../expression-printer.js";
 import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
 
