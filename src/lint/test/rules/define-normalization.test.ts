@@ -18,7 +18,6 @@ void describe("define directive normalization", () => {
 
         const context = {
             options: [{}],
-            settings: { gml: { project: { getContext: () => null } } },
             sourceCode: { text: input },
             report: (descriptor: { messageId: string; fix?: (fixer: any) => any }) => {
                 const fixer = {

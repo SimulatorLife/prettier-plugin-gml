@@ -474,6 +474,75 @@ void test("normalize-data-structure-accessors does not keep stale constructor in
     assertEquals(result.output, input);
 });
 
+void test("normalize-data-structure-accessors ignores malformed identifier metadata without throwing", () => {
+    const sourceText = 'var value = my_map[| "key"];\n';
+    const messages: Array<{ messageId: string }> = [];
+    const rule = Lint.plugin.rules["normalize-data-structure-accessors"];
+
+    const context = {
+        options: [{}],
+        sourceCode: { text: sourceText },
+        report(descriptor: { messageId: string }) {
+            messages.push({ messageId: descriptor.messageId });
+        }
+    };
+
+    const visitor = rule.create(context as never);
+    const programNode = {
+        type: "Program",
+        start: 0,
+        end: sourceText.length,
+        body: [
+            {
+                type: "VariableDeclarator",
+                start: 0,
+                end: 8,
+                id: {
+                    type: "Identifier",
+                    name: 123,
+                    start: 0,
+                    end: 3
+                },
+                init: {
+                    type: "CallExpression",
+                    start: 0,
+                    end: 8,
+                    object: {
+                        type: "Identifier",
+                        name: "ds_map_create",
+                        start: 0,
+                        end: 13
+                    },
+                    arguments: []
+                }
+            },
+            {
+                type: "MemberIndexExpression",
+                accessor: "[|",
+                start: 12,
+                end: sourceText.length - 1,
+                object: {
+                    type: "Identifier",
+                    name: "my_map",
+                    start: 12,
+                    end: 18
+                },
+                property: [
+                    {
+                        type: "Literal",
+                        value: '"key"',
+                        start: 21,
+                        end: 26
+                    }
+                ]
+            }
+        ]
+    };
+
+    assert.doesNotThrow(() => visitor.Program?.(programNode as never));
+    assertEquals(messages.length, 0);
+});
+
 void test("require-argument-separators preserves separator payload comments", () => {
     const input = "show_debug_message_ext(name /* keep */ payload);\n";
     const result = lintWithRule("require-argument-separators", input, {});

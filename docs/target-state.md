@@ -15,7 +15,7 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 - **Formatter (`@gml-modules/format`)**: Layout-only printing, indentation, wrapping, spacing, semicolon layout, print-width wrapping, logical operator style rendering. Must not synthesize or normalize content. Lexical canonicalization is permitted, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 - **Linter (`@gml-modules/lint`)**: Semantic/content rewrites, synthetic tag generation, legacy prefix/tag normalization, default placeholder comment cleanup, and local single-file diagnostics and autofix rewrites.
-- **Refactor (`@gml-modules/refactor`)**: Codemod / migration transforms, explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation), and all project-aware functionality.
+- **Refactor (`@gml-modules/refactor`)**: Codemod / migration transforms, explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation), project-wide identifier indexing, rename safety, hoist-name generation, and all other project-aware functionality.
 - **Core (`@gml-modules/core`)**: Shared doc-comment helpers, AST metadata utilities, and normalization primitives.
 - **CLI Watcher (`@gml-modules/cli`)**: Monitors the filesystem, coordinates the transpilation pipeline, and manages the WebSocket server.
 - **Transpiler (`@gml-modules/transpiler`)**: Parses GML via ANTLR4, converts GML AST to JS, and generates patch objects.
@@ -35,7 +35,8 @@ _Migration Rules:_ Do not add new doc-comment content mutation logic in format p
 1. `@gml-modules/lint` is the owner of **Diagnostic Reporting** and **Local Repairs**. It uses a single-file `fix` model for changes that are safe within the local scope.
 2. `@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**. It handles atomic cross-file edits, metadata updates (`.yy`, `.yyp`), and structural migrations.
 3. If a lint rule requires a change that impacts the project's graph or metadata, it should **report the diagnostic** and **point the user to a refactor command**, rather than attempting a multi-file autofix through ESLint.
-4. No duplicate capability logic is allowed across lint and refactor surfaces.
+4. Lint must not keep dormant project-index builders, project-root registries, or rename-planning helpers in its source tree; those implementations belong exclusively in `@gml-modules/refactor`.
+5. No duplicate capability logic is allowed across lint and refactor surfaces.
 
 ### 2.4 Refactor Tool (Codemod / Migration Transforms)
 
@@ -49,7 +50,7 @@ _Migration Rules:_ Do not add new doc-comment content mutation logic in format p
 To prevent scope creep and future drift, the following are explicitly out of scope for each workspace:
 
 - **Formatter does not perform**: Syntax repair, project-aware rewrites, structural refactors, or semantic transformations.
-- **Lint does not perform**: Cross-file edits or metadata updates.
+- **Lint does not perform**: Cross-file edits, metadata updates, project-wide indexing, rename safety, or hoist-name generation.
 - **Refactor does not**: Run automatically on save.
 
 ## 3. Formatter & Linter Contracts
@@ -77,7 +78,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 - **Recommended Config**: `Lint.configs.recommended` is a complete flat-config preset.
 - **AST/Token/Comment Contract**: Output model is ESTree-compatible plus explicit GML extension node types. `range` is `[start, end)` in UTF-16 code-unit offsets.
 - **Parse Errors and Recovery**: Language parse never throws uncaught exceptions to ESLint. Parse failures are returned through ESLint v9’s documented language parse-failure channel.
-- **Project Context**: CLI may use `--project <path>` as an explicit project-root override for target classification only. Lint rules do not receive project-aware registries, semantic indexes, or cross-file safety services.
+- **Project Context**: CLI may use `--project <path>` as an explicit project-root override for target classification only. Lint rules do not receive project-aware registries, project-root helpers, semantic indexes, rename-planning services, or cross-file safety services.
 
 ### 3.4 Rule System Contracts
 
