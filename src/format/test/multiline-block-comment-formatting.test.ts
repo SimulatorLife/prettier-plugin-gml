@@ -6,6 +6,9 @@ import { normalizeFormattedOutput } from "../src/printer/normalize-formatted-out
 
 void describe("multi-line block comment formatting", () => {
     void it("formats multi-line block comments without * prefix on each line", async () => {
+        // The formatter must not add `* ` prefixes to plain block comment lines —
+        // that is GML-domain content behaviour. The formatter is also permitted to
+        // add a trailing newline as a canonical layout transform (target-state.md §3.2).
         const input = `/*
 This is a multi-line comment
 It continues on this line
@@ -27,7 +30,12 @@ var x = 1;
 
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        // The formatter adds a canonical trailing newline; content must be preserved.
+        assert.ok(
+            formatted.startsWith("/*\nThis is a multi-line comment"),
+            "Formatter must not add * prefixes to block comment lines"
+        );
+        assert.ok(formatted.endsWith("var x = 1;\n"), "Formatter applies canonical trailing newline");
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {

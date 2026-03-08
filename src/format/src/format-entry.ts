@@ -57,15 +57,6 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
-function preserveTopLevelDescriptionGap(source: string, formatted: string): string {
-    const sourceStartsWithDescriptionGap = /^\/\/\/\s*@description[^\r\n]*\r?\n[ \t]*\r?\n[ \t]*var\b/.test(source);
-    if (!sourceStartsWithDescriptionGap) {
-        return formatted;
-    }
-
-    return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
-}
-
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
 
@@ -87,33 +78,6 @@ function preserveBannerSpacingGaps(source: string, formatted: string): string {
     return result;
 }
 
-function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
-    source: string,
-    formatted: string
-): boolean {
-    if (source.endsWith("\n") || source.endsWith("\r")) {
-        return false;
-    }
-
-    if (formatted !== `${source}\n`) {
-        return false;
-    }
-
-    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
-        return false;
-    }
-
-    return source.includes("\n*/\n\n");
-}
-
-function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
-    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
-        return formatted;
-    }
-
-    return source;
-}
-
 /**
  * Utility function and entry point to format GML source code.
  */
@@ -130,9 +94,7 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    const withTopLevelDescriptionGap = preserveTopLevelDescriptionGap(source, withBannerSpacing);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withTopLevelDescriptionGap);
+    return preserveBannerSpacingGaps(source, formatted);
 }
 
 export const Format: GmlFormat = {

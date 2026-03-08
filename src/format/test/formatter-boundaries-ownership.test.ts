@@ -567,4 +567,51 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    void it("always applies trailing newline and does not fall back to source for verbatim block comments (target-state.md §3.2)", async () => {
+        // The formatter must never return the original source as a fallback — even
+        // for edge-case inputs like a top-level block comment without a trailing
+        // newline.  §3.2 states: "The formatter must never attempt recovery or
+        // fallback printing."  Any content-inspection that conditionally suppresses
+        // a canonical layout transform (trailing newline) violates this contract.
+        const sourceWithoutTrailingNewline = "/*\nA plain block comment\n*/\n\nvar x = 1;";
+        assert.ok(!sourceWithoutTrailingNewline.endsWith("\n"), "precondition: source has no trailing newline");
+
+        const formatted = await Format.format(sourceWithoutTrailingNewline);
+
+        assert.ok(
+            formatted.endsWith("\n"),
+            "Formatter must always emit a canonical trailing newline and must not fall back to source verbatim"
+        );
+        assert.notEqual(
+            formatted,
+            sourceWithoutTrailingNewline,
+            "Formatter must not return the original source as a fallback (target-state.md §3.2)"
+        );
+    });
+
+    void it("does not inspect source to restore @description-before-var gaps (gap preservation belongs to lint, target-state.md §2.2)", async () => {
+        // The formatter must not post-process its own output by inspecting the
+        // source for @description tags preceding variable declarations.  Gap
+        // preservation for doc-comment tags is a lint-workspace concern (§2.2).
+        // The formatter is permitted to preserve existing blank lines as layout,
+        // but must not restore gaps that it removed by diffing against the source.
+        const sourceWithGap = "/// @description Top-level docs\n\nvar x = 1;\n";
+        const sourceWithoutGap = "/// @description Top-level docs\nvar x = 1;\n";
+
+        const formattedWithGap = await Format.format(sourceWithGap);
+        const formattedWithoutGap = await Format.format(sourceWithoutGap);
+
+        // The formatter may legitimately preserve an existing blank line as layout.
+        assert.ok(
+            formattedWithGap.includes("@description Top-level docs"),
+            "Formatter must preserve the @description line"
+        );
+        // When the source has no gap, the formatter must not synthesize one.
+        assert.doesNotMatch(
+            formattedWithoutGap,
+            /^\/\/\/\s*@description[^\r\n]*\n\n/m,
+            "Formatter must not synthesize a blank line after @description when the source has none — that is lint-workspace territory (target-state.md §2.2)"
+        );
+    });
 });
