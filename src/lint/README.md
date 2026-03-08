@@ -93,6 +93,7 @@ LintWorkspace.Lint;
 Built-in `gml/*` rule short names:
 
 - `prefer-hoistable-loop-accessors` (includes former `prefer-loop-length-hoist` scenarios)
+- `prefer-loop-invariant-expressions`
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
 - `prefer-compound-assignments`
@@ -121,6 +122,8 @@ Built-in `gml/*` rule short names:
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
+
+`prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.
 
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 

@@ -37,6 +37,11 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-loop-invariant-expressions",
+        messageId: "preferLoopInvariantExpressions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-repeat-loops",
         messageId: "preferRepeatLoops",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]

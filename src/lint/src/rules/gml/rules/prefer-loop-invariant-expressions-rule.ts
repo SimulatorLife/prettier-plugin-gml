@@ -1,0 +1,790 @@
+import { Core } from "@gml-modules/core";
+import type { Rule } from "eslint";
+
+import type { GmlProjectContext } from "../../../services/index.js";
+import type { GmlRuleDefinition } from "../../catalog.js";
+import {
+    type AstNodeRecord,
+    type AstNodeWithType,
+    createMeta,
+    getLineIndentationAtOffset,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    isAstNodeRecord,
+    isAstNodeWithType,
+    walkAstNodes,
+    walkAstNodesWithParent
+} from "../rule-base-helpers.js";
+
+type LoopNodeType = "ForStatement" | "WhileStatement" | "RepeatStatement" | "DoUntilStatement";
+
+type LoopNode = AstNodeWithType &
+    Readonly<{
+        type: LoopNodeType;
+        body: unknown;
+        update?: unknown;
+    }>;
+
+type LoopContainerContext = Readonly<{
+    loopNode: LoopNode;
+}>;
+
+type LoopMutationSummary = Readonly<{
+    declaredInsideLoop: ReadonlySet<string>;
+    mutatedIdentifierNames: ReadonlySet<string>;
+    mutatedMemberRoots: ReadonlySet<string>;
+    hasImpureCall: boolean;
+}>;
+
+type ExpressionAssessment = Readonly<{
+    complexity: number;
+    readsMemberAccess: boolean;
+}>;
+
+type LoopCandidate = Readonly<{
+    loopContext: LoopContainerContext;
+    expressionNode: AstNodeWithType;
+    expressionStart: number;
+    expressionEnd: number;
+    expressionText: string;
+    preferredHoistName: string;
+    score: number;
+}>;
+
+type ParentVisitContext = Readonly<{
+    node: AstNodeWithType;
+    parent: AstNodeWithType | null;
+    parentKey: string | null;
+}>;
+
+type ProjectSettingsShape = Readonly<{
+    gml?: Readonly<{
+        project?: Readonly<{
+            getContext?: (filePath: string) => GmlProjectContext | null;
+        }>;
+    }>;
+}>;
+
+type ParserServicesShape = Readonly<{
+    gml?: Readonly<{
+        filePath?: string;
+    }>;
+}>;
+
+const LOOP_NODE_TYPES = new Set<LoopNodeType>([
+    "ForStatement",
+    "WhileStatement",
+    "RepeatStatement",
+    "DoUntilStatement"
+]);
+
+const PURE_FUNCTION_NAMES = new Set<string>(["abs", "dcos", "point_distance"]);
+
+const NON_DETERMINISTIC_IDENTIFIER_NAMES = new Set<string>([
+    "current_time",
+    "current_year",
+    "current_month",
+    "current_day",
+    "current_weekday",
+    "current_hour",
+    "current_minute",
+    "current_second",
+    "date_current_datetime",
+    "date_current_date",
+    "date_current_time"
+]);
+
+const SAFE_INDEX_ACCESSORS = new Set<string>(["[", "[@"]);
+
+function normalizeIdentifierName(identifierName: string): string {
+    return Core.toNormalizedLowerCaseString(identifierName);
+}
+
+function containsCommentToken(sourceText: string): boolean {
+    return sourceText.includes("//") || sourceText.includes("/*") || sourceText.includes("*/");
+}
+
+function isLoopNode(node: unknown): node is LoopNode {
+    return isAstNodeWithType(node) && LOOP_NODE_TYPES.has(node.type as LoopNodeType);
+}
+
+function isIdentifierNode(node: unknown): node is AstNodeRecord & Readonly<{ type: "Identifier"; name: string }> {
+    return isAstNodeRecord(node) && node.type === "Identifier" && typeof node.name === "string";
+}
+
+function readIdentifierName(node: unknown): string | null {
+    if (!isIdentifierNode(node)) {
+        return null;
+    }
+
+    return node.name;
+}
+
+function unwrapParenthesizedExpression(node: unknown): unknown {
+    let current = node;
+    while (isAstNodeRecord(current) && current.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current;
+}
+
+function readRootIdentifierName(node: unknown): string | null {
+    const current = unwrapParenthesizedExpression(node);
+    if (!isAstNodeRecord(current)) {
+        return null;
+    }
+
+    if (current.type === "Identifier") {
+        return typeof current.name === "string" ? current.name : null;
+    }
+
+    if (current.type === "MemberDotExpression" || current.type === "MemberIndexExpression") {
+        return readRootIdentifierName(current.object);
+    }
+
+    return null;
+}
+
+function collectLoopContainerContexts(programNode: unknown): ReadonlyArray<LoopContainerContext> {
+    const contexts: Array<LoopContainerContext> = [];
+
+    walkAstNodesWithParent(programNode, (visitContext) => {
+        const { node, parent, parentKey, parentIndex } = visitContext;
+        if (!isLoopNode(node)) {
+            return;
+        }
+
+        if (parent === null || parentKey !== "body" || typeof parentIndex !== "number") {
+            return;
+        }
+
+        if (parent.type !== "Program" && parent.type !== "BlockStatement") {
+            return;
+        }
+
+        contexts.push(
+            Object.freeze({
+                loopNode: node
+            })
+        );
+    });
+
+    return contexts;
+}
+
+function walkNodeWithParentSkippingNestedLoops(rootNode: unknown, visit: (context: ParentVisitContext) => void): void {
+    if (!isAstNodeWithType(rootNode)) {
+        return;
+    }
+
+    const stack: Array<ParentVisitContext> = [{ node: rootNode, parent: null, parentKey: null }];
+    const seen = new WeakSet<object>();
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current) {
+            continue;
+        }
+
+        const currentObject = current.node as object;
+        if (seen.has(currentObject)) {
+            continue;
+        }
+
+        seen.add(currentObject);
+        visit(current);
+
+        if (current.node !== rootNode && isLoopNode(current.node)) {
+            continue;
+        }
+
+        for (const key of Object.keys(current.node)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            const value = current.node[key];
+            if (Array.isArray(value)) {
+                for (let index = value.length - 1; index >= 0; index -= 1) {
+                    const child = value[index];
+                    if (!isAstNodeWithType(child)) {
+                        continue;
+                    }
+
+                    stack.push({
+                        node: child,
+                        parent: current.node,
+                        parentKey: key
+                    });
+                }
+                continue;
+            }
+
+            if (!isAstNodeWithType(value)) {
+                continue;
+            }
+
+            stack.push({
+                node: value,
+                parent: current.node,
+                parentKey: key
+            });
+        }
+    }
+}
+
+function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
+    const names = new Set<string>();
+
+    walkAstNodes(programNode, (node) => {
+        const identifierName = readIdentifierName(node);
+        if (identifierName) {
+            names.add(identifierName);
+        }
+    });
+
+    return names;
+}
+
+function collectMutatedNamesFromTarget(
+    targetNode: unknown,
+    mutatedIdentifierNames: Set<string>,
+    mutatedMemberRoots: Set<string>
+): void {
+    const normalizedTarget = unwrapParenthesizedExpression(targetNode);
+    if (!isAstNodeRecord(normalizedTarget)) {
+        return;
+    }
+
+    if (normalizedTarget.type === "Identifier") {
+        if (typeof normalizedTarget.name === "string") {
+            mutatedIdentifierNames.add(normalizeIdentifierName(normalizedTarget.name));
+        }
+        return;
+    }
+
+    if (normalizedTarget.type === "MemberDotExpression" || normalizedTarget.type === "MemberIndexExpression") {
+        const rootIdentifierName = readRootIdentifierName(normalizedTarget.object);
+        if (rootIdentifierName) {
+            mutatedMemberRoots.add(normalizeIdentifierName(rootIdentifierName));
+        }
+        collectMutatedNamesFromTarget(normalizedTarget.object, mutatedIdentifierNames, mutatedMemberRoots);
+    }
+}
+
+function isPureFunctionName(functionName: string | null): boolean {
+    if (!functionName) {
+        return false;
+    }
+
+    return PURE_FUNCTION_NAMES.has(normalizeIdentifierName(functionName));
+}
+
+function isIdentifierInvariant(identifierName: string, mutationSummary: LoopMutationSummary): boolean {
+    const normalizedIdentifierName = normalizeIdentifierName(identifierName);
+    if (!normalizedIdentifierName) {
+        return false;
+    }
+
+    if (NON_DETERMINISTIC_IDENTIFIER_NAMES.has(normalizedIdentifierName)) {
+        return false;
+    }
+
+    if (
+        mutationSummary.declaredInsideLoop.has(normalizedIdentifierName) ||
+        mutationSummary.mutatedIdentifierNames.has(normalizedIdentifierName)
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+function collectLoopMutationSummary(loopNode: LoopNode): LoopMutationSummary {
+    const declaredInsideLoop = new Set<string>();
+    const mutatedIdentifierNames = new Set<string>();
+    const mutatedMemberRoots = new Set<string>();
+    let hasImpureCall = false;
+
+    const inspectNode = (node: unknown): void => {
+        if (!isAstNodeRecord(node)) {
+            return;
+        }
+
+        if (node.type === "VariableDeclarator") {
+            const declaredName = readIdentifierName(node.id);
+            if (declaredName) {
+                const normalizedName = normalizeIdentifierName(declaredName);
+                declaredInsideLoop.add(normalizedName);
+                mutatedIdentifierNames.add(normalizedName);
+            }
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            collectMutatedNamesFromTarget(node.left, mutatedIdentifierNames, mutatedMemberRoots);
+            return;
+        }
+
+        if (node.type === "IncDecExpression" || node.type === "IncDecStatement") {
+            collectMutatedNamesFromTarget(node.argument, mutatedIdentifierNames, mutatedMemberRoots);
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const callName = Core.getCallExpressionIdentifierName(node);
+            if (!isPureFunctionName(callName)) {
+                hasImpureCall = true;
+            }
+            return;
+        }
+
+        if (node.type === "NewExpression") {
+            hasImpureCall = true;
+        }
+    };
+
+    walkAstNodes(loopNode.body, inspectNode);
+    if (isAstNodeRecord(loopNode.update)) {
+        walkAstNodes(loopNode.update, inspectNode);
+    }
+
+    return Object.freeze({
+        declaredInsideLoop,
+        mutatedIdentifierNames,
+        mutatedMemberRoots,
+        hasImpureCall
+    });
+}
+
+function isDisallowedContextForReplacement(parent: AstNodeWithType | null, parentKey: string | null): boolean {
+    if (!parent || !parentKey) {
+        return true;
+    }
+
+    if (parent.type === "AssignmentExpression" && parentKey === "left") {
+        return true;
+    }
+
+    if (parent.type === "VariableDeclarator" && parentKey === "id") {
+        return true;
+    }
+
+    if ((parent.type === "IncDecExpression" || parent.type === "IncDecStatement") && parentKey === "argument") {
+        return true;
+    }
+
+    if (parent.type === "CallExpression" && parentKey === "object") {
+        return true;
+    }
+
+    if (parent.type === "MemberDotExpression" && parentKey === "property") {
+        return true;
+    }
+
+    if (parent.type === "NewExpression" && parentKey === "expression") {
+        return true;
+    }
+
+    return false;
+}
+
+function evaluateExpressionHoistability(
+    expressionNode: unknown,
+    mutationSummary: LoopMutationSummary
+): ExpressionAssessment | null {
+    const normalizedExpression = unwrapParenthesizedExpression(expressionNode);
+    if (!isAstNodeRecord(normalizedExpression)) {
+        return null;
+    }
+
+    if (normalizedExpression.type === "Literal") {
+        return Object.freeze({ complexity: 1, readsMemberAccess: false });
+    }
+
+    if (normalizedExpression.type === "Identifier") {
+        if (typeof normalizedExpression.name !== "string") {
+            return null;
+        }
+
+        if (!isIdentifierInvariant(normalizedExpression.name, mutationSummary)) {
+            return null;
+        }
+
+        return Object.freeze({ complexity: 1, readsMemberAccess: false });
+    }
+
+    if (normalizedExpression.type === "UnaryExpression") {
+        const argumentAssessment = evaluateExpressionHoistability(normalizedExpression.argument, mutationSummary);
+        if (!argumentAssessment) {
+            return null;
+        }
+
+        return Object.freeze({
+            complexity: argumentAssessment.complexity + 1,
+            readsMemberAccess: argumentAssessment.readsMemberAccess
+        });
+    }
+
+    if (normalizedExpression.type === "BinaryExpression") {
+        const leftAssessment = evaluateExpressionHoistability(normalizedExpression.left, mutationSummary);
+        const rightAssessment = evaluateExpressionHoistability(normalizedExpression.right, mutationSummary);
+        if (!leftAssessment || !rightAssessment) {
+            return null;
+        }
+
+        return Object.freeze({
+            complexity: leftAssessment.complexity + rightAssessment.complexity + 1,
+            readsMemberAccess: leftAssessment.readsMemberAccess || rightAssessment.readsMemberAccess
+        });
+    }
+
+    if (normalizedExpression.type === "TernaryExpression") {
+        const testAssessment = evaluateExpressionHoistability(normalizedExpression.test, mutationSummary);
+        const consequentAssessment = evaluateExpressionHoistability(normalizedExpression.consequent, mutationSummary);
+        const alternateAssessment = evaluateExpressionHoistability(normalizedExpression.alternate, mutationSummary);
+        if (!testAssessment || !consequentAssessment || !alternateAssessment) {
+            return null;
+        }
+
+        return Object.freeze({
+            complexity:
+                testAssessment.complexity + consequentAssessment.complexity + alternateAssessment.complexity + 1,
+            readsMemberAccess:
+                testAssessment.readsMemberAccess ||
+                consequentAssessment.readsMemberAccess ||
+                alternateAssessment.readsMemberAccess
+        });
+    }
+
+    if (normalizedExpression.type === "TemplateStringExpression") {
+        const atomNodes = Array.isArray(normalizedExpression.atoms) ? normalizedExpression.atoms : [];
+        let complexity = 1;
+        let readsMemberAccess = false;
+
+        for (const atom of atomNodes) {
+            if (!isAstNodeRecord(atom)) {
+                continue;
+            }
+
+            if (atom.type === "TemplateStringText") {
+                continue;
+            }
+
+            const atomAssessment = evaluateExpressionHoistability(atom, mutationSummary);
+            if (!atomAssessment) {
+                return null;
+            }
+
+            complexity += atomAssessment.complexity;
+            readsMemberAccess = readsMemberAccess || atomAssessment.readsMemberAccess;
+        }
+
+        return Object.freeze({ complexity, readsMemberAccess });
+    }
+
+    if (normalizedExpression.type === "MemberDotExpression") {
+        const objectAssessment = evaluateExpressionHoistability(normalizedExpression.object, mutationSummary);
+        const propertyName = readIdentifierName(normalizedExpression.property);
+        const rootIdentifierName = readRootIdentifierName(normalizedExpression.object);
+        if (!objectAssessment || !propertyName || !rootIdentifierName) {
+            return null;
+        }
+
+        const normalizedRootIdentifierName = normalizeIdentifierName(rootIdentifierName);
+        if (
+            mutationSummary.declaredInsideLoop.has(normalizedRootIdentifierName) ||
+            mutationSummary.mutatedIdentifierNames.has(normalizedRootIdentifierName) ||
+            mutationSummary.mutatedMemberRoots.has(normalizedRootIdentifierName)
+        ) {
+            return null;
+        }
+
+        return Object.freeze({
+            complexity: objectAssessment.complexity + 1,
+            readsMemberAccess: true
+        });
+    }
+
+    if (normalizedExpression.type === "MemberIndexExpression") {
+        if (
+            typeof normalizedExpression.accessor !== "string" ||
+            !SAFE_INDEX_ACCESSORS.has(normalizedExpression.accessor)
+        ) {
+            return null;
+        }
+
+        const objectAssessment = evaluateExpressionHoistability(normalizedExpression.object, mutationSummary);
+        const rootIdentifierName = readRootIdentifierName(normalizedExpression.object);
+        if (!objectAssessment || !rootIdentifierName) {
+            return null;
+        }
+
+        const normalizedRootIdentifierName = normalizeIdentifierName(rootIdentifierName);
+        if (
+            mutationSummary.declaredInsideLoop.has(normalizedRootIdentifierName) ||
+            mutationSummary.mutatedIdentifierNames.has(normalizedRootIdentifierName) ||
+            mutationSummary.mutatedMemberRoots.has(normalizedRootIdentifierName)
+        ) {
+            return null;
+        }
+
+        const properties = Array.isArray(normalizedExpression.property) ? normalizedExpression.property : [];
+        if (properties.length !== 1) {
+            return null;
+        }
+
+        const propertyAssessment = evaluateExpressionHoistability(properties[0], mutationSummary);
+        if (!propertyAssessment) {
+            return null;
+        }
+
+        return Object.freeze({
+            complexity: objectAssessment.complexity + propertyAssessment.complexity + 1,
+            readsMemberAccess: true
+        });
+    }
+
+    if (normalizedExpression.type === "CallExpression") {
+        const functionName = Core.getCallExpressionIdentifierName(normalizedExpression);
+        if (!isPureFunctionName(functionName)) {
+            return null;
+        }
+
+        const callArguments = Core.getCallExpressionArguments(normalizedExpression);
+        let complexity = 1;
+        let readsMemberAccess = false;
+
+        for (const argumentNode of callArguments) {
+            const argumentAssessment = evaluateExpressionHoistability(argumentNode, mutationSummary);
+            if (!argumentAssessment) {
+                return null;
+            }
+
+            complexity += argumentAssessment.complexity;
+            readsMemberAccess = readsMemberAccess || argumentAssessment.readsMemberAccess;
+        }
+
+        return Object.freeze({ complexity, readsMemberAccess });
+    }
+
+    return null;
+}
+
+function choosePreferredHoistName(
+    parentNode: AstNodeWithType | null,
+    parentKey: string | null,
+    candidateNode: AstNodeWithType
+): string {
+    if (candidateNode.type === "TemplateStringExpression") {
+        return "cached_text";
+    }
+
+    if (
+        parentNode !== null &&
+        parentKey === "test" &&
+        (parentNode.type === "IfStatement" ||
+            parentNode.type === "WhileStatement" ||
+            parentNode.type === "ForStatement" ||
+            parentNode.type === "DoUntilStatement")
+    ) {
+        return "cached_condition";
+    }
+
+    return "cached_value";
+}
+
+function findBestLoopCandidate(parameters: {
+    sourceText: string;
+    loopContext: LoopContainerContext;
+    mutationSummary: LoopMutationSummary;
+}): LoopCandidate | null {
+    const candidates: Array<LoopCandidate> = [];
+
+    walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
+        const { node, parent, parentKey } = visitContext;
+
+        if (node.type === "ParenthesizedExpression") {
+            return;
+        }
+
+        if (isDisallowedContextForReplacement(parent, parentKey)) {
+            return;
+        }
+
+        const expressionStart = getNodeStartIndex(node);
+        const expressionEnd = getNodeEndIndex(node);
+        if (
+            typeof expressionStart !== "number" ||
+            typeof expressionEnd !== "number" ||
+            expressionEnd <= expressionStart
+        ) {
+            return;
+        }
+
+        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary);
+        if (!assessment) {
+            return;
+        }
+
+        const minimumComplexity = node.type === "TemplateStringExpression" ? 2 : 3;
+        if (assessment.complexity < minimumComplexity) {
+            return;
+        }
+
+        if (parameters.mutationSummary.hasImpureCall && assessment.readsMemberAccess) {
+            return;
+        }
+
+        const expressionText = parameters.sourceText.slice(expressionStart, expressionEnd);
+        if (containsCommentToken(expressionText)) {
+            return;
+        }
+
+        const preferredHoistName = choosePreferredHoistName(parent, parentKey, node);
+        const score = assessment.complexity * 1000 + expressionText.length;
+        candidates.push(
+            Object.freeze({
+                loopContext: parameters.loopContext,
+                expressionNode: node,
+                expressionStart,
+                expressionEnd,
+                expressionText,
+                preferredHoistName,
+                score
+            })
+        );
+    });
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    candidates.sort((left, right) => {
+        if (right.score !== left.score) {
+            return right.score - left.score;
+        }
+
+        return left.expressionStart - right.expressionStart;
+    });
+
+    return candidates[0] ?? null;
+}
+
+function resolveProjectContext(ruleContext: Rule.RuleContext): GmlProjectContext | null {
+    const parserServices = (ruleContext.sourceCode.parserServices ?? {}) as ParserServicesShape;
+    const filePath = parserServices.gml?.filePath;
+    if (!filePath) {
+        return null;
+    }
+
+    const settings = (ruleContext.settings ?? {}) as ProjectSettingsShape;
+    const getProjectContext = settings.gml?.project?.getContext;
+    if (typeof getProjectContext !== "function") {
+        return null;
+    }
+
+    return getProjectContext(filePath);
+}
+
+function resolveUniqueHoistIdentifierName(parameters: {
+    preferredName: string;
+    localIdentifierNames: ReadonlySet<string>;
+    projectContext: GmlProjectContext | null;
+}): string | null {
+    const normalizedNames = new Set<string>();
+    for (const identifierName of parameters.localIdentifierNames) {
+        normalizedNames.add(normalizeIdentifierName(identifierName));
+    }
+
+    const projectResolvedName =
+        parameters.projectContext?.capabilities.has("LOOP_HOIST_NAME_RESOLUTION") === true
+            ? parameters.projectContext.resolveLoopHoistIdentifier(
+                  parameters.preferredName,
+                  parameters.localIdentifierNames
+              )
+            : null;
+
+    if (projectResolvedName && !normalizedNames.has(normalizeIdentifierName(projectResolvedName))) {
+        return projectResolvedName;
+    }
+
+    const baseName = parameters.preferredName.length > 0 ? parameters.preferredName : "cached_value";
+    for (let suffix = 0; suffix <= 1000; suffix += 1) {
+        const candidateName = suffix === 0 ? baseName : `${baseName}_${suffix}`;
+        if (!normalizedNames.has(normalizeIdentifierName(candidateName))) {
+            return candidateName;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Creates the `gml/prefer-loop-invariant-expressions` rule.
+ *
+ * The rule hoists a single provably-safe invariant expression per loop into a
+ * cached `var` declaration inserted immediately before the loop.
+ */
+export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefinition): Rule.RuleModule {
+    return Object.freeze({
+        meta: createMeta(definition),
+        create(context) {
+            return Object.freeze({
+                Program(programNode) {
+                    const sourceText = context.sourceCode.text;
+                    const lineEnding = Core.dominantLineEnding(sourceText);
+                    const localIdentifierNames = new Set(collectIdentifierNamesInProgram(programNode));
+                    const projectContext = resolveProjectContext(context);
+                    const loopContexts = collectLoopContainerContexts(programNode);
+
+                    for (const loopContext of loopContexts) {
+                        const mutationSummary = collectLoopMutationSummary(loopContext.loopNode);
+                        const bestCandidate = findBestLoopCandidate({
+                            sourceText,
+                            loopContext,
+                            mutationSummary
+                        });
+                        if (!bestCandidate) {
+                            continue;
+                        }
+
+                        const hoistIdentifierName = resolveUniqueHoistIdentifierName({
+                            preferredName: bestCandidate.preferredHoistName,
+                            localIdentifierNames,
+                            projectContext
+                        });
+                        if (!hoistIdentifierName) {
+                            continue;
+                        }
+
+                        localIdentifierNames.add(hoistIdentifierName);
+
+                        const loopStart = getNodeStartIndex(loopContext.loopNode);
+                        if (typeof loopStart !== "number") {
+                            continue;
+                        }
+
+                        const indentation = getLineIndentationAtOffset(sourceText, loopStart);
+                        const declarationText =
+                            `${indentation}var ${hoistIdentifierName} = ${bestCandidate.expressionText};` +
+                            `${lineEnding}`;
+
+                        context.report({
+                            node: bestCandidate.expressionNode,
+                            messageId: definition.messageId,
+                            fix: (fixer) => [
+                                fixer.replaceTextRange([loopStart, loopStart], declarationText),
+                                fixer.replaceTextRange(
+                                    [bestCandidate.expressionStart, bestCandidate.expressionEnd],
+                                    hoistIdentifierName
+                                )
+                            ]
+                        });
+                    }
+                }
+            });
+        }
+    });
+}
