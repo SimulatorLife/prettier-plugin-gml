@@ -564,8 +564,7 @@ void test("runLintCommand maps semantic provider prebuild failures to exit code 
                                 noDefaultConfig: true,
                                 verbose: false,
                                 project: path.join(tempRoot, "missing", "missing.yyp"),
-                                projectStrict: false,
-                                indexAllow: []
+                                projectStrict: false
                             };
                         }
                     });

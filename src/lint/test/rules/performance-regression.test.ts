@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
-import { ESLint } from "eslint";
+import { ESLint, type Linter } from "eslint";
 
 const { Lint } = LintWorkspace;
 
@@ -114,7 +114,7 @@ async function lintSingleRuleWithTiming(
         rules: {
             [ruleId]: "warn"
         }
-    };
+    } satisfies Linter.Config;
 
     const eslint = new ESLint({
         overrideConfigFile: true,

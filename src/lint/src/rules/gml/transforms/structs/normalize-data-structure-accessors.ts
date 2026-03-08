@@ -11,12 +11,36 @@ import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "
 
 const { isObjectLike } = Core;
 
+type SafeAccessor = "[#" | "[?" | "[|";
+
 type MemberIndexNode = {
     type?: string;
     accessor?: string;
+    object?: unknown;
     property?: unknown;
     [key: string]: unknown;
 };
+
+type VariableDeclaratorNode = {
+    type?: string;
+    id?: unknown;
+    init?: unknown;
+};
+
+type AssignmentExpressionNode = {
+    type?: string;
+    operator?: unknown;
+    left?: unknown;
+    right?: unknown;
+};
+
+type AccessorEventNode = AssignmentExpressionNode | MemberIndexNode | VariableDeclaratorNode;
+
+const EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS = new Map<string, SafeAccessor>([
+    ["ds_grid_create", "[#"],
+    ["ds_list_create", "[|"],
+    ["ds_map_create", "[?"]
+]);
 
 function shouldNormalizeMemberIndexAccessorToGrid(memberNode: MemberIndexNode): boolean {
     if (memberNode.accessor === "[#") {
@@ -24,6 +48,88 @@ function shouldNormalizeMemberIndexAccessorToGrid(memberNode: MemberIndexNode): 
     }
 
     return Array.isArray(memberNode.property) && memberNode.property.length > 1;
+}
+
+function isIdentifierName(value: unknown): value is { type?: string; name?: string } {
+    return (
+        Core.isObjectLike(value) &&
+        (value as { type?: string }).type === "Identifier" &&
+        typeof (value as { name?: string }).name === "string"
+    );
+}
+
+function getNormalizedIdentifierName(node: unknown): string | null {
+    if (!isIdentifierName(node)) {
+        return null;
+    }
+
+    return node.name?.toLowerCase() ?? null;
+}
+
+function resolveExplicitConstructorAccessor(node: unknown): SafeAccessor | null {
+    const callIdentifierName = Core.getCallExpressionIdentifierName(node as never);
+    if (!callIdentifierName) {
+        return null;
+    }
+
+    return EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS.get(callIdentifierName.toLowerCase()) ?? null;
+}
+
+function isVariableDeclaratorNode(node: unknown): node is VariableDeclaratorNode {
+    return Core.isObjectLike(node) && (node as { type?: string }).type === "VariableDeclarator";
+}
+
+function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
+    return Core.isObjectLike(node) && (node as { type?: string }).type === "AssignmentExpression";
+}
+
+function isMemberIndexNode(node: unknown): node is MemberIndexNode {
+    return Core.isObjectLike(node) && (node as { type?: string }).type === "MemberIndexExpression";
+}
+
+function resolveAssignmentTargetIdentifierName(node: AssignmentExpressionNode | VariableDeclaratorNode): string | null {
+    if (isVariableDeclaratorNode(node)) {
+        return getNormalizedIdentifierName(node.id);
+    }
+
+    if (node.operator !== "=") {
+        return null;
+    }
+
+    return getNormalizedIdentifierName(node.left);
+}
+
+function resolveAssignmentSource(node: AssignmentExpressionNode | VariableDeclaratorNode): unknown {
+    return isVariableDeclaratorNode(node) ? node.init : node.right;
+}
+
+function getPropertyCount(memberNode: MemberIndexNode): number {
+    return Array.isArray(memberNode.property) ? memberNode.property.length : 0;
+}
+
+function resolveSafeAccessorForMemberIndex(
+    memberNode: MemberIndexNode,
+    explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, SafeAccessor>
+): SafeAccessor | null {
+    if (shouldNormalizeMemberIndexAccessorToGrid(memberNode)) {
+        return "[#";
+    }
+
+    if (getPropertyCount(memberNode) !== 1) {
+        return null;
+    }
+
+    const identifierName = getNormalizedIdentifierName(memberNode.object);
+    if (!identifierName) {
+        return null;
+    }
+
+    const trackedAccessor = explicitConstructorAccessorsByIdentifier.get(identifierName);
+    if (trackedAccessor === "[?" || trackedAccessor === "[|") {
+        return trackedAccessor;
+    }
+
+    return null;
 }
 
 /**
@@ -35,30 +141,69 @@ function processMemberIndex(memberNode: MemberIndexNode): void {
     }
 }
 
-/**
- * Traverse and normalize accessor operators in the AST.
- */
-function visitAndNormalize(node: unknown): void {
+function collectAccessorEventNodes(node: unknown, collectedNodes: Array<AccessorEventNode>): void {
     if (Core.shouldSkipTraversal(node)) {
         return;
     }
 
     if (Array.isArray(node)) {
         for (const item of node) {
-            visitAndNormalize(item);
+            collectAccessorEventNodes(item, collectedNodes);
         }
         return;
     }
 
-    const typedNode = node as { type?: string; [key: string]: unknown };
-
-    if (typedNode.type === "MemberIndexExpression") {
-        processMemberIndex(typedNode as MemberIndexNode);
+    if (isMemberIndexNode(node) || isVariableDeclaratorNode(node) || isAssignmentExpressionNode(node)) {
+        collectedNodes.push(node);
     }
 
+    const typedNode = node as { [key: string]: unknown };
     for (const value of Object.values(typedNode)) {
         if (value && typeof value === "object") {
-            visitAndNormalize(value);
+            collectAccessorEventNodes(value, collectedNodes);
+        }
+    }
+}
+
+/**
+ * Traverse and normalize accessor operators in the AST.
+ */
+function visitAndNormalize(node: unknown): void {
+    const eventNodes: Array<AccessorEventNode> = [];
+    collectAccessorEventNodes(node, eventNodes);
+
+    const explicitConstructorAccessorsByIdentifier = new Map<string, SafeAccessor>();
+    const orderedNodes = eventNodes.toSorted((left, right) => {
+        const leftStart = Core.getNodeStartIndex(left as never);
+        const rightStart = Core.getNodeStartIndex(right as never);
+        const normalizedLeftStart = typeof leftStart === "number" && Number.isFinite(leftStart) ? leftStart : 0;
+        const normalizedRightStart = typeof rightStart === "number" && Number.isFinite(rightStart) ? rightStart : 0;
+        return normalizedLeftStart - normalizedRightStart;
+    });
+
+    for (const eventNode of orderedNodes) {
+        if (isVariableDeclaratorNode(eventNode) || isAssignmentExpressionNode(eventNode)) {
+            const identifierName = resolveAssignmentTargetIdentifierName(eventNode);
+            if (!identifierName) {
+                continue;
+            }
+
+            const explicitAccessor = resolveExplicitConstructorAccessor(resolveAssignmentSource(eventNode));
+            if (explicitAccessor) {
+                explicitConstructorAccessorsByIdentifier.set(identifierName, explicitAccessor);
+                continue;
+            }
+
+            explicitConstructorAccessorsByIdentifier.delete(identifierName);
+            continue;
+        }
+
+        const replacementAccessor = resolveSafeAccessorForMemberIndex(
+            eventNode,
+            explicitConstructorAccessorsByIdentifier
+        );
+        if (replacementAccessor && eventNode.accessor !== replacementAccessor) {
+            Reflect.set(eventNode, "accessor", replacementAccessor);
         }
     }
 }

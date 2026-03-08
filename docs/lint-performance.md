@@ -63,22 +63,17 @@ Performance coverage:
 
 These tests run in the normal lint workspace test suite (`pnpm test`, `pnpm test:ci`), so CI executes both correctness and performance checks for this optimization.
 
-## `gml/prefer-loop-invariant-expressions` project-aware hoist-name fast path
+## `gml/prefer-loop-invariant-expressions` local hoist-name fast path
 
-On **March 7, 2026**, profiling of a large real-world SMF script highlighted the project-aware hoist-name resolver as a secondary hot path for `gml/prefer-loop-invariant-expressions`.
+On **March 7, 2026**, profiling of a large real-world SMF script highlighted hoist-name collision handling as a secondary hot path for `gml/prefer-loop-invariant-expressions`.
 
-The expensive behavior was not the AST walk itself. It was repeated hoist-name collision resolution across large files and large project indexes:
+Lint now keeps this rule strictly single-file:
 
-- every loop hoist request rebuilt a normalized copy of the full local identifier set,
-- then re-ran project occupancy checks for the same `cached_value[_N]` candidates.
+- hoist-name resolution only considers identifiers already declared in the current file,
+- the rule reuses its precomputed normalized local identifier set,
+- collision-heavy files avoid repeated $O(n)$ renormalization work for `cached_value[_N]` candidates.
 
-The optimization now:
-
-- reuses the rule's already-computed normalized local identifier set,
-- threads that set through the project-analysis snapshot API,
-- caches normalized project occupancy lookups inside the snapshot.
-
-This keeps the rule's diagnostics and fixes unchanged while removing repeated $O(n)$ local-name normalization work from every hoist candidate.
+Project-wide identifier indexing and cross-file safety checks belong in `@gml-modules/refactor`, not in the lint workspace.
 
 ### Regression coverage
 
@@ -90,4 +85,4 @@ Performance coverage:
 
 - `src/lint/test/rules/performance-regression.test.ts`
 
-These tests run in the standard lint workspace suite, so CI now guards both the hoist-name correctness path and the collision-heavy performance path.
+These tests run in the standard lint workspace suite, so CI now guards both the hoist-name correctness path and the collision-heavy single-file performance path.

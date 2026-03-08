@@ -5,7 +5,6 @@ import process from "node:process";
 
 import { Core } from "@gml-modules/core";
 import * as LintWorkspace from "@gml-modules/lint";
-import * as SemanticWorkspace from "@gml-modules/semantic";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -31,7 +30,6 @@ const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
-type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -43,7 +41,6 @@ type LintCommandOptions = {
     verbose?: boolean;
     project?: string;
     projectStrict?: boolean;
-    indexAllow?: Array<string> | string;
 };
 
 type DiscoveryResult = {
@@ -467,141 +464,6 @@ function lintTargetsWithRuntimeRecovery(parameters: {
     return lintTargetAtIndex(0);
 }
 
-function hasProjectManifest(directoryPath: string): boolean {
-    try {
-        const entries = readdirSync(directoryPath, { withFileTypes: true });
-        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
-    } catch {
-        return false;
-    }
-}
-
-function resolveNearestProjectRootFromPath(filePath: string, fallbackCwd: string): string {
-    for (const directory of Core.walkAncestorDirectories(path.dirname(filePath), { includeSelf: true })) {
-        if (hasProjectManifest(directory)) {
-            return directory;
-        }
-    }
-
-    return fallbackCwd;
-}
-
-function collectProjectRootsFromDirectory(directoryPath: string): Array<string> {
-    const discoveredRoots = new Set<string>();
-    const pendingDirectories = [directoryPath];
-
-    while (pendingDirectories.length > 0) {
-        const currentDirectory = pendingDirectories.pop();
-        if (!currentDirectory) {
-            continue;
-        }
-
-        if (hasProjectManifest(currentDirectory)) {
-            discoveredRoots.add(path.resolve(currentDirectory));
-            continue;
-        }
-
-        let entries: Array<{ name: string; isDirectory(): boolean }>;
-        try {
-            entries = readdirSync(currentDirectory, { withFileTypes: true });
-        } catch {
-            continue;
-        }
-
-        for (const entry of entries) {
-            if (!entry.isDirectory()) {
-                continue;
-            }
-            pendingDirectories.push(path.join(currentDirectory, entry.name));
-        }
-    }
-
-    return [...discoveredRoots.values()];
-}
-
-function inferProjectRootsForLintInvocation(parameters: {
-    cwd: string;
-    targets: ReadonlyArray<string>;
-    forcedProjectPath: string | null;
-}): Array<string> {
-    if (parameters.forcedProjectPath) {
-        const forcedPath = path.resolve(parameters.forcedProjectPath);
-        if (forcedPath.toLowerCase().endsWith(".yyp")) {
-            return [path.dirname(forcedPath)];
-        }
-
-        return [forcedPath];
-    }
-
-    const roots = new Set<string>();
-    for (const target of parameters.targets) {
-        const absoluteTarget = path.resolve(parameters.cwd, target);
-        if (!existsSync(absoluteTarget)) {
-            continue;
-        }
-
-        let stats: ReturnType<typeof statSync>;
-        try {
-            stats = statSync(absoluteTarget);
-        } catch {
-            continue;
-        }
-
-        if (stats.isDirectory()) {
-            for (const root of collectProjectRootsFromDirectory(absoluteTarget)) {
-                roots.add(root);
-            }
-            continue;
-        }
-
-        if (stats.isFile()) {
-            const root = resolveNearestProjectRootFromPath(absoluteTarget, parameters.cwd);
-            roots.add(root);
-        }
-    }
-
-    if (roots.size === 0) {
-        roots.add(path.resolve(parameters.cwd));
-    }
-
-    return [...roots.values()];
-}
-
-async function createInvocationProjectAnalysisProvider(parameters: {
-    cwd: string;
-    targets: ReadonlyArray<string>;
-    forcedProjectPath: string | null;
-    indexAllowDirectories: ReadonlyArray<string>;
-}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>> {
-    const projectRoots = inferProjectRootsForLintInvocation({
-        cwd: parameters.cwd,
-        targets: parameters.targets,
-        forcedProjectPath: parameters.forcedProjectPath
-    });
-    const normalizedAllowedDirectories = parameters.indexAllowDirectories.map((directory) => path.resolve(directory));
-    const excludedDirectories = new Set(
-        LINT_NAMESPACE.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
-    );
-
-    const snapshotEntries = await Promise.all(
-        projectRoots.map(async (root): Promise<[string, SemanticSnapshot]> => {
-            const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
-            const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(projectIndex, root, {
-                excludedDirectories,
-                allowedDirectories: normalizedAllowedDirectories
-            });
-            return [root, snapshot];
-        })
-    );
-
-    if (snapshotEntries.length === 0) {
-        throw new Error("Unable to construct semantic project snapshots because no project roots were resolved.");
-    }
-
-    const snapshotsByRoot = new Map<string, SemanticSnapshot>(snapshotEntries);
-    return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
-}
-
 function normalizeMaxWarnings(rawValue: unknown): number {
     if (typeof rawValue === "string") {
         const parsed = Number.parseInt(rawValue, 10);
@@ -618,7 +480,6 @@ function normalizeMaxWarnings(rawValue: unknown): number {
 function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<LintCommandOptions, "config">> & {
     config: string | null;
     project: string | null;
-    indexAllow: Array<string>;
 } {
     const options = (command.opts() ?? {}) as LintCommandOptions;
 
@@ -631,12 +492,7 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         noDefaultConfig: options.noDefaultConfig === true,
         verbose: options.verbose === true,
         project: typeof options.project === "string" && options.project.length > 0 ? options.project : null,
-        projectStrict: options.projectStrict === true,
-        indexAllow: Array.isArray(options.indexAllow)
-            ? options.indexAllow
-            : typeof options.indexAllow === "string"
-              ? [options.indexAllow]
-              : []
+        projectStrict: options.projectStrict === true
     };
 }
 
@@ -921,132 +777,6 @@ function normalizeProcessorIdentityForEnforcement(processor: unknown): string | 
     return "<non-string-processor>";
 }
 
-function toProcessorUnsupportedMessage(filePath: string, processorIdentity: string): string {
-    return `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: unsupported active processor for ${filePath}: ${processorIdentity}`;
-}
-
-function toProcessorObservabilityUnavailableMessage(): string {
-    return `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: active processor identity is not observable in resolved ESLint config; skipping processor enforcement.`;
-}
-
-type ConfigLookupEslintLike = {
-    calculateConfigForFile(filePath: string): Promise<unknown>;
-};
-
-async function collectOverlayWithoutLanguageWiringPaths(parameters: {
-    eslint: ConfigLookupEslintLike;
-    results: Array<LintResultLike>;
-}): Promise<Array<string>> {
-    const gmlFilePaths = parameters.results
-        .filter((result) => !isFatalRuntimeLintResult(result))
-        .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
-
-    const configEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => {
-            try {
-                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
-                if (!isResolvedConfigLike(resolvedConfig)) {
-                    return null;
-                }
-
-                return {
-                    filePath,
-                    config: resolvedConfig
-                };
-            } catch {
-                return null;
-            }
-        })
-    );
-
-    return configEntries
-        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
-        .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
-        .map(({ filePath }) => filePath);
-}
-
-async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
-    eslint: ESLint;
-    results: Array<ESLint.LintResult>;
-    quiet: boolean;
-}): Promise<void> {
-    if (parameters.quiet) {
-        return;
-    }
-
-    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
-
-    if (offendingPaths.length === 0) {
-        return;
-    }
-
-    console.warn(formatOverlayWarning(offendingPaths));
-}
-
-async function enforceProcessorPolicyForGmlFiles(parameters: {
-    eslint: ConfigLookupEslintLike;
-    results: Array<LintResultLike>;
-    verbose: boolean;
-}): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
-    const gmlFilePaths = parameters.results
-        .filter((result) => !isFatalRuntimeLintResult(result))
-        .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
-
-    if (gmlFilePaths.length === 0) {
-        return { exitCode: 0, message: null, warning: null };
-    }
-
-    const resolvedEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => {
-            try {
-                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
-                if (!isResolvedConfigLike(resolvedConfig)) {
-                    return null;
-                }
-
-                return {
-                    filePath,
-                    config: resolvedConfig
-                };
-            } catch {
-                return null;
-            }
-        })
-    );
-
-    const observedEntries = resolvedEntries
-        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
-        .filter(({ config }) => Object.hasOwn(config, "processor"));
-    if (observedEntries.length > 0) {
-        for (const entry of observedEntries) {
-            const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
-            if (normalizedProcessor === null) {
-                continue;
-            }
-
-            return {
-                exitCode: 2,
-                message: toProcessorUnsupportedMessage(entry.filePath, normalizedProcessor),
-                warning: null
-            };
-        }
-
-        return { exitCode: 0, message: null, warning: null };
-    }
-
-    if (!parameters.verbose) {
-        return { exitCode: 0, message: null, warning: null };
-    }
-
-    return {
-        exitCode: 0,
-        message: null,
-        warning: toProcessorObservabilityUnavailableMessage()
-    };
-}
-
 async function loadRequestedFormatter(
     eslint: ESLint,
     formatterName: string
@@ -1134,14 +864,28 @@ const OUT_OF_ROOT_DISPLAY_LIMIT = 20;
 
 /**
  * Collect the file paths from lint results that fall outside the forced project
- * root, as reported by the project registry. Returns an empty array when no
- * forced root is configured.
+ * root. Returns an empty array when no forced root is configured.
  */
 function collectOutOfRootFilePaths(
     results: ReadonlyArray<LintResultPathField>,
-    projectRegistry: { isOutOfForcedRoot(filePath: string): boolean }
+    forcedProjectRoot: string | null
 ): Array<string> {
-    return results.map((result) => result.filePath).filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
+    if (!forcedProjectRoot) {
+        return [];
+    }
+
+    return results
+        .map((result) => result.filePath)
+        .filter((filePath) => !Core.isPathWithinBoundary(path.resolve(filePath), forcedProjectRoot));
+}
+
+function resolveForcedProjectRoot(forcedProjectPath: string | null): string | null {
+    if (!forcedProjectPath) {
+        return null;
+    }
+
+    const resolvedPath = path.resolve(forcedProjectPath);
+    return resolvedPath.toLowerCase().endsWith(".yyp") ? path.dirname(resolvedPath) : resolvedPath;
 }
 
 /**
@@ -1175,7 +919,6 @@ export function createLintCommand(): Command {
             .option("--no-default-config", "Disable bundled default config fallback")
             .option("--project <path>", "Force a project root directory or .yyp file path")
             .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
-            .option("--index-allow <dir...>", "Include directories that are hard-excluded from project indexing")
             .option("--quiet", "Suppress fallback warnings", false)
             .option("--verbose", "Enable verbose command output and timing diagnostics", false)
     );
@@ -1216,44 +959,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         setProcessExitCode(2);
         return;
     }
-
-    let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
-    try {
-        invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
-            cwd: commandCwd,
-            targets,
-            forcedProjectPath: options.project,
-            indexAllowDirectories: options.indexAllow
-        });
-    } catch (error) {
-        console.error(
-            `Unable to prepare semantic project analysis provider: ${
-                Core.isErrorLike(error) ? error.message : String(error)
-            }`
-        );
-        setProcessExitCode(2);
-        return;
-    }
-
-    const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
-        cwd: commandCwd,
-        forcedProjectPath: options.project,
-        indexAllowDirectories: options.indexAllow,
-        analysisProvider: invocationAnalysisProvider
-    });
-    const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
-
-    eslintConstructorOptions.overrideConfig = [
-        ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? [...eslintConstructorOptions.overrideConfig] : []),
-        {
-            files: ["**/*.gml"],
-            settings: {
-                gml: {
-                    project: projectSettings
-                }
-            }
-        }
-    ];
+    const forcedProjectRoot = resolveForcedProjectRoot(options.project);
 
     let eslint: ESLint;
     try {
@@ -1330,7 +1036,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             return;
         }
 
-        const outOfRootPaths = collectOutOfRootFilePaths(results, projectRegistry);
+        const outOfRootPaths = collectOutOfRootFilePaths(results, forcedProjectRoot);
 
         if (!options.quiet && outOfRootPaths.length > 0) {
             console.warn(formatOutOfRootWarning(outOfRootPaths));
@@ -1338,7 +1044,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
         if (options.projectStrict && outOfRootPaths.length > 0) {
             console.error(
-                `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
+                `Project strict mode failed. Forced root: ${forcedProjectRoot ?? "<none>"}\n` +
                     `Offending paths:\n${formatPathSample(outOfRootPaths)}`
             );
             setProcessExitCode(2);
