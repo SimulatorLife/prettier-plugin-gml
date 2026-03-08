@@ -1,7 +1,6 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import type { GmlProjectContext } from "../../../services/index.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
@@ -59,20 +58,6 @@ type ParentVisitContext = Readonly<{
 type CommentTokenRangeIndex = Readonly<{
     prefixCounts: Uint32Array;
     sourceLength: number;
-}>;
-
-type ProjectSettingsShape = Readonly<{
-    gml?: Readonly<{
-        project?: Readonly<{
-            getContext?: (filePath: string) => GmlProjectContext | null;
-        }>;
-    }>;
-}>;
-
-type ParserServicesShape = Readonly<{
-    gml?: Readonly<{
-        filePath?: string;
-    }>;
 }>;
 
 const LOOP_NODE_TYPES = new Set<LoopNodeType>([
@@ -756,44 +741,11 @@ function findBestLoopCandidate(parameters: {
     return bestCandidate;
 }
 
-function resolveProjectContext(ruleContext: Rule.RuleContext): GmlProjectContext | null {
-    const parserServices = (ruleContext.sourceCode.parserServices ?? {}) as ParserServicesShape;
-    const filePath = parserServices.gml?.filePath;
-    if (!filePath) {
-        return null;
-    }
-
-    const settings = (ruleContext.settings ?? {}) as ProjectSettingsShape;
-    const getProjectContext = settings.gml?.project?.getContext;
-    if (typeof getProjectContext !== "function") {
-        return null;
-    }
-
-    return getProjectContext(filePath);
-}
-
 function resolveUniqueHoistIdentifierName(parameters: {
     preferredName: string;
     localIdentifierNames: ReadonlySet<string>;
     normalizedLocalIdentifierNames: ReadonlySet<string>;
-    projectContext: GmlProjectContext | null;
 }): string | null {
-    const projectResolvedName =
-        parameters.projectContext?.capabilities.has("LOOP_HOIST_NAME_RESOLUTION") === true
-            ? parameters.projectContext.resolveLoopHoistIdentifier(
-                  parameters.preferredName,
-                  parameters.localIdentifierNames,
-                  parameters.normalizedLocalIdentifierNames
-              )
-            : null;
-
-    if (
-        projectResolvedName &&
-        !parameters.normalizedLocalIdentifierNames.has(normalizeIdentifierName(projectResolvedName))
-    ) {
-        return projectResolvedName;
-    }
-
     const baseName = parameters.preferredName.length > 0 ? parameters.preferredName : "cached_value";
     for (let suffix = 0; suffix <= 1000; suffix += 1) {
         const candidateName = suffix === 0 ? baseName : `${baseName}_${suffix}`;
@@ -821,7 +773,6 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                     const lineEnding = Core.dominantLineEnding(sourceText);
                     const localIdentifierNames = new Set(collectIdentifierNamesInProgram(programNode));
                     const normalizedLocalIdentifierNames = collectNormalizedIdentifierNames(localIdentifierNames);
-                    const projectContext = resolveProjectContext(context);
                     const loopContexts = collectLoopContainerContexts(programNode);
                     const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
 
@@ -839,8 +790,7 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         const hoistIdentifierName = resolveUniqueHoistIdentifierName({
                             preferredName: bestCandidate.preferredHoistName,
                             localIdentifierNames,
-                            normalizedLocalIdentifierNames,
-                            projectContext
+                            normalizedLocalIdentifierNames
                         });
                         if (!hoistIdentifierName) {
                             continue;

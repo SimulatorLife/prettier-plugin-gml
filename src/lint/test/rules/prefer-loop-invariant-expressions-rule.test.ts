@@ -1,78 +1,7 @@
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
-import { ESLint } from "eslint";
-
 import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
-
-function createProjectAwareLoopHoistContext(occupiedIdentifierNames: ReadonlyArray<string>) {
-    const projectRoot = "/virtual-project";
-    const filePath = `${projectRoot}/scripts/project-aware-hoist.gml`;
-    const identifierEntries = Object.fromEntries(
-        occupiedIdentifierNames.map((identifierName, index) => [
-            `entry_${index}`,
-            {
-                declarations: [{ name: identifierName, filePath }],
-                references: []
-            }
-        ])
-    );
-
-    return LintWorkspace.Lint.services.createProjectAnalysisSnapshotFromProjectIndex(
-        {
-            identifiers: {
-                locals: identifierEntries
-            }
-        },
-        projectRoot,
-        {
-            excludedDirectories: new Set(
-                LintWorkspace.Lint.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
-            ),
-            allowedDirectories: []
-        }
-    );
-}
-
-async function lintWithProjectAwareLoopInvariantRule(parameters: {
-    source: string;
-    occupiedIdentifierNames: ReadonlyArray<string>;
-}): Promise<{ messages: ReadonlyArray<{ ruleId: string | null }>; output: string }> {
-    const projectContext = createProjectAwareLoopHoistContext(parameters.occupiedIdentifierNames);
-    const eslint = new ESLint({
-        overrideConfigFile: true,
-        fix: true,
-        overrideConfig: [
-            {
-                files: ["**/*.gml"],
-                plugins: {
-                    gml: LintWorkspace.Lint.plugin
-                },
-                language: "gml/gml",
-                settings: {
-                    gml: {
-                        project: {
-                            getContext: () => projectContext
-                        }
-                    }
-                },
-                rules: {
-                    "gml/prefer-loop-invariant-expressions": "warn"
-                }
-            }
-        ]
-    });
-
-    const [result] = await eslint.lintText(parameters.source, {
-        filePath: "project-aware-hoist.gml"
-    });
-
-    return {
-        messages: result.messages.map((message) => ({ ruleId: message.ruleId ?? null })),
-        output: result.output ?? parameters.source
-    };
-}
 
 function expectAutoFix(input: string, expectedOutput: string): void {
     const result = lintWithRule("prefer-loop-invariant-expressions", input, {});
@@ -390,15 +319,21 @@ void test("prefer-loop-invariant-expressions does not hoist post-increment expre
     expectNoAutoFix(input);
 });
 
-void test("prefer-loop-invariant-expressions preserves fixes when project-aware hoist names collide", async () => {
-    const input = ["var cached_value = 1;", "", "repeat (count) {", "    total += 60 * 60;", "}", ""].join("\n");
-    const result = await lintWithProjectAwareLoopInvariantRule({
-        source: input,
-        occupiedIdentifierNames: ["cached_value_1"]
-    });
+void test("prefer-loop-invariant-expressions preserves fixes when local hoist names collide", () => {
+    const input = [
+        "var cached_value = 1;",
+        "var cached_value_1 = 2;",
+        "",
+        "repeat (count) {",
+        "    total += 60 * 60;",
+        "}",
+        ""
+    ].join("\n");
+    const result = lintWithRule("prefer-loop-invariant-expressions", input, {});
 
     const expected = [
         "var cached_value = 1;",
+        "var cached_value_1 = 2;",
         "",
         "var cached_value_2 = 60 * 60;",
         "repeat (count) {",

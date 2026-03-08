@@ -131,6 +131,8 @@ Built-in `gml/*` rule short names:
 
 `normalize-doc-comments` canonicalizes doc tags/content, including removing `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`). It synthesizes missing tags for declaration/assignment-style function docs, but constructor/struct-function definitions never retain synthetic `@returns` tags: existing `@returns` lines are stripped and new ones are not generated. The rule intentionally skips inline anonymous function values inside struct/object properties.
 
+`normalize-data-structure-accessors` only applies safe syntax-proven repairs. Multi-coordinate structured access is normalized to `[# ...]`, because grids are the only GameMaker data structure that support more than one coordinate. The rule intentionally does not guess list/map accessors from variable naming conventions.
+
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
