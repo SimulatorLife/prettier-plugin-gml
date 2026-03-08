@@ -351,6 +351,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);\n";
     const semanticFixRuleNames = [
         "prefer-hoistable-loop-accessors",
+        "prefer-loop-invariant-expressions",
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "prefer-compound-assignments",

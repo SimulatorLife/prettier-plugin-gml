@@ -17,6 +17,7 @@ import { createPreferCompoundAssignmentsRule } from "./rules/prefer-compound-ass
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
 import { createPreferHoistableLoopAccessorsRule } from "./rules/prefer-hoistable-loop-accessors-rule.js";
 import { createPreferIsUndefinedCheckRule } from "./rules/prefer-is-undefined-check-rule.js";
+import { createPreferLoopInvariantExpressionsRule } from "./rules/prefer-loop-invariant-expressions-rule.js";
 import { createPreferRepeatLoopsRule } from "./rules/prefer-repeat-loops-rule.js";
 import { createPreferStringInterpolationRule } from "./rules/prefer-string-interpolation-rule.js";
 import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-literal-assignments-rule.js";
@@ -30,6 +31,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
     switch (definition.shortName) {
         case "prefer-hoistable-loop-accessors": {
             return createPreferHoistableLoopAccessorsRule(definition);
+        }
+        case "prefer-loop-invariant-expressions": {
+            return createPreferLoopInvariantExpressionsRule(definition);
         }
         case "prefer-repeat-loops": {
             return createPreferRepeatLoopsRule(definition);

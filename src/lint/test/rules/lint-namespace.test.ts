@@ -60,6 +60,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
     assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
     assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
+    assertEquals(recommended.rules["gml/prefer-loop-invariant-expressions"], "warn");
     assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
 
     const [featherOverlay] = Lint.configs.feather;
