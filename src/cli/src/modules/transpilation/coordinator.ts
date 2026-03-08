@@ -85,7 +85,7 @@ function classifyTranspilationError(error: unknown): {
         targetError = error.cause;
     }
 
-    if (Parser.GameMakerSyntaxError.isParseError(targetError)) {
+    if (Core.isGmlParseError(targetError)) {
         const syntaxError = targetError;
         const line = syntaxError.line;
         const column = syntaxError.column;
