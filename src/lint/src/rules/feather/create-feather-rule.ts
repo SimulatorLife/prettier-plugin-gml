@@ -1742,7 +1742,34 @@ function createGm2043Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         rewritten = rewritten.replace("i = 0;", "var i = 0;");
         rewritten = rewritten.replace("var i = 34;", "i = 34;");
-        rewritten = rewritten.replace('    var _msg = "Something happened!";', '    _msg = "Something happened!";');
+        rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
+        rewritten = rewritten.replaceAll(
+            /(^[ \t]*)if\s*\(([^)]+)\)\s*\{\r?\n([ \t]*)var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;\r\n]+);\r?\n\1\}\r?\n/gm,
+            (
+                fullMatch: string,
+                indentation: string,
+                condition: string,
+                bodyIndentation: string,
+                identifier: string,
+                initializer: string,
+                offset: number,
+                fullText: string
+            ) => {
+                const before = fullText.slice(0, offset);
+                const after = fullText.slice(offset + fullMatch.length);
+                const declarationPattern = new RegExp(String.raw`\bvar\s+${identifier}\b`);
+                const subsequentUsePattern = new RegExp(String.raw`\b${identifier}\s*=`);
+                if (!subsequentUsePattern.test(after)) {
+                    return fullMatch;
+                }
+
+                if (declarationPattern.test(before)) {
+                    return `${indentation}if (${condition}) {\n${bodyIndentation}${identifier} = ${initializer};\n${indentation}}\n`;
+                }
+
+                return `${indentation}var ${identifier};\n\n${indentation}if (${condition}) {\n${bodyIndentation}${identifier} = ${initializer};\n${indentation}}\n`;
+            }
+        );
         return rewritten;
     });
 }
