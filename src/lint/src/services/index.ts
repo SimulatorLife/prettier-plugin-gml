@@ -21,7 +21,11 @@ export interface GmlProjectContext {
         filePath: string | null,
         hasInitializer: boolean
     ): { allowRewrite: boolean; reason: string | null };
-    resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null;
+    resolveLoopHoistIdentifier(
+        preferredName: string,
+        localIdentifierNames: ReadonlySet<string>,
+        normalizedLocalIdentifierNames: ReadonlySet<string>
+    ): string | null;
 }
 
 export interface GmlProjectSettings {

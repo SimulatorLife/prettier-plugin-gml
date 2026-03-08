@@ -1,5 +1,4 @@
-import path from "node:path";
-
+// TODO: This file may violate the single-file responsibility principle for the lint-workspace. It should NOT do project analysis, variable renaming, or anything else that would be relevant to refactor operations; these should be in the 'refactor' workspace, which does proper codemods
 import { Core } from "@gml-modules/core";
 
 import type { ProjectCapability } from "../types/index.js";
@@ -20,7 +19,11 @@ export interface ProjectAnalysisSnapshot {
         filePath: string | null,
         hasInitializer: boolean
     ): { allowRewrite: boolean; reason: string | null };
-    resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null;
+    resolveLoopHoistIdentifier(
+        preferredName: string,
+        localIdentifierNames: ReadonlySet<string>,
+        normalizedLocalIdentifierNames: ReadonlySet<string>
+    ): string | null;
 }
 
 export interface ProjectAnalysisProvider {
@@ -47,25 +50,23 @@ function isExcludedPath(
 
 function resolveLoopHoistIdentifierName(
     preferredName: string,
-    localIdentifierNames: ReadonlySet<string>,
+    normalizedLocalIdentifierNames: ReadonlySet<string>,
     isProjectIdentifierOccupied: (identifierName: string) => boolean
 ): string | null {
-    const normalizedLocalNames = new Set<string>();
-    for (const name of localIdentifierNames) {
-        normalizedLocalNames.add(Core.toNormalizedLowerCaseString(name));
-    }
-
     const normalizedPreferredName = Core.toNormalizedLowerCaseString(preferredName);
     if (
         !normalizedPreferredName ||
-        normalizedLocalNames.has(normalizedPreferredName) ||
+        normalizedLocalIdentifierNames.has(normalizedPreferredName) ||
         isProjectIdentifierOccupied(normalizedPreferredName)
     ) {
         const baseName = preferredName.length > 0 ? preferredName : "len";
         for (let index = 1; index <= 1000; index += 1) {
             const candidate = `${baseName}_${index}`;
             const normalizedCandidate = Core.toNormalizedLowerCaseString(candidate);
-            if (!normalizedLocalNames.has(normalizedCandidate) && !isProjectIdentifierOccupied(normalizedCandidate)) {
+            if (
+                !normalizedLocalIdentifierNames.has(normalizedCandidate) &&
+                !isProjectIdentifierOccupied(normalizedCandidate)
+            ) {
                 return candidate;
             }
         }
@@ -76,8 +77,22 @@ function resolveLoopHoistIdentifierName(
 }
 
 function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnapshot {
+    const identifierOccupancyCache = new Map<string, boolean>();
+
     const isIdentifierOccupied = (identifierName: string): boolean => {
-        return index.identifierToFiles.has(Core.toNormalizedLowerCaseString(identifierName));
+        const normalizedIdentifierName = Core.toNormalizedLowerCaseString(identifierName);
+        if (!normalizedIdentifierName) {
+            return false;
+        }
+
+        const cachedOccupancy = identifierOccupancyCache.get(normalizedIdentifierName);
+        if (cachedOccupancy !== undefined) {
+            return cachedOccupancy;
+        }
+
+        const isOccupied = index.identifierToFiles.has(normalizedIdentifierName);
+        identifierOccupancyCache.set(normalizedIdentifierName, isOccupied);
+        return isOccupied;
     };
 
     return Object.freeze({
@@ -101,8 +116,12 @@ function createProjectAnalysisSnapshot(index: ProjectIndex): ProjectAnalysisSnap
 
             return { allowRewrite: true, reason: null };
         },
-        resolveLoopHoistIdentifier(preferredName: string, localIdentifierNames: ReadonlySet<string>): string | null {
-            return resolveLoopHoistIdentifierName(preferredName, localIdentifierNames, isIdentifierOccupied);
+        resolveLoopHoistIdentifier(
+            preferredName: string,
+            _localIdentifierNames: ReadonlySet<string>,
+            normalizedLocalIdentifierNames: ReadonlySet<string>
+        ): string | null {
+            return resolveLoopHoistIdentifierName(preferredName, normalizedLocalIdentifierNames, isIdentifierOccupied);
         }
     });
 }

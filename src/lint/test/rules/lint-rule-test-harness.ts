@@ -15,7 +15,8 @@ const allCapabilities = new Set(["IDENTIFIER_OCCUPANCY", "IDENTIFIER_OCCURRENCES
 
 function resolveLoopHoistIdentifierForTests(
     preferredName: string,
-    localIdentifierNames: ReadonlySet<string>
+    localIdentifierNames: ReadonlySet<string>,
+    _normalizedLocalIdentifierNames: ReadonlySet<string>
 ): string | null {
     if (preferredName.length === 0) {
         return null;
