@@ -58,3 +58,38 @@ void test("lint source tree no longer contains retired project-aware helper modu
         );
     }
 });
+
+/**
+ * Enforces that internal doc-comment utilities are NOT accessible through the
+ * public Lint namespace. Doc-comment helpers are implementation details of the
+ * lint workspace and must be imported directly from their source modules.
+ *
+ * See: AGENTS.md "Do NOT create re-export wrappers", target-state.md §2.1
+ */
+void test("Lint namespace does not expose internal doc-comment utilities", () => {
+    const internalDocCommentNames = [
+        "collectSyntheticDocCommentLines",
+        "collectLeadingProgramLineComments",
+        "extractLeadingNonDocCommentLines",
+        "collectAdjacentLeadingSourceLineComments",
+        "resolveDocCommentTraversalService",
+        "resolveDocCommentCollectionService",
+        "resolveDocCommentPresenceService",
+        "resolveDocCommentDescriptionService",
+        "resolveDocCommentUpdateService",
+        "collectDeprecatedFunctionNames",
+        "findDeprecatedDocComment",
+        "buildDocumentedParamNameLookup",
+        "extractDocumentedParamNames",
+        "convertLegacyReturnsDescriptionLinesToMetadata"
+    ];
+
+    for (const name of internalDocCommentNames) {
+        assert.equal(
+            name in LintWorkspace.Lint,
+            false,
+            `Lint namespace must not expose internal doc-comment utility '${name}'; ` +
+                `consumers must import directly from the doc-comment module.`
+        );
+    }
+});

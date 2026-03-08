@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Lint } from "../../src/index.js";
-
-const {
-    resolveDocCommentTraversalService,
+import {
     resolveDocCommentCollectionService,
-    resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
+    resolveDocCommentPresenceService,
+    resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
-} = Lint;
+} from "../../src/doc-comment/manager.js";
 
 void test("doc comment services expose segregated contracts", () => {
     const ast = { type: "Program", body: [] };

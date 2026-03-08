@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Lint } from "../../src/index.js";
-
-const {
+import {
     buildDocumentedParamNameLookup,
     extractDocumentedParamNames,
     extractParamNameFromComment,
@@ -11,9 +9,10 @@ const {
     getCommentStartIndex,
     isWhitespaceBetween,
     normalizeDocParamNameForComparison
-} = Lint;
+} from "../../src/doc-comment/documented-params.js";
+import type { resolveDocCommentTraversalService } from "../../src/doc-comment/manager.js";
 
-type DocCommentTraversalService = ReturnType<typeof Lint.resolveDocCommentTraversalService>;
+type DocCommentTraversalService = ReturnType<typeof resolveDocCommentTraversalService>;
 
 void test("extractParamNameFromComment trims optional references", () => {
     assert.strictEqual(extractParamNameFromComment("/ @param foo value"), "foo");

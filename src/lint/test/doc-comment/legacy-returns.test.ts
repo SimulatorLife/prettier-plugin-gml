@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Lint } from "../../src/index.js";
-
-const { convertLegacyReturnsDescriptionLinesToMetadata } = Lint;
+import { convertLegacyReturnsDescriptionLinesToMetadata } from "../../src/doc-comment/legacy.js";
 
 void test("convertLegacyReturnsDescriptionLinesToMetadata ignores non-return descriptions with hyphens", () => {
     const input = [
