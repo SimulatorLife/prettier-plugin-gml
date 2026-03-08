@@ -43,6 +43,7 @@ pnpm run cli -- format path/to/project
 **Options:**
 - `--check` - Check if files are formatted without writing changes
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
+- `--verbose` - Emit per-file timing and total run duration diagnostics
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
@@ -74,7 +75,7 @@ pnpm run cli -- lint --fix path/to/project
 - `--project-strict` - Fail when linted files are outside forced project root
 - `--index-allow <dir...>` - Include directories that are normally excluded from project indexing
 - `--quiet` - Suppress fallback/config discovery warnings
-- `--verbose` - Enable verbose lint command diagnostics
+- `--verbose` - Emit per-file lint timing and total run duration diagnostics
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
