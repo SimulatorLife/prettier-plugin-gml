@@ -509,6 +509,22 @@ void test("utf-16 range projection stays aligned after limited recovery", () => 
     assertEquals(source.slice(24, 25), "2");
 });
 
+void test("location projection maps CRLF boundaries without line/column drift", () => {
+    const source = "show_debug_message(1);\r\nshow_debug_message(2);\r\n";
+    const result = parseWithOptions(source, "limited");
+    assertEquals(result.ok, true);
+
+    if (!result.ok) {
+        assert.fail("Expected parse success.");
+    }
+
+    const secondStatement = result.ast.body?.[1] as
+        | { loc?: { start?: { line?: number; column?: number } } }
+        | undefined;
+    assertEquals(secondStatement?.loc?.start?.line, 2);
+    assertEquals(secondStatement?.loc?.start?.column, 0);
+});
+
 void test("tokenization source remains original source under limited recovery", () => {
     const source = "show_debug_message(1 2); // tail";
     const result = parseWithOptions(source, "limited");

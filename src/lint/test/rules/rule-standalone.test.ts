@@ -848,6 +848,14 @@ void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1
     assertEquals(result.output, expected);
 });
 
+void test("optimize-math-expressions rewrites nested call-argument expressions without relying on nested duplicate passes", () => {
+    const input = "var draw_value = draw_text_ext((width * width), 0, 0);\n";
+    const expected = "var draw_value = draw_text_ext(sqr(width), 0, 0);\n";
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("optimize-math-expressions auto-fixes manual math forms to built-in helpers", () => {
     const input = [
         "var squared = value * value;",

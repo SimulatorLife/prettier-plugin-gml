@@ -13,6 +13,20 @@ function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
 }
 
+type SourceTextRange = Readonly<{ start: number; end: number }>;
+
+const LOGICAL_NORMALIZATION_SIGNAL_PATTERN = /&&|\|\||!|\b(?:and|or|not|true|false)\b/u;
+
+function containsLogicalNormalizationSignal(sourceText: string): boolean {
+    return LOGICAL_NORMALIZATION_SIGNAL_PATTERN.test(sourceText);
+}
+
+function isRangeInsideAnyRange(range: SourceTextRange, existingRanges: ReadonlyArray<SourceTextRange>): boolean {
+    return existingRanges.some((existingRange) => {
+        return range.start >= existingRange.start && range.end <= existingRange.end;
+    });
+}
+
 function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
     const sourceText = context.sourceCode.text;
     const rawStart = Core.getNodeStartIndex(node as any);
@@ -54,6 +68,8 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const rewrittenNodeRanges: SourceTextRange[] = [];
+
             return Object.freeze({
                 // Using a broad selector or Program traversal
                 // We'll iterate over nodes that are candidates for simplification.
@@ -82,6 +98,19 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
+                    const nodeRange: SourceTextRange = {
+                        start: nodeStart,
+                        end: nodeEnd
+                    };
+                    if (isRangeInsideAnyRange(nodeRange, rewrittenNodeRanges)) {
+                        return;
+                    }
+
+                    const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
+                    if (!containsLogicalNormalizationSignal(sourceText)) {
+                        return;
+                    }
+
                     const cloned = Core.cloneAstNode(node) as any;
 
                     // Function to run ONE step of simplification on this node only.
@@ -95,7 +124,6 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     }
 
                     // Compare printed version of original vs cloned.
-                    const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
                     const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
 
                     // Check if changed.
@@ -125,6 +153,8 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     // 4. If normalized != original (ignoring whitespace?), report fix.
 
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
+                        rewrittenNodeRanges.push(nodeRange);
+
                         // It changed!
                         context.report({
                             loc: resolveSafeNodeLoc(context, originalNode),
