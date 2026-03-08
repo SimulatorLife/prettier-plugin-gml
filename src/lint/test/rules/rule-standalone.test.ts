@@ -594,6 +594,21 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
     assertEquals(result.output, expected);
 });
 
+void test("require-trailing-optional-defaults appends undefined defaults after existing optional params", () => {
+    const input = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}", ""].join(
+        "\n"
+    );
+    const expected = [
+        "function demo(first, second = 1, third = undefined) {",
+        "    return [first, second, third];",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-trailing-optional-defaults", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("reportUnsafe=false suppresses unsafe-only diagnostics", () => {
     const input = 'message = "HP: " + string(_i++);\n';
     const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
