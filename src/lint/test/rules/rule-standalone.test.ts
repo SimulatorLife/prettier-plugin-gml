@@ -209,6 +209,32 @@ void test("normalize-doc-comments repairs malformed optional @param defaults wit
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults while preserving descriptions", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=collider[CM.MASK]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
     const input = [
         "/// Summary",
