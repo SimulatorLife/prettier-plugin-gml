@@ -12,7 +12,7 @@ import {
     walkAstNodes
 } from "../rule-base-helpers.js";
 
-type SafeAccessor = "[#" | "[?" | "[|";
+type ProvenAccessorToken = "[#" | "[?" | "[|";
 
 type MemberIndexExpressionNode = Readonly<{
     type: "MemberIndexExpression";
@@ -41,7 +41,7 @@ type IdentifierNode = Readonly<{
 
 type AccessorEventNode = AssignmentExpressionNode | MemberIndexExpressionNode | VariableDeclaratorNode;
 
-const EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS = new Map<string, SafeAccessor>([
+const EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS = new Map<string, ProvenAccessorToken>([
     ["ds_grid_create", "[#"],
     ["ds_list_create", "[|"],
     ["ds_map_create", "[?"]
@@ -76,10 +76,10 @@ function getNormalizedIdentifierName(node: unknown): string | null {
         return null;
     }
 
-    return String(node.name).toLowerCase();
+    return node.name.toLowerCase();
 }
 
-function resolveExplicitConstructorAccessor(node: unknown): SafeAccessor | null {
+function resolveExplicitConstructorAccessor(node: unknown): ProvenAccessorToken | null {
     const callIdentifierName = getCallExpressionIdentifierName(node as never);
     if (!callIdentifierName) {
         return null;
@@ -127,8 +127,8 @@ function collectAccessorEventNodes(programNode: unknown): Array<AccessorEventNod
 
 function resolveSafeAccessorForMemberIndex(
     node: MemberIndexExpressionNode,
-    explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, SafeAccessor>
-): SafeAccessor | null {
+    explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, ProvenAccessorToken>
+): ProvenAccessorToken | null {
     if (shouldNormalizeMemberIndexAccessorToGrid(node)) {
         return "[#";
     }
@@ -184,7 +184,7 @@ export function createNormalizeDataStructureAccessorsRule(definition: GmlRuleDef
                 Program(programNode: unknown) {
                     const sourceText = context.sourceCode.text;
                     const edits: Array<{ start: number; end: number; text: string }> = [];
-                    const explicitConstructorAccessorsByIdentifier = new Map<string, SafeAccessor>();
+                    const explicitConstructorAccessorsByIdentifier = new Map<string, ProvenAccessorToken>();
 
                     for (const node of collectAccessorEventNodes(programNode)) {
                         if (isVariableDeclaratorNode(node) || isAssignmentExpressionNode(node)) {

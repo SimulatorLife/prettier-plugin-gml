@@ -1,3 +1,5 @@
+export type ProjectCapability = "IDENTIFIER_OCCUPANCY" | "IDENTIFIER_OCCURRENCES" | "LOOP_HOIST_NAME_RESOLUTION";
+
 export type UnsafeReasonCode =
     | "MISSING_PROJECT_CONTEXT"
     | "NAME_COLLISION"

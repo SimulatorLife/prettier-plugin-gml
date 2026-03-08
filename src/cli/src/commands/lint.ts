@@ -383,12 +383,6 @@ function createLintRuntimeErrorResult(parameters: { error: unknown; fallbackFile
     });
 }
 
-function isFatalRuntimeLintResult(result: LintResultLike): boolean {
-    return (result.messages ?? []).some(
-        (message) => message.fatal === true && message.ruleId === LINT_RUNTIME_ERROR_RULE_ID
-    );
-}
-
 async function lintTargetWithRuntimeRecovery(parameters: {
     eslint: LintFilesExecutor;
     target: string;
@@ -760,6 +754,45 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+async function collectOverlayWithoutLanguageWiringPaths(parameters: {
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
+}): Promise<Array<string>> {
+    const resolvedPaths = await Promise.all(
+        parameters.results.map(async (result) => {
+            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+            if (!isResolvedConfigLike(resolvedConfig)) {
+                return null;
+            }
+
+            if (!hasOverlayRuleApplied(resolvedConfig)) {
+                return null;
+            }
+
+            return isCanonicalGmlWiring(resolvedConfig) ? null : result.filePath;
+        })
+    );
+
+    return resolvedPaths.filter((filePath): filePath is string => filePath !== null);
+}
+
+async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
+    quiet: boolean;
+}): Promise<void> {
+    if (parameters.quiet) {
+        return;
+    }
+
+    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
+    if (offendingPaths.length === 0) {
+        return;
+    }
+
+    console.warn(formatOverlayWarning(offendingPaths));
+}
+
 function normalizeProcessorIdentityForEnforcement(processor: unknown): string | null {
     if (processor === null || processor === undefined) {
         return null;
@@ -775,6 +808,54 @@ function normalizeProcessorIdentityForEnforcement(processor: unknown): string | 
     }
 
     return "<non-string-processor>";
+}
+
+async function enforceProcessorPolicyForGmlFiles(parameters: {
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
+    verbose: boolean;
+}): Promise<Readonly<{ exitCode: number; message: string | null; warning: string | null }>> {
+    const evaluations = await Promise.all(
+        parameters.results.map(async (result) => {
+            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+            if (!isResolvedConfigLike(resolvedConfig)) {
+                return Object.freeze({ observed: false, unsupportedPath: null as string | null });
+            }
+
+            const processorIdentity = normalizeProcessorIdentityForEnforcement(resolvedConfig.processor);
+            return Object.freeze({
+                observed: true,
+                unsupportedPath: processorIdentity === null ? null : result.filePath
+            });
+        })
+    );
+
+    const observedConfig = evaluations.some((evaluation) => evaluation.observed);
+    const unsupportedProcessorPaths = evaluations
+        .map((evaluation) => evaluation.unsupportedPath)
+        .filter((filePath): filePath is string => filePath !== null);
+
+    if (unsupportedProcessorPaths.length > 0) {
+        return Object.freeze({
+            exitCode: 2,
+            message: `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: GML lint does not support active ESLint processors.\n${formatPathSample(unsupportedProcessorPaths)}`,
+            warning: null
+        });
+    }
+
+    if (parameters.verbose && observedConfig) {
+        return Object.freeze({
+            exitCode: 0,
+            message: null,
+            warning: `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: Processor identity could not be observed for one or more resolved GML configs.`
+        });
+    }
+
+    return Object.freeze({
+        exitCode: 0,
+        message: null,
+        warning: null
+    });
 }
 
 async function loadRequestedFormatter(

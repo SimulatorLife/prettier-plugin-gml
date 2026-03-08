@@ -11,7 +11,7 @@ import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "
 
 const { isObjectLike } = Core;
 
-type SafeAccessor = "[#" | "[?" | "[|";
+type ProvenAccessorToken = "[#" | "[?" | "[|";
 
 type MemberIndexNode = {
     type?: string;
@@ -36,7 +36,7 @@ type AssignmentExpressionNode = {
 
 type AccessorEventNode = AssignmentExpressionNode | MemberIndexNode | VariableDeclaratorNode;
 
-const EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS = new Map<string, SafeAccessor>([
+const EXPLICIT_DATA_STRUCTURE_CONSTRUCTOR_ACCESSORS = new Map<string, ProvenAccessorToken>([
     ["ds_grid_create", "[#"],
     ["ds_list_create", "[|"],
     ["ds_map_create", "[?"]
@@ -66,7 +66,7 @@ function getNormalizedIdentifierName(node: unknown): string | null {
     return node.name?.toLowerCase() ?? null;
 }
 
-function resolveExplicitConstructorAccessor(node: unknown): SafeAccessor | null {
+function resolveExplicitConstructorAccessor(node: unknown): ProvenAccessorToken | null {
     const callIdentifierName = Core.getCallExpressionIdentifierName(node as never);
     if (!callIdentifierName) {
         return null;
@@ -109,8 +109,8 @@ function getPropertyCount(memberNode: MemberIndexNode): number {
 
 function resolveSafeAccessorForMemberIndex(
     memberNode: MemberIndexNode,
-    explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, SafeAccessor>
-): SafeAccessor | null {
+    explicitConstructorAccessorsByIdentifier: ReadonlyMap<string, ProvenAccessorToken>
+): ProvenAccessorToken | null {
     if (shouldNormalizeMemberIndexAccessorToGrid(memberNode)) {
         return "[#";
     }
@@ -130,15 +130,6 @@ function resolveSafeAccessorForMemberIndex(
     }
 
     return null;
-}
-
-/**
- * Process a single MemberIndexExpression node.
- */
-function processMemberIndex(memberNode: MemberIndexNode): void {
-    if (shouldNormalizeMemberIndexAccessorToGrid(memberNode)) {
-        Reflect.set(memberNode, "accessor", "[#");
-    }
 }
 
 function collectAccessorEventNodes(node: unknown, collectedNodes: Array<AccessorEventNode>): void {
@@ -172,7 +163,7 @@ function visitAndNormalize(node: unknown): void {
     const eventNodes: Array<AccessorEventNode> = [];
     collectAccessorEventNodes(node, eventNodes);
 
-    const explicitConstructorAccessorsByIdentifier = new Map<string, SafeAccessor>();
+    const explicitConstructorAccessorsByIdentifier = new Map<string, ProvenAccessorToken>();
     const orderedNodes = eventNodes.toSorted((left, right) => {
         const leftStart = Core.getNodeStartIndex(left as never);
         const rightStart = Core.getNodeStartIndex(right as never);
