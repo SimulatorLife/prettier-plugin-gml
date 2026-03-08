@@ -238,6 +238,43 @@ function countNamedFunctionParameters(functionNode: AstNodeWithType): number {
     return count;
 }
 
+function extractDefaultParameterValueText(sourceText: string, parameterNode: AstNodeWithType): string | null {
+    const parameterRange = Reflect.get(parameterNode, "range");
+    if (Array.isArray(parameterRange) && parameterRange.length === 2) {
+        const startOffset = parameterRange[0];
+        const endOffset = parameterRange[1];
+        if (typeof startOffset === "number" && typeof endOffset === "number" && endOffset > startOffset) {
+            const parameterText = sourceText.slice(startOffset, endOffset);
+            const separatorOffset = parameterText.indexOf("=");
+            if (separatorOffset !== -1) {
+                const defaultValueText = parameterText.slice(separatorOffset + 1).trim();
+                if (defaultValueText.length > 0) {
+                    return defaultValueText;
+                }
+            }
+        }
+    }
+
+    const rightNode = Reflect.get(parameterNode, "right");
+    if (!rightNode || typeof rightNode !== "object") {
+        return null;
+    }
+
+    const rightRange = Reflect.get(rightNode, "range");
+    if (!Array.isArray(rightRange) || rightRange.length !== 2) {
+        return null;
+    }
+
+    const startOffset = rightRange[0];
+    const endOffset = rightRange[1];
+    if (typeof startOffset !== "number" || typeof endOffset !== "number" || endOffset <= startOffset) {
+        return null;
+    }
+
+    const defaultValueText = sourceText.slice(startOffset, endOffset).trim();
+    return defaultValueText.length > 0 ? defaultValueText : null;
+}
+
 function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
     const aligned: Array<string> = [];
     let inDescription = false;
@@ -688,8 +725,9 @@ function synthesizeFunctionDocCommentBlock(
         } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
             const left = param.left;
             paramName = left?.name ?? left?.id?.name;
-            if (param.right && param.right.range) {
-                defaultVal = sourceText.slice(param.right.range[0], param.right.range[1]);
+            const extractedDefault = extractDefaultParameterValueText(sourceText, param);
+            if (extractedDefault !== null) {
+                defaultVal = extractedDefault;
             }
         } else if (param.name) {
             paramName = param.name;
@@ -843,17 +881,30 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     return existingParams;
 }
 
+function escapeLiteralForRegExpPattern(value: string): string {
+    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+}
+
 function updateExistingParamDocWithDefault(docBlock: Array<string>, parameterName: string, defaultVal: string): void {
+    const escapedParameterName = escapeLiteralForRegExpPattern(parameterName);
     for (const [index, line] of docBlock.entries()) {
-        const paramMatch = new RegExp(
-            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[?${parameterName}(?:=[^\]]*)?\]?(.*)$`
+        const optionalParamMatch = new RegExp(
+            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[${escapedParameterName}(?:=[^\]]*)?\]*(.*)$`
         ).exec(line);
-        if (!paramMatch) {
-            continue;
+        if (optionalParamMatch) {
+            docBlock[index] =
+                `${optionalParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${optionalParamMatch[2]}`;
+            return;
         }
 
-        docBlock[index] = `${paramMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${paramMatch[2]}`;
-        return;
+        const requiredParamMatch = new RegExp(
+            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)${escapedParameterName}\b(.*)$`
+        ).exec(line);
+        if (requiredParamMatch) {
+            docBlock[index] =
+                `${requiredParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${requiredParamMatch[2]}`;
+            return;
+        }
     }
 }
 
