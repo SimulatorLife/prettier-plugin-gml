@@ -327,7 +327,7 @@ function configureConsoleMethods(logLevel: string): void {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            originalConsoleWarn.apply(console, args as any);
+            originalConsoleWarn.apply(console, args);
         };
         console.log = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
