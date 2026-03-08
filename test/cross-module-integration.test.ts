@@ -194,14 +194,7 @@ function createIntegrationLint(ruleOverrides: Readonly<Record<string, Linter.Rul
                     feather: Lint.featherPlugin
                 },
                 language: "gml/gml",
-                rules: resolvedRules,
-                settings: {
-                    gml: {
-                        project: {
-                            getContext: () => integrationProjectContext
-                        }
-                    }
-                }
+                rules: resolvedRules
             }
         ]
     });
