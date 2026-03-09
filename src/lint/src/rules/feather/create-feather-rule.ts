@@ -730,8 +730,94 @@ function createGm1030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     });
 }
 
+function splitCodeAndTrailingLineComment(line: string): { codeSegment: string; trailingComment: string } {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let escaped = false;
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            escaped = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return {
+                codeSegment: line.slice(0, index),
+                trailingComment: line.slice(index)
+            };
+        }
+    }
+
+    return { codeSegment: line, trailingComment: "" };
+}
+
+function collapseRedundantStatementSemicolons(codeSegment: string): string {
+    const caseLabelSemicolonRun = /^(\s*(?:case\b.+|default)\s*:\s*);+\s*$/u.exec(codeSegment);
+    if (caseLabelSemicolonRun) {
+        return caseLabelSemicolonRun[1].trimEnd();
+    }
+
+    if (/^\s*;+\s*$/u.test(codeSegment)) {
+        return "";
+    }
+
+    const trailingSemicolonRun = /^(.*?);{2,}(\s*)$/u.exec(codeSegment);
+    if (!trailingSemicolonRun) {
+        return codeSegment;
+    }
+
+    return `${trailingSemicolonRun[1]};${trailingSemicolonRun[2]}`;
+}
+
+function normalizeRedundantSemicolonRuns(sourceText: string): string {
+    const lineEndingMatch = /\r\n|\n/u.exec(sourceText);
+    const lineEnding = lineEndingMatch ? lineEndingMatch[0] : "\n";
+    const lines = sourceText.split(/\r?\n/u);
+    const rewrittenLines: Array<string> = [];
+    for (const line of lines) {
+        const { codeSegment, trailingComment } = splitCodeAndTrailingLineComment(line);
+        const semicolonOnlyLine = /^\s*;+\s*$/u.test(codeSegment);
+        const rewrittenCodeSegment = collapseRedundantStatementSemicolons(codeSegment);
+        if (rewrittenCodeSegment.length > 0) {
+            rewrittenLines.push(`${rewrittenCodeSegment}${trailingComment}`);
+            continue;
+        }
+
+        if (trailingComment.length === 0) {
+            if (!semicolonOnlyLine) {
+                rewrittenLines.push("");
+            }
+            continue;
+        }
+
+        const indentationMatch = /^(\s*)/u.exec(codeSegment);
+        const indentation = indentationMatch ? indentationMatch[1] : "";
+        rewrittenLines.push(`${indentation}${trailingComment.trimStart()}`);
+    }
+
+    return rewrittenLines.join(lineEnding);
+}
+
 function createGm1033Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createDiagnosticOnlyRule(entry, (sourceText) => /;{2,}/.test(sourceText));
+    return createFullTextRewriteRule(entry, normalizeRedundantSemicolonRuns);
 }
 
 function createGm1038Rule(entry: FeatherManifestEntry): Rule.RuleModule {
