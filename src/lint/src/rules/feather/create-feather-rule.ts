@@ -453,12 +453,19 @@ function createGm1007Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1008Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
-        const declaredWorkingDirectory = /(?:^|\n)\s*working_directory\s*=/.test(sourceText);
+        const workingDirectoryAssignmentPattern = /(^|\n)([ \t]*)(?:var\s+)?working_directory(\s*=\s*)/;
+        const declaredWorkingDirectory = workingDirectoryAssignmentPattern.test(sourceText);
         if (!declaredWorkingDirectory) {
             return sourceText;
         }
 
-        return sourceText.replaceAll(/\bworking_directory\b/g, "__feather_working_directory");
+        const rewrittenWithLocalDeclaration = sourceText.replace(
+            workingDirectoryAssignmentPattern,
+            (_fullMatch, linePrefix: string, indentation: string, assignmentOperator: string) =>
+                `${linePrefix}${indentation}var __feather_working_directory${assignmentOperator}`
+        );
+
+        return rewrittenWithLocalDeclaration.replaceAll(/\bworking_directory\b/g, "__feather_working_directory");
     });
 }
 
