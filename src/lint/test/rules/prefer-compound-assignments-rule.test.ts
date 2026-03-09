@@ -77,12 +77,18 @@ function runPreferCompoundAssignmentsRule(code: string): { messageCount: number;
     };
 }
 
-void test("prefer-compound-assignments rewrites subtraction, multiplication, and division self-assignments", () => {
-    const input = ["speed = speed * friction;", "lives = lives - 1;", "timer = timer / delta;", ""].join("\n");
-    const expected = ["speed *= friction;", "lives -= 1;", "timer /= delta;", ""].join("\n");
+void test("prefer-compound-assignments rewrites addition, subtraction, multiplication, and division self-assignments", () => {
+    const input = [
+        "score = score + points;",
+        "speed = speed * friction;",
+        "lives = lives - 1;",
+        "timer = timer / delta;",
+        ""
+    ].join("\n");
+    const expected = ["score += points;", "speed *= friction;", "lives -= 1;", "timer /= delta;", ""].join("\n");
 
     const result = runPreferCompoundAssignmentsRule(input);
-    assertEquals(result.messageCount, 3);
+    assertEquals(result.messageCount, 4);
     assertEquals(result.output, expected);
 });
 
@@ -171,12 +177,22 @@ void test("prefer-compound-assignments does not rewrite when comments exist in t
     assertEquals(result.output, input);
 });
 
-void test("prefer-compound-assignments v1 does not rewrite plus assignments", () => {
+void test("prefer-compound-assignments rewrites x = x + y to x += y", () => {
     const input = "name = name + suffix;\n";
+    const expected = "name += suffix;\n";
     const result = runPreferCompoundAssignmentsRule(input);
 
-    assertEquals(result.messageCount, 0);
-    assertEquals(result.output, input);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites addition with a complex right operand", () => {
+    const input = "total = total + (base * multiplier);\n";
+    const expected = "total += (base * multiplier);\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-compound-assignments is included in the recommended config", () => {

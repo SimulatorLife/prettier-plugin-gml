@@ -11,30 +11,6 @@ import {
 
 const { Lint } = LintWorkspace;
 
-const allCapabilities = new Set(["IDENTIFIER_OCCUPANCY", "IDENTIFIER_OCCURRENCES", "LOOP_HOIST_NAME_RESOLUTION"]);
-
-function resolveLoopHoistIdentifierForTests(
-    preferredName: string,
-    localIdentifierNames: ReadonlySet<string>
-): string | null {
-    if (preferredName.length === 0) {
-        return null;
-    }
-
-    if (!localIdentifierNames.has(preferredName)) {
-        return preferredName;
-    }
-
-    for (let suffix = 1; suffix <= 1000; suffix += 1) {
-        const candidate = `${preferredName}_${suffix}`;
-        if (!localIdentifierNames.has(candidate)) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
-
 function parseProgramNode(code: string): Record<string, unknown> {
     const language = Lint.plugin.languages.gml as {
         parse: (
@@ -111,17 +87,7 @@ export function lintWithRule(
     const context = {
         options: [options],
         settings: {
-            gml: {
-                project: {
-                    getContext: () => ({
-                        capabilities: allCapabilities,
-                        isIdentifierNameOccupiedInProject: () => false,
-                        listIdentifierOccurrenceFiles: () => new Set<string>(),
-                        assessGlobalVarRewrite: () => ({ allowRewrite: true, reason: null }),
-                        resolveLoopHoistIdentifier: resolveLoopHoistIdentifierForTests
-                    })
-                }
-            }
+            gml: {}
         },
         sourceCode,
         getSourceCode() {

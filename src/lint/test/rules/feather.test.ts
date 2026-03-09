@@ -186,9 +186,11 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm1051",
         ruleName: "gm1051",
-        assertOutput: (output, input) => {
-            assertEquals(output, input);
-            assertEquals(output.includes("#macro FOO_SIMPLE 1;"), true);
+        assertOutput: (output) => {
+            assertEquals(output.includes("#macro FOO_SIMPLE 1;"), false);
+            assertEquals(output.includes("#macro BAR_SIMPLE (value + 1);"), false);
+            assertEquals(output.includes("#macro BAR script_call();"), false);
+            assertEquals(output.includes("#macro KEEP value;value"), true);
         }
     },
     {
@@ -472,6 +474,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         assertOutput: (output) => {
             assertEquals(output.includes("var i = 0;"), true);
             assertEquals(output.includes("var i = 34;"), false);
+            assertEquals(output.includes("var _msg;"), true);
+            assertEquals(output.includes('var _msg = "Something happened!";'), false);
+            assertEquals(output.includes("if (something_occurred) {"), true);
         }
     },
     {
@@ -528,7 +533,14 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm2054",
         ruleName: "gm2054",
         assertOutput: (output) => {
+            assertEquals(output.includes("gpu_set_alphatestref(128);"), true);
             assertEquals(output.includes("gpu_set_alphatestref(0);"), true);
+            assertEquals(
+                /gpu_set_alphatestref\s*\(\s*0\s*\)\s*;\s*\ngpu_set_alphatestenable\s*\(\s*false\s*\)\s*;/u.test(
+                    output
+                ),
+                true
+            );
         }
     },
     {
@@ -588,4 +600,36 @@ runner = function () constructor {
     assertEquals(output.includes("static strike = function () {"), true);
     assertEquals(output.includes("runner = function () constructor {"), true);
     assertEquals(output.includes("};"), true);
+});
+
+void test("gm2054 preserves active threshold and inserts reset before alpha-test disable", () => {
+    const input = `gpu_set_alphatestenable(true);
+gpu_set_alphatestref(128);
+draw_self();
+gpu_set_alphatestenable(false);
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2054", input);
+
+    assertEquals(output.includes("gpu_set_alphatestref(128);"), true);
+    assertEquals(output.includes("gpu_set_alphatestref(0);\ngpu_set_alphatestenable(false);"), true);
+});
+
+void test("gm1051 removes trailing macro semicolons without mutating inline semicolon bodies", () => {
+    const input = `#macro SIMPLE 42;
+#macro COMMENTED call(); // comment
+#macro BLOCKED call();/* block */
+#macro KEEP value;value
+#macro KEEP_WITH_TRAILING value;value;
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1051", input);
+
+    assertEquals(output.includes("#macro SIMPLE 42;"), false);
+    assertEquals(output.includes("#macro COMMENTED call(); // comment"), false);
+    assertEquals(output.includes("#macro BLOCKED call();/* block */"), false);
+    assertEquals(output.includes("#macro COMMENTED call() // comment"), true);
+    assertEquals(output.includes("#macro BLOCKED call()/* block */"), true);
+    assertEquals(output.includes("#macro KEEP value;value"), true);
+    assertEquals(output.includes("#macro KEEP_WITH_TRAILING value;value;"), true);
 });

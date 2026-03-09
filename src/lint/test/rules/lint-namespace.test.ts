@@ -60,6 +60,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
     assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
     assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
+    assertEquals(recommended.rules["gml/prefer-loop-invariant-expressions"], "warn");
     assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
 
     const [featherOverlay] = Lint.configs.feather;
@@ -72,6 +73,22 @@ void test("semver-sensitive lint constants are pinned", () => {
     assertEquals(Object.isFrozen(Lint.services.performanceOverrideRuleIds), true);
     for (const ruleId of Lint.services.performanceOverrideRuleIds) {
         assert.match(ruleId, /^(?:gml|feather)\/.+$/);
+    }
+});
+
+void test("services namespace excludes project-aware analysis helpers", () => {
+    const forbiddenServiceNames = [
+        "createProjectAnalysisSnapshotFromProjectIndex",
+        "createPrebuiltProjectAnalysisProvider",
+        "createProjectLintContextRegistry",
+        "createProjectSettingsFromRegistry",
+        "defaultProjectIndexExcludes",
+        "resolveNearestProjectRoot",
+        "resolveForcedProjectRoot"
+    ];
+
+    for (const serviceName of forbiddenServiceNames) {
+        assert.equal(serviceName in Lint.services, false, `${serviceName} must not be exported from Lint.services`);
     }
 });
 
