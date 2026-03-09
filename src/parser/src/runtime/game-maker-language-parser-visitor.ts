@@ -2,9 +2,8 @@ import { Core } from "@gml-modules/core";
 
 import type { ParserContext, VisitorOptions, VisitorPayload } from "../types/index.js";
 import {
-    getParserVisitorBase,
-    getParseTreeVisitorPrototype,
-    type ParserVisitorBaseConstructor,
+    PARSE_TREE_VISITOR_PROTOTYPE,
+    PARSER_VISITOR_BASE,
     type ParserVisitorPrototype,
     type ParseTreeVisitorMethod
 } from "./generated-bindings.js";
@@ -13,9 +12,6 @@ import { definePrototypeMethods } from "./prototype-builder.js";
 import { createWrapperSymbols, ensureHasInstancePatched } from "./symbol-patching.js";
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }: VisitorPayload) => fallback();
-
-const GameMakerLanguageParserVisitorBase: ParserVisitorBaseConstructor = getParserVisitorBase();
-const PARSE_TREE_VISITOR_PROTOTYPE: ParserVisitorPrototype = getParseTreeVisitorPrototype();
 
 const { instance: WRAPPER_INSTANCE_MARKER, patchFlag: HAS_INSTANCE_PATCHED_MARKER } = createWrapperSymbols(
     "GameMakerLanguageParserVisitor"
@@ -34,7 +30,7 @@ const { instance: WRAPPER_INSTANCE_MARKER, patchFlag: HAS_INSTANCE_PATCHED_MARKE
 // extension hooks.
 const INHERITED_METHOD_NAMES = Object.freeze(collectPrototypeMethodNames(PARSE_TREE_VISITOR_PROTOTYPE));
 
-export const VISIT_METHOD_NAMES = Object.freeze(collectVisitMethodNames(GameMakerLanguageParserVisitorBase));
+export const VISIT_METHOD_NAMES = Object.freeze(collectVisitMethodNames(PARSER_VISITOR_BASE));
 
 function callInheritedVisitChildren(instance: ParserVisitorPrototype, ctx: ParserContext) {
     return (
@@ -50,7 +46,7 @@ function resolveVisitChildrenDelegate(options: VisitorOptions): (payload: Visito
     return DEFAULT_VISIT_CHILDREN_DELEGATE;
 }
 
-ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
+ensureHasInstancePatched(PARSER_VISITOR_BASE, {
     markerSymbol: WRAPPER_INSTANCE_MARKER,
     patchFlagSymbol: HAS_INSTANCE_PATCHED_MARKER
 });

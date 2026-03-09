@@ -3,7 +3,7 @@ import { Core } from "@gml-modules/core";
 import type { ListenerDelegate, ListenerOptions, ParserContext } from "../types/index.js";
 import { toDelegate } from "./delegation.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
-import { getParserListenerBase, type ParserListenerBaseConstructor } from "./generated-bindings.js";
+import { PARSER_LISTENER_BASE, type ParserListenerBaseConstructor } from "./generated-bindings.js";
 import { deriveListenerMethodNames } from "./method-reflection.js";
 import { definePrototypeMethods } from "./prototype-builder.js";
 
@@ -11,7 +11,7 @@ const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({ fallback = Core.noop }) =
 
 export const LISTENER_METHOD_NAMES = Object.freeze(deriveListenerMethodNames(VISIT_METHOD_NAMES));
 
-const GeneratedParserListenerBase: ParserListenerBaseConstructor = getParserListenerBase();
+const GeneratedParserListenerBase: ParserListenerBaseConstructor = PARSER_LISTENER_BASE;
 
 function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate {
     const { listenerDelegate, listenerHandlers } = options;

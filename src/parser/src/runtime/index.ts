@@ -9,5 +9,5 @@ export type {
     ParserVisitorBaseConstructor,
     ParserVisitorPrototype
 } from "./generated-bindings.js";
-export { getParserListenerBase, getParserVisitorBase, getParseTreeVisitorPrototype } from "./generated-bindings.js";
+export { PARSE_TREE_VISITOR_PROTOTYPE,PARSER_LISTENER_BASE, PARSER_VISITOR_BASE } from "./generated-bindings.js";
 export { installRecognitionExceptionLikeGuard, isRecognitionExceptionLike } from "./recognition-exception-patch.js";

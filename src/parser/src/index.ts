@@ -4,10 +4,10 @@ import * as Runtime from "./runtime/index.js";
 import * as SourcePreprocessing from "./source-preprocessing.js";
 
 // Re-export stable facade for generated parser base classes. External consumers
-// should depend on these factory functions rather than importing from the
-// generated directory directly, keeping coupling isolated to the abstraction layer.
-export const GameMakerLanguageParserListenerBase = Runtime.getParserListenerBase();
-export const GameMakerLanguageParserVisitorBase = Runtime.getParserVisitorBase();
+// should depend on these constants rather than importing from the generated
+// directory directly, keeping coupling isolated to the abstraction layer.
+export const GameMakerLanguageParserListenerBase = Runtime.PARSER_LISTENER_BASE;
+export const GameMakerLanguageParserVisitorBase = Runtime.PARSER_VISITOR_BASE;
 
 // Define the Parser namespace type from existing module types
 type ParserNamespace = typeof GMLParserModule &
