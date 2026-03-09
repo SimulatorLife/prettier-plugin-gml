@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import { printExpression } from "../../../language/print-expression.js";
+import { printNodeForAutofix } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
@@ -102,13 +102,17 @@ function areComparableAssignmentTargetsEquivalent(left: unknown, right: unknown)
 }
 
 function isUndefinedCheckAgainstTarget(test: unknown, target: unknown): boolean {
-    const testRecord = asAstRecord(test);
+    let testRecord = asAstRecord(test);
+    while (testRecord && testRecord.type === "ParenthesizedExpression") {
+        testRecord = asAstRecord(testRecord.expression);
+    }
+
     const targetRecord = asAstRecord(target);
     if (!testRecord || !targetRecord) {
         return false;
     }
 
-    const callee = asAstRecord(testRecord.callee);
+    const callee = asAstRecord(testRecord.callee ?? testRecord.object);
     const argumentsList = Array.isArray(testRecord.arguments) ? testRecord.arguments : [];
     if (
         testRecord.type === "CallExpression" &&
@@ -127,13 +131,40 @@ function isUndefinedCheckAgainstTarget(test: unknown, target: unknown): boolean 
     const left = asAstRecord(testRecord.left);
     const right = asAstRecord(testRecord.right);
 
-    const leftUndefined = left && left.type === "Identifier" && left.name === "undefined";
-    const rightUndefined = right && right.type === "Identifier" && right.name === "undefined";
+    const leftUndefined =
+        left &&
+        ((left.type === "Identifier" && left.name === "undefined") ||
+            (left.type === "Literal" && (left.value === undefined || left.value === "undefined")));
+    const rightUndefined =
+        right &&
+        ((right.type === "Identifier" && right.name === "undefined") ||
+            (right.type === "Literal" && (right.value === undefined || right.value === "undefined")));
 
     return (
         (leftUndefined && areComparableAssignmentTargetsEquivalent(right, targetRecord)) ||
         (rightUndefined && areComparableAssignmentTargetsEquivalent(left, targetRecord))
     );
+}
+
+function extractAssignmentExpressionFromStatementNode(statementNode: AstRecord | null): AstRecord | null {
+    if (!statementNode) {
+        return null;
+    }
+
+    if (statementNode.type === "AssignmentExpression") {
+        return statementNode;
+    }
+
+    if (statementNode.type !== "ExpressionStatement") {
+        return null;
+    }
+
+    const expression = asAstRecord(statementNode.expression);
+    if (!expression || expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    return expression;
 }
 
 function canIfStatementBenefitFromNormalization(node: unknown): boolean {
@@ -155,36 +186,25 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
             );
         }
 
-        if (consequentStatement.type === "ExpressionStatement" && alternateStatement.type === "ExpressionStatement") {
-            const consequentExpression = asAstRecord(consequentStatement.expression);
-            const alternateExpression = asAstRecord(alternateStatement.expression);
-            if (
-                !consequentExpression ||
-                !alternateExpression ||
-                consequentExpression.type !== "AssignmentExpression" ||
-                alternateExpression.type !== "AssignmentExpression" ||
-                consequentExpression.operator !== "=" ||
-                alternateExpression.operator !== "="
-            ) {
-                return false;
-            }
-
-            return areComparableAssignmentTargetsEquivalent(consequentExpression.left, alternateExpression.left);
+        const consequentExpression = extractAssignmentExpressionFromStatementNode(consequentStatement);
+        const alternateExpression = extractAssignmentExpressionFromStatementNode(alternateStatement);
+        if (!consequentExpression || !alternateExpression) {
+            return false;
         }
 
+        if (consequentExpression.operator !== "=" || alternateExpression.operator !== "=") {
+            return false;
+        }
+
+        return areComparableAssignmentTargetsEquivalent(consequentExpression.left, alternateExpression.left);
+    }
+
+    const consequentExpression = extractAssignmentExpressionFromStatementNode(consequentStatement);
+    if (!consequentExpression) {
         return false;
     }
 
-    if (!consequentStatement || consequentStatement.type !== "ExpressionStatement") {
-        return false;
-    }
-
-    const consequentExpression = asAstRecord(consequentStatement.expression);
-    if (
-        !consequentExpression ||
-        consequentExpression.type !== "AssignmentExpression" ||
-        consequentExpression.operator !== "="
-    ) {
+    if (consequentExpression.operator !== "=") {
         return false;
     }
 
@@ -213,6 +233,7 @@ function canUnaryExpressionBenefitFromNormalization(node: unknown): boolean {
     return (
         argument.type === "UnaryExpression" ||
         argument.type === "LogicalExpression" ||
+        (argument.type === "BinaryExpression" && (argument.operator === "&&" || argument.operator === "||")) ||
         argument.type === "ParenthesizedExpression"
     );
 }
@@ -223,7 +244,11 @@ function isBooleanLiteralNode(node: unknown): boolean {
 
 function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
     const logicalExpression = asAstRecord(node);
-    if (!logicalExpression || logicalExpression.type !== "LogicalExpression") {
+    if (
+        !logicalExpression ||
+        (logicalExpression.type !== "LogicalExpression" && logicalExpression.type !== "BinaryExpression") ||
+        (logicalExpression.operator !== "&&" && logicalExpression.operator !== "||")
+    ) {
         return false;
     }
 
@@ -238,14 +263,43 @@ function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
     }
 
     if (logicalExpression.operator === "&&") {
-        return left.type === "LogicalExpression" || right.type === "LogicalExpression";
+        return (
+            left.type === "LogicalExpression" ||
+            right.type === "LogicalExpression" ||
+            left.type === "BinaryExpression" ||
+            right.type === "BinaryExpression"
+        );
     }
 
     if (logicalExpression.operator === "||") {
-        return left.type === "LogicalExpression" || right.type === "LogicalExpression";
+        return (
+            left.type === "LogicalExpression" ||
+            right.type === "LogicalExpression" ||
+            left.type === "BinaryExpression" ||
+            right.type === "BinaryExpression"
+        );
     }
 
     return false;
+}
+
+function getNodeRange(node: unknown): SourceTextRange | null {
+    const nodeStart = Core.getNodeStartIndex(node as any);
+    const nodeEnd = Core.getNodeEndIndex(node as any);
+    if (
+        typeof nodeStart !== "number" ||
+        typeof nodeEnd !== "number" ||
+        !Number.isFinite(nodeStart) ||
+        !Number.isFinite(nodeEnd) ||
+        nodeEnd <= nodeStart
+    ) {
+        return null;
+    }
+
+    return Object.freeze({
+        start: nodeStart,
+        end: nodeEnd
+    });
 }
 
 function isRangeInsideAnyRange(range: SourceTextRange, existingRanges: ReadonlyArray<SourceTextRange>): boolean {
@@ -298,30 +352,29 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
             const rewrittenNodeRanges: SourceTextRange[] = [];
 
             return Object.freeze({
-                "LogicalExpression, UnaryExpression[operator='!'], IfStatement"(node: any) {
+                "BlockStatement, LogicalExpression, BinaryExpression, UnaryExpression[operator='!'], IfStatement"(
+                    node: any
+                ) {
                     const originalNode = node;
-                    const nodeStart = Core.getNodeStartIndex(originalNode);
-                    const nodeEnd = Core.getNodeEndIndex(originalNode);
-                    if (
-                        typeof nodeStart !== "number" ||
-                        typeof nodeEnd !== "number" ||
-                        !Number.isFinite(nodeStart) ||
-                        !Number.isFinite(nodeEnd) ||
-                        nodeEnd <= nodeStart
-                    ) {
+                    const nodeRange = getNodeRange(originalNode);
+                    if (!nodeRange) {
                         return;
                     }
 
-                    const nodeRange: SourceTextRange = {
-                        start: nodeStart,
-                        end: nodeEnd
-                    };
                     if (isRangeInsideAnyRange(nodeRange, rewrittenNodeRanges)) {
                         return;
                     }
 
-                    const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    if (!containsLogicalNormalizationSignal(sourceText)) {
+                    const fullSourceText = context.sourceCode.text;
+                    const sourceText = fullSourceText.slice(nodeRange.start, nodeRange.end);
+
+                    if (
+                        (originalNode.type === "BlockStatement" ||
+                            originalNode.type === "LogicalExpression" ||
+                            originalNode.type === "BinaryExpression" ||
+                            originalNode.type === "UnaryExpression") &&
+                        !containsLogicalNormalizationSignal(sourceText)
+                    ) {
                         return;
                     }
 
@@ -343,6 +396,13 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
+                    if (
+                        originalNode.type === "BinaryExpression" &&
+                        !canLogicalExpressionBenefitFromNormalization(originalNode)
+                    ) {
+                        return;
+                    }
+
                     const cloned = cloneAstNodeWithoutTraversalLinks(node);
                     if (!cloned) {
                         return;
@@ -353,7 +413,8 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         return;
                     }
 
-                    const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
+                    const newText = printNodeForAutofix(normalizationResult.ast, fullSourceText);
+
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
                         rewrittenNodeRanges.push(nodeRange);
 
@@ -361,7 +422,7 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                             loc: resolveSafeNodeLoc(context, originalNode as unknown),
                             messageId: definition.messageId,
                             fix(fixer) {
-                                return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
+                                return fixer.replaceTextRange([nodeRange.start, nodeRange.end], newText);
                             }
                         });
                     }

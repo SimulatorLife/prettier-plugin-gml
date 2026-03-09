@@ -163,9 +163,9 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm1033",
         ruleName: "gm1033",
-        assertOutput: (output, input) => {
-            assertEquals(output, input);
-            assertEquals(output.includes(";;"), true);
+        assertOutput: (output) => {
+            assertEquals(output.includes(";;"), false);
+            assertEquals(output.includes("var value = 1;"), true);
         }
     },
     {
@@ -632,4 +632,20 @@ void test("gm1051 removes trailing macro semicolons without mutating inline semi
     assertEquals(output.includes("#macro BLOCKED call()/* block */"), true);
     assertEquals(output.includes("#macro KEEP value;value"), true);
     assertEquals(output.includes("#macro KEEP_WITH_TRAILING value;value;"), true);
+});
+
+void test("gm1033 removes redundant semicolon runs without mutating for-loop headers", () => {
+    const input = `for (;;) {
+    tick();
+}
+
+var total = 1;;
+;;
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1033", input);
+
+    assertEquals(output.includes("for (;;) {"), true);
+    assertEquals(output.includes("var total = 1;;"), false);
+    assertEquals(output.includes("\n;;\n"), false);
 });
