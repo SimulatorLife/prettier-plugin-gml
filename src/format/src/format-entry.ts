@@ -57,15 +57,6 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
-function preserveTopLevelDescriptionGap(source: string, formatted: string): string {
-    const sourceStartsWithDescriptionGap = /^\/\/\/\s*@description[^\r\n]*\r?\n[ \t]*\r?\n[ \t]*var\b/.test(source);
-    if (!sourceStartsWithDescriptionGap) {
-        return formatted;
-    }
-
-    return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
-}
-
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
 
@@ -131,8 +122,7 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 
     const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    const withTopLevelDescriptionGap = preserveTopLevelDescriptionGap(source, withBannerSpacing);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withTopLevelDescriptionGap);
+    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
 }
 
 export const Format: GmlFormat = {
