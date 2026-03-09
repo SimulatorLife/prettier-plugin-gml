@@ -1422,6 +1422,13 @@ function processQueuedUnknownFileChanges(
 }
 
 function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+    // Unknown filename events can burst during watcher start-up on some platforms.
+    // Ignore them until the initial scan has completed so we avoid expensive
+    // duplicate stats against the same tree while the scanner is already walking it.
+    if (!runtimeContext.scanComplete) {
+        return Promise.resolve();
+    }
+
     if (runtimeContext.unknownScanPromise !== null) {
         runtimeContext.unknownScanQueued = true;
         return runtimeContext.unknownScanPromise;
