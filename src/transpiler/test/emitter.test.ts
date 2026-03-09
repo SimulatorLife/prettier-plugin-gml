@@ -118,12 +118,14 @@ void test("GmlToJsEmitter passes through GML div operator unchanged (div is spec
     assert.equal(Transpiler.mapBinaryOperator("div"), "div");
 });
 
-void test("GmlToJsEmitter emits Math.trunc for GML div operator", () => {
+void test("GmlToJsEmitter lowers GML div operator to Math.trunc integer division", () => {
+    // `div` must lower to Math.trunc(a / b), not plain `/`.
+    // Plain division produces floats; Math.trunc truncates toward zero like GML semantics.
     const source = "result = a div b";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.match(result, /Math\.trunc\(a \/ b\)/, "Should emit Math.trunc(a / b) for integer division");
+    assert.match(result, /Math\.trunc\(a \/ b\)/, "Should emit Math.trunc(a / b) for the div operator");
 });
 
 void test("GmlToJsEmitter maps GML mod operator to JavaScript modulo", () => {

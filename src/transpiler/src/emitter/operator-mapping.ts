@@ -15,14 +15,16 @@
  * - Strict equality conversion (`==` → `===`, `!=` → `!==`)
  * - Bitwise operators (preserved but documented for clarity)
  *
- * Note: the `div` operator is NOT handled here. It requires a `Math.trunc`
- * call and is emitted as a special case in the emitter's visitBinaryExpression.
+ * NOTE: `div` is NOT in this table. GML's `div` performs integer division
+ * truncating toward zero, which has no single JavaScript operator equivalent.
+ * The emitter handles `div` as a special case, lowering it to `Math.trunc(a / b)`.
  *
  * @param operatorToken - The GML operator to map
  * @returns The equivalent JavaScript operator
  *
  * @example
  * ```typescript
+ * mapBinaryOperator("mod") // → "%"
  * mapBinaryOperator("and") // → "&&"
  * mapBinaryOperator("==")  // → "==="
  * mapBinaryOperator("+")   // → "+" (passthrough for standard operators)
