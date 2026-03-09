@@ -99,6 +99,7 @@ Built-in `gml/*` rule short names:
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
 - `prefer-compound-assignments`
+- `prefer-direct-return`
 - `optimize-logical-flow`
 - `no-globalvar`
 - `no-empty-regions`
@@ -122,6 +123,10 @@ Built-in `gml/*` rule short names:
 
 `prefer-compound-assignments` rewrites safe self-assignment forms
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
+
+`prefer-direct-return` rewrites adjacent local-return boilerplate from
+`var value = expression; return value;` to `return expression;` when no comments
+would be dropped and the initializer does not reference the declared identifier.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
