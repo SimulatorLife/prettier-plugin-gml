@@ -5,6 +5,7 @@ import path from "node:path";
 import * as Cli from "@gml-modules/cli";
 
 import { findAvailablePort } from "./free-port.js";
+import { waitForStatusReady } from "./status-polling.js";
 
 type WatchCommandOptions = Parameters<typeof Cli.CLI.Commands.runWatchCommand>[1];
 
@@ -49,8 +50,21 @@ export async function runWatchTest(
 
         watchPromise = Cli.CLI.Commands.runWatchCommand(testDir, mergedOptions);
 
-        // Give the server time to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Poll until the status server accepts connections — but only when it
+        // is actually enabled. A fixed-duration sleep was previously used here;
+        // on loaded CI runners that sleep could expire before the TCP listener
+        // bound, causing every subsequent fetch to fail with ECONNREFUSED.
+        // Polling is deterministic: we only proceed once the server has actually
+        // replied, regardless of startup latency.
+        //
+        // When the caller has explicitly disabled the status server
+        // (statusServer: false) we skip this step entirely — polling would
+        // otherwise time-out vacuously and slow down tests that verify the
+        // server is intentionally absent.
+        if (mergedOptions.statusServer !== false) {
+            const statusBaseUrl = `http://127.0.0.1:${statusPort}`;
+            await waitForStatusReady(statusBaseUrl, 5000, 25);
+        }
 
         await testFn({
             testDir,
