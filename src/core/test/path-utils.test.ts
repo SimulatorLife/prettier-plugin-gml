@@ -45,6 +45,22 @@ void describe("path-utils", () => {
             assert.strictEqual(resolveContainedRelativePath(null, projectRoot), null);
             assert.strictEqual(resolveContainedRelativePath(childFile, null), null);
         });
+
+        void it("supports Windows-style paths on non-Windows runtimes", () => {
+            const root = String.raw`C:\project`;
+            const child = String.raw`C:\project\src\index.gml`;
+            const relative = resolveContainedRelativePath(child, root);
+
+            assert.strictEqual(relative, String.raw`src\index.gml`);
+        });
+
+        void it("rejects Windows-style paths outside the parent boundary", () => {
+            const root = String.raw`C:\project`;
+            const outside = String.raw`D:\project\src\index.gml`;
+            const relative = resolveContainedRelativePath(outside, root);
+
+            assert.strictEqual(relative, null);
+        });
     });
 
     void describe("walkAncestorDirectories", () => {

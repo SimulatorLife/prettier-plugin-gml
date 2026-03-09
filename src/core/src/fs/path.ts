@@ -76,13 +76,15 @@ export function resolveContainedRelativePath(childPath, parentPath) {
         return null;
     }
 
-    const relative = path.relative(parentPath, childPath);
+    const shouldUseWindowsPath = isWindowsLikeBoundaryPath(childPath) || isWindowsLikeBoundaryPath(parentPath);
+    const pathModule = shouldUseWindowsPath ? path.win32 : path.posix;
+    const relative = pathModule.relative(parentPath, childPath);
 
     if (relative === "") {
         return "";
     }
 
-    if (PARENT_SEGMENT_PATTERN.test(relative) || path.isAbsolute(relative)) {
+    if (PARENT_SEGMENT_PATTERN.test(relative) || pathModule.isAbsolute(relative)) {
         return null;
     }
 
