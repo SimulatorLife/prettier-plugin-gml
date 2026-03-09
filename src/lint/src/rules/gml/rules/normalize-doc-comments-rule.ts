@@ -991,7 +991,44 @@ function reorderFunctionDocLinesForCanonicalTagLayout(docLines: ReadonlyArray<st
         nonReturnLines.push(line);
     }
 
-    return [...nonReturnLines, ...returnLines];
+    const firstParamIndex = nonReturnLines.findIndex((line) => isParamDocCommentLine(line));
+    if (firstParamIndex === -1) {
+        return [...nonReturnLines, ...returnLines];
+    }
+
+    let lastParamIndex = firstParamIndex;
+    for (let index = nonReturnLines.length - 1; index >= firstParamIndex; index -= 1) {
+        if (isParamDocCommentLine(nonReturnLines[index])) {
+            lastParamIndex = index;
+            break;
+        }
+    }
+
+    const leadingNonParamLines: Array<string> = [];
+    const trailingNonParamLines: Array<string> = [];
+    const paramRegionLines: Array<string> = [];
+
+    for (const [index, line] of nonReturnLines.entries()) {
+        if (isParamDocCommentLine(line)) {
+            paramRegionLines.push(line);
+            continue;
+        }
+
+        const isInterleavedBetweenParamLines = index > firstParamIndex && index < lastParamIndex;
+        if (isInterleavedBetweenParamLines) {
+            paramRegionLines.push(line);
+            continue;
+        }
+
+        if (index < firstParamIndex) {
+            leadingNonParamLines.push(line);
+            continue;
+        }
+
+        trailingNonParamLines.push(line);
+    }
+
+    return [...leadingNonParamLines, ...trailingNonParamLines, ...paramRegionLines, ...returnLines];
 }
 
 function dropFloatingParamDocCommentLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
