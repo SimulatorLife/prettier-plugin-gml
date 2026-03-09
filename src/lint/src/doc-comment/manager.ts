@@ -1,4 +1,4 @@
-import { Core, type DocCommentLines } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 
 const {
     getCommentArray,
@@ -11,14 +11,44 @@ const {
     toMutableArray
 } = Core;
 
-const DOC_COMMENT_MANAGERS = new WeakMap();
-const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
-const DOC_COMMENT_COLLECTION_SERVICES = new WeakMap();
-const DOC_COMMENT_PRESENCE_SERVICES = new WeakMap();
-const DOC_COMMENT_DESCRIPTION_SERVICES = new WeakMap();
-const DOC_COMMENT_UPDATE_SERVICES = new WeakMap();
+export interface DocCommentTraversalManager {
+    forEach(callback: (node: unknown, comments?: readonly unknown[] | null) => void): void;
+}
 
-function resolveDocCommentService(ast, cache, createService) {
+export interface DocCommentCollectionManager {
+    getComments(functionNode: unknown): Array<unknown>;
+}
+
+export interface DocCommentPresenceManager {
+    hasDocComment(functionNode: unknown): boolean;
+}
+
+export interface DocCommentDescriptionManager {
+    extractDescription(functionNode: unknown): string | null;
+}
+
+export interface DocCommentUpdateManager {
+    applyUpdates(docUpdates: unknown): void;
+}
+
+type DocCommentManager = DocCommentTraversalManager &
+    DocCommentCollectionManager &
+    DocCommentPresenceManager &
+    DocCommentDescriptionManager &
+    DocCommentUpdateManager;
+
+const DOC_COMMENT_MANAGERS: WeakMap<object, DocCommentManager> = new WeakMap();
+const DOC_COMMENT_TRAVERSAL_SERVICES: WeakMap<DocCommentManager, DocCommentTraversalManager> = new WeakMap();
+const DOC_COMMENT_COLLECTION_SERVICES: WeakMap<DocCommentManager, DocCommentCollectionManager> = new WeakMap();
+const DOC_COMMENT_PRESENCE_SERVICES: WeakMap<DocCommentManager, DocCommentPresenceManager> = new WeakMap();
+const DOC_COMMENT_DESCRIPTION_SERVICES: WeakMap<DocCommentManager, DocCommentDescriptionManager> = new WeakMap();
+const DOC_COMMENT_UPDATE_SERVICES: WeakMap<DocCommentManager, DocCommentUpdateManager> = new WeakMap();
+
+function resolveDocCommentService<TService>(
+    ast: unknown,
+    cache: WeakMap<DocCommentManager, TService>,
+    createService: (manager: DocCommentManager) => TService
+): TService {
     const manager = prepareDocCommentEnvironment(ast);
     let service = cache.get(manager);
 
@@ -31,10 +61,10 @@ function resolveDocCommentService(ast, cache, createService) {
 }
 
 const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
-    applyUpdates() {},
-    forEach() {},
+    applyUpdates(_docUpdates: unknown) {},
+    forEach(_callback: (node: unknown, comments?: readonly unknown[] | null) => void) {},
     getComments() {
-        return [] as DocCommentLines;
+        return [];
     },
     extractDescription() {
         return null;
@@ -42,9 +72,9 @@ const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
     hasDocComment() {
         return false;
     }
-});
+}) as DocCommentManager;
 
-export function prepareDocCommentEnvironment(ast) {
+export function prepareDocCommentEnvironment(ast: unknown): DocCommentManager {
     if (!isNode(ast)) {
         return NOOP_DOC_COMMENT_MANAGER;
     }
@@ -60,48 +90,37 @@ export function prepareDocCommentEnvironment(ast) {
     return manager;
 }
 
-function createBoundDocCommentServiceResolver(cache, methodName) {
-    return function resolveBoundDocCommentService(ast?: any) {
-        return resolveDocCommentService(ast, cache, (manager) => {
-            const method = manager?.[methodName];
-
-            if (typeof method !== "function") {
-                const fallback = (NOOP_DOC_COMMENT_MANAGER as any)[methodName];
-
-                return typeof fallback === "function" ? { [methodName]: fallback } : {};
-            }
-
-            return { [methodName]: method.bind(manager) };
-        });
-    };
+export function resolveDocCommentTraversalService(ast?: unknown): DocCommentTraversalManager {
+    return resolveDocCommentService(ast, DOC_COMMENT_TRAVERSAL_SERVICES, (manager) => ({
+        forEach: manager.forEach.bind(manager)
+    }));
 }
 
-export const resolveDocCommentTraversalService = createBoundDocCommentServiceResolver(
-    DOC_COMMENT_TRAVERSAL_SERVICES,
-    "forEach"
-);
+export function resolveDocCommentCollectionService(ast?: unknown): DocCommentCollectionManager {
+    return resolveDocCommentService(ast, DOC_COMMENT_COLLECTION_SERVICES, (manager) => ({
+        getComments: manager.getComments.bind(manager)
+    }));
+}
 
-export const resolveDocCommentCollectionService = createBoundDocCommentServiceResolver(
-    DOC_COMMENT_COLLECTION_SERVICES,
-    "getComments"
-);
+export function resolveDocCommentPresenceService(ast?: unknown): DocCommentPresenceManager {
+    return resolveDocCommentService(ast, DOC_COMMENT_PRESENCE_SERVICES, (manager) => ({
+        hasDocComment: manager.hasDocComment.bind(manager)
+    }));
+}
 
-export const resolveDocCommentPresenceService = createBoundDocCommentServiceResolver(
-    DOC_COMMENT_PRESENCE_SERVICES,
-    "hasDocComment"
-);
+export function resolveDocCommentDescriptionService(ast?: unknown): DocCommentDescriptionManager {
+    return resolveDocCommentService(ast, DOC_COMMENT_DESCRIPTION_SERVICES, (manager) => ({
+        extractDescription: manager.extractDescription.bind(manager)
+    }));
+}
 
-export const resolveDocCommentDescriptionService = createBoundDocCommentServiceResolver(
-    DOC_COMMENT_DESCRIPTION_SERVICES,
-    "extractDescription"
-);
+export function resolveDocCommentUpdateService(ast?: unknown): DocCommentUpdateManager {
+    return resolveDocCommentService(ast, DOC_COMMENT_UPDATE_SERVICES, (manager) => ({
+        applyUpdates: manager.applyUpdates.bind(manager)
+    }));
+}
 
-export const resolveDocCommentUpdateService = createBoundDocCommentServiceResolver(
-    DOC_COMMENT_UPDATE_SERVICES,
-    "applyUpdates"
-);
-
-function createDocCommentManager(ast) {
+function createDocCommentManager(ast: unknown): DocCommentManager {
     normalizeDocCommentWhitespace(ast);
 
     const commentGroups = mapDocCommentsToFunctions(ast);
