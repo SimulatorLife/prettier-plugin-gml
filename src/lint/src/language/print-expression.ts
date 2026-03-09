@@ -3,6 +3,55 @@ import { Core } from "@gml-modules/core";
 const MEMBER_INDEX_ACCESSORS = new Set(["[", "[|", "[?", "[#", "[@", "[$"]);
 
 /**
+ * Converts a number that JavaScript's `toString()` would render in scientific
+ * notation (e.g. `1e-11`) to an equivalent plain decimal string that is valid
+ * in GML (e.g. `"0.00000000001"`).  Returns `null` on unexpected input.
+ */
+function scientificNotationToDecimal(value: number): string | null {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+
+    const isNegative = value < 0;
+    const abs = Math.abs(value);
+    const str = abs.toString();
+
+    const eIndex = str.indexOf("e");
+    if (eIndex === -1) {
+        return isNegative ? `-${str}` : str;
+    }
+
+    const mantissaStr = str.slice(0, eIndex);
+    const exponentStr = str.slice(eIndex + 1);
+    const exponent = Number.parseInt(exponentStr, 10);
+    if (!Number.isFinite(exponent)) {
+        return null;
+    }
+
+    const dotIndex = mantissaStr.indexOf(".");
+    const intPart = dotIndex === -1 ? mantissaStr : mantissaStr.slice(0, dotIndex);
+    const fracPart = dotIndex === -1 ? "" : mantissaStr.slice(dotIndex + 1);
+    const digits = `${intPart}${fracPart}`;
+    const decimalPos = intPart.length + exponent;
+
+    let result: string;
+    if (decimalPos <= 0) {
+        result = `0.${"0".repeat(-decimalPos)}${digits}`;
+    } else if (decimalPos >= digits.length) {
+        result = `${digits}${"0".repeat(decimalPos - digits.length)}`;
+    } else {
+        result = `${digits.slice(0, decimalPos)}.${digits.slice(decimalPos)}`;
+    }
+
+    // Trim trailing fractional zeros
+    if (result.includes(".")) {
+        result = result.replace(/\.?0+$/u, "");
+    }
+
+    return isNegative ? `-${result}` : result || "0";
+}
+
+/**
  * Reads the original source text associated with an AST node range.
  */
 export function readNodeText(sourceText: string, node: any): string | null {
@@ -28,7 +77,21 @@ export function printExpression(node: any, sourceText: string): string {
 
     switch (node.type) {
         case "Literal": {
-            return String(node.value);
+            const literalValue = node.value;
+            if (typeof literalValue === "number" && Number.isFinite(literalValue)) {
+                const asStr = String(literalValue);
+                // GML does not support scientific-notation literals (e.g. "1e-11").
+                // Prefer the original source text when available; otherwise convert
+                // to a plain decimal string so the output is valid GML.
+                if (asStr.includes("e") || asStr.includes("E")) {
+                    const originalText = readNodeText(sourceText, node);
+                    if (originalText !== null) {
+                        return originalText;
+                    }
+                    return scientificNotationToDecimal(literalValue) ?? asStr;
+                }
+            }
+            return String(literalValue);
         }
         case "Identifier": {
             return node.name;

@@ -1612,7 +1612,7 @@ function createGm2012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
         rewritten = rewritten.replace("vertex_format_end();\n", "");
-        rewritten = rewritten.replace("vertex_format_add_position_3d();\n", "");
+        rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_add_position_3d();\n", "");
         rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_end();\n", "");
         return rewritten;
     });

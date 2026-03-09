@@ -1,7 +1,9 @@
 import { Lint } from "@gml-modules/lint";
 
 const allRuleLevels = Object.freeze(
-    Object.fromEntries(Object.values(Lint.ruleIds).map((ruleId) => [ruleId, "error"]))
+    Object.fromEntries(
+        Object.values(Lint.ruleIds).map((ruleId) => [ruleId, "error"])
+    )
 );
 
 export default [

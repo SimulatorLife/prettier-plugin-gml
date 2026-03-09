@@ -136,21 +136,21 @@ function normalizeCommentedDirectiveLine(line: string): string {
 }
 
 function normalizeLegacyBlockKeywordLine(line: string): string {
-    const beginBlockMatch = /^(\s*)begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const beginBlockMatch = /^(\s*)begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (beginBlockMatch) {
         const indentation = beginBlockMatch[1] ?? "";
         const commentText = beginBlockMatch[2] ?? "";
         return appendTrailingLineComment(`${indentation}{`, commentText);
     }
 
-    const endBlockMatch = /^(\s*)end\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const endBlockMatch = /^(\s*)end\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (endBlockMatch) {
         const indentation = endBlockMatch[1] ?? "";
         const commentText = endBlockMatch[2] ?? "";
         return appendTrailingLineComment(`${indentation}}`, commentText);
     }
 
-    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (!inlineBeginMatch) {
         return line;
     }

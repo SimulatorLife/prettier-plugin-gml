@@ -82,11 +82,11 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
     }
 
     if (
-        trimmed.includes("if") ||
-        trimmed.includes("while") ||
-        trimmed.includes("for") ||
-        trimmed.includes("with") ||
-        trimmed.includes("do")
+        /\bif\b/u.test(trimmed) ||
+        /\bwhile\b/u.test(trimmed) ||
+        /\bfor\b/u.test(trimmed) ||
+        /\bwith\b/u.test(trimmed) ||
+        /\bdo\b/u.test(trimmed)
     ) {
         return false;
     }
@@ -95,34 +95,55 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
 }
 
 function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
+    // Case 1: `if EXPR_NO_PARENS STMT` (legacy-style no-paren condition)
     const match = /^([\t ]*)(if\b[^()]*\S)\s+(.+)$/u.exec(line);
-    if (!match || match.length < 4 || match[3]?.trim() === "") {
-        return null;
+    if (match && match.length >= 4 && match[3]?.trim() !== "") {
+        const header = match[2] ?? "";
+        const statement = match[3]?.trim() ?? "";
+        if (
+            !header.includes("(") &&
+            !statement.startsWith("{") &&
+            statement.includes(";") &&
+            /^\s*if\s+\S+/iu.test(header)
+        ) {
+            const legacyThenMatch = /^if\s+(.+?)\s+then$/iu.exec(header);
+            const normalizedHeader = legacyThenMatch
+                ? `if (${legacyThenMatch[1] ?? ""})`
+                : `if (${header.slice(header.indexOf(" ") + 1).trim()})`;
+            return Object.freeze({
+                indentation: match[1] ?? "",
+                header: normalizedHeader,
+                statement
+            });
+        }
     }
 
-    const header = match[2] ?? "";
-    const statement = match[3]?.trim() ?? "";
-    if (header.includes("(")) {
-        return null;
-    }
-    if (statement.startsWith("{")) {
-        return null;
-    }
-    if (!/^\s*if\s+\S+/iu.test(header)) {
-        return null;
-    }
-    if (!statement.includes(";")) {
-        return null;
+    // Case 2: `if CALLEE() STMT` – condition is a call expression with its own parens
+    const callMatch = /^([\t ]*)(if\b\s+[A-Za-z_][A-Za-z0-9_.]*\s*\([^)]*\))\s+(.+)$/u.exec(line);
+    if (callMatch && callMatch.length >= 4 && callMatch[3]?.trim() !== "") {
+        const header = callMatch[2] ?? "";
+        const statement = callMatch[3]?.trim() ?? "";
+        if (!statement.startsWith("{") && statement.includes(";")) {
+            // Normalise: `if callee()` → `if (callee())`
+            const condBody = header.replace(/^if\b\s*/u, "");
+            return Object.freeze({
+                indentation: callMatch[1] ?? "",
+                header: `if (${condBody})`,
+                statement
+            });
+        }
     }
 
-    const legacyThenMatch = /^if\s+(.+?)\s+then$/iu.exec(header);
-    const normalizedHeader = legacyThenMatch ? `if (${legacyThenMatch[1] ?? ""})` : header;
+    return null;
+}
 
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: normalizedHeader,
-        statement
-    });
+/**
+ * Returns the indentation of a standalone `else` keyword (no trailing code), or
+ * null if the line is not a plain else header.
+ */
+function parseLineOnlyElseHeader(line: string): string | null {
+    const match = /^([\t ]*)else\s*$/u.exec(line);
+    return match ? (match[1] ?? "") : null;
 }
 
 function parseInlineElseClause(line: string): BracedSingleClause | null {
@@ -294,6 +315,16 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                                 index += 2;
                                 continue;
                             }
+                        }
+
+                        // Standalone `else` header followed by a single statement on the next line.
+                        const elseHeaderIndentation = parseLineOnlyElseHeader(line);
+                        if (elseHeaderIndentation !== null && isSafeSingleLineControlFlowStatement(nextLine)) {
+                            rewrittenLines.push(
+                                ...toBracedSingleClause(elseHeaderIndentation, "else", nextLine.trim())
+                            );
+                            index += 1;
+                            continue;
                         }
 
                         const controlFlowHeader = parseLineOnlyControlFlowHeader(line);
