@@ -1181,6 +1181,12 @@ void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern 
     assertEquals(result.output, expected);
 });
 
+void test("optimize-math-expressions does not force the lengthdir half-difference canonicalization on unrelated subtraction patterns", () => {
+    const input = ["var s = size * 0.104;", "s = s * 0.5 - lengthdir_x(1, swim_rot);", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
+});
+
 void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
     const input = "var config = settings ?? global.default_settings;\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
