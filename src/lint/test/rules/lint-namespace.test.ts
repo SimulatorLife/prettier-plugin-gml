@@ -36,6 +36,7 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
         (Lint.ruleIds as Record<string, string>).GmlPreferCompoundAssignments,
         "gml/prefer-compound-assignments"
     );
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlPreferDirectReturn, "gml/prefer-direct-return");
     assertEquals((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
     assertEquals((Lint.ruleIds as Record<string, string>).FeatherGM1000, "feather/gm1000");
 });
@@ -60,6 +61,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
     assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
     assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
+    assertEquals(recommended.rules["gml/prefer-direct-return"], "warn");
     assertEquals(recommended.rules["gml/prefer-loop-invariant-expressions"], "warn");
     assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
 

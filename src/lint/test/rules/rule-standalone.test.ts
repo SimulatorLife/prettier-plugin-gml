@@ -415,6 +415,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "prefer-compound-assignments",
+        "prefer-direct-return",
         "optimize-logical-flow",
         "normalize-doc-comments",
         "normalize-directives",
