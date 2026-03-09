@@ -6,6 +6,7 @@ import { Core } from "@gml-modules/core";
 import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatByteSizeDisplay } from "../shared/byte-format.js";
 import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
@@ -94,10 +95,11 @@ export function createCollectStatsCommand() {
     );
 }
 
-export function runCollectStats({ command }: any = {}) {
-    const options = command?.opts() || {};
+export function runCollectStats({ command }: { command?: CommanderCommandLike } = {}) {
+    const options = command?.opts() ?? {};
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const outputPath = options.output || path.join("reports", "project-health.json");
+    const outputPath =
+        typeof options.output === "string" ? options.output : path.join("reports", "project-health.json");
 
     const stats = scanProjectHealth(workspaceRoot);
 
