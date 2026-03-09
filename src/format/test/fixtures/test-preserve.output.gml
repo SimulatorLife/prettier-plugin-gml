@@ -104,7 +104,6 @@ with (instance_create_layer(x, y, "Instances", obj_Fire)) {
 
 // The following line should be preserved; numbers with leading zeros are allowed in GML
 global.lighting.add_key_time(00, 253, 094, 083, 0.5); // Sunset peak at 00h
-
 global.lighting.draw(
     vmat, pmat,
     function () { // Depth drawing callback
@@ -196,7 +195,6 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         }
         return lt;
     };
-
 }
 
 // Debug-only macro guard for *use_fast_sampling* edits
@@ -205,7 +203,6 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
         return true;                                                       \
     }
-
 /// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @param inst_a
 /// @param inst_b
@@ -240,3 +237,26 @@ draw_set_color(c_white);
 draw_set_alpha(1);
 draw_text(10, 10, str);
 */
+
+// Feather disable all
+/// .__Destroy()
+///
+/// .__FromBuffer(buffer)
+///
+/// .__CopyFromBuffer(buffer)
+///
+/// .__FromString(string, ...)
+///
+/// .__Delete(position, count)
+///
+/// .__Insert(position, string, ...)
+///
+/// .__Overwrite(position, string, ...)
+///
+/// .__Prefix(string, ...)
+///
+/// .__Suffix(string, ...)
+///
+/// .__GetString()
+///
+/// .__GetBuffer()

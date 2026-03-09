@@ -1,14 +1,28 @@
 import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
 
 import { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
+import { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
 
 const { stripCommentsTransform } = Core;
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
  * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
+ *
+ * ORDER MATTERS:
+ * 1. `annotateStaticFunctionOverridesTransform` – must run first so that
+ *    `_overridesStaticFunction` annotations are present before any downstream
+ *    pass (e.g., `synthetic-comments.ts`) reads them.
+ * 2. `stripCommentsTransform` – removes comment nodes; must run before rules
+ *    that expect a clean comment-free AST.
+ * 3. `markCallsMissingArgumentSeparatorsTransform` – marks call-argument
+ *    separator gaps; depends on the AST being otherwise normalized.
  */
-const TRANSFORM_REGISTRY_ENTRIES = [stripCommentsTransform, markCallsMissingArgumentSeparatorsTransform] as const;
+const TRANSFORM_REGISTRY_ENTRIES = [
+    annotateStaticFunctionOverridesTransform,
+    stripCommentsTransform,
+    markCallsMissingArgumentSeparatorsTransform
+] as const;
 
 type RegisteredTransform = (typeof TRANSFORM_REGISTRY_ENTRIES)[number];
 export type ParserTransformName = RegisteredTransform["name"];
@@ -74,6 +88,7 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
 ) as readonly ParserTransformName[];
 
 export { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
+export { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,

@@ -105,3 +105,52 @@ void test("expands guarded returns with values when single-line is disabled", as
         ].join("\n")
     );
 });
+
+void test("does not force inline bodies when allowSingleLineIfStatements is enabled but the clause exceeds print width", async () => {
+    const source = [
+        "if (scr_is_matrix_rotated(scr_matrix_build(100, 999, 1000, 90, 90, 90, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1))) { return true; }",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source, {
+        allowSingleLineIfStatements: true,
+        printWidth: 115
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "if (scr_is_matrix_rotated(scr_matrix_build(100, 999, 1000, 90, 90, 90, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1))) {",
+            "    return true;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("preserves compact one-line block guards inside nested function expressions when disabled", async () => {
+    const source = [
+        "function outer() {",
+        "    var nested = function () {",
+        "        if (reset_matrix) { scr_matrix_reset(); }",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "function outer() {",
+            "    var nested = function () {",
+            "        if (reset_matrix) { scr_matrix_reset(); }",
+            "    };",
+            "}",
+            ""
+        ].join("\n")
+    );
+});

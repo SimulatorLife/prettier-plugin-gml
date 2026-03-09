@@ -67,7 +67,7 @@ with((enemy))
 #endregion
 
 ///@func func_add
-/// @Arg {Real} n1
+/// @Arg {Real} [n1]
 /// @Arg {Real} n2
 /// @description Add 2 numbers
 function func_add(n1, n2) {
@@ -89,7 +89,7 @@ func_sub(.5, 9);
 
 var testStringShouldNotHaveLeadingZero = ".5";
 
-var testComplicatedString = "This is a string with a \"quote\" in it";
+var testComplicatedString = $"This is a string with a \"quote\" in it";
 
 //This is an inline comment without a space after the slashes
 if global.disableDraw{exit;}

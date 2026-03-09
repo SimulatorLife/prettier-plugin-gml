@@ -23,6 +23,7 @@ function bool_with_extra(condition) {
 
 /// @function scr_logic_absorption_and
 /// @param {bool} foo
+/// @param foo
 /// @param {bool} bar
 /// @description Absorption law: (foo and (foo or bar)) == foo.
 /// @returns {bool}
@@ -36,8 +37,8 @@ function scr_logic_absorption_and(foo, bar){
 /// @function scr_logic_factor_shared_and
 /// @param {bool} foo
 /// @param {bool} bar
-/// @param {bool} baz
 /// @description Distributive factoring: (foo and bar) or (foo and baz) == foo and (bar or baz).
+/// @param {bool} baz
 /// @returns {bool}
 function scr_logic_factor_shared_and(foo, bar, baz){
     if ((foo and bar) or (foo and baz)) {
@@ -120,12 +121,13 @@ function scr_logic_demorgan_or(foo, bar){
     return false;
 }
 
-/// @function scr_logic_branch_collapse
-/// @param {bool} foo
-/// @param {bool} bar
+/// @func scr_logic_branch_collapse
+/// @param {bol} foo
+/// @description
+/// @arg {bool} bar
 /// @param {bool} baz
 /// @description Original multi-branch: if (foo and bar or baz) return (foo and bar); else return (foo or baz).
-/// @returns {bool}
+/// @returns {boolean}
 function scr_logic_branch_collapse(foo, bar, baz){
     if (foo and bar or baz) {
         return foo and bar;

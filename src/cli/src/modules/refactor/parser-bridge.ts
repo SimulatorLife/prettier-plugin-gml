@@ -1,28 +1,17 @@
 import { readFile } from "node:fs/promises";
 
 import { Parser } from "@gml-modules/parser";
-
-type AstNode = {
-    children?: Array<AstNode>;
-    end: number;
-    name?: string;
-    start: number;
-    type?: string;
-};
-
-type ParserBridge = {
-    parse: (filePath: string) => Promise<AstNode>;
-};
+import type * as Refactor from "@gml-modules/refactor";
 
 /**
  * Parser bridge that adapts @gml-modules/parser to the refactor engine.
  */
-export class GmlParserBridge implements ParserBridge {
+export class GmlParserBridge implements Refactor.ParserBridge {
     /**
      * Parse a GML file and return a refactor-compatible AST.
      * @param filePath Path to the GML file
      */
-    async parse(filePath: string): Promise<AstNode> {
+    async parse(filePath: string): Promise<Refactor.AstNode> {
         const sourceText = await readFile(filePath, "utf8");
         const parser = new Parser.GMLParser(sourceText, {
             getLocations: true,
@@ -38,7 +27,7 @@ export class GmlParserBridge implements ParserBridge {
     /**
      * Recursively adapts parser nodes to the refactor engine's AST interface.
      */
-    private adaptNode(node: any): AstNode {
+    private adaptNode(node: any): Refactor.AstNode {
         if (!node || typeof node !== "object") {
             return {
                 start: 0,
@@ -46,7 +35,7 @@ export class GmlParserBridge implements ParserBridge {
             };
         }
 
-        const adapted: AstNode = {
+        const adapted: Refactor.AstNode = {
             type: node.type,
             name: node.name || (node.id && typeof node.id === "object" ? node.id.name : node.id),
             start: node.start?.index ?? 0,

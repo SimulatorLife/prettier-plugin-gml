@@ -31,7 +31,7 @@ export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
                 category: "gml",
                 default: false,
                 description:
-                    "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). When disabled, only guard-style single-line 'if' statements that already appear on one line stay collapsed; other bodies expand across multiple lines."
+                    "Collapse single-statement 'if' bodies to a single line when the complete statement fits within printWidth (for example, 'if (condition) { return; }'). When disabled, only guard-style single-line 'if' statements that already appear on one line stay collapsed; other bodies expand across multiple lines."
             },
             logicalOperatorsStyle: {
                 since: "0.0.0",
@@ -39,15 +39,17 @@ export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
                 category: "gml",
                 default: LogicalOperatorsStyle.KEYWORDS,
                 description:
-                    "Controls whether logical '&&'/'||' operators are rewritten using GameMaker's word forms. Set to 'symbols' to keep the original operators while formatting.",
+                    "Enforces a consistent logical operator style across the file. Each mode normalises every occurrence: 'keywords' converts all logical operators to word form; 'symbols' converts all to symbol form.",
                 choices: [
                     {
                         value: LogicalOperatorsStyle.KEYWORDS,
-                        description: "Replace '&&' and '||' with the GameMaker keywords 'and' and 'or'."
+                        description:
+                            "Enforce keyword form: `&&`, `||`, and `^^` are converted to `and`, `or`, and `xor`."
                     },
                     {
                         value: LogicalOperatorsStyle.SYMBOLS,
-                        description: "Preserve the symbolic logical operators exactly as written in the source."
+                        description:
+                            "Enforce symbol form: `and`, `or`, and `xor` are converted to `&&`, `||`, and `^^`."
                     }
                 ]
             }

@@ -117,47 +117,26 @@ function isBannerLikeLineComment(rawText: string): boolean {
     return /[/_*#<>|:~-]{6,}/u.test(trimmed);
 }
 
-function isDecorativeBlockCommentNode(node: unknown): boolean {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    if (Reflect.get(node, "type") !== "CommentBlock") {
-        return false;
-    }
-
-    const value = Reflect.get(node, "value");
-    return typeof value === "string" && /\/{6,}/u.test(value);
+function isCommentedOutCodeLine(rawText: string): boolean {
+    return /^\s*\/\/\s*[A-Za-z_]\w*\s*:/u.test(rawText);
 }
 
 function isSlashOnlyLineComment(rawText: string): boolean {
     return /^\s*\/{6,}\s*$/u.test(rawText);
 }
 
-function shouldSuppressDecorativeBlockSuffixLine(
+function findDecorativeBlockTerminatorBeforeSlashLineComment(
     comment: LineComment,
     rawText: string,
     originalText: string | null | undefined
-): boolean {
-    return (
-        isSlashOnlyLineComment(rawText) &&
-        (isDecorativeBlockCommentNode(comment.precedingNode) ||
-            isSlashSuffixLineAfterDecorativeBlockComment(comment, rawText, originalText))
-    );
-}
-
-function isSlashSuffixLineAfterDecorativeBlockComment(
-    comment: LineComment,
-    rawText: string,
-    originalText: string | null | undefined
-): boolean {
+): number | null {
     if (!isSlashOnlyLineComment(rawText) || typeof originalText !== "string") {
-        return false;
+        return null;
     }
 
     const startIndex = resolveCommentStartIndex(comment);
-    if (!Number.isInteger(startIndex) || startIndex <= 0) {
-        return false;
+    if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex > originalText.length) {
+        return null;
     }
 
     let cursor = startIndex - 1;
@@ -167,11 +146,56 @@ function isSlashSuffixLineAfterDecorativeBlockComment(
             cursor -= 1;
             continue;
         }
-
         break;
     }
 
-    return cursor >= 1 && originalText[cursor] === "/" && originalText[cursor - 1] === "*";
+    if (cursor < 1 || originalText[cursor] !== "/" || originalText[cursor - 1] !== "*") {
+        return null;
+    }
+
+    const blockTerminatorIndex = cursor;
+    const blockStartIndex = originalText.lastIndexOf("/*", blockTerminatorIndex - 1);
+    if (blockStartIndex === -1) {
+        return null;
+    }
+
+    const blockCommentSource = originalText.slice(blockStartIndex, blockTerminatorIndex + 1);
+    if (!/\/{6,}/u.test(blockCommentSource)) {
+        return null;
+    }
+
+    return blockTerminatorIndex;
+}
+
+function isInlineSlashSuffixAfterDecorativeBlockComment(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    const blockTerminatorIndex = findDecorativeBlockTerminatorBeforeSlashLineComment(comment, rawText, originalText);
+    if (blockTerminatorIndex === null) {
+        return false;
+    }
+
+    const startIndex = resolveCommentStartIndex(comment);
+    if (startIndex === null) {
+        return false;
+    }
+
+    const gap = originalText.slice(blockTerminatorIndex + 1, startIndex);
+    return !/[\n\r]/u.test(gap);
+}
+
+function isSlashLineAfterDecorativeBlockComment(
+    comment: LineComment,
+    rawText: string,
+    originalText: string | null | undefined
+): boolean {
+    return findDecorativeBlockTerminatorBeforeSlashLineComment(comment, rawText, originalText) !== null;
 }
 
 function isTripleSlashDecorativeLine(rawText: string): boolean {
@@ -233,11 +257,19 @@ function shouldPreserveRawFormatterLineComment(
     rawText: string,
     originalText: string | null | undefined
 ): boolean {
+    // Triple-slash doc-tag lines (/// @tag …) must be returned verbatim.
+    // Tag-alias normalization (e.g. @func → @function, @desc → @description)
+    // and other content rewrites (parameter-list stripping, type annotation
+    // canonicalization) are owned exclusively by the lint rule
+    // `gml/normalize-doc-comments` (target-state.md §2.2, §3.2).
     return (
+        isDocTagLine(rawText) ||
         isLegacyDoubleSlashDocAnnotation(rawText) ||
         isLegacySingleSlashDocPrefix(rawText) ||
         isTripleSlashSeparatorLine(rawText) ||
+        isMethodListTripleSlashLine(rawText) ||
         isBannerLikeLineComment(rawText) ||
+        isCommentedOutCodeLine(rawText) ||
         isTripleSlashContinuationInDocBlock(comment, rawText, originalText) ||
         isTripleSlashLineAdjacentToDecorativeSeparator(comment, rawText, originalText)
     );
@@ -253,8 +285,17 @@ function formatDocLikeLineComment(
         originalText: originalText ?? undefined
     });
 
-    if (shouldSuppressDecorativeBlockSuffixLine(comment, rawText, originalText)) {
-        return null;
+    // Decorative banner/comment-content cleanup is lint-owned (`gml/normalize-banner-comments`).
+    // The formatter must keep source comment text and only apply layout operations.
+    if (isInlineSlashSuffixAfterDecorativeBlockComment(comment, rawText, originalText)) {
+        // Decorative block comments preserve their same-line slash suffix when the
+        // block token range is extended by the comment printer. Suppress the parsed
+        // line-comment token to avoid printing that suffix twice.
+        return "";
+    }
+
+    if (isSlashLineAfterDecorativeBlockComment(comment, rawText, originalText)) {
+        return rawText.trimEnd();
     }
 
     if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
@@ -280,14 +321,6 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
 
     if (shouldPreserveRawFormatterLineComment(comment, rawText, originalText)) {
         return rawText.trimEnd();
-    }
-
-    const leadingWhitespaceMatch = formatted.match(/^\s*/u);
-    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
-    const trimmedFormatted = formatted.trimStart();
-
-    if (/^\/\/\/\s+\.[A-Za-z_]/u.test(trimmedFormatted)) {
-        return `${leadingWhitespace}// ${trimmedFormatted.slice(3).trimStart()}`;
     }
 
     return formatted;

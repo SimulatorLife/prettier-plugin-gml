@@ -54,6 +54,7 @@ import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
 import { StringBuilder } from "./string-builder.js";
@@ -89,6 +90,16 @@ export class GmlToJsEmitter {
     }
 
     private visit(ast: GmlNode): string {
+        // Safety fallback: the parser now wraps all hex/binary tokens in Literal nodes,
+        // but certain code paths (e.g., enum normalizeEnumInitializer, future parser
+        // updates) may still produce raw primitive values in AST positions.
+        // Handling them here prevents silent empty-string emission.
+        if (typeof ast === "string") {
+            return normalizeGmlNumericLiteral(ast);
+        }
+        if (typeof ast === "number") {
+            return String(ast);
+        }
         switch (ast.type) {
             case "DefaultParameter": {
                 return this.visitDefaultParameter(ast);
@@ -262,7 +273,11 @@ export class GmlToJsEmitter {
     }
 
     private visitLiteral(ast: LiteralNode): string {
-        return String(ast.value);
+        const value = ast.value;
+        if (typeof value === "string") {
+            return normalizeGmlNumericLiteral(value);
+        }
+        return String(value);
     }
 
     private visitIdentifier(ast: IdentifierNode): string {
@@ -296,18 +311,22 @@ export class GmlToJsEmitter {
         // Try constant folding first for compile-time optimization
         const folded = tryFoldConstantExpression(ast);
         if (folded !== null) {
-            // Emit the folded constant directly
-            // Strings need quotes, numbers and booleans don't
+            // Emit the folded constant directly.
+            // JSON.stringify guarantees valid JavaScript string escaping
+            // for control characters (newlines, tabs, etc.) and quotes.
             if (typeof folded === "string") {
-                // Escape special characters in the string
-                const escaped = folded.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`);
-                return `"${escaped}"`;
+                return JSON.stringify(folded);
             }
             return String(folded);
         }
         // Fall back to runtime evaluation
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
+        // Special case: GML `div` is integer division truncating toward zero.
+        // There is no single JavaScript operator for this; lower to Math.trunc(a / b).
+        if (ast.operator === "div") {
+            return `Math.trunc(${left} / ${right})`;
+        }
         const op = mapBinaryOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }

@@ -88,16 +88,29 @@ do {
 return total;
 
 function bool_passthrough(condition) {
-    return condition;
+    if (condition) {
+        return true;
+    } else {
+        return false;
+    }
 }
+
 /// @param {boolean} b - The second boolean
 /// @param {boolean} a - The first boolean
 function bool_negated(a, b) {
-    return !(a and b);
+    if (a and b) {
+        return false;
+    } else {
+        return true;
+    }
 }
 
 function bool_with_comment(condition) {
-    return condition;
+    if (condition) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 /// @param list

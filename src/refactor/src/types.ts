@@ -6,6 +6,7 @@
 
 import { Core } from "@gml-modules/core";
 
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -13,6 +14,90 @@ export type MaybePromise<T> = T | Promise<T>;
 export type Range = { start: number; end: number };
 
 const { createEnumeratedOptionHelpers } = Core;
+
+/**
+ * Allowed naming case styles for naming-convention policy rules.
+ */
+export type NamingCaseStyle = "lower" | "upper" | "camel" | "lower_snake" | "upper_snake" | "pascal";
+
+/**
+ * Category keys that can be targeted by naming-convention policy rules.
+ */
+export type NamingCategory =
+    | "resource"
+    | "scriptResourceName"
+    | "objectResourceName"
+    | "roomResourceName"
+    | "spriteResourceName"
+    | "audioResourceName"
+    | "timelineResourceName"
+    | "shaderResourceName"
+    | "fontResourceName"
+    | "pathResourceName"
+    | "sequenceResourceName"
+    | "tilesetResourceName"
+    | "variable"
+    | "localVariable"
+    | "globalVariable"
+    | "instanceVariable"
+    | "staticVariable"
+    | "argument"
+    | "catchArgument"
+    | "loopIndexVariable"
+    | "callable"
+    | "function"
+    | "constructorFunction"
+    | "eventHandlerFunction"
+    | "structMethod"
+    | "staticMethod"
+    | "typeName"
+    | "structDeclaration"
+    | "enum"
+    | "member"
+    | "structField"
+    | "enumMember"
+    | "constant"
+    | "macro";
+
+/**
+ * Raw user-authored rule options for a single naming category.
+ */
+export interface NamingRuleConfig {
+    caseStyle?: NamingCaseStyle;
+    prefix?: string;
+    suffix?: string;
+    minChars?: number;
+    maxChars?: number;
+    bannedPrefixes?: Array<string>;
+    bannedSuffixes?: Array<string>;
+}
+
+/**
+ * User-authored naming policy consumed by rename validation and planning.
+ */
+export interface NamingConventionPolicy {
+    rules: Partial<Record<NamingCategory, NamingRuleConfig | false>>;
+    exclusivePrefixes?: Record<string, NamingCategory>;
+    exclusiveSuffixes?: Record<string, NamingCategory>;
+}
+
+/**
+ * Normalized rule values after inheritance/default resolution for a category.
+ */
+export interface ResolvedNamingRule {
+    prefix: string;
+    suffix: string;
+    caseStyle: NamingCaseStyle;
+    minChars: number | null;
+    maxChars: number | null;
+    bannedPrefixes: ReadonlyArray<string>;
+    bannedSuffixes: ReadonlyArray<string>;
+}
+
+/**
+ * Resolved rule map keyed by naming category.
+ */
+export type ResolvedNamingConventionRules = Partial<Record<NamingCategory, ResolvedNamingRule>>;
 
 /**
  * Create type-safe enum validators with case-sensitive matching.
@@ -450,6 +535,35 @@ export interface ExecuteBatchRenameRequest {
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
+}
+
+/**
+ * Parameters for running the loop-length hoisting codemod across multiple files.
+ */
+export interface ExecuteLoopLengthHoistingCodemodRequest {
+    filePaths: Array<string>;
+    readFile: WorkspaceReadFile;
+    writeFile?: WorkspaceWriteFile;
+    options?: LoopLengthHoistingCodemodOptions;
+    dryRun?: boolean;
+}
+
+/**
+ * Summary of loop-length hoisting codemod execution for a single file.
+ */
+export interface LoopLengthHoistingFileSummary {
+    path: string;
+    appliedEditCount: number;
+    diagnosticOffsets: Array<number>;
+}
+
+/**
+ * Result payload returned after executing a loop-length hoisting codemod transaction.
+ */
+export interface ExecuteLoopLengthHoistingCodemodResult {
+    workspace: WorkspaceEdit;
+    applied: Map<string, string>;
+    changedFiles: Array<LoopLengthHoistingFileSummary>;
 }
 
 export interface PrepareRenamePlanOptions {

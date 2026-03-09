@@ -110,6 +110,7 @@ function createInitialQueueMetrics(): PatchQueueMetrics {
         totalQueued: 0,
         totalFlushed: 0,
         totalDropped: 0,
+        totalDeduplicated: 0,
         maxQueueDepth: 0,
         flushCount: 0,
         lastFlushSize: 0,
@@ -132,6 +133,65 @@ type FlushQueueOptions = {
     applyQueuedPatch: (incoming: unknown) => boolean;
     logger?: Logger;
 };
+
+/**
+ * Deduplicates a list of patch candidates by ID, retaining only the last
+ * occurrence of each ID. When a developer saves rapidly, the same patch ID
+ * can arrive multiple times within the flush window. Applying only the
+ * most-recent version avoids unnecessary `new Function` compilations and
+ * registry version churn.
+ *
+ * Patches without a string `id` field are always retained unchanged.
+ *
+ * @returns The deduplicated list and the number of duplicates removed.
+ */
+function deduplicatePatchQueueById(patches: Array<unknown>): {
+    patches: Array<unknown>;
+    duplicateCount: number;
+} {
+    // Walk backward so the first occurrence we encounter for each ID is the
+    // most-recent patch that should be retained.
+    const seenIds = new Set<string>();
+    const deduplicatedReversed: Array<unknown> = [];
+    let duplicateCount = 0;
+
+    for (let i = patches.length - 1; i >= 0; i--) {
+        const patch = patches[i];
+        const id = extractPatchId(patch);
+        if (id === null) {
+            deduplicatedReversed.push(patch);
+            continue;
+        }
+
+        if (seenIds.has(id)) {
+            duplicateCount += 1;
+            continue;
+        }
+
+        seenIds.add(id);
+        deduplicatedReversed.push(patch);
+    }
+
+    if (duplicateCount === 0) {
+        return { patches, duplicateCount: 0 };
+    }
+
+    deduplicatedReversed.reverse();
+    return { patches: deduplicatedReversed, duplicateCount };
+}
+
+/**
+ * Returns the string `id` from a patch candidate object, or `null` if the
+ * value is not an object with a string `id` property.
+ */
+function extractPatchId(patch: unknown): string | null {
+    if (patch === null || typeof patch !== "object" || !("id" in patch)) {
+        return null;
+    }
+
+    const id = (patch as Record<string, unknown>).id;
+    return typeof id === "string" ? id : null;
+}
 
 function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     const { state, wrapper, applyQueuedPatch, logger } = options;
@@ -171,25 +231,36 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     queueMetrics.lastFlushSize = flushSize;
     queueMetrics.lastFlushedAt = getWallClockTime();
 
+    // Deduplicate: when the same patch ID appears multiple times in the flush
+    // batch (e.g., rapid saves), only the last version is applied. Earlier
+    // occurrences are accounted for in totalFlushed but skipped from application.
+    const { patches: patchesToApply, duplicateCount } = deduplicatePatchQueueById(patchesToFlush);
+    queueMetrics.totalDeduplicated += duplicateCount;
+
     const flushStartTime = getHighResolutionTime();
 
     if (wrapper.applyPatchBatch) {
-        const result = wrapper.applyPatchBatch(patchesToFlush);
+        const result = wrapper.applyPatchBatch(patchesToApply);
         const applied = result.success && !result.rolledBack ? result.appliedCount : 0;
-        const failed = result.success ? 0 : flushSize;
+        // patchesFailed counts the deduplicated set: on a batch failure all
+        // non-deduped patches are considered failed (the batch is rolled back).
+        const failed = result.success ? 0 : patchesToApply.length;
 
         connectionMetrics.patchesApplied += applied;
         connectionMetrics.patchesFailed += failed;
         if (failed > 0) {
             connectionMetrics.patchErrors += failed;
         }
+        // totalFlushed accounts for all patches removed from the queue, including
+        // those skipped by deduplication. The invariant is:
+        //   totalFlushed = patchesApplied + patchesFailed + totalDeduplicated
         queueMetrics.totalFlushed += flushSize;
 
         if (result.success && applied > 0) {
             connectionMetrics.lastPatchAppliedAt = getWallClockTime();
         }
     } else {
-        for (const patch of patchesToFlush) {
+        for (const patch of patchesToApply) {
             applyQueuedPatch(patch);
         }
         queueMetrics.totalFlushed += flushSize;

@@ -295,6 +295,39 @@ function getIdentifierNameFromParameterSegment(segment: string): string | null {
     return match ? match[1] : null;
 }
 
+function normalizeTrailingOptionalParameterSegments(
+    parameterSegments: ReadonlyArray<string>
+): Readonly<{ changed: boolean; segments: ReadonlyArray<string> }> {
+    let changed = false;
+    let encounteredOptionalParameter = false;
+
+    const normalizedSegments = parameterSegments.map((parameterSegment) => {
+        const trimmedSegment = parameterSegment.trim();
+        const hasExplicitDefault = trimmedSegment.includes("=");
+        if (hasExplicitDefault) {
+            encounteredOptionalParameter = true;
+            return parameterSegment;
+        }
+
+        if (!encounteredOptionalParameter) {
+            return parameterSegment;
+        }
+
+        const parameterName = getIdentifierNameFromParameterSegment(trimmedSegment);
+        if (!parameterName) {
+            return parameterSegment;
+        }
+
+        changed = true;
+        return `${trimmedSegment} = undefined`;
+    });
+
+    return Object.freeze({
+        changed,
+        segments: Object.freeze(normalizedSegments)
+    });
+}
+
 function matchLeadingTernaryFallback(statement: any, sourceText: string): LeadingArgumentFallback | null {
     const declarator = getVariableDeclarator(statement);
     if (!declarator) {
@@ -465,7 +498,14 @@ function rewriteFunctionForOptionalDefaults(sourceText: string, functionNode: an
         }
     }
 
-    if (localEdits.length === 0 && rewrittenSegments.length === originalSegments.length) {
+    const normalizedTrailingOptionalSegments = normalizeTrailingOptionalParameterSegments(rewrittenSegments);
+    rewrittenSegments = [...normalizedTrailingOptionalSegments.segments];
+
+    if (
+        localEdits.length === 0 &&
+        rewrittenSegments.length === originalSegments.length &&
+        !normalizedTrailingOptionalSegments.changed
+    ) {
         return null;
     }
 

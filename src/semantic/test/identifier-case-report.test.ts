@@ -12,7 +12,7 @@ import {
     maybeReportIdentifierCaseDryRun,
     summarizeIdentifierCasePlan
 } from "../src/identifier-case/identifier-case-report.js";
-import { getFormat } from "./format-loader.js";
+import { getFormat } from "./identifier-case-test-helpers.js";
 
 function createSampleRenamePlan() {
     return {

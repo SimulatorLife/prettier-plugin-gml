@@ -87,6 +87,33 @@ function preserveBannerSpacingGaps(source: string, formatted: string): string {
     return result;
 }
 
+function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
+    source: string,
+    formatted: string
+): boolean {
+    if (source.endsWith("\n") || source.endsWith("\r")) {
+        return false;
+    }
+
+    if (formatted !== `${source}\n`) {
+        return false;
+    }
+
+    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
+        return false;
+    }
+
+    return source.includes("\n*/\n\n");
+}
+
+function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
+    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
+        return formatted;
+    }
+
+    return source;
+}
+
 /**
  * Utility function and entry point to format GML source code.
  */
@@ -104,7 +131,8 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 
     const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    return preserveTopLevelDescriptionGap(source, withBannerSpacing);
+    const withTopLevelDescriptionGap = preserveTopLevelDescriptionGap(source, withBannerSpacing);
+    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withTopLevelDescriptionGap);
 }
 
 export const Format: GmlFormat = {

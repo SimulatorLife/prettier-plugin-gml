@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/normalize-data-structure-accessors": "error"
+  }
+}

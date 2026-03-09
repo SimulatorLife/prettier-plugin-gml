@@ -1,1 +1,5 @@
-{}
+{
+  "lintRules": {
+    "feather/gm2000": "error"
+  }
+}

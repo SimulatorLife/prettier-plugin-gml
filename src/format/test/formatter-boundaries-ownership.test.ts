@@ -77,6 +77,22 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves explicit undefined default parameter values from function declarations", async () => {
+        const source = [
+            "function vertex_position_3d_ext(vbuff, px = 0, py = 0, pz = 0, trans_mat = undefined) {",
+            "    return [vbuff, px, py, pz, trans_mat];",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function vertex_position_3d_ext\(vbuff,\s*px = 0,\s*py = 0,\s*pz = 0,\s*trans_mat = undefined\)/,
+            "Formatter must preserve explicit `= undefined` default expressions in function parameters."
+        );
+    });
+
     void it("does not synthesize doc-comment tags during formatting", async () => {
         const source = [
             "function make_struct(value) {",
@@ -110,6 +126,105 @@ void describe("formatter boundaries ownership", () => {
             formatted,
             /^\/\/\/ @func update_ground_dist/m,
             "Formatter must not replace @function with alternate doc tags."
+        );
+    });
+
+    void it("does not normalize legacy // @desc aliases to @description (normalization belongs in lint)", async () => {
+        const source = ["// @desc Legacy summary", "function legacy_desc() {", "    return 1;", "}", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(formatted, /^\/\/ @desc Legacy summary$/m);
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description Legacy summary$/m,
+            "Formatter must not normalize legacy @desc tags; that is owned by gml/normalize-doc-comments in lint."
+        );
+    });
+
+    void it("does not normalize standalone /// @tag alias lines (normalization belongs in lint)", async () => {
+        // Standalone triple-slash doc-tag alias lines must be returned verbatim.
+        // Content rewrites — tag-alias normalization (@func → @function,
+        // @desc → @description, @return → @returns, @arg → @param) and
+        // parameter-list stripping (/// @function name(args) → name) — are
+        // owned exclusively by `gml/normalize-doc-comments` in @gml-modules/lint.
+        // (target-state.md §2.2, §3.2)
+        const source = [
+            "var x = 1;",
+            "/// @func my_helper(a)",
+            "/// @desc Returns a value",
+            "/// @return {real}",
+            "/// @arg {real} a",
+            "var y = 2;",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @func my_helper\(a\)$/m,
+            "Formatter must not normalize @func to @function — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @desc Returns a value$/m,
+            "Formatter must not normalize @desc to @description — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @return \{real\}$/m,
+            "Formatter must not normalize @return to @returns — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+        assert.match(
+            formatted,
+            /^\/\/\/ @arg \{real\} a$/m,
+            "Formatter must not normalize @arg to @param — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+    });
+
+    void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
+        // Legacy double-slash `// @function` doc comments are normalised by the
+        // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter
+        // must preserve the comment exactly as written and never silently convert
+        // `// @function` to `/// @function`. (target-state.md §2.2, §3.2, §3.5)
+        //
+        // The parser's `normalizeFunctionDocCommentAttachments` still attaches the
+        // comment to `node.docComments`; the formatter prints it verbatim.
+        const source = [
+            "// @function legacy_func(val)",
+            "// @param val {real}",
+            "function legacy_func(val) {",
+            "    return val;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        // The formatter must NOT silently upgrade the double-slash format.
+        // That conversion belongs exclusively to @gml-modules/lint.
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @function legacy_func/m,
+            "Formatter must not upgrade // @function to /// @function — that is a lint-workspace responsibility (gml/normalize-doc-comments)"
+        );
+    });
+
+    void it("does not rewrite explicit undefined defaults from raw legacy // @param text", async () => {
+        const source = [
+            "// @function legacy_optional(val)",
+            "// @param [val] {real}",
+            "function legacy_optional(val = undefined) {",
+            "    return val;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /function legacy_optional\(val = undefined\)/,
+            "Formatter must preserve explicit `= undefined` defaults and must not perform semantic optionality rewrites from raw legacy // comments."
         );
     });
 
@@ -268,6 +383,61 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("does not simplify if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return true; } else { return false; }`
+        // into `return cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // (target-state.md §2.2, §3.2 — "Format must not perform semantic/content rewrites")
+        const source = [
+            "function bool_passthrough(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return condition;/,
+            "Formatter must not simplify if/else boolean returns — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return true;/);
+        assert.match(formatted, /return false;/);
+    });
+
+    void it("does not simplify negated if/else boolean returns (semantic rewrites belong in lint)", async () => {
+        // The formatter must not transform `if (cond) { return false; } else { return true; }`
+        // into `return !cond;`. That is a semantic/structural content rewrite owned exclusively
+        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        const source = [
+            "function bool_negated(condition) {",
+            "    if (condition) {",
+            "        return false;",
+            "    } else {",
+            "        return true;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /return !condition;/,
+            "Formatter must not negate boolean return conditions — that is a lint-workspace responsibility (gml/optimize-logical-flow)"
+        );
+        assert.match(formatted, /if \(condition\)/);
+        assert.match(formatted, /return false;/);
+        assert.match(formatted, /return true;/);
+    });
+
     void it("does not apply math optimizations during formatting", async () => {
         const source = ["var division = 1 / 2;", "var multiplication = 2 * 2;"].join("\n");
 
@@ -326,6 +496,75 @@ void describe("formatter boundaries ownership", () => {
         assert.strictEqual(
             formatted,
             ["function sample(first) {", "    var alias = argument0;", "    return alias;", "}", ""].join("\n")
+        );
+    });
+
+    void it("does not strip empty /// @description doc-comment lines (cleanup belongs in lint)", async () => {
+        // Removing empty `/// @description` tags is a doc-comment content rewrite
+        // owned by `@gml-modules/lint`'s `gml/normalize-doc-comments` rule
+        // (target-state.md §2.2 — "Lint owns `@description` promotion/cleanup").
+        // The formatter must preserve empty @description lines verbatim so that
+        // lint can make an intentional, auditable decision about whether to remove them.
+        const standaloneSource = ["/// @description", "function demo() {", "    return 1;", "}"].join("\n");
+
+        const standaloneFormatted = await Format.format(standaloneSource);
+
+        assert.match(
+            standaloneFormatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description tags — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+
+        // Struct literal context: the formatter must preserve empty @description
+        // as a leading doc-comment line on struct properties too.
+        const structSource = [
+            "var obj = {",
+            "    /// @description",
+            "    method: function () {",
+            "        return 1;",
+            "    }",
+            "};",
+            ""
+        ].join("\n");
+
+        const structFormatted = await Format.format(structSource);
+
+        assert.match(
+            structFormatted,
+            /^[ \t]*\/\/\/ @description\s*$/m,
+            "Formatter must not strip empty /// @description from struct literal properties — that is a lint-workspace responsibility (target-state.md §2.2)"
+        );
+    });
+
+    void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
+        const source = [
+            "/// @description",
+            "",
+            "// Cast a ray from high above to the ground so that the coin is placed onto the ground",
+            "var ray = cm_cast_ray(levelColmesh, cm_ray(x, y, 1000, x, y, -100));",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description\s*\n\n\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground/m
+        );
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground\s*\n\/\/\/ @description\s*\nvar ray/m
+        );
+    });
+
+    void it("does not synthesize empty /// @description tags for undocumented functions", async () => {
+        const source = ["function no_docs() {", "    return 1;", "}", ""].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /^\/\/\/ @description\s*$/m,
+            "Formatter must not synthesize empty /// @description tags."
         );
     });
 });

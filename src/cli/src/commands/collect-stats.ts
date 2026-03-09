@@ -6,41 +6,14 @@ import { Core } from "@gml-modules/core";
 import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatByteSizeDisplay } from "../shared/byte-format.js";
+import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
 
 const { readTextFileSync } = Core;
 
 const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
-
-type DirectoryTraversalOptions = {
-    onFile: (filePath: string, entry: fs.Dirent) => void;
-    shouldDescend?: (fullPath: string, entry: fs.Dirent) => boolean;
-};
-
-function traverseDirectoryEntries(root: string, options: DirectoryTraversalOptions) {
-    if (!fs.existsSync(root)) {
-        return;
-    }
-    const stack = [root];
-    while (stack.length > 0) {
-        const current = stack.pop();
-        if (!current) {
-            continue;
-        }
-        const entries = fs.readdirSync(current, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(current, entry.name);
-            if (entry.isDirectory()) {
-                if (!options.shouldDescend || options.shouldDescend(fullPath, entry)) {
-                    stack.push(fullPath);
-                }
-                continue;
-            }
-            options.onFile(fullPath, entry);
-        }
-    }
-}
 
 function getSourceFiles(dir: string) {
     const fileList: string[] = [];
@@ -50,7 +23,9 @@ function getSourceFiles(dir: string) {
             if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
                 fileList.push(filePath);
             }
-        }
+        },
+        continueOnReadError: false,
+        ignoreDotEntries: false
     });
     return fileList;
 }
@@ -62,7 +37,10 @@ function getBuildSize(dir: string) {
             if (filePath.endsWith(".js")) {
                 size += fs.statSync(filePath).size;
             }
-        }
+        },
+        shouldDescend: () => true,
+        continueOnReadError: false,
+        ignoreDotEntries: false
     });
     return size;
 }
@@ -82,7 +60,7 @@ function scanProjectHealth(rootDir: string) {
             largeFiles += 1;
         }
 
-        todos += (content.match(/\b(TODO|FIXME|HACK)\b/g) || []).length;
+        todos += (content.match(/\b(?:TODO|FIXME|HACK)\b/g) || []).length;
     }
 
     let totalBuildSize = 0;
@@ -117,10 +95,11 @@ export function createCollectStatsCommand() {
     );
 }
 
-export function runCollectStats({ command }: any = {}) {
-    const options = command?.opts() || {};
+export function runCollectStats({ command }: { command?: CommanderCommandLike } = {}) {
+    const options = command?.opts() ?? {};
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const outputPath = options.output || path.join("reports", "project-health.json");
+    const outputPath =
+        typeof options.output === "string" ? options.output : path.join("reports", "project-health.json");
 
     const stats = scanProjectHealth(workspaceRoot);
 

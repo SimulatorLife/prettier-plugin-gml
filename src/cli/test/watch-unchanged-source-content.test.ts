@@ -111,7 +111,7 @@ void describe("watch command source content hash guard", () => {
                     "changed content should trigger a new transpilation"
                 );
 
-                // ── Step 5: size-changing edit still refreshes hash for no-op saves ─────
+                // ── Step 5: content-length-changing edit still refreshes hash for no-op saves ─
                 const largerContent = `function content_hash_script() {
     return 1000;
 }`;
@@ -145,7 +145,7 @@ void describe("watch command source content hash guard", () => {
                 assert.equal(
                     afterNoOpLargeSave.patchCount,
                     expectedPatchCountAfterNoOpLargeSave,
-                    "no-op save after size change should still be skipped"
+                    "no-op save after content length change should still be skipped"
                 );
             }
         );
