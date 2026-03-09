@@ -152,8 +152,8 @@ function classifyTranspilationError(error: unknown): {
         }
 
         if (error.message.includes("Failed to transpile event")) {
-            const causeMatch = /Failed to transpile event [^:]+: (.+)$/u.exec(error.message);
-            const innerMessage = causeMatch ? causeMatch[1] : error.message;
+            const causeMatch = /Failed to transpile event [^:]+: (?<inner>.+)$/u.exec(error.message);
+            const innerMessage = causeMatch?.groups?.inner ?? error.message;
             return {
                 category: "internal",
                 message: innerMessage,
