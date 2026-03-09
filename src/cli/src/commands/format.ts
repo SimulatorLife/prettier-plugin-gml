@@ -14,7 +14,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 
@@ -24,6 +23,11 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import { importFormatModule, resolveFormatEntryPoint as resolveCliFormatEntryPoint } from "../format-runtime/index.js";
+import {
+    hasNegatedIgnoreRules,
+    markNegatedIgnoreRulesDetected,
+    resetNegatedIgnoreRulesFlag
+} from "../modules/formatting/ignore-rules-negation-tracker.js";
 import {
     clearFormattingCache,
     createFormattingCacheKey,
@@ -52,11 +56,6 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "../shared/ignore-path-registry.js";
-import {
-    hasNegatedIgnoreRules,
-    markNegatedIgnoreRulesDetected,
-    resetNegatedIgnoreRulesFlag
-} from "../shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 
 const {
@@ -328,7 +327,7 @@ function configureConsoleMethods(logLevel: string): void {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            originalConsoleWarn.apply(console, args as any);
+            originalConsoleWarn.apply(console, args);
         };
         console.log = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
@@ -905,7 +904,7 @@ async function reportAndTrackFormattingError(error, filePath) {
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
     // intentionally malformed fixtures.
-    const isParseError = Parser.GameMakerSyntaxError.isParseError(error);
+    const isParseError = Core.isGmlParseError(error);
 
     // When the user specifies `--parse-error-action=SKIP`, they're explicitly opting
     // into a workflow where parse errors are treated as non-fatal: the CLI should

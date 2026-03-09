@@ -257,12 +257,12 @@ void test("prefer-loop-invariant-expressions keeps large hoist-name resolution w
         "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 2500,
-        `expected prefer-loop-invariant-expressions rule runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 1500,
+        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 12_000,
-        `expected total lint runtime under 12000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 5000,
+        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 

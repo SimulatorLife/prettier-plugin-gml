@@ -48,7 +48,7 @@ void describe("Watch command auto-inject flag", () => {
             }
         });
 
-        await setTimeoutPromise(500);
+        await setTimeoutPromise(200);
         abortController.abort();
         await watchPromise;
 
@@ -97,7 +97,7 @@ void describe("Watch command auto-inject flag", () => {
             }
         });
 
-        await setTimeoutPromise(500);
+        await setTimeoutPromise(200);
         abortController.abort();
         await watchPromise;
 
@@ -138,7 +138,7 @@ void describe("Watch command auto-inject flag", () => {
             }
         });
 
-        await setTimeoutPromise(500);
+        await setTimeoutPromise(200);
         abortController.abort();
         await watchPromise;
 
