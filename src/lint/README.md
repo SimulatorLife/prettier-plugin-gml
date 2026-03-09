@@ -128,6 +128,8 @@ Built-in `gml/*` rule short names:
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
+`require-control-flow-braces` only wraps unbraced control-flow statements and preserves already braced single-line forms (for example, `repeat (3) { step(); }`) without adding nested blocks.
+
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
 `prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.

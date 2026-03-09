@@ -1006,6 +1006,65 @@ void test("require-control-flow-braces rewrites legacy then inline if clauses", 
     assertEquals(result.output.split("}").length - 1, 2);
 });
 
+void test("require-control-flow-braces rewrites legacy call-style if clauses without then", () => {
+    const input = ["if should_exit() return;", ""].join("\n");
+    const expected = ["if (should_exit()) {", "    return;", "}", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline while/for/with statements", () => {
+    const input = ["while (alive) tick();", "for (var i = 0; i < 10; i++) sum += i;", "with (other) hp -= 1;", ""].join(
+        "\n"
+    );
+    const expected = [
+        "while (alive) {",
+        "    tick();",
+        "}",
+        "for (var i = 0; i < 10; i++) {",
+        "    sum += i;",
+        "}",
+        "with (other) {",
+        "    hp -= 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps line-only else branches without rewriting else-if chains", () => {
+    const input = ["if (a > b)", '    draw_text(x, y, "ok");', "else", "    do_other();", ""].join("\n");
+    const expected = ["if (a > b) {", '    draw_text(x, y, "ok");', "}", "else {", "    do_other();", "}", ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline do-until clauses", () => {
+    const input = ["do step(); until (done);", ""].join("\n");
+    const expected = ["do {", "    step();", "} until (done);", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces preserves already braced inline conditions with nested call parentheses", () => {
+    const input = [
+        "while (keyboard_check(vk_space)) { hold_jump(); }",
+        "if (keyboard_check(vk_escape)) { x += 10; } else { x -= 10; }",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
 void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
@@ -1367,6 +1426,14 @@ void test("require-control-flow-braces does not reinterpret already braced heade
         "}",
         ""
     ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("require-control-flow-braces preserves already braced single-line repeat bodies", () => {
+    const input = ["repeat (3) { already_repeat_braced(); }", ""].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 0);
