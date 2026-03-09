@@ -57,56 +57,14 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
-function preserveBannerSpacingGaps(source: string, formatted: string): string {
-    let result = formatted;
-
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
-    if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
-    }
-
-    const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
-    if (sourceHasCameraBannerGap) {
-        result = result.replace(/([^\n]\n)(\/{21,}\n\/{2}-+)/u, "$1\n$2");
-    }
-
-    const sourceHasDecorativeBlockGap = /\r?\n[ \t]*\r?\n[ \t]*\/\*\/{20,}/u.test(source);
-    if (sourceHasDecorativeBlockGap) {
-        result = result.replace(/([^\n]\n)(\/\*\/{20,})/u, "$1\n$2");
-    }
-
-    return result;
-}
-
-function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
-    source: string,
-    formatted: string
-): boolean {
-    if (source.endsWith("\n") || source.endsWith("\r")) {
-        return false;
-    }
-
-    if (formatted !== `${source}\n`) {
-        return false;
-    }
-
-    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
-        return false;
-    }
-
-    return source.includes("\n*/\n\n");
-}
-
-function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
-    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
-        return formatted;
-    }
-
-    return source;
-}
-
 /**
  * Utility function and entry point to format GML source code.
+ *
+ * This function is a thin wrapper around Prettier. It must not inspect the
+ * original `source` to patch or conditionally alter the formatted output —
+ * that is a source-aware content rewrite, which violates the formatter boundary
+ * (target-state.md §3.2). All layout passes run deterministically inside the
+ * Prettier pipeline and the downstream `normalizeFormattedOutput` step.
  */
 async function format(source: string, options: SupportOptions = {}) {
     const prettierFormatOptions: Record<string, unknown> = {
@@ -121,8 +79,7 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
+    return formatted;
 }
 
 export const Format: GmlFormat = {

@@ -13,7 +13,8 @@ Woah, still going
 Almost done!
 */
 
-var x = 1;`;
+var x = 1;
+`;
 
         const unexpected = `/*
  * This is a multi-line comment

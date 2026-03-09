@@ -567,4 +567,33 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    void it("does not inspect source to conditionally patch formatted output (source-aware post-processing belongs in lint)", async () => {
+        // The formatter must not use the original source text to make conditional
+        // decisions about the formatted output. Any post-processing that reads source
+        // and patches formatted is a source-aware content rewrite, violating §3.2.
+        //
+        // Concretely: running `Format.format(text)` and then `Format.format(result)`
+        // a second time must produce the same output — idempotency is the observable
+        // signal that no source-inspection patching is happening.
+        const source = [
+            "// Comment",
+            'var message = "ready";',
+            "",
+            "////////////////////////////////////////",
+            "//-------------------Move camera-----------------------//",
+            "////////////////////////////////////",
+            "camUpdateTimer += timeStep;",
+            ""
+        ].join("\n");
+
+        const firstPass = await Format.format(source);
+        const secondPass = await Format.format(firstPass);
+
+        assert.strictEqual(
+            secondPass,
+            firstPass,
+            "Format.format() must be idempotent. A second pass must not produce a different result than the first, which would indicate source-inspection patching (target-state.md §3.2)."
+        );
+    });
 });
