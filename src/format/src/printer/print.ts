@@ -147,7 +147,7 @@ function applyLogicalOperatorsStyle(operator, style) {
 }
 
 function _printImpl(path, options, print) {
-    const node = path.getValue();
+    const node = path.node;
 
     if (!node) {
         return concat("");
@@ -884,7 +884,7 @@ function printMemberDotExpressionNode(node, path, options, print) {
         }
     }
     if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
-        const objectNode = path.getValue()?.object;
+        const objectNode = path.node.object;
         const shouldAllowBreakBeforeDot =
             objectNode &&
             (objectNode.type === CALL_EXPRESSION ||
@@ -909,7 +909,7 @@ function printMemberDotExpressionNode(node, path, options, print) {
 }
 
 function printMemberIndexExpressionNode(_node, path, options, print) {
-    const memberNode = path.getValue();
+    const memberNode = path.node;
     let accessor = print("accessor");
     if (memberNode && typeof memberNode.accessor === "string") {
         accessor = memberNode.accessor;
@@ -1453,7 +1453,7 @@ function buildCallArgumentsDocs(
         hasCallbackArguments = false
     } = {}
 ) {
-    const node = path.getValue();
+    const node = path.node;
     const simplePrefixLength = countLeadingSimpleCallArguments(node);
     const hasTrailingArguments = Array.isArray(node?.arguments) && node.arguments.length > simplePrefixLength;
 
@@ -1532,7 +1532,7 @@ function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
 }
 
 function shouldForceInlineFunctionParameters(path, options) {
-    const node = path.getValue();
+    const node = path.node;
 
     if (!node) {
         return false;
@@ -1580,7 +1580,7 @@ function shouldForceInlineFunctionParameters(path, options) {
 }
 
 function maybePrintInlineDefaultParameterFunctionBody(path, print) {
-    const node = path.getValue();
+    const node = path.node;
     const parentNode = path.parent;
 
     if (!node || node.type !== "FunctionDeclaration") {
@@ -1645,7 +1645,7 @@ function printCommaSeparatedList(path, print, listKey, startChar, endChar, optio
 // synthetic doc comment integration tests
 // (`src/format/test/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
-    const parentNode = path.getValue();
+    const parentNode = path.node;
     const node = parentNode[expressionKey];
 
     if (node.type === BLOCK_STATEMENT) {
@@ -1691,7 +1691,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
 // print a delimited sequence of elements
 // handles the case where a trailing comment follows a delimiter
 function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPerLine = Infinity) {
-    const node = path.getValue();
+    const node = path.node;
     const finalIndex = node[listKey].length - 1;
     let itemsSinceLastBreak = 0;
     return path.map((childPath, index) => {
@@ -1710,7 +1710,7 @@ function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPe
             const hasLimit = Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
             itemsSinceLastBreak += 1;
             if (hasLimit) {
-                const childNode = childPath.getValue();
+                const childNode = childPath.node;
                 const nextNode = index < finalIndex ? node[listKey][index + 1] : null;
                 const shouldBreakAfter =
                     isComplexArgumentNode(childNode) ||
@@ -1750,7 +1750,7 @@ function countLeadingSimpleCallArguments(node) {
 }
 
 function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength) {
-    const node = path.getValue();
+    const node = path.node;
     const args = Core.asArray(node?.arguments);
     const parts: any[] = [];
     const trailingArguments = args.slice(simplePrefixLength);
@@ -1839,7 +1839,7 @@ function hasLineBreakBetweenArguments(previousArgument, argument, options) {
 }
 
 function buildStructPropertyCommentSuffix(path, options) {
-    const node = path && typeof path.getValue === "function" ? path.getValue() : null;
+    const node = path?.node ?? null;
     const comments = Core.asArray(node?._structTrailingComments);
     if (comments.length === 0) {
         return "";
@@ -1875,7 +1875,7 @@ function buildStructPropertyCommentSuffix(path, options) {
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
-    const parentNode = path.getValue();
+    const parentNode = path.node;
     const containerNode = safeGetParentNode(path);
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
@@ -1915,7 +1915,7 @@ function buildStatementPartsForPrinter({
     previousNodeHadNewlineAddedAfter
 }) {
     const parts: any[] = [];
-    const node = childPath.getValue();
+    const node = childPath.node;
     if (!node) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
@@ -2833,7 +2833,7 @@ function collectGlobalVarNamesFromNode(node, names) {
 }
 
 function shouldPrefixGlobalIdentifier(path, options) {
-    const node = path.getValue();
+    const node = path.node;
     if (!node || !node.isGlobalIdentifier) return false;
 
     const preservedNames = options?.[PRESERVED_GLOBAL_VAR_NAMES];
@@ -3262,7 +3262,7 @@ function unwrapUnaryPlusCandidate(node) {
 }
 
 function unwrapParenthesizedExpression(childPath, print) {
-    const childNode = childPath.getValue();
+    const childNode = childPath.node;
     if (childNode?.type === "ParenthesizedExpression") {
         return childPath.call((innerPath) => unwrapParenthesizedExpression(innerPath, print), "expression");
     }
@@ -3279,11 +3279,11 @@ function buildClauseGroup(doc) {
 }
 
 function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
-    if (!path || typeof path.getValue !== "function" || typeof path.getParentNode !== "function") {
+    if (!path) {
         return false;
     }
 
-    const node = path.getValue();
+    const node = path.node;
     if (!node || node.type !== "IfStatement") {
         return false;
     }
@@ -3365,7 +3365,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
 }
 
 function wrapInClauseParens(path, print, clauseKey) {
-    const clauseNode = path.getValue()?.[clauseKey];
+    const clauseNode = path.node[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
 
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
@@ -3432,7 +3432,7 @@ function shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options):
 
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
-    const node = path.getValue();
+    const node = path.node;
     const clauseNode = node?.[clauseKey];
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
@@ -3548,7 +3548,7 @@ function printEmptyParens(path, options) {
 
 // prints an empty block with dangling comments
 function printEmptyBlock(path, options) {
-    const node = path.getValue();
+    const node = path.node;
     const inlineCommentDoc = maybePrintInlineEmptyBlockComment(path, options);
 
     if (inlineCommentDoc) {
@@ -3583,7 +3583,7 @@ function printEmptyBlock(path, options) {
 }
 
 function maybePrintInlineEmptyBlockComment(path, options) {
-    const node = path.getValue();
+    const node = path.node;
     if (!node) {
         return null;
     }

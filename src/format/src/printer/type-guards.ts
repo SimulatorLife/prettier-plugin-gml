@@ -345,7 +345,7 @@ export function isInLValueChain(path: any): boolean {
         return false;
     }
 
-    const node = path.getValue();
+    const node = path.node;
     const parent = safeGetParentNode(path);
 
     if (!parent || typeof parent.type !== STRING_TYPE) {

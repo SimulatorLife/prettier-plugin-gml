@@ -55,21 +55,21 @@ void describe("Semicolons helper utilities", () => {
 
         const pathForLast = {
             getParentNode: () => parent,
-            getValue: () => body.at(-1)
+            node: body.at(-1)
         } as unknown as AstPath<unknown>;
 
         assert.strictEqual(Semicolons.isLastStatement(pathForLast), true);
 
         const pathForFirst = {
             getParentNode: () => parent,
-            getValue: () => body[0]
+            node: body[0]
         } as unknown as AstPath<unknown>;
 
         assert.strictEqual(Semicolons.isLastStatement(pathForFirst), false);
 
         const orphanPath = {
             getParentNode: () => null,
-            getValue: () => ({})
+            node: {}
         } as unknown as AstPath<unknown>;
 
         assert.strictEqual(Semicolons.isLastStatement(orphanPath), true);

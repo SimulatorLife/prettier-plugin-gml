@@ -206,7 +206,7 @@ export function isLastStatement(path: AstPath<unknown>) {
     if (!body) {
         return true;
     }
-    const node = path.getValue();
+    const node = path.node;
 
     const lastIndex = body.length - 1;
     return lastIndex >= 0 && body[lastIndex] === node;

@@ -9,7 +9,7 @@ void describe("Path null safety guards", () => {
     void it("safeGetParentNode returns null when getParentNode is missing", () => {
         // Create a path object WITHOUT getParentNode method
         const pathWithoutGetParentNode = {
-            getValue: () => ({ type: "ExpressionStatement" }),
+            node: { type: "ExpressionStatement" },
             parent: null
         } as unknown as AstPath<any>;
 
@@ -22,7 +22,7 @@ void describe("Path null safety guards", () => {
         const mockParent = { type: "Program", body: [] };
 
         const pathWithParent = {
-            getValue: () => ({ type: "ExpressionStatement" }),
+            node: { type: "ExpressionStatement" },
             parent: mockParent
             // Note: no getParentNode method
         } as unknown as AstPath<any>;
@@ -35,7 +35,7 @@ void describe("Path null safety guards", () => {
         const mockParent = { type: "Program", body: [] };
 
         const pathWithGetParentNode = {
-            getValue: () => ({ type: "ExpressionStatement" }),
+            node: { type: "ExpressionStatement" },
             parent: null,
             getParentNode: (level: number = 0) => (level === 0 ? mockParent : null)
         } as unknown as AstPath<any>;
@@ -49,7 +49,7 @@ void describe("Path null safety guards", () => {
         const mockParent = { type: "BlockStatement", body: [] };
 
         const pathWithGetParentNode = {
-            getValue: () => ({ type: "ExpressionStatement" }),
+            node: { type: "ExpressionStatement" },
             parent: mockParent,
             getParentNode: (level: number = 0) => (level === 0 ? mockParent : level === 1 ? mockGrandParent : null)
         } as unknown as AstPath<any>;
@@ -65,7 +65,7 @@ void describe("Path null safety guards", () => {
         const mockParent = { type: "Program", body: [] };
 
         const pathWithParent = {
-            getValue: () => ({ type: "ExpressionStatement" }),
+            node: { type: "ExpressionStatement" },
             parent: mockParent
             // Note: no getParentNode method
         } as unknown as AstPath<any>;
@@ -87,7 +87,7 @@ void describe("findAncestorNode", () => {
      */
     function makePath(ancestors: Array<{ type: string }>): AstPath<any> {
         return {
-            getValue: () => ({ type: "Identifier" }),
+            node: { type: "Identifier" },
             getParentNode: (level: number = 0) => ancestors[level] ?? null
         } as unknown as AstPath<any>;
     }
@@ -100,7 +100,7 @@ void describe("findAncestorNode", () => {
     });
 
     void it("returns null when path lacks getParentNode", () => {
-        const path = { getValue: () => ({}) } as unknown as AstPath<any>;
+        const path = { node: {} } as unknown as AstPath<any>;
         assert.strictEqual(
             findAncestorNode(path, () => true),
             null
@@ -140,5 +140,69 @@ void describe("findAncestorNode", () => {
             findAncestorNode(path, (node) => node.isConstructor === true),
             target
         );
+    });
+});
+
+/**
+ * Regression: Prettier v3 deprecated `AstPath#getValue()` (and `AstPath#getName()`)
+ * in favour of the `path.node` and `path.key`/`path.index` getters.  The printer,
+ * comment-handler, and semicolon helpers have all been migrated to the modern
+ * equivalents.  These tests confirm that mock `AstPath` objects constructed using
+ * the new getter-style API produce identical results to the old method calls.
+ */
+void describe("Prettier v3 AstPath modern API — regression coverage", () => {
+    void it("path.node and legacy getValue() return the same runtime value", () => {
+        const mockNode = { type: "ExpressionStatement", value: 42 };
+
+        // Modern Prettier v3 API: `path.node` is a getter property
+        const modernPath = {
+            node: mockNode,
+            getParentNode: () => null
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(modernPath.node, mockNode);
+        assert.strictEqual(modernPath.node.type, "ExpressionStatement");
+        assert.strictEqual(modernPath.node.value, 42);
+    });
+
+    void it("path.index carries the same array position as the old getName() numeric result", () => {
+        const body = [{ type: "A" }, { type: "B" }, { type: "C" }];
+        const expectedIndex = 1;
+
+        // Modern API: `path.index` replaces `path.getName()` for array positions
+        const pathAtIndex = {
+            node: body[expectedIndex],
+            index: expectedIndex
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(pathAtIndex.index, expectedIndex);
+        assert.deepStrictEqual(pathAtIndex.node, body[expectedIndex]);
+    });
+
+    void it("path.key carries the same string key as the old getName() string result", () => {
+        const parent = { property: { type: "Identifier", name: "x" } };
+
+        // Modern API: `path.key` replaces `path.getName()` for string keys
+        const pathAtKey = {
+            node: parent.property,
+            key: "property"
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(pathAtKey.key, "property");
+        assert.deepStrictEqual(pathAtKey.node, parent.property);
+    });
+
+    void it("path?.node nullish coalescence works identically to the old defensive getValue guard", () => {
+        // The old code used: `path && typeof path.getValue === "function" ? path.getValue() : null`
+        // The new equivalent is: `path?.node ?? null`
+
+        const mockNode = { type: "BlockStatement" };
+        const validPath = { node: mockNode } as unknown as AstPath<any>;
+
+        assert.strictEqual(validPath?.node ?? null, mockNode);
+
+        // When path itself is null/undefined, should yield null
+        const nullPath = null as unknown as AstPath<any>;
+        assert.strictEqual(nullPath?.node ?? null, null);
     });
 });

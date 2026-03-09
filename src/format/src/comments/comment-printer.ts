@@ -156,7 +156,7 @@ const handleComments = {
 };
 
 function printComment(commentPath, options) {
-    const comment = commentPath.getValue();
+    const comment = commentPath.node;
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
@@ -703,17 +703,17 @@ function applyBottomCommentInlinePadding(comment, options) {
 }
 
 function collectDanglingComments(path, filter) {
-    const node = path.getValue();
+    const node = path.node;
     if (!node?.comments) {
         return [];
     }
 
     const entries = [];
     path.each((commentPath) => {
-        const comment = commentPath.getValue();
+        const comment = commentPath.node;
         if (Core.isCommentNode(comment) && !comment.leading && !comment.trailing && (!filter || filter(comment))) {
             entries.push({
-                commentIndex: commentPath.getName(),
+                commentIndex: commentPath.index,
                 comment
             });
         }
