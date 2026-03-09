@@ -1669,7 +1669,12 @@ export class ScopeTracker {
             return null;
         }
 
+        let metadataChanged = false;
+
         if (Object.hasOwn(metadata, "name")) {
+            if (scope.metadata.name !== metadata.name) {
+                metadataChanged = true;
+            }
             scope.metadata.name = metadata.name;
         }
 
@@ -1698,15 +1703,49 @@ export class ScopeTracker {
                 scopeSet.add(scope.id);
             }
 
+            if (previousPath !== nextPath) {
+                metadataChanged = true;
+            }
+
             scope.metadata.path = nextPath;
         }
 
         if (Object.hasOwn(metadata, "start")) {
+            const currentStart = scope.metadata.start;
+            const nextStart = metadata.start;
+            if (
+                (!currentStart && nextStart) ||
+                (currentStart && !nextStart) ||
+                (currentStart &&
+                    nextStart &&
+                    (currentStart.line !== nextStart.line ||
+                        currentStart.column !== nextStart.column ||
+                        currentStart.index !== nextStart.index))
+            ) {
+                metadataChanged = true;
+            }
             scope.metadata.start = metadata.start ? Core.cloneLocation(metadata.start) : undefined;
         }
 
         if (Object.hasOwn(metadata, "end")) {
+            const currentEnd = scope.metadata.end;
+            const nextEnd = metadata.end;
+            if (
+                (!currentEnd && nextEnd) ||
+                (currentEnd && !nextEnd) ||
+                (currentEnd &&
+                    nextEnd &&
+                    (currentEnd.line !== nextEnd.line ||
+                        currentEnd.column !== nextEnd.column ||
+                        currentEnd.index !== nextEnd.index))
+            ) {
+                metadataChanged = true;
+            }
             scope.metadata.end = metadata.end ? Core.cloneLocation(metadata.end) : undefined;
+        }
+
+        if (metadataChanged) {
+            scope.markModified();
         }
 
         return this.getScopeMetadata(scopeId);
