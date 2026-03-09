@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/no-globalvar": "error"
+  }
+}

@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
+import { assertEquals } from "../assertions.js";
+
 const THIS_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 // THIS_DIRECTORY is dist/test/rules/ at runtime; climb up to the workspace root
 // (dist/test/rules → dist/test → dist → workspace root), then into src/
@@ -24,7 +26,7 @@ const WORKSPACE_ROOT = path.resolve(THIS_DIRECTORY, "../../..");
 const RULE_HELPERS_PATH = path.resolve(WORKSPACE_ROOT, "src/rules/gml/rule-helpers.ts");
 
 void test("dominantLineEnding is exported from Core (target-state.md §2.1)", () => {
-    assert.equal(
+    assertEquals(
         typeof Core.dominantLineEnding,
         "function",
         "Core.dominantLineEnding must be a function — it is the single canonical implementation shared across lint and refactor workspaces."
@@ -34,7 +36,7 @@ void test("dominantLineEnding is exported from Core (target-state.md §2.1)", ()
 void test("dominantLineEnding is not redefined in lint rule-helpers (belongs exclusively in @gml-modules/core)", () => {
     const ruleHelpersSource = readFileSync(RULE_HELPERS_PATH, "utf8");
 
-    assert.equal(
+    assertEquals(
         ruleHelpersSource.includes("function dominantLineEnding"),
         false,
         "rule-helpers.ts must not define its own dominantLineEnding — the canonical implementation lives in @gml-modules/core (target-state.md §2.1). Remove the local copy and use Core.dominantLineEnding instead."

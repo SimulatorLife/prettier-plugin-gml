@@ -759,27 +759,29 @@ function createGm1041Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1051Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createDiagnosticOnlyRule(entry, (sourceText) => {
-        const lines = sourceText.split(/\r?\n/u);
-        for (const line of lines) {
-            if (!/^\s*#macro\b/.test(line)) {
-                continue;
+    return createFullTextRewriteRule(entry, (sourceText) =>
+        sourceText.replaceAll(/^[^\r\n]*$/gmu, (line) => {
+            if (!/^\s*#macro\b/u.test(line)) {
+                return line;
             }
 
-            const inlineCommentStart = line.search(/\/\/|\/\*/);
+            const inlineCommentStart = line.search(/\/\/|\/\*/u);
             const body = inlineCommentStart === -1 ? line : line.slice(0, inlineCommentStart);
-            const sanitizedBody = body.replace(/;\s*$/, "");
-            if (/\w;\w/.test(sanitizedBody)) {
-                continue;
+            const trailingSemicolon = /;\s*$/u.exec(body);
+            if (!trailingSemicolon) {
+                return line;
             }
 
-            if (sanitizedBody !== body) {
-                return true;
+            const semicolonIndex = trailingSemicolon.index;
+            const bodyWithoutTrailingSemicolon = `${body.slice(0, semicolonIndex)}${body.slice(semicolonIndex + 1)}`;
+            if (/\w;\w/u.test(bodyWithoutTrailingSemicolon)) {
+                return line;
             }
-        }
 
-        return false;
-    });
+            const commentSuffix = inlineCommentStart === -1 ? "" : line.slice(inlineCommentStart);
+            return `${bodyWithoutTrailingSemicolon}${commentSuffix}`;
+        })
+    );
 }
 
 function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -1065,11 +1067,38 @@ function createGm2054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return sourceText;
         }
 
-        let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\bgpu_set_alphatestref\s*\(\s*\d+\s*\)\s*;/g, "gpu_set_alphatestref(0);");
-        if (!rewritten.includes("gpu_set_alphatestref(0);")) {
-            rewritten = appendLineIfMissing(rewritten, "gpu_set_alphatestref(0);");
+        const lineEnding = sourceText.includes("\r\n") ? "\r\n" : "\n";
+        let insertedResetBeforeDisable = false;
+        const rewritten = sourceText.replaceAll(
+            /^([ \t]*)gpu_set_alphatestenable\s*\(\s*false\s*\)\s*;/gm,
+            (fullMatch: string, indentation: string, offset: number, fullText: string) => {
+                const precedingLines = fullText.slice(0, offset).split(/\r?\n/u);
+                for (let index = precedingLines.length - 1; index >= 0; index -= 1) {
+                    const trimmed = precedingLines[index]?.trim() ?? "";
+                    if (trimmed.length === 0) {
+                        continue;
+                    }
+
+                    if (/^gpu_set_alphatestref\s*\(\s*0\s*\)\s*;$/u.test(trimmed)) {
+                        return fullMatch;
+                    }
+
+                    break;
+                }
+
+                insertedResetBeforeDisable = true;
+                return `${indentation}gpu_set_alphatestref(0);${lineEnding}${fullMatch}`;
+            }
+        );
+
+        if (insertedResetBeforeDisable) {
+            return rewritten;
         }
+
+        if (!/\bgpu_set_alphatestref\s*\(\s*0\s*\)\s*;/.test(rewritten)) {
+            return appendLineIfMissing(rewritten, "gpu_set_alphatestref(0);");
+        }
+
         return rewritten;
     });
 }
@@ -1583,7 +1612,7 @@ function createGm2012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
         rewritten = rewritten.replace("vertex_format_end();\n", "");
-        rewritten = rewritten.replace("vertex_format_add_position_3d();\n", "");
+        rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_add_position_3d();\n", "");
         rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_end();\n", "");
         return rewritten;
     });
@@ -1713,7 +1742,34 @@ function createGm2043Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         rewritten = rewritten.replace("i = 0;", "var i = 0;");
         rewritten = rewritten.replace("var i = 34;", "i = 34;");
-        rewritten = rewritten.replace('    var _msg = "Something happened!";', '    _msg = "Something happened!";');
+        rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
+        rewritten = rewritten.replaceAll(
+            /(^[ \t]*)if\s*\(([^)]+)\)\s*\{\r?\n([ \t]*)var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;\r\n]+);\r?\n\1\}\r?\n/gm,
+            (
+                fullMatch: string,
+                indentation: string,
+                condition: string,
+                bodyIndentation: string,
+                identifier: string,
+                initializer: string,
+                offset: number,
+                fullText: string
+            ) => {
+                const before = fullText.slice(0, offset);
+                const after = fullText.slice(offset + fullMatch.length);
+                const declarationPattern = new RegExp(String.raw`\bvar\s+${identifier}\b`);
+                const subsequentUsePattern = new RegExp(String.raw`\b${identifier}\s*=`);
+                if (!subsequentUsePattern.test(after)) {
+                    return fullMatch;
+                }
+
+                if (declarationPattern.test(before)) {
+                    return `${indentation}if (${condition}) {\n${bodyIndentation}${identifier} = ${initializer};\n${indentation}}\n`;
+                }
+
+                return `${indentation}var ${identifier};\n\n${indentation}if (${condition}) {\n${bodyIndentation}${identifier} = ${initializer};\n${indentation}}\n`;
+            }
+        );
         return rewritten;
     });
 }

@@ -29,19 +29,13 @@ void test("executeLoopLengthHoistingCodemod applies codemod across provided file
 
 void test("executeLoopLengthHoistingCodemod supports dry-run mode", async () => {
     const engine = new Refactor.RefactorEngine();
-    const writes: Array<string> = [];
-
     const result = await engine.executeLoopLengthHoistingCodemod({
         filePaths: ["/project/changed.gml"],
         readFile: async () => "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n",
-        writeFile: async () => {
-            writes.push("write");
-        },
         dryRun: true
     });
 
     assert.equal(result.changedFiles.length, 1);
-    assert.equal(writes.length, 0);
     assert.equal(result.applied.has("/project/changed.gml"), true);
 });
 
@@ -64,6 +58,22 @@ void test("executeLoopLengthHoistingCodemod de-duplicates repeated file paths", 
     assert.equal(reads.length, 2);
     assert.deepEqual(new Set(reads), new Set(["/project/changed.gml"]));
     assert.equal(result.changedFiles.length, 1);
+});
+
+void test("executeLoopLengthHoistingCodemod requires writeFile when not in dry-run mode", async () => {
+    const engine = new Refactor.RefactorEngine();
+
+    await assert.rejects(
+        async () =>
+            engine.executeLoopLengthHoistingCodemod({
+                filePaths: ["/project/changed.gml"],
+                readFile: async () => "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n"
+            }),
+        {
+            name: "TypeError",
+            message: "executeLoopLengthHoistingCodemod requires a writeFile function"
+        }
+    );
 });
 
 void test("executeLoopLengthHoistingCodemod validates required file paths", async () => {

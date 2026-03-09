@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function runNormalizeDocCommentsRule(code: string): string {
@@ -317,7 +318,7 @@ void test("normalize-doc-comments does not convert // // section comments into s
     ].join("\n");
 
     const output = runNormalizeDocCommentsRule(input);
-    assert.equal(output, input);
+    assertEquals(output, input);
 });
 
 void test("normalize-doc-comments keeps operator comments that start with // / unchanged", () => {
@@ -326,6 +327,24 @@ void test("normalize-doc-comments keeps operator comments that start with // / u
     const output = runNormalizeDocCommentsRule(input);
     assert.match(output, /\/\/ \/=/u);
     assert.doesNotMatch(output, /\/\/\/ =/u);
+});
+
+void test("normalize-doc-comments preserves non-typed @returns payload while cleaning malformed // / docs", () => {
+    const input = [
+        "// / Parse one row",
+        "// /",
+        "/// @returns Parsed row object",
+        "function parse_row(_row) {",
+        "    return _row;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @description Parse one row$/m);
+    assert.match(output, /^\/\/\/ @param row$/m);
+    assert.match(output, /^\/\/\/ @returns Parsed row object$/m);
+    assert.doesNotMatch(output, /^\/\/\/\s*$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @returns \{any\}$/m);
 });
 
 void test("normalize-doc-comments preserves function indentation for synthesized docs", () => {
@@ -353,11 +372,31 @@ void test("normalize-doc-comments removes @param separator hyphens for typed opt
     assert.doesNotMatch(output, /\[yup=0\] - The camera's up vector/m);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults with extra brackets", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]]",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /^\/\/\/ @param cylinder$/m);
+    assert.match(output, /^\/\/\/ @param collider$/m);
+    assert.match(output, /^\/\/\/ @param \[mask=collider\[CM\.MASK\]\]$/m);
+    assert.doesNotMatch(output, /^\/\/\/ @param \[mask=\[CM\.MASK\]/m);
+    assert.doesNotMatch(output, /\]\]\]\]\]/m);
+    assert.match(output, /^\/\/\/ @returns \{any\}$/m);
+});
+
 void test("normalize-doc-comments does not synthesize @returns for constructor function declarations", () => {
     const input = ["function __ChatterboxBufferBatch() constructor {", "    // ...", "}"].join("\n");
     const output = runNormalizeDocCommentsRule(input);
 
-    assert.equal(output, input);
+    assertEquals(output, input);
     assert.doesNotMatch(output, /^\/\/\/ @returns \{undefined\}$/m);
 });
 
@@ -388,6 +427,6 @@ void test("normalize-doc-comments removes existing @returns tags for constructor
         "}"
     ].join("\n");
 
-    assert.equal(output, expected);
+    assertEquals(output, expected);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });

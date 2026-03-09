@@ -857,6 +857,10 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
             continue;
         }
 
+        if (!isSafeReciprocalCancellationOperand(expression.right)) {
+            continue;
+        }
+
         const numeratorValue = parseNumericFactor(expression.left);
         if (numeratorValue === null || Math.abs(numeratorValue - 1) > tolerance) {
             continue;
@@ -864,6 +868,10 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
 
         const matchIndex = terms.findIndex((candidate, candidateIndex) => {
             if (candidateIndex === index || consumed.has(candidateIndex) || Core.hasComment(candidate.expression)) {
+                return false;
+            }
+
+            if (!isSafeReciprocalCancellationOperand(candidate.expression)) {
                 return false;
             }
 
@@ -1358,6 +1366,10 @@ function collectReciprocalRatioTerms({
             continue;
         }
 
+        if (!isSafeReciprocalCancellationOperand(numerator) || !isSafeReciprocalCancellationOperand(denominator)) {
+            continue;
+        }
+
         if (Core.hasComment(expression.left) || Core.hasComment(expression.right)) {
             return null;
         }
@@ -1436,6 +1448,10 @@ function buildReciprocalRatioRemovalPlan({
 
             const candidate = Core.unwrapParenthesizedExpression(term.expression);
             if (!candidate) {
+                continue;
+            }
+
+            if (!isSafeReciprocalCancellationOperand(candidate)) {
                 continue;
             }
 
@@ -4079,6 +4095,19 @@ function isSafeOperand(node) {
             return false;
         }
     }
+}
+
+function isSafeReciprocalCancellationOperand(node) {
+    const expression = Core.unwrapParenthesizedExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (expression.type === UNARY_EXPRESSION && expression.operator === "-") {
+        return isSafeReciprocalCancellationOperand(expression.argument);
+    }
+
+    return isSafeOperand(expression);
 }
 
 function areAllSafe(nodes) {

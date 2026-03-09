@@ -9,7 +9,7 @@ import {
     MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
     setAstCommonNodeTypeLimit
 } from "../src/commands/memory.js";
-import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
+import { buildEnvConfiguredValueTests } from "./test-helpers/env-configured-value-test-builder.js";
 
 const { collectCommonNodeTypes } = __test__;
 

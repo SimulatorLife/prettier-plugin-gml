@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/normalize-operator-aliases": "error"
+  }
+}
