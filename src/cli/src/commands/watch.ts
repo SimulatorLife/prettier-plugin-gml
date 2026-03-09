@@ -248,6 +248,9 @@ interface RuntimeContext
      * Used to skip transpilation when a file's mtime changes but content is
      * identical (e.g., redundant editor saves or `touch` operations). */
     fileContentHashes: Map<string, string>;
+    /** UTF-16 code-unit length of each file's last-transpiled source text.
+     * Used as a low-cost pre-check to avoid hashing when content length changed. */
+    fileContentLengths: Map<string, number>;
 }
 
 /**
@@ -264,6 +267,7 @@ interface FileRemovalCleanupContext {
     dependencyTracker: DependencyTracker;
     fileSnapshots: Map<string, number>;
     fileContentHashes: Map<string, string>;
+    fileContentLengths: Map<string, number>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
 }
@@ -582,6 +586,7 @@ async function performInitialScan(
             // Store the initial content hash so that change events immediately after
             // startup are skipped if the file content has not actually changed.
             runtimeContext.fileContentHashes.set(fullPath, hashSourceContent(content));
+            runtimeContext.fileContentLengths.set(fullPath, content.length);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
@@ -821,6 +826,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         unknownScanConcurrency: resolveUnknownScanConcurrency(maxConcurrentDirs),
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
+        fileContentLengths: new Map(),
         dependencyTracker
     };
 
@@ -1305,16 +1311,23 @@ async function handleFileChange(
             // the remaining scenario where an editor or tool updates the mtime without
             // changing the actual bytes (e.g. redundant saves, `touch`, auto-formatters
             // that produce no change).
-            const contentHash = hashSourceContent(content);
+            const contentLength = content.length;
+            const previousContentLength = runtimeContext.fileContentLengths.get(filePath);
             const lastContentHash = runtimeContext.fileContentHashes.get(filePath);
-            if (lastContentHash !== undefined && lastContentHash === contentHash) {
+            const shouldCheckHash =
+                previousContentLength !== undefined &&
+                lastContentHash !== undefined &&
+                previousContentLength === contentLength;
+            const contentHash = shouldCheckHash ? hashSourceContent(content) : undefined;
+            if (contentHash !== undefined && lastContentHash === contentHash) {
                 if (verbose && !quiet) {
                     console.log("  ↳ Skipping transpilation: content unchanged");
                 }
                 return;
             }
 
-            runtimeContext.fileContentHashes.set(filePath, contentHash);
+            runtimeContext.fileContentHashes.set(filePath, contentHash ?? hashSourceContent(content));
+            runtimeContext.fileContentLengths.set(filePath, contentLength);
 
             ensureScriptNameRegistered(filePath, runtimeContext.scriptNames);
 
@@ -1642,6 +1655,7 @@ function cleanupRemovedFile(
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
+    runtimeContext.fileContentLengths.delete(filePath);
     const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
     const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
