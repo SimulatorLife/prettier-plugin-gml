@@ -567,4 +567,35 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    void it("preserves global.xxx prefix for identifiers already written as global.xxx (does not strip global. prefix)", async () => {
+        // §2.1 / §3.2 – The formatter must not perform semantic content rewrites.
+        // Stripping `global.xxx` → `xxx` because `xxx` was declared with `globalvar` is a
+        // semantic transformation that belongs exclusively in the `gml/no-globalvar` lint rule.
+        const source = ["globalvar score;", "global.score = 5;", "show_debug_message(global.score);"].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /global\.score = 5;/,
+            "Formatter must not strip 'global.' prefix from 'global.score' even when 'score' is declared with globalvar."
+        );
+        assert.match(formatted, /global\.score\)/, "Formatter must preserve 'global.score' in call arguments.");
+    });
+
+    void it("does not add global. prefix to bare identifiers declared with globalvar", async () => {
+        // §2.1 / §3.2 – Adding `global.` to bare identifiers based on `globalvar` declarations
+        // is a semantic rewrite that belongs in the `gml/no-globalvar` lint rule's autofix,
+        // not in the formatter.
+        const source = ["globalvar score;", "score = 1;", "if (score > 10) { return; }"].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.doesNotMatch(
+            formatted,
+            /global\.score/,
+            "Formatter must not add 'global.' prefix to bare identifier 'score' declared with globalvar."
+        );
+    });
 });
