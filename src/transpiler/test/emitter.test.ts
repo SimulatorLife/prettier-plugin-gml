@@ -114,6 +114,10 @@ void test("GmlToJsEmitter emits escaped literals for folded strings with control
     assert.equal(result, String.raw`value = "line\nnext\t\"quoted\"";`);
 });
 
+void test("GmlToJsEmitter passes through GML div operator unchanged (div is special-cased in the emitter)", () => {
+    assert.equal(Transpiler.mapBinaryOperator("div"), "div");
+});
+
 void test("GmlToJsEmitter lowers GML div operator to Math.trunc integer division", () => {
     // `div` must lower to Math.trunc(a / b), not plain `/`.
     // Plain division produces floats; Math.trunc truncates toward zero like GML semantics.
