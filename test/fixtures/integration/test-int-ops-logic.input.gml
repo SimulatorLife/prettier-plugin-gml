@@ -53,9 +53,9 @@ myVal8 = a - b - c
 
 myVal9 = a == b + c
 
-myVal10 = a + b * c
+myVal10 = a + b * (c)
 
-myVal11 = a && b or c and d
+myVal11 = (a && b or c and d)
 
 myVal12 = x * y / z
 

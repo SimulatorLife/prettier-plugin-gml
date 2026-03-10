@@ -81,22 +81,43 @@ void describe("CLI Verbose Logging", () => {
         }
     });
 
-    void it("shows debug logs when --verbose is provided for format command", async () => {
+    void it("reports per-file and overall timing when --verbose is provided for format command", async () => {
         const tempDirectory = await createTemporaryDirectory();
         try {
-            const targetFile = path.join(tempDirectory, "script.gml");
-            await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
-            await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
+            const unformattedFile = path.join(tempDirectory, "script-unformatted.gml");
+            const formattedFile = path.join(tempDirectory, "script-formatted.gml");
+            await fs.writeFile(unformattedFile, "var a=1;\n", "utf8");
+            await fs.writeFile(formattedFile, "var b = 2;\n", "utf8");
 
-            // Since we updated the project index build to use the logger,
-            // and format command flow NOW passes the verbose flag through (via log-level debug),
-            // we expect to see DEBUG logs if any are emitted.
-            // Note: format command doesn't use buildProjectIndex directly,
-            // but it uses console.debug which we specifically toggle.
+            const { stdout, exitCode } = await execFileAsync("node", [wrapperPath, "--verbose", tempDirectory]);
 
-            // To see DEBUG logs from buildProjectIndex, we need to run refactor.
-            // TODO: Make this a proper test with valid assertions.
-            assert.ok(true);
+            assert.equal(exitCode, 0);
+            assert.match(stdout, /Formatted .*script-unformatted\.gml \([0-9]+\.[0-9]{2}ms\)/);
+            assert.match(stdout, /Checked .*script-formatted\.gml \(already formatted, [0-9]+\.[0-9]{2}ms\)/);
+            assert.match(stdout, /Verbose timing: processed 2 formattable files in [0-9]+\.[0-9]{2}ms\./);
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    void it("reports per-file and overall timing when --verbose is provided for lint command", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+        try {
+            await createDummyRefactorProject(tempDirectory);
+            const projectPath = path.join(tempDirectory, "project.yyp");
+
+            const { stderr, exitCode } = await execFileAsync("node", [
+                wrapperPath,
+                "lint",
+                "--verbose",
+                "--project",
+                projectPath,
+                tempDirectory
+            ]);
+
+            assert.equal(exitCode, 0);
+            assert.match(stderr, /\[timing\] Linted .*script1\.gml in [0-9]+\.[0-9]{2}ms\./);
+            assert.match(stderr, /\[timing\] Completed lint run for 1 file in [0-9]+\.[0-9]{2}ms\./);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }

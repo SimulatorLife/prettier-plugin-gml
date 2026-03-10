@@ -61,7 +61,6 @@ var myVal13 = (3 - 2) ? "cool" : "not cool";
 
 var g = 0.8 - jump * ground * 20; // Gravity
 var acc = 1 + ground * 0.3; // Acceleration
-
 #region
 
 camDirX = -camMat[0] * c + camMat[8] * s;

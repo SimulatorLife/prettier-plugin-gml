@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { runWatchCommand } from "../src/commands/watch.js";
+import { delayFileReadRetry, runWatchCommand } from "../src/commands/watch.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 import { createMockWatchFactory } from "./test-helpers/watch-fixtures.js";
 
@@ -41,7 +41,8 @@ void describe("Watch command file read errors", () => {
                     websocketServer: false,
                     statusServer: false,
                     abortSignal: abortController.signal,
-                    watchFactory
+                    watchFactory,
+                    debounceDelay: 0
                 });
 
                 await new Promise((resolve) => setTimeout(resolve, 50));
@@ -61,5 +62,49 @@ void describe("Watch command file read errors", () => {
             capturedErrors.some((line) => line.includes("Error reading dir-as-file.gml")),
             "should log file read errors even when quiet"
         );
+    });
+
+    void it("clears transient file-read retry timer when aborted", async () => {
+        const abortController = new AbortController();
+
+        const originalSetTimeout = globalThis.setTimeout;
+        const originalClearTimeout = globalThis.clearTimeout;
+        const retryTimerIds = new Set<ReturnType<typeof setTimeout>>();
+        let clearedRetryTimers = 0;
+
+        const retryResult = await withTemporaryProperty(
+            globalThis,
+            "setTimeout",
+            ((handler: (...args: Array<unknown>) => void, timeout?: number, ...args: Array<unknown>) => {
+                const timeoutId = originalSetTimeout(
+                    handler as (...handlerArgs: Array<unknown>) => void,
+                    timeout,
+                    ...args
+                );
+                if (timeout === 25) {
+                    retryTimerIds.add(timeoutId);
+                    originalSetTimeout(() => {
+                        abortController.abort();
+                    }, 0);
+                }
+                return timeoutId;
+            }) as typeof setTimeout,
+            () =>
+                withTemporaryProperty(
+                    globalThis,
+                    "clearTimeout",
+                    ((timeoutId?: ReturnType<typeof setTimeout>) => {
+                        if (timeoutId !== undefined && retryTimerIds.has(timeoutId)) {
+                            clearedRetryTimers += 1;
+                            retryTimerIds.delete(timeoutId);
+                        }
+                        return originalClearTimeout(timeoutId);
+                    }) as typeof clearTimeout,
+                    async () => delayFileReadRetry(25, abortController.signal)
+                )
+        );
+
+        assert.equal(retryResult, false, "expected retry delay to return aborted state");
+        assert.ok(clearedRetryTimers > 0, "expected abort to clear retry timer");
     });
 });

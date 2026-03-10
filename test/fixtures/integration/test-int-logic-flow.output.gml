@@ -8,7 +8,8 @@ function scr_logic_absorption_or(foo, bar) {
     return foo;
 }
 
-/// @param condition
+/// @param {bool} condition
+/// @returns {bool}
 function bool_with_extra(condition) {
     return condition;
 }
@@ -121,7 +122,7 @@ function scr_verbose_assignment() {
     sprite_index = scr_custom_condition() ? spr_enemy_alerted : spr_enemy_idle;
 }
 
-/// @returns {undefined}
+/// @returns {any}
 function scr_verbose_return() {
     return scr_custom_condition() ? obj_enemy : obj_player;
 }

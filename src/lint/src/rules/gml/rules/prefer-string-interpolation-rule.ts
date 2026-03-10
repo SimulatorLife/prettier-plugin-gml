@@ -1,3 +1,4 @@
+import * as CoreWorkspace from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
@@ -10,6 +11,9 @@ import {
     isAstNodeWithType
 } from "../rule-base-helpers.js";
 import { shouldReportUnsafe } from "../rule-helpers.js";
+
+const { unwrapParenthesizedExpression } = CoreWorkspace.Core;
+type UnwrapParenthesizedExpressionInput = Parameters<typeof CoreWorkspace.Core.unwrapParenthesizedExpression>[0];
 
 function isStringLiteralExpression(expression: unknown): boolean {
     if (!isAstNodeRecord(expression) || expression.type !== "Literal") {
@@ -33,16 +37,204 @@ function isStringLiteralExpression(expression: unknown): boolean {
     return first === "@" && raw.charAt(1) === '"' && last === '"';
 }
 
+function isBinaryStringConcatenationExpression(node: unknown): node is AstNodeRecord {
+    return isAstNodeRecord(node) && node.type === "BinaryExpression" && node.operator === "+";
+}
+
+function isTemplateStringExpression(node: unknown): node is AstNodeRecord {
+    return isAstNodeRecord(node) && node.type === "TemplateStringExpression";
+}
+
+function isTemplateStringTextAtom(node: unknown): node is AstNodeRecord {
+    return isAstNodeRecord(node) && node.type === "TemplateStringText" && typeof node.value === "string";
+}
+
 function getNodeTextFromContext(context: Rule.RuleContext, astNode: any): string {
     if (typeof context.getSourceCode === "function") {
         return context.getSourceCode().getText(astNode);
     }
-    if (astNode && Array.isArray(astNode.range)) {
+    if (isAstNodeRecord(astNode) && Array.isArray(astNode.range)) {
         const txt = context.sourceCode.text;
         const [start, end] = astNode.range;
-        return txt.slice(start, end);
+        if (typeof start === "number" && typeof end === "number") {
+            return txt.slice(start, end);
+        }
     }
     return "";
+}
+
+function extractStringLiteralText(context: Rule.RuleContext, literalNode: AstNodeRecord): string | null {
+    if (!isStringLiteralExpression(literalNode)) {
+        return null;
+    }
+
+    const text = getNodeTextFromContext(context, literalNode);
+    if (text.length >= 2) {
+        const first = text.charAt(0);
+        const last = text.at(-1);
+        if ((first === '"' || first === "'") && first === last) {
+            return text.slice(1, -1);
+        }
+        if (first === "@" && text.charAt(1) === '"' && last === '"') {
+            return text.slice(2, -1);
+        }
+    }
+
+    const rawValue = literalNode.value;
+    if (typeof rawValue !== "string") {
+        return null;
+    }
+    if (rawValue.length < 2) {
+        return "";
+    }
+
+    const first = rawValue.charAt(0);
+    const last = rawValue.at(-1);
+    if ((first === '"' || first === "'") && first === last) {
+        return rawValue.slice(1, -1);
+    }
+    if (first === "@" && rawValue.charAt(1) === '"' && last === '"') {
+        return rawValue.slice(2, -1);
+    }
+
+    return null;
+}
+
+function collectConcatenationParts(node: unknown, output: Array<unknown>): void {
+    const candidate = unwrapParenthesizedExpression(node as UnwrapParenthesizedExpressionInput);
+    if (isBinaryStringConcatenationExpression(candidate)) {
+        collectConcatenationParts(candidate.left, output);
+        collectConcatenationParts(candidate.right, output);
+        return;
+    }
+
+    output.push(candidate);
+}
+
+function isStringFunctionCallExpression(node: unknown): node is AstNodeRecord {
+    if (!isAstNodeRecord(node) || node.type !== "CallExpression" || !Array.isArray(node.arguments)) {
+        return false;
+    }
+
+    const callee = node.callee;
+    if (isAstNodeWithType(callee) && callee.type === "Identifier" && typeof callee.name === "string") {
+        return callee.name.toLowerCase() === "string";
+    }
+
+    const object = node.object;
+    if (isAstNodeWithType(object) && object.type === "Identifier" && typeof object.name === "string") {
+        return object.name.toLowerCase() === "string";
+    }
+
+    return false;
+}
+
+type TemplateBuildState = {
+    body: string;
+    containsLiteralText: boolean;
+    previousTextEndedWithColon: boolean;
+};
+
+function appendTemplateText(state: TemplateBuildState, text: string): void {
+    state.body += text;
+    if (text.length === 0) {
+        return;
+    }
+
+    state.containsLiteralText = true;
+    state.previousTextEndedWithColon = text.endsWith(":") && !/\s$/u.test(text);
+}
+
+function appendTemplateExpression(state: TemplateBuildState, expressionText: string): void {
+    if (state.previousTextEndedWithColon) {
+        state.body += " ";
+    }
+    state.body += `{${expressionText}}`;
+    state.previousTextEndedWithColon = false;
+}
+
+function appendNestedTemplateAtoms(
+    context: Rule.RuleContext,
+    templateNode: AstNodeRecord,
+    state: TemplateBuildState
+): boolean {
+    if (!Array.isArray(templateNode.atoms)) {
+        return false;
+    }
+
+    for (const atom of templateNode.atoms) {
+        if (isTemplateStringTextAtom(atom)) {
+            appendTemplateText(state, atom.value as string);
+            continue;
+        }
+
+        const atomText = getNodeTextFromContext(context, atom);
+        if (atomText.length === 0) {
+            return false;
+        }
+
+        appendTemplateExpression(state, atomText);
+    }
+
+    return true;
+}
+
+function buildTemplateBody(context: Rule.RuleContext, node: AstNodeRecord): string | null {
+    const concatenationParts: Array<unknown> = [];
+    collectConcatenationParts(node, concatenationParts);
+    if (concatenationParts.length === 0) {
+        return null;
+    }
+
+    const state: TemplateBuildState = {
+        body: "",
+        containsLiteralText: false,
+        previousTextEndedWithColon: false
+    };
+
+    for (const part of concatenationParts) {
+        const segment = unwrapParenthesizedExpression(part as UnwrapParenthesizedExpressionInput);
+
+        if (isAstNodeRecord(segment) && isStringLiteralExpression(segment)) {
+            const literalText = extractStringLiteralText(context, segment);
+            if (literalText === null) {
+                return null;
+            }
+            appendTemplateText(state, literalText);
+            continue;
+        }
+
+        if (isTemplateStringExpression(segment)) {
+            if (!appendNestedTemplateAtoms(context, segment, state)) {
+                return null;
+            }
+            continue;
+        }
+
+        if (isStringFunctionCallExpression(segment)) {
+            const firstArgument =
+                Array.isArray(segment.arguments) && segment.arguments.length > 0 ? segment.arguments[0] : segment;
+            const expressionText = getNodeTextFromContext(context, firstArgument);
+            if (expressionText.length === 0) {
+                return null;
+            }
+            appendTemplateExpression(state, expressionText);
+            continue;
+        }
+
+        const expressionText = getNodeTextFromContext(context, segment);
+        if (expressionText.length === 0) {
+            return null;
+        }
+
+        appendTemplateExpression(state, expressionText);
+    }
+
+    if (!state.containsLiteralText) {
+        return null;
+    }
+
+    return state.body;
 }
 
 export function createPreferStringInterpolationRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -50,6 +242,7 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
         meta: createMeta(definition),
         create(context) {
             const reportUnsafe = shouldReportUnsafe(context);
+            const handledConcatenationRanges: Array<readonly [number, number]> = [];
 
             function expressionContainsUnsafeMutation(node: unknown): boolean {
                 if (!node || typeof node !== "object") {
@@ -84,98 +277,46 @@ export function createPreferStringInterpolationRule(definition: GmlRuleDefinitio
                 return false;
             }
 
-            // helper shared between the Program walker and regular visitor
-            function handleBinary(node: any) {
-                if (node.operator !== "+") {
-                    return;
-                }
-
-                if (isStringLiteralExpression(node.left) || isStringLiteralExpression(node.right)) {
-                    if (!reportUnsafe && expressionContainsUnsafeMutation(node)) {
-                        return;
-                    }
-
-                    context.report({
-                        node,
-                        messageId: definition.messageId,
-                        fix(fixer) {
-                            function buildTemplate(n: any): string {
-                                // Recursively flatten concatenation chain
-                                if (n && n.type === "BinaryExpression" && n.operator === "+") {
-                                    return buildTemplate(n.left) + buildTemplate(n.right);
-                                }
-
-                                // string() call unwrap
-                                if (
-                                    n &&
-                                    n.type === "CallExpression" &&
-                                    // the parser sometimes uses `callee` (ESLint-style) but in
-                                    // gml AST the function name is stored on an `object` field.
-                                    // handle both to ensure our fixer unwraps `string()` calls no
-                                    // matter which variant the AST happens to use.
-                                    ((isAstNodeWithType(n.callee) &&
-                                        n.callee.type === "Identifier" &&
-                                        n.callee.name === "string") ||
-                                        (isAstNodeWithType(n.object) &&
-                                            n.object.type === "Identifier" &&
-                                            n.object.name === "string")) &&
-                                    Array.isArray(n.arguments) &&
-                                    n.arguments.length === 1
-                                ) {
-                                    const arg = n.arguments[0];
-                                    const inner = getNodeTextFromContext(context, arg);
-                                    // only surround with braces – the dollar prefix belongs
-                                    // on the final template literal, not each fragment
-                                    return `{${inner}}`;
-                                }
-
-                                if (isAstNodeRecord(n) && n.type === "Literal" && typeof n.value === "string") {
-                                    // strip surrounding quotes from literal text
-                                    const txt = getNodeTextFromContext(context, n);
-                                    // assume first and last char are quotes
-                                    return txt.slice(1, -1);
-                                }
-
-                                // fallback expression – just wrap with braces
-                                const txt = getNodeTextFromContext(context, n);
-                                return `{${txt}}`;
-                            }
-
-                            const templateBody = buildTemplate(node);
-                            const replacement = `$"${templateBody}"`;
-
-                            // explicit range replacement for harness compatibility
-                            const start = getNodeStartIndex(node as AstNodeRecord);
-                            const end = getNodeEndIndex(node as AstNodeRecord);
-                            return fixer.replaceTextRange([start, end], replacement);
-                        }
-                    });
-                }
+            function rangeOverlapsHandledConcatenation(start: number, end: number): boolean {
+                return handledConcatenationRanges.some(([handledStart, handledEnd]) => {
+                    return start >= handledStart && end <= handledEnd;
+                });
             }
 
-            function traverse(node: any) {
-                if (!node || typeof node !== "object") return;
-                if (Array.isArray(node)) {
-                    for (const child of node) traverse(child);
+            function handleBinary(node: unknown): void {
+                if (!isBinaryStringConcatenationExpression(node)) {
                     return;
                 }
 
-                if (node.type === "BinaryExpression") {
-                    handleBinary(node);
+                const start = getNodeStartIndex(node);
+                const end = getNodeEndIndex(node);
+                if (start < 0 || end <= start || rangeOverlapsHandledConcatenation(start, end)) {
+                    return;
                 }
 
-                for (const key of Object.keys(node)) {
-                    if (key === "parent") continue;
-                    traverse(node[key]);
+                if (!reportUnsafe && expressionContainsUnsafeMutation(node)) {
+                    return;
                 }
+
+                const templateBody = buildTemplateBody(context, node);
+                if (templateBody === null) {
+                    return;
+                }
+
+                handledConcatenationRanges.push([start, end]);
+
+                context.report({
+                    node,
+                    messageId: definition.messageId,
+                    fix(fixer) {
+                        const replacement = `$"${templateBody}"`;
+                        return fixer.replaceTextRange([start, end], replacement);
+                    }
+                });
             }
 
             return Object.freeze({
-                Program(node) {
-                    traverse(node);
-                },
                 BinaryExpression(node) {
-                    // still provide ESLint visitor for proper engine traversal
                     handleBinary(node);
                 }
             });

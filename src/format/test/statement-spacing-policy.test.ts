@@ -29,7 +29,7 @@ void describe("statement spacing policy", () => {
         assert.equal(Printer.StatementSpacingPolicy.shouldSuppressEmptyLineBetween(macroDeclaration, unrelated), false);
     });
 
-    void it("requires nested functions to keep trailing padding", () => {
+    void it("does not force trailing padding after nested functions", () => {
         const nestedFunction = { type: "FunctionDeclaration" };
         const block = { type: "BlockStatement" };
         const container = { type: "FunctionExpression" };
@@ -41,7 +41,7 @@ void describe("statement spacing policy", () => {
                 block,
                 container
             ),
-            true
+            false
         );
         assert.equal(
             Printer.StatementSpacingPolicy.shouldForceTrailingBlankLineForNestedFunction(

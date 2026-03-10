@@ -43,6 +43,7 @@ pnpm run cli -- format path/to/project
 **Options:**
 - `--check` - Check if files are formatted without writing changes
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
+- `--verbose` - Emit per-file timing and total run duration diagnostics
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
@@ -54,6 +55,30 @@ inconsistent multi-extension formatting behavior.
 **Environment Variables:**
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
+
+### `lint` - Lint and Auto-Fix GML Files
+
+Runs `@gml-modules/lint` over one or more paths, with optional ESLint autofix support.
+
+```bash
+pnpm run cli -- lint path/to/project
+pnpm run cli -- lint --fix path/to/project
+```
+
+**Options:**
+- `--fix` - Apply automatic fixes
+- `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
+- `--max-warnings <count>` - Fail when warning count exceeds limit
+- `--config <path>` - Use an explicit flat config
+- `--no-default-config` - Disable bundled fallback config
+- `--project <path>` - Force project root directory or `.yyp` path
+- `--project-strict` - Fail when linted files are outside forced project root
+- `--quiet` - Suppress fallback/config discovery warnings
+- `--verbose` - Emit per-file lint/format timing and total run duration diagnostics
+
+`lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
+
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gml-modules/refactor`.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 

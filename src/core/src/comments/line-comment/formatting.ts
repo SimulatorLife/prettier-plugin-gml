@@ -313,14 +313,6 @@ function tryFormatExistingDocComment(
     const content = trimmedValue.replace(/^\/+\s*/, "");
     const formatted = applyJsDocReplacements(`/// ${content}`) as string;
 
-    if (content.toLowerCase().startsWith("@description")) {
-        // intentionally left blank to avoid leaking debug info
-    }
-
-    if (formatted.trim() === "/// @description") {
-        return "";
-    }
-
     return applyInlinePadding(comment, formatted);
 }
 
@@ -340,10 +332,6 @@ function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: s
 
     let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
     formattedCommentLine = applyJsDocReplacements(formattedCommentLine) as string;
-
-    if (formattedCommentLine.trim() === "/// @description") {
-        return "";
-    }
 
     return applyInlinePadding(comment, formattedCommentLine);
 }

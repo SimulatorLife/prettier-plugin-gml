@@ -11,6 +11,17 @@
  * filtering redundant `argument0`-style alias declarations) belong in
  * `@gml-modules/lint`, not in the formatter. See target-state.md §2.2 and §3.2.
  *
+ * ## Enforced Boundary — `filterMisattachedFunctionDocComments` was removed
+ *
+ * A function previously named `filterMisattachedFunctionDocComments` was
+ * deleted from this module. It was a parser-workaround that repaired
+ * misattached `@function`/`@func` doc-comment attachments directly inside the
+ * formatter. Normalizing comment-to-node attachment is the parser's
+ * responsibility (see `normalize-function-doc-comment-attachments.ts` in
+ * `@gml-modules/parser`). The formatter must never attempt to repair AST
+ * comment attachment—if the parser delivers misattached comments, the
+ * parser pass must fix them upstream. (target-state.md §2.2, §3.2)
+ *
  * Exported symbols are consumed by the printer (`print.ts`). All other symbols
  * in this file are module-private helpers.
  */
@@ -25,8 +36,8 @@ import { findAncestorNode } from "./path-utils.js";
 
 /**
  * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
- * Prettier path. Used by the printer to determine doc-param optionality for
- * `= undefined` default parameters.
+ * Prettier path. This is a layout-only traversal helper for printer context
+ * lookups and must not be used for semantic/content rewrites.
  *
  * @param path - The Prettier AstPath to traverse upward
  * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`

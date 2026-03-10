@@ -218,6 +218,21 @@ void describe("ScopeTracker unsafe accessors", () => {
             assert.ok(!results.has("alsoMissing"));
         });
 
+        void it("deduplicates duplicate symbol names from iterable input", () => {
+            const tracker = new ScopeTracker({ enabled: true });
+
+            tracker.enterScope("program");
+            tracker.declare("dup", { name: "dup" });
+            tracker.reference("dup", { name: "dup" });
+
+            const duplicateIterable = ["dup", "dup", "dup"];
+            const results = tracker.getBatchSymbolOccurrencesUnsafe(duplicateIterable);
+
+            assert.equal(results.size, 1);
+            assert.ok(results.has("dup"));
+            assert.equal(results.get("dup")?.length, 2);
+        });
+
         void it("processes large batches efficiently", () => {
             const tracker = new ScopeTracker({ enabled: true });
 

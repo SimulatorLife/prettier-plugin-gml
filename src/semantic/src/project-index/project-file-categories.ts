@@ -13,14 +13,7 @@ export const ProjectFileCategory = Object.freeze({
 const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
 
 const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
-    [...PROJECT_FILE_CATEGORIES]
-        .reduce((acc, item) => {
-            const insertIndex = acc.findIndex((existing) => existing > item);
-            return insertIndex === -1
-                ? [...acc, item]
-                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-        }, [])
-        .join(", ")
+    [...PROJECT_FILE_CATEGORIES].toSorted((left, right) => left.localeCompare(right)).join(", ")
 );
 
 /**

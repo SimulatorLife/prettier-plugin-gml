@@ -3,8 +3,10 @@ import { Parser } from "@gml-modules/parser";
 
 import {
     type CallTargetAnalyzer,
+    collectLocalVariables,
     createSemanticOracle,
     type EmitOptions,
+    EventContextOracle,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
@@ -27,6 +29,26 @@ export interface TranspileScriptRequest {
     readonly ast?: unknown;
 }
 
+export interface TranspileEventRequest {
+    /**
+     * Absolute or workspace-relative file path that produced the source.
+     * Surfaced in patch metadata for runtime diagnostics.
+     */
+    readonly sourcePath?: string;
+    readonly sourceText: string;
+    readonly symbolId: string;
+    /**
+     * Pre-parsed AST to reuse instead of re-parsing `sourceText`.
+     * Eliminates redundant parsing when the caller already has the AST.
+     */
+    readonly ast?: unknown;
+    /**
+     * Name to use as the `this` binding in the emitted patch.
+     * Defaults to `"self"` when not provided.
+     */
+    readonly thisName?: string;
+}
+
 export interface PatchMetadata {
     readonly timestamp: number;
     readonly sourcePath?: string;
@@ -38,6 +60,20 @@ export interface ScriptPatch {
     readonly js_body: string;
     readonly sourceText: string;
     readonly version: number;
+    readonly metadata?: PatchMetadata;
+}
+
+export interface EventPatch {
+    readonly kind: "event";
+    readonly id: string;
+    readonly js_body: string;
+    readonly sourceText: string;
+    readonly version: number;
+    /**
+     * The name used as the `this` binding for the event body.
+     * Always `"self"` in standard GameMaker HTML5 export code.
+     */
+    readonly this_name: string;
     readonly metadata?: PatchMetadata;
 }
 
@@ -81,7 +117,7 @@ export class GmlTranspiler {
     }
 
     private emitFunctionParameterUnpacking(func: FunctionDeclarationNode, emitter: GmlToJsEmitter): string {
-        let unpacked = "";
+        const lines: string[] = [];
 
         for (let index = 0; index < func.params.length; index += 1) {
             const parameter = func.params[index];
@@ -107,10 +143,10 @@ export class GmlTranspiler {
                 continue;
             }
 
-            unpacked = unpacked ? `${unpacked}\n${line}` : line;
+            lines.push(line);
         }
 
-        return unpacked;
+        return lines.join("\n");
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
@@ -187,6 +223,76 @@ export class GmlTranspiler {
         } catch (error) {
             const message = Core.isErrorLike(error) ? error.message : String(error);
             throw new Error(`Failed to transpile expression: ${message}`, {
+                cause: Core.isErrorLike(error) ? error : undefined
+            });
+        }
+    }
+
+    /**
+     * Transpile a GML object event body into an `EventPatch`.
+     *
+     * Object events in GameMaker are plain statement sequences (no wrapping
+     * function declaration) that execute in the context of a specific object
+     * instance. Identifier resolution follows these rules:
+     *
+     *   - `var`-declared names in the event body → local variables (bare JS names)
+     *   - All other undeclared identifiers → instance fields (emitted as `self.<name>`)
+     *   - Built-in functions (abs, sqrt, etc.) → emitted as bare calls
+     *   - Known scripts → routed through the hot-reload runtime wrapper
+     *
+     * @example
+     * ```typescript
+     * const patch = transpiler.transpileEvent({
+     *   sourceText: "var spd = 5; x += spd; health -= 1;",
+     *   symbolId: "gml/event/obj_player/create"
+     * });
+     * // patch.js_body ≈ "var spd = 5; x += spd; self.health -= 1;"
+     * //                              ^^^^ local   ^^^^^^^^^^^^ self field
+     * ```
+     */
+    transpileEvent(request: TranspileEventRequest): EventPatch {
+        if (!request || typeof request !== "object") {
+            throw new TypeError("transpileEvent requires a request object");
+        }
+        const { sourceText, symbolId } = request;
+        const sourcePath = request.sourcePath;
+        if (typeof sourceText !== "string" || sourceText.length === 0) {
+            throw new TypeError("transpileEvent requires a sourceText string");
+        }
+        if (typeof symbolId !== "string" || symbolId.length === 0) {
+            throw new TypeError("transpileEvent requires a symbolId string");
+        }
+        if (sourcePath !== undefined && (typeof sourcePath !== "string" || sourcePath.length === 0)) {
+            throw new TypeError("transpileEvent requires sourcePath to be a non-empty string when provided");
+        }
+
+        try {
+            const ast = this.resolveProgramAst(request);
+
+            // Pre-collect var-declared locals before building the oracle so the
+            // EventContextOracle can distinguish them from instance fields.
+            const localVars = collectLocalVariables(ast);
+            const eventOracle = new EventContextOracle(this.getSemanticAnalyzers(), localVars);
+            const emitter = new GmlToJsEmitter(eventOracle, this.emitterOptions);
+            const jsBody = emitter.emit(ast);
+
+            const timestamp = Date.now();
+            const patch: EventPatch = {
+                kind: "event",
+                id: symbolId,
+                js_body: jsBody,
+                sourceText,
+                version: timestamp,
+                this_name: request.thisName ?? "self",
+                metadata: {
+                    ...(sourcePath ? { sourcePath } : {}),
+                    timestamp
+                }
+            };
+            return patch;
+        } catch (error) {
+            const message = Core.isErrorLike(error) ? error.message : String(error);
+            throw new Error(`Failed to transpile event ${symbolId}: ${message}`, {
                 cause: Core.isErrorLike(error) ? error : undefined
             });
         }

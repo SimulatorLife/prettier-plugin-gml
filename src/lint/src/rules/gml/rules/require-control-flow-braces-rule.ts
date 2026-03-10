@@ -1,8 +1,8 @@
+import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
-import { dominantLineEnding } from "../rule-helpers.js";
 
 type BracedSingleClause = Readonly<{
     indentation: string;
@@ -126,15 +126,23 @@ function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleCla
 }
 
 function parseInlineElseClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(else)\b\s*(?!\{)(?!if\b)(.+)$/u.exec(line);
+    const match = /^([\t ]*)(else)\b\s*(?!\{)(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
+        return null;
+    }
+
+    const statement = match[3]?.trim() ?? "";
+    if (/^if\b/u.test(statement)) {
+        return null;
+    }
+    if (!statement.includes(";")) {
         return null;
     }
 
     return Object.freeze({
         indentation: match[1] ?? "",
         header: "else",
-        statement: match[3]?.trim() ?? ""
+        statement
     });
 }
 
@@ -147,8 +155,47 @@ function parseLineOnlyDoHeader(line: string): string | null {
     return match?.[1] ?? null;
 }
 
+function findLineCommentStartOutsideStringLiterals(line: string): number {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let isEscapedCharacter = false;
+
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (isEscapedCharacter) {
+            isEscapedCharacter = false;
+            continue;
+        }
+
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            isEscapedCharacter = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
 function lineUsesMacroContinuation(line: string): boolean {
-    return line.trimEnd().endsWith("\\");
+    const lineCommentStart = findLineCommentStartOutsideStringLiterals(line);
+    const contentBeforeComment = lineCommentStart === -1 ? line : line.slice(0, lineCommentStart);
+    return contentBeforeComment.trimEnd().endsWith("\\");
 }
 
 function parseLineOnlyUntilFooter(line: string): string | null {
@@ -163,7 +210,7 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
             return Object.freeze({
                 Program() {
                     const text = context.sourceCode.text;
-                    const lineEnding = dominantLineEnding(text);
+                    const lineEnding = Core.dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
                     const rewrittenLines: Array<string> = [];
                     let inMacroContinuation = false;
