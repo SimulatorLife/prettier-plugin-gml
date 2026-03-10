@@ -6,8 +6,14 @@ export { default as GameMakerLanguageParserVisitor, VISIT_METHOD_NAMES } from ".
 export type {
     ParserListenerBase,
     ParserListenerBaseConstructor,
+    ParserListenerPrototype,
     ParserVisitorBaseConstructor,
     ParserVisitorPrototype
 } from "./generated-bindings.js";
-export { getParserListenerBase, getParserVisitorBase, getParseTreeVisitorPrototype } from "./generated-bindings.js";
+export {
+    getParserListenerBase,
+    getParserVisitorBase,
+    getParseTreeListenerPrototype,
+    getParseTreeVisitorPrototype
+} from "./generated-bindings.js";
 export { installRecognitionExceptionLikeGuard, isRecognitionExceptionLike } from "./recognition-exception-patch.js";
