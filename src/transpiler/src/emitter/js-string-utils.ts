@@ -1,14 +1,15 @@
 /**
- * JavaScript string manipulation utilities for GML tooling.
+ * JavaScript string manipulation utilities for the GML-to-JS emitter.
  *
  * This module provides utilities for working with JavaScript identifiers,
- * template literals, and object keys when emitting or manipulating JavaScript
- * code generated from GML source.
+ * template literals, and object keys when emitting JavaScript code generated
+ * from GML source. All helpers are exclusively concerned with the shape of the
+ * *output* JavaScript, not with GML syntax itself.
  *
- * Key capabilities:
- * - Validating ECMAScript identifier syntax
- * - Escaping template string content
- * - Normalizing and quoting object property keys
+ * These utilities were previously housed in `@gml-modules/core` but belong
+ * here because they encode JavaScript emission rules (ECMAScript identifier
+ * naming, template-literal escaping, JS property-key quoting) rather than
+ * general GML language or AST concerns.
  */
 
 /**
