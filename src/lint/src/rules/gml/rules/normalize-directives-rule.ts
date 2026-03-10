@@ -4,93 +4,165 @@ import type { Rule } from "eslint";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
 
+type LineCommentParts = Readonly<{
+    codeText: string;
+    commentText: string;
+}>;
+
 function isValidMacroIdentifier(name: string): boolean {
     return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name);
 }
 
-function normalizeDefineMacroLine(line: string): string {
-    const trimmed = line.trimStart();
-    if (!trimmed.startsWith("#define")) {
-        return line;
-    }
+function splitLineCommentOutsideStringLiterals(line: string): LineCommentParts {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let isEscapedCharacter = false;
 
-    const match = trimmed.match(/^(\s*)#define\s+(\S+)(.*)$/u);
-    if (!match) {
-        return line;
-    }
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
 
-    const [, leadingWhitespace, directiveName, remainder] = match;
-
-    // Handle #define region / #define end region
-    const regionMatch = directiveName.match(/^region$/i);
-    if (regionMatch) {
-        const regionName = remainder.trim();
-        return `${leadingWhitespace ?? ""}#region ${regionName}${line.endsWith("\n") ? "\n" : ""}`;
-    }
-
-    const endRegionMatch = directiveName.match(/^end\s*region|endregion$/i);
-    if (endRegionMatch) {
-        const regionName = remainder.trim();
-        return `${leadingWhitespace ?? ""}#endregion ${regionName}${line.endsWith("\n") ? "\n" : ""}`;
-    }
-
-    // Handle valid macro identifiers
-    if (isValidMacroIdentifier(directiveName)) {
-        const trimmedRemainder = remainder.trim();
-
-        if (trimmedRemainder.length === 0) {
-            return `${leadingWhitespace ?? ""}#macro ${directiveName}${line.endsWith("\n") ? "\n" : ""}`;
+        if (isEscapedCharacter) {
+            isEscapedCharacter = false;
+            continue;
         }
 
-        return `${leadingWhitespace ?? ""}#macro ${directiveName} ${trimmedRemainder}${line.endsWith("\n") ? "\n" : ""}`;
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            isEscapedCharacter = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return Object.freeze({
+                codeText: line.slice(0, index),
+                commentText: line.slice(index)
+            });
+        }
     }
 
-    // Invalid macro identifier - leave as-is to be commented out by normalizeLegacyDirectiveLine
-    return line;
+    return Object.freeze({
+        codeText: line,
+        commentText: ""
+    });
+}
+
+function appendTrailingLineComment(lineWithoutComment: string, commentText: string): string {
+    const trimmedComment = commentText.trim();
+    if (trimmedComment.length === 0) {
+        return lineWithoutComment;
+    }
+
+    return `${lineWithoutComment} ${trimmedComment}`;
+}
+
+function normalizeDefineRegionLine(leadingWhitespace: string, directiveBody: string): string | null {
+    const regionMatch = /^region(?:\s+(.*))?$/iu.exec(directiveBody);
+    if (regionMatch) {
+        const regionName = regionMatch[1]?.trim() ?? "";
+        return regionName.length === 0 ? `${leadingWhitespace}#region` : `${leadingWhitespace}#region ${regionName}`;
+    }
+
+    const endRegionMatch = /^(?:end\s+region|endregion)(?:\s+(.*))?$/iu.exec(directiveBody);
+    if (!endRegionMatch) {
+        return null;
+    }
+
+    const regionName = endRegionMatch[1]?.trim() ?? "";
+    return regionName.length === 0 ? `${leadingWhitespace}#endregion` : `${leadingWhitespace}#endregion ${regionName}`;
+}
+
+function normalizeDefineMacroLine(line: string): string {
+    const defineMatch = /^(\s*)#define\b(.*)$/u.exec(line);
+    if (!defineMatch) {
+        return line;
+    }
+
+    const leadingWhitespace = defineMatch[1] ?? "";
+    const directiveBody = (defineMatch[2] ?? "").trim();
+    if (directiveBody.length === 0) {
+        return line;
+    }
+
+    const normalizedRegionLine = normalizeDefineRegionLine(leadingWhitespace, directiveBody);
+    if (normalizedRegionLine) {
+        return normalizedRegionLine;
+    }
+
+    const lineCommentParts = splitLineCommentOutsideStringLiterals(directiveBody);
+    const directiveCodeText = lineCommentParts.codeText.trim();
+    const directiveParts = directiveCodeText.split(/\s+/u);
+    const directiveName = directiveParts[0] ?? "";
+
+    if (!isValidMacroIdentifier(directiveName)) {
+        return line;
+    }
+
+    const directiveValueText = directiveCodeText.slice(directiveName.length).trim();
+    const normalizedDirectiveValue = directiveValueText.endsWith(";")
+        ? directiveValueText.slice(0, -1).trimEnd()
+        : directiveValueText;
+    const normalizedMacroLine =
+        normalizedDirectiveValue.length === 0
+            ? `${leadingWhitespace}#macro ${directiveName}`
+            : `${leadingWhitespace}#macro ${directiveName} ${normalizedDirectiveValue}`;
+
+    return appendTrailingLineComment(normalizedMacroLine, lineCommentParts.commentText);
 }
 
 function normalizeCommentedDirectiveLine(line: string): string {
-    const match = line.match(/^(\s*)\/\/\s*#(region|endregion)\s*(.*)$/u);
+    const match = /^(\s*)\/\/\s*#(region|endregion)\b(.*)$/u.exec(line);
     if (!match) {
         return line;
     }
 
-    const [, leadingWhitespace, directive, name] = match;
-    const trimmedName = name.trim();
-
-    if (trimmedName.length === 0) {
-        return `${leadingWhitespace ?? ""}#${directive}${line.endsWith("\n") ? "\n" : ""}`;
+    const leadingWhitespace = match[1] ?? "";
+    const directive = match[2] ?? "";
+    const name = match[3]?.trim() ?? "";
+    if (name.length === 0) {
+        return `${leadingWhitespace}#${directive}`;
     }
 
-    return `${leadingWhitespace ?? ""}#${directive} ${trimmedName}${line.endsWith("\n") ? "\n" : ""}`;
+    return `${leadingWhitespace}#${directive} ${name}`;
 }
 
-function normalizeLegacyDirectiveLine(line: string): string {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("#") && !trimmed.startsWith("#macro")) {
-        const parts = trimmed.split(/\s+/u);
-        const name = parts[0]?.slice(1);
-        if (name === "if" || name === "elseif" || name === "else" || name === "endif") {
-            return line;
-        }
-
-        if (name === "region" || name === "endregion") {
-            return line;
-        }
-
-        if (name === "define") {
-            const macroName = parts[1];
-            if (macroName && isValidMacroIdentifier(macroName)) {
-                return line;
-            }
-
-            return line.replace(/^(\s*)#(.*)$/u, "$1//$2");
-        }
-
-        return line.replace(/^(\s*)#(.*)$/u, "$1//$2");
+function normalizeLegacyBlockKeywordLine(line: string): string {
+    const beginBlockMatch = /^(\s*)begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (beginBlockMatch) {
+        const indentation = beginBlockMatch[1] ?? "";
+        const commentText = beginBlockMatch[2] ?? "";
+        return appendTrailingLineComment(`${indentation}{`, commentText);
     }
 
-    return line;
+    const endBlockMatch = /^(\s*)end\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (endBlockMatch) {
+        const indentation = endBlockMatch[1] ?? "";
+        const commentText = endBlockMatch[2] ?? "";
+        return appendTrailingLineComment(`${indentation}}`, commentText);
+    }
+
+    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
+    if (!inlineBeginMatch) {
+        return line;
+    }
+
+    const indentation = inlineBeginMatch[1] ?? "";
+    const header = inlineBeginMatch[2]?.trimEnd() ?? "";
+    const commentText = inlineBeginMatch[3] ?? "";
+    if (header.length === 0 || header.startsWith("#") || header.startsWith("//") || header.endsWith("{")) {
+        return line;
+    }
+
+    return appendTrailingLineComment(`${indentation}${header} {`, commentText);
 }
 
 export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -105,7 +177,7 @@ export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Ru
                     const rewrittenLines = lines.map((line, index) => {
                         let normalized = normalizeDefineMacroLine(line);
                         normalized = normalizeCommentedDirectiveLine(normalized);
-                        normalized = normalizeLegacyDirectiveLine(normalized);
+                        normalized = normalizeLegacyBlockKeywordLine(normalized);
 
                         const isLastLine = index === lines.length - 1;
                         if (isLastLine && normalized.endsWith("\n")) {

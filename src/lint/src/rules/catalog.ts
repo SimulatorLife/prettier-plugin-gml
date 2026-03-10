@@ -71,6 +71,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
+        mapKey: "GmlPreferDirectReturn",
+        shortName: "prefer-direct-return",
+        fullId: "gml/prefer-direct-return",
+        messageId: "preferDirectReturn",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlOptimizeLogicalFlow",
         shortName: "optimize-logical-flow",
         fullId: "gml/optimize-logical-flow",

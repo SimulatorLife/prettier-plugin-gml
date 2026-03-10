@@ -72,7 +72,9 @@ void test("constant folding: GML div operator", () => {
     assert.strictEqual(result, 6, "Should fold 20 div 3 to 6 (integer division)");
 });
 
-void test("constant folding: GML div operator truncates toward zero for negative numbers", () => {
+void test("constant folding: GML div operator truncates toward zero for negative numerator", () => {
+    // GML's div truncates toward zero, not toward negative infinity.
+    // -7 div 2 must be -3 (truncation), NOT -4 (floor).
     const ast = {
         type: "BinaryExpression" as const,
         left: { type: "Literal" as const, value: -7 },
@@ -83,6 +85,17 @@ void test("constant folding: GML div operator truncates toward zero for negative
     assert.strictEqual(result, -3, "Should fold -7 div 2 to -3 (truncation toward zero, not floor)");
 });
 
+void test("constant folding: GML div operator truncates toward zero for negative divisor", () => {
+    // -7 div -2 must be 3 (truncation toward zero).
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: -7 },
+        right: { type: "Literal" as const, value: -2 },
+        operator: "div"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, 3, "Should fold -7 div -2 to 3 (truncation toward zero)");
+});
 void test("constant folding: modulo operation", () => {
     const ast = {
         type: "BinaryExpression" as const,

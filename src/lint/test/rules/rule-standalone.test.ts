@@ -415,6 +415,7 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         "prefer-repeat-loops",
         "prefer-struct-literal-assignments",
         "prefer-compound-assignments",
+        "prefer-direct-return",
         "optimize-logical-flow",
         "normalize-doc-comments",
         "normalize-directives",
@@ -437,6 +438,110 @@ void test("gml semantic fix rules do not reformat canonical macro declaration sp
         const result = lintWithRule(ruleName, input, {});
         assertEquals(result.output, input, `${ruleName} should not apply formatter-owned macro spacing changes`);
     }
+});
+
+void test("normalize-data-structure-accessors only rewrites invalid multi-coordinate access to grid accessors", () => {
+    const input = [
+        "var my_map = ds_map_create();",
+        'var value = my_map[| "key"];',
+        "var item = lst_items[? 0];",
+        "var cell = level_grid[| 1, 2];",
+        "var cell_alt = myGrid[? 1, 2];",
+        "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
+        ""
+    ].join("\n");
+    const expected = [
+        "var my_map = ds_map_create();",
+        'var value = my_map[? "key"];',
+        "var item = lst_items[? 0];",
+        "var cell = level_grid[# 1, 2];",
+        "var cell_alt = myGrid[# 1, 2];",
+        "var passthrough = some_var[? 0];",
+        "var item_alt = map_items[| 0];",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-data-structure-accessors does not keep stale constructor inference after reassignment", () => {
+    const input = ["var my_map = ds_map_create();", "my_map = some_var;", 'var value = my_map[| "key"];', ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("normalize-data-structure-accessors", input, {});
+    assertEquals(result.output, input);
+});
+
+void test("normalize-data-structure-accessors ignores malformed identifier metadata without throwing", () => {
+    const sourceText = 'var value = my_map[| "key"];\n';
+    const messages: Array<{ messageId: string }> = [];
+    const rule = Lint.plugin.rules["normalize-data-structure-accessors"];
+
+    const context = {
+        options: [{}],
+        sourceCode: { text: sourceText },
+        report(descriptor: { messageId: string }) {
+            messages.push({ messageId: descriptor.messageId });
+        }
+    };
+
+    const visitor = rule.create(context as never);
+    const programNode = {
+        type: "Program",
+        start: 0,
+        end: sourceText.length,
+        body: [
+            {
+                type: "VariableDeclarator",
+                start: 0,
+                end: 8,
+                id: {
+                    type: "Identifier",
+                    name: 123,
+                    start: 0,
+                    end: 3
+                },
+                init: {
+                    type: "CallExpression",
+                    start: 0,
+                    end: 8,
+                    object: {
+                        type: "Identifier",
+                        name: "ds_map_create",
+                        start: 0,
+                        end: 13
+                    },
+                    arguments: []
+                }
+            },
+            {
+                type: "MemberIndexExpression",
+                accessor: "[|",
+                start: 12,
+                end: sourceText.length - 1,
+                object: {
+                    type: "Identifier",
+                    name: "my_map",
+                    start: 12,
+                    end: 18
+                },
+                property: [
+                    {
+                        type: "Literal",
+                        value: '"key"',
+                        start: 21,
+                        end: 26
+                    }
+                ]
+            }
+        ]
+    };
+
+    assert.doesNotThrow(() => visitor.Program?.(programNode as never));
+    assertEquals(messages.length, 0);
 });
 
 void test("require-argument-separators preserves separator payload comments", () => {
@@ -483,6 +588,21 @@ void test("require-trailing-optional-defaults condenses var+if argument_count fa
         "}",
         "",
         "my_func4(undefined);",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-trailing-optional-defaults", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-trailing-optional-defaults appends undefined defaults after existing optional params", () => {
+    const input = ["function demo(first, second = 1, third) {", "    return [first, second, third];", "}", ""].join(
+        "\n"
+    );
+    const expected = [
+        "function demo(first, second = 1, third = undefined) {",
+        "    return [first, second, third];",
+        "}",
         ""
     ].join("\n");
 
@@ -886,6 +1006,65 @@ void test("require-control-flow-braces rewrites legacy then inline if clauses", 
     assertEquals(result.output.split("}").length - 1, 2);
 });
 
+void test("require-control-flow-braces rewrites legacy call-style if clauses without then", () => {
+    const input = ["if should_exit() return;", ""].join("\n");
+    const expected = ["if (should_exit()) {", "    return;", "}", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline while/for/with statements", () => {
+    const input = ["while (alive) tick();", "for (var i = 0; i < 10; i++) sum += i;", "with (other) hp -= 1;", ""].join(
+        "\n"
+    );
+    const expected = [
+        "while (alive) {",
+        "    tick();",
+        "}",
+        "for (var i = 0; i < 10; i++) {",
+        "    sum += i;",
+        "}",
+        "with (other) {",
+        "    hp -= 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps line-only else branches without rewriting else-if chains", () => {
+    const input = ["if (a > b)", '    draw_text(x, y, "ok");', "else", "    do_other();", ""].join("\n");
+    const expected = ["if (a > b) {", '    draw_text(x, y, "ok");', "}", "else {", "    do_other();", "}", ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline do-until clauses", () => {
+    const input = ["do step(); until (done);", ""].join("\n");
+    const expected = ["do {", "    step();", "} until (done);", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces preserves already braced inline conditions with nested call parentheses", () => {
+    const input = [
+        "while (keyboard_check(vk_space)) { hold_jump(); }",
+        "if (keyboard_check(vk_escape)) { x += 10; } else { x -= 10; }",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
 void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
@@ -918,6 +1097,12 @@ void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern 
 
     const result = lintWithRule("optimize-math-expressions", input, {});
     assertEquals(result.output, expected);
+});
+
+void test("optimize-math-expressions does not force the lengthdir half-difference canonicalization on unrelated subtraction patterns", () => {
+    const input = ["var s = size * 0.104;", "s = s * 0.5 - lengthdir_x(1, swim_rot);", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
@@ -1253,7 +1438,15 @@ void test("require-control-flow-braces does not reinterpret already braced heade
     assertEquals(result.output, input);
 });
 
-void test("optimize-logical-flow removes double negation without collapsing if/return patterns", () => {
+void test("require-control-flow-braces preserves already braced single-line repeat bodies", () => {
+    const input = ["repeat (3) { already_repeat_braced(); }", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("optimize-logical-flow collapses boolean passthrough if/return patterns", () => {
     const input = [
         "function bool_passthrough(condition) {",
         "    if (!!condition) {",
@@ -1265,24 +1458,43 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
         ""
     ].join("\n");
 
-    const expected = [
-        "function bool_passthrough(condition) {",
-        "    if (condition) {",
-        "        return true;",
-        "    }",
-        "",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
+    const expected = ["function bool_passthrough(condition) {", "    return condition;", "}", ""].join("\n");
 
     const result = lintWithRule("optimize-logical-flow", input, {});
     assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
     assertEquals(
         result.output,
         expected,
-        "optimize-logical-flow should remove !! but not collapse the if/return pattern"
+        "optimize-logical-flow should reduce a boolean passthrough branch to a direct return"
     );
+});
+
+void test("optimize-logical-flow rewrites both undefined guard forms to ??=", () => {
+    const input = [
+        "function ensure_cache(cache_entry) {",
+        "    if (is_undefined(cache_entry)) {",
+        "        cache_entry = ds_map_create();",
+        "    }",
+        "",
+        "    if (cache_entry == undefined) {",
+        "        cache_entry = ds_map_create();",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = [
+        "function ensure_cache(cache_entry) {",
+        "    cache_entry ??= ds_map_create();",
+        "",
+        "    cache_entry ??= ds_map_create();",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {

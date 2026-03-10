@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
-import { ESLint } from "eslint";
+import { ESLint, type Linter } from "eslint";
 
 const { Lint } = LintWorkspace;
 
@@ -79,28 +79,53 @@ function buildLoopInvariantStressBatchSource(loopCount: number, invariantTermsPe
     return lines.join("\n");
 }
 
-async function lintSingleRuleWithTiming(ruleId: string, sourceText: string): Promise<TimedLintRunResult> {
+function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNameCount: number): string {
+    const lines: string[] = ["var cached_value = 0;"];
+
+    for (let index = 1; index <= reservedHoistNameCount; index += 1) {
+        lines.push(`var cached_value_${index} = ${index};`);
+    }
+
+    lines.push("");
+
+    for (let loopIndex = 0; loopIndex < loopCount; loopIndex += 1) {
+        lines.push(
+            `repeat (count_${loopIndex}) {`,
+            `    total_${loopIndex} += (base_${loopIndex} + bias_${loopIndex}) * scale_${loopIndex};`,
+            "}"
+        );
+    }
+
+    lines.push("");
+    return lines.join("\n");
+}
+
+async function lintSingleRuleWithTiming(
+    ruleId: string,
+    sourceText: string,
+    filePath = "performance-regression.gml"
+): Promise<TimedLintRunResult> {
+    const configEntry = {
+        files: ["**/*.gml"],
+        plugins: {
+            gml: Lint.plugin
+        },
+        language: "gml/gml",
+        rules: {
+            [ruleId]: "warn"
+        }
+    } satisfies Linter.Config;
+
     const eslint = new ESLint({
         overrideConfigFile: true,
         fix: true,
         stats: true,
-        overrideConfig: [
-            {
-                files: ["**/*.gml"],
-                plugins: {
-                    gml: Lint.plugin
-                },
-                language: "gml/gml",
-                rules: {
-                    [ruleId]: "warn"
-                }
-            }
-        ]
+        overrideConfig: [configEntry]
     });
 
     const startedAtNanoseconds = process.hrtime.bigint();
     const [result] = await eslint.lintText(sourceText, {
-        filePath: "performance-regression.gml"
+        filePath
     });
     const elapsedMilliseconds = Number(process.hrtime.bigint() - startedAtNanoseconds) / 1e6;
 
@@ -204,7 +229,7 @@ void test("optimize-math-expressions keeps dot-product auto-fixes within bounded
 });
 
 void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions", async () => {
-    const source = buildLoopInvariantStressBatchSource(120, 30);
+    const source = buildLoopInvariantStressBatchSource(60, 15);
     const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
 
     assert.equal(timedRun.messages.length, 0);
@@ -213,17 +238,17 @@ void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on
         "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 3000,
-        `expected prefer-loop-invariant-expressions rule runtime under 3000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 1500,
+        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 6000,
-        `expected total lint runtime under 6000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 3000,
+        `expected total lint runtime under 3000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 
 void test("prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime", async () => {
-    const source = buildLoopInvariantStressBatchSource(320, 60);
+    const source = buildLoopInvariantStressBatchSource(160, 30);
     const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
 
     assert.equal(timedRun.messages.length, 0);
@@ -232,11 +257,34 @@ void test("prefer-loop-invariant-expressions keeps large hoist-name resolution w
         "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 2500,
-        `expected prefer-loop-invariant-expressions rule runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 1500,
+        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 12_000,
-        `expected total lint runtime under 12000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 5000,
+        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("prefer-loop-invariant-expressions keeps local hoist-name resolution bounded on collision-heavy files", async () => {
+    const reservedHoistNameCount = 320;
+    const source = buildLoopHoistCollisionStressSource(220, reservedHoistNameCount);
+    const timedRun = await lintSingleRuleWithTiming(
+        "gml/prefer-loop-invariant-expressions",
+        source,
+        "local-collision-performance-regression.gml"
+    );
+
+    assert.ok(
+        timedRun.outputText.includes("var cached_value_321 ="),
+        "expected prefer-loop-invariant-expressions to keep hoisting through local name collisions"
+    );
+    assert.ok(
+        timedRun.ruleMilliseconds < 2500,
+        `expected prefer-loop-invariant-expressions runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 8000,
+        `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });

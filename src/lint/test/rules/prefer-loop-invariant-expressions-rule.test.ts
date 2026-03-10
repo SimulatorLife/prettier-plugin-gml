@@ -319,6 +319,32 @@ void test("prefer-loop-invariant-expressions does not hoist post-increment expre
     expectNoAutoFix(input);
 });
 
+void test("prefer-loop-invariant-expressions preserves fixes when local hoist names collide", () => {
+    const input = [
+        "var cached_value = 1;",
+        "var cached_value_1 = 2;",
+        "",
+        "repeat (count) {",
+        "    total += 60 * 60;",
+        "}",
+        ""
+    ].join("\n");
+    const result = lintWithRule("prefer-loop-invariant-expressions", input, {});
+
+    const expected = [
+        "var cached_value = 1;",
+        "var cached_value_1 = 2;",
+        "",
+        "var cached_value_2 = 60 * 60;",
+        "repeat (count) {",
+        "    total += cached_value_2;",
+        "}",
+        ""
+    ].join("\n");
+
+    assertEquals(result.output, expected);
+});
+
 void test("prefer-loop-invariant-expressions does not hoist constructor expressions", () => {
     const input = ["repeat (count) {", "    total += new DamageInfo(power).amount;", "}", ""].join("\n");
     expectNoAutoFix(input);

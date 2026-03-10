@@ -14,6 +14,7 @@ import { createNormalizeOperatorAliasesRule } from "./rules/normalize-operator-a
 import { createOptimizeLogicalFlowRule } from "./rules/optimize-logical-flow-rule.js";
 import { createOptimizeMathExpressionsRule } from "./rules/optimize-math-expressions-rule.js";
 import { createPreferCompoundAssignmentsRule } from "./rules/prefer-compound-assignments-rule.js";
+import { createPreferDirectReturnRule } from "./rules/prefer-direct-return-rule.js";
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
 import { createPreferHoistableLoopAccessorsRule } from "./rules/prefer-hoistable-loop-accessors-rule.js";
 import { createPreferIsUndefinedCheckRule } from "./rules/prefer-is-undefined-check-rule.js";
@@ -43,6 +44,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "prefer-compound-assignments": {
             return createPreferCompoundAssignmentsRule(definition);
+        }
+        case "prefer-direct-return": {
+            return createPreferDirectReturnRule(definition);
         }
         case "optimize-logical-flow": {
             return createOptimizeLogicalFlowRule(definition);

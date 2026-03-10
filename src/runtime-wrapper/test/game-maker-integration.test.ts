@@ -397,3 +397,339 @@ await test("updates pObject definition on active instances", () => {
         restoreGlobals(snapshot);
     }
 });
+
+// Helper used by the event-key mapping tests below. Sets up a minimal
+// GMObjects + instance store, applies a patch with the given runtimeId, and
+// returns the updated objectEntry and instanceEntry so callers can assert on
+// the correct property names.
+type EventKeyFixture = {
+    objectEntry: Record<string, unknown>;
+    instanceEntry: Record<string, unknown>;
+};
+
+function applyEventPatchAndGetEntries(
+    runtimeId: string,
+    eventKey: string,
+    originalFn: (...args: Array<unknown>) => unknown
+): EventKeyFixture {
+    const objectEntry: Record<string, unknown> = {
+        pName: "oEnemy",
+        [eventKey]: originalFn
+    };
+    const instanceEntry: Record<string, unknown> = {
+        _kx: { pName: "oEnemy" },
+        [eventKey]: originalFn,
+        Event: []
+    };
+
+    const globals = globalThis as Record<string, unknown>;
+    globals.JSON_game = {
+        ScriptNames: [],
+        Scripts: [],
+        GMObjects: [objectEntry]
+    };
+    globals._cx = { _dx: { "200001": instanceEntry } };
+
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    wrapper.applyPatch({
+        kind: "script",
+        id: "gml/script/some_event",
+        runtimeId,
+        js_body: "return 'updated';"
+    });
+
+    return { objectEntry, instanceEntry };
+}
+
+await test("object event patches correctly resolve PreCreateEvent key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_PreCreate_0;
+
+    try {
+        function gml_Object_oEnemy_PreCreate_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_PreCreate_0 = gml_Object_oEnemy_PreCreate_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_PreCreate_0",
+            "PreCreateEvent",
+            gml_Object_oEnemy_PreCreate_0
+        );
+
+        const updated = objectEntry.PreCreateEvent;
+        assert.equal(typeof updated, "function", "GMObjects PreCreateEvent should be updated");
+        assert.equal(updated, instanceEntry.PreCreateEvent, "Instance PreCreateEvent should match GMObjects");
+        // Verify the wrong key was NOT touched
+        assert.equal(objectEntry.CreateEvent, undefined, "CreateEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_PreCreate_0;
+        } else {
+            globals.gml_Object_oEnemy_PreCreate_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve CleanUpEvent key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_CleanUp_0;
+
+    try {
+        function gml_Object_oEnemy_CleanUp_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_CleanUp_0 = gml_Object_oEnemy_CleanUp_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_CleanUp_0",
+            "CleanUpEvent",
+            gml_Object_oEnemy_CleanUp_0
+        );
+
+        const updated = objectEntry.CleanUpEvent;
+        assert.equal(typeof updated, "function", "GMObjects CleanUpEvent should be updated");
+        assert.equal(updated, instanceEntry.CleanUpEvent, "Instance CleanUpEvent should match GMObjects");
+        assert.equal(objectEntry.DestroyEvent, undefined, "DestroyEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_CleanUp_0;
+        } else {
+            globals.gml_Object_oEnemy_CleanUp_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve StepBeginEvent key (not StepNormalEvent)", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_StepBegin_0;
+
+    try {
+        function gml_Object_oEnemy_StepBegin_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_StepBegin_0 = gml_Object_oEnemy_StepBegin_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_StepBegin_0",
+            "StepBeginEvent",
+            gml_Object_oEnemy_StepBegin_0
+        );
+
+        const updated = objectEntry.StepBeginEvent;
+        assert.equal(typeof updated, "function", "GMObjects StepBeginEvent should be updated");
+        assert.equal(updated, instanceEntry.StepBeginEvent, "Instance StepBeginEvent should match GMObjects");
+        // Before the fix, "StepBegin_0" was incorrectly routed to "StepNormalEvent"
+        assert.equal(objectEntry.StepNormalEvent, undefined, "StepNormalEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_StepBegin_0;
+        } else {
+            globals.gml_Object_oEnemy_StepBegin_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve StepEndEvent key (not StepNormalEvent)", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_StepEnd_0;
+
+    try {
+        function gml_Object_oEnemy_StepEnd_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_StepEnd_0 = gml_Object_oEnemy_StepEnd_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_StepEnd_0",
+            "StepEndEvent",
+            gml_Object_oEnemy_StepEnd_0
+        );
+
+        const updated = objectEntry.StepEndEvent;
+        assert.equal(typeof updated, "function", "GMObjects StepEndEvent should be updated");
+        assert.equal(updated, instanceEntry.StepEndEvent, "Instance StepEndEvent should match GMObjects");
+        assert.equal(objectEntry.StepNormalEvent, undefined, "StepNormalEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_StepEnd_0;
+        } else {
+            globals.gml_Object_oEnemy_StepEnd_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve DrawGUI key (not DrawEvent)", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawGUI_0;
+
+    try {
+        function gml_Object_oEnemy_DrawGUI_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawGUI_0 = gml_Object_oEnemy_DrawGUI_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawGUI_0",
+            "DrawGUI",
+            gml_Object_oEnemy_DrawGUI_0
+        );
+
+        const updated = objectEntry.DrawGUI;
+        assert.equal(typeof updated, "function", "GMObjects DrawGUI should be updated");
+        assert.equal(updated, instanceEntry.DrawGUI, "Instance DrawGUI should match GMObjects");
+        // Before the fix, "DrawGUI_0" was incorrectly routed to "DrawEvent"
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawGUI_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawGUI_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve DrawEventBegin key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawBegin_0;
+
+    try {
+        function gml_Object_oEnemy_DrawBegin_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawBegin_0 = gml_Object_oEnemy_DrawBegin_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawBegin_0",
+            "DrawEventBegin",
+            gml_Object_oEnemy_DrawBegin_0
+        );
+
+        const updated = objectEntry.DrawEventBegin;
+        assert.equal(typeof updated, "function", "GMObjects DrawEventBegin should be updated");
+        assert.equal(updated, instanceEntry.DrawEventBegin, "Instance DrawEventBegin should match GMObjects");
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawBegin_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawBegin_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve DrawEventEnd key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawEnd_0;
+
+    try {
+        function gml_Object_oEnemy_DrawEnd_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawEnd_0 = gml_Object_oEnemy_DrawEnd_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawEnd_0",
+            "DrawEventEnd",
+            gml_Object_oEnemy_DrawEnd_0
+        );
+
+        const updated = objectEntry.DrawEventEnd;
+        assert.equal(typeof updated, "function", "GMObjects DrawEventEnd should be updated");
+        assert.equal(updated, instanceEntry.DrawEventEnd, "Instance DrawEventEnd should match GMObjects");
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawEnd_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawEnd_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve DrawGUIBegin key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawGUIBegin_0;
+
+    try {
+        function gml_Object_oEnemy_DrawGUIBegin_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawGUIBegin_0 = gml_Object_oEnemy_DrawGUIBegin_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawGUIBegin_0",
+            "DrawGUIBegin",
+            gml_Object_oEnemy_DrawGUIBegin_0
+        );
+
+        const updated = objectEntry.DrawGUIBegin;
+        assert.equal(typeof updated, "function", "GMObjects DrawGUIBegin should be updated");
+        assert.equal(updated, instanceEntry.DrawGUIBegin, "Instance DrawGUIBegin should match GMObjects");
+        assert.equal(objectEntry.DrawGUI, undefined, "DrawGUI key must not be set");
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawGUIBegin_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawGUIBegin_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object event patches correctly resolve DrawGUIEnd key", () => {
+    const snapshot = snapshotGlobals();
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawGUIEnd_0;
+
+    try {
+        function gml_Object_oEnemy_DrawGUIEnd_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawGUIEnd_0 = gml_Object_oEnemy_DrawGUIEnd_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawGUIEnd_0",
+            "DrawGUIEnd",
+            gml_Object_oEnemy_DrawGUIEnd_0
+        );
+
+        const updated = objectEntry.DrawGUIEnd;
+        assert.equal(typeof updated, "function", "GMObjects DrawGUIEnd should be updated");
+        assert.equal(updated, instanceEntry.DrawGUIEnd, "Instance DrawGUIEnd should match GMObjects");
+        assert.equal(objectEntry.DrawGUI, undefined, "DrawGUI key must not be set");
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawGUIEnd_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawGUIEnd_0 = savedGlobal;
+        }
+        restoreGlobals(snapshot);
+    }
+});
