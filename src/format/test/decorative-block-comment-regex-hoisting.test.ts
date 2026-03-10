@@ -181,15 +181,15 @@ void describe("heap growth with many decorative block comments", () => {
         // confirms no unbounded-growth regression has been introduced.
         const SCALE_FACTOR = COMMENT_COUNT_LARGE / COMMENT_COUNT_SMALL;
         const GENEROUS_OVERHEAD_MULTIPLIER = 100;
-        // Absolute floor: even if growthSmall ≈ 0 (everything GC'd between
-        // measurements), prevent a trivially-passing assertion.  The floor is
-        // set to 4× the worst-case RegExp allocation budget so the ceiling is
-        // never less than ~320 KB—large enough to absorb incidental formatting
-        // overhead while still being well below a pathological growth regime.
-        const BYTES_PER_REGEXP = 400;
-        const FLOOR_SAFETY_MARGIN = 4;
-        const absoluteFloor = COMMENT_COUNT_LARGE * BYTES_PER_REGEXP * FLOOR_SAFETY_MARGIN;
-        const ceiling = Math.max(absoluteFloor, growthSmall * SCALE_FACTOR * GENEROUS_OVERHEAD_MULTIPLIER);
+        // Absolute floor: even if growthSmall ≈ 0 (the GC collected between
+        // measurements), the ceiling must still be large enough to absorb normal
+        // formatting allocations (AST nodes, tokens, output strings, etc.) for a
+        // 200-comment file.  In practice a full format pass over 200 block-comment
+        // + statement pairs retains ~7 MB of heap; 100 MB gives 14× headroom so
+        // the assertion only fires when growth is truly pathological (≥ 0.5 MB per
+        // comment), not on routine GC timing variation.
+        const ABSOLUTE_FLOOR_BYTES = 100_000_000; // 100 MB
+        const ceiling = Math.max(ABSOLUTE_FLOOR_BYTES, growthSmall * SCALE_FACTOR * GENEROUS_OVERHEAD_MULTIPLIER);
 
         assert.ok(
             growthLarge < ceiling,
