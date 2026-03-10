@@ -5,7 +5,8 @@ This document synthesizes the target state for the GameMaker Language parser pro
 ## 1. Summary & Objectives
 
 1. **Strict Separation of Concerns**: Split responsibilities into a Prettier-plugin formatter-only workspace (`@gml-modules/format`), an ESLint v9 language+rules workspace (`@gml-modules/lint`), a refactor/codemod workspace (`@gml-modules/refactor`), and shared core utilities (`@gml-modules/core`).
-2. **Deterministic Formatting**: Keep the formatter deterministic and non-semantic; move any non-layout, single-file-scoped rewrites to the linter's (`@gml-modules/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (e.g., operator aliases, numeric literal formatting) is permitted in the formatter, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
+2. **Deterministic Formatting**: Keep the formatter deterministic and non-semantic. Keep the formatter deterministic and non-semantic. A Prettier plugin should not be source/content aware in the sense of changing formatting based on semantic meaning or program behavior.
+3. **Linter with Auto-Fixes**: Any non-layout, single-file-scoped rewrites should be handled by the linter's (`@gml-modules/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (e.g., operator aliases, numeric literal formatting) is permitted in the formatter, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 3. **Robust Semantic Analysis**: Implement a semantic layer that annotates the parse tree to power linting, refactoring, and transpilation, using the Sourcegraph Code Intelligence Protocol (SCIP) as the canonical symbol index.
 4. **Live Hot-Reloading**: Enable true hot-loading of GML code, assets, and shaders without restarting the game by transpiling GML to JavaScript on demand and injecting it via a runtime wrapper.
 
@@ -25,7 +26,7 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 - **Lint (`gml/normalize-doc-comments`)** owns legacy prefix/tag normalization, `@description` promotion/cleanup (including removal of empty `/// @description` at top-of-file/function doc blocks), `@param` separator normalization (for example, `name - description` to `name description`), and function-doc tag synthesis.
 - **Lint (`gml/normalize-banner-comments`)** owns decorative banner normalization (line-banner canonicalization, decorative block-banner collapse, non-doc-comment triple-slash comment normalization, and removal of decorative-only separators).
-- **Format** owns rendering and spacing of already-existing/normalized doc comments, and comment placement/layout that does not change text content.
+- **Format** owns rendering and spacing of already-existing/normalized doc comments, and comment placement/layout that does not change text content. The formatter *should* own deciding comment placement/layout when that only affects whitespace, indentation, line breaking, and attachment. The formatter should **not** be rewriting the comment’s textual content, interpreting semantics, or “fixing” prose.
 - **Core** owns shared doc-comment helpers used by lint/format.
 
 _Migration Rules:_ Do not add new doc-comment content mutation logic in format printer/transforms. Any new doc-comment synthesis or tag/content rewrite must be implemented as lint rule behavior.
