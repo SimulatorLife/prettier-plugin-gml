@@ -105,17 +105,29 @@ export function recoverParseSourceFromMissingBrace(sourceText: string, error: un
  * Determines whether an error indicates missing closing braces.
  */
 function isMissingClosingBraceError(error: unknown): boolean {
+    const message = extractErrorMessage(error);
+
+    return Core.isNonEmptyString(message) && message.toLowerCase().includes("missing associated closing brace");
+}
+
+/**
+ * Extracts a human-readable error message from unknown error input.
+ */
+function extractErrorMessage(error: unknown): string {
     if (!error) {
-        return false;
+        return "";
     }
 
-    const message = Core.isNonEmptyString((error as { message?: unknown }).message)
-        ? (error as { message: string }).message
-        : Core.isNonEmptyString(error)
-          ? String(error)
-          : "";
+    if (Core.isNonEmptyString(error)) {
+        return String(error);
+    }
 
-    return message.toLowerCase().includes("missing associated closing brace");
+    if (typeof error === "object" && "message" in error) {
+        const message = (error as { message: unknown }).message;
+        return Core.isNonEmptyString(message) ? String(message) : "";
+    }
+
+    return "";
 }
 
 /**
