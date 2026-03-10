@@ -138,91 +138,91 @@ async function planSingleFeatherRename(parameters: {
 }
 
 /**
- * Creates the default project analysis provider for RefactorEngine overlap checks.
+ * Default project analysis provider for RefactorEngine overlap checks.
+ * This is a stateless, immutable singleton — all methods receive their
+ * context as parameters, so a single shared instance is always safe.
  */
-export function createRefactorProjectAnalysisProvider(): RefactorProjectAnalysisProvider {
-    return Object.freeze({
-        async isIdentifierOccupied(identifierName: string, context: RefactorProjectAnalysisContext): Promise<boolean> {
-            if (!context.semantic) {
-                return false;
-            }
-
-            const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
-            if (Array.isArray(occurrences) && occurrences.length > 0) {
-                return true;
-            }
-
-            const symbolId = await SymbolQueries.resolveSymbolId(identifierName, context.semantic);
-            return Core.isNonEmptyString(symbolId);
-        },
-        async listIdentifierOccurrences(
-            identifierName: string,
-            context: RefactorProjectAnalysisContext
-        ): Promise<Set<string>> {
-            const files = new Set<string>();
-            if (!context.semantic) {
-                return files;
-            }
-
-            const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
-            if (!Array.isArray(occurrences)) {
-                return files;
-            }
-
-            for (const occurrence of occurrences) {
-                if (Core.isObjectLike(occurrence) && Core.isNonEmptyString(occurrence.path)) {
-                    files.add(occurrence.path);
-                }
-            }
-
-            return files;
-        },
-        async planFeatherRenames(
-            requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
-            filePath: string | null,
-            projectRoot: string,
-            context: RefactorProjectAnalysisContext
-        ): Promise<Array<FeatherRenamePlanEntry>> {
-            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-            const plannedEntries: Array<FeatherRenamePlanEntry> = [];
-
-            await Core.runSequentially(requests, async (request) => {
-                const plannedEntry = await planSingleFeatherRename({
-                    request,
-                    normalizedFilePath,
-                    projectRoot,
-                    context
-                });
-                if (plannedEntry) {
-                    plannedEntries.push(plannedEntry);
-                }
-            });
-
-            return plannedEntries;
-        },
-        assessGlobalVarRewrite(
-            filePath: string | null,
-            hasInitializer: boolean
-        ): {
-            allowRewrite: boolean;
-            initializerMode: "existing" | "undefined";
-            mode: "project-aware";
-        } {
-            const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
-            return {
-                allowRewrite: hasInitializer || normalizedFilePath !== null,
-                initializerMode: hasInitializer ? "existing" : "undefined",
-                mode: "project-aware"
-            };
-        },
-        resolveLoopHoistIdentifier(preferredName: string): {
-            identifierName: string;
-            mode: "project-aware";
-        } {
-            return {
-                identifierName: preferredName,
-                mode: "project-aware"
-            };
+export const DEFAULT_PROJECT_ANALYSIS_PROVIDER: RefactorProjectAnalysisProvider = Object.freeze({
+    async isIdentifierOccupied(identifierName: string, context: RefactorProjectAnalysisContext): Promise<boolean> {
+        if (!context.semantic) {
+            return false;
         }
-    });
-}
+
+        const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
+        if (Array.isArray(occurrences) && occurrences.length > 0) {
+            return true;
+        }
+
+        const symbolId = await SymbolQueries.resolveSymbolId(identifierName, context.semantic);
+        return Core.isNonEmptyString(symbolId);
+    },
+    async listIdentifierOccurrences(
+        identifierName: string,
+        context: RefactorProjectAnalysisContext
+    ): Promise<Set<string>> {
+        const files = new Set<string>();
+        if (!context.semantic) {
+            return files;
+        }
+
+        const occurrences = await context.semantic.getSymbolOccurrences?.(identifierName);
+        if (!Array.isArray(occurrences)) {
+            return files;
+        }
+
+        for (const occurrence of occurrences) {
+            if (Core.isObjectLike(occurrence) && Core.isNonEmptyString(occurrence.path)) {
+                files.add(occurrence.path);
+            }
+        }
+
+        return files;
+    },
+    async planFeatherRenames(
+        requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
+        filePath: string | null,
+        projectRoot: string,
+        context: RefactorProjectAnalysisContext
+    ): Promise<Array<FeatherRenamePlanEntry>> {
+        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+        const plannedEntries: Array<FeatherRenamePlanEntry> = [];
+
+        await Core.runSequentially(requests, async (request) => {
+            const plannedEntry = await planSingleFeatherRename({
+                request,
+                normalizedFilePath,
+                projectRoot,
+                context
+            });
+            if (plannedEntry) {
+                plannedEntries.push(plannedEntry);
+            }
+        });
+
+        return plannedEntries;
+    },
+    assessGlobalVarRewrite(
+        filePath: string | null,
+        hasInitializer: boolean
+    ): {
+        allowRewrite: boolean;
+        initializerMode: "existing" | "undefined";
+        mode: "project-aware";
+    } {
+        const normalizedFilePath = Core.isNonEmptyString(filePath) ? path.resolve(filePath) : null;
+        return {
+            allowRewrite: hasInitializer || normalizedFilePath !== null,
+            initializerMode: hasInitializer ? "existing" : "undefined",
+            mode: "project-aware"
+        };
+    },
+    resolveLoopHoistIdentifier(preferredName: string): {
+        identifierName: string;
+        mode: "project-aware";
+    } {
+        return {
+            identifierName: preferredName,
+            mode: "project-aware"
+        };
+    }
+});
