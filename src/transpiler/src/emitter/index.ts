@@ -6,6 +6,7 @@ export { GmlToJsEmitter } from "./emitter.js";
 export { emitJavaScript } from "./emitter-entrypoints.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";
 export { EventContextOracle } from "./event-context-oracle.js";
+export { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 export { collectLocalVariables } from "./local-variable-collector.js";
 export { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 export type { SemanticOracleOptions } from "./semantic-factory.js";

@@ -20,6 +20,7 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/prefer-repeat-loops": "warn",
     "gml/prefer-struct-literal-assignments": "warn",
     "gml/prefer-compound-assignments": "warn",
+    "gml/prefer-direct-return": "warn",
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",
     "gml/no-empty-regions": "warn",

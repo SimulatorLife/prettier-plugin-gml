@@ -29,6 +29,10 @@ const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
 const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
+const LINT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml lint path/to/project";
+const LINT_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml lint --fix path/to/project";
+const LINT_COMMAND_CI_EXAMPLE = `pnpm dlx prettier-plugin-gml lint --max-warnings 0 path/to/script${GML_FILE_EXTENSION}`;
+
 const LINT_NAMESPACE = LintWorkspace.Lint;
 
 type LintCommandOptions = {
@@ -1002,6 +1006,16 @@ export function createLintCommand(): Command {
             .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
             .option("--quiet", "Suppress fallback warnings", false)
             .option("--verbose", "Enable verbose command output and timing diagnostics", false)
+            .addHelpText("after", () =>
+                [
+                    "",
+                    "Examples:",
+                    `  ${LINT_COMMAND_CLI_EXAMPLE}`,
+                    `  ${LINT_COMMAND_FIX_EXAMPLE}`,
+                    `  ${LINT_COMMAND_CI_EXAMPLE}`,
+                    ""
+                ].join("\n")
+            )
     );
 }
 

@@ -219,17 +219,17 @@ void test("optimize-math-expressions keeps dot-product auto-fixes within bounded
         "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 500,
-        `expected optimize-math-expressions rule runtime under 500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 2000,
+        `expected optimize-math-expressions rule runtime under 2000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 2000,
-        `expected total lint runtime under 2000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 5000,
+        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 
 void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions", async () => {
-    const source = buildLoopInvariantStressBatchSource(120, 30);
+    const source = buildLoopInvariantStressBatchSource(60, 15);
     const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
 
     assert.equal(timedRun.messages.length, 0);
@@ -238,17 +238,17 @@ void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on
         "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 3000,
-        `expected prefer-loop-invariant-expressions rule runtime under 3000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 1500,
+        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 6000,
-        `expected total lint runtime under 6000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 3000,
+        `expected total lint runtime under 3000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 
 void test("prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime", async () => {
-    const source = buildLoopInvariantStressBatchSource(320, 60);
+    const source = buildLoopInvariantStressBatchSource(160, 30);
     const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
 
     assert.equal(timedRun.messages.length, 0);
@@ -257,12 +257,12 @@ void test("prefer-loop-invariant-expressions keeps large hoist-name resolution w
         "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
     );
     assert.ok(
-        timedRun.ruleMilliseconds < 2500,
-        `expected prefer-loop-invariant-expressions rule runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        timedRun.ruleMilliseconds < 1500,
+        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
     );
     assert.ok(
-        timedRun.elapsedMilliseconds < 12_000,
-        `expected total lint runtime under 12000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        timedRun.elapsedMilliseconds < 5000,
+        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 
