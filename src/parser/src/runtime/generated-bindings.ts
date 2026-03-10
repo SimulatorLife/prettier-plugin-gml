@@ -29,6 +29,7 @@ export type ParseTreeVisitorMethod = (...args: unknown[]) => unknown;
 export interface ParserListenerBase {
     _dispatch?(methodName: string, ctx: ParserContext): unknown;
     [methodName: string]: ParseTreeListenerMethod;
+    [methodSymbol: symbol]: unknown;
 }
 
 export interface ParserListenerBaseConstructor {
@@ -72,4 +73,13 @@ export function getParserVisitorBase(): ParserVisitorBaseConstructor {
  */
 export function getParseTreeVisitorPrototype(): ParserVisitorPrototype {
     return Object.getPrototypeOf(getParserVisitorBase().prototype) as ParserVisitorPrototype;
+}
+
+/**
+ * Exposes the shared parse tree listener prototype used by the generated base
+ * class so wrappers can delegate inherited behaviour without relying on the
+ * generated module layout.
+ */
+export function getParseTreeListenerPrototype(): ParserListenerBase {
+    return Object.getPrototypeOf(getParserListenerBase().prototype) as ParserListenerBase;
 }
