@@ -68,6 +68,22 @@ function extractFunctionParameterNames(parameterListText: string): Array<string>
         .filter((parameterName) => /^[A-Za-z_][A-Za-z0-9_]*$/u.test(parameterName));
 }
 
+function normalizeFeatherDocTypeText(rawTypeText: string): string {
+    let normalizedType = rawTypeText.replaceAll(/[{}]/g, "");
+    normalizedType = normalizedType.replaceAll(/\bString\b/gi, "string");
+    normalizedType = normalizedType.replaceAll(/\bArray\s*\[\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\]/gi, "array<$1>");
+    normalizedType = normalizedType.replaceAll(/\bArray\s*\[\s*([A-Za-z_][A-Za-z0-9_.]*)/gi, "array<$1>");
+    normalizedType = normalizedType.replaceAll(/\bId\s+Instance\b/gi, "Id.Instance");
+    normalizedType = normalizedType.replaceAll("|", ",");
+    normalizedType = normalizedType.replaceAll(/\s+/g, "");
+    normalizedType = normalizedType.replaceAll(/(string)(array<)/g, "$1,$2");
+    if (normalizedType.includes("array<") && !normalizedType.endsWith(">")) {
+        normalizedType = `${normalizedType}>`;
+    }
+
+    return normalizedType;
+}
+
 function hasParamDocImmediatelyAbove(sourceText: string, functionStartIndex: number): boolean {
     const priorLines = sourceText.slice(0, functionStartIndex).split(/\r?\n/u);
     for (let index = priorLines.length - 1; index >= 0; index -= 1) {
@@ -159,30 +175,6 @@ function createFullTextRewriteRule(
                         loc: resolveReportLoc(context, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
-                    });
-                }
-            });
-        }
-    });
-}
-
-function createDiagnosticOnlyRule(
-    entry: FeatherManifestEntry,
-    shouldReport: (sourceText: string) => boolean
-): Rule.RuleModule {
-    return Object.freeze({
-        meta: createFeatherRuleMeta(entry, null),
-        create(context) {
-            return Object.freeze({
-                Program() {
-                    const sourceText = context.sourceCode.text;
-                    if (!shouldReport(sourceText)) {
-                        return;
-                    }
-
-                    context.report({
-                        loc: resolveReportLoc(context, 0),
-                        messageId: "diagnostic"
                     });
                 }
             });
@@ -881,11 +873,20 @@ function createGm1051Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createFullTextRewriteRule(entry, (sourceText) =>
-        sourceText.replaceAll(/\bdelete\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g, (_fullMatch, identifier: string) => {
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        const arrayVariableNames = new Set<string>();
+        for (const match of sourceText.matchAll(/\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\[/g)) {
+            arrayVariableNames.add(match[1]);
+        }
+
+        return sourceText.replaceAll(/\bdelete\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g, (fullMatch, identifier: string) => {
+            if (!arrayVariableNames.has(identifier)) {
+                return fullMatch;
+            }
+
             return `${identifier} = undefined;`;
-        })
-    );
+        });
+    });
 }
 
 function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -1240,29 +1241,12 @@ function createGm2064Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
+        rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
+        rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^)]+?)\s*\)\s*constructor\s*\{/gm,
-            (
-                fullMatch,
-                indentation: string,
-                functionName: string,
-                parameterName: string,
-                defaultValue: string,
-                index: number
-            ) => {
-                const previousLine = sourceText.slice(0, index).split(/\r?\n/u).at(-1) ?? "";
-                if (/^\s*\/\/\/\s*@param\b/u.test(previousLine)) {
-                    return `${indentation}function ${functionName}(${parameterName} = ${defaultValue.trim()}) constructor {`;
-                }
-
-                return `${indentation}/// @param [${parameterName}=${defaultValue.trim()}]\n${indentation}function ${functionName}(${parameterName} = ${defaultValue.trim()}) constructor {`;
-            }
-        );
-        rewritten = rewritten.replaceAll(/^([ \t]*)\/\/\/\s*@function\b[^\n]*$/gm, "$1/// @returns {undefined}");
-        rewritten = rewritten.replaceAll(/,\s*([A-Za-z_][A-Za-z0-9_]*\s*:\s*function\s*\()/g, ",\n    $1");
-        rewritten = rewritten.replaceAll(
-            /([ \t]*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\(\s*\)\s*(?:constructor\s*)?\{[\s\S]*?\n)([ \t]*)\}(?!\s*;)/gm,
-            "$1$2};"
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
+                suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );
         rewritten = rewritten.replaceAll(
             /with\s*\(\s*other\s*\)\s*\{([\s\S]*?)\n([ \t]*)\}/gm,
@@ -1315,14 +1299,14 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     const sortedAliasIndexes = [...aliasesByIndex.keys()].toSorted((left, right) => left - right);
                     const contiguousAliases = sortedAliasIndexes.every((index, sortedIndex) => index === sortedIndex);
                     if (contiguousAliases && maxArgumentIndex <= sortedAliasIndexes.at(-1)) {
+                        rewrittenBody = rewrittenBody.replaceAll(
+                            /^[ \t]*var\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*argument\d+\s*;[ \t]*(?:\r?\n)?/gm,
+                            ""
+                        );
                         for (const [index, aliasName] of aliasesByIndex) {
                             const aliasPattern = new RegExp(String.raw`\bargument${index}\b`, "g");
                             rewrittenBody = rewrittenBody.replaceAll(aliasPattern, aliasName);
                         }
-                        rewrittenBody = rewrittenBody.replaceAll(
-                            /^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*argument\d+\s*;\s*/gm,
-                            ""
-                        );
                         const parameterList = sortedAliasIndexes.map((index) => aliasesByIndex.get(index)).join(", ");
                         return `function ${functionName}(${parameterList}) {${rewrittenBody}\n}`;
                     }
@@ -1345,28 +1329,20 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             }
         );
         rewritten = rewritten.replaceAll(
-            /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/gm,
+            /((?:^[ \t]*\/\/\/[^\n]*\n)*)(^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{)/gm,
             (
                 fullMatch: string,
+                docBlock: string,
+                functionDeclaration: string,
                 indentation: string,
                 _functionName: string,
                 parameterList: string,
                 offset: number,
                 fullText: string
             ) => {
-                if (hasParamDocImmediatelyAbove(fullText, offset)) {
-                    return fullMatch;
-                }
-
                 const parameterNames = extractFunctionParameterNames(parameterList);
-                if (parameterNames.length > 0) {
-                    const docs = parameterNames
-                        .map((parameterName) => `${indentation}/// @param ${toDocParameterName(parameterName)}`)
-                        .join("\n");
-                    return `${docs}\n${fullMatch}`;
-                }
-
-                const openBraceIndex = fullText.indexOf("{", offset);
+                const functionDeclarationStart = offset + docBlock.length;
+                const openBraceIndex = fullText.indexOf("{", functionDeclarationStart);
                 if (openBraceIndex === -1) {
                     return fullMatch;
                 }
@@ -1381,16 +1357,57 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     Number.parseInt(match[1], 10)
                 );
                 const maxArgumentIndex = argumentIndexes.length === 0 ? -1 : Math.max(...argumentIndexes);
-                if (maxArgumentIndex < 0) {
-                    return fullMatch;
+
+                const aliasNamesByIndex = new Map<number, string>();
+                for (const match of functionBody.matchAll(
+                    /^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*argument(\d+)\s*;\s*$/gm
+                )) {
+                    const aliasName = match[1];
+                    const aliasIndex = Number.parseInt(match[2], 10);
+                    aliasNamesByIndex.set(aliasIndex, aliasName);
                 }
 
-                const docs = Array.from({ length: maxArgumentIndex + 1 }, (_unused, index) => {
-                    return `${indentation}/// @param argument${index}`;
-                }).join("\n");
-                return `${docs}\n${fullMatch}`;
+                const docLines =
+                    docBlock.length === 0
+                        ? []
+                        : docBlock
+                              .trimEnd()
+                              .split(/\r?\n/u)
+                              .filter((line) => line.length > 0);
+                const descriptionLines = docLines
+                    .filter((line) => /^\s*\/\/\/\s*@description\b/u.test(line))
+                    .map((line) => {
+                        const descriptionText = line.replace(/^\s*\/\/\/\s*@description\b\s*/u, "").trim();
+                        return `${indentation}/// @description${descriptionText.length > 0 ? ` ${descriptionText}` : ""}`;
+                    });
+                const returnsLines = docLines
+                    .filter((line) => /^\s*\/\/\/\s*@returns\b/u.test(line))
+                    .map((line) => `${indentation}/// @returns${line.replace(/^\s*\/\/\/\s*@returns\b/u, "")}`);
+
+                const parameterDocNames: Array<string> = [];
+                if (parameterNames.length > 0) {
+                    parameterDocNames.push(...parameterNames);
+                } else if (maxArgumentIndex >= 0) {
+                    for (let index = 0; index <= maxArgumentIndex; index += 1) {
+                        parameterDocNames.push(aliasNamesByIndex.get(index) ?? `argument${index}`);
+                    }
+                }
+
+                const parameterDocLines = parameterDocNames.map(
+                    (parameterName) => `${indentation}/// @param ${toDocParameterName(parameterName)}`
+                );
+                const canonicalDocLines = [...descriptionLines, ...parameterDocLines, ...returnsLines];
+                if (canonicalDocLines.length === 0) {
+                    return functionDeclaration;
+                }
+
+                return `${canonicalDocLines.join("\n")}\n${functionDeclaration}`;
             }
         );
+        rewritten = rewritten.replaceAll(/\}\n(?=\/\/\/\s*@description\b)/g, "}\n\n");
+        if (!rewritten.endsWith("\n")) {
+            rewritten = `${rewritten}\n`;
+        }
         return rewritten;
     });
 }
@@ -1417,35 +1434,6 @@ function createGm1034Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 `${functionIndentation}function ${functionName}(${parameterName}) {`
             );
             rewritten = rewritten.replace(aliasMatch[0], "");
-
-            rewritten = rewritten.replaceAll(
-                /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/gm,
-                (
-                    fullMatch: string,
-                    indentation: string,
-                    _capturedFunctionName: string,
-                    parameterList: string,
-                    offset: number,
-                    fullText: string
-                ) => {
-                    if (hasParamDocImmediatelyAbove(fullText, offset)) {
-                        return fullMatch;
-                    }
-
-                    const parameterNames = extractFunctionParameterNames(parameterList);
-                    if (parameterNames.length === 0) {
-                        return fullMatch;
-                    }
-
-                    const docs = parameterNames
-                        .map(
-                            (functionParameterName) =>
-                                `${indentation}/// @param ${toDocParameterName(functionParameterName)}`
-                        )
-                        .join("\n");
-                    return `${docs}\n${fullMatch}`;
-                }
-            );
         }
 
         rewritten = rewritten.replaceAll(/^\s*show_debug_message\(/gm, "    show_debug_message(");
@@ -1474,31 +1462,6 @@ function createGm1036Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\n\{/gm,
             "$1function $2($3) {"
         );
-        rewritten = rewritten.replaceAll(
-            /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/gm,
-            (
-                fullMatch: string,
-                indentation: string,
-                _functionName: string,
-                parameterList: string,
-                offset: number,
-                fullText: string
-            ) => {
-                if (hasParamDocImmediatelyAbove(fullText, offset)) {
-                    return fullMatch;
-                }
-
-                const parameterNames = extractFunctionParameterNames(parameterList);
-                if (parameterNames.length === 0) {
-                    return fullMatch;
-                }
-
-                const docs = parameterNames
-                    .map((parameterName) => `${indentation}/// @param ${toDocParameterName(parameterName)}`)
-                    .join("\n");
-                return `${docs}\n${fullMatch}`;
-            }
-        );
         return rewritten;
     });
 }
@@ -1507,14 +1470,7 @@ function createGm1056Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         return sourceText.replaceAll(
             /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/gm,
-            (
-                fullMatch: string,
-                indentation: string,
-                functionName: string,
-                parameterList: string,
-                offset: number,
-                fullText: string
-            ) => {
+            (fullMatch: string, indentation: string, functionName: string, parameterList: string) => {
                 const parameterSegments = parameterList
                     .split(",")
                     .map((segment) => segment.trim())
@@ -1537,32 +1493,7 @@ function createGm1056Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
                     normalizedParameters.push(segment);
                 }
-
-                const docs = normalizedParameters
-                    .map((parameterSegment, index) => {
-                        const parameterName = parameterSegment.split("=")[0].trim();
-                        const parameterDefault = parameterSegment.includes("=")
-                            ? parameterSegment.split("=").slice(1).join("=").trim()
-                            : "";
-                        const docParameterName = toDocParameterName(parameterName);
-                        if (index < firstOptionalIndex) {
-                            return `${indentation}/// @param ${docParameterName}`;
-                        }
-
-                        if (parameterDefault.length === 0 || parameterDefault === "undefined") {
-                            return `${indentation}/// @param [${docParameterName}]`;
-                        }
-
-                        return `${indentation}/// @param [${docParameterName}=${parameterDefault}]`;
-                    })
-                    .join("\n");
-
-                const functionDeclaration = `${indentation}function ${functionName}(${normalizedParameters.join(", ")}) {`;
-                if (hasParamDocImmediatelyAbove(fullText, offset)) {
-                    return functionDeclaration;
-                }
-
-                return `${docs}\n${functionDeclaration}`;
+                return `${indentation}function ${functionName}(${normalizedParameters.join(", ")}) {`;
             }
         );
     });
@@ -1572,14 +1503,7 @@ function createGm1059Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) =>
         sourceText.replaceAll(
             /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/gm,
-            (
-                fullMatch: string,
-                indentation: string,
-                functionName: string,
-                parameterList: string,
-                offset: number,
-                fullText: string
-            ) => {
+            (fullMatch: string, indentation: string, functionName: string, parameterList: string) => {
                 const parameterNames = extractFunctionParameterNames(parameterList);
                 if (parameterNames.length === 0) {
                     return fullMatch;
@@ -1592,15 +1516,7 @@ function createGm1059Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     }
                 }
 
-                const functionDeclaration = `${indentation}function ${functionName}(${uniqueParameterNames.join(", ")}) {`;
-                if (hasParamDocImmediatelyAbove(fullText, offset)) {
-                    return functionDeclaration;
-                }
-
-                const docs = uniqueParameterNames
-                    .map((parameterName) => `${indentation}/// @param ${toDocParameterName(parameterName)}`)
-                    .join("\n");
-                return `${docs}\n${functionDeclaration}`;
+                return `${indentation}function ${functionName}(${uniqueParameterNames.join(", ")}) {`;
             }
         )
     );
@@ -1614,12 +1530,7 @@ function createGm1062Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(
             /^([ \t]*\/\/\/\s*@param\s*)\{([^}]*)\}(\s+)([A-Za-z_][A-Za-z0-9_]*)(.*)$/gm,
             (_fullMatch, prefix: string, typeText: string, spacing: string, parameterName: string, suffix: string) => {
-                const normalizedType = typeText
-                    .replaceAll(/\bString\b/g, "string")
-                    .replaceAll(/\bArray\s*\[\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\]/g, "array<$1>")
-                    .replaceAll(/\bId\s+Instance\b/g, "Id.Instance")
-                    .replaceAll("|", ",")
-                    .replaceAll(/\s+/g, "");
+                const normalizedType = normalizeFeatherDocTypeText(typeText);
                 const normalizedParameterName = toDocParameterName(parameterName);
                 const normalizedSuffix = suffix.replace(/^\s*-\s*/u, " ");
                 return `${prefix}{${normalizedType}}${spacing}${normalizedParameterName}${normalizedSuffix}`;
@@ -1629,14 +1540,32 @@ function createGm1062Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\n\{/gm,
             "$1function $2($3) {"
         );
+        rewritten = rewritten.replaceAll(/,\s+\n/g, ",\n");
         rewritten = rewritten.replaceAll(
             /((?:^[ \t]*\/\/\/[^\n]*\n)+)(^([ \t]*)function\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)\s*\{)/gm,
-            (fullMatch: string, docBlock: string, functionDeclaration: string, indentation: string) => {
-                if (/^\s*\/\/\/\s*@returns\b/gm.test(docBlock)) {
-                    return fullMatch;
+            (_fullMatch: string, docBlock: string, functionDeclaration: string, indentation: string) => {
+                const docLines = docBlock
+                    .trimEnd()
+                    .split(/\r\n|\n/u)
+                    .filter((line) => line.length > 0);
+                const descriptionLines = docLines
+                    .filter((line) => /^\s*\/\/\/\s*@description\b/u.test(line))
+                    .map((line) => {
+                        const descriptionText = line.replace(/^\s*\/\/\/\s*@description\b\s*/u, "").trim();
+                        return `${indentation}/// @description${descriptionText.length > 0 ? ` ${descriptionText}` : ""}`;
+                    });
+                const parameterLines = docLines
+                    .filter((line) => /^\s*\/\/\/\s*@param\b/u.test(line))
+                    .map((line) => `${indentation}${line.trimStart()}`);
+                const returnLines = docLines
+                    .filter((line) => /^\s*\/\/\/\s*@returns\b/u.test(line))
+                    .map((line) => `${indentation}${line.trimStart()}`);
+                if (returnLines.length === 0) {
+                    returnLines.push(`${indentation}/// @returns {undefined}`);
                 }
 
-                return `${docBlock}${indentation}/// @returns {undefined}\n${functionDeclaration}`;
+                const orderedDocLines = [...descriptionLines, ...parameterLines, ...returnLines];
+                return `${orderedDocLines.join("\n")}\n${functionDeclaration}`;
             }
         );
         return rewritten;
@@ -1671,13 +1600,15 @@ function createGm2005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 }
 
 function createGm2007Rule(entry: FeatherManifestEntry): Rule.RuleModule {
-    return createDiagnosticOnlyRule(
-        entry,
-        (sourceText) =>
-            /^(\s*var [A-Za-z_][A-Za-z0-9_]*)\s*$/gm.test(sourceText) ||
-            /if \(([^)]+)\)\s*\n\{/g.test(sourceText) ||
-            /(\s*var [A-Za-z_][A-Za-z0-9_]*)(\s*\/\/.*)$/gm.test(sourceText)
-    );
+    return createFullTextRewriteRule(entry, (sourceText) => {
+        let rewritten = sourceText;
+        rewritten = rewritten.replaceAll(
+            /^([ \t]*var\s+[A-Za-z_][A-Za-z0-9_]*)(\s*\/\/[^\n]*)?$/gm,
+            (_fullMatch, declaration: string, trailingComment?: string) => `${declaration};${trailingComment ?? ""}`
+        );
+        rewritten = rewritten.replaceAll(/(if\s*\([^\n]+\))\s*\n\{/g, "$1 {");
+        return rewritten;
+    });
 }
 
 function createGm2008Rule(entry: FeatherManifestEntry): Rule.RuleModule {
@@ -1706,10 +1637,64 @@ function createGm2011Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm2012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
-        let rewritten = sourceText;
-        rewritten = rewritten.replace("vertex_format_end();\n", "");
-        rewritten = rewritten.replace("vertex_format_add_position_3d();\n", "");
-        rewritten = rewritten.replace("vertex_format_begin();\nvertex_format_end();\n", "");
+        const lineEnding = sourceText.includes("\r\n") ? "\r\n" : "\n";
+        const hasTerminalNewline = sourceText.endsWith("\n");
+        const lines = sourceText.split(/\r?\n/u);
+        const rewrittenLines: Array<string> = [];
+        let activeBeginLineIndex: number | null = null;
+        let activeBeginHasContent = false;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed === "vertex_format_add_position_3d();") {
+                continue;
+            }
+
+            if (trimmed === "vertex_format_begin();") {
+                if (activeBeginLineIndex !== null && !activeBeginHasContent) {
+                    rewrittenLines.splice(activeBeginLineIndex, 1);
+                }
+
+                rewrittenLines.push(line);
+                activeBeginLineIndex = rewrittenLines.length - 1;
+                activeBeginHasContent = false;
+                continue;
+            }
+
+            if (/^[A-Za-z_][A-Za-z0-9_]*\s*=\s*vertex_format_end\(\);\s*$/u.test(trimmed)) {
+                rewrittenLines.push(line);
+                activeBeginLineIndex = null;
+                activeBeginHasContent = false;
+                continue;
+            }
+
+            if (trimmed === "vertex_format_end();") {
+                if (activeBeginLineIndex !== null && !activeBeginHasContent) {
+                    rewrittenLines.splice(activeBeginLineIndex, 1);
+                }
+
+                activeBeginLineIndex = null;
+                activeBeginHasContent = false;
+                continue;
+            }
+
+            if (activeBeginLineIndex !== null && trimmed.length === 0) {
+                continue;
+            }
+
+            if (activeBeginLineIndex !== null && trimmed.length > 0 && !trimmed.startsWith("//")) {
+                activeBeginHasContent = true;
+            }
+
+            rewrittenLines.push(line);
+        }
+
+        let rewritten = rewrittenLines.join(lineEnding);
+        rewritten = rewritten.replaceAll(new RegExp(`${lineEnding}{3,}`, "g"), `${lineEnding}${lineEnding}`);
+        if (hasTerminalNewline && !rewritten.endsWith(lineEnding)) {
+            rewritten = `${rewritten}${lineEnding}`;
+        }
+
         return rewritten;
     });
 }
