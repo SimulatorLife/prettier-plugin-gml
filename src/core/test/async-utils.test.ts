@@ -54,18 +54,25 @@ void test("runSequentially propagates errors", async () => {
 // === runInParallel tests ===
 
 void test("runInParallel executes callbacks in parallel", async () => {
-    const startTimes: Array<number> = [];
-    const results = await runInParallel([1, 2, 3], async (num) => {
-        startTimes.push(Date.now());
-        await new Promise((resolve) => setTimeout(resolve, 50));
+    const startedIndices: Array<number> = [];
+    let releaseCallbacks: () => void;
+    const callbacksReleased = new Promise<void>((resolve) => {
+        releaseCallbacks = resolve;
+    });
+
+    const resultsPromise = runInParallel([1, 2, 3], async (num) => {
+        startedIndices.push(num);
+        await callbacksReleased;
         return num * 2;
     });
 
-    // All callbacks should start at roughly the same time (within 20ms)
-    const timeSpread = Math.max(...startTimes) - Math.min(...startTimes);
-    assert.ok(timeSpread < 20, `Time spread too large: ${timeSpread}ms`);
+    // runInParallel invokes each callback eagerly before awaiting completion.
+    // This assertion avoids wall-clock timing and remains deterministic in CI.
+    assert.deepEqual(startedIndices, [1, 2, 3]);
+    releaseCallbacks();
 
     // Results should be returned in order
+    const results = await resultsPromise;
     assert.deepEqual(results, [2, 4, 6]);
 });
 
