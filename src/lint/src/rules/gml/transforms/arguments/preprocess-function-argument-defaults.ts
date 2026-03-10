@@ -668,8 +668,9 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
         const paramDocMap = new Map<string, boolean>();
         if (Core.isNonEmptyArray(comments)) {
             for (const comment of comments) {
-                if (!comment || typeof comment.value !== "string") continue;
-                const m = comment.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
+                const commentRecord = comment as Record<string, unknown>;
+                if (typeof commentRecord.value !== "string") continue;
+                const m = commentRecord.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
                 if (!m) continue;
                 const raw = m[1];
                 const name = raw ? raw.replaceAll(/^\[|\]$/g, "").trim() : null;
