@@ -21,15 +21,18 @@ function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate
         return baseDelegate;
     }
 
-    const handlerEntries = Object.entries(listenerHandlers)
-        .filter(([, value]) => typeof value === "function")
-        .map(([key, value]) => [key, value] as const);
+    const handlerMap: Record<string, ListenerOptions["listenerHandlers"][string]> = {};
 
-    if (handlerEntries.length === 0) {
-        return baseDelegate;
+    for (const [methodName, candidate] of Object.entries(listenerHandlers)) {
+        if (typeof candidate !== "function") {
+            continue;
+        }
+        handlerMap[methodName] = candidate;
     }
 
-    const handlerMap = Object.fromEntries(handlerEntries);
+    if (Object.keys(handlerMap).length === 0) {
+        return baseDelegate;
+    }
 
     return (payload) => {
         const handler = handlerMap[payload.methodName];
@@ -37,12 +40,10 @@ function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate
             return baseDelegate(payload);
         }
 
-        const enhancedPayload = {
+        return handler(payload.ctx, {
             ...payload,
             fallback: () => baseDelegate(payload)
-        };
-
-        return handler(enhancedPayload.ctx, enhancedPayload);
+        });
     };
 }
 

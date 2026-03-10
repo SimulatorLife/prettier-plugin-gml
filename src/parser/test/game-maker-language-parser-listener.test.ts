@@ -80,3 +80,20 @@ void test("unhandled methods still route to the delegate", () => {
     assert.equal(handlerCalls, 0);
     assert.equal(delegateCalls, 1);
 });
+
+void test("non-function method handlers are ignored", () => {
+    let delegateCalls = 0;
+
+    const listener = new GameMakerLanguageParserListener({
+        listenerDelegate: () => {
+            delegateCalls += 1;
+        },
+        listenerHandlers: {
+            enterProgram: "not a function" as never
+        }
+    });
+
+    listener.enterProgram({});
+
+    assert.equal(delegateCalls, 1);
+});
