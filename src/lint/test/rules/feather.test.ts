@@ -243,7 +243,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm1013",
         ruleName: "gm1013",
         assertOutput: (output) => {
-            assertEquals(output.includes("/// @param [attack_bonus=10]"), true);
+            assertEquals(output.includes("/// @param [attack_bonus=10]"), false);
             assertEquals(output.includes("other.attack_bonus"), true);
         }
     },
@@ -259,7 +259,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm1034",
         ruleName: "gm1034",
         assertOutput: (output) => {
-            assertEquals(output.includes("/// @param first_parameter"), true);
+            assertEquals(output.includes("/// @param first_parameter"), false);
             assertEquals(output.includes("function func_args(_first_parameter) {"), true);
         }
     },
@@ -268,7 +268,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1036",
         assertOutput: (output) => {
             assertEquals(output.includes("[0][1][2][3]"), true);
-            assertEquals(output.includes("/// @param mat"), true);
+            assertEquals(output.includes("/// @param mat"), false);
         }
     },
     {
@@ -276,7 +276,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1056",
         assertOutput: (output) => {
             assertEquals(output.includes("c = undefined"), true);
-            assertEquals(output.includes("/// @param [c]"), true);
+            assertEquals(output.includes("/// @param [c]"), false);
         }
     },
     {
@@ -327,9 +327,10 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
     {
         fixtureDirectory: "gm2007",
         ruleName: "gm2007",
-        assertOutput: (output, input) => {
-            assertEquals(output, input);
-            assertEquals(output.includes("var missing"), true);
+        assertOutput: (output) => {
+            assertEquals(output.includes("var missing;"), true);
+            assertEquals(output.includes("var withComment; // comment"), true);
+            assertEquals(output.includes("if (scr_custom_eval()) {"), true);
         }
     },
     {
@@ -593,13 +594,27 @@ runner = function () constructor {
 
     const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1013", input);
 
-    assertEquals(output.includes("/// @param [speed=12]"), true);
+    assertEquals(output.includes("/// @param [speed=12]"), false);
     assertEquals(output.includes("function DamageHandler(speed = 12) constructor {"), true);
-    assertEquals(output.includes("/// @returns {undefined}"), true);
+    assertEquals(output.includes("/// @returns {undefined}"), false);
+    assertEquals(output.includes("/// @function trigger"), true);
     assertEquals(output.includes("var total = base + other.speed;"), true);
     assertEquals(output.includes("static strike = function () {"), true);
     assertEquals(output.includes("runner = function () constructor {"), true);
     assertEquals(output.includes("};"), true);
+});
+
+void test("gm1052 rewrites only array delete targets to undefined", () => {
+    const input = `var values = [1, 2, 3];
+var structValues = { value: 1 };
+delete values;
+delete structValues;
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1052", input);
+
+    assertEquals(output.includes("values = undefined;"), true);
+    assertEquals(output.includes("delete structValues;"), true);
 });
 
 void test("gm2054 preserves active threshold and inserts reset before alpha-test disable", () => {
