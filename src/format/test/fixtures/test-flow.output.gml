@@ -94,6 +94,7 @@ function bool_passthrough(condition) {
         return false;
     }
 }
+
 /// @param {boolean} b - The second boolean
 /// @param {boolean} a - The first boolean
 function bool_negated(a, b) {
@@ -111,6 +112,7 @@ function bool_with_comment(condition) {
         return false;
     }
 }
+
 /// @param list
 /// @param map
 /// @param grid

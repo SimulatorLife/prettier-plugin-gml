@@ -35,7 +35,6 @@ function createContext(sourceText: string): {
     const messages: Array<{ messageId: string; fix?: { range: [number, number]; text: string } }> = [];
     const context = {
         options: [{}],
-        settings: { gml: { project: { getContext: () => null } } },
         sourceCode: { text: sourceText },
         report(descriptor: {
             messageId: string;

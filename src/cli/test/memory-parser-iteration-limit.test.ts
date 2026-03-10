@@ -8,7 +8,7 @@ import {
     MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
     setMaxParserIterations
 } from "../src/commands/memory.js";
-import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
+import { buildEnvConfiguredValueTests } from "./test-helpers/env-configured-value-test-builder.js";
 
 void describe("memory parser iteration limit configuration", () => {
     buildEnvConfiguredValueTests({

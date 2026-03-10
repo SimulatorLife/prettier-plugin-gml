@@ -61,6 +61,7 @@ function normalizeDocCommentPrefixLine(line: string): string {
 type FunctionLineCandidate = Readonly<{
     functionNode: AstNodeWithType;
     assignmentStyle: boolean;
+    propertyStyle: boolean;
     sourceNode: AstNodeWithType;
 }>;
 
@@ -101,7 +102,7 @@ function getFunctionCandidateForNode(
             return null;
         }
 
-        return { functionNode: node, assignmentStyle: false, sourceNode: node };
+        return { functionNode: node, assignmentStyle: false, propertyStyle: false, sourceNode: node };
     }
 
     if (node.type === "VariableDeclaration") {
@@ -115,7 +116,7 @@ function getFunctionCandidateForNode(
             return null;
         }
 
-        return { functionNode: declarator.init, assignmentStyle: true, sourceNode: node };
+        return { functionNode: declarator.init, assignmentStyle: true, propertyStyle: false, sourceNode: node };
     }
 
     if (node.type === "ExpressionStatement") {
@@ -132,7 +133,7 @@ function getFunctionCandidateForNode(
             return null;
         }
 
-        return { functionNode: right, assignmentStyle: true, sourceNode: node };
+        return { functionNode: right, assignmentStyle: true, propertyStyle: false, sourceNode: node };
     }
 
     if (node.type === "AssignmentExpression") {
@@ -141,7 +142,21 @@ function getFunctionCandidateForNode(
             return null;
         }
 
-        return { functionNode: right, assignmentStyle: true, sourceNode: node };
+        return { functionNode: right, assignmentStyle: true, propertyStyle: false, sourceNode: node };
+    }
+
+    if (node.type === "Property" && parent?.type === "StructExpression" && parentKey === "properties") {
+        const propertyValue = Reflect.get(node, "value");
+        if (!isFunctionInitializerNode(propertyValue)) {
+            return null;
+        }
+
+        return {
+            functionNode: propertyValue,
+            assignmentStyle: false,
+            propertyStyle: true,
+            sourceNode: node
+        };
     }
 
     return null;
@@ -238,6 +253,43 @@ function countNamedFunctionParameters(functionNode: AstNodeWithType): number {
     return count;
 }
 
+function extractDefaultParameterValueText(sourceText: string, parameterNode: AstNodeWithType): string | null {
+    const parameterRange = Reflect.get(parameterNode, "range");
+    if (Array.isArray(parameterRange) && parameterRange.length === 2) {
+        const startOffset = parameterRange[0];
+        const endOffset = parameterRange[1];
+        if (typeof startOffset === "number" && typeof endOffset === "number" && endOffset > startOffset) {
+            const parameterText = sourceText.slice(startOffset, endOffset);
+            const separatorOffset = parameterText.indexOf("=");
+            if (separatorOffset !== -1) {
+                const defaultValueText = parameterText.slice(separatorOffset + 1).trim();
+                if (defaultValueText.length > 0) {
+                    return defaultValueText;
+                }
+            }
+        }
+    }
+
+    const rightNode = Reflect.get(parameterNode, "right");
+    if (!rightNode || typeof rightNode !== "object") {
+        return null;
+    }
+
+    const rightRange = Reflect.get(rightNode, "range");
+    if (!Array.isArray(rightRange) || rightRange.length !== 2) {
+        return null;
+    }
+
+    const startOffset = rightRange[0];
+    const endOffset = rightRange[1];
+    if (typeof startOffset !== "number" || typeof endOffset !== "number" || endOffset <= startOffset) {
+        return null;
+    }
+
+    const defaultValueText = sourceText.slice(startOffset, endOffset).trim();
+    return defaultValueText.length > 0 ? defaultValueText : null;
+}
+
 function alignDescriptionContinuationLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
     const aligned: Array<string> = [];
     let inDescription = false;
@@ -298,6 +350,15 @@ function normalizeParamDescriptionSeparatorHyphen(line: string): string {
     return `${normalized[1]} ${normalized[2]}`;
 }
 
+function normalizeParamDescriptionSpacing(line: string): string {
+    const normalized = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+(?:\[[^\]]+\]|[A-Za-z0-9_]+))\s{2,}(\S.*)$/u.exec(line);
+    if (!normalized) {
+        return line;
+    }
+
+    return `${normalized[1]} ${normalized[2]}`;
+}
+
 type DocCommentParamMetadata = Readonly<{
     name: string;
     typeText: string | null;
@@ -305,6 +366,77 @@ type DocCommentParamMetadata = Readonly<{
 
 function normalizeParamName(name: string): string {
     return name.replace(/^_+/, "");
+}
+
+function rewriteDocCommentParamLineName(line: string, replacementName: string): string {
+    const optionalMatch = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)\[([A-Za-z0-9_]+)([^\]]*)\](.*)$/u.exec(line);
+    if (optionalMatch) {
+        return `${optionalMatch[1]}[${replacementName}${optionalMatch[3]}]${optionalMatch[4]}`;
+    }
+
+    const requiredMatch = /^(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s+)([A-Za-z0-9_]+)(.*)$/u.exec(line);
+    if (requiredMatch) {
+        return `${requiredMatch[1]}${replacementName}${requiredMatch[3]}`;
+    }
+
+    return line;
+}
+
+function remapUnmatchedParamDocLinesToFunctionOrder(
+    docLines: ReadonlyArray<string>,
+    functionParameterNamesInOrder: ReadonlyArray<string>
+): ReadonlyArray<string> {
+    if (functionParameterNamesInOrder.length === 0) {
+        return docLines;
+    }
+
+    const functionParameterNameSet = new Set(functionParameterNamesInOrder);
+    const matchedFunctionParamNames = new Set<string>();
+    const unmatchedParamLineIndices: Array<number> = [];
+
+    for (const [index, line] of docLines.entries()) {
+        const metadata = parseDocCommentParamMetadata(line);
+        if (!metadata) {
+            continue;
+        }
+
+        const normalizedDocParamName = normalizeParamName(metadata.name);
+        if (
+            functionParameterNameSet.has(normalizedDocParamName) &&
+            !matchedFunctionParamNames.has(normalizedDocParamName)
+        ) {
+            matchedFunctionParamNames.add(normalizedDocParamName);
+            continue;
+        }
+
+        unmatchedParamLineIndices.push(index);
+    }
+
+    if (unmatchedParamLineIndices.length === 0) {
+        return docLines;
+    }
+
+    const missingFunctionParamNames = functionParameterNamesInOrder.filter(
+        (parameterName) => !matchedFunctionParamNames.has(parameterName)
+    );
+    if (missingFunctionParamNames.length === 0) {
+        return docLines;
+    }
+
+    const rewrittenLines = Array.from(docLines);
+    for (const [missingParamIndex, unmatchedLineIndex] of unmatchedParamLineIndices.entries()) {
+        const replacementName = missingFunctionParamNames[missingParamIndex];
+        if (typeof replacementName !== "string") {
+            break;
+        }
+
+        rewrittenLines[unmatchedLineIndex] = rewriteDocCommentParamLineName(
+            rewrittenLines[unmatchedLineIndex],
+            replacementName
+        );
+    }
+
+    return rewrittenLines;
 }
 
 function parseDocCommentParamMetadata(line: string): DocCommentParamMetadata | null {
@@ -428,8 +560,45 @@ function isFunctionLikeNodeType(nodeType: string): boolean {
     );
 }
 
-function shouldSuppressSyntheticReturnsForFunctionNode(functionNode: AstNodeWithType): boolean {
-    return functionNode.type === "ConstructorDeclaration" || functionNode.type === "StructFunctionDeclaration";
+function hasConstructorInheritanceClause(functionNode: AstNodeWithType, sourceText: string): boolean {
+    if (functionNode.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    const functionRange = Reflect.get(functionNode, "range");
+    const functionBody = Reflect.get(functionNode, "body");
+    const bodyRange = functionBody && typeof functionBody === "object" ? Reflect.get(functionBody, "range") : null;
+    if (!Array.isArray(functionRange) || functionRange.length !== 2) {
+        return false;
+    }
+    if (!Array.isArray(bodyRange) || bodyRange.length !== 2) {
+        return false;
+    }
+
+    const functionStartIndex = functionRange[0];
+    const bodyStartIndex = bodyRange[0];
+    if (
+        typeof functionStartIndex !== "number" ||
+        typeof bodyStartIndex !== "number" ||
+        bodyStartIndex <= functionStartIndex
+    ) {
+        return false;
+    }
+
+    const headerText = sourceText.slice(functionStartIndex, bodyStartIndex);
+    return /\)\s*:\s*[A-Za-z_]/u.test(headerText);
+}
+
+function shouldSuppressSyntheticReturnsForFunctionNode(functionNode: AstNodeWithType, sourceText: string): boolean {
+    if (functionNode.type === "StructFunctionDeclaration") {
+        return true;
+    }
+
+    if (functionNode.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    return !hasConstructorInheritanceClause(functionNode, sourceText);
 }
 
 function isUndefinedReturnArgument(argument: unknown): boolean {
@@ -607,6 +776,10 @@ function parseReturnDocType(line: string): string | null {
     return typeText.length > 0 ? typeText : null;
 }
 
+function isEmptyReturnDocLine(line: string): boolean {
+    return /^\s*\/\/\/\s*@returns?\s*$/u.test(line);
+}
+
 function removeReturnDocLines(docLines: Array<string>): void {
     for (let index = docLines.length - 1; index >= 0; index -= 1) {
         if (/^\s*\/\/\/\s*@returns?/u.test(docLines[index])) {
@@ -632,6 +805,7 @@ function synthesizeFunctionDocCommentBlock(
     functionNode: AstNodeWithType | null,
     allowSynthesisWithoutDocs: boolean,
     assignmentStyle: boolean,
+    propertyStyle: boolean,
     hasLeadingIndentation: boolean
 ): ReadonlyArray<string> | null {
     if (!functionNode) {
@@ -657,7 +831,8 @@ function synthesizeFunctionDocCommentBlock(
 
     const { inOrder: functionParameterNamesInOrder, set: functionParameterNames } =
         getFunctionParameterNames(functionNode);
-    const prunedBlock = removeParamDocLinesNotInFunctionSignature(block, functionParameterNames);
+    const remappedBlock = remapUnmatchedParamDocLinesToFunctionOrder(block, functionParameterNamesInOrder);
+    const prunedBlock = removeParamDocLinesNotInFunctionSignature(remappedBlock, functionParameterNames);
     const reorderedBlock = reorderDocParamLinesByFunctionOrder(prunedBlock, functionParameterNamesInOrder);
     block.splice(0, block.length, ...reorderedBlock);
 
@@ -666,7 +841,7 @@ function synthesizeFunctionDocCommentBlock(
     const existingParamTypesByName = collectDocCommentParamTypesByName(block);
     const existingReturnLines = block.filter((line) => /^\s*\/\/\/\s*@returns?/u.test(line));
     let hasReturns = existingReturnLines.length > 0;
-    const suppressSyntheticReturns = shouldSuppressSyntheticReturnsForFunctionNode(functionNode);
+    const suppressSyntheticReturns = shouldSuppressSyntheticReturnsForFunctionNode(functionNode, sourceText);
     if (suppressSyntheticReturns && hasReturns) {
         removeReturnDocLines(block);
         hasReturns = false;
@@ -688,8 +863,9 @@ function synthesizeFunctionDocCommentBlock(
         } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
             const left = param.left;
             paramName = left?.name ?? left?.id?.name;
-            if (param.right && param.right.range) {
-                defaultVal = sourceText.slice(param.right.range[0], param.right.range[1]);
+            const extractedDefault = extractDefaultParameterValueText(sourceText, param);
+            if (extractedDefault !== null) {
+                defaultVal = extractedDefault;
             }
         } else if (param.name) {
             paramName = param.name;
@@ -727,6 +903,7 @@ function synthesizeFunctionDocCommentBlock(
 
     const shouldSynthesizeReturnLine = determineIfShouldSynthesizeReturnLine({
         assignmentStyle,
+        propertyStyle,
         hadInputDocLines,
         hasLeadingIndentation,
         functionParameterNamesInOrder,
@@ -741,17 +918,19 @@ function synthesizeFunctionDocCommentBlock(
         const normalizedExistingReturnType = normalizeReturnTypeForComparison(firstExistingReturnType);
         const normalizedInferredReturnType = normalizeReturnTypeForComparison(inferredReturnType);
         const shouldReplaceWithInferredUndefined =
+            normalizedExistingReturnType.length > 0 &&
             normalizedInferredReturnType === "undefined" &&
             normalizedExistingReturnType !== "undefined" &&
             normalizedExistingReturnType !== "void";
         const shouldReplaceUndefinedPlaceholder =
             normalizedExistingReturnType === "undefined" && normalizedInferredReturnType !== "undefined";
         const shouldReplaceUnstructuredReturn = normalizedExistingReturnType.length === 0;
+        const hasEmptyExistingReturnLine = existingReturnLines.some((line) => isEmptyReturnDocLine(line));
 
         if (
             shouldReplaceWithInferredUndefined ||
             shouldReplaceUndefinedPlaceholder ||
-            shouldReplaceUnstructuredReturn
+            (shouldReplaceUnstructuredReturn && hasEmptyExistingReturnLine)
         ) {
             removeReturnDocLines(block);
             block.push(`${indentation}/// @returns {${inferredReturnType}}`);
@@ -763,7 +942,8 @@ function synthesizeFunctionDocCommentBlock(
         block.push(`${indentation}/// @returns {${inferredReturnType}}`);
     }
 
-    return Array.from(alignDescriptionContinuationLines(block));
+    const alignedBlock = alignDescriptionContinuationLines(block);
+    return Array.from(reorderFunctionDocLinesForCanonicalTagLayout(alignedBlock));
 }
 
 function processDocBlock(blockLines: Array<string>): Array<string> {
@@ -782,7 +962,9 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         .map((line) => normalizeDocParamLineParameterName(line))
         .map((line) => normalizeUndefinedOptionalDefaultParamDocLine(line))
         .map((line) => normalizeParamDescriptionSeparatorHyphen(line))
+        .map((line) => normalizeParamDescriptionSpacing(line))
         .filter((line) => !emptyDescriptionPattern.test(line))
+        .filter((line) => line.trimStart() !== "///")
         .filter((line): line is string => !/^\s*\/\/\/\s*@function\b/.test(line));
 
     const promotedBlock = promoteLeadingDocCommentTextToDescription(normalizedBlock, [], true);
@@ -794,6 +976,59 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
 
 function isParamDocCommentLine(line: string): boolean {
     return /^\s*\/\/\/\s*@param\b/u.test(line);
+}
+
+function reorderFunctionDocLinesForCanonicalTagLayout(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
+    const nonReturnLines: Array<string> = [];
+    const returnLines: Array<string> = [];
+
+    for (const line of docLines) {
+        if (/^\s*\/\/\/\s*@returns?\b/u.test(line)) {
+            returnLines.push(line);
+            continue;
+        }
+
+        nonReturnLines.push(line);
+    }
+
+    const firstParamIndex = nonReturnLines.findIndex((line) => isParamDocCommentLine(line));
+    if (firstParamIndex === -1) {
+        return [...nonReturnLines, ...returnLines];
+    }
+
+    let lastParamIndex = firstParamIndex;
+    for (let index = nonReturnLines.length - 1; index >= firstParamIndex; index -= 1) {
+        if (isParamDocCommentLine(nonReturnLines[index])) {
+            lastParamIndex = index;
+            break;
+        }
+    }
+
+    const leadingNonParamLines: Array<string> = [];
+    const trailingNonParamLines: Array<string> = [];
+    const paramRegionLines: Array<string> = [];
+
+    for (const [index, line] of nonReturnLines.entries()) {
+        if (isParamDocCommentLine(line)) {
+            paramRegionLines.push(line);
+            continue;
+        }
+
+        const isInterleavedBetweenParamLines = index > firstParamIndex && index < lastParamIndex;
+        if (isInterleavedBetweenParamLines) {
+            paramRegionLines.push(line);
+            continue;
+        }
+
+        if (index < firstParamIndex) {
+            leadingNonParamLines.push(line);
+            continue;
+        }
+
+        trailingNonParamLines.push(line);
+    }
+
+    return [...leadingNonParamLines, ...trailingNonParamLines, ...paramRegionLines, ...returnLines];
 }
 
 function dropFloatingParamDocCommentLines(docLines: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -843,17 +1078,30 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     return existingParams;
 }
 
+function escapeLiteralForRegExpPattern(value: string): string {
+    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+}
+
 function updateExistingParamDocWithDefault(docBlock: Array<string>, parameterName: string, defaultVal: string): void {
+    const escapedParameterName = escapeLiteralForRegExpPattern(parameterName);
     for (const [index, line] of docBlock.entries()) {
-        const paramMatch = new RegExp(
-            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[?${parameterName}(?:=[^\]]*)?\]?(.*)$`
+        const optionalParamMatch = new RegExp(
+            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[${escapedParameterName}(?:=[^\]]*)?\]*(.*)$`
         ).exec(line);
-        if (!paramMatch) {
-            continue;
+        if (optionalParamMatch) {
+            docBlock[index] =
+                `${optionalParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${optionalParamMatch[2]}`;
+            return;
         }
 
-        docBlock[index] = `${paramMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${paramMatch[2]}`;
-        return;
+        const requiredParamMatch = new RegExp(
+            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)${escapedParameterName}\b(.*)$`
+        ).exec(line);
+        if (requiredParamMatch) {
+            docBlock[index] =
+                `${requiredParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${requiredParamMatch[2]}`;
+            return;
+        }
     }
 }
 
@@ -886,7 +1134,8 @@ function mergeFallbackParamLines(
 ): void {
     const fallbackParamNamesInOrder = fallbackParams.map((parameter) => normalizeParamName(parameter.name));
     const fallbackParamNames = new Set(fallbackParamNamesInOrder);
-    const prunedFallbackBlock = removeParamDocLinesNotInFunctionSignature(fallbackBlock, fallbackParamNames);
+    const remappedFallbackBlock = remapUnmatchedParamDocLinesToFunctionOrder(fallbackBlock, fallbackParamNamesInOrder);
+    const prunedFallbackBlock = removeParamDocLinesNotInFunctionSignature(remappedFallbackBlock, fallbackParamNames);
     const reorderedFallbackBlock = reorderDocParamLinesByFunctionOrder(prunedFallbackBlock, fallbackParamNamesInOrder);
     fallbackBlock.splice(0, fallbackBlock.length, ...reorderedFallbackBlock);
 
@@ -1018,7 +1267,8 @@ function synthesizeTextFallbackDocCommentBlock({
         }
     }
 
-    return Array.from(alignDescriptionContinuationLines(fallbackBlock));
+    const alignedBlock = alignDescriptionContinuationLines(fallbackBlock);
+    return Array.from(reorderFunctionDocLinesForCanonicalTagLayout(alignedBlock));
 }
 
 export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -1090,6 +1340,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                                       astFunctionCandidate.functionNode,
                                       !astFunctionCandidate.assignmentStyle || !hasLeadingIndentation,
                                       astFunctionCandidate.assignmentStyle,
+                                      astFunctionCandidate.propertyStyle,
                                       hasLeadingIndentation
                                   )
                                 : synthesizeTextFallbackDocCommentBlock({
@@ -1179,6 +1430,7 @@ function getFunctionParameterNames(functionNode: any): { inOrder: string[]; set:
 
 function determineIfShouldSynthesizeReturnLine({
     assignmentStyle,
+    propertyStyle,
     hadInputDocLines,
     hasLeadingIndentation,
     functionParameterNamesInOrder,
@@ -1188,6 +1440,7 @@ function determineIfShouldSynthesizeReturnLine({
     suppressSyntheticReturns
 }: {
     assignmentStyle: boolean;
+    propertyStyle: boolean;
     hadInputDocLines: boolean;
     hasLeadingIndentation: boolean;
     functionParameterNamesInOrder: string[];
@@ -1219,12 +1472,15 @@ function determineIfShouldSynthesizeReturnLine({
         !hadInputDocLines &&
         normalizeReturnTypeForComparison(inferredReturnType) === "struct" &&
         returnInference.hasConcreteReturn;
+    const suppressUndocumentedNoParamPropertyFunctionReturn =
+        propertyStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
 
     return (
         !suppressUndocumentedAssignmentWithoutParams &&
         !suppressNestedUndocumentedNoParamConcreteReturn &&
         !suppressDocOnlyNoParamConcreteReturn &&
-        !suppressUndocumentedStructReturnForDeclarations
+        !suppressUndocumentedStructReturnForDeclarations &&
+        !suppressUndocumentedNoParamPropertyFunctionReturn
     );
 }
 

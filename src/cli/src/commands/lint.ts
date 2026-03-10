@@ -5,12 +5,16 @@ import process from "node:process";
 
 import { Core } from "@gml-modules/core";
 import * as LintWorkspace from "@gml-modules/lint";
-import * as SemanticWorkspace from "@gml-modules/semantic";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+import {
+    calculateElapsedNanoseconds,
+    formatElapsedNanosecondsAsMilliseconds,
+    readMonotonicNanoseconds
+} from "../shared/elapsed-time.js";
 
 const FLAT_CONFIG_CANDIDATES = Object.freeze([
     "eslint.config.js",
@@ -25,8 +29,11 @@ const SUPPORTED_FORMATTERS = new Set(["stylish", "json", "checkstyle"]);
 const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
+const LINT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml lint path/to/project";
+const LINT_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml lint --fix path/to/project";
+const LINT_COMMAND_CI_EXAMPLE = `pnpm dlx prettier-plugin-gml lint --max-warnings 0 path/to/script${GML_FILE_EXTENSION}`;
+
 const LINT_NAMESPACE = LintWorkspace.Lint;
-type SemanticSnapshot = ReturnType<(typeof LINT_NAMESPACE.services)["createProjectAnalysisSnapshotFromProjectIndex"]>;
 
 type LintCommandOptions = {
     fix?: boolean;
@@ -38,7 +45,6 @@ type LintCommandOptions = {
     verbose?: boolean;
     project?: string;
     projectStrict?: boolean;
-    indexAllow?: Array<string> | string;
 };
 
 type DiscoveryResult = {
@@ -218,7 +224,11 @@ type RecoverableLintTarget = Readonly<{
     fallbackFilePath: string;
 }>;
 
-type LintTargetCompletionHandler = (targetResults: Array<ESLint.LintResult>) => Promise<void>;
+type LintTargetCompletionHandler = (completion: {
+    target: string;
+    targetResults: Array<ESLint.LintResult>;
+    elapsedNanoseconds: bigint;
+}) => Promise<void>;
 
 type LintProgressLineWriter = (line: string) => void;
 
@@ -377,12 +387,6 @@ function createLintRuntimeErrorResult(parameters: { error: unknown; fallbackFile
     });
 }
 
-function isFatalRuntimeLintResult(result: LintResultLike): boolean {
-    return (result.messages ?? []).some(
-        (message) => message.fatal === true && message.ruleId === LINT_RUNTIME_ERROR_RULE_ID
-    );
-}
-
 async function lintTargetWithRuntimeRecovery(parameters: {
     eslint: LintFilesExecutor;
     target: string;
@@ -437,152 +441,25 @@ function lintTargetsWithRuntimeRecovery(parameters: {
         }
 
         const lintTarget = orderedTargets[index];
+        const targetStartedAtNanoseconds = readMonotonicNanoseconds();
         const targetResults = await lintTargetWithRuntimeRecovery({
             eslint: parameters.eslint,
             target: lintTarget.target,
             fallbackFilePath: lintTarget.fallbackFilePath
         });
-        await parameters.onTargetCompleted(targetResults);
+        await parameters.onTargetCompleted({
+            target: lintTarget.target,
+            targetResults,
+            elapsedNanoseconds: calculateElapsedNanoseconds({
+                startedAtNanoseconds: targetStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            })
+        });
         aggregatedResults.push(...targetResults);
         return lintTargetAtIndex(index + 1);
     };
 
     return lintTargetAtIndex(0);
-}
-
-function hasProjectManifest(directoryPath: string): boolean {
-    try {
-        const entries = readdirSync(directoryPath, { withFileTypes: true });
-        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
-    } catch {
-        return false;
-    }
-}
-
-function resolveNearestProjectRootFromPath(filePath: string, fallbackCwd: string): string {
-    for (const directory of Core.walkAncestorDirectories(path.dirname(filePath), { includeSelf: true })) {
-        if (hasProjectManifest(directory)) {
-            return directory;
-        }
-    }
-
-    return fallbackCwd;
-}
-
-function collectProjectRootsFromDirectory(directoryPath: string): Array<string> {
-    const discoveredRoots = new Set<string>();
-    const pendingDirectories = [directoryPath];
-
-    while (pendingDirectories.length > 0) {
-        const currentDirectory = pendingDirectories.pop();
-        if (!currentDirectory) {
-            continue;
-        }
-
-        if (hasProjectManifest(currentDirectory)) {
-            discoveredRoots.add(path.resolve(currentDirectory));
-            continue;
-        }
-
-        let entries: Array<{ name: string; isDirectory(): boolean }>;
-        try {
-            entries = readdirSync(currentDirectory, { withFileTypes: true });
-        } catch {
-            continue;
-        }
-
-        for (const entry of entries) {
-            if (!entry.isDirectory()) {
-                continue;
-            }
-            pendingDirectories.push(path.join(currentDirectory, entry.name));
-        }
-    }
-
-    return [...discoveredRoots.values()];
-}
-
-function inferProjectRootsForLintInvocation(parameters: {
-    cwd: string;
-    targets: ReadonlyArray<string>;
-    forcedProjectPath: string | null;
-}): Array<string> {
-    if (parameters.forcedProjectPath) {
-        const forcedPath = path.resolve(parameters.forcedProjectPath);
-        if (forcedPath.toLowerCase().endsWith(".yyp")) {
-            return [path.dirname(forcedPath)];
-        }
-
-        return [forcedPath];
-    }
-
-    const roots = new Set<string>();
-    for (const target of parameters.targets) {
-        const absoluteTarget = path.resolve(parameters.cwd, target);
-        if (!existsSync(absoluteTarget)) {
-            continue;
-        }
-
-        let stats: ReturnType<typeof statSync>;
-        try {
-            stats = statSync(absoluteTarget);
-        } catch {
-            continue;
-        }
-
-        if (stats.isDirectory()) {
-            for (const root of collectProjectRootsFromDirectory(absoluteTarget)) {
-                roots.add(root);
-            }
-            continue;
-        }
-
-        if (stats.isFile()) {
-            const root = resolveNearestProjectRootFromPath(absoluteTarget, parameters.cwd);
-            roots.add(root);
-        }
-    }
-
-    if (roots.size === 0) {
-        roots.add(path.resolve(parameters.cwd));
-    }
-
-    return [...roots.values()];
-}
-
-async function createInvocationProjectAnalysisProvider(parameters: {
-    cwd: string;
-    targets: ReadonlyArray<string>;
-    forcedProjectPath: string | null;
-    indexAllowDirectories: ReadonlyArray<string>;
-}): Promise<ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>> {
-    const projectRoots = inferProjectRootsForLintInvocation({
-        cwd: parameters.cwd,
-        targets: parameters.targets,
-        forcedProjectPath: parameters.forcedProjectPath
-    });
-    const normalizedAllowedDirectories = parameters.indexAllowDirectories.map((directory) => path.resolve(directory));
-    const excludedDirectories = new Set(
-        LINT_NAMESPACE.services.defaultProjectIndexExcludes.map((directory) => directory.toLowerCase())
-    );
-
-    const snapshotEntries = await Promise.all(
-        projectRoots.map(async (root): Promise<[string, SemanticSnapshot]> => {
-            const projectIndex = await SemanticWorkspace.Semantic.buildProjectIndex(root);
-            const snapshot = LINT_NAMESPACE.services.createProjectAnalysisSnapshotFromProjectIndex(projectIndex, root, {
-                excludedDirectories,
-                allowedDirectories: normalizedAllowedDirectories
-            });
-            return [root, snapshot];
-        })
-    );
-
-    if (snapshotEntries.length === 0) {
-        throw new Error("Unable to construct semantic project snapshots because no project roots were resolved.");
-    }
-
-    const snapshotsByRoot = new Map<string, SemanticSnapshot>(snapshotEntries);
-    return LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider(snapshotsByRoot);
 }
 
 function normalizeMaxWarnings(rawValue: unknown): number {
@@ -601,7 +478,6 @@ function normalizeMaxWarnings(rawValue: unknown): number {
 function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<LintCommandOptions, "config">> & {
     config: string | null;
     project: string | null;
-    indexAllow: Array<string>;
 } {
     const options = (command.opts() ?? {}) as LintCommandOptions;
 
@@ -614,12 +490,7 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         noDefaultConfig: options.noDefaultConfig === true,
         verbose: options.verbose === true,
         project: typeof options.project === "string" && options.project.length > 0 ? options.project : null,
-        projectStrict: options.projectStrict === true,
-        indexAllow: Array.isArray(options.indexAllow)
-            ? options.indexAllow
-            : typeof options.indexAllow === "string"
-              ? [options.indexAllow]
-              : []
+        projectStrict: options.projectStrict === true
     };
 }
 
@@ -670,6 +541,33 @@ function resolveExitCode(parameters: { errorCount: number; warningCount: number;
     return 0;
 }
 
+/** Totals aggregated from a set of ESLint lint results. */
+type LintTotals = {
+    errorCount: number;
+    warningCount: number;
+};
+
+/** Minimal shape of a lint result needed for aggregating totals. */
+type LintResultCountFields = Pick<ESLint.LintResult, "errorCount" | "fatalErrorCount" | "warningCount">;
+
+/** Minimal shape of a lint result needed for path-based filtering. */
+type LintResultPathField = Pick<ESLint.LintResult, "filePath">;
+
+/**
+ * Sum the error and warning counts across all lint results.
+ * `fatalErrorCount` (parse failures) is folded into `errorCount` because
+ * ESLint itself treats fatal errors as errors when computing exit codes.
+ */
+function aggregateLintTotals(results: ReadonlyArray<LintResultCountFields>): LintTotals {
+    return results.reduce<LintTotals>(
+        (accumulator, result) => ({
+            errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
+            warningCount: accumulator.warningCount + result.warningCount
+        }),
+        { errorCount: 0, warningCount: 0 }
+    );
+}
+
 function setProcessExitCode(code: number): void {
     process.exitCode = code;
 }
@@ -708,6 +606,58 @@ function emitLintFixProgressForResults(parameters: {
         parameters.writeProgressLine(displayPath);
         emittedPaths.add(displayPath);
     }
+}
+
+function emitVerboseLintTargetTiming(parameters: {
+    cwd: string;
+    target: string;
+    targetResults: ReadonlyArray<LintResultLike>;
+    elapsedNanoseconds: bigint;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    if (parameters.targetResults.length === 0) {
+        parameters.writeProgressLine(
+            `[timing] Lint target '${parameters.target}' completed in ${elapsedText} (no files matched).`
+        );
+        return;
+    }
+
+    if (parameters.targetResults.length === 1) {
+        const firstResult = parameters.targetResults[0];
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: firstResult.filePath
+        });
+        parameters.writeProgressLine(`[timing] Linted ${displayPath} in ${elapsedText}.`);
+        return;
+    }
+
+    const emittedPaths = new Set<string>();
+    for (const result of parameters.targetResults) {
+        const displayPath = toLintProgressDisplayPath({
+            cwd: parameters.cwd,
+            filePath: result.filePath
+        });
+        if (emittedPaths.has(displayPath)) {
+            continue;
+        }
+
+        parameters.writeProgressLine(`[timing] Linted ${displayPath} in ${elapsedText} (target batch).`);
+        emittedPaths.add(displayPath);
+    }
+}
+
+function emitVerboseLintRunTimingSummary(parameters: {
+    lintedFileCount: number;
+    elapsedNanoseconds: bigint;
+    writeProgressLine: LintProgressLineWriter;
+}): void {
+    const fileLabel = parameters.lintedFileCount === 1 ? "file" : "files";
+    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    parameters.writeProgressLine(
+        `[timing] Completed lint run for ${parameters.lintedFileCount} ${fileLabel} in ${elapsedText}.`
+    );
 }
 
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
@@ -808,6 +758,45 @@ function formatOverlayWarning(paths: Array<string>): string {
     return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
 }
 
+async function collectOverlayWithoutLanguageWiringPaths(parameters: {
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
+}): Promise<Array<string>> {
+    const resolvedPaths = await Promise.all(
+        parameters.results.map(async (result) => {
+            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+            if (!isResolvedConfigLike(resolvedConfig)) {
+                return null;
+            }
+
+            if (!hasOverlayRuleApplied(resolvedConfig)) {
+                return null;
+            }
+
+            return isCanonicalGmlWiring(resolvedConfig) ? null : result.filePath;
+        })
+    );
+
+    return resolvedPaths.filter((filePath): filePath is string => filePath !== null);
+}
+
+async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
+    quiet: boolean;
+}): Promise<void> {
+    if (parameters.quiet) {
+        return;
+    }
+
+    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
+    if (offendingPaths.length === 0) {
+        return;
+    }
+
+    console.warn(formatOverlayWarning(offendingPaths));
+}
+
 function normalizeProcessorIdentityForEnforcement(processor: unknown): string | null {
     if (processor === null || processor === undefined) {
         return null;
@@ -825,130 +814,52 @@ function normalizeProcessorIdentityForEnforcement(processor: unknown): string | 
     return "<non-string-processor>";
 }
 
-function toProcessorUnsupportedMessage(filePath: string, processorIdentity: string): string {
-    return `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: unsupported active processor for ${filePath}: ${processorIdentity}`;
-}
-
-function toProcessorObservabilityUnavailableMessage(): string {
-    return `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: active processor identity is not observable in resolved ESLint config; skipping processor enforcement.`;
-}
-
-type ConfigLookupEslintLike = {
-    calculateConfigForFile(filePath: string): Promise<unknown>;
-};
-
-async function collectOverlayWithoutLanguageWiringPaths(parameters: {
-    eslint: ConfigLookupEslintLike;
-    results: Array<LintResultLike>;
-}): Promise<Array<string>> {
-    const gmlFilePaths = parameters.results
-        .filter((result) => !isFatalRuntimeLintResult(result))
-        .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
-
-    const configEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => {
-            try {
-                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
-                if (!isResolvedConfigLike(resolvedConfig)) {
-                    return null;
-                }
-
-                return {
-                    filePath,
-                    config: resolvedConfig
-                };
-            } catch {
-                return null;
-            }
-        })
-    );
-
-    return configEntries
-        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
-        .filter(({ config }) => hasOverlayRuleApplied(config) && !isCanonicalGmlWiring(config))
-        .map(({ filePath }) => filePath);
-}
-
-async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
-    eslint: ESLint;
-    results: Array<ESLint.LintResult>;
-    quiet: boolean;
-}): Promise<void> {
-    if (parameters.quiet) {
-        return;
-    }
-
-    const offendingPaths = await collectOverlayWithoutLanguageWiringPaths(parameters);
-
-    if (offendingPaths.length === 0) {
-        return;
-    }
-
-    console.warn(formatOverlayWarning(offendingPaths));
-}
-
 async function enforceProcessorPolicyForGmlFiles(parameters: {
-    eslint: ConfigLookupEslintLike;
-    results: Array<LintResultLike>;
+    eslint: Pick<ESLint, "calculateConfigForFile">;
+    results: ReadonlyArray<{ filePath: string }>;
     verbose: boolean;
-}): Promise<{ exitCode: 0 | 2; message: string | null; warning: string | null }> {
-    const gmlFilePaths = parameters.results
-        .filter((result) => !isFatalRuntimeLintResult(result))
-        .map((result) => result.filePath)
-        .filter((filePath) => filePath.toLowerCase().endsWith(GML_FILE_EXTENSION));
-
-    if (gmlFilePaths.length === 0) {
-        return { exitCode: 0, message: null, warning: null };
-    }
-
-    const resolvedEntries = await Promise.all(
-        gmlFilePaths.map(async (filePath) => {
-            try {
-                const resolvedConfig = await parameters.eslint.calculateConfigForFile(filePath);
-                if (!isResolvedConfigLike(resolvedConfig)) {
-                    return null;
-                }
-
-                return {
-                    filePath,
-                    config: resolvedConfig
-                };
-            } catch {
-                return null;
+}): Promise<Readonly<{ exitCode: number; message: string | null; warning: string | null }>> {
+    const evaluations = await Promise.all(
+        parameters.results.map(async (result) => {
+            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+            if (!isResolvedConfigLike(resolvedConfig)) {
+                return Object.freeze({ observed: false, unsupportedPath: null as string | null });
             }
+
+            const processorIdentity = normalizeProcessorIdentityForEnforcement(resolvedConfig.processor);
+            return Object.freeze({
+                observed: true,
+                unsupportedPath: processorIdentity === null ? null : result.filePath
+            });
         })
     );
 
-    const observedEntries = resolvedEntries
-        .filter((entry): entry is { filePath: string; config: ResolvedConfigLike } => entry !== null)
-        .filter(({ config }) => Object.hasOwn(config, "processor"));
-    if (observedEntries.length > 0) {
-        for (const entry of observedEntries) {
-            const normalizedProcessor = normalizeProcessorIdentityForEnforcement(entry.config.processor);
-            if (normalizedProcessor === null) {
-                continue;
-            }
+    const observedConfig = evaluations.some((evaluation) => evaluation.observed);
+    const unsupportedProcessorPaths = evaluations
+        .map((evaluation) => evaluation.unsupportedPath)
+        .filter((filePath): filePath is string => filePath !== null);
 
-            return {
-                exitCode: 2,
-                message: toProcessorUnsupportedMessage(entry.filePath, normalizedProcessor),
-                warning: null
-            };
-        }
-
-        return { exitCode: 0, message: null, warning: null };
+    if (unsupportedProcessorPaths.length > 0) {
+        return Object.freeze({
+            exitCode: 2,
+            message: `${PROCESSOR_UNSUPPORTED_ERROR_CODE}: GML lint does not support active ESLint processors.\n${formatPathSample(unsupportedProcessorPaths)}`,
+            warning: null
+        });
     }
 
-    if (!parameters.verbose) {
-        return { exitCode: 0, message: null, warning: null };
+    if (parameters.verbose && observedConfig) {
+        return Object.freeze({
+            exitCode: 0,
+            message: null,
+            warning: `${PROCESSOR_OBSERVABILITY_WARNING_CODE}: Processor identity could not be observed for one or more resolved GML configs.`
+        });
     }
 
-    return {
+    return Object.freeze({
         exitCode: 0,
         message: null,
-        warning: toProcessorObservabilityUnavailableMessage()
-    };
+        warning: null
+    });
 }
 
 async function loadRequestedFormatter(
@@ -1033,6 +944,54 @@ async function configureLintConfig(parameters: {
     return 0;
 }
 
+/** Maximum number of out-of-root file paths shown in warnings and error messages. */
+const OUT_OF_ROOT_DISPLAY_LIMIT = 20;
+
+/**
+ * Collect the file paths from lint results that fall outside the forced project
+ * root. Returns an empty array when no forced root is configured.
+ */
+function collectOutOfRootFilePaths(
+    results: ReadonlyArray<LintResultPathField>,
+    forcedProjectRoot: string | null
+): Array<string> {
+    if (!forcedProjectRoot) {
+        return [];
+    }
+
+    return results
+        .map((result) => result.filePath)
+        .filter((filePath) => !Core.isPathWithinBoundary(path.resolve(filePath), forcedProjectRoot));
+}
+
+function resolveForcedProjectRoot(forcedProjectPath: string | null): string | null {
+    if (!forcedProjectPath) {
+        return null;
+    }
+
+    const resolvedPath = path.resolve(forcedProjectPath);
+    return resolvedPath.toLowerCase().endsWith(".yyp") ? path.dirname(resolvedPath) : resolvedPath;
+}
+
+/**
+ * Render up to `OUT_OF_ROOT_DISPLAY_LIMIT` paths as a newline-separated
+ * string, appending "and N more…" when the list is truncated.
+ */
+function formatPathSample(paths: ReadonlyArray<string>): string {
+    const sample = paths.slice(0, OUT_OF_ROOT_DISPLAY_LIMIT);
+    const suffix = paths.length > sample.length ? `\nand ${paths.length - sample.length} more...` : "";
+    return `${sample.join("\n")}${suffix}`;
+}
+
+/**
+ * Format the `GML_PROJECT_OUT_OF_ROOT` warning message for the given list of
+ * out-of-root paths. When the list exceeds {@link OUT_OF_ROOT_DISPLAY_LIMIT}
+ * entries a trailing "and N more…" line is appended.
+ */
+function formatOutOfRootWarning(outOfRootPaths: ReadonlyArray<string>): string {
+    return `GML_PROJECT_OUT_OF_ROOT:\n${formatPathSample(outOfRootPaths)}`;
+}
+
 export function createLintCommand(): Command {
     return applyStandardCommandOptions(
         new Command("lint")
@@ -1045,9 +1004,18 @@ export function createLintCommand(): Command {
             .option("--no-default-config", "Disable bundled default config fallback")
             .option("--project <path>", "Force a project root directory or .yyp file path")
             .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
-            .option("--index-allow <dir...>", "Include directories that are hard-excluded from project indexing")
             .option("--quiet", "Suppress fallback warnings", false)
-            .option("--verbose", "Enable verbose command output", false)
+            .option("--verbose", "Enable verbose command output and timing diagnostics", false)
+            .addHelpText("after", () =>
+                [
+                    "",
+                    "Examples:",
+                    `  ${LINT_COMMAND_CLI_EXAMPLE}`,
+                    `  ${LINT_COMMAND_FIX_EXAMPLE}`,
+                    `  ${LINT_COMMAND_CI_EXAMPLE}`,
+                    ""
+                ].join("\n")
+            )
     );
 }
 
@@ -1086,44 +1054,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         setProcessExitCode(2);
         return;
     }
-
-    let invocationAnalysisProvider: ReturnType<typeof LINT_NAMESPACE.services.createPrebuiltProjectAnalysisProvider>;
-    try {
-        invocationAnalysisProvider = await createInvocationProjectAnalysisProvider({
-            cwd: commandCwd,
-            targets,
-            forcedProjectPath: options.project,
-            indexAllowDirectories: options.indexAllow
-        });
-    } catch (error) {
-        console.error(
-            `Unable to prepare semantic project analysis provider: ${
-                Core.isErrorLike(error) ? error.message : String(error)
-            }`
-        );
-        setProcessExitCode(2);
-        return;
-    }
-
-    const projectRegistry = LINT_NAMESPACE.services.createProjectLintContextRegistry({
-        cwd: commandCwd,
-        forcedProjectPath: options.project,
-        indexAllowDirectories: options.indexAllow,
-        analysisProvider: invocationAnalysisProvider
-    });
-    const projectSettings = LINT_NAMESPACE.services.createProjectSettingsFromRegistry(projectRegistry);
-
-    eslintConstructorOptions.overrideConfig = [
-        ...(Array.isArray(eslintConstructorOptions.overrideConfig) ? [...eslintConstructorOptions.overrideConfig] : []),
-        {
-            files: ["**/*.gml"],
-            settings: {
-                gml: {
-                    project: projectSettings
-                }
-            }
-        }
-    ];
+    const forcedProjectRoot = resolveForcedProjectRoot(options.project);
 
     let eslint: ESLint;
     try {
@@ -1134,13 +1065,30 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
+    const lintRunStartedAtNanoseconds = readMonotonicNanoseconds();
+    let lintedFileCount = 0;
+
     let results: Array<ESLint.LintResult>;
     try {
         results = await lintTargetsWithRuntimeRecovery({
             eslint,
             cwd: commandCwd,
             targets,
-            onTargetCompleted: async (targetResults) => {
+            onTargetCompleted: async ({ target, targetResults, elapsedNanoseconds }) => {
+                lintedFileCount += targetResults.length;
+
+                if (options.verbose) {
+                    emitVerboseLintTargetTiming({
+                        cwd: commandCwd,
+                        target,
+                        targetResults,
+                        elapsedNanoseconds,
+                        writeProgressLine: (line) => {
+                            process.stderr.write(`${line}\n`);
+                        }
+                    });
+                }
+
                 if (!options.fix) {
                     return;
                 }
@@ -1161,79 +1109,79 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
-
-    const processorPolicy = await enforceProcessorPolicyForGmlFiles({
-        eslint,
-        results,
-        verbose: options.verbose
-    });
-
-    if (processorPolicy.warning) {
-        console.warn(processorPolicy.warning);
-    }
-
-    if (processorPolicy.exitCode !== 0) {
-        if (processorPolicy.message) {
-            console.error(processorPolicy.message);
-        }
-
-        setProcessExitCode(processorPolicy.exitCode);
-        return;
-    }
-
-    const outOfRootPaths = results
-        .map((result) => result.filePath)
-        .filter((filePath) => projectRegistry.isOutOfForcedRoot(filePath));
-
-    if (!options.quiet && outOfRootPaths.length > 0) {
-        const sample = outOfRootPaths.slice(0, 20);
-        const suffix =
-            outOfRootPaths.length > sample.length ? `\nand ${outOfRootPaths.length - sample.length} more...` : "";
-        console.warn(`GML_PROJECT_OUT_OF_ROOT:\n${sample.join("\n")}${suffix}`);
-    }
-
-    if (options.projectStrict && outOfRootPaths.length > 0) {
-        console.error(
-            `Project strict mode failed. Forced root: ${projectRegistry.getForcedRoot() ?? "<none>"}\n` +
-                `Offending paths:\n${outOfRootPaths.slice(0, 20).join("\n")}`
-        );
-        setProcessExitCode(2);
-        return;
-    }
-
     try {
-        const formatter = await loadRequestedFormatter(eslint, options.formatter);
-        const formatterOutput = formatter.format(results);
-        if (formatterOutput.length > 0) {
-            process.stdout.write(`${formatterOutput}\n`);
+        await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
+
+        const processorPolicy = await enforceProcessorPolicyForGmlFiles({
+            eslint,
+            results,
+            verbose: options.verbose
+        });
+
+        if (processorPolicy.warning) {
+            console.warn(processorPolicy.warning);
         }
-    } catch (error) {
-        console.error(Core.isErrorLike(error) ? error.message : String(error));
-        setProcessExitCode(2);
-        return;
+
+        if (processorPolicy.exitCode !== 0) {
+            if (processorPolicy.message) {
+                console.error(processorPolicy.message);
+            }
+
+            setProcessExitCode(processorPolicy.exitCode);
+            return;
+        }
+
+        const outOfRootPaths = collectOutOfRootFilePaths(results, forcedProjectRoot);
+
+        if (!options.quiet && outOfRootPaths.length > 0) {
+            console.warn(formatOutOfRootWarning(outOfRootPaths));
+        }
+
+        if (options.projectStrict && outOfRootPaths.length > 0) {
+            console.error(
+                `Project strict mode failed. Forced root: ${forcedProjectRoot ?? "<none>"}\n` +
+                    `Offending paths:\n${formatPathSample(outOfRootPaths)}`
+            );
+            setProcessExitCode(2);
+            return;
+        }
+
+        try {
+            const formatter = await loadRequestedFormatter(eslint, options.formatter);
+            const formatterOutput = formatter.format(results);
+            if (formatterOutput.length > 0) {
+                process.stdout.write(`${formatterOutput}\n`);
+            }
+        } catch (error) {
+            console.error(Core.isErrorLike(error) ? error.message : String(error));
+            setProcessExitCode(2);
+            return;
+        }
+
+        const totals = aggregateLintTotals(results);
+
+        setProcessExitCode(
+            resolveExitCode({
+                errorCount: totals.errorCount,
+                warningCount: totals.warningCount,
+                maxWarnings: options.maxWarnings
+            })
+        );
+    } finally {
+        if (options.verbose) {
+            const elapsedNanoseconds = calculateElapsedNanoseconds({
+                startedAtNanoseconds: lintRunStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            });
+            emitVerboseLintRunTimingSummary({
+                lintedFileCount,
+                elapsedNanoseconds,
+                writeProgressLine: (line) => {
+                    process.stderr.write(`${line}\n`);
+                }
+            });
+        }
     }
-
-    const totals = results.reduce(
-        (accumulator, result) => {
-            return {
-                errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
-                warningCount: accumulator.warningCount + result.warningCount
-            };
-        },
-        {
-            errorCount: 0,
-            warningCount: 0
-        }
-    );
-
-    setProcessExitCode(
-        resolveExitCode({
-            errorCount: totals.errorCount,
-            warningCount: totals.warningCount,
-            maxWarnings: options.maxWarnings
-        })
-    );
 }
 
 export const __lintCommandTest__ = Object.freeze({
@@ -1258,5 +1206,10 @@ export const __lintCommandTest__ = Object.freeze({
     normalizeProcessorIdentityForEnforcement,
     enforceProcessorPolicyForGmlFiles,
     PROCESSOR_UNSUPPORTED_ERROR_CODE,
-    PROCESSOR_OBSERVABILITY_WARNING_CODE
+    PROCESSOR_OBSERVABILITY_WARNING_CODE,
+    aggregateLintTotals,
+    collectOutOfRootFilePaths,
+    formatPathSample,
+    formatOutOfRootWarning,
+    OUT_OF_ROOT_DISPLAY_LIMIT
 });

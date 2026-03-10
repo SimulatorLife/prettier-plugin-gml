@@ -47,6 +47,19 @@ const LEGACY_LINE_DOC_TAG_PATTERN =
     /^\s*\/\/\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
 const BLOCK_DOC_TAG_PATTERN = /^\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
 
+/**
+ * Pre-compiled pattern for identifying decorative slash banner lines inside
+ * block comments.  The threshold (`minLeadingSlashes`) is a frozen constant in
+ * `Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG`, so the resulting `RegExp` is
+ * identical on every call.  Hoisting it to module scope means a single object
+ * is shared across all invocations of {@link hasDecorativeSlashBanner} instead
+ * of allocating—and immediately discarding—a new `RegExp` for each block
+ * comment candidate encountered during a formatting run.
+ */
+const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
+    String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
+);
+
 function attachDanglingCommentToEmptyNode(
     comment: PrinterComment,
     descriptors: Array<{ type: string; property: string }>
@@ -1808,13 +1821,7 @@ function collapseSuppressedTripleSlashSeparatorWhitespace(comment) {
     }
 }
 
-function createDecorativeSlashLinePattern(): RegExp {
-    const minDecorativeSlashes = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
-    return new RegExp(String.raw`^\s*\*?\/{${minDecorativeSlashes},}\*?\s*$`);
-}
-
 function hasDecorativeSlashBanner(commentValue: string): boolean {
-    const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
     const lines = commentValue.split(/\r?\n/);
     let hasDecorativeLine = false;
 
@@ -1824,7 +1831,7 @@ function hasDecorativeSlashBanner(commentValue: string): boolean {
             continue;
         }
 
-        if (decorativeSlashLinePattern.test(trimmedLine)) {
+        if (DECORATIVE_SLASH_LINE_PATTERN.test(trimmedLine)) {
             hasDecorativeLine = true;
         }
     }
@@ -1894,3 +1901,6 @@ function whitespaceToDoc(text) {
 }
 
 export { handleComments, printComment, printDanglingComments, printDanglingCommentsAsGroup };
+
+/** @internal Test-only surface. Do not import in production code. */
+export const __test__ = { DECORATIVE_SLASH_LINE_PATTERN };

@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/require-argument-separators": "error"
+  }
+}

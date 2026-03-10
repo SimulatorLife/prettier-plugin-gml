@@ -14,7 +14,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 
@@ -24,6 +23,11 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import { importFormatModule, resolveFormatEntryPoint as resolveCliFormatEntryPoint } from "../format-runtime/index.js";
+import {
+    hasNegatedIgnoreRules,
+    markNegatedIgnoreRulesDetected,
+    resetNegatedIgnoreRulesFlag
+} from "../modules/formatting/ignore-rules-negation-tracker.js";
 import {
     clearFormattingCache,
     createFormattingCacheKey,
@@ -43,15 +47,15 @@ import {
 } from "../runtime-options/sample-limits.js";
 import { CLI_COMMAND_NAMES } from "../shared/command-names.js";
 import {
+    calculateElapsedNanoseconds,
+    formatElapsedNanosecondsAsMilliseconds,
+    readMonotonicNanoseconds
+} from "../shared/elapsed-time.js";
+import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "../shared/ignore-path-registry.js";
-import {
-    hasNegatedIgnoreRules,
-    markNegatedIgnoreRulesDetected,
-    resetNegatedIgnoreRulesFlag
-} from "../shared/ignore-rules-negation-tracker.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 
 const {
@@ -323,7 +327,7 @@ function configureConsoleMethods(logLevel: string): void {
             if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
                 return;
             }
-            originalConsoleWarn.apply(console, args as any);
+            originalConsoleWarn.apply(console, args);
         };
         console.log = (...args) => {
             if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
@@ -405,7 +409,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             (value) => parseErrorActionOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PARSE_ERROR_ACTION
         )
-        .option("--verbose", "Enable verbose output with detailed diagnostics")
+        .option("--verbose", "Enable verbose output with detailed diagnostics and timing")
         .addHelpText("after", () =>
             [
                 "",
@@ -477,6 +481,9 @@ const skippedDirectorySummary = {
 let checkModeEnabled = false;
 let pendingFormatCount = 0;
 let formattedFileCount = 0;
+let verboseTimingEnabled = false;
+let formattingRunStartedAtNanoseconds = 0n;
+let timedFormattableFileCount = 0;
 
 function resetCheckModeTracking() {
     pendingFormatCount = 0;
@@ -486,9 +493,44 @@ function resetFormattedFileTracking() {
     formattedFileCount = 0;
 }
 
+function resetVerboseTimingTracking() {
+    verboseTimingEnabled = false;
+    formattingRunStartedAtNanoseconds = 0n;
+    timedFormattableFileCount = 0;
+}
+
 function configureCheckMode(enabled) {
     checkModeEnabled = Boolean(enabled);
     resetCheckModeTracking();
+}
+
+function formatTimingSuffixFromNanoseconds(elapsedNanoseconds: bigint): string {
+    return ` (${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)})`;
+}
+
+function logVerbosePerFileTiming(parameters: {
+    filePath: string;
+    phase: "checked" | "would-format" | "formatted";
+    elapsedNanoseconds: bigint;
+}) {
+    if (!verboseTimingEnabled) {
+        return;
+    }
+
+    const timingSuffix = formatTimingSuffixFromNanoseconds(parameters.elapsedNanoseconds);
+    if (parameters.phase === "checked") {
+        console.log(
+            `Checked ${formatPathForDisplay(parameters.filePath)} (already formatted, ${formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds)})`
+        );
+        return;
+    }
+
+    if (parameters.phase === "would-format") {
+        console.log(`Would format ${formatPathForDisplay(parameters.filePath)}${timingSuffix}`);
+        return;
+    }
+
+    console.log(`Formatted ${parameters.filePath}${timingSuffix}`);
 }
 
 const skippedDirectorySampleLimitState = createSampleLimitState({
@@ -745,6 +787,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
+    resetVerboseTimingTracking();
     clearFormattingCache();
     inMemorySnapshotCount = 0;
     processedFileCount = 0;
@@ -861,7 +904,7 @@ async function reportAndTrackFormattingError(error, filePath) {
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
     // intentionally malformed fixtures.
-    const isParseError = Parser.GameMakerSyntaxError.isParseError(error);
+    const isParseError = Core.isGmlParseError(error);
 
     // When the user specifies `--parse-error-action=SKIP`, they're explicitly opting
     // into a workflow where parse errors are treated as non-fatal: the CLI should
@@ -1386,6 +1429,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
+    const formatFileStartedAtNanoseconds = readMonotonicNanoseconds();
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
         const prettier = await resolvePrettier();
@@ -1408,6 +1452,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         }
 
         encounteredFormattableFile = true;
+        timedFormattableFileCount += 1;
 
         const data = await readTextFile(filePath);
         const cacheKey = createFormattingCacheKey(data, formattingOptions);
@@ -1420,19 +1465,47 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         const normalizedOutput = await normalizeFormattedOutputWithFormat(formatted, data);
 
         if (normalizedOutput === data) {
+            logVerbosePerFileTiming({
+                filePath,
+                phase: "checked",
+                elapsedNanoseconds: calculateElapsedNanoseconds({
+                    startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                    completedAtNanoseconds: readMonotonicNanoseconds()
+                })
+            });
             return;
         }
 
         if (checkModeEnabled) {
             pendingFormatCount += 1;
-            console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            logVerbosePerFileTiming({
+                filePath,
+                phase: "would-format",
+                elapsedNanoseconds: calculateElapsedNanoseconds({
+                    startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                    completedAtNanoseconds: readMonotonicNanoseconds()
+                })
+            });
+            if (!verboseTimingEnabled) {
+                console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            }
             return;
         }
 
         await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
-        console.log(`Formatted ${filePath}`);
+        logVerbosePerFileTiming({
+            filePath,
+            phase: "formatted",
+            elapsedNanoseconds: calculateElapsedNanoseconds({
+                startedAtNanoseconds: formatFileStartedAtNanoseconds,
+                completedAtNanoseconds: readMonotonicNanoseconds()
+            })
+        });
+        if (!verboseTimingEnabled) {
+            console.log(`Formatted ${filePath}`);
+        }
 
         // Increment processed file counter and perform periodic cleanup
         processedFileCount += 1;
@@ -1581,7 +1654,8 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimit,
     ignoredFileSampleLimit,
     unsupportedExtensionSampleLimit,
-    checkMode
+    checkMode,
+    verbose
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
@@ -1590,6 +1664,8 @@ async function prepareFormattingRun({
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
+    verboseTimingEnabled = verbose;
+    formattingRunStartedAtNanoseconds = readMonotonicNanoseconds();
 }
 
 /**
@@ -1676,6 +1752,17 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
         logFormattingErrorSummary();
         process.exitCode = 1;
     }
+
+    if (verboseTimingEnabled) {
+        const elapsedNanoseconds = calculateElapsedNanoseconds({
+            startedAtNanoseconds: formattingRunStartedAtNanoseconds,
+            completedAtNanoseconds: readMonotonicNanoseconds()
+        });
+        const label = timedFormattableFileCount === 1 ? "file" : "files";
+        console.log(
+            `Verbose timing: processed ${timedFormattableFileCount} formattable ${label} in ${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)}.`
+        );
+    }
 }
 
 /**
@@ -1737,7 +1824,8 @@ export async function runFormatCommand(command) {
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,
-        checkMode: commandOptions.checkMode
+        checkMode: commandOptions.checkMode,
+        verbose: commandOptions.verbose
     });
 
     try {

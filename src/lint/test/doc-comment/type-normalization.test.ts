@@ -1,7 +1,8 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Core } from "@gml-modules/core";
+
+import { assertEquals } from "../assertions.js";
 
 const NORMALIZATION_CASES = [
     {
@@ -44,7 +45,7 @@ const NORMALIZATION_CASES = [
 
 void test("normalizes GameMaker doc comment type annotations", () => {
     for (const { input, expected } of NORMALIZATION_CASES) {
-        assert.equal(
+        assertEquals(
             Core.normalizeDocCommentTypeAnnotations(input),
             expected,
             `Expected ${input} to normalize to ${expected}`
@@ -53,10 +54,10 @@ void test("normalizes GameMaker doc comment type annotations", () => {
 });
 
 void test("applies JSDoc alias replacements without type normalization", () => {
-    assert.equal(Core.applyJsDocTagAliasReplacements("/// @desc Example"), "/// @description Example");
-    assert.equal(Core.applyJsDocTagAliasReplacements("/// @arg value"), "/// @param value");
-    assert.equal(Core.applyJsDocTagAliasReplacements("/// @params value"), "/// @param value");
-    assert.equal(
+    assertEquals(Core.applyJsDocTagAliasReplacements("/// @desc Example"), "/// @description Example");
+    assertEquals(Core.applyJsDocTagAliasReplacements("/// @arg value"), "/// @param value");
+    assertEquals(Core.applyJsDocTagAliasReplacements("/// @params value"), "/// @param value");
+    assertEquals(
         Core.applyJsDocTagAliasReplacements("/// @return {Boolean} should stay cased"),
         "/// @returns {Boolean} should stay cased"
     );
@@ -64,12 +65,12 @@ void test("applies JSDoc alias replacements without type normalization", () => {
 
 void test("JSDoc alias replacement passthrough keeps non-string inputs unchanged", () => {
     const marker = Object.freeze({ key: "value" });
-    assert.equal(Core.applyJsDocTagAliasReplacements(marker), marker);
+    assertEquals(Core.applyJsDocTagAliasReplacements(marker), marker);
 });
 
 void test("doc comment type normalization resolver extends the defaults", () => {
     const guidInput = "/// @returns {Guid} value";
-    assert.equal(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {Guid} value");
+    assertEquals(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {Guid} value");
 
     try {
         Core.setDocCommentTypeNormalizationResolver(() => ({
@@ -80,14 +81,14 @@ void test("doc comment type normalization resolver extends the defaults", () => 
             specifierPrefixes: ["resource"]
         }));
 
-        assert.equal(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {string} value");
+        assertEquals(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {string} value");
 
-        assert.equal(
+        assertEquals(
             Core.normalizeDocCommentTypeAnnotations("/// @param {Resource Sprite} player"),
             "/// @param {Resource.Sprite} player"
         );
 
-        assert.equal(
+        assertEquals(
             Core.normalizeDocCommentTypeAnnotations("/// @param {Vec3} direction"),
             "/// @param {vector3} direction"
         );
@@ -95,7 +96,7 @@ void test("doc comment type normalization resolver extends the defaults", () => 
         Core.restoreDefaultDocCommentTypeNormalizationResolver();
     }
 
-    assert.equal(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {Guid} value");
+    assertEquals(Core.normalizeDocCommentTypeAnnotations(guidInput), "/// @returns {Guid} value");
 });
 
 void test("doc comment normalization accepts entry-capable collaborators", () => {
@@ -117,9 +118,9 @@ void test("doc comment normalization accepts entry-capable collaborators", () =>
         }));
 
         const normalization = Core.resolveDocCommentTypeNormalization();
-        assert.equal(normalization.lookupTypeIdentifier("Custom"), "custom-normalized");
-        assert.equal(normalization.getCanonicalSpecifierName("Custom"), "Custom");
-        assert.equal(normalization.hasSpecifierPrefix("Custom"), true);
+        assertEquals(normalization.lookupTypeIdentifier("Custom"), "custom-normalized");
+        assertEquals(normalization.getCanonicalSpecifierName("Custom"), "Custom");
+        assertEquals(normalization.hasSpecifierPrefix("Custom"), true);
     } finally {
         Core.restoreDefaultDocCommentTypeNormalizationResolver();
     }
@@ -143,10 +144,10 @@ void test("doc comment normalization ignores invalid entry shapes", () => {
         }));
 
         const normalization = Core.resolveDocCommentTypeNormalization();
-        assert.equal(normalization.lookupTypeIdentifier("Keyed"), "value-normalized");
-        assert.equal(normalization.lookupTypeIdentifier("Indexed"), "indexed-normalized");
-        assert.equal(normalization.lookupTypeIdentifier("MissingValue"), null);
-        assert.equal(normalization.lookupTypeIdentifier("not-a-pair"), null);
+        assertEquals(normalization.lookupTypeIdentifier("Keyed"), "value-normalized");
+        assertEquals(normalization.lookupTypeIdentifier("Indexed"), "indexed-normalized");
+        assertEquals(normalization.lookupTypeIdentifier("MissingValue"), null);
+        assertEquals(normalization.lookupTypeIdentifier("not-a-pair"), null);
     } finally {
         Core.restoreDefaultDocCommentTypeNormalizationResolver();
     }

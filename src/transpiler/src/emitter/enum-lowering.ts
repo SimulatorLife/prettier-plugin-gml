@@ -9,6 +9,7 @@
 import { Core } from "@gml-modules/core";
 
 import type { EnumMemberNode, GmlNode } from "./ast.js";
+import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 
 /**
  * Generate JavaScript code that lowers a GML enum declaration.
@@ -59,7 +60,7 @@ export function lowerEnumDeclaration(
         if (initializer !== undefined && initializer !== null) {
             const value =
                 typeof initializer === "string" || typeof initializer === "number"
-                    ? String(initializer)
+                    ? normalizeGmlNumericLiteral(String(initializer))
                     : visitNode(initializer);
             lines.push(`    __value = ${value};`);
         } else {
