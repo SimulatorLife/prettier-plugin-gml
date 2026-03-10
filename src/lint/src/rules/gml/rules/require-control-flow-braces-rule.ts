@@ -20,22 +20,55 @@ function toBracedSingleClause(indentation: string, header: string, statement: st
 }
 
 function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(if\s*\(.*?\))\s*(?!\{)(.+)$/u.exec(line);
-    if (!match || match.length < 4 || match[3]?.trim() === "") {
+    // Use balanced-paren extraction to find the header for if/while/for/with
+    const keywordMatch = /^([\t ]*)(if|while|for|with)\b\s*/u.exec(line);
+    if (!keywordMatch) {
+        return null;
+    }
+    const indentation = keywordMatch[1] ?? "";
+    const keyword = keywordMatch[2] ?? "";
+    const offset = keywordMatch[0].length;
+
+    if (line[offset] !== "(") {
         return null;
     }
 
-    if ((match[3] ?? "").includes("{")) {
+    // Find the matching closing paren
+    let depth = 0;
+    let closeIndex = -1;
+    for (let i = offset; i < line.length; i++) {
+        if (line[i] === "(") {
+            depth++;
+        } else if (line[i] === ")") {
+            depth--;
+            if (depth === 0) {
+                closeIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (closeIndex === -1) {
         return null;
     }
-    if (!(match[3] ?? "").includes(";")) {
+
+    const header = `${keyword} ${line.slice(offset, closeIndex + 1)}`;
+    const rest = line.slice(closeIndex + 1).trimStart();
+
+    if (rest === "" || rest.startsWith("{")) {
+        return null;
+    }
+    if (!rest.includes(";")) {
+        return null;
+    }
+    if (rest.includes("{")) {
         return null;
     }
 
     return Object.freeze({
-        indentation: match[1] ?? "",
-        header: match[2] ?? "",
-        statement: match[3]?.trim() ?? ""
+        indentation,
+        header,
+        statement: rest.trim()
     });
 }
 
