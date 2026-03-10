@@ -60,6 +60,8 @@ type CommentTokenRangeIndex = Readonly<{
     sourceLength: number;
 }>;
 
+type UnwrapParenthesizedExpressionInput = Parameters<typeof Core.unwrapParenthesizedExpression>[0];
+
 const LOOP_NODE_TYPES = new Set<LoopNodeType>([
     "ForStatement",
     "WhileStatement",
@@ -150,17 +152,8 @@ function readIdentifierName(node: unknown): string | null {
     return node.name;
 }
 
-function unwrapParenthesizedExpression(node: unknown): unknown {
-    let current = node;
-    while (isAstNodeRecord(current) && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-
-    return current;
-}
-
 function readRootIdentifierName(node: unknown): string | null {
-    const current = unwrapParenthesizedExpression(node);
+    const current = Core.unwrapParenthesizedExpression(node as UnwrapParenthesizedExpressionInput);
     if (!isAstNodeRecord(current)) {
         return null;
     }
@@ -291,7 +284,7 @@ function collectMutatedNamesFromTarget(
     mutatedIdentifierNames: Set<string>,
     mutatedMemberRoots: Set<string>
 ): void {
-    const normalizedTarget = unwrapParenthesizedExpression(targetNode);
+    const normalizedTarget = Core.unwrapParenthesizedExpression(targetNode as UnwrapParenthesizedExpressionInput);
     if (!isAstNodeRecord(normalizedTarget)) {
         return;
     }
@@ -533,7 +526,9 @@ function evaluateExpressionHoistability(
     mutationSummary: LoopMutationSummary,
     assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>
 ): ExpressionAssessment | null {
-    const normalizedExpression = unwrapParenthesizedExpression(expressionNode);
+    const normalizedExpression = Core.unwrapParenthesizedExpression(
+        expressionNode as UnwrapParenthesizedExpressionInput
+    );
     if (!isAstNodeRecord(normalizedExpression)) {
         return null;
     }
