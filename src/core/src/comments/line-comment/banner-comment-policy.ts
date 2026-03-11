@@ -116,4 +116,38 @@ export function isBelowBannerSlashThreshold(
     return leadingSlashCount < config.minLeadingSlashes;
 }
 
+/**
+ * Module-scoped compiled pattern for detecting decorative slash separator lines
+ * inside block comments. Derived from {@link DEFAULT_BANNER_COMMENT_POLICY_CONFIG}
+ * at module-evaluation time; the single shared instance is reused across all calls.
+ *
+ * Matches lines that consist entirely of optional leading whitespace, an optional
+ * leading asterisk (for block-comment continuation lines like `* ////`), four or
+ * more consecutive forward-slashes, an optional trailing asterisk, and optional
+ * trailing whitespace. Examples of matching lines: `////`, `////*`, `  ////  `.
+ */
+const DECORATIVE_BLOCK_COMMENT_LINE_PATTERN = new RegExp(
+    String.raw`^\s*\*?\/{${DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
+);
+
+/**
+ * Tests whether a single line from a block comment is an all-slash decorative
+ * separator line (e.g. `////`, `////*`).
+ *
+ * Leading and trailing whitespace is accepted; the caller does not need to
+ * pre-trim the line. The pattern uses `\s*` anchors, so leading and trailing
+ * tabs are handled correctly without any normalisation by the caller.
+ *
+ * Uses {@link DEFAULT_BANNER_COMMENT_POLICY_CONFIG} to determine the minimum
+ * number of consecutive forward-slashes required (currently 4). The underlying
+ * {@link RegExp} is compiled once at module-evaluation time and shared across
+ * all calls to avoid per-call allocation.
+ *
+ * @param line - A single line from a block comment body.
+ * @returns `true` when the line is a decorative slash separator.
+ */
+export function isDecorativeSlashCommentLine(line: string): boolean {
+    return DECORATIVE_BLOCK_COMMENT_LINE_PATTERN.test(line);
+}
+
 export { DEFAULT_BANNER_COMMENT_POLICY_CONFIG };

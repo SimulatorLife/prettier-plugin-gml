@@ -71,6 +71,7 @@ Lint now keeps this rule strictly single-file:
 
 - hoist-name resolution only considers identifiers already declared in the current file,
 - the rule reuses its precomputed normalized local identifier set,
+- equivalent invariant expressions inside one loop reuse a single generated hoist and ancestor loops skip re-hoisting synthetic `cached_*` initializers,
 - collision-heavy files avoid repeated $O(n)$ renormalization work for `cached_value[_N]` candidates.
 
 Project-wide identifier indexing and cross-file safety checks belong in `@gml-modules/refactor`, not in the lint workspace.

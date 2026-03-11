@@ -128,26 +128,31 @@ Built-in `gml/*` rule short names:
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
+`require-control-flow-braces` only wraps unbraced control-flow statements and preserves already braced single-line forms (for example, `repeat (3) { step(); }`) without adding nested blocks.
+
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
-`prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.
+`prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. Equivalent occurrences inside the same loop reuse that single cache declaration, and later lint passes skip re-hoisting the synthetic `cached_*` initializers into ancestor loops. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.
 
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 
-`normalize-doc-comments` canonicalizes doc tags/content, including removing `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`). It synthesizes missing tags for declaration/assignment-style function docs, but constructor/struct-function definitions never retain synthetic `@returns` tags: existing `@returns` lines are stripped and new ones are not generated. The rule intentionally skips inline anonymous function values inside struct/object properties.
+`normalize-doc-comments` canonicalizes doc tags/content, including removing `@param` separator hyphens (for example, `@param value - desc` to `@param value desc`). It synthesizes missing tags for declaration/assignment-style function docs. Non-inherited constructors and struct-function declarations strip/suppress synthetic `@returns`, while inherited constructors (`function X(...) : Parent(...) constructor`) synthesize `@returns {undefined}`. For struct/object literal property functions, the rule synthesizes docs when parameters exist, but suppresses synthetic `@returns` on undocumented no-parameter property functions to avoid noisy inline docs. Canonical ordering keeps non-param metadata tags before the param block, but preserves custom tags interleaved between `@param` lines when intentionally authored that way.
 
 `normalize-data-structure-accessors` only applies repairs when the syntax or surrounding code provides enough evidence. Multi-coordinate structured access is normalized to `[# ...]`, because grids are the only GameMaker data structure that support more than one coordinate. The rule intentionally does not guess list/map accessors from variable naming conventions, and any constructor-based accessor provenance is cleared immediately when the tracked variable is reassigned.
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
 Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
+`optimize-logical-flow` condenses boolean passthrough branches (for example `if (cond) return true; return false;`) into direct returns and rewrites undefined guard assignments (`if (is_undefined(x)) x = y;` / `if (x == undefined) x = y;`) into `x ??= y;` when it is safe. Comment-bearing ranges are intentionally skipped so autofixes never strip authored comments while optimizing nearby comment-free logic.
 `optimize-logical-flow` and `optimize-math-expressions` now clone candidate AST fragments using a traversal-link-stripping helper (skipping `parent`/context pointers) so autofix performance remains stable on very large scripts.
-`prefer-loop-invariant-expressions` memoizes subtree hoistability checks per loop, caches normalized in-scope identifier names across loop iterations, and uses indexed comment-token range checks so large loop-heavy files avoid repeated full-source rescans.
+`prefer-loop-invariant-expressions` memoizes subtree hoistability checks per loop, caches normalized in-scope identifier names across loop iterations, reuses a single replacement target set for equivalent invariant expressions, and uses indexed comment-token range checks so large loop-heavy files avoid repeated full-source rescans.
 `optimize-math-expressions` only performs reciprocal-term cancellation on side-effect-free operands (identifiers/member accesses/literals). Call-expression operands are intentionally excluded from that cancellation path.
 
 Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.featherManifest`. All feather-namespace lint rules follow the naming pattern `feather/gm####`, where the lint rule diagnoses/fixes specificy/only the issue for the associated Feather rule/diagnostic. For example, lint rule `feather/gm1000` identifies and fixes the specific issue described in Feather rule `gm1000`: "No enclosing loop from which to break" This creates a clear, traceable link between each Feather rule and its corresponding lint rule(s), and allows us to easily add new lint rules for new Feather rules as they are added to the manifest.
+
+`feather/gm1010` uses a conservative numeric-casting strategy: it only wraps `num*` identifiers with `real(...)` when they are directly added to a numeric literal (for example, `5 + numFive`), and leaves mixed string-concatenation chains untouched.
 
 ## Development
 

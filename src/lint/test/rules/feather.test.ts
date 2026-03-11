@@ -165,7 +165,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1033",
         assertOutput: (output) => {
             assertEquals(output.includes(";;"), false);
-            assertEquals(output.includes("case 1:"), true);
+            assertEquals(output.includes("var value = 1;"), true);
         }
     },
     {
@@ -243,7 +243,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm1013",
         ruleName: "gm1013",
         assertOutput: (output) => {
-            assertEquals(output.includes("function AttackController(attack_bonus = 10) constructor {"), true);
+            assertEquals(output.includes("/// @param [attack_bonus=10]"), false);
             assertEquals(output.includes("other.attack_bonus"), true);
         }
     },
@@ -259,8 +259,8 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         fixtureDirectory: "gm1034",
         ruleName: "gm1034",
         assertOutput: (output) => {
+            assertEquals(output.includes("/// @param first_parameter"), false);
             assertEquals(output.includes("function func_args(_first_parameter) {"), true);
-            assertEquals(output.includes("_first_parameter"), true);
         }
     },
     {
@@ -268,7 +268,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1036",
         assertOutput: (output) => {
             assertEquals(output.includes("[0][1][2][3]"), true);
-            assertEquals(output.includes("function read_matrix(_mat) {"), true);
+            assertEquals(output.includes("/// @param mat"), false);
         }
     },
     {
@@ -276,7 +276,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1056",
         assertOutput: (output) => {
             assertEquals(output.includes("c = undefined"), true);
-            assertEquals(output.includes("function example(a, b = 1, c = undefined, d = 2)"), true);
+            assertEquals(output.includes("/// @param [c]"), false);
         }
     },
     {
@@ -329,7 +329,8 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm2007",
         assertOutput: (output) => {
             assertEquals(output.includes("var missing;"), true);
-            assertEquals(output.includes("var missing\n"), false);
+            assertEquals(output.includes("var withComment; // comment"), true);
+            assertEquals(output.includes("if (scr_custom_eval()) {"), true);
         }
     },
     {
@@ -593,12 +594,27 @@ runner = function () constructor {
 
     const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1013", input);
 
+    assertEquals(output.includes("/// @param [speed=12]"), false);
     assertEquals(output.includes("function DamageHandler(speed = 12) constructor {"), true);
-    assertEquals(output.includes("/// @returns {undefined}"), true);
+    assertEquals(output.includes("/// @returns {undefined}"), false);
+    assertEquals(output.includes("/// @function trigger"), true);
     assertEquals(output.includes("var total = base + other.speed;"), true);
     assertEquals(output.includes("static strike = function () {"), true);
     assertEquals(output.includes("runner = function () constructor {"), true);
     assertEquals(output.includes("};"), true);
+});
+
+void test("gm1052 rewrites only array delete targets to undefined", () => {
+    const input = `var values = [1, 2, 3];
+var structValues = { value: 1 };
+delete values;
+delete structValues;
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1052", input);
+
+    assertEquals(output.includes("values = undefined;"), true);
+    assertEquals(output.includes("delete structValues;"), true);
 });
 
 void test("gm2054 preserves active threshold and inserts reset before alpha-test disable", () => {
@@ -631,4 +647,20 @@ void test("gm1051 removes trailing macro semicolons without mutating inline semi
     assertEquals(output.includes("#macro BLOCKED call()/* block */"), true);
     assertEquals(output.includes("#macro KEEP value;value"), true);
     assertEquals(output.includes("#macro KEEP_WITH_TRAILING value;value;"), true);
+});
+
+void test("gm1033 removes redundant semicolon runs without mutating for-loop headers", () => {
+    const input = `for (;;) {
+    tick();
+}
+
+var total = 1;;
+;;
+`;
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1033", input);
+
+    assertEquals(output.includes("for (;;) {"), true);
+    assertEquals(output.includes("var total = 1;;"), false);
+    assertEquals(output.includes("\n;;\n"), false);
 });
