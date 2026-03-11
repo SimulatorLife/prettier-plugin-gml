@@ -3183,92 +3183,6 @@ function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
-function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
-    if (!path || typeof path.getValue !== "function" || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const node = path.getValue();
-    if (!node || node.type !== "IfStatement") {
-        return false;
-    }
-
-    if (node.alternate) {
-        return false;
-    }
-
-    let inlineCandidate = bodyNode ?? null;
-
-    if (inlineCandidate?.type === "BlockStatement") {
-        if (!Array.isArray(inlineCandidate.body) || inlineCandidate.body.length !== 1) {
-            return false;
-        }
-
-        const [onlyStatement] = inlineCandidate.body;
-        if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement?.type)) {
-            return false;
-        }
-
-        if (Core.hasComment(onlyStatement)) {
-            return false;
-        }
-
-        const blockStartLine = inlineCandidate.start?.line;
-        const blockEndLine = inlineCandidate.end?.line;
-        if (blockStartLine === null || blockEndLine === null || blockStartLine !== blockEndLine) {
-            return false;
-        }
-
-        const blockSource = getSourceTextForNode(bodyNode, options);
-        if (typeof blockSource !== STRING_TYPE || !blockSource.includes(";")) {
-            return false;
-        }
-
-        inlineCandidate = onlyStatement;
-    }
-
-    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(inlineCandidate?.type)) {
-        return false;
-    }
-
-    if (Core.hasComment(bodyNode)) {
-        return false;
-    }
-
-    if (inlineCandidate?.type === "ReturnStatement" && inlineCandidate.argument) {
-        return false;
-    }
-
-    const parentNode = safeGetParentNode(path);
-    if (!parentNode || parentNode.type === "Program") {
-        return false;
-    }
-
-    let enclosingFunction = null;
-    for (let depth = 0; ; depth += 1) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (Core.isFunctionLikeNode(ancestor)) {
-            enclosingFunction = ancestor;
-            break;
-        }
-    }
-
-    if (!enclosingFunction) {
-        return false;
-    }
-
-    const statementSource = getSourceTextForNode(node, options);
-    if (typeof statementSource === STRING_TYPE && (statementSource.includes("\n") || statementSource.includes("\r"))) {
-        return false;
-    }
-
-    return true;
-}
-
 function wrapInClauseParens(path, print, clauseKey) {
     const clauseNode = path.getValue()?.[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
@@ -3342,16 +3256,15 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
-    const allowSingleLineIfStatements = options?.allowSingleLineIfStatements ?? false;
+    const allowInlineControlFlowBlocks = options?.allowInlineControlFlowBlocks ?? false;
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText === true;
 
-    const allowCollapsedGuardWithOption =
-        allowSingleLineIfStatements && shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
-    const allowCollapsedGuardWithDisabledPolicy =
-        !allowSingleLineIfStatements && shouldInlineGuardWhenDisabled(path, options, bodyNode);
     const allowCollapsedGuard =
-        bodyNode && !clauseIsPreservedCall && (allowCollapsedGuardWithOption || allowCollapsedGuardWithDisabledPolicy);
+        bodyNode &&
+        !clauseIsPreservedCall &&
+        allowInlineControlFlowBlocks &&
+        shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
 
     if (allowCollapsedGuard) {
         let inlineReturnDoc = null;

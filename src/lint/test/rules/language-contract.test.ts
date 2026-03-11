@@ -430,7 +430,7 @@ void test("require-argument-separators reports precise location and fixes commen
     assertEquals(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
-void test("require-control-flow-braces autofix does not break else-if chains into invalid nested blocks", async () => {
+void test("require-control-flow-braces reports else-if chain bodies without autofixing", async () => {
     const source = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
 
     const result = await lintTextWithConfiguredRules(
@@ -444,7 +444,7 @@ void test("require-control-flow-braces autofix does not break else-if chains int
     );
 
     assertEquals(result.fatalErrorCount, 0);
-    assertEquals(result.errorCount, 0);
+    assertEquals(result.errorCount, 1);
     assertEquals(result.output ?? source, source);
 });
 

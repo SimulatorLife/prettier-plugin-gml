@@ -45,6 +45,17 @@ void describe("formatter boundaries ownership", () => {
         assert.doesNotMatch(formatted, /third = undefined/);
     });
 
+    void it("owns brace synthesis for single-statement control flow while leaving semantic rewrites to lint", async () => {
+        const source = ['if (isGameStart) global.state = "RUNNING";', "if (isPaused) return;", ""].join("\n");
+
+        const formatted = await Format.format(source, {
+            allowInlineControlFlowBlocks: false
+        });
+
+        assert.match(formatted, /if \(isGameStart\) \{\n\s+global\.state = "RUNNING";\n\}/);
+        assert.match(formatted, /if \(isPaused\) \{\n\s+return;\n\}/);
+    });
+
     void it("does not synthesize identifier defaults while printing function parameters", async () => {
         const source = ["function synthesize_default(argument0) {", "    return argument0;", "}"].join("\n");
 

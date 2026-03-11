@@ -128,7 +128,7 @@ Built-in `gml/*` rule short names:
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
-`require-control-flow-braces` only wraps unbraced control-flow statements and preserves already braced single-line forms (for example, `repeat (3) { step(); }`) without adding nested blocks.
+`require-control-flow-braces` reports unbraced control-flow statements but does not autofix them. Brace insertion is formatter-owned, so the normal remediation path is to run the formatter and let it print the control-flow body as a block.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 

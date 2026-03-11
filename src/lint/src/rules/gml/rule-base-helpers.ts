@@ -142,7 +142,12 @@ export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
     return clonedNode as T;
 }
 
-export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
+type RuleMetaOverrides = Readonly<{
+    fixable?: "code" | "whitespace" | null;
+    messageText?: string;
+}>;
+
+export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOverrides = {}): Rule.RuleMetaData {
     const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
@@ -150,17 +155,24 @@ export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     };
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        [definition.messageId]: overrides.messageText ?? `${definition.messageId} diagnostic.`,
         unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
 
-    return Object.freeze({
+    const meta: Rule.RuleMetaData = {
         type: "suggestion",
-        fixable: "code",
         docs: Object.freeze(docs),
         schema: definition.schema,
         messages: Object.freeze(messages)
-    });
+    };
+
+    if (overrides.fixable === undefined) {
+        meta.fixable = "code";
+    } else if (overrides.fixable !== null) {
+        meta.fixable = overrides.fixable;
+    }
+
+    return Object.freeze(meta);
 }
 
 /**
