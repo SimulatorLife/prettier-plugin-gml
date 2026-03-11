@@ -572,6 +572,74 @@ function tryReadNumericLiteralValue(node: unknown): number | null {
     return CoreWorkspace.Core.getLiteralNumberValue(expression);
 }
 
+function isCanonicalNumericLiteralText(sourceText: string, node: unknown): boolean {
+    const expression = unwrapParenthesized(node as Parameters<typeof unwrapParenthesized>[0]);
+    if (!expression || expression.type !== "Literal") {
+        return false;
+    }
+
+    const numericValue = CoreWorkspace.Core.getLiteralNumberValue(expression);
+    if (numericValue === null) {
+        return false;
+    }
+
+    const literalText = readNodeText(sourceText, expression);
+    const canonicalText = formatCanonicalNumericLiteral(numericValue);
+    return literalText !== null && canonicalText !== null && literalText === canonicalText;
+}
+
+function isCanonicalConstantNumericExpression(sourceText: string, node: unknown): boolean {
+    const expression = unwrapParenthesized(node as Parameters<typeof unwrapParenthesized>[0]);
+    if (!expression) {
+        return false;
+    }
+
+    switch (expression.type) {
+        case "Literal": {
+            return isCanonicalNumericLiteralText(sourceText, expression);
+        }
+        case "UnaryExpression": {
+            if (expression.operator !== "-" && expression.operator !== "+") {
+                return false;
+            }
+
+            return isCanonicalConstantNumericExpression(sourceText, expression.argument);
+        }
+        case "BinaryExpression": {
+            if (!["+", "-", "*", "/", "div", "mod", "%"].includes(expression.operator)) {
+                return false;
+            }
+
+            return (
+                isCanonicalConstantNumericExpression(sourceText, expression.left) &&
+                isCanonicalConstantNumericExpression(sourceText, expression.right)
+            );
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+function tryBuildConstantNumericReplacement(sourceText: string, node: unknown): string | null {
+    if (!isCanonicalConstantNumericExpression(sourceText, node)) {
+        return null;
+    }
+
+    const numericValue = tryEvaluateNumericExpression(node);
+    if (numericValue === null) {
+        return null;
+    }
+
+    const replacement = formatCanonicalNumericLiteral(numericValue);
+    if (!replacement) {
+        return null;
+    }
+
+    const originalText = readNodeText(sourceText, node);
+    return originalText && originalText !== replacement ? replacement : null;
+}
+
 function collectAdditiveTerms(node: unknown, terms: unknown[]): boolean {
     const expression = unwrapParenthesized(node as Parameters<typeof unwrapParenthesized>[0]);
     if (!expression) {
@@ -1206,7 +1274,10 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     return;
                 }
 
-                let replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+                let replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                if (!replacement) {
+                    replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+                }
                 if (!replacement) {
                     replacement = attemptManualNormalization(sourceText, targetNode);
                 }
