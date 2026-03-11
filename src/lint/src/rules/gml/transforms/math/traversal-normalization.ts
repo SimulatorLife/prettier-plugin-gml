@@ -4276,8 +4276,21 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
     Core.suppressTrailingLineComment(simplifiedNode, aliasDeclaration?.end?.line, context?.astRoot);
 }
 
-function insertNodeBefore(root, target, statement) {
-    if (!isObjectLike(root) || !target || !statement) {
+/**
+ * Shared depth-first traversal kernel used by `insertNodeBefore`,
+ * `markPreviousSiblingForBlankLine`, and `removeNodeFromAst`.
+ *
+ * Walks every node in the AST rooted at `root`.  When an **array** node is
+ * reached, `onArray` is called with the array and the live traversal stack.
+ * If `onArray` returns `true` the walk terminates immediately (target was
+ * found/handled).  Non-array object children are pushed onto the stack
+ * automatically; the callback is responsible for pushing any array children
+ * it still wants to explore.
+ *
+ * Returns `true` if `onArray` triggered early termination, `false` otherwise.
+ */
+function walkAstArrayNodes(root, onArray: (nodeArray, traversalStack) => boolean): boolean {
+    if (!isObjectLike(root)) {
         return false;
     }
 
@@ -4293,21 +4306,8 @@ function insertNodeBefore(root, target, statement) {
         visited.add(node);
 
         if (Array.isArray(node)) {
-            let targetIndex = -1;
-            for (const [index, element] of node.entries()) {
-                if (element === target) {
-                    targetIndex = index;
-                    break;
-                }
-            }
-
-            if (targetIndex !== -1) {
-                node.splice(targetIndex, 0, statement);
+            if (onArray(node, stack)) {
                 return true;
-            }
-
-            for (const element of node) {
-                stack.push(element);
             }
             continue;
         }
@@ -4324,46 +4324,55 @@ function insertNodeBefore(root, target, statement) {
     return false;
 }
 
+function insertNodeBefore(root, target, statement) {
+    if (!isObjectLike(root) || !target || !statement) {
+        return false;
+    }
+
+    return walkAstArrayNodes(root, (nodeArray, traversalStack) => {
+        let targetIndex = -1;
+        for (const [index, element] of nodeArray.entries()) {
+            if (element === target) {
+                targetIndex = index;
+                break;
+            }
+        }
+
+        if (targetIndex !== -1) {
+            nodeArray.splice(targetIndex, 0, statement);
+            return true;
+        }
+
+        for (const element of nodeArray) {
+            traversalStack.push(element);
+        }
+        return false;
+    });
+}
+
 function markPreviousSiblingForBlankLine(root, target, context) {
     if (!isObjectLike(root) || !target) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
     const sourceText = getSourceTextFromContext(context);
+    let blankLineResult: ReturnType<typeof preserveBlankLineIfNeeded> = null;
 
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
+    walkAstArrayNodes(root, (nodeArray, traversalStack) => {
+        for (let index = 0; index < nodeArray.length; index += 1) {
+            const element = nodeArray[index];
 
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                const element = node[index];
-
-                if (element === target) {
-                    return preserveBlankLineIfNeeded(node, index, target, sourceText);
-                }
-
-                stack.push(element);
+            if (element === target) {
+                blankLineResult = preserveBlankLineIfNeeded(nodeArray, index, target, sourceText);
+                return true;
             }
-            continue;
-        }
 
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
+            traversalStack.push(element);
         }
-    }
+        return false;
+    });
 
-    return null;
+    return blankLineResult;
 }
 
 function preserveBlankLineIfNeeded(nodeArray: Array<any>, index: number, target: any, sourceText: string | null) {
@@ -4528,40 +4537,18 @@ function removeNodeFromAst(root, target) {
         return false;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (let index = node.length - 1; index >= 0; index -= 1) {
-                const element = node[index];
-                if (element === target) {
-                    node.splice(index, 1);
-                    return true;
-                }
-
-                stack.push(element);
+    return walkAstArrayNodes(root, (nodeArray, traversalStack) => {
+        for (let index = nodeArray.length - 1; index >= 0; index -= 1) {
+            const element = nodeArray[index];
+            if (element === target) {
+                nodeArray.splice(index, 1);
+                return true;
             }
-            continue;
-        }
 
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
+            traversalStack.push(element);
         }
-    }
-
-    return false;
+        return false;
+    });
 }
 
 function normalizeTraversalContext(ast, context) {

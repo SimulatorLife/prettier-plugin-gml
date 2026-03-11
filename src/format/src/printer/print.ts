@@ -157,42 +157,24 @@ function _printImpl(path, options, print) {
     return _printImplCore(node, path, options, print);
 }
 
+/** Ordered list of category-specific print handlers. Each handler returns a doc when
+ * it recognises the node type, or `undefined` to fall through to the next handler. */
+const PRINT_HANDLERS = [
+    tryPrintControlStructureNode,
+    tryPrintFunctionNode,
+    tryPrintFunctionSupportNode,
+    tryPrintVariableNode,
+    tryPrintExpressionNode,
+    tryPrintDeclarationNode,
+    tryPrintLiteralNode
+];
+
 function _printImplCore(node, path, options, print) {
-    let doc;
-
-    doc = tryPrintControlStructureNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionSupportNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintVariableNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintExpressionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintDeclarationNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintLiteralNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
+    for (const handler of PRINT_HANDLERS) {
+        const doc = handler(node, path, options, print);
+        if (doc !== undefined) {
+            return doc;
+        }
     }
 }
 
