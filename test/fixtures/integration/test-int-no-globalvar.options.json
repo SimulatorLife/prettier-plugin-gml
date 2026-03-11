@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
-  "allowSingleLineIfStatements": false,
+  "allowInlineControlFlowBlocks": false,
   "lintRules": {
     "gml/no-globalvar": "error"
   }

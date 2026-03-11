@@ -1,6 +1,6 @@
 {
   "printWidth": 120,
-  "allowSingleLineIfStatements": true,
+  "allowInlineControlFlowBlocks": true,
   "lintRules": {
     "gml/normalize-doc-comments": "error",
     "gml/optimize-logical-flow": "error"

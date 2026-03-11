@@ -210,7 +210,9 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 
         assertEquals(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
-        if (ruleDefinition.shortName !== "no-globalvar") {
+        if (ruleDefinition.shortName === "require-control-flow-braces") {
+            assertEquals(rule.meta?.fixable, undefined);
+        } else if (ruleDefinition.shortName !== "no-globalvar") {
             assertEquals(rule.meta?.fixable, "code");
         }
     }

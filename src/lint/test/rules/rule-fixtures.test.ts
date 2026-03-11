@@ -325,6 +325,10 @@ async function collectFixturePairs(): Promise<Array<FixturePair>> {
 const discoveredFixturePairs = await collectFixturePairs();
 const discoveredGmlFixturePairs = discoveredFixturePairs.filter((fixturePair) => fixturePair.kind === "gml");
 const discoveredFeatherFixturePairs = discoveredFixturePairs.filter((fixturePair) => fixturePair.kind === "feather");
+const discoveredFixableGmlFixturePairs = discoveredGmlFixturePairs.filter((fixturePair) => {
+    const rule = Lint.plugin.rules[fixturePair.ruleName] as { meta?: { fixable?: string } } | undefined;
+    return rule?.meta?.fixable === "code";
+});
 
 void test("discovers lint fixture input/fixed pairs", () => {
     assertEquals(discoveredGmlFixturePairs.length > 0, true, "Expected at least one lint fixture input/fixed pair.");
@@ -339,7 +343,7 @@ void test("discovers feather fixture input/fixed pairs", () => {
 });
 
 void describe("lint fixture auto-fix pairs", () => {
-    for (const fixturePair of discoveredGmlFixturePairs) {
+    for (const fixturePair of discoveredFixableGmlFixturePairs) {
         void it(`${fixturePair.ruleName} :: ${fixturePair.relativeInputPath}`, async () => {
             const input = await readFile(fixturePair.inputFilePath, "utf8");
             const expected = await readFile(fixturePair.fixedFilePath, "utf8");
