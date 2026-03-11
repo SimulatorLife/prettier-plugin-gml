@@ -58,24 +58,16 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
-    let result = formatted;
-
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
-    if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
+    // Architectural boundary: the formatter may preserve layout but must not
+    // inspect comment *content* (for example, special-casing "Banner" labels).
+    // Keep this pass purely token-shape based so comment-text rewrites remain
+    // lint-owned (`gml/normalize-banner-comments`).
+    const sourceHasDecorativeGap = /\r?\n[ \t]*\r?\n[ \t]*(?:\/{8,}|\/\*\/{20,})/u.test(source);
+    if (!sourceHasDecorativeGap) {
+        return formatted;
     }
 
-    const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
-    if (sourceHasCameraBannerGap) {
-        result = result.replace(/([^\n]\n)(\/{21,}\n\/{2}-+)/u, "$1\n$2");
-    }
-
-    const sourceHasDecorativeBlockGap = /\r?\n[ \t]*\r?\n[ \t]*\/\*\/{20,}/u.test(source);
-    if (sourceHasDecorativeBlockGap) {
-        result = result.replace(/([^\n]\n)(\/\*\/{20,})/u, "$1\n$2");
-    }
-
-    return result;
+    return formatted.replace(/([^\n]\n)((?:\/{8,}|\/\*\/{20,}))/u, "$1\n$2");
 }
 
 function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(

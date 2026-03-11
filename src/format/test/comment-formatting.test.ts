@@ -447,3 +447,11 @@ void test("normalizes top-level decorative banner indentation", async () => {
         ].join("\n")
     );
 });
+
+void test("preserves a blank line before generic slash-banner comments without inspecting banner text", async () => {
+    const source = ["var ready = true;", "", "//////// section start", "var value = 1;", ""].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, ["var ready = true;", "", "//////// section start", "var value = 1;", ""].join("\n"));
+});
