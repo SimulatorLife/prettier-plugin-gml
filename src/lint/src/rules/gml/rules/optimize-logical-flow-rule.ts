@@ -16,9 +16,34 @@ function normalizeWhitespaceForComparison(value: string): string {
 type SourceTextRange = Readonly<{ start: number; end: number }>;
 
 const LOGICAL_NORMALIZATION_SIGNAL_PATTERN = /&&|\|\||!|\b(?:and|or|not|true|false)\b/u;
+const COMMENT_SEQUENCE_PATTERN = /\/\/|\/\*/u;
 
 function containsLogicalNormalizationSignal(sourceText: string): boolean {
     return LOGICAL_NORMALIZATION_SIGNAL_PATTERN.test(sourceText);
+}
+
+function containsUnsafeCommentSyntax(sourceText: string): boolean {
+    if (!COMMENT_SEQUENCE_PATTERN.test(sourceText)) {
+        return false;
+    }
+
+    const sourceLength = sourceText.length;
+    const scanState = Core.createStringCommentScanState();
+    for (let index = 0; index < sourceLength; ) {
+        const nextIndex = Core.advanceStringCommentScan(sourceText, sourceLength, index, scanState, true);
+        if (nextIndex !== index) {
+            if (scanState.inLineComment || scanState.inBlockComment) {
+                return true;
+            }
+
+            index = nextIndex;
+            continue;
+        }
+
+        index += 1;
+    }
+
+    return false;
 }
 
 type AstRecord = Record<string, unknown> & Readonly<{ type?: string }>;
@@ -367,6 +392,9 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
 
                     const fullSourceText = context.sourceCode.text;
                     const sourceText = fullSourceText.slice(nodeRange.start, nodeRange.end);
+                    if (Core.hasComment(originalNode) || containsUnsafeCommentSyntax(sourceText)) {
+                        return;
+                    }
 
                     if (
                         (originalNode.type === "BlockStatement" ||
