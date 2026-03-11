@@ -41,7 +41,7 @@ async function createDummyRefactorProject(tempDirectory: string): Promise<void> 
 async function execFileAsync(command: string, args: Array<string>, options?: ExecFileOptions) {
     if (command === "node" && isNonEmptyArray(args) && args[0] === wrapperPath) {
         const [, ...cliArgs] = args;
-        return await runCliTestCommand({
+        return runCliTestCommand({
             argv: cliArgs,
             env: options?.env,
             cwd: options?.cwd

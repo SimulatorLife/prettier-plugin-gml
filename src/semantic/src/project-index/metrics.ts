@@ -137,7 +137,7 @@ const startNoopTimer = () => noopTimer;
 const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     timers: Object.freeze({
         startTimer: startNoopTimer,
-        timeAsync: async (_label, callback) => await callback(),
+        timeAsync: (_label, callback) => callback(),
         timeSync: (_label, callback) => callback()
     }),
     counters: Object.freeze({
