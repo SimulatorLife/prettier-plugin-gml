@@ -476,6 +476,62 @@ void test("optimize-math-expressions fix pipeline converges without parenthesis 
     assertEquals(secondPass.messages.length, 0);
 });
 
+void test("loop-hoist and math optimizations converge without duplicate cached constants", async () => {
+    const source = [
+        "for (var i = 0; i < 3; i++) {",
+        '    var mbuff = load_obj_to_buffer($"Models/Crystal{i + 1}.obj");',
+        "    var bytesPerVert = 9 * 4;",
+        "    var bytesPerTri = 3 * bytesPerVert;",
+        "    var triNum = buffer_get_size(mbuff) / bytesPerTri;",
+        "    buffer_seek(mbuff, buffer_seek_start, 0);",
+        "    repeat (triNum) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 0);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var cached_value = 36;",
+        "for (var i = 0; i < 3; i++) {",
+        '    var mbuff = load_obj_to_buffer($"Models/Crystal{i + 1}.obj");',
+        "    var bytesPerVert = cached_value;",
+        "    var bytesPerTri = 3 * bytesPerVert;",
+        "    var triNum = buffer_get_size(mbuff) / bytesPerTri;",
+        "    buffer_seek(mbuff, buffer_seek_start, 0);",
+        "    var cached_value_1 = 32;",
+        "    repeat (triNum) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 0);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const rules: Linter.RulesRecord = {
+        "gml/no-globalvar": "off",
+        "gml/prefer-loop-invariant-expressions": "error",
+        "gml/optimize-math-expressions": "error"
+    };
+
+    const firstPass = await lintTextWithConfiguredRules(ESLint, source, rules, true);
+    const stabilizedOutput = typeof firstPass.output === "string" ? firstPass.output : source;
+    const secondPass = await lintTextWithConfiguredRules(ESLint, stabilizedOutput, rules, false);
+
+    assertEquals(stabilizedOutput, expected);
+    assertEquals(secondPass.fatalErrorCount, 0);
+    assertEquals(secondPass.messages.length, 0);
+    assertEquals(stabilizedOutput.includes("var cached_value_2 = 32;"), false);
+    assertEquals(stabilizedOutput.includes("var cached_value_3 = 32;"), false);
+});
+
 void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {
     const result = parseWithOptions("var x = 1;", "limited");
     assertEquals(result.ok, true);
