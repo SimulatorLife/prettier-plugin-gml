@@ -84,8 +84,28 @@ function simplifyNode(node: any): boolean {
     return false;
 }
 
+function isAndOperator(operator: unknown): boolean {
+    return operator === "&&" || operator === "and";
+}
+
+function isOrOperator(operator: unknown): boolean {
+    return operator === "||" || operator === "or";
+}
+
 function isLogicalOperator(operator: unknown): boolean {
-    return operator === "&&" || operator === "||";
+    return isAndOperator(operator) || isOrOperator(operator);
+}
+
+/**
+ * Return the opposite logical operator, preserving the keyword/symbol style of the input.
+ * AND → OR, OR → AND (both for symbol and keyword forms).
+ */
+function toOppositeLogicalOperator(operator: unknown): string {
+    if (operator === "&&") return "||";
+    if (operator === "||") return "&&";
+    if (operator === "and") return "or";
+    if (operator === "or") return "and";
+    return "||";
 }
 
 function isLogicalBinaryNode(node: any): boolean {
@@ -369,7 +389,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A || B) -> !A && !B
-    if (isLogicalBinaryNode(argument) && argument.operator === "||") {
+    if (isLogicalBinaryNode(argument) && isOrOperator(argument.operator)) {
         // Create (!A) && (!B)
         const left = argument.left;
         const right = argument.right;
@@ -397,7 +417,7 @@ function simplifyNot(node: any): boolean {
 
         const newLogical = {
             type: argument.type,
-            operator: "&&",
+            operator: toOppositeLogicalOperator(argument.operator),
             left: newLeft,
             right: newRight,
             start: node.start,
@@ -410,7 +430,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A && B) -> !A || !B
-    if (isLogicalBinaryNode(argument) && argument.operator === "&&") {
+    if (isLogicalBinaryNode(argument) && isAndOperator(argument.operator)) {
         const left = argument.left;
         const right = argument.right;
 
@@ -434,7 +454,7 @@ function simplifyNot(node: any): boolean {
 
         const newLogical = {
             type: argument.type,
-            operator: "||",
+            operator: toOppositeLogicalOperator(argument.operator),
             left: newLeft,
             right: newRight,
             start: node.start,
@@ -467,7 +487,7 @@ function simplifyLogical(node: any): boolean {
     const leftBool = getBooleanValue(node.left);
     const rightBool = getBooleanValue(node.right);
 
-    if (node.operator === "&&") {
+    if (isAndOperator(node.operator)) {
         // true && A -> A
         if (leftBool === true) {
             replaceNode(node, node.right);
@@ -488,7 +508,7 @@ function simplifyLogical(node: any): boolean {
         // For now, let's stick to the ones that preserve side effects or known constants.
     }
 
-    if (node.operator === "||") {
+    if (isOrOperator(node.operator)) {
         // false || A -> A
         if (leftBool === false) {
             replaceNode(node, node.right);
@@ -516,9 +536,9 @@ function simplifyLogical(node: any): boolean {
     while (left.type === "ParenthesizedExpression") left = left.expression;
 
     if (
-        node.operator === "||" &&
+        isOrOperator(node.operator) &&
         isLogicalBinaryNode(right) &&
-        right.operator === "&&" &&
+        isAndOperator(right.operator) &&
         nodesAreEqual(left, right.left)
     ) {
         // A || (A && B) -> A
@@ -527,9 +547,9 @@ function simplifyLogical(node: any): boolean {
     }
 
     if (
-        node.operator === "&&" &&
+        isAndOperator(node.operator) &&
         isLogicalBinaryNode(right) &&
-        right.operator === "||" &&
+        isOrOperator(right.operator) &&
         nodesAreEqual(left, right.left)
     ) {
         // A && (A || B) -> A
@@ -539,17 +559,17 @@ function simplifyLogical(node: any): boolean {
 
     // Distributive / Shared Term: (A && B) || (A && C) -> A && (B || C)
     if (
-        node.operator === "||" &&
+        isOrOperator(node.operator) &&
         isLogicalBinaryNode(left) &&
-        left.operator === "&&" &&
+        isAndOperator(left.operator) &&
         isLogicalBinaryNode(right) &&
-        right.operator === "&&"
+        isAndOperator(right.operator)
     ) {
         // (A && B) || (A && C) -> A && (B || C)
         if (nodesAreEqual(left.left, right.left)) {
             const newRight = {
                 type: node.type,
-                operator: "||",
+                operator: node.operator, // preserve or/||
                 left: left.right,
                 right: right.right,
                 start: right.start, // Approx
@@ -557,7 +577,7 @@ function simplifyLogical(node: any): boolean {
             };
             const newRoot = {
                 type: node.type,
-                operator: "&&",
+                operator: left.operator, // preserve and/&&
                 left: left.left,
                 right: newRight,
                 start: node.start,
@@ -571,7 +591,7 @@ function simplifyLogical(node: any): boolean {
         if (nodesAreEqual(left.right, right.right)) {
             const newLeft = {
                 type: node.type,
-                operator: "||",
+                operator: node.operator, // preserve or/||
                 left: left.left,
                 right: right.left,
                 start: left.start,
@@ -579,7 +599,7 @@ function simplifyLogical(node: any): boolean {
             };
             const newRoot = {
                 type: node.type,
-                operator: "&&",
+                operator: left.operator, // preserve and/&&
                 left: newLeft,
                 right: left.right,
                 start: node.start,
@@ -602,9 +622,9 @@ function simplifyLogical(node: any): boolean {
         }
 
         // XOR Pattern: (A && !B) || (!A && B) -> (A || B) && !(A && B)
-        // Checks that match (A && !B) || (!A && B)
-        const term1 = node.left;
-        const term2 = node.right;
+        // Use the already-unwrapped left/right to avoid ParenthesizedExpression access issues
+        const term1 = left;
+        const term2 = right;
 
         let A, B, notA, notB;
 
@@ -631,14 +651,14 @@ function simplifyLogical(node: any): boolean {
             // Construct (A || B) && !(A && B)
             const orPart = {
                 type: node.type,
-                operator: "||",
+                operator: node.operator, // preserve or/||
                 left: A,
                 right: B
             };
 
             const andPart = {
                 type: node.type,
-                operator: "&&",
+                operator: left.operator, // preserve and/&&
                 left: A,
                 right: B
             };
@@ -652,7 +672,7 @@ function simplifyLogical(node: any): boolean {
 
             const finalExpr = {
                 type: node.type,
-                operator: "&&",
+                operator: left.operator, // preserve and/&&
                 left: orPart,
                 right: notAndPart,
                 start: node.start,
