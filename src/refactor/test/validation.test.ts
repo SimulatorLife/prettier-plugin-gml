@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { ConflictType, type SymbolOccurrence, type SymbolResolver } from "../src/types.js";
-import { batchValidateScopeConflicts, detectRenameConflicts, validateRenameStructure } from "../src/validation.js";
+import {
+    batchValidateScopeConflicts,
+    detectCircularRenames,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSourceSymbolIds,
+    detectDuplicateTargetNames,
+    detectRenameConflicts,
+    validateRenameStructure
+} from "../src/validation.js";
 
 void describe("validateRenameStructure", () => {
     void test("returns error for missing symbolId", async () => {
@@ -390,5 +398,194 @@ void describe("detectRenameConflicts", () => {
         assert.equal(conflicts.length, 1);
         assert.equal(conflicts[0].type, ConflictType.SHADOW);
         assert.equal(conflicts[0].path, "scripts/player.gml");
+    });
+});
+
+// ---------------------------------------------------------------------------
+// detectDuplicateSourceSymbolIds
+// ---------------------------------------------------------------------------
+
+void describe("detectDuplicateSourceSymbolIds", () => {
+    void test("returns empty array when all symbolIds are unique", () => {
+        const result = detectDuplicateSourceSymbolIds([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for a single rename", () => {
+        const result = detectDuplicateSourceSymbolIds([{ symbolId: "gml/script/scr_a", newName: "scr_x" }]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for empty input", () => {
+        assert.deepEqual(detectDuplicateSourceSymbolIds([]), []);
+    });
+
+    void test("detects a symbolId that appears twice", () => {
+        const result = detectDuplicateSourceSymbolIds([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_a", newName: "scr_y" }
+        ]);
+        assert.equal(result.length, 1);
+        assert.equal(result[0].symbolId, "gml/script/scr_a");
+        assert.equal(result[0].count, 2);
+    });
+
+    void test("detects a symbolId that appears three times", () => {
+        const result = detectDuplicateSourceSymbolIds([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_a", newName: "scr_y" },
+            { symbolId: "gml/script/scr_a", newName: "scr_z" }
+        ]);
+        assert.equal(result.length, 1);
+        assert.equal(result[0].count, 3);
+    });
+
+    void test("detects multiple duplicated symbolIds", () => {
+        const result = detectDuplicateSourceSymbolIds([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" },
+            { symbolId: "gml/script/scr_a", newName: "scr_z" },
+            { symbolId: "gml/script/scr_b", newName: "scr_w" }
+        ]);
+        assert.equal(result.length, 2);
+        const ids = result.map((e) => e.symbolId).sort();
+        assert.deepEqual(ids, ["gml/script/scr_a", "gml/script/scr_b"]);
+    });
+
+    void test("skips entries with non-string symbolId", () => {
+        const malformed = [
+            { symbolId: null as unknown as string, newName: "scr_x" },
+            { symbolId: "gml/script/scr_a", newName: "scr_y" }
+        ];
+        const result = detectDuplicateSourceSymbolIds(malformed);
+        assert.deepEqual(result, []);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// detectDuplicateTargetNames
+// ---------------------------------------------------------------------------
+
+void describe("detectDuplicateTargetNames", () => {
+    void test("returns empty array when all new names are unique", () => {
+        const result = detectDuplicateTargetNames([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for a single rename", () => {
+        const result = detectDuplicateTargetNames([{ symbolId: "gml/script/scr_a", newName: "scr_x" }]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for empty input", () => {
+        assert.deepEqual(detectDuplicateTargetNames([]), []);
+    });
+
+    void test("detects two symbols renamed to the same target name", () => {
+        const result = detectDuplicateTargetNames([
+            { symbolId: "gml/script/scr_a", newName: "scr_collision" },
+            { symbolId: "gml/script/scr_b", newName: "scr_collision" }
+        ]);
+        assert.equal(result.length, 1);
+        assert.equal(result[0].newName, "scr_collision");
+        assert.deepEqual([...result[0].symbolIds].sort(), ["gml/script/scr_a", "gml/script/scr_b"]);
+    });
+
+    void test("skips entries with invalid (non-normalizable) newName", () => {
+        const result = detectDuplicateTargetNames([
+            { symbolId: "gml/script/scr_a", newName: "123invalid" },
+            { symbolId: "gml/script/scr_b", newName: "123invalid" }
+        ]);
+        // Both entries fail normalisation so neither should be counted.
+        assert.deepEqual(result, []);
+    });
+
+    void test("skips malformed entries (missing symbolId or newName)", () => {
+        const malformed = [
+            { symbolId: null as unknown as string, newName: "scr_collision" },
+            { symbolId: "gml/script/scr_b", newName: null as unknown as string }
+        ];
+        const result = detectDuplicateTargetNames(malformed);
+        assert.deepEqual(result, []);
+    });
+
+    void test("reports three symbols all targeting the same new name", () => {
+        const result = detectDuplicateTargetNames([
+            { symbolId: "gml/script/scr_a", newName: "scr_collision" },
+            { symbolId: "gml/script/scr_b", newName: "scr_collision" },
+            { symbolId: "gml/script/scr_c", newName: "scr_collision" }
+        ]);
+        assert.equal(result.length, 1);
+        assert.equal(result[0].symbolIds.length, 3);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// detectCrossRenameNameConfusion
+// ---------------------------------------------------------------------------
+
+void describe("detectCrossRenameNameConfusion", () => {
+    void test("returns empty array when no new name matches an old name", () => {
+        const result = detectCrossRenameNameConfusion([
+            { symbolId: "gml/script/scr_a", newName: "scr_x" },
+            { symbolId: "gml/script/scr_b", newName: "scr_y" }
+        ]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for a single rename", () => {
+        const result = detectCrossRenameNameConfusion([{ symbolId: "gml/script/scr_a", newName: "scr_x" }]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("returns empty array for empty input", () => {
+        assert.deepEqual(detectCrossRenameNameConfusion([]), []);
+    });
+
+    void test("detects foo→bar when bar→baz is also in the batch", () => {
+        // scr_a→scr_b and scr_b→scr_c: 'scr_b' is both a new name and an old name.
+        const result = detectCrossRenameNameConfusion([
+            { symbolId: "gml/script/scr_a", newName: "scr_b" },
+            { symbolId: "gml/script/scr_b", newName: "scr_c" }
+        ]);
+        assert.equal(result.length, 1);
+        assert.equal(result[0].symbolId, "gml/script/scr_a");
+        assert.equal(result[0].newName, "scr_b");
+    });
+
+    void test("does not flag a same-symbol rename as confusion", () => {
+        // scr_a→scr_a: this would normally be caught as same-name; should not produce confusion.
+        const result = detectCrossRenameNameConfusion([{ symbolId: "gml/script/scr_a", newName: "scr_a" }]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("does not include entries whose new name fails normalisation", () => {
+        const result = detectCrossRenameNameConfusion([
+            { symbolId: "gml/script/scr_a", newName: "123bad" },
+            { symbolId: "gml/script/scr_b", newName: "scr_c" }
+        ]);
+        assert.deepEqual(result, []);
+    });
+
+    void test("flags both directions of a circular rename as confusing", () => {
+        // A true circular rename (A→B, B→A) should be detected by detectCircularRenames,
+        // and detectCrossRenameNameConfusion should also flag both directions.
+        const renames = [
+            { symbolId: "gml/script/scr_a", newName: "scr_b" },
+            { symbolId: "gml/script/scr_b", newName: "scr_a" }
+        ];
+        const circular = detectCircularRenames(renames);
+        assert.ok(circular.length > 0, "detectCircularRenames should detect the cycle");
+
+        const confusion = detectCrossRenameNameConfusion(renames);
+        // Both scr_a→scr_b (scr_b is an old name) and scr_b→scr_a (scr_a is an old name)
+        // should be flagged as confusing.
+        assert.equal(confusion.length, 2);
     });
 });

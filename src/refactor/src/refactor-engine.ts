@@ -48,13 +48,15 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import {
-    assertRenameRequest,
-    assertValidIdentifierName,
-    extractSymbolName,
-    tryNormalizeIdentifierName
-} from "./validation-utils.js";
+    detectCircularRenames,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSourceSymbolIds,
+    detectDuplicateTargetNames,
+    detectRenameConflicts,
+    validateCrossFileConsistency
+} from "./validation.js";
+import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
 import {
     getWorkspaceArrays,
     type GroupedTextEdits,
@@ -420,67 +422,18 @@ export class RefactorEngine {
 
         // Detect duplicate symbol IDs in the batch. Renaming the same symbol more
         // than once creates ambiguous intent and would generate conflicting edits.
-        const symbolIdCounts = new Map<string, number>();
-        for (const rename of renames) {
-            if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
-                const count = (symbolIdCounts.get(rename.symbolId) ?? 0) + 1;
-                symbolIdCounts.set(rename.symbolId, count);
-            }
+        for (const { symbolId, count } of detectDuplicateSourceSymbolIds(renames)) {
+            errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
+            conflictingSets.push(Array.from({ length: count }, () => symbolId));
         }
 
-        for (const [symbolId, count] of symbolIdCounts.entries()) {
-            if (count > 1) {
-                errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
-                conflictingSets.push(Array.from({ length: count }, () => symbolId));
-            }
-        }
-
-        // Check for duplicate target names across the batch. If multiple renames
-        // attempt to use the same new name (e.g., renaming both `foo` and `bar` to
-        // `baz`), we'd create ambiguous references where calls to `baz()` can't be
-        // resolved to a single definition. This validation ensures each new name is
-        // unique within the batch, preventing symbol-table corruption and runtime
-        // errors from duplicate definitions. The check runs before applying any
-        // edits so we can reject the entire batch early rather than leaving the
-        // codebase in a partially-renamed, broken state.
-        const newNameToSymbols = new Map<string, Array<string>>();
-        for (const rename of renames) {
-            if (
-                !rename ||
-                typeof rename !== "object" ||
-                !rename.newName ||
-                typeof rename.newName !== "string" ||
-                !rename.symbolId ||
-                typeof rename.symbolId !== "string"
-            ) {
-                // Skip structural validation failures that were already flagged in the
-                // first pass. Continuing here prevents the duplicate-name detection logic
-                // from crashing on malformed entries while still letting the overall
-                // validation summary report the original structural errors.
-                continue;
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (!normalizedNewName) {
-                // Skip invalid identifier names (e.g., reserved keywords, names with
-                // illegal characters) because they will be reported by the per-rename
-                // validation pass below. Continuing here allows the batch validator
-                // to collect duplicate-name conflicts for the valid subset without
-                // cascading failures from syntactically invalid targets.
-                continue;
-            }
-            if (!newNameToSymbols.has(normalizedNewName)) {
-                newNameToSymbols.set(normalizedNewName, []);
-            }
-            newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
-        }
-
-        // Detect conflicting renames (multiple symbols renamed to the same name)
-        for (const [newName, symbolIds] of newNameToSymbols.entries()) {
-            if (symbolIds.length > 1) {
-                errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
-                conflictingSets.push(symbolIds);
-            }
+        // Detect duplicate target names across the batch. If multiple renames attempt
+        // to use the same new name (e.g., renaming both `foo` and `bar` to `baz`),
+        // we'd create ambiguous references. The check runs before applying any edits
+        // so we can reject the entire batch early.
+        for (const { newName, symbolIds } of detectDuplicateTargetNames(renames)) {
+            errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
+            conflictingSets.push([...symbolIds]);
         }
 
         // Detect circular rename chains - filter out invalid renames first
@@ -501,53 +454,13 @@ export class RefactorEngine {
             conflictingSets.push(circularChain);
         }
 
-        // Check for cross-rename conflicts where one rename's new name matches another's old name
-        // (but not in a circular way - that's already handled above). This catches cases like
-        // renaming `foo→bar` and `bar→baz` in the same batch, which creates a temporal ordering
-        // problem: we can't apply both renames simultaneously because the intermediate state
-        // would have duplicate symbols or references to non-existent names. These conflicts
-        // require the user to either sequence the renames across multiple operations or choose
-        // different target names that don't collide with existing symbols in the batch.
-        const oldNames = new Set<string>();
-        const newNames = new Set<string>();
-
-        // First pass: collect all old and new names
-        for (const rename of validRenames) {
-            const oldName = extractSymbolName(rename.symbolId);
-            if (oldName) {
-                oldNames.add(oldName);
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (normalizedNewName) {
-                newNames.add(normalizedNewName);
-            }
-        }
-
-        // Second pass: detect confusion where new name was an old name
-        for (const rename of validRenames) {
-            const oldName = extractSymbolName(rename.symbolId);
-            if (!oldName) {
-                continue;
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (!normalizedNewName) {
-                // Skip invalid identifier names during the confusion-detection pass.
-                // Errors for these names will be surfaced in the main validation
-                // results, so continuing here prevents duplicate error reporting while
-                // still allowing the logic to warn about valid renames that might shadow
-                // original symbol names.
-                continue;
-            }
-
-            // Warn if this new name matches any old name in the batch (potential confusion)
-            // but exclude the case where it's the same symbol (already caught as same-name rename)
-            if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
-                warnings.push(
-                    `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
-                );
-            }
+        // Detect cross-rename name confusion: cases like renaming `foo→bar` and
+        // `bar→baz` together, where the intermediate state would have two symbols
+        // named `bar`. Not a cycle but still a temporal naming conflict.
+        for (const { symbolId, newName } of detectCrossRenameNameConfusion(validRenames)) {
+            warnings.push(
+                `Rename introduces potential confusion: '${symbolId}' renamed to '${newName}' which was an original symbol name in this batch`
+            );
         }
 
         return {
