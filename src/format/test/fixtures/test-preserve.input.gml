@@ -177,7 +177,9 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         } else if (shader_current() != -1) {
             shader_reset();
         }
-        if (reset_matrix) { scr_matrix_reset(); }
+        if (reset_matrix) {
+            scr_matrix_reset();
+        }
     };
 
     /// @ignore
