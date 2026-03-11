@@ -181,7 +181,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
         "printWidth": 120,
         "tabWidth": 4,
         "semi": true,
-        "allowSingleLineIfStatements": false,
+        "allowInlineControlFlowBlocks": false,
         "logicalOperatorsStyle": "keywords"
       }
     }
@@ -190,7 +190,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
 ```
 
 Current formatter-specific options exposed by `@gml-modules/format`:
-- `allowSingleLineIfStatements`
+- `allowInlineControlFlowBlocks` — allow short, comment-free braced control-flow blocks (`if`, `while`, `repeat`, `with`) to stay on one line when the complete statement fits within `printWidth`; defaults to `false`
 - `logicalOperatorsStyle` (`"keywords"` or `"symbols"`)
 
 ### Lint configuration
