@@ -135,8 +135,8 @@ const DECORATIVE_BLOCK_COMMENT_LINE_PATTERN = new RegExp(
  * separator line (e.g. `////`, `////*`).
  *
  * Leading and trailing whitespace is accepted; the caller does not need to
- * pre-trim the line. Tabs are NOT expanded — callers that require tab-aware
- * comparison should normalise the line before passing it in.
+ * pre-trim the line. The pattern uses `\s*` anchors, so leading and trailing
+ * tabs are handled correctly without any normalisation by the caller.
  *
  * Uses {@link DEFAULT_BANNER_COMMENT_POLICY_CONFIG} to determine the minimum
  * number of consecutive forward-slashes required (currently 4). The underlying

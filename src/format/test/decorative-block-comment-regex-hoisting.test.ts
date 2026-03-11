@@ -1,5 +1,5 @@
 /**
- * Allocation measurement: decorative slash-line detection via Core
+ * Allocation measurement: decorative slash-line detection delegated to Core
  *
  * Background
  * ----------
