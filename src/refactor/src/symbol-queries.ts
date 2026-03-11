@@ -107,7 +107,7 @@ function findNodeAtOffset(node: AstNode | null, offset: number): SymbolLocation 
  */
 export function validateSymbolExists(symbolId: string, semantic: PartialSemanticAnalyzer | null): Promise<boolean> {
     if (!semantic) {
-        throw new Error("RefactorEngine requires a semantic analyzer to validate symbols");
+        return Promise.reject(new Error("RefactorEngine requires a semantic analyzer to validate symbols"));
     }
 
     // Query the semantic analyzer's symbol table to determine whether the given
