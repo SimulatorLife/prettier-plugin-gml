@@ -600,4 +600,63 @@ void describe("formatter boundaries ownership", () => {
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
+
+    void it("format() is a thin deterministic wrapper — it must not re-insert blank lines based on source content (§3.2)", async () => {
+        // `preserveBannerSpacingGaps` was a source-aware post-processing step that
+        // inspected the source for banner comment gap patterns (`//////// Banner`)
+        // and re-inserted blank lines that Prettier had removed. Rewriting formatted
+        // output based on source structure is a §3.2 boundary violation: the
+        // formatter must be purely deterministic and output-driven.
+        //
+        // The formatter must NOT re-inspect the source to retroactively restore
+        // blank lines before banner comments (target-state.md §3.2).
+        const sourceWithBannerGap = ["var message = 1;", "", "//////// Banner section", "var value = 2;"].join("\n");
+
+        const sourceWithoutBannerGap = ["var message = 1;", "//////// Banner section", "var value = 2;"].join("\n");
+
+        const formattedWithGap = await Format.format(sourceWithBannerGap);
+        const formattedWithoutGap = await Format.format(sourceWithoutBannerGap);
+
+        // Both variants must produce the same output: the formatter must not
+        // source-inspect to decide whether to keep or restore the blank line.
+        assert.equal(
+            formattedWithGap,
+            formattedWithoutGap,
+            "Formatter must not re-insert blank lines before banner comments based on source content — source-aware post-processing violates §3.2."
+        );
+    });
+
+    void it("format() always appends a trailing newline — it must not strip trailing newlines to match source (docs/target-state.md §3.2)", async () => {
+        // `preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment` was a
+        // source-aware post-processing step that returned `source` unchanged when
+        // the source was a top-level block comment without a trailing newline and
+        // Prettier only added the trailing newline. Returning `source` to avoid
+        // Prettier's deterministic trailing-newline guarantee is a §3.2 violation:
+        // the formatter output must be deterministic regardless of source structure.
+        //
+        // Prettier always appends a trailing newline; the formatter must preserve
+        // that behavior rather than stripping it based on source content.
+        // The source below matches the exact pattern the removed function triggered on:
+        // a top-level /* block comment (not /**) containing "\n*/\n\n", with no trailing newline.
+        const sourceNoTrailingNewline = "/*\n    A verbatim top-level block comment\n*/\n\nvar x = 1;";
+
+        assert.equal(
+            sourceNoTrailingNewline.endsWith("\n"),
+            false,
+            "Test precondition: source must not end with a newline."
+        );
+        assert.match(
+            sourceNoTrailingNewline,
+            /\n\*\/\n\n/,
+            String.raw`Test precondition: source must contain '\n*/\n\n' to match the removed function's trigger pattern.`
+        );
+
+        const formatted = await Format.format(sourceNoTrailingNewline);
+
+        assert.equal(
+            formatted.endsWith("\n"),
+            true,
+            "Formatter must always produce output with a trailing newline (Prettier's canonical behavior). Source-aware trailing-newline stripping violates docs/target-state.md §3.2."
+        );
+    });
 });

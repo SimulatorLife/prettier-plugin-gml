@@ -27,7 +27,9 @@ var x = 1;
 
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        // Prettier enforces a trailing newline; the formatter must not strip it
+        // (docs/target-state.md §3.2 — formatter must be deterministic, no source-aware patching).
+        assert.equal(formatted, `${input}\n`);
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {
