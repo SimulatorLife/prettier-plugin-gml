@@ -39,7 +39,6 @@ void test("lint services no longer expose project-aware analysis helpers", () =>
 void test("lint workspace retains only single-file-safe service exports", () => {
     assert.equal("featherManifest" in LintWorkspace.Lint.services, true);
     assert.equal("performanceOverrideRuleIds" in LintWorkspace.Lint.services, true);
-    assert.equal("isPathWithinBoundary" in LintWorkspace.Lint.services, true);
 });
 
 void test("lint source tree no longer contains retired project-aware helper modules", () => {

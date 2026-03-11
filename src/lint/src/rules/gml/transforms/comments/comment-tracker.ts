@@ -100,28 +100,27 @@ export class CommentTracker {
             return [];
         }
 
-        const results = [];
-        const indicesToRemove = [];
+        const results: Array<unknown> = [];
         const startIndex = this.firstGreaterThan(left);
 
-        for (let index = startIndex; index < this.entries.length; index++) {
-            const entry = this.entries[index];
+        // Single-pass partition: build a new entries array while collecting matching comments.
+        // Avoids the two-pass collect-indices-then-splice-in-reverse pattern.
+        const remaining = this.entries.slice(0, startIndex);
+
+        for (let i = startIndex; i < this.entries.length; i++) {
+            const entry = this.entries[i];
             if (entry.index >= upperBound) {
+                remaining.push(...this.entries.slice(i));
                 break;
             }
-
             if (predicate && !predicate(entry.comment)) {
-                continue;
+                remaining.push(entry);
+            } else {
+                results.push(entry.comment);
             }
-
-            results.push(entry.comment);
-            indicesToRemove.push(index);
         }
 
-        for (let i = indicesToRemove.length - 1; i >= 0; i--) {
-            this.entries.splice(indicesToRemove[i], 1);
-        }
-
+        this.entries = remaining;
         return results;
     }
 

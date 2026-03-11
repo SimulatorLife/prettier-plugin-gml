@@ -57,21 +57,12 @@ function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
 
 export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
-function preserveTopLevelDescriptionGap(source: string, formatted: string): string {
-    const sourceStartsWithDescriptionGap = /^\/\/\/\s*@description[^\r\n]*\r?\n[ \t]*\r?\n[ \t]*var\b/.test(source);
-    if (!sourceStartsWithDescriptionGap) {
-        return formatted;
-    }
-
-    return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
-}
-
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
 
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
+    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8}\S+/u.test(source);
     if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
+        result = result.replace(/([^\n]\n)(\/{8}\S+)/u, "$1\n$2");
     }
 
     const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
@@ -131,8 +122,7 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 
     const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    const withTopLevelDescriptionGap = preserveTopLevelDescriptionGap(source, withBannerSpacing);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withTopLevelDescriptionGap);
+    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
 }
 
 export const Format: GmlFormat = {

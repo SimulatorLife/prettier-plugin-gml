@@ -101,6 +101,13 @@ const CALL_SIMPLIFIERS: SimplificationHandler[] = [
     (node) => attemptSimplifyTrigonometricCall(node)
 ];
 
+const SCALAR_CONDENSING_SIMPLIFIERS: SimplificationHandler[] = [
+    (node, context) => attemptCondenseSimpleScalarProduct(node, context),
+    (node, context) => attemptCondenseScalarProduct(node, context),
+    (node, context) => attemptCondenseNumericChainWithMultipleBases(node, context),
+    (node, context) => attemptCollectDistributedScalars(node, context)
+];
+
 function applySimplifiers(
     node: any,
     context: ConvertManualMathTransformOptions | null,
@@ -4781,22 +4788,7 @@ function applyScalarCondensing(
             let iterationCount = 0;
             while (changed && iterationCount < 1000) {
                 iterationCount += 1;
-                changed = false;
-                if (attemptCondenseSimpleScalarProduct(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCondenseScalarProduct(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCondenseNumericChainWithMultipleBases(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCollectDistributedScalars(node, traversalContext)) {
-                    changed = true;
-                }
+                changed = applySimplifiers(node, traversalContext, SCALAR_CONDENSING_SIMPLIFIERS);
             }
         }
 

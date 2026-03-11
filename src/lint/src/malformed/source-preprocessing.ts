@@ -1,11 +1,10 @@
 /**
- * Source text preprocessing utilities for the GML parser.
+ * Source text preprocessing utilities for malformed-code lint preprocessing.
  *
  * These functions perform source-level transformations before or during
- * parsing to handle common formatting issues and error recovery scenarios.
- * They operate on raw text rather than AST nodes, making them distinct from
- * the parser's core responsibility of GML → AST conversion, but they are
- * closely coupled to the parser's needs (comment normalization, brace recovery).
+ * linting malformed source in Phase A before AST-based rules run.
+ * They operate on raw text and provide deterministic, single-file rewrites that
+ * are safe to apply even when parsing fails.
  */
 
 import { Core } from "@gml-modules/core";
@@ -106,17 +105,29 @@ export function recoverParseSourceFromMissingBrace(sourceText: string, error: un
  * Determines whether an error indicates missing closing braces.
  */
 function isMissingClosingBraceError(error: unknown): boolean {
+    const message = extractErrorMessage(error);
+
+    return Core.isNonEmptyString(message) && message.toLowerCase().includes("missing associated closing brace");
+}
+
+/**
+ * Extracts a human-readable error message from unknown error input.
+ */
+function extractErrorMessage(error: unknown): string {
     if (!error) {
-        return false;
+        return "";
     }
 
-    const message = Core.isNonEmptyString((error as { message?: unknown }).message)
-        ? (error as { message: string }).message
-        : Core.isNonEmptyString(error)
-          ? String(error)
-          : "";
+    if (Core.isNonEmptyString(error)) {
+        return String(error);
+    }
 
-    return message.toLowerCase().includes("missing associated closing brace");
+    if (typeof error === "object" && "message" in error) {
+        const message = (error as { message: unknown }).message;
+        return Core.isNonEmptyString(message) ? String(message) : "";
+    }
+
+    return "";
 }
 
 /**
