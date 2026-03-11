@@ -14,9 +14,22 @@ export function getRuntimePathSegments(filePath: string): ReadonlyArray<string> 
 }
 
 /**
- * Resolve an object event runtime identifier from previously normalized segments.
+ * Parts extracted from a GameMaker object event file path.
  */
-export function resolveObjectRuntimeIdFromSegments(segments: ReadonlyArray<string>): string | null {
+export interface ObjectEventParts {
+    /** The GameMaker object name, e.g. `obj_player`. */
+    objectName: string;
+    /** The event file stem, e.g. `Step_0` or `Create_0`. */
+    eventName: string;
+}
+
+/**
+ * Extract object name and event name from normalized path segments when the
+ * path is inside an `objects/<objectName>/` directory.
+ *
+ * Returns `null` for non-event paths (e.g. scripts).
+ */
+export function resolveObjectEventPartsFromSegments(segments: ReadonlyArray<string>): ObjectEventParts | null {
     const objectDirectoryIndex = segments.lastIndexOf(OBJECTS_DIRECTORY);
     if (objectDirectoryIndex === -1) {
         return null;
@@ -33,7 +46,19 @@ export function resolveObjectRuntimeIdFromSegments(segments: ReadonlyArray<strin
         return null;
     }
 
-    return `gml_Object_${objectName}_${eventName}`;
+    return { objectName, eventName };
+}
+
+/**
+ * Resolve an object event runtime identifier from previously normalized segments.
+ */
+export function resolveObjectRuntimeIdFromSegments(segments: ReadonlyArray<string>): string | null {
+    const parts = resolveObjectEventPartsFromSegments(segments);
+    if (!parts) {
+        return null;
+    }
+
+    return `gml_Object_${parts.objectName}_${parts.eventName}`;
 }
 
 /**
