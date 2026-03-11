@@ -59,4 +59,3 @@ export const STRING_TYPE = "string";
 export const OBJECT_TYPE = "object";
 export const NUMBER_TYPE = "number";
 export const UNDEFINED_TYPE = "undefined";
-export const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");

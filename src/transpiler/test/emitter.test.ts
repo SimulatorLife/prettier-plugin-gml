@@ -268,6 +268,31 @@ void test("GmlToJsEmitter routes script calls through the wrapper helper", () =>
     );
 });
 
+void test("GmlToJsEmitter does not emit script callees when symbol metadata is available", () => {
+    const source = "obj.scr_attack(target)";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const defaultOracle = Transpiler.createSemanticOracle();
+    const sem: SemanticAnalyzers = Object.assign(Object.create(defaultOracle), {
+        callTargetKind() {
+            return "script";
+        },
+        callTargetSymbol() {
+            return "gml/script/scr_attack";
+        },
+        nameOfIdent(node) {
+            if (node.name === "scr_attack") {
+                throw new Error("Script callee should not be resolved when symbol metadata exists");
+            }
+            return defaultOracle.nameOfIdent(node);
+        }
+    });
+    const emitter = new Transpiler.GmlToJsEmitter(sem);
+    const result = emitter.emit(ast);
+
+    assert.ok(result.includes('__call_script("gml/script/scr_attack", self, other, [target])'));
+});
+
 void test("GmlToJsEmitter allows overriding the script call helper name", () => {
     const source = "scr_attack()";
     const parser = new Parser.GMLParser(source, {});

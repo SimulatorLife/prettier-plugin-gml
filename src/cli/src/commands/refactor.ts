@@ -199,7 +199,8 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
         console.log(`\n${formatRenamePlanReport(plan)}`);
 
         if (verbose) {
-            const preview = generateRenamePreview(plan.workspace, plan.analysis.summary.oldName, newName);
+            const resolvedOldName = plan.analysis.summary.oldName;
+            const preview = generateRenamePreview(plan.workspace, resolvedOldName, newName);
             console.log("\nDetailed File Changes:");
             for (const file of preview.files) {
                 console.log(`  ${file.filePath}: ${file.editCount} edits`);
