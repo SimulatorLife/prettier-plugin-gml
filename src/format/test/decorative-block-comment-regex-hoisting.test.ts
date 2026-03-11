@@ -15,8 +15,8 @@
  * constant.  That pattern was migrated to Core (as `isDecorativeSlashCommentLine`)
  * to enforce the workspace ownership boundary: Core owns shared banner-comment
  * primitives (target-state.md §2.1), not the formatter.  The migration also
- * eliminates a duplicate definition that existed independently in
- * `printer/type-guards.ts`.
+ * eliminates a duplicate definition that previously lived in the formatter
+ * printer utilities.
  *
  * Reproducible measurement (allocation counter)
  * ----------------------------------------------

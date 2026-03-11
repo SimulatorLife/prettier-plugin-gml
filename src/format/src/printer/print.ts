@@ -38,6 +38,7 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
+import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -82,7 +83,6 @@ import {
     isComplexArgumentNode,
     isInlineEmptyBlockComment,
     isInLValueChain,
-    isLogicalComparisonClause,
     isNumericComputationNode,
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
