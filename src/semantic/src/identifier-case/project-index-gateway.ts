@@ -9,8 +9,8 @@ function getExistingProjectIndex(options) {
     });
 }
 
-export async function bootstrapIdentifierCaseProjectIndex(options) {
-    return await bootstrapProjectIndex(options, setIdentifierCaseOption);
+export function bootstrapIdentifierCaseProjectIndex(options) {
+    return bootstrapProjectIndex(options, setIdentifierCaseOption);
 }
 
 export function applyBootstrappedIdentifierCaseProjectIndex(options) {

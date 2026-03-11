@@ -143,10 +143,10 @@ export class RefactorEngine {
      * This is used by @gml-modules/lint and @gml-modules/refactor to
      * determine if a proposed variable name or identifier is safe to use.
      */
-    async isIdentifierOccupied(identifierName: string): Promise<boolean> {
-        return await this.projectAnalysisProvider.isIdentifierOccupied(identifierName, {
+    isIdentifierOccupied(identifierName: string): Promise<boolean> {
+        return this.projectAnalysisProvider.isIdentifierOccupied(identifierName, {
             semantic: this.semantic,
-            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+            prepareRenamePlan: (request, options) => this.prepareRenamePlan(request, options)
         });
     }
 
@@ -155,10 +155,10 @@ export class RefactorEngine {
      * This is used by @gml-modules/lint and @gml-modules/refactor to
      * determine if a rename or refactor would affect multiple files.
      */
-    async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
-        return await this.projectAnalysisProvider.listIdentifierOccurrences(identifierName, {
+    listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
+        return this.projectAnalysisProvider.listIdentifierOccurrences(identifierName, {
             semantic: this.semantic,
-            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+            prepareRenamePlan: (request, options) => this.prepareRenamePlan(request, options)
         });
     }
 
@@ -184,7 +184,7 @@ export class RefactorEngine {
      *     console.warn("Rename warnings:", validation.warnings);
      * }
      */
-    async validateRenameRequest(
+    validateRenameRequest(
         request: RenameRequest,
         options?: ValidateRenameRequestOptions
     ): Promise<
@@ -196,15 +196,15 @@ export class RefactorEngine {
     > {
         const includeHotReload = options?.includeHotReload ?? false;
         if (includeHotReload) {
-            return await this.computeRenameValidation(request, { includeHotReload: true });
+            return this.computeRenameValidation(request, { includeHotReload: true });
         }
 
         if (!request || typeof request.symbolId !== "string" || typeof request.newName !== "string") {
-            return await this.computeRenameValidation(request, options);
+            return this.computeRenameValidation(request, options);
         }
 
-        return await this.renameValidationCache.getOrCompute(request.symbolId, request.newName, async () => {
-            return await this.computeRenameValidation(request, options);
+        return this.renameValidationCache.getOrCompute(request.symbolId, request.newName, () => {
+            return this.computeRenameValidation(request, options);
         });
     }
 
@@ -1488,8 +1488,8 @@ export class RefactorEngine {
     /**
      * Prepare hot reload updates from a workspace edit.
      */
-    async prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
-        return await HotReload.prepareHotReloadUpdates(workspace, this.semantic);
+    prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
+        return HotReload.prepareHotReloadUpdates(workspace, this.semantic);
     }
 
     /**
@@ -1643,15 +1643,15 @@ export class RefactorEngine {
      * Takes a set of changed symbols and computes all transitive dependents
      * that need to be reloaded, ordered for safe application.
      */
-    async computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
-        return await HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
+    computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
+        return HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
     }
 
     /**
      * Check whether a rename operation is safe for hot reload.
      */
-    async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
-        return await HotReload.checkHotReloadSafety(request, this.semantic);
+    checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
+        return HotReload.checkHotReloadSafety(request, this.semantic);
     }
 
     /**
@@ -1678,8 +1678,8 @@ export class RefactorEngine {
      *     }
      * }
      */
-    async computeRenameImpactGraph(symbolId: string): Promise<RenameImpactGraph> {
-        return await HotReload.computeRenameImpactGraph(symbolId, this.semantic);
+    computeRenameImpactGraph(symbolId: string): Promise<RenameImpactGraph> {
+        return HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
     /**
@@ -1864,11 +1864,11 @@ export class RefactorEngine {
      * Integrate refactor results with the transpiler for hot reload.
      * Takes hot reload updates and generates transpiled patches.
      */
-    async generateTranspilerPatches(
+    generateTranspilerPatches(
         hotReloadUpdates: Array<HotReloadUpdate>,
         readFile: WorkspaceReadFile
     ): Promise<Array<TranspilerPatch>> {
-        return await HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
+        return HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
     }
 
     /**
@@ -1877,7 +1877,7 @@ export class RefactorEngine {
      * making it ideal for IDE integrations that need to show inline warnings
      * or CLI tools that want to preview potential issues before planning edits.
      */
-    async detectRenameConflicts(request: {
+    detectRenameConflicts(request: {
         oldName: string;
         newName: string;
         occurrences: Array<SymbolOccurrence>;
@@ -1897,14 +1897,14 @@ export class RefactorEngine {
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return await detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+        return detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
     }
 
     /**
      * Plan renames for Feather quick fixes.
      * Checks if the replacement name is safe and if edits are contained within the file.
      */
-    async planFeatherRenames(
+    planFeatherRenames(
         requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>,
         filePath: string | null,
         projectRoot: string
@@ -1917,9 +1917,9 @@ export class RefactorEngine {
             skipReason?: string;
         }>
     > {
-        return await this.projectAnalysisProvider.planFeatherRenames(requests, filePath, projectRoot, {
+        return this.projectAnalysisProvider.planFeatherRenames(requests, filePath, projectRoot, {
             semantic: this.semantic,
-            prepareRenamePlan: async (request, options) => await this.prepareRenamePlan(request, options)
+            prepareRenamePlan: (request, options) => this.prepareRenamePlan(request, options)
         });
     }
 

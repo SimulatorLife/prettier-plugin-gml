@@ -9,23 +9,23 @@ import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 // Use canonical Core namespace access instead of destructuring
 // - Core.walkAncestorDirectories
 
-export async function findProjectRoot(
+export function findProjectRoot(
     options,
     fsFacade: Required<Pick<ProjectIndexFsFacade, "readDir">> = defaultFsFacade
-) {
+): Promise<string | null> {
     const filepath = options?.filepath;
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
         message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
     });
 
     if (!filepath) {
-        return null;
+        return Promise.resolve(null);
     }
 
     const startDirectory = path.dirname(path.resolve(filepath));
 
     const directories = [...Core.walkAncestorDirectories(startDirectory)];
-    return await directories.reduce(
+    return directories.reduce(
         (previousPromise, directory) =>
             previousPromise.then(async (found) => {
                 if (found) {
