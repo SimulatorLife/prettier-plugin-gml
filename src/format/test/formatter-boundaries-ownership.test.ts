@@ -567,4 +567,26 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not synthesize empty /// @description tags."
         );
     });
+
+    void it("preserves global. accessor prefix — does not strip it when globalvar declaration is present (§2.1/§3.2)", async () => {
+        // Stripping `global.foo` to bare `foo` when `globalvar foo;` is present is a
+        // semantic/content rewrite: it changes program meaning based on AST structure.
+        // The formatter must preserve source content as-is; renaming/removing `global.`
+        // prefixes belongs in the lint workspace (`gml/no-globalvar` rule).
+        const source = ["globalvar score;", "global.score = 100;", "show_debug_message(global.score);"].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /global\.score = 100;/,
+            "Formatter must not strip `global.` from `global.score` even when `globalvar score;` is present."
+        );
+        assert.match(
+            formatted,
+            /show_debug_message\(global\.score\)/,
+            "Formatter must not strip `global.` from `global.score` in expressions."
+        );
+        assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
+    });
 });
