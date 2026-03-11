@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import GameMakerLanguageParserListenerBase from "../generated/GameMakerLanguageParserListener.js";
 import GameMakerLanguageParserListener, {
     LISTENER_METHOD_NAMES
 } from "../src/runtime/game-maker-language-parser-listener.js";
@@ -79,4 +80,27 @@ void test("unhandled methods still route to the delegate", () => {
 
     assert.equal(handlerCalls, 0);
     assert.equal(delegateCalls, 1);
+});
+
+void test("non-function method handlers are ignored", () => {
+    let delegateCalls = 0;
+
+    const listener = new GameMakerLanguageParserListener({
+        listenerDelegate: () => {
+            delegateCalls += 1;
+        },
+        listenerHandlers: {
+            enterProgram: "not a function" as never
+        }
+    });
+
+    listener.enterProgram({});
+
+    assert.equal(delegateCalls, 1);
+});
+
+void test("listener instances satisfy instanceof checks against the base listener", () => {
+    const listener = new GameMakerLanguageParserListener();
+
+    assert.equal(listener instanceof GameMakerLanguageParserListenerBase, true);
 });

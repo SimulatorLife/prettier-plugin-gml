@@ -1808,13 +1808,7 @@ function collapseSuppressedTripleSlashSeparatorWhitespace(comment) {
     }
 }
 
-function createDecorativeSlashLinePattern(): RegExp {
-    const minDecorativeSlashes = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
-    return new RegExp(String.raw`^\s*\*?\/{${minDecorativeSlashes},}\*?\s*$`);
-}
-
 function hasDecorativeSlashBanner(commentValue: string): boolean {
-    const decorativeSlashLinePattern = createDecorativeSlashLinePattern();
     const lines = commentValue.split(/\r?\n/);
     let hasDecorativeLine = false;
 
@@ -1824,7 +1818,7 @@ function hasDecorativeSlashBanner(commentValue: string): boolean {
             continue;
         }
 
-        if (decorativeSlashLinePattern.test(trimmedLine)) {
+        if (Core.isDecorativeSlashCommentLine(trimmedLine)) {
             hasDecorativeLine = true;
         }
     }

@@ -36,6 +36,19 @@ export interface ParserListenerBaseConstructor {
     readonly prototype: ParserListenerBase;
 }
 
+/**
+ * The structural shape of a compositional parse-tree listener wrapper.
+ *
+ * Mirrors {@link ParserVisitorPrototype} for the listener side. Includes a
+ * symbol index signature so wrapper instances can carry the
+ * WRAPPER_INSTANCE_MARKER used by {@link ensureHasInstancePatched}.
+ */
+export interface ParserListenerPrototype {
+    _dispatch?(methodName: string, ctx: ParserContext): unknown;
+    [methodName: string]: ParseTreeListenerMethod;
+    [methodSymbol: symbol]: unknown;
+}
+
 export interface ParserVisitorPrototype {
     visitChildren: ParseTreeVisitorMethod;
     [methodName: string]: ParseTreeVisitorMethod;
@@ -63,6 +76,22 @@ export function getParserListenerBase(): ParserListenerBaseConstructor {
  */
 export function getParserVisitorBase(): ParserVisitorBaseConstructor {
     return GameMakerLanguageParserVisitorBase as unknown as ParserVisitorBaseConstructor;
+}
+
+/**
+ * Exposes the shared parse tree listener prototype used by the generated base
+ * class so wrappers can delegate inherited behaviour without relying on the
+ * generated module layout.
+ *
+ * The returned prototype is the {@link https://antlr.org | antlr4}
+ * `ParseTreeListener` prototype that sits one level above the generated
+ * `GameMakerLanguageParserListener.prototype`. Delegating to it lets a
+ * compositional wrapper honour the `enterEveryRule` / `exitEveryRule` /
+ * `visitTerminal` / `visitErrorNode` contract without inheriting the
+ * generated class.
+ */
+export function getParseTreeListenerPrototype(): ParserListenerPrototype {
+    return Object.getPrototypeOf(getParserListenerBase().prototype) as ParserListenerPrototype;
 }
 
 /**
