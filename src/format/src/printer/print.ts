@@ -1061,11 +1061,14 @@ function tryPrintDeclarationNode(node, path, options, print) {
         case "IdentifierStatement": {
             return print("name");
         }
-        case "DefineStatement": // TODO: The parser should not emit a different node type for 'DefineStatement'. For now, just let it fall-through. See docs/define-directive-fixing.md
+        case "DefineStatement":
         case "MacroDeclaration": {
             const macroName = typeof node.name === "string" ? node.name : (node.name?.name ?? null);
             const { start: macroStart, end: macroEnd } = Core.getNodeRangeIndices(node);
             const { start: nameStart, end: nameEnd } = Core.getNodeRangeIndices(node.name);
+
+            // Preserve the original keyword: `#define` for DefineStatement, `#macro` for MacroDeclaration.
+            const keyword = node.type === "DefineStatement" ? "#define" : "#macro";
 
             // Normalize whitespace: rebuild `#macro NAME value` with single spaces.
             // The original text may contain multiple spaces between `#macro`, the
@@ -1081,8 +1084,8 @@ function tryPrintDeclarationNode(node, path, options, print) {
             ) {
                 const valueBody = options.originalText.slice(nameEnd, macroEnd).trimStart();
                 const normalized = Core.isNonEmptyString(valueBody)
-                    ? `#macro ${macroName} ${valueBody}`
-                    : `#macro ${macroName}`;
+                    ? `${keyword} ${macroName} ${valueBody}`
+                    : `${keyword} ${macroName}`;
                 return concat(stripTrailingLineTerminators(normalized));
             }
 

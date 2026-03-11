@@ -258,7 +258,11 @@ function canUnaryExpressionBenefitFromNormalization(node: unknown): boolean {
     return (
         argument.type === "UnaryExpression" ||
         argument.type === "LogicalExpression" ||
-        (argument.type === "BinaryExpression" && (argument.operator === "&&" || argument.operator === "||")) ||
+        (argument.type === "BinaryExpression" &&
+            (argument.operator === "&&" ||
+                argument.operator === "||" ||
+                argument.operator === "and" ||
+                argument.operator === "or")) ||
         argument.type === "ParenthesizedExpression"
     );
 }
@@ -267,12 +271,16 @@ function isBooleanLiteralNode(node: unknown): boolean {
     return readBooleanLiteral(node) !== null;
 }
 
+function isLogicalBinaryOperator(operator: unknown): boolean {
+    return operator === "&&" || operator === "||" || operator === "and" || operator === "or";
+}
+
 function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
     const logicalExpression = asAstRecord(node);
     if (
         !logicalExpression ||
         (logicalExpression.type !== "LogicalExpression" && logicalExpression.type !== "BinaryExpression") ||
-        (logicalExpression.operator !== "&&" && logicalExpression.operator !== "||")
+        !isLogicalBinaryOperator(logicalExpression.operator)
     ) {
         return false;
     }
@@ -287,25 +295,12 @@ function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
         return true;
     }
 
-    if (logicalExpression.operator === "&&") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    if (logicalExpression.operator === "||") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    return false;
+    return (
+        left.type === "LogicalExpression" ||
+        right.type === "LogicalExpression" ||
+        left.type === "BinaryExpression" ||
+        right.type === "BinaryExpression"
+    );
 }
 
 function getNodeRange(node: unknown): SourceTextRange | null {
