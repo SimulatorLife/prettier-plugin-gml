@@ -1,18 +1,22 @@
 /**
- * Allocation measurement: decorative slash-line pattern hoisting
+ * Allocation measurement: decorative slash-line detection via Core
  *
  * Background
  * ----------
- * `hasDecorativeSlashBanner` is called for every block-comment candidate
- * encountered during a formatting pass.  Before this fix, the helper called
- * `createDecorativeSlashLinePattern()` on each invocation, which called
- * `new RegExp(...)` every time—even though the resulting pattern is identical
- * across all calls because `Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes`
- * is a frozen constant (4).
+ * `hasDecorativeSlashBanner` (private to `comment-printer.ts`) is called for
+ * every block-comment candidate encountered during a formatting pass. It
+ * delegates the per-line test to `Core.isDecorativeSlashCommentLine`, which
+ * uses a module-scoped `RegExp` compiled once at module-evaluation time in
+ * `@gml-modules/core`.  This guarantees that no new `RegExp` is allocated per
+ * call—even though `hasDecorativeSlashBanner` may run hundreds of times per
+ * formatting pass.
  *
- * After the fix, `DECORATIVE_SLASH_LINE_PATTERN` is a module-scoped constant
- * compiled once at module-evaluation time.  A single shared instance is reused
- * for the lifetime of the process.
+ * Previously, `comment-printer.ts` owned a local `DECORATIVE_SLASH_LINE_PATTERN`
+ * constant.  That pattern was migrated to Core (as `isDecorativeSlashCommentLine`)
+ * to enforce the workspace ownership boundary: Core owns shared banner-comment
+ * primitives (target-state.md §2.1), not the formatter.  The migration also
+ * eliminates a duplicate definition that existed independently in
+ * `printer/type-guards.ts`.
  *
  * Reproducible measurement (allocation counter)
  * ----------------------------------------------
@@ -25,10 +29,9 @@
  * Over a 100-file project: ~10 MB of short-lived allocations eliminated per run.
  *
  * The test suite below verifies:
- *   1. Pattern correctness – the hoisted regex accepts and rejects the right strings.
- *   2. Stability – the exported pattern is the same reference across multiple
- *      format invocations (proves no per-call allocation).
- *   3. Heap growth – formatting a file with many decorative block comments stays
+ *   1. Correctness – `Core.isDecorativeSlashCommentLine` accepts and rejects the
+ *      right strings.
+ *   2. Heap growth – formatting a file with many decorative block comments stays
  *      within a bounded heap footprint rather than growing linearly with comment
  *      count.
  */
@@ -37,99 +40,42 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getHeapStatistics } from "node:v8";
 
-import { __test__ } from "../src/comments/comment-printer.js";
+import { Core } from "@gml-modules/core";
+
 import { Format } from "../src/index.js";
 
-const { DECORATIVE_SLASH_LINE_PATTERN } = __test__;
-
 // ---------------------------------------------------------------------------
-// 1. Pattern correctness
+// 1. Pattern correctness via Core.isDecorativeSlashCommentLine
 // ---------------------------------------------------------------------------
 
-void describe("DECORATIVE_SLASH_LINE_PATTERN", () => {
-    void it("is a compiled RegExp instance", () => {
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN instanceof RegExp);
-    });
-
+void describe("Core.isDecorativeSlashCommentLine", () => {
     void it("accepts lines with 4 or more consecutive forward slashes", () => {
         // exactly 4 slashes – minimum threshold
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN.test("////"));
+        assert.ok(Core.isDecorativeSlashCommentLine("////"));
         // 6 slashes
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN.test("//////"));
+        assert.ok(Core.isDecorativeSlashCommentLine("//////"));
         // with optional leading asterisk
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN.test("*////"));
+        assert.ok(Core.isDecorativeSlashCommentLine("*////"));
         // with surrounding whitespace
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN.test("  ////  "));
+        assert.ok(Core.isDecorativeSlashCommentLine("  ////  "));
         // with trailing asterisk
-        assert.ok(DECORATIVE_SLASH_LINE_PATTERN.test("////*"));
+        assert.ok(Core.isDecorativeSlashCommentLine("////*"));
     });
 
     void it("rejects lines with fewer than 4 forward slashes", () => {
         // only 3 slashes
-        assert.ok(!DECORATIVE_SLASH_LINE_PATTERN.test("///"));
+        assert.ok(!Core.isDecorativeSlashCommentLine("///"));
         // double slash (doc comment prefix)
-        assert.ok(!DECORATIVE_SLASH_LINE_PATTERN.test("// regular comment"));
+        assert.ok(!Core.isDecorativeSlashCommentLine("// regular comment"));
         // empty string
-        assert.ok(!DECORATIVE_SLASH_LINE_PATTERN.test(""));
+        assert.ok(!Core.isDecorativeSlashCommentLine(""));
         // plain text
-        assert.ok(!DECORATIVE_SLASH_LINE_PATTERN.test("some text"));
+        assert.ok(!Core.isDecorativeSlashCommentLine("some text"));
     });
 });
 
 // ---------------------------------------------------------------------------
-// 2. Reference-identity stability across format invocations
-// ---------------------------------------------------------------------------
-
-void describe("pattern reference stability", () => {
-    void it("DECORATIVE_SLASH_LINE_PATTERN is the same object before and after formatting", async () => {
-        const patternBefore = DECORATIVE_SLASH_LINE_PATTERN;
-
-        // Format a document that contains a decorative block comment so that
-        // `hasDecorativeSlashBanner` is definitely invoked.
-        const source = ["/*", " * ////", " * Some decorative comment", " */", "", "var x = 1;", ""].join("\n");
-
-        await Format.format(source, { parser: "gml" });
-
-        // `DECORATIVE_SLASH_LINE_PATTERN` must be the exact same module-scoped
-        // object, not a fresh `RegExp` instance created during formatting.
-        assert.strictEqual(
-            DECORATIVE_SLASH_LINE_PATTERN,
-            patternBefore,
-            "DECORATIVE_SLASH_LINE_PATTERN must be a stable module-scoped constant, not re-created per invocation"
-        );
-    });
-
-    void it("pattern is the same reference after many consecutive format calls", async () => {
-        const capturedPattern = DECORATIVE_SLASH_LINE_PATTERN;
-
-        const source = [
-            "/*////",
-            " * decorative comment",
-            " ////*/",
-            "",
-            "function foo() {",
-            "    return 1;",
-            "}",
-            ""
-        ].join("\n");
-
-        // Run the formatter 20 times; each run triggers hasDecorativeSlashBanner.
-        // If the pattern were re-created per call it would be a different instance
-        // after each run—but with the hoisted constant it stays identical.
-        for (let i = 0; i < 20; i++) {
-            await Format.format(source, { parser: "gml" });
-        }
-
-        assert.strictEqual(
-            DECORATIVE_SLASH_LINE_PATTERN,
-            capturedPattern,
-            "Pattern reference must not change across many format invocations"
-        );
-    });
-});
-
-// ---------------------------------------------------------------------------
-// 3. Heap growth measurement
+// 2. Heap growth measurement
 // ---------------------------------------------------------------------------
 
 void describe("heap growth with many decorative block comments", () => {
