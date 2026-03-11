@@ -78,20 +78,20 @@ void describe("Core.isDecorativeSlashCommentLine", () => {
 // 2. Heap growth measurement
 // ---------------------------------------------------------------------------
 
-void describe("heap growth with many decorative block comments", () => {
-    /**
-     * Build a GML source string that contains `count` decorative block comments
-     * so that `hasDecorativeSlashBanner` is invoked `count` times during formatting.
-     */
-    function buildDecorativeCommentFile(count: number): string {
-        const lines: string[] = [];
-        for (let i = 0; i < count; i++) {
-            lines.push(`/* //// decorative banner ${i} ////*/`, `var v${i} = ${i};`);
-        }
-        lines.push("");
-        return lines.join("\n");
+/**
+ * Build a GML source string that contains `count` decorative block comments
+ * so that `hasDecorativeSlashBanner` is invoked `count` times during formatting.
+ */
+function buildDecorativeCommentFile(count: number): string {
+    const lines: string[] = [];
+    for (let i = 0; i < count; i++) {
+        lines.push(`/* //// decorative banner ${i} ////*/`, `var v${i} = ${i};`);
     }
+    lines.push("");
+    return lines.join("\n");
+}
 
+void describe("heap growth with many decorative block comments", () => {
     void it("heap growth scales with file size, not with decorative comment count alone", async () => {
         const COMMENT_COUNT_SMALL = 5;
         const COMMENT_COUNT_LARGE = 200;
