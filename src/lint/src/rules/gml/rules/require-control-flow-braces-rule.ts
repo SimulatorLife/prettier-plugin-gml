@@ -25,6 +25,20 @@ function toBracedSingleClause(indentation: string, header: string, statement: st
     return [`${indentation}${header} {`, `    ${indentation}${statement}`, `${indentation}}`];
 }
 
+function appendParsedBracedSingleClause(
+    line: string,
+    rewrittenLines: Array<string>,
+    parseClause: (lineToParse: string) => BracedSingleClause | null
+): boolean {
+    const parsedClause = parseClause(line);
+    if (!parsedClause) {
+        return false;
+    }
+
+    rewrittenLines.push(...toBracedSingleClause(parsedClause.indentation, parsedClause.header, parsedClause.statement));
+    return true;
+}
+
 function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
     const match = /^([\t ]*)((?:if|while|for|with)\s*\(.*?\))\s*(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
@@ -291,51 +305,25 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                             continue;
                         }
 
-                        const bracedConditionedClause = parseInlineControlFlowClause(line);
-                        if (bracedConditionedClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedConditionedClause.indentation,
-                                    bracedConditionedClause.header,
-                                    bracedConditionedClause.statement
-                                )
-                            );
+                        if (appendParsedBracedSingleClause(line, rewrittenLines, parseInlineControlFlowClause)) {
                             continue;
                         }
 
-                        const bracedRepeatClause = parseInlineRepeatClause(line);
-                        if (bracedRepeatClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedRepeatClause.indentation,
-                                    bracedRepeatClause.header,
-                                    bracedRepeatClause.statement
-                                )
-                            );
+                        if (appendParsedBracedSingleClause(line, rewrittenLines, parseInlineRepeatClause)) {
                             continue;
                         }
 
-                        const bracedElseClause = parseInlineElseClause(line);
-                        if (bracedElseClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedElseClause.indentation,
-                                    bracedElseClause.header,
-                                    bracedElseClause.statement
-                                )
-                            );
+                        if (appendParsedBracedSingleClause(line, rewrittenLines, parseInlineElseClause)) {
                             continue;
                         }
 
-                        const bracedLegacyIfClause = parseInlineControlFlowClauseWithLegacyIf(line);
-                        if (bracedLegacyIfClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedLegacyIfClause.indentation,
-                                    bracedLegacyIfClause.header,
-                                    bracedLegacyIfClause.statement
-                                )
-                            );
+                        if (
+                            appendParsedBracedSingleClause(
+                                line,
+                                rewrittenLines,
+                                parseInlineControlFlowClauseWithLegacyIf
+                            )
+                        ) {
                             continue;
                         }
 
