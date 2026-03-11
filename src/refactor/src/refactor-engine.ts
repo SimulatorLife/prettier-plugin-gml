@@ -1050,12 +1050,6 @@ export class RefactorEngine {
         Core.assertFunction(readFile, "readFile", {
             errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
         });
-        if (!dryRun) {
-            Core.assertFunction(writeFile, "writeFile", {
-                errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
-            });
-        }
-
         const uniqueFilePaths = [...new Set(filePaths)];
 
         const workspace = new WorkspaceEdit();
@@ -1086,6 +1080,20 @@ export class RefactorEngine {
                 path: filePath,
                 appliedEditCount: result.appliedEdits.length,
                 diagnosticOffsets: [...result.diagnosticOffsets]
+            });
+        }
+
+        if (workspace.edits.length === 0) {
+            return {
+                workspace,
+                applied: new Map(),
+                changedFiles
+            };
+        }
+
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
             });
         }
 

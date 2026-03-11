@@ -60,6 +60,19 @@ void test("executeLoopLengthHoistingCodemod de-duplicates repeated file paths", 
     assert.equal(result.changedFiles.length, 1);
 });
 
+void test("executeLoopLengthHoistingCodemod does not require writeFile when no changes are produced", async () => {
+    const engine = new Refactor.RefactorEngine();
+
+    const result = await engine.executeLoopLengthHoistingCodemod({
+        filePaths: ["/project/unchanged.gml"],
+        readFile: async () => "for (var i = 0; i < count; i++) {\n    total += i;\n}\n"
+    });
+
+    assert.equal(result.changedFiles.length, 0);
+    assert.equal(result.workspace.edits.length, 0);
+    assert.equal(result.applied.size, 0);
+});
+
 void test("executeLoopLengthHoistingCodemod requires writeFile when not in dry-run mode", async () => {
     const engine = new Refactor.RefactorEngine();
 
