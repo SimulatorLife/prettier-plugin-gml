@@ -19,14 +19,6 @@ const OBJECT_TYPE = "object";
 const UNDEFINED_TYPE = "undefined";
 
 /**
- * Cached regex for detecting decorative banner-style comment lines.
- */
-// TODO: Decorative banner-comment are fixed by the linter, so some of this functionality should maybe live in the 'Core' module instead for reuse
-const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-    String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
-);
-
-/**
  * Set of node types considered simple call arguments for formatting purposes.
  */
 const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
@@ -42,40 +34,6 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 // ============================================================================
 // Comment Type Guards
 // ============================================================================
-
-/**
- * Determines if a comment is a decorative banner-style block comment.
- *
- * A decorative comment consists entirely of lines matching the pattern of
- * slash-based decorative banners (e.g., "////////////////////").
- */
-export function isDecorativeBlockComment(comment: any): boolean {
-    if (!comment || (comment.type !== "BlockComment" && comment.type !== "CommentBlock")) {
-        return false;
-    }
-
-    const value = comment.value;
-    if (typeof value !== "string") {
-        return false;
-    }
-
-    const lines = value.split(/\r?\n/);
-    let hasDecorativeContent = false;
-    for (const line_ of lines) {
-        const normalizedLine = line_.replaceAll("\t", "    ");
-        if (!Core.isNonEmptyTrimmedString(normalizedLine)) {
-            continue;
-        }
-
-        if (!DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
-            // Found a non-decorative line -> treat entire comment as normal content
-            return false;
-        }
-        hasDecorativeContent = true;
-    }
-
-    return hasDecorativeContent;
-}
 
 /**
  * Determines if a comment is an inline empty block comment.

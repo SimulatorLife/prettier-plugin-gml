@@ -5,7 +5,8 @@ import {
     type BannerCommentPolicyContext,
     DEFAULT_BANNER_COMMENT_POLICY_CONFIG,
     evaluateBannerCommentPolicy,
-    isBelowBannerSlashThreshold
+    isBelowBannerSlashThreshold,
+    isDecorativeSlashCommentLine
 } from "../src/comments/line-comment/banner-comment-policy.js";
 
 void describe("banner-comment-policy", () => {
@@ -206,6 +207,59 @@ void describe("banner-comment-policy", () => {
             const result = evaluateBannerCommentPolicy(context);
 
             assert.equal(result.isBanner, false);
+        });
+    });
+
+    void describe("isDecorativeSlashCommentLine", () => {
+        void it("accepts lines with exactly 4 consecutive forward slashes (minimum threshold)", () => {
+            assert.equal(isDecorativeSlashCommentLine("////"), true);
+        });
+
+        void it("accepts lines with more than 4 consecutive forward slashes", () => {
+            assert.equal(isDecorativeSlashCommentLine("//////"), true);
+            assert.equal(isDecorativeSlashCommentLine("////////////////////"), true);
+        });
+
+        void it("accepts lines with an optional leading asterisk (block-comment continuation style)", () => {
+            assert.equal(isDecorativeSlashCommentLine("*////"), true);
+        });
+
+        void it("accepts lines with surrounding whitespace", () => {
+            assert.equal(isDecorativeSlashCommentLine("  ////  "), true);
+            assert.equal(isDecorativeSlashCommentLine("\t////"), true);
+        });
+
+        void it("accepts lines with a trailing asterisk", () => {
+            assert.equal(isDecorativeSlashCommentLine("////*"), true);
+        });
+
+        void it("rejects lines with fewer than 4 consecutive forward slashes", () => {
+            assert.equal(isDecorativeSlashCommentLine("///"), false);
+            assert.equal(isDecorativeSlashCommentLine("//"), false);
+            assert.equal(isDecorativeSlashCommentLine("/"), false);
+        });
+
+        void it("rejects regular double-slash line comments", () => {
+            assert.equal(isDecorativeSlashCommentLine("// regular comment"), false);
+            assert.equal(isDecorativeSlashCommentLine("// @param foo"), false);
+        });
+
+        void it("rejects doc-comment triple-slash lines", () => {
+            assert.equal(isDecorativeSlashCommentLine("/// @param foo"), false);
+            assert.equal(isDecorativeSlashCommentLine("/// some description"), false);
+        });
+
+        void it("rejects empty strings", () => {
+            assert.equal(isDecorativeSlashCommentLine(""), false);
+        });
+
+        void it("rejects lines with non-slash decorative content", () => {
+            assert.equal(isDecorativeSlashCommentLine("// ===="), false);
+            assert.equal(isDecorativeSlashCommentLine("// ----"), false);
+        });
+
+        void it("rejects lines containing text after slashes", () => {
+            assert.equal(isDecorativeSlashCommentLine("//// some text"), false);
         });
     });
 });
