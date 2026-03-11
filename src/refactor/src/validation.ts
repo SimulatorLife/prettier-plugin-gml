@@ -506,3 +506,169 @@ export async function validateCrossFileConsistency(
 
     return errors;
 }
+
+// ---------------------------------------------------------------------------
+// Batch-rename bookkeeping helpers
+// ---------------------------------------------------------------------------
+
+/** One entry per symbolId that appears more than once in a batch rename request. */
+export interface DuplicateSymbolIdEntry {
+    symbolId: string;
+    count: number;
+}
+
+/**
+ * One entry per normalised new name that is targeted by more than one symbol in
+ * the same batch rename request.
+ */
+export interface DuplicateTargetNameEntry {
+    newName: string;
+    symbolIds: ReadonlyArray<string>;
+}
+
+/**
+ * One entry per rename whose normalised new name matches an original symbol name
+ * elsewhere in the same batch.
+ */
+export interface CrossRenameConfusion {
+    symbolId: string;
+    newName: string;
+}
+
+/**
+ * Identifies symbolIds that appear more than once in a batch rename request.
+ *
+ * Renaming the same symbol more than once creates ambiguous intent and would
+ * generate conflicting edits. Returns one entry per duplicated symbolId so the
+ * caller can surface errors and collect the relevant conflicting sets.
+ *
+ * @param renames - The batch rename requests to inspect
+ * @returns Entries for every symbolId whose frequency in the batch exceeds one
+ */
+export function detectDuplicateSourceSymbolIds(
+    renames: ReadonlyArray<RenameRequest>
+): ReadonlyArray<DuplicateSymbolIdEntry> {
+    const counts = new Map<string, number>();
+    for (const rename of renames) {
+        if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
+            counts.set(rename.symbolId, (counts.get(rename.symbolId) ?? 0) + 1);
+        }
+    }
+
+    const duplicates: Array<DuplicateSymbolIdEntry> = [];
+    for (const [symbolId, count] of counts) {
+        if (count > 1) {
+            duplicates.push({ symbolId, count });
+        }
+    }
+    return duplicates;
+}
+
+/**
+ * Identifies normalised new names that are targeted by more than one rename in the batch.
+ *
+ * When two renames share the same target name (e.g. renaming both `foo` and `bar` to
+ * `baz`), the result would have duplicate definitions.  Returns one entry per colliding
+ * name so the caller can surface errors and collect conflicting sets.
+ *
+ * Invalid rename entries (missing or non-string `symbolId` / `newName`) and entries
+ * whose new name cannot be normalised to a valid identifier are silently skipped; those
+ * failures are reported by the per-rename validation pass that runs before this check.
+ *
+ * @param renames - The batch rename requests to inspect
+ * @returns Entries for every normalised new name claimed by more than one rename
+ */
+export function detectDuplicateTargetNames(
+    renames: ReadonlyArray<RenameRequest>
+): ReadonlyArray<DuplicateTargetNameEntry> {
+    const nameToSymbols = new Map<string, Array<string>>();
+    for (const rename of renames) {
+        if (
+            !rename ||
+            typeof rename !== "object" ||
+            !rename.symbolId ||
+            typeof rename.symbolId !== "string" ||
+            !rename.newName ||
+            typeof rename.newName !== "string"
+        ) {
+            // Skip structurally invalid entries — those are already flagged by the
+            // per-rename validation pass that precedes this check.
+            continue;
+        }
+
+        const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+        if (!normalizedNewName) {
+            // Skip entries whose new name is not a valid identifier; they are
+            // reported by the per-rename pass and do not contribute to name
+            // collision detection.
+            continue;
+        }
+
+        const group = nameToSymbols.get(normalizedNewName);
+        if (group) {
+            group.push(rename.symbolId);
+        } else {
+            nameToSymbols.set(normalizedNewName, [rename.symbolId]);
+        }
+    }
+
+    const duplicates: Array<DuplicateTargetNameEntry> = [];
+    for (const [newName, symbolIds] of nameToSymbols) {
+        if (symbolIds.length > 1) {
+            duplicates.push({ newName, symbolIds });
+        }
+    }
+    return duplicates;
+}
+
+/**
+ * Identifies renames whose normalised new name shadows another symbol's original name
+ * in the same batch.
+ *
+ * This catches non-circular naming conflicts such as renaming `foo→bar` alongside
+ * `bar→baz`. Even though it is not a cycle, the intermediate state would have two
+ * symbols named `bar`, creating confusion about which references point to which
+ * definition.  Accepts only structurally valid rename entries (non-empty string
+ * `symbolId` and `newName`); malformed entries are silently skipped.
+ *
+ * @param validRenames - Structurally valid rename requests (symbolId and newName are
+ *   non-empty strings). Typically the filtered subset already computed for
+ *   `detectCircularRenames`.
+ * @returns One entry per rename whose new name matches an existing old name in the batch
+ */
+export function detectCrossRenameNameConfusion(
+    validRenames: ReadonlyArray<RenameRequest>
+): ReadonlyArray<CrossRenameConfusion> {
+    // Collect all original symbol names so the second pass can test membership in O(1).
+    const oldNames = new Set<string>();
+    for (const rename of validRenames) {
+        const oldName = extractSymbolName(rename.symbolId);
+        if (oldName) {
+            oldNames.add(oldName);
+        }
+    }
+
+    const confusions: Array<CrossRenameConfusion> = [];
+    for (const rename of validRenames) {
+        const oldName = extractSymbolName(rename.symbolId);
+        if (!oldName) {
+            continue;
+        }
+
+        const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
+        if (!normalizedNewName) {
+            // Skip entries whose new name fails identifier normalisation — those
+            // errors are already surfaced by the per-rename validation pass.
+            continue;
+        }
+
+        // Warn if the new name was an existing old name. The `oldName !== normalizedNewName`
+        // guard skips same-symbol renames (e.g., `scr_a → scr_a`): those are already
+        // flagged as same-name errors by the structural validation pass, so they do not
+        // represent a cross-rename confusion between two different symbols.
+        if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
+            confusions.push({ symbolId: rename.symbolId, newName: normalizedNewName });
+        }
+    }
+    return confusions;
+}
