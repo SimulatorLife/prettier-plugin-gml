@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function runNormalizeBannerCommentsRule(code: string): string {
@@ -53,13 +53,13 @@ void test("normalize-banner-comments canonicalizes decorative slash banner lines
     ].join("\n");
 
     const output = runNormalizeBannerCommentsRule(input);
-    assert.equal(output, ["", "// Move camera", "", "camUpdateTimer += 1;"].join("\n"));
+    assertEquals(output, ["", "// Move camera", "", "camUpdateTimer += 1;"].join("\n"));
 });
 
 void test("normalize-banner-comments converts prefixed banner headings to plain comments", () => {
     const input = ["//////// Banner comment", "var value = 1;"].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
-    assert.equal(output, ["// Banner comment", "var value = 1;"].join("\n"));
+    assertEquals(output, ["// Banner comment", "var value = 1;"].join("\n"));
 });
 
 void test("normalize-banner-comments strips trailing backslash decorations from slash banners", () => {
@@ -68,7 +68,7 @@ void test("normalize-banner-comments strips trailing backslash decorations from 
         "instance_create_layer();"
     ].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
-    assert.equal(output, ["// Make a collider for the cluster", "instance_create_layer();"].join("\n"));
+    assertEquals(output, ["// Make a collider for the cluster", "instance_create_layer();"].join("\n"));
 });
 
 void test("normalize-banner-comments leaves doc-tag comments untouched", () => {
@@ -81,7 +81,7 @@ void test("normalize-banner-comments leaves doc-tag comments untouched", () => {
     ].join("\n");
 
     const output = runNormalizeBannerCommentsRule(input);
-    assert.equal(output, input);
+    assertEquals(output, input);
 });
 
 void test("normalize-banner-comments collapses decorative slash banners into attached block comments without extra indentation", () => {
@@ -99,7 +99,7 @@ void test("normalize-banner-comments collapses decorative slash banners into att
     ].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
 
-    assert.equal(
+    assertEquals(
         output,
         [
             "function demo() {",
@@ -129,7 +129,7 @@ void test("normalize-banner-comments collapses multiple consecutive decorative b
     ].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
 
-    assert.equal(
+    assertEquals(
         output,
         ["function demo() {", "\t/* Block docs */", "\t/* Return an array */", "\treturn [1, 2, 3];", "}", ""].join(
             "\n"
@@ -155,7 +155,7 @@ void test("normalize-banner-comments collapses decorative banners even when surr
     ].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
 
-    assert.equal(
+    assertEquals(
         output,
         [
             "function demo() {",
@@ -184,7 +184,7 @@ void test("normalize-banner-comments normalizes method-list triple-slash lines i
     ].join("\n");
     const output = runNormalizeBannerCommentsRule(input);
 
-    assert.equal(
+    assertEquals(
         output,
         [
             "// Feather disable all",

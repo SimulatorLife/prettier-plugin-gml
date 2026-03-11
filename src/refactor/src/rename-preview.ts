@@ -177,9 +177,13 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
     const title = "Rename Plan Report";
     const lines: Array<string> = [title, "=".repeat(title.length), ""];
 
-    const symbolName = plan.analysis.summary.oldName;
-    const newName = plan.analysis.summary.newName;
-    lines.push(`Symbol: ${symbolName} → ${newName}`, `Status: ${plan.validation.valid ? "VALID" : "INVALID"}`, "");
+    // Extract the impact summary to avoid repeated deep-navigation through plan.analysis.summary.*
+    const impactSummary = plan.analysis.summary;
+    lines.push(
+        `Symbol: ${impactSummary.oldName} → ${impactSummary.newName}`,
+        `Status: ${plan.validation.valid ? "VALID" : "INVALID"}`,
+        ""
+    );
 
     if (!plan.validation.valid) {
         lines.push("Validation Errors:");
@@ -199,12 +203,12 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
 
     lines.push(
         "Impact Summary:",
-        `  Total Occurrences: ${plan.analysis.summary.totalOccurrences}`,
-        `  Definitions: ${plan.analysis.summary.definitionCount}`,
-        `  References: ${plan.analysis.summary.referenceCount}`,
-        `  Affected Files: ${plan.analysis.summary.affectedFiles.length}`,
-        `  Hot Reload Required: ${plan.analysis.summary.hotReloadRequired ? "Yes" : "No"}`,
-        `  Dependent Symbols: ${plan.analysis.summary.dependentSymbols.length}`,
+        `  Total Occurrences: ${impactSummary.totalOccurrences}`,
+        `  Definitions: ${impactSummary.definitionCount}`,
+        `  References: ${impactSummary.referenceCount}`,
+        `  Affected Files: ${impactSummary.affectedFiles.length}`,
+        `  Hot Reload Required: ${impactSummary.hotReloadRequired ? "Yes" : "No"}`,
+        `  Dependent Symbols: ${impactSummary.dependentSymbols.length}`,
         ""
     );
 
@@ -238,15 +242,18 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
     if (plan.hotReload) {
         lines.push(`Hot Reload Status: ${plan.hotReload.valid ? "SAFE" : "UNSAFE"}`);
         if (plan.hotReload.hotReload) {
+            // Extract the hot-reload safety details to avoid the confusingly
+            // repetitive plan.hotReload.hotReload.* deep-navigation chain.
+            const hotReloadDetails = plan.hotReload.hotReload;
             lines.push(
-                `  Reason: ${plan.hotReload.hotReload.reason}`,
-                `  Requires Restart: ${plan.hotReload.hotReload.requiresRestart ? "Yes" : "No"}`,
-                `  Can Auto-Fix: ${plan.hotReload.hotReload.canAutoFix ? "Yes" : "No"}`
+                `  Reason: ${hotReloadDetails.reason}`,
+                `  Requires Restart: ${hotReloadDetails.requiresRestart ? "Yes" : "No"}`,
+                `  Can Auto-Fix: ${hotReloadDetails.canAutoFix ? "Yes" : "No"}`
             );
 
-            if (plan.hotReload.hotReload.suggestions.length > 0) {
+            if (hotReloadDetails.suggestions.length > 0) {
                 lines.push("  Suggestions:");
-                for (const suggestion of plan.hotReload.hotReload.suggestions) {
+                for (const suggestion of hotReloadDetails.suggestions) {
                     lines.push(`    • ${suggestion}`);
                 }
             }
@@ -344,11 +351,13 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
     );
 
     if (plan.cascadeResult) {
+        // Extract metadata to avoid repeated deep-navigation through plan.cascadeResult.metadata.*
+        const cascadeMetadata = plan.cascadeResult.metadata;
         lines.push(
             "Hot Reload Dependency Cascade:",
-            `  Total Symbols to Reload: ${plan.cascadeResult.metadata.totalSymbols}`,
-            `  Max Dependency Distance: ${plan.cascadeResult.metadata.maxDistance}`,
-            `  Has Circular Dependencies: ${plan.cascadeResult.metadata.hasCircular ? "Yes" : "No"}`
+            `  Total Symbols to Reload: ${cascadeMetadata.totalSymbols}`,
+            `  Max Dependency Distance: ${cascadeMetadata.maxDistance}`,
+            `  Has Circular Dependencies: ${cascadeMetadata.hasCircular ? "Yes" : "No"}`
         );
 
         if (plan.cascadeResult.circular.length > 0) {

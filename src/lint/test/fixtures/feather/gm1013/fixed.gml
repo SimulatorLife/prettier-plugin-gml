@@ -1,8 +1,6 @@
-/// @param [attack_bonus=10]
 function AttackController(attack_bonus = 10) constructor {
     self.attack_bonus = attack_bonus;
 
-    /// @returns {undefined}
     static perform_attack = function () {
         var base_atk = 1; // Local variable for base attack value that can be passed into 'with' block as-is
 

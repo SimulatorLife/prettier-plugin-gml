@@ -1,21 +1,14 @@
-import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it, test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
-import {
-    applyFixOperations,
-    createLocResolver,
-    type InsertTextAfterRangeFixOperation,
-    lintWithFeatherRule,
-    readNodeTextRange,
-    type ReplaceTextRangeFixOperation,
-    type RuleTestFixOperation
-} from "./rule-test-harness.js";
+import { assertEquals } from "../assertions.js";
+import { lintWithRule } from "./lint-rule-test-harness.js";
+import { lintWithFeatherRule } from "./rule-test-harness.js";
 
 const { Lint } = LintWorkspace;
 
@@ -29,350 +22,36 @@ const fixtureRoot = fixtureRootCandidates.find((candidate) => existsSync(candida
 if (!fixtureRoot) {
     throw new Error(`Unable to resolve lint fixture root from candidates: ${fixtureRootCandidates.join(", ")}`);
 }
-const allCapabilities = new Set(["IDENTIFIER_OCCUPANCY", "IDENTIFIER_OCCURRENCES", "LOOP_HOIST_NAME_RESOLUTION"]);
 
-function resolveLoopHoistIdentifierForTests(
-    preferredName: string,
-    localIdentifierNames: ReadonlySet<string>
-): string | null {
-    if (preferredName.length === 0) {
-        return null;
-    }
+const allowedFixtureFileNames = new Set(["input.gml", "fixed.gml", "input.fixed.gml", "options.json"]);
 
-    if (!localIdentifierNames.has(preferredName)) {
-        return preferredName;
-    }
-
-    for (let suffix = 1; suffix <= 1000; suffix += 1) {
-        const candidate = `${preferredName}_${suffix}`;
-        if (!localIdentifierNames.has(candidate)) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
-
-function parseProgramNode(code: string): Record<string, unknown> {
-    const language = Lint.plugin.languages.gml as {
-        parse: (
-            file: { body: string; path: string; physicalPath: string; bom: boolean },
-            context: { languageOptions: { recovery: "none" | "limited" } }
-        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
-    };
-
-    const parseResult = language.parse(
-        {
-            body: code,
-            path: "test.gml",
-            physicalPath: "test.gml",
-            bom: false
-        },
-        {
-            languageOptions: { recovery: "limited" }
-        }
-    );
-
-    if (parseResult.ok) {
-        return parseResult.ast;
-    }
-
-    return { type: "Program", body: [] };
-}
-
-function lintWithRule(ruleName: string, code: string, options?: Record<string, unknown>) {
-    const rule = Lint.plugin.rules[ruleName];
-    const messages: Array<{
-        messageId: string;
-        loc?: { line: number; column: number };
-        fix?: Array<RuleTestFixOperation>;
-    }> = [];
-    const getLocFromIndex = createLocResolver(code);
-
-    const sourceCode = {
-        text: code,
-        parserServices: {
-            gml: {
-                filePath: "test.gml"
-            }
-        },
-        getLocFromIndex,
-        getText(node?: unknown): string {
-            if (!node) {
-                return code;
-            }
-            const range = readNodeTextRange(node);
-            if (!range) {
-                return "";
-            }
-            return code.slice(range[0], range[1]);
-        },
-        getLoc(node: unknown): { source: string } {
-            const range = readNodeTextRange(node);
-            if (!range) {
-                return { source: "" };
-            }
-            return { source: code.slice(range[0], range[1]) };
-        }
-    };
-
-    const context = {
-        options: [options ?? {}],
-        settings: {
-            gml: {
-                project: {
-                    getContext: () => ({
-                        capabilities: allCapabilities,
-                        isIdentifierNameOccupiedInProject: () => false,
-                        listIdentifierOccurrenceFiles: () => new Set<string>(),
-                        assessGlobalVarRewrite: () => ({ allowRewrite: true, reason: null }),
-                        resolveLoopHoistIdentifier: resolveLoopHoistIdentifierForTests
-                    })
-                }
-            }
-        },
-        sourceCode,
-        getSourceCode() {
-            return sourceCode;
-        },
-        report(payload: {
-            messageId: string;
-            node?: unknown;
-            loc?: { line: number; column: number };
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-                insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation;
-                replaceText(node: unknown, text: string): ReplaceTextRangeFixOperation;
-                insertTextAfter(node: unknown, text: string): InsertTextAfterRangeFixOperation;
-            }) => RuleTestFixOperation | Array<RuleTestFixOperation> | null;
-        }) {
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                },
-                insertTextAfterRange(range: [number, number], text: string): InsertTextAfterRangeFixOperation {
-                    return { kind: "insert-after", range, text };
-                },
-                replaceText(node: unknown, text: string): ReplaceTextRangeFixOperation {
-                    const range = readNodeTextRange(node);
-                    if (!range) {
-                        throw new TypeError("Expected node with range for replaceText fixer.");
-                    }
-                    return { kind: "replace", range, text };
-                },
-                insertTextAfter(node: unknown, text: string): InsertTextAfterRangeFixOperation {
-                    const range = readNodeTextRange(node);
-                    if (!range) {
-                        throw new TypeError("Expected node with range for insertTextAfter fixer.");
-                    }
-                    return { kind: "insert-after", range, text };
-                }
-            };
-
-            let fixes: Array<RuleTestFixOperation> | undefined;
-            if (payload.fix) {
-                const output = payload.fix(fixer);
-                fixes = output ? (Array.isArray(output) ? output : [output]) : undefined;
-            }
-
-            const nodeRange = readNodeTextRange(payload.node);
-            const inferredLoc = payload.loc ?? (nodeRange ? getLocFromIndex(nodeRange[0]) : undefined);
-            messages.push({ messageId: payload.messageId, loc: inferredLoc, fix: fixes });
-        }
-    } as never;
-
-    const listeners = rule.create(context) as Record<string, ((node: unknown) => void) | undefined>;
-    const programNode = parseProgramNode(code);
-
-    type ParsedListenerSelector = Readonly<{
-        selector: string;
-        nodeType: string;
-        property?: string;
-        value?: string;
-    }>;
-
-    function parseListenerSelector(rawSelector: string): ReadonlyArray<ParsedListenerSelector> {
-        const selectors = rawSelector
-            .split(",")
-            .map((selector) => selector.trim())
-            .filter((selector) => selector.length > 0);
-        const parsed: Array<ParsedListenerSelector> = [];
-        for (const selector of selectors) {
-            const predicateMatch = /^([A-Za-z_]\w*)\[(\w+)\s*=\s*['"]([^'"]+)['"]\]$/u.exec(selector);
-            if (predicateMatch) {
-                parsed.push({
-                    selector,
-                    nodeType: predicateMatch[1] ?? "",
-                    property: predicateMatch[2] ?? "",
-                    value: predicateMatch[3] ?? ""
-                });
-                continue;
-            }
-
-            const nodeTypeMatch = /^([A-Za-z_]\w*)$/u.exec(selector);
-            if (nodeTypeMatch) {
-                parsed.push({
-                    selector,
-                    nodeType: nodeTypeMatch[1] ?? ""
-                });
-            }
-        }
-        return parsed;
-    }
-
-    const selectorListeners = Object.entries(listeners).flatMap(([selector, listener]) => {
-        if (!listener) {
-            return [];
-        }
-
-        return parseListenerSelector(selector).map((parsedSelector) => Object.freeze({ parsedSelector, listener }));
-    });
-
-    const visitedNodes = new WeakSet<object>();
-    const visitNode = (node: unknown): void => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-        if (visitedNodes.has(node)) {
-            return;
-        }
-        visitedNodes.add(node);
-
-        const nodeType = Reflect.get(node, "type");
-        if (typeof nodeType === "string") {
-            for (const { parsedSelector, listener } of selectorListeners) {
-                if (parsedSelector.nodeType !== nodeType) {
-                    continue;
-                }
-
-                if (parsedSelector.property && parsedSelector.value !== undefined) {
-                    const actualValue = Reflect.get(node, parsedSelector.property);
-                    if (actualValue !== parsedSelector.value) {
-                        continue;
-                    }
-                }
-
-                listener(node);
-            }
-        }
-
-        const values = Object.values(node as Record<string, unknown>);
-        for (const value of values) {
-            if (Array.isArray(value)) {
-                for (const child of value) {
-                    visitNode(child);
-                }
-                continue;
-            }
-            visitNode(value);
-        }
-    };
-
-    visitNode(programNode);
-
-    return {
-        messages,
-        output: applyFixOperations(
-            code,
-            messages
-                .flatMap((message) => message.fix ?? [])
-                .filter((fix) => fix.kind === "replace" || fix.kind === "insert-after")
-        )
-    };
-}
-
-async function readFixture(...segments: Array<string>): Promise<string> {
-    return readFile(path.join(fixtureRoot, ...segments), "utf8");
-}
+type FixtureRuleKind = "gml" | "feather";
 
 type FixturePair = Readonly<{
+    kind: FixtureRuleKind;
     ruleName: string;
+    fixtureDirectoryPath: string;
     inputFilePath: string;
     fixedFilePath: string;
     relativeInputPath: string;
     options: Record<string, unknown>;
 }>;
 
+type ParsedFixtureOptions = Readonly<{
+    lintRules: Record<string, string>;
+    ruleOptions: Record<string, unknown>;
+}>;
+
 function normalizeFixtureRelativePath(absolutePath: string): string {
     return path.relative(fixtureRoot, absolutePath).split(path.sep).join("/");
 }
 
-function deriveFixedFixturePath(inputFilePath: string): string | null {
-    const inputFileName = path.basename(inputFilePath);
-
-    if (inputFileName.endsWith(".fixed.gml")) {
-        return inputFilePath;
-    }
-
-    if (inputFileName === "input.gml") {
-        const fixedCandidate = path.join(path.dirname(inputFilePath), "fixed.gml");
-        if (existsSync(fixedCandidate)) {
-            return fixedCandidate;
-        }
-
-        const inputFixedCandidate = path.join(path.dirname(inputFilePath), "input.fixed.gml");
-        if (existsSync(inputFixedCandidate)) {
-            return inputFixedCandidate;
-        }
-
-        return null;
-    }
-
-    const suffix = ".input.gml";
-    if (!inputFileName.endsWith(suffix)) {
-        return null;
-    }
-
-    const stem = inputFileName.slice(0, -suffix.length);
-    const fixedCandidate = path.join(path.dirname(inputFilePath), `${stem}.fixed.gml`);
-    if (existsSync(fixedCandidate)) {
-        return fixedCandidate;
-    }
-
-    return null;
-}
-
-function deriveRuleNameFromFixturePath(inputFilePath: string): string {
-    const relativeDirectoryPath = path.relative(fixtureRoot, path.dirname(inputFilePath));
-    const relativeSegments = relativeDirectoryPath.split(path.sep).filter((segment) => segment.length > 0);
-    if (relativeSegments.length === 0) {
-        throw new Error(`Unable to derive rule name from fixture path: ${inputFilePath}`);
-    }
-
-    const [firstSegment, secondSegment] = relativeSegments;
-    if (firstSegment === "feather") {
-        const maybeFeatherRuleName = secondSegment ?? "";
-        const featherRuleMatch = /^gm\d{4}/u.exec(maybeFeatherRuleName);
-        if (!featherRuleMatch) {
-            throw new Error(`Unable to derive feather rule name from fixture path: ${inputFilePath}`);
-        }
-        return featherRuleMatch[0];
-    }
-
-    return firstSegment;
-}
-
-async function collectFixtureFilesRecursively(directoryPath: string): Promise<Array<string>> {
-    const entries = await readdir(directoryPath, { withFileTypes: true });
-    const files: Array<string> = [];
-    for (const entry of entries) {
-        const entryPath = path.join(directoryPath, entry.name);
-        if (entry.isDirectory()) {
-            files.push(...(await collectFixtureFilesRecursively(entryPath)));
-            continue;
-        }
-
-        if (entry.isFile()) {
-            files.push(entryPath);
-        }
-    }
-    return files;
-}
-
-async function readFixtureOptions(fixtureDirectoryPath: string): Promise<Record<string, unknown>> {
+async function readFixtureOptions(fixtureDirectoryPath: string): Promise<ParsedFixtureOptions> {
     const optionsPath = path.join(fixtureDirectoryPath, "options.json");
     if (!existsSync(optionsPath)) {
-        return {};
+        throw new Error(
+            `Fixture directory is missing options.json: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+        );
     }
 
     const optionsJson = await readFile(optionsPath, "utf8");
@@ -381,1261 +60,312 @@ async function readFixtureOptions(fixtureDirectoryPath: string): Promise<Record<
         throw new TypeError(`Fixture options must be an object: ${normalizeFixtureRelativePath(optionsPath)}`);
     }
 
-    return parsed as Record<string, unknown>;
+    const rawOptions = parsed as Record<string, unknown>;
+    const rawLintRules = rawOptions.lintRules;
+    if (!rawLintRules || typeof rawLintRules !== "object" || Array.isArray(rawLintRules)) {
+        throw new TypeError(
+            `Fixture options must define lintRules as an object: ${normalizeFixtureRelativePath(optionsPath)}`
+        );
+    }
+    const lintRulesEntries = Object.entries(rawLintRules as Record<string, unknown>);
+    if (lintRulesEntries.length === 0) {
+        throw new TypeError(
+            `Fixture options lintRules must include at least one rule entry: ${normalizeFixtureRelativePath(optionsPath)}`
+        );
+    }
+
+    const lintRules: Record<string, string> = {};
+    for (const [ruleId, ruleSeverity] of lintRulesEntries) {
+        if (ruleId.length === 0) {
+            throw new TypeError(
+                `Fixture options lintRules cannot contain an empty rule id: ${normalizeFixtureRelativePath(optionsPath)}`
+            );
+        }
+        if (ruleSeverity !== "off" && ruleSeverity !== "warn" && ruleSeverity !== "error") {
+            throw new TypeError(
+                `Fixture options lintRules entries must use "off", "warn", or "error": ${normalizeFixtureRelativePath(optionsPath)}`
+            );
+        }
+        lintRules[ruleId] = ruleSeverity;
+    }
+
+    const ruleOptions = Object.fromEntries(
+        Object.entries(rawOptions).filter(([optionKey]) => optionKey !== "lintRules")
+    ) as Record<string, unknown>;
+
+    return Object.freeze({
+        lintRules,
+        ruleOptions
+    });
+}
+
+function resolveFixtureRuleName(
+    fixtureRuleInfo: Readonly<{ kind: FixtureRuleKind; ruleName: string }>,
+    parsedOptions: ParsedFixtureOptions
+): Readonly<{
+    enabledRules: ReadonlyArray<string>;
+    invalidRuleIds: ReadonlyArray<string>;
+    ruleName: string | null;
+    ruleOptions: Record<string, unknown>;
+}> {
+    const expectedRuleIdPrefix = fixtureRuleInfo.kind === "gml" ? "gml/" : "feather/";
+    const enabledRules: Array<string> = [];
+    const invalidRuleIds: Array<string> = [];
+
+    for (const [ruleId, ruleSeverity] of Object.entries(parsedOptions.lintRules)) {
+        if (ruleSeverity !== "error") {
+            continue;
+        }
+
+        if (!ruleId.startsWith(expectedRuleIdPrefix)) {
+            invalidRuleIds.push(ruleId);
+            continue;
+        }
+
+        const normalizedRuleName = ruleId.slice(expectedRuleIdPrefix.length);
+        if (normalizedRuleName.length === 0) {
+            invalidRuleIds.push(ruleId);
+            continue;
+        }
+
+        enabledRules.push(normalizedRuleName);
+    }
+
+    const deduplicatedEnabledRules = [...new Set(enabledRules)];
+    const pathDerivedRuleName = fixtureRuleInfo.ruleName;
+    const ruleName = deduplicatedEnabledRules.includes(pathDerivedRuleName)
+        ? pathDerivedRuleName
+        : deduplicatedEnabledRules.length === 1
+          ? (deduplicatedEnabledRules[0] ?? null)
+          : null;
+
+    return Object.freeze({
+        enabledRules: Object.freeze(deduplicatedEnabledRules),
+        invalidRuleIds: Object.freeze(invalidRuleIds),
+        ruleName,
+        ruleOptions: parsedOptions.ruleOptions
+    });
+}
+
+async function collectFixtureDirectoriesRecursively(directoryPath: string): Promise<Array<string>> {
+    const entries = await readdir(directoryPath, { withFileTypes: true });
+    const directories = [directoryPath];
+    for (const entry of entries) {
+        if (!entry.isDirectory()) {
+            continue;
+        }
+
+        const entryPath = path.join(directoryPath, entry.name);
+        directories.push(...(await collectFixtureDirectoriesRecursively(entryPath)));
+    }
+
+    return directories;
+}
+
+function deriveFixtureRuleInfo(
+    fixtureDirectoryPath: string
+): Readonly<{ kind: FixtureRuleKind; ruleName: string }> | null {
+    const relativeDirectoryPath = path.relative(fixtureRoot, fixtureDirectoryPath);
+    if (relativeDirectoryPath.length === 0) {
+        return null;
+    }
+
+    const relativeSegments = relativeDirectoryPath.split(path.sep).filter((segment) => segment.length > 0);
+    const [firstSegment, secondSegment] = relativeSegments;
+    if (!firstSegment) {
+        return null;
+    }
+
+    if (firstSegment === "feather") {
+        if (!secondSegment) {
+            return null;
+        }
+
+        const featherRuleMatch = /^gm\d{4}/u.exec(secondSegment);
+        if (!featherRuleMatch) {
+            throw new Error(`Unable to derive feather rule name from fixture path: ${fixtureDirectoryPath}`);
+        }
+
+        return Object.freeze({ kind: "feather" as const, ruleName: featherRuleMatch[0] });
+    }
+
+    return Object.freeze({ kind: "gml" as const, ruleName: firstSegment });
+}
+
+function formatFixtureFailureContext(fixturePair: FixturePair): string {
+    return [
+        `fixture: ${fixturePair.relativeInputPath}`,
+        `input: ${pathToFileURL(fixturePair.inputFilePath).href}`,
+        `fixed: ${pathToFileURL(fixturePair.fixedFilePath).href}`
+    ].join("\n");
 }
 
 async function collectFixturePairs(): Promise<Array<FixturePair>> {
-    const allFixtureFiles = await collectFixtureFilesRecursively(fixtureRoot);
-    const inputFixturePaths = allFixtureFiles.filter((filePath) => {
-        const relativePath = normalizeFixtureRelativePath(filePath);
-        if (relativePath.startsWith("feather/")) {
-            return false;
-        }
-
-        const fileName = path.basename(filePath);
-        return fileName === "input.gml" || fileName.endsWith(".input.gml") || fileName.endsWith(".fixed.gml");
-    });
-
+    const fixtureDirectories = await collectFixtureDirectoriesRecursively(fixtureRoot);
+    const validationErrors: Array<string> = [];
     const pairs: Array<FixturePair> = [];
-    for (const inputFilePath of inputFixturePaths) {
-        const fixedFilePath = deriveFixedFixturePath(inputFilePath);
-        if (!fixedFilePath || !existsSync(fixedFilePath)) {
+
+    for (const fixtureDirectoryPath of fixtureDirectories) {
+        const fixtureRuleInfo = deriveFixtureRuleInfo(fixtureDirectoryPath);
+        if (!fixtureRuleInfo) {
             continue;
         }
 
-        // If it's a *.fixed.gml that is its own input/fixed, we need to make sure we don't
-        // accidentally pick up a separate *.input.gml that would also claim it as fixed.
-        // The current loop handles this naturally if we only add it once.
-        const ruleName = deriveRuleNameFromFixturePath(inputFilePath);
-        if (ruleName === "prefer-loop-length-hoist" || ruleName === "prefer-struct-literal-assignments") {
+        const entries = await readdir(fixtureDirectoryPath, { withFileTypes: true });
+        const fileNames = entries
+            .filter((entry) => entry.isFile())
+            .map((entry) => entry.name)
+            .toSorted();
+        const hasSubdirectories = entries.some((entry) => entry.isDirectory());
+
+        if (fileNames.length === 0) {
+            if (!hasSubdirectories) {
+                validationErrors.push(
+                    `Fixture directory is empty: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+                );
+            }
             continue;
         }
-        const options = await readFixtureOptions(path.dirname(inputFilePath));
-        const relativeInputPath = normalizeFixtureRelativePath(inputFilePath);
+
+        const invalidFileNames = fileNames.filter((fileName) => !allowedFixtureFileNames.has(fileName));
+        if (invalidFileNames.length > 0) {
+            validationErrors.push(
+                `Fixture directory has invalid file names: ${normalizeFixtureRelativePath(fixtureDirectoryPath)} :: ${invalidFileNames.join(", ")}`
+            );
+            continue;
+        }
+
+        const hasInput = fileNames.includes("input.gml");
+        const hasFixed = fileNames.includes("fixed.gml");
+        const hasInputFixed = fileNames.includes("input.fixed.gml");
+        const hasOptions = fileNames.includes("options.json");
+
+        const isInputFixedFixture = hasInputFixed && !hasInput && !hasFixed;
+        const isInputFixedPairFixture = hasInput && hasFixed && !hasInputFixed;
+        if (!isInputFixedFixture && !isInputFixedPairFixture) {
+            validationErrors.push(
+                `Fixture directory must contain only input.gml+fixed.gml or input.fixed.gml: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!hasOptions) {
+            validationErrors.push(
+                `Fixture directory must include options.json: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        const rawOptions = await readFixtureOptions(fixtureDirectoryPath);
+        const resolvedFixtureRule = resolveFixtureRuleName(fixtureRuleInfo, rawOptions);
+        if (resolvedFixtureRule.invalidRuleIds.length > 0) {
+            validationErrors.push(
+                `Fixture options lintRules contain invalid rule ids for ${fixtureRuleInfo.kind} fixtures (${resolvedFixtureRule.invalidRuleIds.join(", ")}): ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (resolvedFixtureRule.enabledRules.length === 0) {
+            validationErrors.push(
+                `Fixture options lintRules must enable at least one ${fixtureRuleInfo.kind} rule at "error": ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!resolvedFixtureRule.ruleName) {
+            validationErrors.push(
+                `Fixture options lintRules must either enable ${fixtureRuleInfo.kind}/${fixtureRuleInfo.ruleName} or define a single enabled ${fixtureRuleInfo.kind} rule: ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        const availableRules = fixtureRuleInfo.kind === "gml" ? Lint.plugin.rules : Lint.featherPlugin.rules;
+        const missingEnabledRules = resolvedFixtureRule.enabledRules.filter(
+            (enabledRule) => !Object.hasOwn(availableRules, enabledRule)
+        );
+        if (missingEnabledRules.length > 0) {
+            validationErrors.push(
+                `Fixture options enabledRules contain unknown ${fixtureRuleInfo.kind} rules (${missingEnabledRules.join(", ")}): ${normalizeFixtureRelativePath(fixtureDirectoryPath)}`
+            );
+            continue;
+        }
+
+        if (!Object.hasOwn(availableRules, resolvedFixtureRule.ruleName)) {
+            validationErrors.push(
+                `Fixture directory does not map to a known ${fixtureRuleInfo.kind} rule: ${normalizeFixtureRelativePath(fixtureDirectoryPath)} -> ${resolvedFixtureRule.ruleName}`
+            );
+            continue;
+        }
+
+        const inputFilePath = isInputFixedFixture
+            ? path.join(fixtureDirectoryPath, "input.fixed.gml")
+            : path.join(fixtureDirectoryPath, "input.gml");
+        const fixedFilePath = isInputFixedFixture
+            ? path.join(fixtureDirectoryPath, "input.fixed.gml")
+            : path.join(fixtureDirectoryPath, "fixed.gml");
 
         pairs.push({
-            ruleName,
+            kind: fixtureRuleInfo.kind,
+            ruleName: resolvedFixtureRule.ruleName,
+            fixtureDirectoryPath,
             inputFilePath,
             fixedFilePath,
-            relativeInputPath,
-            options
+            relativeInputPath: normalizeFixtureRelativePath(inputFilePath),
+            options: resolvedFixtureRule.ruleOptions
         });
     }
 
-    // De-duplicate by inputFilePath to handle cases where we might have both input.gml and input.fixed.gml
-    const uniquePairsMap = new Map<string, FixturePair>();
-    for (const pair of pairs) {
-        uniquePairsMap.set(pair.inputFilePath, pair);
+    if (validationErrors.length > 0) {
+        throw new Error(`Invalid lint fixture directory structure:\n${validationErrors.join("\n")}`);
     }
-    const uniquePairsList = Array.from(uniquePairsMap.values());
 
-    return uniquePairsList.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
+    return pairs.toSorted((left, right) => left.relativeInputPath.localeCompare(right.relativeInputPath));
 }
 
 const discoveredFixturePairs = await collectFixturePairs();
+const discoveredGmlFixturePairs = discoveredFixturePairs.filter((fixturePair) => fixturePair.kind === "gml");
+const discoveredFeatherFixturePairs = discoveredFixturePairs.filter((fixturePair) => fixturePair.kind === "feather");
 
 void test("discovers lint fixture input/fixed pairs", () => {
-    assert.equal(discoveredFixturePairs.length > 0, true, "Expected at least one fixture input/fixed pair.");
+    assertEquals(discoveredGmlFixturePairs.length > 0, true, "Expected at least one lint fixture input/fixed pair.");
+});
+
+void test("discovers feather fixture input/fixed pairs", () => {
+    assertEquals(
+        discoveredFeatherFixturePairs.length > 0,
+        true,
+        "Expected at least one feather fixture input/fixed pair."
+    );
 });
 
 void describe("lint fixture auto-fix pairs", () => {
-    for (const fixturePair of discoveredFixturePairs) {
+    for (const fixturePair of discoveredGmlFixturePairs) {
         void it(`${fixturePair.ruleName} :: ${fixturePair.relativeInputPath}`, async () => {
             const input = await readFile(fixturePair.inputFilePath, "utf8");
             const expected = await readFile(fixturePair.fixedFilePath, "utf8");
             const result = lintWithRule(fixturePair.ruleName, input, fixturePair.options);
 
-            assert.equal(
+            assertEquals(
                 result.output,
                 expected,
-                `${fixturePair.ruleName} should produce expected output for ${fixturePair.relativeInputPath}`
+                `${fixturePair.ruleName} should produce expected output\n${formatFixtureFailureContext(fixturePair)}`
             );
         });
     }
 });
 
-void test("prefer-struct-literal-assignments ignores non-identifier struct bases", async () => {
-    const input = await readFixture("prefer-struct-literal-assignments", "non-identifier-base.gml");
-    const result = lintWithRule("prefer-struct-literal-assignments", input);
-    assert.equal(result.messages.length, 0);
-});
-
-void test("prefer-struct-literal-assignments condenses assignments only at immediate struct creation", () => {
-    const input = [
-        "function create_input_vec() {",
-        "    var input_vec = {};",
-        "    input_vec.x = 0;",
-        "    input_vec.y = 0;",
-        "    input_vec.z = 0;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = ["function create_input_vec() {", "    var input_vec = {x: 0, y: 0, z: 0};", "}", ""].join("\n");
-
-    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-struct-literal-assignments does not collapse assignments on existing structs", () => {
-    const input = [
-        "function update_input_vec(input_vec) {",
-        "    input_vec.x = 0;",
-        "    input_vec.y = 0;",
-        "    input_vec.z = 0;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-struct-literal-assignments ignores duplicate property update clusters", () => {
-    const input = [
-        "function collide(other) {",
-        "    other.pos = other.pos.Add(step);",
-        "    other.pos = other.pos.Add(step2);",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-struct-literal-assignments never collapses built-in global property writes", () => {
-    const input = ["global.AsyncLoaderQueue = ds_queue_create();", "global.AsyncLoaderHandle = -1;", ""].join("\n");
-    const result = lintWithRule("prefer-struct-literal-assignments", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-struct-literal-assignments reports the first matching assignment location", () => {
-    const input = [
-        "#macro STILE_PLATFORM_HEIGHT 120",
-        "",
-        "function demo() {",
-        "    settings = {};",
-        "    settings.speed = 10;",
-        '    settings.mode = "arcade";',
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-struct-literal-assignments", input);
-    assert.equal(result.messages.length, 1);
-    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 4 });
-});
-
-void test("normalize-doc-comments removes placeholder description equal to function name", () => {
-    const input = [
-        "/// @description __ChatterboxClassSource",
-        "/// @param filename",
-        "/// @param buffer",
-        "/// @param compile",
-        "/// @returns {undefined}",
-        "function __ChatterboxClassSource(_filename, _buffer, _compile) constructor { /* ... */ }",
-        ""
-    ].join("\n");
-    const expected = [
-        "/// @description __ChatterboxClassSource",
-        "/// @param filename",
-        "/// @param buffer",
-        "/// @param compile",
-        "function __ChatterboxClassSource(_filename, _buffer, _compile) constructor { /* ... */ }",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments attaches params across blank lines before a function", () => {
-    const input = ["/// @param value", "", "", "function echo(_value) {", "    return _value;", "}", ""].join("\n");
-    const expected = [
-        "/// @param value",
-        "/// @returns {any}",
-        "function echo(_value) {",
-        "    return _value;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments removes earlier floating param blocks and keeps the nearest block attached", () => {
-    const input = [
-        "/// @param localScope",
-        "/// @param filename",
-        "/// @param expression",
-        "/// @param behaviour",
-        "/// @param optionUUID",
-        "",
-        "/// @param local_scope",
-        "/// @param filename",
-        "/// @param expression",
-        "/// @param behaviour",
-        "/// @param optionUUID",
-        "",
-        "function __ChatterboxEvaluate(_local_scope, _filename, _expression, _behaviour, _optionUUID) {",
-        "    return _expression;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "/// @param local_scope",
-        "/// @param filename",
-        "/// @param expression",
-        "/// @param behaviour",
-        "/// @param optionUUID",
-        "/// @returns {any}",
-        "function __ChatterboxEvaluate(_local_scope, _filename, _expression, _behaviour, _optionUUID) {",
-        "    return _expression;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments aligns multiline description continuations", () => {
-    const input = ["/// Alpha summary", "/// Beta continuation", "function demo() {", "    return 1;", "}", ""].join(
-        "\n"
-    );
-    const expected = [
-        "/// @description Alpha summary",
-        "/// Beta continuation",
-        "function demo() {",
-        "    return 1;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
-    const input = [
-        "/// Summary",
-        "/// Returns: Boolean, indicating if check passed",
-        "function demo() {",
-        "    return true;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "/// @description Summary",
-        "/// @returns {Boolean} Indicating if check passed",
-        "function demo() {",
-        "    return true;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments synthesizes concrete and undefined @returns metadata", () => {
-    const input = [
-        "function no_return() {",
-        "    var x = 1;",
-        "}",
-        "",
-        "function returns_value() {",
-        "    return 123;",
-        "}",
-        "",
-        "function returns_undefined_only() {",
-        "    if (keyboard_check(vk_space)) {",
-        "        return undefined;",
-        "    }",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "/// @returns {undefined}",
-        "function no_return() {",
-        "    var x = 1;",
-        "}",
-        "",
-        "/// @returns {real}",
-        "function returns_value() {",
-        "    return 123;",
-        "}",
-        "",
-        "/// @returns {undefined}",
-        "function returns_undefined_only() {",
-        "    if (keyboard_check(vk_space)) {",
-        "        return undefined;",
-        "    }",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments does not synthesize @returns for constructor declarations", () => {
-    const input = ["function __ChatterboxBufferBatch(_buffer) constructor {", "    buffer = _buffer;", "}", ""].join(
-        "\n"
-    );
-    const expected = [
-        "/// @param buffer",
-        "function __ChatterboxBufferBatch(_buffer) constructor {",
-        "    buffer = _buffer;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments does not synthesize @returns for constructor assignments", () => {
-    const input = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("normalize-doc-comments removes existing @returns for constructor assignments", () => {
-    const input = ["/// @returns {undefined}", "item = function () constructor {", "    value = 1;", "};", ""].join(
-        "\n"
-    );
-    const expected = ["item = function () constructor {", "    value = 1;", "};", ""].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-doc-comments skips synthetic docs for inline struct property function values", () => {
-    const input = [
-        "/// @returns {undefined}",
-        "function configure_editor_state() {",
-        "    editor_state",
-        '        .add("edit", {',
-        "            leave: function() {",
-        "                instance_destroy(oEditor);",
-        "            }",
-        "        })",
-        '        .add("follow", {',
-        "            enter: function() {},",
-        "            step: function() {",
-        "                if (follow_id < 0) {",
-        "                    if (instance_exists(oPlayer)) {",
-        "                        follow_id = oPlayer.id;",
-        "                    }",
-        "                }",
-        "            }",
-        "        });",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-doc-comments", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
-    const input = [
-        "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);",
-        "#macro KEEP_MACRO_SEMICOLON value;",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-directives", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("gml semantic fix rules do not reformat canonical macro declaration spacing", () => {
-    const input =
-        "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);\n";
-    const semanticFixRuleNames = [
-        "prefer-hoistable-loop-accessors",
-        "prefer-repeat-loops",
-        "prefer-struct-literal-assignments",
-        "prefer-compound-assignments",
-        "optimize-logical-flow",
-        "normalize-doc-comments",
-        "normalize-directives",
-        "no-empty-regions",
-        "no-unnecessary-string-interpolation",
-        "remove-default-comments",
-        "require-control-flow-braces",
-        "no-assignment-in-condition",
-        "prefer-is-undefined-check",
-        "prefer-epsilon-comparisons",
-        "normalize-operator-aliases",
-        "prefer-string-interpolation",
-        "optimize-math-expressions",
-        "require-argument-separators",
-        "normalize-data-structure-accessors",
-        "require-trailing-optional-defaults"
-    ] as const;
-
-    for (const ruleName of semanticFixRuleNames) {
-        const result = lintWithRule(ruleName, input, {});
-        assert.equal(result.output, input, `${ruleName} should not apply formatter-owned macro spacing changes`);
-    }
-});
-
-void test("require-argument-separators preserves separator payload comments", async () => {
-    const input = await readFixture("require-argument-separators", "separator-payload.gml");
-    const result = lintWithRule("require-argument-separators", input, {});
-    assert.equal(result.output, "show_debug_message_ext(name, /* keep */ payload);\n");
-});
-
-void test("require-trailing-optional-defaults lifts leading argument_count ternary fallbacks into params", () => {
-    const input = [
-        "function greet() {",
-        '    var name = argument_count > 0 ? argument[0] : "friend";',
-        '    var greeting = argument_count > 1 ? argument[1] : "Hello";',
-        '    return $"{greeting}, {name}";',
-        "}",
-        ""
-    ].join("\n");
-    const expected = input;
-
-    const result = lintWithRule("require-trailing-optional-defaults", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("require-trailing-optional-defaults condenses var+if argument_count fallback and adds trailing params", () => {
-    const input = [
-        "function spring(a, b, dst, force) {",
-        "    var push_out = true;",
-        "    if (argument_count > 4) {",
-        "        push_out = argument[4];",
-        "    }",
-        "    return push_out;",
-        "}",
-        "",
-        "my_func4(undefined, undefined);",
-        ""
-    ].join("\n");
-    const expected = [
-        "function spring(a, b, dst, force) {",
-        "    var push_out = true;",
-        "    if (argument_count > 4) {",
-        "        push_out = argument[4];",
-        "    }",
-        "    return push_out;",
-        "}",
-        "",
-        "my_func4(undefined);",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("require-trailing-optional-defaults", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("reportUnsafe=false suppresses unsafe-only diagnostics", () => {
-    const input = 'message = "HP: " + string(_i++);\n';
-    const result = lintWithRule("prefer-string-interpolation", input, { reportUnsafe: false });
-    assert.equal(result.messages.length, 0);
-});
-
-void test("no-unnecessary-string-interpolation rewrites template strings without interpolation atoms", () => {
-    const input = [
-        "function create_fx() {",
-        '    return instance_create_layer(x, y, $"instances", obj_fx);',
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "function create_fx() {",
-        '    return instance_create_layer(x, y, "instances", obj_fx);',
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("no-unnecessary-string-interpolation keeps interpolated template strings unchanged", () => {
-    const input = 'message = $"instances are: {myInstances}";\n';
-    const result = lintWithRule("no-unnecessary-string-interpolation", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-string-interpolation rewrites string literal + string(variable) chains", () => {
-    const input = [
-        "for (var _i = vk_f1 + 12; _i < vk_f1 + 32; _i++) {",
-        '    __input_key_name_set(_i, "f" + string(_i));',
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "for (var _i = vk_f1 + 12; _i < vk_f1 + 32; _i++) {",
-        '    __input_key_name_set(_i, $"f{_i}");',
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-string-interpolation rewrites string coercion calls with non-trivial expressions", () => {
-    const input = 'message = "HP: " + string(random(99));\n';
-    const expected = 'message = $"HP: {random(99)}";\n';
-    const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-string-interpolation rewrites nested concatenation chains with a single diagnostic", () => {
-    const input = 'message = ("HP: " + value) + " / 99";\n';
-    const expected = 'message = $"HP: {value} / 99";\n';
-    const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-string-interpolation flattens nested parenthesized string chains", () => {
-    const input = '__ChatterboxCompile(_substring_array, root_instruction, ((filename + ":") + title) + ":#");\n';
-    const expected = '__ChatterboxCompile(_substring_array, root_instruction, $"{filename}: {title}:#");\n';
-    const result = lintWithRule("prefer-string-interpolation", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-is-undefined-check rewrites undefined comparisons in either operand position", () => {
-    const input = [
-        "if (score == undefined) return;",
-        "if (undefined == lives) return;",
-        "if (score != undefined) return;",
-        "if (undefined != lives) return;",
-        "if (!(score == undefined)) return;",
-        "if (!(undefined == lives)) return;",
-        ""
-    ].join("\n");
-    const expected = [
-        "if (is_undefined(score)) return;",
-        "if (is_undefined(lives)) return;",
-        "if (!is_undefined(score)) return;",
-        "if (!is_undefined(lives)) return;",
-        "if (!is_undefined(score)) return;",
-        "if (!is_undefined(lives)) return;",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-is-undefined-check", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-is-undefined-check preserves grouped multiline conditions", () => {
-    const input = [
-        "if ((_index == undefined)",
-        "||  (_index < 0)",
-        "||  (_index >= array_length(_global.__gamepads)))",
-        "{",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "if ((is_undefined(_index))",
-        "||  (_index < 0)",
-        "||  (_index >= array_length(_global.__gamepads)))",
-        "{",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-is-undefined-check", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-epsilon-comparisons rewrites direct zero checks for preceding math assignments", () => {
-    const input = [
-        "var actual_dist = sqr(xoff) + sqr(yoff);",
-        "if (actual_dist == 0) {",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "var actual_dist = sqr(xoff) + sqr(yoff);",
-        "var eps = math_get_epsilon();",
-        "if (actual_dist <= eps) {",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("prefer-epsilon-comparisons does not rewrite non-math zero checks", () => {
-    const input = ["var queue_size = array_length(queue);", "if (queue_size == 0) {", "    return;", "}", ""].join(
-        "\n"
-    );
-
-    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("prefer-epsilon-comparisons reuses existing epsilon declarations in a block", () => {
-    const input = [
-        "var actual_dist = sqr(xoff) + sqr(yoff);",
-        "var eps = math_get_epsilon();",
-        "if (actual_dist == 0) {",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        "var actual_dist = sqr(xoff) + sqr(yoff);",
-        "var eps = math_get_epsilon();",
-        "if (actual_dist <= eps) {",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("no-assignment-in-condition does not rewrite grouped multiline conditions without assignments", () => {
-    const input = [
-        "if ((_index == undefined)",
-        "||  (_index < 0)",
-        "||  (_index >= array_length(_global.__gamepads)))",
-        "{",
-        "    return;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("no-assignment-in-condition", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("no-globalvar diagnoses declared globals", async () => {
-    const input = await readFixture("no-globalvar", "input.fixed.gml");
-    const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output, input);
-});
-
-void test("no-globalvar diagnoses comma-separated declarations", () => {
-    const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
-        "\n"
-    );
-
-    const result = lintWithRule("no-globalvar", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-hoistable-loop-accessors respects null suffix override by disabling loop-test diagnostics", async () => {
-    const input = await readFixture("prefer-loop-length-hoist", "input.gml");
-    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {
-        functionSuffixes: {
-            array_length: null
-        }
-    });
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-hoistable-loop-accessors is diagnostic-only and leaves source unchanged", async () => {
-    const input = await readFixture("prefer-loop-length-hoist", "input.gml");
-    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output, input);
-});
-
-void test("prefer-repeat-loops skips conversion when loop iterator is used in body", () => {
-    const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += i;", "}", ""].join("\n");
-    const result = lintWithRule("prefer-repeat-loops", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("full-file rewrite rules report the first changed source location", () => {
-    const locationCases = [
-        {
-            ruleName: "normalize-doc-comments",
-            input: ["var keep = 1;", "// @description convert me", "function demo() {}", ""].join("\n"),
-            expectedLoc: { line: 2, column: 2 }
-        },
-        {
-            ruleName: "normalize-directives",
-            input: ["var keep = 1;", "// #region Setup", ""].join("\n"),
-            expectedLoc: { line: 2, column: 0 }
-        },
-        {
-            ruleName: "no-empty-regions",
-            input: ["var keep = 1;", "#region Setup", "#endregion", ""].join("\n"),
-            expectedLoc: { line: 2, column: 0 }
-        },
-        {
-            ruleName: "remove-default-comments",
-            input: ["var keep = 1;", "// Script assets have changed for v2.3.0 see", "function demo() {}", ""].join(
-                "\n"
-            ),
-            expectedLoc: { line: 2, column: 0 }
-        },
-        {
-            ruleName: "require-control-flow-braces",
-            input: ["var keep = 1;", "if (ready) step();", ""].join("\n"),
-            expectedLoc: { line: 2, column: 11 }
-        },
-        {
-            ruleName: "no-assignment-in-condition",
-            input: ["var keep = 1;", "if (left = right) value = 1;", ""].join("\n"),
-            expectedLoc: { line: 2, column: 10 }
-        },
-        {
-            ruleName: "normalize-operator-aliases",
-            input: ["var keep = 1;", "if (not right) {", "    keep = 2;", "}", ""].join("\n"),
-            expectedLoc: { line: 2, column: 4 }
-        }
-    ] as const;
-
-    for (const locationCase of locationCases) {
-        const result = lintWithRule(locationCase.ruleName, locationCase.input, {});
-        assert.equal(result.messages.length, 1, `${locationCase.ruleName} should report exactly one diagnostic`);
-        assert.deepEqual(
-            result.messages[0]?.loc,
-            locationCase.expectedLoc,
-            `${locationCase.ruleName} should report its first changed location`
-        );
-    }
-});
-
-void test("prefer-hoistable-loop-accessors reports the first matching accessor location", () => {
-    const input = [
-        "#macro STILE_PLATFORM_HEIGHT 120",
-        "",
-        "function demo(items) {",
-        "    while (ready) {",
-        "        var total = array_length(items);",
-        "        total += array_length(items);",
-        "    }",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-hoistable-loop-accessors", input);
-    assert.equal(result.messages.length, 1);
-    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 20 });
-});
-
-void test("prefer-hoistable-loop-accessors reports loop-test accessor scenarios previously covered by prefer-loop-length-hoist", () => {
-    const input = ["for (var i = 0; i < array_length(items); i++) {", "    sum += array_length(items);", "}", ""].join(
-        "\n"
-    );
-
-    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(result.messages.length, 1);
-    assert.equal(result.messages[0]?.messageId, "preferHoistableLoopAccessor");
-});
-
-void test("prefer-hoistable-loop-accessors reports unsafeFix when insertion requires brace synthesis", () => {
-    const input = [
-        "if (ready)",
-        "    for (var i = 0; i < array_length(items); i++) {",
-        "        sum += 1;",
-        "    }",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("prefer-hoistable-loop-accessors", input, {});
-    assert.equal(
-        result.messages.some((message) => message.messageId === "preferHoistableLoopAccessor"),
-        true
-    );
-    assert.equal(
-        result.messages.some((message) => message.messageId === "unsafeFix"),
-        true
-    );
-    assert.equal(result.output, input);
-});
-
-void test("require-control-flow-braces does not rewrite multiline condition continuations", () => {
-    const input = [
-        "if (p.DistanceTo(vertices[0][0].p) < self.vertLength * 1.5)",
-        "|| (p.DistanceTo(vertices[1][0].p) < self.vertLength * 1.5)",
-        "{",
-        "    __addVert(vertices[0]);",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("require-control-flow-braces keeps else-if chains intact when the branch statement is on the next line", () => {
-    const input = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
-    const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
-`;
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("if (_starting_font == undefined) {"), true);
-    assert.equal(
-        result.output.includes(
-            String.raw`__scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`
-        ),
-        true
-    );
-    assert.equal(result.output.trimEnd().endsWith("}"), true);
-});
-
-void test("require-control-flow-braces rewrites legacy then inline if clauses", () => {
-    const input = ["if my_var == your_var++ then their_var;", "if my_var == your_var THEN ++their_var;", ""].join("\n");
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("if (my_var == your_var++) {"), true);
-    assert.equal(result.output.includes("their_var;"), true);
-    assert.equal(result.output.includes("if (my_var == your_var) {"), true);
-    assert.equal(result.output.includes("++their_var;"), true);
-    assert.equal(result.output.split("}").length - 1, 2);
-});
-
-void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
-    const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length > 0, true);
-    assert.equal(result.output.includes("repeat (_tag_parameter_count-1) {"), true);
-    assert.equal(result.output.includes('_command_string += "," + string(_tag_parameters[_j++]);'), true);
-    assert.equal(result.output.trimEnd().endsWith("}"), true);
-});
-
-void test("optimize-math-expressions skips formatting-only rewrites for decimal literals that already start with zero", () => {
-    const input = "__fit_scale = _lower_limit + 0.5*(_upper_limit - _lower_limit);\n";
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
-    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gml-modules/format')
-    // However, when a math-optimization condenses an expression containing two or more of these literals into a single literal, the resulting literal
-    // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
-    const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern into a single initializer", () => {
-    const input = ["var s = 1.3 * size * 0.12 / 1.5;", "s = s - s / 2 - lengthdir_x(s / 2, swim_rot);", ""].join("\n");
-    const expected = ["var s = size * 0.104;", "s = s * 0.5 * (1 - lengthdir_x(1, swim_rot));", ""].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
-    const input = "var config = settings ?? global.default_settings;\n";
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("optimize-math-expressions rewrites reciprocal ratios and removes *= 1 statements", () => {
-    const input = ["var s7 = ((hp / max_hp) * 100) / 10;", "var s37b = 1 * width;", "s37b *= 1;", ""].join("\n");
-    const expected = ["var s7 = (hp / max_hp) * 10;", "var s37b = width;", ""].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions auto-fixes manual math forms to built-in helpers", () => {
-    const input = [
-        "var squared = value * value;",
-        "var cubed = value * value * value;",
-        "var quartic = value * value * value * value;",
-        "var sqrtManual = power(length, 0.5);",
-        "var sqrtFromPower = power(distance, 0.5);",
-        "var logTwo = ln(amount) / ln(2);",
-        "var expManual = power(2.718281828459045, factor);",
-        "var meanDivision = (alpha + beta) / 2;",
-        "var meanMultiply = (first + second) * 0.5;",
-        "var dot2 = (ax * bx) + (ay * by);",
-        "var dot2Flat = ax * bx + ay * by;",
-        "var dot3 = (ax * bx) + (ay * by) + (az * bz);",
-        "var distance = sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));",
-        "var distancePower = power(",
-        "    (x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start),",
-        "    0.5",
-        ");",
-        "var distance3 = sqrt(",
-        "    (x2 - x1) * (x2 - x1) +",
-        "        (y2 - y1) * (y2 - y1) +",
-        "        (z2 - z1) * (z2 - z1)",
-        ");",
-        "var direction = arctan2(y2 - y1, x2 - x1);",
-        "var lenXDegrees = radius * dcos(direction);",
-        "var lenYDegrees = -radius * dsin(direction);",
-        "var lenXRadians = radius * cos(degtorad(direction));",
-        "var lenYRadians = -radius * sin(degtorad(direction));",
-        "var sinDegrees = sin(direction * pi / 180);",
-        "var cosDegrees = cos((direction / 180) * pi);",
-        "var tanDegrees = tan(direction * pi / 180);",
-        "var radiansFromDegreeTrig = degtorad(darctan2(vy, vx));",
-        "var degreesFromRadianTrig = radtodeg(arctan2(vy, vx));",
-        "var unchangedCall = update() * update();",
-        "var squaredVals = value * value;",
-        "var commented = value /* keep */ * value;",
-        ""
-    ].join("\n");
-    const expected = [
-        "var squared = sqr(value);",
-        "var cubed = power(value, 3);",
-        "var quartic = power(value, 4);",
-        "var sqrtManual = sqrt(length);",
-        "var sqrtFromPower = sqrt(distance);",
-        "var logTwo = log2(amount);",
-        "var expManual = exp(factor);",
-        "var meanDivision = mean(alpha, beta);",
-        "var meanMultiply = mean(first, second);",
-        "var dot2 = dot_product(ax, ay, bx, by);",
-        "var dot2Flat = dot_product(ax, ay, bx, by);",
-        "var dot3 = dot_product_3d(ax, ay, az, bx, by, bz);",
-        "var distance = point_distance(x1, y1, x2, y2);",
-        "var distancePower = point_distance(x_start, y_start, x_end, y_end);",
-        "var distance3 = point_distance_3d(x1, y1, z1, x2, y2, z2);",
-        "var direction = point_direction(x1, y1, x2, y2);",
-        "var lenXDegrees = lengthdir_x(radius, direction);",
-        "var lenYDegrees = lengthdir_y(radius, direction);",
-        "var lenXRadians = lengthdir_x(radius, direction);",
-        "var lenYRadians = lengthdir_y(radius, direction);",
-        "var sinDegrees = dsin(direction);",
-        "var cosDegrees = dcos(direction);",
-        "var tanDegrees = dtan(direction);",
-        "var radiansFromDegreeTrig = arctan2(vy, vx);",
-        "var degreesFromRadianTrig = darctan2(vy, vx);",
-        "var unchangedCall = update() * update();",
-        "var squaredVals = sqr(value);",
-        "var commented = value /* keep */ * value;",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions rewrites uncommented math expressions and preserves trailing line comments", () => {
-    const input = [
-        "var squared = value * value; // keep trailing context",
-        "var direction = arctan2(y2 - y1, x2 - x1); // preserve this note",
-        ""
-    ].join("\n");
-    const expected = [
-        "var squared = sqr(value); // keep trailing context",
-        "var direction = point_direction(x1, y1, x2, y2); // preserve this note",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions simplifies trigonometric degree/radian wrapper pairs", () => {
-    const input = [
-        "var a = sin(degtorad(angle));",
-        "var b = cos(degtorad(angle));",
-        "var c = tan(degtorad(angle));",
-        "var d = degtorad(dsin(angle));",
-        "var e = degtorad(darctan2(vy, vx));",
-        "var f = radtodeg(arctan2(vy, vx));",
-        ""
-    ].join("\n");
-    const expected = [
-        "var a = dsin(angle);",
-        "var b = dcos(angle);",
-        "var c = dtan(angle);",
-        "var d = sin(angle);",
-        "var e = arctan2(vy, vx);",
-        "var f = darctan2(vy, vx);",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions skips unsafe division-to-multiplication rewrites for extreme reciprocals", () => {
-    const input = [
-        "var keepTinyDivisor = value / 0.00000000001;",
-        "var keepHugeReciprocal = value / (1 / 100000000000);",
-        "var convertSafe = value / 4;",
-        ""
-    ].join("\n");
-    const expected = [
-        "var keepTinyDivisor = value / 0.00000000001;",
-        "var keepHugeReciprocal = value / (1 / 100000000000);",
-        "var convertSafe = value * 0.25;",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("optimize-math-expressions does not rewrite expressions with inline block comments even with trailing line comments", () => {
-    const input = ["var squared = value /* keep */ * value; // trailing note", ""].join("\n");
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("optimize-math-expressions does not rewrite expressions with inline trailing-line comments between operands", () => {
-    const input = ["var squared = value // keep", "    * value;", ""].join("\n");
-    const result = lintWithRule("optimize-math-expressions", input, {});
-    assert.equal(result.output, input);
-});
-
-void test("normalize-operator-aliases does not replace punctuation exclamation marks", () => {
-    const input = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
-    const expected = ["#region Emergency!", "var ready_state = !ready;", ""].join("\n");
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-operator-aliases replaces invalid logical keyword 'not' with '!'", () => {
-    const input = ["if (not ready) {", "    value = not(extra);", "}", ""].join("\n");
-    const expected = ["if (! ready) {", "    value = !(extra);", "}", ""].join("\n");
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-operator-aliases does not rewrite identifier usage of 'not'", () => {
-    const input = ["var not = 1;", "value = not + 2;", ""].join("\n");
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("normalize-operator-aliases does not rewrite trailing comment text when the next line starts with code", () => {
-    const input = [
-        '//Use "with" to avoid having to check if the player exists or not',
-        "if (player_exists) {",
-        "    value = 1;",
-        "}",
-        ""
-    ].join("\n");
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("normalize-operator-aliases rewrites code aliases without mutating comment or string content", () => {
-    const input = [
-        'var message = "not ready";',
-        "/* not pending */",
-        "if (not ready) {",
-        "    // not should stay untouched in comments",
-        "    value = not(extra);",
-        "}",
-        ""
-    ].join("\n");
-    const expected = [
-        'var message = "not ready";',
-        "/* not pending */",
-        "if (! ready) {",
-        "    // not should stay untouched in comments",
-        "    value = !(extra);",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.output, expected);
-});
-
-void test("normalize-operator-aliases does not rewrite escaped quote string content", () => {
-    const input = '__input_error("State \\"", __state, "\\" not recognised");\n';
-    const result = lintWithRule("normalize-operator-aliases", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
-    const source = "if (left and right) {\n    value = 1;\n}\n";
-    const operatorStart = source.indexOf("and");
-    const operatorEnd = operatorStart + "and".length;
-    const expressionStart = source.indexOf("left");
-    const expressionEnd = source.indexOf("right") + "right".length;
-    const getLocFromIndex = createLocResolver(source);
-    const reports: Array<{ loc?: { line: number; column: number } }> = [];
-    const rule = Lint.plugin.rules["normalize-operator-aliases"];
-    const context = {
-        sourceCode: {
-            text: source,
-            getLocFromIndex
-        },
-        report(payload: {
-            loc?: { line: number; column: number };
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            reports.push({ loc: payload.loc });
-            if (payload.fix) {
-                payload.fix({
-                    replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                        return { kind: "replace", range, text };
-                    }
-                });
-            }
-        }
-    } as never;
-    const listeners = rule.create(context) as Record<string, (node: unknown) => void>;
-    listeners.BinaryExpression?.({
-        type: "BinaryExpression",
-        operator: "and",
-        start: { index: expressionStart },
-        end: { index: expressionEnd },
-        left: {
-            type: "Identifier",
-            name: "left",
-            start: { index: expressionStart },
-            end: { index: expressionStart + "left".length }
-        },
-        right: {
-            type: "Identifier",
-            name: "right",
-            start: { index: source.indexOf("right") },
-            end: { index: source.indexOf("right") + "right".length }
-        }
-    });
-
-    assert.equal(reports.length, 1);
-    assert.deepEqual(reports[0]?.loc, getLocFromIndex(operatorStart));
-    assert.notDeepEqual(reports[0]?.loc, getLocFromIndex(expressionStart));
-    assert.equal(operatorEnd > operatorStart, true);
-});
-
-void test("require-control-flow-braces skips macro continuation blocks", () => {
-    const input = [
-        '#macro __SCRIBBLE_MARKDOWN_TOGGLE_BOLD  if (_new_style == "body")\\',
-        "                                        {\\",
-        '                                            _new_style = "bold";\\',
-        "                                        }\\",
-        "                                        if (_old_style != _new_style) _write_style = true;",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("require-control-flow-braces does not reinterpret already braced headers with trailing comments", () => {
-    const input = [
-        "if (point_in_triangle(D.x, D.y, A.x, A.y, B.x, B.y, C.x, C.y)) { // stile_point_in_triangle(x3, y3, z3, x0, y0, z0, x1, y1, z1, x2, y2, z2, N)",
-        '    // show_debug_message("Verts inside");',
-        "    good = false;",
-        "    break;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("optimize-logical-flow removes double negation without collapsing if/return patterns", () => {
-    const input = [
-        "function bool_passthrough(condition) {",
-        "    if (!!condition) {",
-        "        return true;",
-        "    }",
-        "",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-
-    const expected = [
-        "function bool_passthrough(condition) {",
-        "    if (condition) {",
-        "        return true;",
-        "    }",
-        "",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
-
-    const result = lintWithRule("optimize-logical-flow", input, {});
-    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
-    assert.equal(
-        result.output,
-        expected,
-        "optimize-logical-flow should remove !! but not collapse the if/return pattern"
-    );
-});
-
-void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {
-    const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
-
-    const result = lintWithRule("optimize-logical-flow", input, {});
-    assert.equal(result.messages.length, 0);
-    assert.equal(result.output, input);
-});
-
-void test("feather migrated fixture rules apply local fixes", async () => {
-    const fixtureRules = [
-        "gm1003",
-        "gm1004",
-        "gm1005",
-        "gm1012",
-        "gm1014",
-        "gm1016",
-        "gm1017",
-        "gm1021",
-        "gm1023",
-        "gm1054",
-        "gm1100",
-        "gm2023",
-        "gm2025",
-        "gm2040",
-        "gm2064"
-    ] as const;
-    const cases = await Promise.all(
-        fixtureRules.map(async (ruleName) => {
-            const [input, expected] = await Promise.all([
-                readFixture("feather", ruleName, "input.gml"),
-                readFixture("feather", ruleName, "fixed.gml")
-            ]);
-            return { ruleName, input, expected };
-        })
-    );
-
-    for (const entry of cases) {
-        const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, entry.ruleName, entry.input);
-        assert.equal(result.messages.length > 0, true, `${entry.ruleName} should report diagnostics`);
-        assert.equal(result.output, entry.expected, `${entry.ruleName} should apply the expected fixer`);
+void describe("feather fixture auto-fix pairs", () => {
+    for (const fixturePair of discoveredFeatherFixturePairs) {
+        void it(`${fixturePair.ruleName} :: ${fixturePair.relativeInputPath}`, async () => {
+            const input = await readFile(fixturePair.inputFilePath, "utf8");
+            const expected = await readFile(fixturePair.fixedFilePath, "utf8");
+            const result = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, fixturePair.ruleName, input);
+
+            assertEquals(
+                result.output,
+                expected,
+                `${fixturePair.ruleName} should apply expected fixer\n${formatFixtureFailureContext(fixturePair)}`
+            );
+        });
     }
 });

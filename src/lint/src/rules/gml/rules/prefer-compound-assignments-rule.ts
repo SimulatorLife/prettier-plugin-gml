@@ -11,10 +11,10 @@ import {
     walkAstNodes
 } from "../rule-base-helpers.js";
 
-type SupportedArithmeticOperator = "-" | "*" | "/";
+type SupportedArithmeticOperator = "+" | "-" | "*" | "/";
 type SupportedNullishOperator = "??";
 type SupportedBinaryOperator = SupportedArithmeticOperator | SupportedNullishOperator;
-type CompoundAssignmentOperator = "-=" | "*=" | "/=" | "??=";
+type CompoundAssignmentOperator = "+=" | "-=" | "*=" | "/=" | "??=";
 
 type IdentifierNode = AstNodeRecord &
     Readonly<{
@@ -49,6 +49,7 @@ type CompoundAssignmentCandidate = Readonly<{
 type UnwrapParenthesizedExpressionInput = Parameters<typeof CoreWorkspace.Core.unwrapParenthesizedExpression>[0];
 
 const COMPOUND_OPERATOR_BY_BINARY_OPERATOR = Object.freeze({
+    "+": "+=",
     "-": "-=",
     "*": "*=",
     "/": "/=",
@@ -60,7 +61,7 @@ function isIdentifierNode(node: unknown): node is IdentifierNode {
 }
 
 function isSupportedBinaryOperator(operator: unknown): operator is SupportedBinaryOperator {
-    return operator === "-" || operator === "*" || operator === "/" || operator === "??";
+    return operator === "+" || operator === "-" || operator === "*" || operator === "/" || operator === "??";
 }
 
 function isBinaryExpressionNode(node: unknown): node is BinaryExpressionNode {
@@ -127,7 +128,7 @@ function tryGetCompoundAssignmentCandidate(node: unknown): CompoundAssignmentCan
  * Creates the `gml/prefer-compound-assignments` rule.
  *
  * Reports and auto-fixes safe self-assignment patterns:
- * `x = x - y`, `x = x * y`, `x = x / y`, and `x = x ?? y`.
+ * `x = x + y`, `x = x - y`, `x = x * y`, `x = x / y`, and `x = x ?? y`.
  */
 export function createPreferCompoundAssignmentsRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({

@@ -543,7 +543,7 @@ export interface ExecuteBatchRenameRequest {
 export interface ExecuteLoopLengthHoistingCodemodRequest {
     filePaths: Array<string>;
     readFile: WorkspaceReadFile;
-    writeFile: WorkspaceWriteFile;
+    writeFile?: WorkspaceWriteFile;
     options?: LoopLengthHoistingCodemodOptions;
     dryRun?: boolean;
 }

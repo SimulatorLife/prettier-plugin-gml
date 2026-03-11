@@ -15,17 +15,24 @@ type ControlFlowLineHeader = Readonly<{
     header: string;
 }>;
 
+type InlineDoUntilClause = Readonly<{
+    indentation: string;
+    statement: string;
+    untilCondition: string;
+}>;
+
 function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
     return [`${indentation}${header} {`, `    ${indentation}${statement}`, `${indentation}}`];
 }
 
 function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(if\s*\(.*?\))\s*(?!\{)(.+)$/u.exec(line);
+    const match = /^([\t ]*)((?:if|while|for|with)\s*\(.*?\))\s*(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
         return null;
     }
 
-    if ((match[3] ?? "").includes("{")) {
+    const trimmedStatement = (match[3] ?? "").trimStart();
+    if (trimmedStatement.startsWith("{") || trimmedStatement.startsWith(")")) {
         return null;
     }
     if (!(match[3] ?? "").includes(";")) {
@@ -40,8 +47,11 @@ function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
 }
 
 function parseInlineRepeatClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(repeat)\s*\(([^)]*)\)\s*(?!\{)(.+)$/u.exec(line);
+    const match = /^([\t ]*)(repeat)\s*\(([^)]*)\)\s*(.+)$/u.exec(line);
     if (!match || match.length < 5 || match[4]?.trim() === "") {
+        return null;
+    }
+    if ((match[4] ?? "").trimStart().startsWith("{")) {
         return null;
     }
     if (!(match[4] ?? "").includes(";")) {
@@ -56,6 +66,14 @@ function parseInlineRepeatClause(line: string): BracedSingleClause | null {
 }
 
 function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
+    const elseMatch = /^([\t ]*)else\s*$/u.exec(line);
+    if (elseMatch && elseMatch.length >= 2) {
+        return Object.freeze({
+            indentation: elseMatch[1] ?? "",
+            header: "else"
+        });
+    }
+
     const repeatMatch = /^([\t ]*)(repeat\s*\([^)]*\))\s*$/u.exec(line);
     if (repeatMatch && repeatMatch.length >= 3) {
         return Object.freeze({
@@ -81,13 +99,7 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
         return false;
     }
 
-    if (
-        trimmed.includes("if") ||
-        trimmed.includes("while") ||
-        trimmed.includes("for") ||
-        trimmed.includes("with") ||
-        trimmed.includes("do")
-    ) {
+    if (/^(?:if|while|for|with|do|repeat|else)\b/iu.test(trimmed)) {
         return false;
     }
 
@@ -95,43 +107,63 @@ function isSafeSingleLineControlFlowStatement(statement: string): boolean {
 }
 
 function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(if\b[^()]*\S)\s+(.+)$/u.exec(line);
-    if (!match || match.length < 4 || match[3]?.trim() === "") {
+    const match = /^([\t ]*)if\s+(.+)$/iu.exec(line);
+    if (!match || match.length < 3 || match[2]?.trim() === "") {
         return null;
     }
 
-    const header = match[2] ?? "";
-    const statement = match[3]?.trim() ?? "";
-    if (header.includes("(")) {
+    const clauseBody = match[2]?.trim() ?? "";
+    if (clauseBody.startsWith("(")) {
         return null;
     }
+
+    const legacyThenMatch = /^(.+?)\s+then\s+(.+)$/iu.exec(clauseBody);
+    if (legacyThenMatch && legacyThenMatch.length >= 3) {
+        const legacyThenStatement = legacyThenMatch[2]?.trim() ?? "";
+        if (legacyThenStatement.startsWith("{")) {
+            return null;
+        }
+        if (!legacyThenStatement.includes(";")) {
+            return null;
+        }
+
+        return Object.freeze({
+            indentation: match[1] ?? "",
+            header: `if (${legacyThenMatch[1]?.trim() ?? ""})`,
+            statement: legacyThenStatement
+        });
+    }
+
+    const legacyCallMatch = /^([A-Za-z_][A-Za-z0-9_$.]*\([^)]*\))\s+(.+)$/u.exec(clauseBody);
+    if (!legacyCallMatch || legacyCallMatch.length < 3) {
+        return null;
+    }
+
+    const statement = legacyCallMatch[2]?.trim() ?? "";
     if (statement.startsWith("{")) {
-        return null;
-    }
-    if (!/^\s*if\s+\S+/iu.test(header)) {
         return null;
     }
     if (!statement.includes(";")) {
         return null;
     }
 
-    const legacyThenMatch = /^if\s+(.+?)\s+then$/iu.exec(header);
-    const normalizedHeader = legacyThenMatch ? `if (${legacyThenMatch[1] ?? ""})` : header;
-
     return Object.freeze({
         indentation: match[1] ?? "",
-        header: normalizedHeader,
+        header: `if (${legacyCallMatch[1] ?? ""})`,
         statement
     });
 }
 
 function parseInlineElseClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(else)\b\s*(?!\{)(.+)$/u.exec(line);
+    const match = /^([\t ]*)(else)\b\s*(.+)$/u.exec(line);
     if (!match || match.length < 4 || match[3]?.trim() === "") {
         return null;
     }
 
     const statement = match[3]?.trim() ?? "";
+    if (statement.startsWith("{")) {
+        return null;
+    }
     if (/^if\b/u.test(statement)) {
         return null;
     }
@@ -146,6 +178,31 @@ function parseInlineElseClause(line: string): BracedSingleClause | null {
     });
 }
 
+function parseInlineDoUntilClause(line: string): InlineDoUntilClause | null {
+    const match = /^([\t ]*)do\s+(?!\{)(.+?)\s+until\s+(.+)$/u.exec(line);
+    if (!match || match.length < 4) {
+        return null;
+    }
+
+    const statement = match[2]?.trim() ?? "";
+    const untilCondition = match[3]?.trim() ?? "";
+    if (statement === "" || untilCondition === "") {
+        return null;
+    }
+    if (statement.startsWith("{")) {
+        return null;
+    }
+    if (!statement.includes(";")) {
+        return null;
+    }
+
+    return Object.freeze({
+        indentation: match[1] ?? "",
+        statement,
+        untilCondition
+    });
+}
+
 function toBracedDoUntilClause(indentation: string, statement: string, untilCondition: string): Array<string> {
     return [`${indentation}do {`, `    ${indentation}${statement}`, `${indentation}} until ${untilCondition}`];
 }
@@ -155,8 +212,47 @@ function parseLineOnlyDoHeader(line: string): string | null {
     return match?.[1] ?? null;
 }
 
+function findLineCommentStartOutsideStringLiterals(line: string): number {
+    let inSingleQuotedString = false;
+    let inDoubleQuotedString = false;
+    let isEscapedCharacter = false;
+
+    for (let index = 0; index < line.length - 1; index += 1) {
+        const character = line[index];
+        const nextCharacter = line[index + 1];
+
+        if (isEscapedCharacter) {
+            isEscapedCharacter = false;
+            continue;
+        }
+
+        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+            isEscapedCharacter = true;
+            continue;
+        }
+
+        if (!inDoubleQuotedString && character === "'") {
+            inSingleQuotedString = !inSingleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && character === '"') {
+            inDoubleQuotedString = !inDoubleQuotedString;
+            continue;
+        }
+
+        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
 function lineUsesMacroContinuation(line: string): boolean {
-    return line.trimEnd().endsWith("\\");
+    const lineCommentStart = findLineCommentStartOutsideStringLiterals(line);
+    const contentBeforeComment = lineCommentStart === -1 ? line : line.slice(0, lineCommentStart);
+    return contentBeforeComment.trimEnd().endsWith("\\");
 }
 
 function parseLineOnlyUntilFooter(line: string): string | null {
@@ -238,6 +334,18 @@ export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition
                                     bracedLegacyIfClause.indentation,
                                     bracedLegacyIfClause.header,
                                     bracedLegacyIfClause.statement
+                                )
+                            );
+                            continue;
+                        }
+
+                        const bracedInlineDoUntilClause = parseInlineDoUntilClause(line);
+                        if (bracedInlineDoUntilClause) {
+                            rewrittenLines.push(
+                                ...toBracedDoUntilClause(
+                                    bracedInlineDoUntilClause.indentation,
+                                    bracedInlineDoUntilClause.statement,
+                                    bracedInlineDoUntilClause.untilCondition
                                 )
                             );
                             continue;

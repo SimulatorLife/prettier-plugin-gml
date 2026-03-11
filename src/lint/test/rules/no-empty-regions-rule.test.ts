@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gml-modules/lint";
 
+import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
 
 function parseProgramNode(code: string): Record<string, unknown> {
@@ -82,24 +82,24 @@ void test("no-empty-regions removes empty region blocks", () => {
     const expected = ["var keep = 1;", "var keep2 = 2;", ""].join("\n");
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("no-empty-regions does not remove regions that contain executable code", () => {
     const input = ["#region Setup", "value = 42;", "#endregion", ""].join("\n");
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("no-empty-regions does not remove regions that contain comments", () => {
     const input = ["#region Setup", "    // keep this note", "#endregion", ""].join("\n");
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("no-empty-regions removes multiple empty regions in one file", () => {
@@ -107,16 +107,16 @@ void test("no-empty-regions removes multiple empty regions in one file", () => {
     const expected = ["var keep = 1;", ""].join("\n");
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("no-empty-regions ignores unmatched region directives", () => {
     const input = ["#endregion", "var keep = 1;", ""].join("\n");
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 0);
-    assert.equal(result.output, input);
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });
 
 void test("no-empty-regions preserves CRLF line endings when autofixing", () => {
@@ -124,6 +124,6 @@ void test("no-empty-regions preserves CRLF line endings when autofixing", () => 
     const expected = "var keep = 1;\r\nvar keep2 = 2;\r\n";
 
     const result = runNoEmptyRegionsRule(input);
-    assert.equal(result.messageCount, 1);
-    assert.equal(result.output, expected);
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
 });

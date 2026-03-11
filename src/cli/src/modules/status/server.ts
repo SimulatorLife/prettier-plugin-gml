@@ -171,56 +171,87 @@ function sendJsonResponse(res: ServerResponse, statusCode: number, data: unknown
     res.end(JSON.stringify(data, null, 2));
 }
 
-function handleStatusRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
+interface SnapshotEndpointFailureResponseOptions {
+    readonly logMessage: string;
+    readonly statusCode: number;
+    readonly body: Record<string, unknown>;
+}
+
+function respondWithSnapshot(
+    res: ServerResponse,
+    getSnapshot: () => StatusSnapshot,
+    onSnapshot: (snapshot: StatusSnapshot) => void,
+    failure: SnapshotEndpointFailureResponseOptions
+): void {
     try {
         const snapshot = getSnapshot();
-        sendJsonResponse(res, 200, snapshot);
+        onSnapshot(snapshot);
     } catch (error) {
-        // Withhold internal error details from HTTP clients to avoid leaking
-        // implementation specifics or stack traces. We log the full error on the
-        // server (stderr or logging backend) for debugging, then send a generic
-        // 500 response to the client. This defensive posture prevents accidental
-        // disclosure of file paths, module names, or environmental configuration
-        // that could aid attackers or confuse end users unfamiliar with the
-        // server's internal structure.
-        console.error("Failed to generate status snapshot:", error);
-        sendJsonResponse(res, 500, {
-            error: "Failed to generate status snapshot"
-        });
+        console.error(failure.logMessage, error);
+        sendJsonResponse(res, failure.statusCode, failure.body);
     }
 }
 
-function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
-    try {
-        const snapshot = getSnapshot();
-        const health = {
-            status: "healthy",
-            timestamp: Date.now(),
-            uptime: snapshot.uptime,
-            checks: {
-                transpilation: {
-                    ...evaluateTranspilationHealth({
-                        patchCount: snapshot.patchCount,
-                        errorCount: snapshot.errorCount
-                    })
-                },
-                websocket: {
-                    status: "pass",
-                    clients: snapshot.websocketClients
-                    // Note: Status is always 'pass' based on current snapshot data.
-                    // Future enhancement: integrate with websocket server lifecycle
-                    // to detect server startup failures or connection issues.
-                }
+function handleStatusRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
+    // Withhold internal error details from HTTP clients to avoid leaking
+    // implementation specifics or stack traces. We log the full error on the
+    // server (stderr or logging backend) for debugging, then send a generic
+    // 500 response to the client. This defensive posture prevents accidental
+    // disclosure of file paths, module names, or environmental configuration
+    // that could aid attackers or confuse end users unfamiliar with the
+    // server's internal structure.
+    respondWithSnapshot(
+        res,
+        getSnapshot,
+        (snapshot) => {
+            sendJsonResponse(res, 200, snapshot);
+        },
+        {
+            logMessage: "Failed to generate status snapshot:",
+            statusCode: 500,
+            body: {
+                error: "Failed to generate status snapshot"
             }
-        };
-        sendJsonResponse(res, 200, health);
-    } catch (error) {
-        console.error("Failed to generate health check:", error);
-        sendJsonResponse(res, 503, {
-            status: "unhealthy",
-            error: "Failed to generate health check"
-        });
-    }
+        }
+    );
+}
+
+function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
+    respondWithSnapshot(
+        res,
+        getSnapshot,
+        (snapshot) => {
+            const health = {
+                status: "healthy",
+                timestamp: Date.now(),
+                uptime: snapshot.uptime,
+                checks: {
+                    transpilation: {
+                        ...evaluateTranspilationHealth({
+                            patchCount: snapshot.patchCount,
+                            errorCount: snapshot.errorCount
+                        })
+                    },
+                    websocket: {
+                        status: "pass",
+                        clients: snapshot.websocketClients
+                        // Note: Status is always 'pass' based on current snapshot data.
+                        // Future enhancement: integrate with websocket server lifecycle
+                        // to detect server startup failures or connection issues.
+                    }
+                }
+            };
+            sendJsonResponse(res, 200, health);
+        },
+        {
+            logMessage: "Failed to generate health check:",
+            statusCode: 503,
+            body: {
+                status: "unhealthy",
+                error: "Failed to generate health check"
+            }
+        }
+    );
 }
 
 function handlePingRequest(
@@ -233,28 +264,33 @@ function handlePingRequest(
 }
 
 function handleReadyRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
-    try {
-        const snapshot = getSnapshot();
-        const { isReady } = evaluateReadiness(
-            {
-                patchCount: snapshot.patchCount,
-                errorCount: snapshot.errorCount
-            },
-            DEFAULT_STATUS_HEALTH_POLICY_CONFIG
-        );
-        const statusCode = isReady ? 200 : 503;
-        sendJsonResponse(res, statusCode, {
-            ready: isReady,
-            timestamp: Date.now(),
-            uptime: snapshot.uptime
-        });
-    } catch (error) {
-        console.error("Failed to generate readiness check:", error);
-        sendJsonResponse(res, 503, {
-            ready: false,
-            error: "Failed to generate readiness check"
-        });
-    }
+    respondWithSnapshot(
+        res,
+        getSnapshot,
+        (snapshot) => {
+            const { isReady } = evaluateReadiness(
+                {
+                    patchCount: snapshot.patchCount,
+                    errorCount: snapshot.errorCount
+                },
+                DEFAULT_STATUS_HEALTH_POLICY_CONFIG
+            );
+            const statusCode = isReady ? 200 : 503;
+            sendJsonResponse(res, statusCode, {
+                ready: isReady,
+                timestamp: Date.now(),
+                uptime: snapshot.uptime
+            });
+        },
+        {
+            logMessage: "Failed to generate readiness check:",
+            statusCode: 503,
+            body: {
+                ready: false,
+                error: "Failed to generate readiness check"
+            }
+        }
+    );
 }
 
 function handleNotFound(res: ServerResponse): void {

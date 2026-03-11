@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/prefer-string-interpolation": "error"
+  }
+}

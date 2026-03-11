@@ -101,6 +101,74 @@ void test("getModifiedScopes filters scopes by timestamp", async () => {
     assert.strictEqual(modifiedScopes[0].scopeId, scope2.id);
 });
 
+void test("updateScopeMetadata marks scope as modified when metadata changes", async () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program", {
+        name: "oldName",
+        path: "scripts/old_path.gml",
+        start: { line: 1, column: 0, index: 0 }
+    });
+
+    tracker.exitScope();
+
+    const baseline = tracker.getScopeModificationMetadata(scope.id);
+    assert.ok(baseline);
+    const baselineCount = baseline.modificationCount;
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const cutoffTimestamp = Date.now();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    tracker.updateScopeMetadata(scope.id, {
+        name: "newName",
+        path: "scripts/new_path.gml",
+        start: { line: 5, column: 2, index: 42 }
+    });
+
+    const afterUpdate = tracker.getScopeModificationMetadata(scope.id);
+    assert.ok(afterUpdate);
+    assert.strictEqual(afterUpdate.modificationCount, baselineCount + 1);
+    assert.ok(afterUpdate.lastModified > cutoffTimestamp);
+
+    const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
+    assert.strictEqual(modifiedScopes.length, 1);
+    assert.strictEqual(modifiedScopes[0].scopeId, scope.id);
+});
+
+void test("updateScopeMetadata does not mark scope as modified when metadata is unchanged", async () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program", {
+        name: "stableName",
+        path: "scripts/stable_path.gml",
+        start: { line: 2, column: 0, index: 10 },
+        end: { line: 3, column: 1, index: 25 }
+    });
+
+    tracker.exitScope();
+
+    const baseline = tracker.getScopeModificationMetadata(scope.id);
+    assert.ok(baseline);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const cutoffTimestamp = Date.now();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    tracker.updateScopeMetadata(scope.id, {
+        name: "stableName",
+        path: "scripts/stable_path.gml",
+        start: { line: 2, column: 0, index: 10 },
+        end: { line: 3, column: 1, index: 25 }
+    });
+
+    const afterNoopUpdate = tracker.getScopeModificationMetadata(scope.id);
+    assert.ok(afterNoopUpdate);
+    assert.strictEqual(afterNoopUpdate.modificationCount, baseline.modificationCount);
+    assert.strictEqual(afterNoopUpdate.lastModified, baseline.lastModified);
+
+    const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
+    assert.deepStrictEqual(modifiedScopes, []);
+});
+
 void test("getMostRecentlyModifiedScope returns the latest modified scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
 

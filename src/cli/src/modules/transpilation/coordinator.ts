@@ -10,15 +10,19 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import type { Transpiler } from "@gml-modules/transpiler";
+import type { EventPatch, ScriptPatch, Transpiler } from "@gml-modules/transpiler";
 
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
-import { getRuntimePathSegments, resolveObjectRuntimeIdFromSegments } from "./runtime-identifiers.js";
+import {
+    getRuntimePathSegments,
+    resolveObjectEventPartsFromSegments,
+    resolveObjectRuntimeIdFromSegments
+} from "./runtime-identifiers.js";
 import { extractReferencesFromAst, extractSymbolsFromAst } from "./symbol-extraction.js";
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
-export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
+export type RuntimeTranspilerPatch = ScriptPatch | EventPatch;
 
 export interface TranspilationMetrics {
     timestamp: number;
@@ -43,14 +47,28 @@ export interface TranspilationError {
     recoveryHint?: string;
 }
 
-function resolveRuntimeId(filePath: string): string | null {
+/**
+ * Resolves the transpilation kind and identifiers for a GML file.
+ *
+ * Returns `kind: "event"` with canonical symbol ID and runtime ID when the
+ * file is inside an `objects/<objectName>/` directory. Returns `kind: "script"`
+ * for all other files.
+ */
+function resolveFileTranspilationKind(
+    filePath: string
+): { kind: "event"; symbolId: string; runtimeId: string } | { kind: "script"; runtimeId: string | null } {
     const segments = getRuntimePathSegments(filePath);
-    const objectRuntimeId = resolveObjectRuntimeIdFromSegments(segments);
-    if (objectRuntimeId) {
-        return objectRuntimeId;
+    const eventParts = resolveObjectEventPartsFromSegments(segments);
+    if (eventParts) {
+        const { objectName, eventName } = eventParts;
+        return {
+            kind: "event",
+            symbolId: `gml/event/${objectName}/${eventName}`,
+            runtimeId: `gml_Object_${objectName}_${eventName}`
+        };
     }
 
-    return null;
+    return { kind: "script", runtimeId: resolveObjectRuntimeIdFromSegments(segments) };
 }
 
 /**
@@ -85,7 +103,7 @@ function classifyTranspilationError(error: unknown): {
         targetError = error.cause;
     }
 
-    if (Parser.GameMakerSyntaxError.isParseError(targetError)) {
+    if (Core.isGmlParseError(targetError)) {
         const syntaxError = targetError;
         const line = syntaxError.line;
         const column = syntaxError.column;
@@ -130,6 +148,17 @@ function classifyTranspilationError(error: unknown): {
                 message: innerMessage,
                 recoveryHint:
                     "An internal transpilation error occurred. This may be a bug. Check for unsupported GML features."
+            };
+        }
+
+        if (error.message.includes("Failed to transpile event")) {
+            const causeMatch = /Failed to transpile event [^:]+: (?<inner>.+)$/u.exec(error.message);
+            const innerMessage = causeMatch?.groups?.inner ?? error.message;
+            return {
+                category: "internal",
+                message: innerMessage,
+                recoveryHint:
+                    "An internal event transpilation error occurred. This may be a bug. Check for unsupported GML features."
             };
         }
 
@@ -407,6 +436,10 @@ function hasRuntimePatchChanged(
 /**
  * Transpiles a GML file and manages the complete lifecycle including metrics
  * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
+ *
+ * Files inside `objects/<objectName>/` directories are transpiled as object
+ * events using `transpileEvent()`, which emits `self.<field>` for instance
+ * variable accesses. All other `.gml` files are transpiled as scripts.
  */
 export function transpileFile(
     context: TranspilationContext,
@@ -419,23 +452,34 @@ export function transpileFile(
     const startTime = performance.now();
 
     try {
-        const fileName = path.basename(filePath, path.extname(filePath));
-        const defaultSymbolId = `gml/script/${fileName}`;
+        const fileKind = resolveFileTranspilationKind(filePath);
         const { ast, parseError, parsedSymbols, parsedReferences } = parseAstAndExtractMetadata(
             content,
             filePath,
             cachedAst
         );
 
-        const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
-        const symbolId = scriptSymbolId ?? defaultSymbolId;
+        let patch: RuntimeTranspilerPatch;
 
-        const patch = context.transpiler.transpileScript({
-            sourceText: content,
-            symbolId,
-            ...(ast === undefined ? {} : { ast })
-        });
-        const runtimeId = resolveRuntimeId(filePath);
+        if (fileKind.kind === "event") {
+            patch = context.transpiler.transpileEvent({
+                sourceText: content,
+                symbolId: fileKind.symbolId,
+                ...(ast === undefined ? {} : { ast })
+            });
+        } else {
+            const fileName = path.basename(filePath, path.extname(filePath));
+            const defaultSymbolId = `gml/script/${fileName}`;
+            const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
+            const symbolId = scriptSymbolId ?? defaultSymbolId;
+
+            patch = context.transpiler.transpileScript({
+                sourceText: content,
+                symbolId,
+                ...(ast === undefined ? {} : { ast })
+            });
+        }
+
         const patchWithMetadata = {
             ...patch,
             metadata: {
@@ -443,7 +487,8 @@ export function transpileFile(
                 sourcePath: filePath
             }
         };
-        const patchPayload = runtimeId === null ? patchWithMetadata : { ...patchWithMetadata, runtimeId };
+        const patchPayload =
+            fileKind.runtimeId === null ? patchWithMetadata : { ...patchWithMetadata, runtimeId: fileKind.runtimeId };
 
         if (!validatePatch(patchPayload)) {
             throw new Error("Generated patch failed validation");
@@ -463,12 +508,12 @@ export function transpileFile(
 
         addToBoundedCollection(context.metrics, metrics, context.maxPatchHistory);
 
-        const previousPatch = context.lastSuccessfulPatches.get(symbolId);
+        const previousPatch = context.lastSuccessfulPatches.get(patchPayload.id);
         const runtimePatchChanged = hasRuntimePatchChanged(previousPatch, patchPayload);
 
-        context.lastSuccessfulPatches.set(symbolId, patchPayload);
+        context.lastSuccessfulPatches.set(patchPayload.id, patchPayload);
 
-        if (context.scriptNames) {
+        if (context.scriptNames && fileKind.kind === "script") {
             registerScriptNamesFromSymbols(parsedSymbols, context.scriptNames);
         }
 

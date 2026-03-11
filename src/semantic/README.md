@@ -884,6 +884,137 @@ Each reference occurrence includes a `usageContext` object with the following pr
 
 **Note:** Declarations have `usageContext: null` since they establish bindings rather than use them.
 
+## Hot-Reload Invalidation & File Re-Analysis
+
+These methods implement the four-step hot-reload workflow that keeps the scope
+graph consistent when source files change.
+
+### Recommended Workflow
+
+```
+1. getImpactedFilePaths(changedPaths)   → Set<string>  (expand change set)
+2. sortPathsForReanalysis(impacted)     → string[]     (order before clearing)
+3. clearScopesForPath(path) for each   → removes stale scopes
+4. re-parse each path in sorted order  → registers fresh scopes
+```
+
+Steps 2 and 3 must be performed in this sequence: **sort first, then clear**.
+`sortPathsForReanalysis` reads the current scope graph to determine dependency
+order; once scopes are cleared that information is gone.
+
+---
+
+### `getImpactedFilePaths(changedPaths)`
+
+Returns the complete set of file paths that need re-analysis when the given
+paths change, by expanding each changed path to its full transitive set of
+dependents.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Register scopes during initial parse.
+tracker.enterScope("program", { path: "/lib.gml" });
+tracker.declare("utils", { name: "utils", start: { line: 1, index: 0 }, end: { line: 1, index: 5 } });
+tracker.enterScope("file", { path: "/app.gml" });
+tracker.reference("utils", { name: "utils", start: { line: 3, index: 0 }, end: { line: 3, index: 5 } });
+tracker.exitScope(); // app.gml
+tracker.exitScope(); // lib.gml
+
+const impacted = tracker.getImpactedFilePaths(["/lib.gml"]);
+// Returns: Set { "/lib.gml", "/app.gml" }
+```
+
+**Use case:** First step in the hot-reload workflow. Takes the set of files that
+have actually changed on disk and expands it to all files that must be
+re-analysed because they (transitively) depend on the changed symbols.
+
+---
+
+### `sortPathsForReanalysis(paths)`
+
+Sorts a collection of file paths into dependency order so that a file's
+declared symbols are always registered before files that reference them are
+re-analysed.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// lib.gml declares "utils"; app.gml references it.
+tracker.enterScope("program", { path: "/lib.gml" });
+tracker.declare("utils", { name: "utils", start: { line: 1, index: 0 }, end: { line: 1, index: 5 } });
+tracker.enterScope("file", { path: "/app.gml" });
+tracker.reference("utils", { name: "utils", start: { line: 3, index: 0 }, end: { line: 3, index: 5 } });
+tracker.exitScope(); // app.gml
+tracker.exitScope(); // lib.gml
+
+const impacted = tracker.getImpactedFilePaths(["/lib.gml"]);
+const sorted = tracker.sortPathsForReanalysis(impacted);
+// Returns: ["/lib.gml", "/app.gml"]
+// lib.gml must be re-analysed first because app.gml depends on it.
+```
+
+**Algorithm:** Uses Kahn's topological sort on a path-level dependency graph
+derived from the current scope registrations. Paths with no dependencies on
+other paths in the set are placed first (zero-in-degree first, then
+lexicographic tie-break within each wave). Cycles are handled gracefully —
+cycle members are appended in lexicographic order after all acyclic nodes.
+
+**Important:** Call this method **before** `clearScopesForPath`. The sort reads
+the current (potentially stale) scope graph to determine dependency order; once
+scopes are cleared, that information is no longer available.
+
+**Paths with no registered scopes** carry no dependency information and are
+treated as independent — they appear at the front (zero-in-degree) in
+lexicographic order alongside other independent paths.
+
+---
+
+### `clearScopesForPath(path)`
+
+Removes all scopes (and their descendants) registered under the given file
+path, cleaning up all internal indices.
+
+```javascript
+const cleared = tracker.clearScopesForPath("/lib.gml");
+// Returns: number of scope objects removed
+```
+
+**Use case:** Third step in the hot-reload workflow. After computing the sorted
+re-analysis order, call this for each path before re-parsing to ensure stale
+scope data does not interfere with fresh analysis.
+
+---
+
+### Full Hot-Reload Example
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Step 0 – initial parse registers all scopes.
+// ... (parse lib.gml, app.gml, etc.)
+
+// A file watcher reports that lib.gml changed.
+const changedPaths = ["/lib.gml"];
+
+// Step 1 – expand to all transitively impacted paths.
+const impacted = tracker.getImpactedFilePaths(changedPaths);
+// impacted: Set { "/lib.gml", "/app.gml" }
+
+// Step 2 – sort BEFORE clearing (needs the live scope graph).
+const sorted = tracker.sortPathsForReanalysis(impacted);
+// sorted: ["/lib.gml", "/app.gml"]
+
+// Step 3 – clear stale scopes in sorted order.
+for (const p of sorted) {
+    tracker.clearScopesForPath(p);
+}
+
+// Step 4 – re-parse each file in sorted order.
+// parseAndRegisterScopes(tracker, sorted[0]);  // lib.gml first
+// parseAndRegisterScopes(tracker, sorted[1]);  // app.gml second
+```
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in

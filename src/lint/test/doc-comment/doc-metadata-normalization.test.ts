@@ -1,20 +1,21 @@
-import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Core } from "@gml-modules/core";
 
+import { assertEquals } from "../assertions.js";
+
 const { getCanonicalParamNameFromText, normalizeDocMetadataName } = Core;
 
 void test("normalizeDocMetadataName preserves valid optional tokens", () => {
-    assert.equal(normalizeDocMetadataName("[value]"), "[value]");
+    assertEquals(normalizeDocMetadataName("[value]"), "[value]");
 });
 
 void test("normalizeDocMetadataName strips synthetic sentinels", () => {
-    assert.equal(normalizeDocMetadataName("__value__"), "value");
-    assert.equal(normalizeDocMetadataName("$$value$$"), "value");
+    assertEquals(normalizeDocMetadataName("__value__"), "value");
+    assertEquals(normalizeDocMetadataName("$$value$$"), "value");
 });
 
 void test("getCanonicalParamNameFromText unwraps optional tokens and defaults", () => {
-    assert.equal(getCanonicalParamNameFromText("[value]")?.includes("["), false);
-    assert.equal(getCanonicalParamNameFromText("[value=10]"), "value");
+    assertEquals(getCanonicalParamNameFromText("[value]")?.includes("["), false);
+    assertEquals(getCanonicalParamNameFromText("[value=10]"), "value");
 });

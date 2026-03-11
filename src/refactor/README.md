@@ -47,6 +47,7 @@ console.log(result.changedFiles);
 ```
 
 This keeps codemod execution project-aware and atomic by funneling all rewrites through a single `WorkspaceEdit` transaction.
+When `dryRun: true`, `writeFile` is optional and no filesystem writes are performed.
 
 ### Rename Validation (Pre-flight Check)
 

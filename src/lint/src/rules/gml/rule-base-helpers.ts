@@ -65,6 +65,83 @@ export interface SourceTextEdit {
     readonly text: string;
 }
 
+const CLONE_SKIPPED_NODE_KEYS = new Set(["parent", "enclosingNode", "precedingNode", "followingNode"]);
+
+function cloneNodeValueWithoutTraversalLinks(nodeValue: unknown, seenNodes: WeakMap<object, unknown>): unknown {
+    if (!isObjectLike(nodeValue)) {
+        return nodeValue;
+    }
+
+    const objectNodeValue = nodeValue as object;
+    const existingClone = seenNodes.get(objectNodeValue);
+    if (existingClone) {
+        return existingClone;
+    }
+
+    if (Array.isArray(nodeValue)) {
+        const clonedArray: unknown[] = [];
+        seenNodes.set(objectNodeValue, clonedArray);
+        for (const entry of nodeValue) {
+            clonedArray.push(cloneNodeValueWithoutTraversalLinks(entry, seenNodes));
+        }
+        return clonedArray;
+    }
+
+    const clonedRecord: Record<string, unknown> = {};
+    seenNodes.set(objectNodeValue, clonedRecord);
+    for (const [key, value] of Object.entries(nodeValue)) {
+        if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
+            continue;
+        }
+        clonedRecord[key] = cloneNodeValueWithoutTraversalLinks(value, seenNodes);
+    }
+
+    return clonedRecord;
+}
+
+function restoreLocalParentLinks(clonedNode: unknown): void {
+    const visitedNodes = new WeakSet<object>();
+
+    const visit = (currentValue: unknown, parentNode: Record<string, unknown> | null): void => {
+        if (!isObjectLike(currentValue)) {
+            return;
+        }
+
+        const objectValue = currentValue as object;
+        if (visitedNodes.has(objectValue)) {
+            return;
+        }
+        visitedNodes.add(objectValue);
+
+        if (Array.isArray(currentValue)) {
+            for (const entry of currentValue) {
+                visit(entry, parentNode);
+            }
+            return;
+        }
+
+        const currentRecord = currentValue as Record<string, unknown>;
+        if (parentNode) {
+            currentRecord.parent = parentNode;
+        }
+
+        for (const [key, value] of Object.entries(currentRecord)) {
+            if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
+                continue;
+            }
+            visit(value, currentRecord);
+        }
+    };
+
+    visit(clonedNode, null);
+}
+
+export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
+    const clonedNode = cloneNodeValueWithoutTraversalLinks(node, new WeakMap<object, unknown>());
+    restoreLocalParentLinks(clonedNode);
+    return clonedNode as T;
+}
+
 export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     const docs = {
         description: `Rule for ${definition.messageId}.`,

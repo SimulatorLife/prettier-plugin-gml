@@ -38,6 +38,8 @@ then return here for deeper context.
   rebuilding the generated parser artifacts with the vendored toolchain plus
   pointers to the extension hooks that keep custom behaviour outside the
   generated directory.
+- [Lint performance notes](lint-performance.md) — Profiling workflow and
+  regression coverage for expensive lint auto-fix rules.
 
 ## Extension hooks & overrides
 

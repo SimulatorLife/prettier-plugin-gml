@@ -1,9 +1,9 @@
 import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
-import { printExpression } from "../../../language/print-expression.js";
+import { printNodeForAutofix } from "../../../language/print-expression.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta } from "../rule-base-helpers.js";
+import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
 
 /**
@@ -11,6 +11,301 @@ import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logic
  */
 function normalizeWhitespaceForComparison(value: string): string {
     return value.replaceAll(/\s+/g, " ");
+}
+
+type SourceTextRange = Readonly<{ start: number; end: number }>;
+
+const LOGICAL_NORMALIZATION_SIGNAL_PATTERN = /&&|\|\||!|\b(?:and|or|not|true|false)\b/u;
+
+function containsLogicalNormalizationSignal(sourceText: string): boolean {
+    return LOGICAL_NORMALIZATION_SIGNAL_PATTERN.test(sourceText);
+}
+
+type AstRecord = Record<string, unknown> & Readonly<{ type?: string }>;
+
+function asAstRecord(value: unknown): AstRecord | null {
+    if (!Core.isObjectLike(value)) {
+        return null;
+    }
+
+    return value as AstRecord;
+}
+
+function unwrapSingleStatement(node: unknown): AstRecord | null {
+    const record = asAstRecord(node);
+    if (!record) {
+        return null;
+    }
+
+    if (record.type !== "BlockStatement") {
+        return record;
+    }
+
+    const body = Array.isArray(record.body) ? record.body : [];
+    const [firstStatement] = body;
+    const firstStatementRecord = asAstRecord(firstStatement);
+    if (body.length !== 1 || !firstStatementRecord) {
+        return null;
+    }
+
+    return firstStatementRecord;
+}
+
+function readBooleanLiteral(node: unknown): boolean | null {
+    const nodeRecord = asAstRecord(node);
+    if (!nodeRecord || nodeRecord.type !== "Literal") {
+        return null;
+    }
+
+    const value = nodeRecord.value;
+    if (value === true || value === "true") {
+        return true;
+    }
+    if (value === false || value === "false") {
+        return false;
+    }
+
+    return null;
+}
+
+function areComparableAssignmentTargetsEquivalent(left: unknown, right: unknown): boolean {
+    const leftRecord = asAstRecord(left);
+    const rightRecord = asAstRecord(right);
+    if (!leftRecord || !rightRecord) {
+        return false;
+    }
+
+    if (leftRecord.type !== rightRecord.type) {
+        return false;
+    }
+
+    switch (leftRecord.type) {
+        case "Identifier": {
+            return typeof leftRecord.name === "string" && leftRecord.name === rightRecord.name;
+        }
+        case "MemberDotExpression": {
+            return (
+                areComparableAssignmentTargetsEquivalent(leftRecord.object, rightRecord.object) &&
+                areComparableAssignmentTargetsEquivalent(leftRecord.property, rightRecord.property)
+            );
+        }
+        case "MemberIndexExpression": {
+            return (
+                areComparableAssignmentTargetsEquivalent(leftRecord.object, rightRecord.object) &&
+                areComparableAssignmentTargetsEquivalent(leftRecord.index, rightRecord.index)
+            );
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+function isUndefinedCheckAgainstTarget(test: unknown, target: unknown): boolean {
+    let testRecord = asAstRecord(test);
+    while (testRecord && testRecord.type === "ParenthesizedExpression") {
+        testRecord = asAstRecord(testRecord.expression);
+    }
+
+    const targetRecord = asAstRecord(target);
+    if (!testRecord || !targetRecord) {
+        return false;
+    }
+
+    const callee = asAstRecord(testRecord.callee ?? testRecord.object);
+    const argumentsList = Array.isArray(testRecord.arguments) ? testRecord.arguments : [];
+    if (
+        testRecord.type === "CallExpression" &&
+        callee &&
+        callee.type === "Identifier" &&
+        callee.name === "is_undefined" &&
+        argumentsList.length === 1
+    ) {
+        return areComparableAssignmentTargetsEquivalent(argumentsList[0], targetRecord);
+    }
+
+    if (testRecord.type !== "BinaryExpression" || testRecord.operator !== "==") {
+        return false;
+    }
+
+    const left = asAstRecord(testRecord.left);
+    const right = asAstRecord(testRecord.right);
+
+    const leftUndefined =
+        left &&
+        ((left.type === "Identifier" && left.name === "undefined") ||
+            (left.type === "Literal" && (left.value === undefined || left.value === "undefined")));
+    const rightUndefined =
+        right &&
+        ((right.type === "Identifier" && right.name === "undefined") ||
+            (right.type === "Literal" && (right.value === undefined || right.value === "undefined")));
+
+    return (
+        (leftUndefined && areComparableAssignmentTargetsEquivalent(right, targetRecord)) ||
+        (rightUndefined && areComparableAssignmentTargetsEquivalent(left, targetRecord))
+    );
+}
+
+function extractAssignmentExpressionFromStatementNode(statementNode: AstRecord | null): AstRecord | null {
+    if (!statementNode) {
+        return null;
+    }
+
+    if (statementNode.type === "AssignmentExpression") {
+        return statementNode;
+    }
+
+    if (statementNode.type !== "ExpressionStatement") {
+        return null;
+    }
+
+    const expression = asAstRecord(statementNode.expression);
+    if (!expression || expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    return expression;
+}
+
+function canIfStatementBenefitFromNormalization(node: unknown): boolean {
+    const ifNode = asAstRecord(node);
+    if (!ifNode || ifNode.type !== "IfStatement") {
+        return false;
+    }
+
+    const consequentStatement = unwrapSingleStatement(ifNode.consequent);
+    const alternateStatement = unwrapSingleStatement(ifNode.alternate);
+
+    if (consequentStatement && alternateStatement) {
+        if (consequentStatement.type === "ReturnStatement" && alternateStatement.type === "ReturnStatement") {
+            const consequentValue = readBooleanLiteral(consequentStatement.argument);
+            const alternateValue = readBooleanLiteral(alternateStatement.argument);
+            return (
+                (consequentValue === true && alternateValue === false) ||
+                (consequentValue === false && alternateValue === true)
+            );
+        }
+
+        const consequentExpression = extractAssignmentExpressionFromStatementNode(consequentStatement);
+        const alternateExpression = extractAssignmentExpressionFromStatementNode(alternateStatement);
+        if (!consequentExpression || !alternateExpression) {
+            return false;
+        }
+
+        if (consequentExpression.operator !== "=" || alternateExpression.operator !== "=") {
+            return false;
+        }
+
+        return areComparableAssignmentTargetsEquivalent(consequentExpression.left, alternateExpression.left);
+    }
+
+    const consequentExpression = extractAssignmentExpressionFromStatementNode(consequentStatement);
+    if (!consequentExpression) {
+        return false;
+    }
+
+    if (consequentExpression.operator !== "=") {
+        return false;
+    }
+
+    return isUndefinedCheckAgainstTarget(ifNode.test, consequentExpression.left);
+}
+
+function unwrapParenthesizedNode(node: unknown): AstRecord | null {
+    let current = asAstRecord(node);
+    while (current && current.type === "ParenthesizedExpression") {
+        current = asAstRecord(current.expression);
+    }
+    return current;
+}
+
+function canUnaryExpressionBenefitFromNormalization(node: unknown): boolean {
+    const unaryExpression = asAstRecord(node);
+    if (!unaryExpression || unaryExpression.type !== "UnaryExpression" || unaryExpression.operator !== "!") {
+        return false;
+    }
+
+    const argument = unwrapParenthesizedNode(unaryExpression.argument);
+    if (!argument) {
+        return false;
+    }
+
+    return (
+        argument.type === "UnaryExpression" ||
+        argument.type === "LogicalExpression" ||
+        (argument.type === "BinaryExpression" && (argument.operator === "&&" || argument.operator === "||")) ||
+        argument.type === "ParenthesizedExpression"
+    );
+}
+
+function isBooleanLiteralNode(node: unknown): boolean {
+    return readBooleanLiteral(node) !== null;
+}
+
+function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
+    const logicalExpression = asAstRecord(node);
+    if (
+        !logicalExpression ||
+        (logicalExpression.type !== "LogicalExpression" && logicalExpression.type !== "BinaryExpression") ||
+        (logicalExpression.operator !== "&&" && logicalExpression.operator !== "||")
+    ) {
+        return false;
+    }
+
+    const left = unwrapParenthesizedNode(logicalExpression.left);
+    const right = unwrapParenthesizedNode(logicalExpression.right);
+    if (!left || !right) {
+        return false;
+    }
+
+    if (isBooleanLiteralNode(left) || isBooleanLiteralNode(right)) {
+        return true;
+    }
+
+    if (logicalExpression.operator === "&&") {
+        return (
+            left.type === "LogicalExpression" ||
+            right.type === "LogicalExpression" ||
+            left.type === "BinaryExpression" ||
+            right.type === "BinaryExpression"
+        );
+    }
+
+    if (logicalExpression.operator === "||") {
+        return (
+            left.type === "LogicalExpression" ||
+            right.type === "LogicalExpression" ||
+            left.type === "BinaryExpression" ||
+            right.type === "BinaryExpression"
+        );
+    }
+
+    return false;
+}
+
+function getNodeRange(node: unknown): SourceTextRange | null {
+    const nodeStart = Core.getNodeStartIndex(node as any);
+    const nodeEnd = Core.getNodeEndIndex(node as any);
+    if (
+        typeof nodeStart !== "number" ||
+        typeof nodeEnd !== "number" ||
+        !Number.isFinite(nodeStart) ||
+        !Number.isFinite(nodeEnd) ||
+        nodeEnd <= nodeStart
+    ) {
+        return null;
+    }
+
+    return Object.freeze({
+        start: nodeStart,
+        end: nodeEnd
+    });
+}
+
+function isRangeInsideAnyRange(range: SourceTextRange, existingRanges: ReadonlyArray<SourceTextRange>): boolean {
+    return existingRanges.some((existingRange) => {
+        return range.start >= existingRange.start && range.end <= existingRange.end;
+    });
 }
 
 function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
@@ -54,83 +349,80 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
     return Object.freeze({
         meta: createMeta(definition),
         create(context) {
+            const rewrittenNodeRanges: SourceTextRange[] = [];
+
             return Object.freeze({
-                // Using a broad selector or Program traversal
-                // We'll iterate over nodes that are candidates for simplification.
-                // Candidates: LogicalExpression, UnaryExpression (!), IfStatement.
-
-                "LogicalExpression, UnaryExpression[operator='!'], IfStatement"(node: any) {
-                    // We need to be careful not to process nodes that are parts of already processed nodes?
-                    // ESLint traverses top-down usually.
-                    // But if we modify a child, the parent might have been visited.
-
-                    // Helper to check if simplification is possible without mutating yet.
-                    // Actually `applyLogicalNormalization` mutates.
-
-                    // Let's create a "check and fix" approach.
-                    // Copy the node.
+                "BlockStatement, LogicalExpression, BinaryExpression, UnaryExpression[operator='!'], IfStatement"(
+                    node: any
+                ) {
                     const originalNode = node;
-                    const nodeStart = Core.getNodeStartIndex(originalNode);
-                    const nodeEnd = Core.getNodeEndIndex(originalNode);
+                    const nodeRange = getNodeRange(originalNode);
+                    if (!nodeRange) {
+                        return;
+                    }
+
+                    if (isRangeInsideAnyRange(nodeRange, rewrittenNodeRanges)) {
+                        return;
+                    }
+
+                    const fullSourceText = context.sourceCode.text;
+                    const sourceText = fullSourceText.slice(nodeRange.start, nodeRange.end);
+
                     if (
-                        typeof nodeStart !== "number" ||
-                        typeof nodeEnd !== "number" ||
-                        !Number.isFinite(nodeStart) ||
-                        !Number.isFinite(nodeEnd) ||
-                        nodeEnd <= nodeStart
+                        (originalNode.type === "BlockStatement" ||
+                            originalNode.type === "LogicalExpression" ||
+                            originalNode.type === "BinaryExpression" ||
+                            originalNode.type === "UnaryExpression") &&
+                        !containsLogicalNormalizationSignal(sourceText)
                     ) {
                         return;
                     }
 
-                    const cloned = Core.cloneAstNode(node) as any;
+                    if (originalNode.type === "IfStatement" && !canIfStatementBenefitFromNormalization(originalNode)) {
+                        return;
+                    }
 
-                    // Function to run ONE step of simplification on this node only.
-                    // My `applyLogicalNormalization` runs recursively.
-                    // I should probably expose `simplifyNode` logic separately?
-                    // Or just use `applyLogicalNormalization` on the cloned node and compare?
+                    if (
+                        originalNode.type === "UnaryExpression" &&
+                        !canUnaryExpressionBenefitFromNormalization(originalNode)
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        originalNode.type === "LogicalExpression" &&
+                        !canLogicalExpressionBenefitFromNormalization(originalNode)
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        originalNode.type === "BinaryExpression" &&
+                        !canLogicalExpressionBenefitFromNormalization(originalNode)
+                    ) {
+                        return;
+                    }
+
+                    const cloned = cloneAstNodeWithoutTraversalLinks(node);
+                    if (!cloned) {
+                        return;
+                    }
 
                     const normalizationResult = applyLogicalNormalizationWithChangeMetadata(cloned);
                     if (!normalizationResult.changed) {
                         return;
                     }
 
-                    // Compare printed version of original vs cloned.
-                    const sourceText = context.sourceCode.text.slice(nodeStart, nodeEnd);
-                    const newText = printExpression(normalizationResult.ast, context.sourceCode.text);
-
-                    // Check if changed.
-                    // Note: `printExpression` might output different whitespace than source even if AST is same.
-                    // This is risky.
-
-                    // Better approach:
-                    // Implement specific checks here instead of relying on `applyLogicalNormalization` generic pass.
-                    // Or trust `printExpression` to be close enough?
-
-                    // `printExpression` outputs minimal spacing.
-                    // `sourceText` has original spacing.
-                    // If I normalize `sourceText` (remove extra space) and compare?
-
-                    // If I detect a standard change pattern (e.g. `!(!A)` -> `A`), I can just verify the AST structure change.
-
-                    // Let's try to detect if `cloned` is structurally different (type changed, operator changed, children changed).
-                    // But deep comparison is hard.
-
-                    // Given the timeframe, I will rely on `applyLogicalNormalization` but restricts it to 1 pass or shallow check?
-                    // `applyLogicalNormalization` is iterative (up to 10 passes).
-
-                    // Let's try:
-                    // 1. Clone node.
-                    // 2. Run normalization.
-                    // 3. Print normalized node.
-                    // 4. If normalized != original (ignoring whitespace?), report fix.
+                    const newText = printNodeForAutofix(normalizationResult.ast, fullSourceText);
 
                     if (normalizeWhitespaceForComparison(sourceText) !== normalizeWhitespaceForComparison(newText)) {
-                        // It changed!
+                        rewrittenNodeRanges.push(nodeRange);
+
                         context.report({
-                            loc: resolveSafeNodeLoc(context, originalNode),
-                            messageId: definition.messageId, // "optimizeLogicalFlow"
+                            loc: resolveSafeNodeLoc(context, originalNode as unknown),
+                            messageId: definition.messageId,
                             fix(fixer) {
-                                return fixer.replaceTextRange([nodeStart, nodeEnd], newText);
+                                return fixer.replaceTextRange([nodeRange.start, nodeRange.end], newText);
                             }
                         });
                     }

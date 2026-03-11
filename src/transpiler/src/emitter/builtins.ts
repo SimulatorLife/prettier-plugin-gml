@@ -1,7 +1,5 @@
 import * as Core from "@gml-modules/core";
 
-export type BuiltInEmitter = (args: ReadonlyArray<string>) => string;
-
 /**
  * Lazy-loaded set of builtin function names.
  *
@@ -32,45 +30,7 @@ function emitBuiltinCall(name: string, args: ReadonlyArray<string>): string {
 }
 
 /**
- * Proxy object that lazily checks if a name is a builtin and emits the call.
- *
- * This object behaves like the old `Record<string, BuiltInEmitter>` but
- * doesn't pre-allocate entries. Instead, property access triggers a
- * runtime lookup against the cached name Set.
- *
- * **DEPRECATED for internal use**: New code should call `isBuiltinFunction`
- * and `emitBuiltinFunction` directly rather than indexing this proxy. The proxy
- * exists only for backward compatibility with existing emitter code that
- * expects `builtInFunctions[name]`.
- */
-export const builtInFunctions: Record<string, BuiltInEmitter> = new Proxy({} as Record<string, BuiltInEmitter>, {
-    get(_target, prop: string): BuiltInEmitter | undefined {
-        const builtins = getBuiltinNames();
-        return builtins.has(prop) ? (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args) : undefined;
-    },
-    has(_target, prop: string): boolean {
-        return getBuiltinNames().has(prop);
-    },
-    ownKeys(): ArrayLike<string | symbol> {
-        return Array.from(getBuiltinNames());
-    },
-    getOwnPropertyDescriptor(_target, prop: string): PropertyDescriptor | undefined {
-        const builtins = getBuiltinNames();
-        return builtins.has(prop)
-            ? {
-                  enumerable: true,
-                  configurable: true,
-                  writable: false,
-                  value: (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args)
-              }
-            : undefined;
-    }
-});
-
-/**
  * Check if a given name is a known GameMaker builtin function.
- *
- * Prefer this over indexing `builtInFunctions[name]` for new code.
  */
 export function isBuiltinFunction(name: string): boolean {
     return getBuiltinNames().has(name);
@@ -78,8 +38,6 @@ export function isBuiltinFunction(name: string): boolean {
 
 /**
  * Emit a builtin function call.
- *
- * Prefer this over `builtInFunctions[name](args)` for new code.
  */
 export function emitBuiltinFunction(name: string, args: ReadonlyArray<string>): string {
     return emitBuiltinCall(name, args);

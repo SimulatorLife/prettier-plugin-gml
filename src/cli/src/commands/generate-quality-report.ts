@@ -12,6 +12,7 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { ParseResultStatus, ScanStatus, TestCaseStatus } from "../modules/quality-report/index.js";
 import { formatByteSizeDisplay } from "../shared/byte-format.js";
+import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
 
 const {
     assertArray,
@@ -260,42 +261,15 @@ function normalizeResultDirectories(candidateDirs, workspaceRoot) {
     });
 }
 
-function traverseDirectoryEntries(root, options) {
-    if (!fs.existsSync(root)) {
-        return;
-    }
-    const stack = [root];
-    while (stack.length > 0) {
-        const current = stack.pop();
-        let entries;
-        try {
-            entries = fs.readdirSync(current, { withFileTypes: true });
-        } catch {
-            continue;
-        }
-
-        for (const entry of entries) {
-            if (entry.name === "." || entry.name === "..") {
-                continue;
-            }
-            const fullPath = path.join(current, entry.name);
-            if (entry.isDirectory()) {
-                if (!options.shouldDescend || options.shouldDescend(fullPath, entry)) {
-                    stack.push(fullPath);
-                }
-                continue;
-            }
-            options.onFile(fullPath, entry);
-        }
-    }
-}
-
 function listFilesRecursive(root) {
     const files = [];
     traverseDirectoryEntries(root, {
         onFile: (fullPath) => {
             files.push(fullPath);
-        }
+        },
+        shouldDescend: () => true,
+        continueOnReadError: true,
+        ignoreDotEntries: true
     });
     return files;
 }
@@ -1470,7 +1444,9 @@ function getSourceFiles(dir, fileList = []) {
             if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
                 fileList.push(filePath);
             }
-        }
+        },
+        continueOnReadError: false,
+        ignoreDotEntries: false
     });
     return fileList;
 }
@@ -1482,7 +1458,10 @@ function getBuildSize(dir) {
             if (filePath.endsWith(".js")) {
                 size += fs.statSync(filePath).size;
             }
-        }
+        },
+        shouldDescend: () => true,
+        continueOnReadError: false,
+        ignoreDotEntries: false
     });
     return size;
 }

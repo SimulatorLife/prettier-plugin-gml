@@ -30,13 +30,6 @@ type IntegrationCaseFiles = {
     inputFile?: string;
     outputFile?: string;
 };
-
-const allCapabilities = new Set([
-    "IDENTIFIER_OCCUPANCY",
-    "IDENTIFIER_OCCURRENCES",
-    "LOOP_HOIST_NAME_RESOLUTION",
-    "RENAME_CONFLICT_PLANNING"
-]);
 const allGmlRuleLevels = Object.freeze(
     Object.fromEntries(
         Object.values(Lint.ruleIds)
@@ -47,47 +40,6 @@ const allGmlRuleLevels = Object.freeze(
 
 const integrationDefaultLintRules: Readonly<Record<string, Linter.RuleEntry>> = Object.freeze({
     ...allGmlRuleLevels
-});
-
-function resolveLoopHoistIdentifierForIntegration(
-    preferredName: string,
-    localIdentifierNames: ReadonlySet<string>
-): string | null {
-    if (preferredName.length === 0) {
-        return null;
-    }
-
-    if (!localIdentifierNames.has(preferredName)) {
-        return preferredName;
-    }
-
-    for (let suffix = 1; suffix <= 1000; suffix += 1) {
-        const candidate = `${preferredName}_${suffix}`;
-        if (!localIdentifierNames.has(candidate)) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
-
-const integrationProjectContext = Object.freeze({
-    capabilities: allCapabilities,
-    isIdentifierNameOccupiedInProject: () => false,
-    listIdentifierOccurrenceFiles: () => new Set<string>(),
-    planFeatherRenames: (requests: ReadonlyArray<{ identifierName: string; preferredReplacementName: string }>) =>
-        requests.map((request) => ({
-            identifierName: request.identifierName,
-            preferredReplacementName: request.preferredReplacementName,
-            safe: true,
-            reason: null
-        })),
-    resolveLoopHoistIdentifier: resolveLoopHoistIdentifierForIntegration,
-    assessGlobalVarRewrite: () =>
-        Object.freeze({
-            allowRewrite: true,
-            reason: null
-        })
 });
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
@@ -242,14 +194,7 @@ function createIntegrationLint(ruleOverrides: Readonly<Record<string, Linter.Rul
                     feather: Lint.featherPlugin
                 },
                 language: "gml/gml",
-                rules: resolvedRules,
-                settings: {
-                    gml: {
-                        project: {
-                            getContext: () => integrationProjectContext
-                        }
-                    }
-                }
+                rules: resolvedRules
             }
         ]
     });
