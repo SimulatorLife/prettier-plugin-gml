@@ -60,9 +60,9 @@ export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
 
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
+    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8}\S+/u.test(source);
     if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
+        result = result.replace(/([^\n]\n)(\/{8}\S+)/u, "$1\n$2");
     }
 
     const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
