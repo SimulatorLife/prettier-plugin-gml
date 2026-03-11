@@ -238,7 +238,8 @@ export function buildDocumentedParamNameLookup(
             return;
         }
 
-        const names = extractDocumentedParamNames(node, comments, sourceText);
+        const mutableNode = node as MutableGameMakerAstNode;
+        const names = extractDocumentedParamNames(mutableNode, comments, sourceText);
 
         if (names.length === 0) {
             return;
@@ -247,9 +248,9 @@ export function buildDocumentedParamNameLookup(
         const orderedNames = [...names].reverse();
 
         // Store as Set for compatibility, but keep a stable array for ordered lookups.
-        node._documentedParamNamesOrdered = orderedNames;
+        mutableNode._documentedParamNamesOrdered = orderedNames;
 
-        registry.set(node as MutableGameMakerAstNode, new Set(names));
+        registry.set(mutableNode, new Set(names));
     });
 
     return registry;
