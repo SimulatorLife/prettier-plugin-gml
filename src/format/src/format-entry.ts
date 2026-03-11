@@ -42,20 +42,16 @@ function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, 
     );
 }
 
-function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
-    const coreOptionOverrides = resolveCoreOptionOverrides();
-    const formatOptionDefaults = extractOptionDefaults(formatOptions);
+const coreOptionOverrides = resolveCoreOptionOverrides();
+const formatOptionDefaults = extractOptionDefaults(formatOptions);
 
-    return {
-        // Merge order:
-        // GML Prettier defaults -> option defaults -> fixed overrides
-        ...BASE_PRETTIER_DEFAULTS,
-        ...formatOptionDefaults,
-        ...coreOptionOverrides
-    };
-}
-
-export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
+export const defaultOptions: GmlFormatDefaultOptions = Object.freeze({
+    // Merge order:
+    // GML Prettier defaults -> option defaults -> fixed overrides
+    ...BASE_PRETTIER_DEFAULTS,
+    ...formatOptionDefaults,
+    ...coreOptionOverrides
+});
 
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
