@@ -386,6 +386,7 @@ export class GmlToJsEmitter {
 
     private visitCallExpression(ast: CallExpressionNode): string {
         const kind = this.callTargetAnalyzer.callTargetKind(ast);
+        const argsList = this.joinArguments(ast.arguments);
 
         // Fast path: builtin functions
         if (kind === "builtin") {
@@ -396,15 +397,13 @@ export class GmlToJsEmitter {
             }
         }
 
-        const callee = this.visit(ast.object);
-        const argsList = this.joinArguments(ast.arguments);
-
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
-            const scriptId = scriptSymbol ?? this.resolveIdentifierName(ast.object) ?? callee;
+            const scriptId = scriptSymbol ?? this.resolveIdentifierName(ast.object) ?? this.visit(ast.object);
             return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
         }
 
+        const callee = this.visit(ast.object);
         return `${callee}(${argsList})`;
     }
 

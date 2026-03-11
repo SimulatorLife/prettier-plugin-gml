@@ -101,3 +101,35 @@ void test("feather namespace rule IDs are strictly feather/gm#### only", () => {
         assert.match(shortName, /^gm\d{4}$/u, `Unexpected feather rule short name: ${shortName}`);
     }
 });
+
+void test("Lint namespace does not expose internal doc-comment implementation helpers (target-state.md §2.3)", () => {
+    // Internal doc-comment helpers must be imported directly from the
+    // doc-comment module (src/lint/src/doc-comment/*.ts) rather than leaked
+    // through the public Lint namespace.  The public surface is intentionally
+    // limited to: plugin, featherPlugin, configs, ruleIds, services.
+    const forbiddenExports = [
+        "collectSyntheticDocCommentLines",
+        "collectLeadingProgramLineComments",
+        "collectAdjacentLeadingSourceLineComments",
+        "extractLeadingNonDocCommentLines",
+        "resolveDocCommentTraversalService",
+        "resolveDocCommentCollectionService",
+        "resolveDocCommentPresenceService",
+        "resolveDocCommentDescriptionService",
+        "resolveDocCommentUpdateService",
+        "buildDocumentedParamNameLookup",
+        "extractDocumentedParamNames",
+        "mergeSyntheticDocComments",
+        "computeSyntheticFunctionDocLines",
+        "convertLegacyReturnsDescriptionLinesToMetadata",
+        "Malformed"
+    ];
+
+    for (const name of forbiddenExports) {
+        assert.equal(
+            name in Lint,
+            false,
+            `Lint must not expose internal helper '${name}'; use a direct import from the doc-comment module instead (target-state.md §2.3)`
+        );
+    }
+});

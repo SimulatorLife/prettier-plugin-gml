@@ -1791,11 +1791,12 @@ export class ScopeTracker {
         }
 
         const paths = new Set<string>();
-        for (const scope of this.scopesById.values()) {
-            if (scope.lastModifiedTimestamp > sinceTimestamp) {
-                const path = scope.metadata.path;
-                if (path) {
-                    paths.add(this.normalizeTrackedPath(path));
+        for (const [trackedPath, scopeIds] of this.pathToScopesIndex) {
+            for (const scopeId of scopeIds) {
+                const scope = this.scopesById.get(scopeId);
+                if (scope && scope.lastModifiedTimestamp > sinceTimestamp) {
+                    paths.add(trackedPath);
+                    break;
                 }
             }
         }

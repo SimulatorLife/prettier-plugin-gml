@@ -71,7 +71,7 @@ function simplifyNode(node: any): boolean {
     if (node.type === "UnaryExpression" && node.operator === "!") {
         return simplifyNot(node);
     }
-    if (node.type === "LogicalExpression") {
+    if (isLogicalBinaryNode(node)) {
         return simplifyLogical(node);
     }
 
@@ -82,6 +82,22 @@ function simplifyNode(node: any): boolean {
         return simplifyStatementList(node.body);
     }
     return false;
+}
+
+function isLogicalOperator(operator: unknown): boolean {
+    return operator === "&&" || operator === "||";
+}
+
+function isLogicalBinaryNode(node: any): boolean {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type !== "LogicalExpression" && node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    return isLogicalOperator(node.operator);
 }
 
 function simplifyStatementList(body: any[]): boolean {
@@ -115,14 +131,15 @@ function simplifyIfStatement(node: any): boolean {
     // 1. if (cond) return true; else return false; -> return cond;
     // 2. if (cond) return false; else return true; -> return !cond;
 
-    // Check structure: has consequent and alternate
-    if (!node.consequent || !node.alternate) return false;
+    if (!node.consequent) {
+        return false;
+    }
 
     // Normalize blocks to single statements if they contain only one statement
     const consequent = unwrapBlock(node.consequent);
-    const alternate = unwrapBlock(node.alternate);
+    const alternate = node.alternate ? unwrapBlock(node.alternate) : null;
 
-    if (consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
+    if (alternate && consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
         const consArg = consequent.argument;
         const altArg = alternate.argument;
 
@@ -138,15 +155,11 @@ function simplifyIfStatement(node: any): boolean {
     }
 
     // 3. if (cond) x = A; else x = B; -> x = cond ? A : B;
-    if (consequent.type === "ExpressionStatement" && alternate.type === "ExpressionStatement") {
-        const consExp = consequent.expression;
-        const altExp = alternate.expression;
+    if (alternate) {
+        const consExp = getAssignmentExpressionFromStatementLikeNode(consequent);
+        const altExp = getAssignmentExpressionFromStatementLikeNode(alternate);
 
-        if (
-            consExp.type === "AssignmentExpression" &&
-            altExp.type === "AssignmentExpression" && // Check if targets valid (same identifier/member expression)
-            nodesRecursiveEqual(consExp.left, altExp.left)
-        ) {
+        if (consExp && altExp && nodesRecursiveEqual(consExp.left, altExp.left)) {
             // x = cond ? A : B;
             const conditional = {
                 type: "ConditionalExpression",
@@ -173,37 +186,60 @@ function simplifyIfStatement(node: any): boolean {
 
     // 4. if (is_undefined(x)) x = y; -> x ??= y;
     // 5. if (x == undefined) x = y; -> x ??= y;
-    if (
-        !node.alternate && // if (cond) stmt;
-        consequent.type === "ExpressionStatement"
-    ) {
-        const assignment = consequent.expression;
-        if (assignment.type === "AssignmentExpression" && assignment.operator === "=") {
-            const target = assignment.left;
-            const value = assignment.right;
+    if (!node.alternate) {
+        const assignment = getAssignmentExpressionFromStatementLikeNode(consequent);
+        if (!assignment || assignment.operator !== "=") {
+            return false;
+        }
 
-            // Check condition: is_undefined(x) or x == undefined
-            if (isUndefinedCheck(node.test, target)) {
-                // x ??= value;
-                const coalesceAssign = {
-                    type: "AssignmentExpression",
-                    operator: "??=",
-                    left: target,
-                    right: value
-                };
-                const statement = {
-                    type: "ExpressionStatement",
-                    expression: coalesceAssign,
-                    start: node.start,
-                    end: node.end
-                };
-                replaceNode(node, statement);
-                return true;
-            }
+        const target = assignment.left;
+        const value = assignment.right;
+
+        // Check condition: is_undefined(x) or x == undefined
+        if (isUndefinedCheck(node.test, target)) {
+            // x ??= value;
+            const coalesceAssign = {
+                type: "AssignmentExpression",
+                operator: "??=",
+                left: target,
+                right: value
+            };
+            const statement = {
+                type: "ExpressionStatement",
+                expression: coalesceAssign,
+                start: node.start,
+                end: node.end
+            };
+            replaceNode(node, statement);
+            return true;
         }
     }
 
     return false;
+}
+
+function getAssignmentExpressionFromStatementLikeNode(node: any): any {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "AssignmentExpression") {
+        return node;
+    }
+
+    if (node.type !== "ExpressionStatement") {
+        return null;
+    }
+
+    if (!node.expression || typeof node.expression !== "object") {
+        return null;
+    }
+
+    if (node.expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    return node.expression;
 }
 
 function resolveBooleanReturnNegation(firstValue: boolean | null, secondValue: boolean | null): boolean | null {
@@ -254,11 +290,22 @@ function unwrapBlock(node: any): any {
 }
 
 function isUndefinedCheck(condition: any, target: any): boolean {
+    while (condition && condition.type === "ParenthesizedExpression") {
+        condition = condition.expression;
+    }
+
+    if (!condition || typeof condition !== "object") {
+        return false;
+    }
+
+    const callee = condition?.callee ?? condition?.object;
+
     // is_undefined(target)
     if (
         condition.type === "CallExpression" &&
-        condition.callee.type === "Identifier" &&
-        condition.callee.name === "is_undefined" &&
+        callee &&
+        callee.type === "Identifier" &&
+        callee.name === "is_undefined" &&
         condition.arguments.length === 1
     ) {
         return nodesRecursiveEqual(condition.arguments[0], target);
@@ -266,18 +313,21 @@ function isUndefinedCheck(condition: any, target: any): boolean {
 
     // target == undefined
     if (condition.type === "BinaryExpression" && condition.operator === "==") {
-        if (
-            nodesRecursiveEqual(condition.left, target) &&
-            condition.right.type === "Identifier" &&
-            condition.right.name === "undefined"
-        ) {
+        const leftUndefined =
+            condition.left &&
+            ((condition.left.type === "Identifier" && condition.left.name === "undefined") ||
+                (condition.left.type === "Literal" &&
+                    (condition.left.value === undefined || condition.left.value === "undefined")));
+        const rightUndefined =
+            condition.right &&
+            ((condition.right.type === "Identifier" && condition.right.name === "undefined") ||
+                (condition.right.type === "Literal" &&
+                    (condition.right.value === undefined || condition.right.value === "undefined")));
+
+        if (nodesRecursiveEqual(condition.left, target) && rightUndefined) {
             return true;
         }
-        if (
-            nodesRecursiveEqual(condition.right, target) &&
-            condition.left.type === "Identifier" &&
-            condition.left.name === "undefined"
-        ) {
+        if (nodesRecursiveEqual(condition.right, target) && leftUndefined) {
             return true;
         }
     }
@@ -319,7 +369,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A || B) -> !A && !B
-    if (argument.type === "LogicalExpression" && argument.operator === "||") {
+    if (isLogicalBinaryNode(argument) && argument.operator === "||") {
         // Create (!A) && (!B)
         const left = argument.left;
         const right = argument.right;
@@ -346,7 +396,7 @@ function simplifyNot(node: any): boolean {
         };
 
         const newLogical = {
-            type: "LogicalExpression",
+            type: argument.type,
             operator: "&&",
             left: newLeft,
             right: newRight,
@@ -360,7 +410,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A && B) -> !A || !B
-    if (argument.type === "LogicalExpression" && argument.operator === "&&") {
+    if (isLogicalBinaryNode(argument) && argument.operator === "&&") {
         const left = argument.left;
         const right = argument.right;
 
@@ -383,7 +433,7 @@ function simplifyNot(node: any): boolean {
         };
 
         const newLogical = {
-            type: "LogicalExpression",
+            type: argument.type,
             operator: "||",
             left: newLeft,
             right: newRight,
@@ -467,7 +517,7 @@ function simplifyLogical(node: any): boolean {
 
     if (
         node.operator === "||" &&
-        right.type === "LogicalExpression" &&
+        isLogicalBinaryNode(right) &&
         right.operator === "&&" &&
         nodesAreEqual(left, right.left)
     ) {
@@ -478,7 +528,7 @@ function simplifyLogical(node: any): boolean {
 
     if (
         node.operator === "&&" &&
-        right.type === "LogicalExpression" &&
+        isLogicalBinaryNode(right) &&
         right.operator === "||" &&
         nodesAreEqual(left, right.left)
     ) {
@@ -490,15 +540,15 @@ function simplifyLogical(node: any): boolean {
     // Distributive / Shared Term: (A && B) || (A && C) -> A && (B || C)
     if (
         node.operator === "||" &&
-        left.type === "LogicalExpression" &&
+        isLogicalBinaryNode(left) &&
         left.operator === "&&" &&
-        right.type === "LogicalExpression" &&
+        isLogicalBinaryNode(right) &&
         right.operator === "&&"
     ) {
         // (A && B) || (A && C) -> A && (B || C)
         if (nodesAreEqual(left.left, right.left)) {
             const newRight = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "||",
                 left: left.right,
                 right: right.right,
@@ -506,7 +556,7 @@ function simplifyLogical(node: any): boolean {
                 end: right.end
             };
             const newRoot = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: left.left,
                 right: newRight,
@@ -520,7 +570,7 @@ function simplifyLogical(node: any): boolean {
         // (B && A) || (C && A) -> (B || C) && A
         if (nodesAreEqual(left.right, right.right)) {
             const newLeft = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "||",
                 left: left.left,
                 right: right.left,
@@ -528,7 +578,7 @@ function simplifyLogical(node: any): boolean {
                 end: left.end
             };
             const newRoot = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: newLeft,
                 right: left.right,
@@ -580,17 +630,14 @@ function simplifyLogical(node: any): boolean {
         if (A && B && notA && notB && nodesAreEqual(A, notA.argument) && nodesAreEqual(B, notB.argument)) {
             // Construct (A || B) && !(A && B)
             const orPart = {
-                type: "BinaryExpression", // LogicalExpression in some usages, but GML printer handles both
+                type: node.type,
                 operator: "||",
                 left: A,
                 right: B
             };
-            // Make sure to use proper types for your printer.
-            // Assuming LogicalExpression for ||, &&
-            (orPart as any).type = "LogicalExpression";
 
             const andPart = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: A,
                 right: B
@@ -604,7 +651,7 @@ function simplifyLogical(node: any): boolean {
             };
 
             const finalExpr = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: orPart,
                 right: notAndPart,
@@ -634,9 +681,24 @@ function areNegations(node1: any, node2: any): boolean {
 }
 
 function getBooleanValue(node: any): boolean | undefined {
-    if (node.type === "Literal" && typeof node.value === "boolean") {
+    if (node.type !== "Literal") {
+        return undefined;
+    }
+
+    if (typeof node.value === "boolean") {
         return node.value;
     }
+
+    if (typeof node.value === "string") {
+        if (node.value === "true") {
+            return true;
+        }
+
+        if (node.value === "false") {
+            return false;
+        }
+    }
+
     return undefined;
 }
 

@@ -291,6 +291,88 @@ void test("normalize-doc-comments converts legacy returns description text to @r
     assertEquals(result.output, expected);
 });
 
+void test("normalize-doc-comments repairs malformed optional @param defaults while preserving descriptions", () => {
+    const input = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=[CM.MASK]]]]]]]]]]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @param cylinder",
+        "/// @param collider",
+        "/// @param [mask=collider[CM.MASK]] Optional collision mask override",
+        "/// @returns {any}",
+        "function cm_cylinder_check(cylinder, collider, mask = collider[CM.MASK]) {",
+        "    return mask;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-doc-comments normalizes malformed csv docs while preserving parameter descriptions", () => {
+    const input = [
+        "// / Decodes an CSV string and outputs a 2D array",
+        "// /",
+        "/// @returns 2D array that represents the contents of the CSV string",
+        "// /",
+        "// / @param string              The CSV string to be decoded",
+        "/// @param [cellDelimiter]     Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma",
+        "/// @param [stringDelimiter]   Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote",
+        "// /",
+        "/// @jujuadams 2020-06-28",
+        "",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Decodes an CSV string and outputs a 2D array",
+        "/// @jujuadams 2020-06-28",
+        "/// @param csv_string The CSV string to be decoded",
+        '/// @param [cell_delimiter=","] Character to use to indicate where cells start and end. First 127 ASCII chars only. Defaults to a comma',
+        String.raw`/// @param [string_delimiter="\""] Character to use to indicate where strings start and end. First 127 ASCII chars only. Defaults to a double quote`,
+        "/// @returns 2D array that represents the contents of the CSV string",
+        String.raw`function __input_csv_to_array(_csv_string, _cell_delimiter = ",", _string_delimiter = "\"") {`,
+        "    // ...",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-doc-comments converts legacy returns description text to @returns metadata", () => {
+    const input = [
+        "/// Summary",
+        "/// Returns: Boolean, indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "/// @description Summary",
+        "/// @returns {Boolean} Indicating if check passed",
+        "function demo() {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-doc-comments synthesizes concrete and undefined @returns metadata", () => {
     const input = [
         "function no_return() {",
@@ -1006,6 +1088,65 @@ void test("require-control-flow-braces rewrites legacy then inline if clauses", 
     assertEquals(result.output.split("}").length - 1, 2);
 });
 
+void test("require-control-flow-braces rewrites legacy call-style if clauses without then", () => {
+    const input = ["if should_exit() return;", ""].join("\n");
+    const expected = ["if (should_exit()) {", "    return;", "}", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline while/for/with statements", () => {
+    const input = ["while (alive) tick();", "for (var i = 0; i < 10; i++) sum += i;", "with (other) hp -= 1;", ""].join(
+        "\n"
+    );
+    const expected = [
+        "while (alive) {",
+        "    tick();",
+        "}",
+        "for (var i = 0; i < 10; i++) {",
+        "    sum += i;",
+        "}",
+        "with (other) {",
+        "    hp -= 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps line-only else branches without rewriting else-if chains", () => {
+    const input = ["if (a > b)", '    draw_text(x, y, "ok");', "else", "    do_other();", ""].join("\n");
+    const expected = ["if (a > b) {", '    draw_text(x, y, "ok");', "}", "else {", "    do_other();", "}", ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces wraps inline do-until clauses", () => {
+    const input = ["do step(); until (done);", ""].join("\n");
+    const expected = ["do {", "    step();", "} until (done);", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("require-control-flow-braces preserves already braced inline conditions with nested call parentheses", () => {
+    const input = [
+        "while (keyboard_check(vk_space)) { hold_jump(); }",
+        "if (keyboard_check(vk_escape)) { x += 10; } else { x -= 10; }",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
 void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
@@ -1038,6 +1179,12 @@ void test("optimize-math-expressions folds lengthdir_x half-subtraction pattern 
 
     const result = lintWithRule("optimize-math-expressions", input, {});
     assertEquals(result.output, expected);
+});
+
+void test("optimize-math-expressions does not force the lengthdir half-difference canonicalization on unrelated subtraction patterns", () => {
+    const input = ["var s = size * 0.104;", "s = s * 0.5 - lengthdir_x(1, swim_rot);", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+    assertEquals(result.output, input);
 });
 
 void test("optimize-math-expressions keeps non-math expressions unchanged", () => {
@@ -1373,7 +1520,15 @@ void test("require-control-flow-braces does not reinterpret already braced heade
     assertEquals(result.output, input);
 });
 
-void test("optimize-logical-flow removes double negation without collapsing if/return patterns", () => {
+void test("require-control-flow-braces preserves already braced single-line repeat bodies", () => {
+    const input = ["repeat (3) { already_repeat_braced(); }", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("optimize-logical-flow collapses boolean passthrough if/return patterns", () => {
     const input = [
         "function bool_passthrough(condition) {",
         "    if (!!condition) {",
@@ -1385,24 +1540,43 @@ void test("optimize-logical-flow removes double negation without collapsing if/r
         ""
     ].join("\n");
 
-    const expected = [
-        "function bool_passthrough(condition) {",
-        "    if (condition) {",
-        "        return true;",
-        "    }",
-        "",
-        "    return false;",
-        "}",
-        ""
-    ].join("\n");
+    const expected = ["function bool_passthrough(condition) {", "    return condition;", "}", ""].join("\n");
 
     const result = lintWithRule("optimize-logical-flow", input, {});
     assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
     assertEquals(
         result.output,
         expected,
-        "optimize-logical-flow should remove !! but not collapse the if/return pattern"
+        "optimize-logical-flow should reduce a boolean passthrough branch to a direct return"
     );
+});
+
+void test("optimize-logical-flow rewrites both undefined guard forms to ??=", () => {
+    const input = [
+        "function ensure_cache(cache_entry) {",
+        "    if (is_undefined(cache_entry)) {",
+        "        cache_entry = ds_map_create();",
+        "    }",
+        "",
+        "    if (cache_entry == undefined) {",
+        "        cache_entry = ds_map_create();",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const expected = [
+        "function ensure_cache(cache_entry) {",
+        "    cache_entry ??= ds_map_create();",
+        "",
+        "    cache_entry ??= ds_map_create();",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
+    assertEquals(result.output, expected);
 });
 
 void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {

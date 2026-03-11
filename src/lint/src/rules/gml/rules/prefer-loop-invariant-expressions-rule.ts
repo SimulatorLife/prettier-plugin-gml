@@ -55,6 +55,11 @@ type ParentVisitContext = Readonly<{
     parentKey: string | null;
 }>;
 
+type LoopReplacementTarget = Readonly<{
+    expressionStart: number;
+    expressionEnd: number;
+}>;
+
 type CommentTokenRangeIndex = Readonly<{
     prefixCounts: Uint32Array;
     sourceLength: number;
@@ -84,9 +89,79 @@ const NON_DETERMINISTIC_IDENTIFIER_NAMES = new Set<string>([
 ]);
 
 const SAFE_INDEX_ACCESSORS = new Set<string>(["[", "[@"]);
+const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
+const GENERATED_HOIST_IDENTIFIER_PATTERN = /^cached_(?:value|condition|text)(?:_\d+)?$/u;
 
 function normalizeIdentifierName(identifierName: string): string {
     return Core.toNormalizedLowerCaseString(identifierName);
+}
+
+function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    if (left === right) {
+        return true;
+    }
+
+    if (left === null || right === null) {
+        return false;
+    }
+
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+
+        for (const [index, element] of left.entries()) {
+            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    if (typeof left !== typeof right) {
+        return false;
+    }
+
+    if (typeof left !== "object" || typeof right !== "object") {
+        return false;
+    }
+
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+
+    for (const [leftKey, leftValue] of Object.entries(leftRecord)) {
+        if (IGNORED_AST_METADATA_KEYS.has(leftKey)) {
+            continue;
+        }
+
+        if (!(leftKey in rightRecord)) {
+            return false;
+        }
+
+        if (!areExpressionNodesEquivalentIgnoringParentheses(leftValue, rightRecord[leftKey])) {
+            return false;
+        }
+    }
+
+    for (const rightKey of Object.keys(rightRecord)) {
+        if (IGNORED_AST_METADATA_KEYS.has(rightKey)) {
+            continue;
+        }
+
+        if (!(rightKey in leftRecord)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    return areAstValuesEquivalentIgnoringParentheses(
+        unwrapParenthesizedExpression(left),
+        unwrapParenthesizedExpression(right)
+    );
 }
 
 function isCommentTokenBoundary(sourceText: string, index: number): boolean {
@@ -140,6 +215,10 @@ function isLoopNode(node: unknown): node is LoopNode {
 
 function isIdentifierNode(node: unknown): node is AstNodeRecord & Readonly<{ type: "Identifier"; name: string }> {
     return isAstNodeRecord(node) && node.type === "Identifier" && typeof node.name === "string";
+}
+
+function isGeneratedHoistIdentifierName(identifierName: string): boolean {
+    return GENERATED_HOIST_IDENTIFIER_PATTERN.test(identifierName);
 }
 
 function readIdentifierName(node: unknown): string | null {
@@ -429,6 +508,15 @@ function isDisallowedContextForReplacement(parent: AstNodeWithType | null, paren
     return false;
 }
 
+function shouldSkipGeneratedHoistInitializer(parent: AstNodeWithType | null, parentKey: string | null): boolean {
+    if (parentKey !== "init" || parent?.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    const identifierName = readIdentifierName(parent.id);
+    return identifierName ? isGeneratedHoistIdentifierName(identifierName) : false;
+}
+
 function evaluateTemplateStringExpressionHoistability(
     templateExpression: AstNodeRecord,
     mutationSummary: LoopMutationSummary,
@@ -676,9 +764,9 @@ function findBestLoopCandidate(parameters: {
     commentTokenRangeIndex: CommentTokenRangeIndex;
     loopContext: LoopContainerContext;
     mutationSummary: LoopMutationSummary;
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>;
 }): LoopCandidate | null {
     let bestCandidate: LoopCandidate | null = null;
-    const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
 
     walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
         const { node, parent, parentKey } = visitContext;
@@ -688,6 +776,10 @@ function findBestLoopCandidate(parameters: {
         }
 
         if (isDisallowedContextForReplacement(parent, parentKey)) {
+            return;
+        }
+
+        if (shouldSkipGeneratedHoistInitializer(parent, parentKey)) {
             return;
         }
 
@@ -701,7 +793,7 @@ function findBestLoopCandidate(parameters: {
             return;
         }
 
-        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, assessmentCache);
+        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, parameters.assessmentCache);
         if (!assessment) {
             return;
         }
@@ -741,6 +833,63 @@ function findBestLoopCandidate(parameters: {
     return bestCandidate;
 }
 
+function collectEquivalentLoopReplacementTargets(parameters: {
+    commentTokenRangeIndex: CommentTokenRangeIndex;
+    loopContext: LoopContainerContext;
+    mutationSummary: LoopMutationSummary;
+    targetExpressionNode: AstNodeWithType;
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>;
+}): ReadonlyArray<LoopReplacementTarget> {
+    const replacementTargets: Array<LoopReplacementTarget> = [];
+
+    walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
+        const { node, parent, parentKey } = visitContext;
+
+        if (node.type === "ParenthesizedExpression") {
+            return;
+        }
+
+        if (isDisallowedContextForReplacement(parent, parentKey)) {
+            return;
+        }
+
+        if (shouldSkipGeneratedHoistInitializer(parent, parentKey)) {
+            return;
+        }
+
+        if (!areExpressionNodesEquivalentIgnoringParentheses(node, parameters.targetExpressionNode)) {
+            return;
+        }
+
+        const expressionStart = getNodeStartIndex(node);
+        const expressionEnd = getNodeEndIndex(node);
+        if (
+            typeof expressionStart !== "number" ||
+            typeof expressionEnd !== "number" ||
+            expressionEnd <= expressionStart
+        ) {
+            return;
+        }
+
+        if (rangeContainsCommentToken(parameters.commentTokenRangeIndex, expressionStart, expressionEnd)) {
+            return;
+        }
+
+        if (!evaluateExpressionHoistability(node, parameters.mutationSummary, parameters.assessmentCache)) {
+            return;
+        }
+
+        replacementTargets.push(
+            Object.freeze({
+                expressionStart,
+                expressionEnd
+            })
+        );
+    });
+
+    return replacementTargets;
+}
+
 function resolveUniqueHoistIdentifierName(parameters: {
     preferredName: string;
     localIdentifierNames: ReadonlySet<string>;
@@ -778,10 +927,12 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
 
                     for (const loopContext of loopContexts) {
                         const mutationSummary = collectLoopMutationSummary(loopContext.loopNode);
+                        const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
                         const bestCandidate = findBestLoopCandidate({
                             commentTokenRangeIndex,
                             loopContext,
-                            mutationSummary
+                            mutationSummary,
+                            assessmentCache
                         });
                         if (!bestCandidate) {
                             continue;
@@ -805,10 +956,18 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         }
 
                         const indentation = getLineIndentationAtOffset(sourceText, loopStart);
+                        const declarationInsertionStart = loopStart - indentation.length;
                         const expressionText = sourceText.slice(
                             bestCandidate.expressionStart,
                             bestCandidate.expressionEnd
                         );
+                        const replacementTargets = collectEquivalentLoopReplacementTargets({
+                            commentTokenRangeIndex,
+                            loopContext,
+                            mutationSummary,
+                            targetExpressionNode: bestCandidate.expressionNode,
+                            assessmentCache
+                        });
                         const declarationText =
                             `${indentation}var ${hoistIdentifierName} = ${expressionText};` + `${lineEnding}`;
 
@@ -816,10 +975,15 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                             node: bestCandidate.expressionNode,
                             messageId: definition.messageId,
                             fix: (fixer) => [
-                                fixer.replaceTextRange([loopStart, loopStart], declarationText),
                                 fixer.replaceTextRange(
-                                    [bestCandidate.expressionStart, bestCandidate.expressionEnd],
-                                    hoistIdentifierName
+                                    [declarationInsertionStart, declarationInsertionStart],
+                                    declarationText
+                                ),
+                                ...replacementTargets.map((replacementTarget) =>
+                                    fixer.replaceTextRange(
+                                        [replacementTarget.expressionStart, replacementTarget.expressionEnd],
+                                        hoistIdentifierName
+                                    )
                                 )
                             ]
                         });

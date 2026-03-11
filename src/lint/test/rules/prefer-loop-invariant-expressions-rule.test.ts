@@ -15,6 +15,24 @@ function expectNoAutoFix(input: string): void {
     assertEquals(result.output, input);
 }
 
+function applyRuleUntilStable(input: string): { passCount: number; output: string } {
+    let currentOutput = input;
+
+    for (let passCount = 1; passCount <= 10; passCount += 1) {
+        const result = lintWithRule("prefer-loop-invariant-expressions", currentOutput, {});
+        if (result.messages.length === 0 || result.output === currentOutput) {
+            return {
+                passCount,
+                output: currentOutput
+            };
+        }
+
+        currentOutput = result.output;
+    }
+
+    throw new Error("prefer-loop-invariant-expressions did not stabilize within 10 passes.");
+}
+
 void test("prefer-loop-invariant-expressions hoists repeated constant arithmetic from repeat loops", () => {
     const input = ["repeat (count) {", "    total += 60 * 60;", "}", ""].join("\n");
     const expected = ["var cached_value = 60 * 60;", "repeat (count) {", "    total += cached_value;", "}", ""].join(
@@ -443,6 +461,56 @@ void test("prefer-loop-invariant-expressions keeps generated hoist names unique 
     ].join("\n");
 
     expectAutoFix(input, expected);
+});
+
+void test("prefer-loop-invariant-expressions reuses a single hoist for equivalent expressions across repeated passes", () => {
+    const input = [
+        "repeat (tri_num) {",
+        "    buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "    buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "    buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var cached_value = 8 * 4;",
+        "repeat (tri_num) {",
+        "    buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "    buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "    buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "}",
+        ""
+    ].join("\n");
+
+    const stabilized = applyRuleUntilStable(input);
+    assertEquals(stabilized.output, expected);
+});
+
+void test("prefer-loop-invariant-expressions does not re-hoist generated cache declarations into ancestor loops", () => {
+    const input = [
+        "for (var i = 0; i < 3; i++) {",
+        "    repeat (tri_num) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "for (var i = 0; i < 3; i++) {",
+        "    var cached_value = 8 * 4;",
+        "    repeat (tri_num) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const stabilized = applyRuleUntilStable(input);
+    assertEquals(stabilized.output, expected);
 });
 
 void test("prefer-loop-invariant-expressions skips comment-spanning candidates while hoisting safe alternatives", () => {

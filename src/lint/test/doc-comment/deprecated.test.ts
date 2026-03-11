@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Lint } from "../../src/index.js";
+import {
+    collectDeprecatedFunctionNames,
+    findDeprecatedDocComment,
+    type resolveDocCommentTraversalService
+} from "../../src/doc-comment/index.js";
 
-type DocCommentTraversalService = ReturnType<typeof Lint.resolveDocCommentTraversalService>;
+type DocCommentTraversalService = ReturnType<typeof resolveDocCommentTraversalService>;
 
 function createLegacyFunctionNode() {
     return {
@@ -31,7 +35,7 @@ function collectDeprecatedNames(whitespace: string) {
     const functionNode = createLegacyFunctionNode();
     const traversal = createTraversal(functionNode);
 
-    return Lint.collectDeprecatedFunctionNames(
+    return collectDeprecatedFunctionNames(
         { type: "Program", body: [functionNode], comments: [] },
         whitespace,
         traversal
@@ -57,7 +61,7 @@ void test("findDeprecatedDocComment returns the matching line when whitespace is
         end: 20
     };
 
-    const found = Lint.findDeprecatedDocComment([comment], 30, " ".repeat(120));
+    const found = findDeprecatedDocComment([comment], 30, " ".repeat(120));
 
     assert.strictEqual(found, comment);
 });
@@ -70,7 +74,7 @@ void test("findDeprecatedDocComment ignores comments separated by non-whitespace
         end: 20
     };
 
-    const found = Lint.findDeprecatedDocComment([comment], 30, `${" ".repeat(25)}X${" ".repeat(120)}`);
+    const found = findDeprecatedDocComment([comment], 30, `${" ".repeat(25)}X${" ".repeat(120)}`);
 
     assert.strictEqual(found, null);
 });
