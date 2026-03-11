@@ -43,10 +43,6 @@ const EMPTY_LITERAL_TARGETS = [
     { type: "EnumDeclaration", property: "members" }
 ];
 
-const LEGACY_LINE_DOC_TAG_PATTERN =
-    /^\s*\/\/\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
-const BLOCK_DOC_TAG_PATTERN = /^\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
-
 function attachDanglingCommentToEmptyNode(
     comment: PrinterComment,
     descriptors: Array<{ type: string; property: string }>
@@ -1295,14 +1291,8 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
         originalText: options?.originalText
     });
     const shouldAttachTripleSlashContinuation = shouldAttachDocTripleSlashContinuation(comment, rawText, options);
-    const shouldAttachLegacyLineDocTag = shouldAttachLegacyLineDocTagComment(rawText);
-    const shouldAttachBlockDocTag = shouldAttachBlockDocTagComment(comment);
-
     const shouldAttachAsDocComment =
-        (formatted && formatted.trimStart().startsWith("///")) ||
-        shouldAttachTripleSlashContinuation ||
-        shouldAttachLegacyLineDocTag ||
-        shouldAttachBlockDocTag;
+        (formatted && formatted.trimStart().startsWith("///")) || shouldAttachTripleSlashContinuation;
 
     if (!shouldAttachAsDocComment) {
         return false;
@@ -1312,40 +1302,10 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
         followingNode.docComments = [];
     }
 
-    if (shouldAttachBlockDocTag) {
-        comment._gmlDocText = resolveRawBlockCommentText(comment, options?.originalText);
-    }
-
     followingNode.docComments.push(comment);
     comment._gmlAttachedDocComment = true;
     comment.printed = true;
     return true;
-}
-
-function shouldAttachLegacyLineDocTagComment(rawText: string | null): boolean {
-    if (typeof rawText !== "string") {
-        return false;
-    }
-
-    return LEGACY_LINE_DOC_TAG_PATTERN.test(rawText);
-}
-
-function shouldAttachBlockDocTagComment(comment: PrinterComment): boolean {
-    if (comment?.type !== "CommentBlock" || typeof comment.value !== "string") {
-        return false;
-    }
-
-    return BLOCK_DOC_TAG_PATTERN.test(comment.value.trimStart());
-}
-
-function resolveRawBlockCommentText(comment: PrinterComment, originalText: string | null | undefined): string {
-    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
-    if (sourceSpan !== null) {
-        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
-    }
-
-    const value = typeof comment.value === "string" ? comment.value : "";
-    return `/*${value}*/`;
 }
 
 function shouldAttachDocTripleSlashContinuation(comment, rawText, options) {
