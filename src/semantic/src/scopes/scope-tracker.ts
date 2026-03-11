@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
 import { IdentifierCacheManager } from "./identifier-cache-manager.js";

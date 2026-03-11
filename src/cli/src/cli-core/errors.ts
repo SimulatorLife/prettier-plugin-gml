@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { asErrorLike } from "../shared/error-guards.js";
 

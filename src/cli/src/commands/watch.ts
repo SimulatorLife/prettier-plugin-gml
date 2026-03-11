@@ -17,9 +17,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core, type DebouncedFunction } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import { Core, type DebouncedFunction } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
+import { Transpiler } from "@gmloop/transpiler";
 import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";

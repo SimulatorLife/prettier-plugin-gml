@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { GmlFormatComponentBundle } from "./format-types.js";
 

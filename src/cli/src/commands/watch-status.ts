@@ -6,7 +6,7 @@
  * interrupting the running watcher.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
 
 import { createPortValidator } from "../cli-core/command-parsing.js";

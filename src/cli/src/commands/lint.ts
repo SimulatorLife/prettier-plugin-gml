@@ -3,8 +3,8 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
-import * as LintWorkspace from "@gml-modules/lint";
+import { Core } from "@gmloop/core";
+import * as LintWorkspace from "@gmloop/lint";
 import { Command } from "commander";
 import { ESLint } from "eslint";
 
@@ -995,7 +995,7 @@ function formatOutOfRootWarning(outOfRootPaths: ReadonlyArray<string>): string {
 export function createLintCommand(): Command {
     return applyStandardCommandOptions(
         new Command("lint")
-            .description("Lint GameMaker Language files using @gml-modules/lint")
+            .description("Lint GameMaker Language files using @gmloop/lint")
             .argument("[paths...]", "File or directory paths to lint")
             .option("--fix", "Apply automatic fixes", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")

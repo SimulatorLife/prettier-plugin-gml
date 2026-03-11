@@ -15,7 +15,7 @@
  * src/format/src/printer/ or src/core/src/ast/ and import them as needed.
  */
 
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/comment-printer.js";

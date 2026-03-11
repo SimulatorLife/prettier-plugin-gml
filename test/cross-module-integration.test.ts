@@ -4,8 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Format } from "@gml-modules/format";
-import { Lint } from "@gml-modules/lint";
+import { Format } from "@gmloop/format";
+import { Lint } from "@gmloop/lint";
 import { ESLint, type Linter } from "eslint";
 
 const fileEncoding: BufferEncoding = "utf8";

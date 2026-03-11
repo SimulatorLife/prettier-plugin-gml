@@ -11,7 +11,7 @@
  * @module parser/runtime/symbol-patching
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const DEFAULT_FUNCTION_NAME = "parser";
 

@@ -6,7 +6,7 @@
  * JavaScript IIFE pattern that creates an enum-like object.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { EnumMemberNode, GmlNode } from "./ast.js";
 import { normalizeGmlNumericLiteral } from "./literal-normalization.js";

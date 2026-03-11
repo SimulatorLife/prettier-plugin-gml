@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { findRepoRootSync } from "./repo-root.js";
 
@@ -34,7 +34,7 @@ function resolveCliPackageDirectory(startDirectory: string): string {
 
     for (let depth = 0; depth < 6; depth += 1) {
         const packageName = readPackageName(current);
-        if (packageName === "@gml-modules/cli") {
+        if (packageName === "@gmloop/cli") {
             return current;
         }
 

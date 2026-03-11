@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/runtime-wrapper",
+  "name": "@gmloop/runtime-wrapper",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,7 @@
     "dist"
   ],
   "dependencies": {
-    "@gml-modules/core": "workspace:*"
+    "@gmloop/core": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

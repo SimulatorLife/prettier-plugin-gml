@@ -1,4 +1,4 @@
-import { Lint } from "@gml-modules/lint";
+import { Lint } from "@gmloop/lint";
 
 const allRuleLevels = Object.freeze(
     Object.fromEntries(Object.values(Lint.ruleIds).map((ruleId) => [ruleId, "error"]))

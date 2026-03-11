@@ -4,7 +4,7 @@
  * rename planning, hot reload coordination, and impact preview.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
 

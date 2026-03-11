@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
+import { Core } from "@gmloop/core";
+import { Semantic } from "@gmloop/semantic";
 
 type ResourceAssetReferenceRecord = {
     propertyPath: string;
@@ -122,7 +122,7 @@ function isResourceMetadataRecord(value: unknown): value is ResourceMetadataReco
 }
 
 /**
- * Semantic bridge that adapts @gml-modules/semantic ProjectIndex to the refactor engine.
+ * Semantic bridge that adapts @gmloop/semantic ProjectIndex to the refactor engine.
  */
 export class GmlSemanticBridge {
     private projectIndex: any;

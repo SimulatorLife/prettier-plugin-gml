@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { lintWithRule } from "./lint-rule-test-harness.js";
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
@@ -1137,7 +1137,7 @@ void test("optimize-math-expressions skips formatting-only rewrites for decimal 
 });
 
 void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
-    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gml-modules/format')
+    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gmloop/format')
     // However, when a math-optimization condenses an expression containing two or more of these literals into a single literal, the resulting literal
     // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
     const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");

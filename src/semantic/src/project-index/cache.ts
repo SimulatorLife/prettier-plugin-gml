@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
 import { isProjectManifestPath } from "./constants.js";

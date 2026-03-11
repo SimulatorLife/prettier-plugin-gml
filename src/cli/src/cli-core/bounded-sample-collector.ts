@@ -6,7 +6,7 @@
  * business concerns rather than primitive bookkeeping.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Add a sample to a collection if the limit hasn't been reached and it's not already present.

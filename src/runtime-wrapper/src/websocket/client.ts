@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";

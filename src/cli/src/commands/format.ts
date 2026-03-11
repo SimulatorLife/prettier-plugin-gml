@@ -13,7 +13,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 

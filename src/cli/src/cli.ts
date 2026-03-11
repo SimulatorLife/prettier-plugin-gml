@@ -17,7 +17,7 @@
 
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 
 import { createCliCommandManager } from "./cli-core/command-manager.js";

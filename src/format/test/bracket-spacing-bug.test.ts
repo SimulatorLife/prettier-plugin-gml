@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Format } from "@gml-modules/format";
+import { Format } from "@gmloop/format";
 import prettier from "prettier";
 
 const testCode = "var obj = {x: 1, y: 2};";

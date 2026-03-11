@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import * as SymbolQueries from "./symbol-queries.js";
 import type { PartialSemanticAnalyzer, RefactorProjectAnalysisProvider, RenamePlanSummary } from "./types.js";

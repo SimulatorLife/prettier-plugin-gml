@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { type ProjectMetadataSchemaName, resolveProjectMetadataSchemaName } from "../project-metadata/yy-adapter.js";
 import { isProjectManifestPath, matchProjectResourceMetadataExtension } from "./constants.js";

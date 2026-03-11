@@ -1,6 +1,6 @@
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { assertEquals } from "../assertions.js";
 

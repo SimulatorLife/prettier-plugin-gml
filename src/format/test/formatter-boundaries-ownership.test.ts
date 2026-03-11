@@ -158,7 +158,7 @@ void describe("formatter boundaries ownership", () => {
         // Content rewrites — tag-alias normalization (@func → @function,
         // @desc → @description, @return → @returns, @arg → @param) and
         // parameter-list stripping (/// @function name(args) → name) — are
-        // owned exclusively by `gml/normalize-doc-comments` in @gml-modules/lint.
+        // owned exclusively by `gml/normalize-doc-comments` in @gmloop/lint.
         // (target-state.md §2.2, §3.2)
         const source = [
             "var x = 1;",
@@ -213,7 +213,7 @@ void describe("formatter boundaries ownership", () => {
         const formatted = await Format.format(source);
 
         // The formatter must NOT silently upgrade the double-slash format.
-        // That conversion belongs exclusively to @gml-modules/lint.
+        // That conversion belongs exclusively to @gmloop/lint.
         assert.doesNotMatch(
             formatted,
             /^\/\/\/ @function legacy_func/m,
@@ -304,7 +304,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not remove duplicate doc-comment lines (deduplication belongs in lint)", async () => {
         // Formatter must not perform content rewrites. Removing duplicate doc
-        // comment lines is a semantic operation owned by `@gml-modules/lint`
+        // comment lines is a semantic operation owned by `@gmloop/lint`
         // (target-state.md §2.2, §3.2).
         const source = [
             "/// @description Updates the ground distance",
@@ -366,7 +366,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not rename argumentN parameters based on @function doc-comment tags", async () => {
         // Renaming `argument0`-style parameters to their doc-comment preferred names is a
-        // semantic content rewrite that belongs in `@gml-modules/lint`, not the formatter.
+        // semantic content rewrite that belongs in `@gmloop/lint`, not the formatter.
         // The formatter must preserve the original identifier names verbatim.
         // (target-state.md §2.2, §3.2 — "Formatter must not perform semantic/content rewrites")
         const source = [
@@ -397,7 +397,7 @@ void describe("formatter boundaries ownership", () => {
     void it("does not simplify if/else boolean returns (semantic rewrites belong in lint)", async () => {
         // The formatter must not transform `if (cond) { return true; } else { return false; }`
         // into `return cond;`. That is a semantic/structural content rewrite owned exclusively
-        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // by the `@gmloop/lint` `gml/optimize-logical-flow` rule.
         // (target-state.md §2.2, §3.2 — "Format must not perform semantic/content rewrites")
         const source = [
             "function bool_passthrough(condition) {",
@@ -425,7 +425,7 @@ void describe("formatter boundaries ownership", () => {
     void it("does not simplify negated if/else boolean returns (semantic rewrites belong in lint)", async () => {
         // The formatter must not transform `if (cond) { return false; } else { return true; }`
         // into `return !cond;`. That is a semantic/structural content rewrite owned exclusively
-        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // by the `@gmloop/lint` `gml/optimize-logical-flow` rule.
         const source = [
             "function bool_negated(condition) {",
             "    if (condition) {",
@@ -512,7 +512,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not strip empty /// @description doc-comment lines (cleanup belongs in lint)", async () => {
         // Removing empty `/// @description` tags is a doc-comment content rewrite
-        // owned by `@gml-modules/lint`'s `gml/normalize-doc-comments` rule
+        // owned by `@gmloop/lint`'s `gml/normalize-doc-comments` rule
         // (target-state.md §2.2 — "Lint owns `@description` promotion/cleanup").
         // The formatter must preserve empty @description lines verbatim so that
         // lint can make an intentional, auditable decision about whether to remove them.

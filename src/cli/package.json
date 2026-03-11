@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/cli",
+  "name": "@gmloop/cli",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,13 +20,13 @@
     "test": "pnpm run build:types && node --test dist/test/*.test.js"
   },
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/lint": "workspace:*",
-    "@gml-modules/parser": "workspace:*",
-    "@gml-modules/format": "workspace:*",
-    "@gml-modules/refactor": "workspace:*",
-    "@gml-modules/semantic": "workspace:*",
-    "@gml-modules/transpiler": "workspace:*",
+    "@gmloop/core": "workspace:*",
+    "@gmloop/lint": "workspace:*",
+    "@gmloop/parser": "workspace:*",
+    "@gmloop/format": "workspace:*",
+    "@gmloop/refactor": "workspace:*",
+    "@gmloop/semantic": "workspace:*",
+    "@gmloop/transpiler": "workspace:*",
     "commander": "^14.0.2",
     "eslint": "^9.39.1",
     "eslint-formatter-checkstyle": "^9.0.1",

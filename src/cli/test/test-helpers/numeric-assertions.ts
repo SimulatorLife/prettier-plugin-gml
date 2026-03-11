@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { areNumbersApproximatelyEqual } = Core;
 

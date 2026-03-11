@@ -1,7 +1,7 @@
 /**
  * Shape of a GML parse error raised by the GameMaker Language parser.
  *
- * The concrete `GameMakerSyntaxError` class (in `@gml-modules/parser`) sets
+ * The concrete `GameMakerSyntaxError` class (in `@gmloop/parser`) sets
  * `name = "GameMakerSyntaxError"` and optionally populates source-location
  * fields. Defining the shape here in Core decouples high-level consumers from
  * the concrete parser class while still giving them well-typed access to the
@@ -24,7 +24,7 @@ export interface GmlParseError extends Error {
  * failure it raises. This guard relies on that stable name contract rather
  * than an `instanceof` check so that high-level consumers (e.g. the CLI
  * orchestration layer) do not need to import the concrete parser class and
- * can remain decoupled from the `@gml-modules/parser` workspace.
+ * can remain decoupled from the `@gmloop/parser` workspace.
  *
  * @param {unknown} error Candidate value to inspect.
  * @returns {boolean} `true` when {@link error} is a GML parse error.

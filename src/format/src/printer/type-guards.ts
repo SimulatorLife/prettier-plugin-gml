@@ -8,7 +8,7 @@
  * @module printer/type-guards
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { safeGetParentNode } from "./path-utils.js";
 

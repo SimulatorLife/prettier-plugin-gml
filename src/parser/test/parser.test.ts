@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";

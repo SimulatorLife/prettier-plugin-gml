@@ -1,6 +1,6 @@
 import { constants as fsConstants } from "node:fs";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";

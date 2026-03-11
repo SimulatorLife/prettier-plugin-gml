@@ -14,7 +14,7 @@ then return here for deeper context.
 - [Sample `.prettierrc`](examples/example.prettierrc) — Baseline Prettier
   config for formatting `.gml` files in a GameMaker project.
 - [Sample `eslint.config.js`](examples/example.eslint.config.js) — Flat ESLint
-  config that composes the `@gml-modules/lint` presets (without TypeScript requirement)
+  config that composes the `@gmloop/lint` presets (without TypeScript requirement)
 
 ## Usage & rollout
 
@@ -48,7 +48,7 @@ experiments without permanently widening the public option surface. Comprehensiv
 documentation for these hooks is pending; consult the source files for
 implementation details:
 
-- **Line-comment options resolver** (`@gml-modules/core`)
+- **Line-comment options resolver** (`@gmloop/core`)
   — Adjust commented-code detection heuristics without forking the formatter.
   Normalization guards keep overrides safe even when hosts
   provide partial data.
@@ -77,4 +77,4 @@ implementation details:
 
 ## TODO / Ideas
 
-- Create a new workspace for a GML-tooling MCP server that wraps/exposes the CLI's commands (`@gml-modules/mcp-server`) so an AI agent can interact/invoke the tools.
+- Create a new workspace for a GML-tooling MCP server that wraps/exposes the CLI's commands (`@gmloop/mcp-server`) so an AI agent can interact/invoke the tools.

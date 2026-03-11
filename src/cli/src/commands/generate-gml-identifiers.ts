@@ -1,7 +1,7 @@
 import process from "node:process";
 import vm from "node:vm";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
 
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";

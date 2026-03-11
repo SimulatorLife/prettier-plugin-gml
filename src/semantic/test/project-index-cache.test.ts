@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { AbortSignalLike } from "@gml-modules/core";
+import type { AbortSignalLike } from "@gmloop/core";
 
 import {
     evaluateProjectIndexCacheSizePolicy,

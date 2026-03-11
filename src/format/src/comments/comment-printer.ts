@@ -1,6 +1,6 @@
 // Comment handling helpers relocated to the format workspace so Prettier can format comments directly.
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 

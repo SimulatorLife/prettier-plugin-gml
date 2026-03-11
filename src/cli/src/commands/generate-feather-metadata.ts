@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 import { parseHTML } from "linkedom";
 import type { Element } from "linkedom/types/interface/element.js";
