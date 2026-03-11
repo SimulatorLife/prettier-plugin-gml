@@ -91,11 +91,12 @@ const ParseErrorAction = Object.freeze({
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
 const VALID_PRETTIER_LOG_LEVELS = new Set(["debug", "info", "warn", "error", "silent"]);
 
-const parseErrorActionOption = createEnumeratedOptionHelpers(
-    VALID_PARSE_ERROR_ACTIONS,
-    (list) => `Must be one of: ${list}`
-);
-const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, (list) => `Must be one of: ${list}`);
+const parseErrorActionOption = createEnumeratedOptionHelpers(VALID_PARSE_ERROR_ACTIONS, {
+    formatError: (list) => `Must be one of: ${list}`
+});
+const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, {
+    formatError: (list) => `Must be one of: ${list}`
+});
 
 const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";

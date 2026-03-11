@@ -21,7 +21,7 @@ export interface EnumeratedOptionHelpers {
  *
  * @param values - Iterable of valid enumerated values
  * @param options - Configuration options
- * @param options.formatError - Optional function to format validation error messages (legacy: can be passed directly as function)
+ * @param options.formatError - Optional function to format validation error messages
  * @param options.enforceStringType - If true, rejects non-string inputs early with TypeError
  * @param options.valueLabel - Label for the value type in error messages (only with enforceStringType)
  * @param options.caseSensitive - If true, performs exact string matching instead of normalizing to lowercase (default: false)
@@ -51,17 +51,20 @@ export interface EnumeratedOptionHelpers {
  */
 export function createEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
-    options?:
-        | ((list: string, received: string) => string)
-        | {
-              formatError?: (list: string, received: string) => string;
-              enforceStringType?: boolean;
-              valueLabel?: string;
-              caseSensitive?: boolean;
-          }
+    options?: {
+        formatError?: (list: string, received: string) => string;
+        enforceStringType?: boolean;
+        valueLabel?: string;
+        caseSensitive?: boolean;
+    }
 ): EnumeratedOptionHelpers {
-    // Normalize options to object form for consistent handling
-    const config = typeof options === "function" ? { formatError: options } : (options ?? {});
+    if (typeof options === "function") {
+        throw new TypeError(
+            "createEnumeratedOptionHelpers no longer accepts a formatter function as the second argument. Pass { formatError } instead."
+        );
+    }
+
+    const config = options ?? {};
     const { formatError, enforceStringType = false, valueLabel = "Value", caseSensitive = false } = config;
 
     const valueSet = new Set(Array.from(values));
