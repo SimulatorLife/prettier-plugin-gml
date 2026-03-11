@@ -224,6 +224,14 @@ void test("does not drop slash-only line after decorative block comment", async 
     assert.equal(slashOnlyBannerLines.length, 1);
 });
 
+void test("does not preserve source-driven blank gaps before decorative banners", async () => {
+    const source = ["function demo() {}", "", "//////// Banner comment", "var value = 1;", ""].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, ["function demo() {}", "//////// Banner comment", "var value = 1;", ""].join("\n"));
+});
+
 void test("does not duplicate same-line slash suffix after decorative block comments", async () => {
     const source = [
         "/*////////////////////////////////////////////////////////////////",
