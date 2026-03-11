@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { fixMalformedComments, recoverParseSourceFromMissingBrace } from "../src/source-preprocessing.js";
+import { fixMalformedComments, recoverParseSourceFromMissingBrace } from "../../src/malformed/source-preprocessing.js";
 
 void describe("fixMalformedComments", () => {
     void it("returns the original text unchanged when no malformed comments are present", () => {

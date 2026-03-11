@@ -11,7 +11,7 @@ import { Core } from "@gml-modules/core";
 
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import * as HotReload from "./hot-reload.js";
-import { createRefactorProjectAnalysisProvider } from "./project-analysis-provider.js";
+import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
@@ -85,7 +85,7 @@ export class RefactorEngine {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
-        this.projectAnalysisProvider = projectAnalysisProvider ?? createRefactorProjectAnalysisProvider();
+        this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
         this.renameValidationCache = new RenameValidationCache();
         this.semanticCache = new SemanticQueryCache(semantic);
     }

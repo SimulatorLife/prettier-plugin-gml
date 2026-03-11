@@ -1364,7 +1364,10 @@ export default class GameMakerASTBuilder {
             return this.visit(ctx.templateStringLiteral());
         }
         if (ctx.HexIntegerLiteral() != null || ctx.BinaryLiteral() != null) {
-            return this.ensureToken(ctx).getText();
+            return this.astNode(ctx, {
+                type: "Literal",
+                value: this.ensureToken(ctx).getText()
+            });
         }
 
         const value = this.ensureToken(ctx).getText();

@@ -41,10 +41,6 @@ const DEFAULT_PARSE_STRING = (text) => {
     return match ? Number(match[0]) : Number.NaN;
 };
 
-function missingOptionValue() {
-    return void 0;
-}
-
 function parseStringOption(
     rawValue: string,
     { defaultValue, coerce, parseString, blankStringReturnsDefault }: ParseStringOptionParams
@@ -248,7 +244,7 @@ export function normalizeNumericOption(
     { optionName, coerce, formatTypeError }: NormalizeNumericOptionOptions
 ) {
     if (rawValue == null) {
-        return missingOptionValue();
+        return;
     }
 
     const rawType = typeof rawValue;
@@ -260,7 +256,7 @@ export function normalizeNumericOption(
 
     const normalized = isString ? (rawValue as string).trim() : rawValue;
     if (isString && normalized === "") {
-        return missingOptionValue();
+        return;
     }
 
     const received = describeValueForError(rawValue);

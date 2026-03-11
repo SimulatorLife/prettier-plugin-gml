@@ -3,19 +3,17 @@ import test from "node:test";
 
 import { Refactor, type RefactorProjectAnalysisProvider } from "../index.js";
 
-const { RefactorEngine: RefactorEngineClass, createRefactorProjectAnalysisProvider } = Refactor;
+const { RefactorEngine: RefactorEngineClass, DEFAULT_PROJECT_ANALYSIS_PROVIDER } = Refactor;
 
-void test("createRefactorProjectAnalysisProvider returns deterministic overlap defaults", () => {
-    const provider = createRefactorProjectAnalysisProvider();
-
-    const globalVarWithInitializer = provider.assessGlobalVarRewrite(null, true);
+void test("DEFAULT_PROJECT_ANALYSIS_PROVIDER has deterministic overlap defaults", () => {
+    const globalVarWithInitializer = DEFAULT_PROJECT_ANALYSIS_PROVIDER.assessGlobalVarRewrite(null, true);
     assert.deepEqual(globalVarWithInitializer, {
         allowRewrite: true,
         initializerMode: "existing",
         mode: "project-aware"
     });
 
-    const loopIdentifier = provider.resolveLoopHoistIdentifier("loopLength");
+    const loopIdentifier = DEFAULT_PROJECT_ANALYSIS_PROVIDER.resolveLoopHoistIdentifier("loopLength");
     assert.deepEqual(loopIdentifier, {
         identifierName: "loopLength",
         mode: "project-aware"
