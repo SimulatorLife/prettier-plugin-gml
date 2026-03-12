@@ -196,8 +196,8 @@ export function isStandaloneStatementParentKey(parentKey: string | null): boolea
  * @returns Whether the span contains line or block comment markers.
  */
 export function sourceRangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
-    const rangeText = new Set(sourceText.slice(start, end));
-    return rangeText.has("//") || rangeText.has("/*") || rangeText.has("*/");
+    const rangeText = sourceText.slice(start, end);
+    return rangeText.includes("//") || rangeText.includes("/*") || rangeText.includes("*/");
 }
 
 /**
