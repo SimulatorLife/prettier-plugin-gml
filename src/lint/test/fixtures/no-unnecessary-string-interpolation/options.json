@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/no-unnecessary-string-interpolation": "error"
+  }
+}

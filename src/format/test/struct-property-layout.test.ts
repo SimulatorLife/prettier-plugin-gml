@@ -24,6 +24,6 @@ void test("breaks struct arguments when properties contain comments", async () =
 
     assert.strictEqual(
         formatted,
-        ["my_func(", "    {", "        // comment", "        a : 1,", "        b : 2", "    }", ");", ""].join("\n")
+        ["my_func(", "    {", "        // comment", "        a: 1,", "        b: 2", "    }", ");", ""].join("\n")
     );
 });

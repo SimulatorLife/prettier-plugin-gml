@@ -16,7 +16,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     };
 
     /// @description Each time this is called, create new map
-    /// @param {real} width
     /// @returns {undefined}
     static generate = function () {
         points = poisson_disk_sample(width, height, point_space);
@@ -101,8 +100,7 @@ function dynamic_index(value) {
 /// @param value
 /// @returns {Struct}
 function make_struct(value) {
-    var foo = {alpha: 1, beta: value, gamma: call()};
-    return foo;
+    return {alpha: 1, beta: value, gamma: call()};
 }
 
 /// @returns {undefined}
@@ -111,6 +109,7 @@ function reuse_struct() {
     do_something(instance);
 }
 
+/// @description This function has a sideffect of defining an instance variable 'data' that must be preserved
 /// @returns {Struct}
 function assign_then_extend() {
     data = {label: "ok", value: 123};
@@ -119,7 +118,6 @@ function assign_then_extend() {
 
 /// @description Input for a keyboard key
 /// @param {real} button
-/// @returns {undefined}
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
     // Keyboard input handling goes here
 }

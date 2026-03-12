@@ -196,25 +196,17 @@ function assignClonedLocation<TTarget extends AstNode>(
             withObjectLike(
                 template,
                 (templateNode) => {
-                    let shouldAssign = false;
-                    const clonedLocations: {
-                        start?: unknown;
-                        end?: unknown;
-                    } = {};
+                    const hasStart = Object.hasOwn(templateNode, "start");
+                    const hasEnd = Object.hasOwn(templateNode, "end");
 
-                    if (Object.hasOwn(templateNode, "start")) {
-                        clonedLocations.start = cloneLocation(templateNode.start);
-                        shouldAssign = true;
+                    if (!hasStart && !hasEnd) {
+                        return mutableTarget;
                     }
 
-                    if (Object.hasOwn(templateNode, "end")) {
-                        clonedLocations.end = cloneLocation(templateNode.end);
-                        shouldAssign = true;
-                    }
-
-                    if (shouldAssign) {
-                        Object.assign(mutableTarget, clonedLocations);
-                    }
+                    Object.assign(mutableTarget, {
+                        ...(hasStart ? { start: cloneLocation(templateNode.start) } : {}),
+                        ...(hasEnd ? { end: cloneLocation(templateNode.end) } : {})
+                    });
 
                     return mutableTarget;
                 },

@@ -1,6 +1,6 @@
-# Prettier Plugin GML - CLI Package
+# GMLoop CLI Package
 
-Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
+Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
 ## Formatter/Linter contract
 
@@ -20,14 +20,14 @@ Contract migration mapping:
 The CLI wires formatter-only runtime integration and lint execution.
 
 - `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
+- `lint` applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`.
 - Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
 Ownership summary:
 
-- `@gml-modules/format`: formatter-only AST normalization + printing
-- `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
+- `@gmloop/format`: formatter-only AST normalization + printing
+- `@gmloop/lint`: diagnostics + semantic/content rewrites + language plugin
+- `@gmloop/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
 - Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
 
 ## Commands
@@ -43,6 +43,7 @@ pnpm run cli -- format path/to/project
 **Options:**
 - `--check` - Check if files are formatted without writing changes
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
+- `--verbose` - Emit per-file timing and total run duration diagnostics
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
@@ -54,6 +55,30 @@ inconsistent multi-extension formatting behavior.
 **Environment Variables:**
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
+
+### `lint` - Lint and Auto-Fix GML Files
+
+Runs `@gmloop/lint` over one or more paths, with optional ESLint autofix support.
+
+```bash
+pnpm run cli -- lint path/to/project
+pnpm run cli -- lint --fix path/to/project
+```
+
+**Options:**
+- `--fix` - Apply automatic fixes
+- `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
+- `--max-warnings <count>` - Fail when warning count exceeds limit
+- `--config <path>` - Use an explicit flat config
+- `--no-default-config` - Disable bundled fallback config
+- `--project <path>` - Force project root directory or `.yyp` path
+- `--project-strict` - Fail when linted files are outside forced project root
+- `--quiet` - Suppress fallback/config discovery warnings
+- `--verbose` - Emit per-file lint/format timing and total run duration diagnostics
+
+`lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
+
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -520,6 +545,18 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-ho
 
 # Verbose output with diagnostics
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
+
+# List configured gmloop.json codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods
+pnpm run cli -- refactor codemod
+
+# Apply configured codemods to selected paths only
+pnpm run cli -- refactor codemod scripts/player --write
+
+# Apply only one configured codemod
+pnpm run cli -- refactor codemod --only namingConvention --write
 ```
 
 **Options:**
@@ -530,6 +567,40 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - `--dry-run` - Show what would be changed without modifying files
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
+
+**Codemod options (`refactor codemod`):**
+- `--config <path>` - Explicit path to `gmloop.json`
+- `--write` - Apply configured codemods (default is dry-run)
+- `--only <ids>` - Comma-separated list of configured codemod ids to run
+- `--list` - Print discovered codemods and their effective normalized config
+
+**`gmloop.json` refactor config:**
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "localVariable": {
+                    "caseStyle": "camel"
+                }
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
 
 **Ownership note:** `refactor` is a separate domain from lint.
 - Use `lint --fix` for lint-owned diagnostics/content rewrites.
@@ -544,6 +615,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 
 **Current scope:**
 - Safe rename planning/execution
+- Configured codemod execution via `gmloop.json`
 - Dry-run preview support
 - Hot-reload validation integration
 - Verbose diagnostics for conflict/impact review
@@ -701,7 +773,7 @@ The transpilation coordinator module (`src/modules/transpilation/coordinator.ts`
 **API:**
 
 ```typescript
-import { transpileFile, displayTranspilationStatistics } from "@gml-modules/cli/modules/transpilation";
+import { transpileFile, displayTranspilationStatistics } from "/cli/modules/transpilation";
 
 // Transpile a single file with lifecycle management
 const result = transpileFile(

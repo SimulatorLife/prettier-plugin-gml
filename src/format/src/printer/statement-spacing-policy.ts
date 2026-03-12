@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 // The printer hits this helper in hot loops, so prefer a switch statement over
 // re-allocating arrays on every call (see PR #110 micro-benchmark in commit
@@ -124,7 +124,14 @@ function shouldForceTrailingBlankLineForNestedFunction(node, blockNode, containe
         return false;
     }
 
-    return Core.isFunctionLikeDeclaration(containerNode);
+    if (!Core.isFunctionLikeDeclaration(containerNode)) {
+        return false;
+    }
+
+    // Trailing nested function declarations should close adjacent to their
+    // parent block terminator. Separation between statements is handled in the
+    // intermediate spacing path instead.
+    return false;
 }
 
 /**

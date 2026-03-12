@@ -177,7 +177,9 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         } else if (shader_current() != -1) {
             shader_reset();
         }
-        if (reset_matrix) { scr_matrix_reset(); }
+        if (reset_matrix) {
+            scr_matrix_reset();
+        }
     };
 
     /// @ignore
@@ -240,3 +242,26 @@ draw_set_color(c_white);
 draw_set_alpha(1);
 draw_text(10, 10, str);
 */
+
+// Feather disable all
+/// .__Destroy()
+///
+/// .__FromBuffer(buffer)
+///
+/// .__CopyFromBuffer(buffer)
+///
+/// .__FromString(string, ...)
+///
+/// .__Delete(position, count)
+///
+/// .__Insert(position, string, ...)
+///
+/// .__Overwrite(position, string, ...)
+///
+/// .__Prefix(string, ...)
+///
+/// .__Suffix(string, ...)
+///
+/// .__GetString()
+///
+/// .__GetBuffer()

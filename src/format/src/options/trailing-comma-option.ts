@@ -15,7 +15,7 @@
  * Because of this, the only valid option value is "none". Any other option
  * should produce a clear warning and be ignored.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import type * as Prettier from "prettier";
 
 type TrailingCommaOption = Prettier.RequiredOptions["trailingComma"];

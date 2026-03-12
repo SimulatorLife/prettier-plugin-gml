@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Format } from "../src/index.js";
 
-void test("formats struct call arguments across multiple lines with aligned colons", async () => {
+void test("formats struct call arguments across multiple lines with canonical colons", async () => {
     const source = [
         "function demo() {",
         "    return instance_create_layer(",
@@ -27,10 +27,10 @@ void test("formats struct call arguments across multiple lines with aligned colo
 
     assert.deepStrictEqual(structLines, [
         "        {",
-        "            z             : fx_z,",
-        "            sprite_index  : sprite,",
-        "            func_callback : func_fx_callback,",
-        "            image_blend   : colour",
+        "            z: fx_z,",
+        "            sprite_index: sprite,",
+        "            func_callback: func_fx_callback,",
+        "            image_blend: colour",
         "        }"
     ]);
 });

@@ -4,6 +4,8 @@ import type { GmlRuleDefinition } from "../catalog.js";
 import { createNoAssignmentInConditionRule } from "./rules/no-assignment-in-condition-rule.js";
 import { createNoEmptyRegionsRule } from "./rules/no-empty-regions-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
+import { createNoLegacyApiRule } from "./rules/no-legacy-api-rule.js";
+import { createNoScientificNotationRule } from "./rules/no-scientific-notation-rule.js";
 import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeBannerCommentsRule } from "./rules/normalize-banner-comments-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
@@ -12,10 +14,14 @@ import { createNormalizeDocCommentsRule } from "./rules/normalize-doc-comments-r
 import { createNormalizeOperatorAliasesRule } from "./rules/normalize-operator-aliases-rule.js";
 import { createOptimizeLogicalFlowRule } from "./rules/optimize-logical-flow-rule.js";
 import { createOptimizeMathExpressionsRule } from "./rules/optimize-math-expressions-rule.js";
+import { createPreferArrayPushRule } from "./rules/prefer-array-push-rule.js";
 import { createPreferCompoundAssignmentsRule } from "./rules/prefer-compound-assignments-rule.js";
+import { createPreferDirectReturnRule } from "./rules/prefer-direct-return-rule.js";
 import { createPreferEpsilonComparisonsRule } from "./rules/prefer-epsilon-comparisons-rule.js";
 import { createPreferHoistableLoopAccessorsRule } from "./rules/prefer-hoistable-loop-accessors-rule.js";
+import { createPreferIncrementDecrementOperatorsRule } from "./rules/prefer-increment-decrement-operators-rule.js";
 import { createPreferIsUndefinedCheckRule } from "./rules/prefer-is-undefined-check-rule.js";
+import { createPreferLoopInvariantExpressionsRule } from "./rules/prefer-loop-invariant-expressions-rule.js";
 import { createPreferRepeatLoopsRule } from "./rules/prefer-repeat-loops-rule.js";
 import { createPreferStringInterpolationRule } from "./rules/prefer-string-interpolation-rule.js";
 import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-literal-assignments-rule.js";
@@ -30,14 +36,26 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         case "prefer-hoistable-loop-accessors": {
             return createPreferHoistableLoopAccessorsRule(definition);
         }
+        case "prefer-loop-invariant-expressions": {
+            return createPreferLoopInvariantExpressionsRule(definition);
+        }
         case "prefer-repeat-loops": {
             return createPreferRepeatLoopsRule(definition);
         }
         case "prefer-struct-literal-assignments": {
             return createPreferStructLiteralAssignmentsRule(definition);
         }
+        case "prefer-array-push": {
+            return createPreferArrayPushRule(definition);
+        }
         case "prefer-compound-assignments": {
             return createPreferCompoundAssignmentsRule(definition);
+        }
+        case "prefer-increment-decrement-operators": {
+            return createPreferIncrementDecrementOperatorsRule(definition);
+        }
+        case "prefer-direct-return": {
+            return createPreferDirectReturnRule(definition);
         }
         case "optimize-logical-flow": {
             return createOptimizeLogicalFlowRule(definition);
@@ -47,6 +65,12 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "no-empty-regions": {
             return createNoEmptyRegionsRule(definition);
+        }
+        case "no-legacy-api": {
+            return createNoLegacyApiRule(definition);
+        }
+        case "no-scientific-notation": {
+            return createNoScientificNotationRule(definition);
         }
         case "no-unnecessary-string-interpolation": {
             return createNoUnnecessaryStringInterpolationRule(definition);

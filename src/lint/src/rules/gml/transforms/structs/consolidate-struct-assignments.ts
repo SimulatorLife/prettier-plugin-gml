@@ -2,7 +2,7 @@
  * Attempts to coalesce standalone struct assignments into their declaration site so that formatting can emit concise object literals.
  * The transform tracks moved comments and ensures no semantic data is lost while shifting property initializers.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { CommentTracker } from "../comments/comment-tracker.js";
 import { AssignmentCommentHandler } from "./consolidate-struct-assignment-comment-handler.js";

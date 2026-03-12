@@ -31,11 +31,7 @@ type CoreNamespace = typeof AST &
     typeof FS &
     typeof Resources &
     typeof IdentifierMetadata &
-    typeof Comments & {
-        // Explicitly include capability probe for WorkspaceEdit-like objects
-        // to support polymorphic refactor operations across module boundaries.
-        isWorkspaceEditLike(value: unknown): boolean;
-    };
+    typeof Comments;
 
 // Public namespace flattening mirrors the monorepo convention: expose each
 // helper directly flattened into the Core namespace so consumers always
@@ -44,7 +40,6 @@ export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
     ...Utils,
-    isWorkspaceEditLike: Utils.isWorkspaceEditLike,
     ...Resources,
     ...IdentifierMetadata,
     ...Comments
@@ -66,6 +61,12 @@ export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMa
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { DocCommentNodeMetadata } from "./comments/doc-comment/node-metadata.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
+export type {
+    DeprecatedIdentifierDiagnosticOwner,
+    DeprecatedIdentifierLegacyUsage,
+    DeprecatedIdentifierMetadataEntry,
+    DeprecatedIdentifierReplacementKind
+} from "./resources/gml-identifier-loading.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
 export type { StringCommentScanState } from "./utils/text-scan.js";

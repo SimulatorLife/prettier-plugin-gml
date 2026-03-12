@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";

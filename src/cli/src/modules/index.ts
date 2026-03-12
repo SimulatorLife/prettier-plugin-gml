@@ -4,6 +4,7 @@ export * as Manual from "./manual/index.js";
 export * as QualityReport from "./quality-report/index.js";
 export * as Refactor from "./refactor/index.js";
 export * as Runtime from "./runtime/index.js";
+export * as Server from "./server/index.js";
 export * as Status from "./status/index.js";
 export * from "./transpilation/dependency-tracker.js";
 export * as Transpilation from "./transpilation/index.js";

@@ -21,9 +21,3 @@ export function shouldReportUnsafe(context: Rule.RuleContext): boolean {
 export function isIdentifier(value: string): boolean {
     return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
-
-export function dominantLineEnding(text: string): "\r\n" | "\n" {
-    const crlfCount = (text.match(/\r\n/g) ?? []).length;
-    const lfCount = (text.match(/(?<!\r)\n/g) ?? []).length;
-    return crlfCount > lfCount ? "\r\n" : "\n";
-}

@@ -5,6 +5,10 @@ export { Core } from "./src/index.js";
 export type {
     AbortSignalLike,
     DebouncedFunction,
+    DeprecatedIdentifierDiagnosticOwner,
+    DeprecatedIdentifierLegacyUsage,
+    DeprecatedIdentifierMetadataEntry,
+    DeprecatedIdentifierReplacementKind,
     DocCommentLines,
     DocCommentNodeMetadata,
     EmptyTransformOptions,

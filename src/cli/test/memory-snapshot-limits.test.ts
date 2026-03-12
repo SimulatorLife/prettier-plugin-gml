@@ -104,6 +104,36 @@ void describe("memory snapshot limits", () => {
         );
     });
 
+    void it("releases inline snapshots even when old disk snapshots appear first", async () => {
+        const { maxInMemorySnapshots } = getMemoryManagementStatsForTests();
+
+        for (let i = 0; i < 500; i++) {
+            addFormattedFileSnapshotForTests(`disk-only-${i}.gml`, null, `/tmp/disk-only-${i}`);
+        }
+
+        for (let i = 0; i < maxInMemorySnapshots + 5; i++) {
+            addFormattedFileSnapshotForTests(`inline-${i}.gml`, "x".repeat(4096), null);
+        }
+
+        const statsBefore = getMemoryManagementStatsForTests();
+        assert.equal(statsBefore.inMemorySnapshotCount, maxInMemorySnapshots + 5);
+        assert.ok(statsBefore.inlineSnapshotBytes > 0, "expected inline snapshot bytes before eviction");
+
+        await enforceSnapshotMemoryLimitForTests();
+
+        const statsAfter = getMemoryManagementStatsForTests();
+        assert.equal(
+            statsAfter.inMemorySnapshotCount,
+            maxInMemorySnapshots,
+            "limit enforcement should evict only the overflow inline snapshots"
+        );
+        assert.equal(
+            statsBefore.inlineSnapshotBytes - statsAfter.inlineSnapshotBytes,
+            5 * 4096 * 2,
+            "eviction should reclaim exactly five UTF-16 inline snapshot buffers"
+        );
+    });
+
     void it("does not enforce limit when below MAX_IN_MEMORY_SNAPSHOTS", async () => {
         const { maxInMemorySnapshots } = getMemoryManagementStatsForTests();
 

@@ -1,4 +1,4 @@
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 
 const { isObjectLike } = Core;
 

@@ -14,7 +14,11 @@ void test("GML format component registry", async (t) => {
         assert.ok(gmlFormatComponents.printers["gml-ast"], "default printer should be registered");
         assert.ok(
             Object.hasOwn(gmlFormatComponents.options, "logicalOperatorsStyle"),
-            "formatter options should be registered"
+            "logicalOperatorsStyle option should be registered"
+        );
+        assert.ok(
+            Object.hasOwn(gmlFormatComponents.options, "allowInlineControlFlowBlocks"),
+            "allowInlineControlFlowBlocks option should be registered"
         );
         assert.equal(Object.hasOwn(gmlFormatComponents.options, "optimizeLoopLengthHoisting"), false);
         assert.equal(Object.hasOwn(gmlFormatComponents.options, "applyFeatherFixes"), false);
@@ -24,7 +28,10 @@ void test("GML format component registry", async (t) => {
             "maintainArrayIndentation",
             "maintainStructIndentation",
             "maintainWithIndentation",
-            "maintainSwitchIndentation"
+            "maintainSwitchIndentation",
+            // Stale name superseded by allowInlineControlFlowBlocks (applies to while/repeat/with too,
+            // not just if statements). Guard against accidentally re-introducing the old key.
+            "allowSingleLineIfStatements"
         ]) {
             assert.ok(
                 !Object.hasOwn(gmlFormatComponents.options, removedOption),

@@ -17,9 +17,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core, type DebouncedFunction } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import { Core, type DebouncedFunction } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
+import { Transpiler } from "@gmloop/transpiler";
 import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
@@ -45,6 +45,7 @@ import {
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
+    type RuntimeTranspilerPatch,
     type TranspilationContext,
     type TranspilationResult,
     transpileFile,
@@ -216,6 +217,7 @@ interface WatchLifecycle {
     scanComplete: boolean;
     unknownScanPromise: Promise<void> | null;
     unknownScanQueued: boolean;
+    unknownScanConcurrency: number;
 }
 
 /**
@@ -246,19 +248,71 @@ interface RuntimeContext
      * Used to skip transpilation when a file's mtime changes but content is
      * identical (e.g., redundant editor saves or `touch` operations). */
     fileContentHashes: Map<string, string>;
+    /** UTF-16 code-unit length of each file's last-transpiled source text.
+     * Used as a low-cost pre-check to avoid hashing when content length changed. */
+    fileContentLengths: Map<string, number>;
+}
+
+/**
+ * Runtime state required to derive script names from changed files.
+ */
+interface ScriptNameRegistrationContext {
+    scriptNames: Set<string>;
+}
+
+/**
+ * Runtime state required when removing cached data for deleted files.
+ */
+interface FileRemovalCleanupContext {
+    dependencyTracker: DependencyTracker;
+    fileSnapshots: Map<string, number>;
+    fileContentHashes: Map<string, string>;
+    fileContentLengths: Map<string, number>;
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
+    debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+}
+
+/**
+ * Runtime state required when recording file modification snapshots.
+ */
+interface FileSnapshotWriter {
+    fileSnapshots: Map<string, number>;
 }
 
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
     fileStats?: Stats | null;
+    abortSignal?: AbortSignal;
 }
 
 const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
 const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
 
-function delayFileReadRetry(durationMs: number): Promise<void> {
+/**
+ * Waits before retrying a transient empty-file read and supports abort-driven teardown.
+ *
+ * @param durationMs - Delay duration in milliseconds.
+ * @param abortSignal - Optional signal used to cancel the pending retry timer.
+ * @returns Promise that resolves to true when delay elapsed, or false when aborted.
+ */
+export function delayFileReadRetry(durationMs: number, abortSignal?: AbortSignal): Promise<boolean> {
+    if (abortSignal?.aborted) {
+        return Promise.resolve(false);
+    }
+
     return new Promise((resolve) => {
-        setTimeout(resolve, durationMs);
+        const handleAbort = () => {
+            clearTimeout(timeoutId);
+            abortSignal?.removeEventListener("abort", handleAbort);
+            resolve(false);
+        };
+
+        const timeoutId = setTimeout(() => {
+            abortSignal?.removeEventListener("abort", handleAbort);
+            resolve(true);
+        }, durationMs);
+
+        abortSignal?.addEventListener("abort", handleAbort, { once: true });
     });
 }
 
@@ -267,7 +321,10 @@ function delayFileReadRetry(durationMs: number): Promise<void> {
  * Retry briefly when the file is observed as empty so we do not treat
  * transient truncation windows as a permanent transpilation failure.
  */
-async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<string> {
+async function readSourceFileWithTransientEmptyRetry(
+    filePath: string,
+    abortSignal?: AbortSignal
+): Promise<string | null> {
     const readAttempt = async (attempt: number): Promise<string> => {
         const content = await readFile(filePath, "utf8");
         const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
@@ -275,9 +332,17 @@ async function readSourceFileWithTransientEmptyRetry(filePath: string): Promise<
             return content;
         }
 
-        await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS);
+        const shouldRetry = await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS, abortSignal);
+        if (!shouldRetry) {
+            return content;
+        }
+
         return readAttempt(attempt + 1);
     };
+
+    if (abortSignal?.aborted) {
+        return null;
+    }
 
     return await readAttempt(0);
 }
@@ -370,6 +435,19 @@ export function countSourceLines(source: string): number {
  */
 export function hashSourceContent(source: string): string {
     return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
+}
+
+/**
+ * Resolves concurrency for unknown watcher event scans.
+ *
+ * Unknown events require probing tracked files to find changes on platforms
+ * that omit filenames. Keep probes bounded to avoid unbounded stat storms.
+ *
+ * @param {number} configuredMaximum - User-configured max concurrent directory reads.
+ * @returns {number} Safe unknown scan concurrency value (minimum 1).
+ */
+export function resolveUnknownScanConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
 }
 
 /**
@@ -508,6 +586,7 @@ async function performInitialScan(
             // Store the initial content hash so that change events immediately after
             // startup are skipped if the file content has not actually changed.
             runtimeContext.fileContentHashes.set(fullPath, hashSourceContent(content));
+            runtimeContext.fileContentLengths.set(fullPath, content.length);
 
             ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
@@ -537,18 +616,9 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            // Separate files and directories for optimal parallel processing
-            const files: Array<string> = [];
-            const directories: Array<string> = [];
-
-            for (const entry of entries) {
-                const fullPath = path.join(currentPath, entry.name);
-                if (entry.isDirectory()) {
-                    directories.push(fullPath);
-                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
-                    files.push(fullPath);
-                }
-            }
+            // Delegate low-level entry partitioning so this orchestration flow
+            // stays focused on high-level scan steps.
+            const { files, directories } = partitionScannedDirectoryEntries(currentPath, entries, extensionMatcher);
 
             // Process all files in this directory concurrently for maximum throughput
             await Core.runInParallel(files, async (filePath) => {
@@ -753,8 +823,10 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         scanComplete: false,
         unknownScanPromise: null,
         unknownScanQueued: false,
+        unknownScanConcurrency: resolveUnknownScanConcurrency(maxConcurrentDirs),
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
+        fileContentLengths: new Map(),
         dependencyTracker
     };
 
@@ -1081,7 +1153,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         handleFileChange(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         }).catch((error) => {
                             const message = getErrorMessage(error, {
                                 fallback: "Unknown file processing error"
@@ -1106,7 +1179,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         debouncedHandler(fullPath, eventType, {
                             verbose,
                             quiet,
-                            runtimeContext
+                            runtimeContext,
+                            abortSignal
                         });
                     }
                 }
@@ -1155,7 +1229,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, quiet = false, runtimeContext, fileStats }: FileChangeOptions = {}
+    { verbose = false, quiet = false, runtimeContext, fileStats, abortSignal }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -1210,7 +1284,10 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readSourceFileWithTransientEmptyRetry(filePath);
+            const content = await readSourceFileWithTransientEmptyRetry(filePath, abortSignal);
+            if (content === null) {
+                return;
+            }
             const lines = countSourceLines(content);
             if (runtimeContext) {
                 if (resolvedFileStats) {
@@ -1234,16 +1311,23 @@ async function handleFileChange(
             // the remaining scenario where an editor or tool updates the mtime without
             // changing the actual bytes (e.g. redundant saves, `touch`, auto-formatters
             // that produce no change).
-            const contentHash = hashSourceContent(content);
+            const contentLength = content.length;
+            const previousContentLength = runtimeContext.fileContentLengths.get(filePath);
             const lastContentHash = runtimeContext.fileContentHashes.get(filePath);
-            if (lastContentHash !== undefined && lastContentHash === contentHash) {
+            const shouldCheckHash =
+                previousContentLength !== undefined &&
+                lastContentHash !== undefined &&
+                previousContentLength === contentLength;
+            const contentHash = shouldCheckHash ? hashSourceContent(content) : undefined;
+            if (contentHash !== undefined && lastContentHash === contentHash) {
                 if (verbose && !quiet) {
                     console.log("  ↳ Skipping transpilation: content unchanged");
                 }
                 return;
             }
 
-            runtimeContext.fileContentHashes.set(filePath, contentHash);
+            runtimeContext.fileContentHashes.set(filePath, contentHash ?? hashSourceContent(content));
+            runtimeContext.fileContentLengths.set(filePath, contentLength);
 
             ensureScriptNameRegistered(filePath, runtimeContext.scriptNames);
 
@@ -1288,22 +1372,26 @@ async function handleUnknownFileChanges(
         return;
     }
 
-    const changedEntries = await Core.runInParallel(entries, async ([filePath, lastModified]) => {
-        try {
-            const stats = await stat(filePath);
-            if (stats.mtimeMs <= lastModified) {
+    const changedEntries = await Core.runInParallelWithLimit(
+        entries,
+        async ([filePath, lastModified]) => {
+            try {
+                const stats = await stat(filePath);
+                if (stats.mtimeMs <= lastModified) {
+                    return null;
+                }
+
+                return {
+                    filePath,
+                    stats
+                };
+            } catch {
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
                 return null;
             }
-
-            return {
-                filePath,
-                stats
-            };
-        } catch {
-            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
-            return null;
-        }
-    });
+        },
+        runtimeContext.unknownScanConcurrency
+    );
 
     await Core.runSequentially(changedEntries, async (entry) => {
         if (entry === null) {
@@ -1334,6 +1422,13 @@ function processQueuedUnknownFileChanges(
 }
 
 function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+    // Unknown filename events can burst during watcher start-up on some platforms.
+    // Ignore them until the initial scan has completed so we avoid expensive
+    // duplicate stats against the same tree while the scanner is already walking it.
+    if (!runtimeContext.scanComplete) {
+        return Promise.resolve();
+    }
+
     if (runtimeContext.unknownScanPromise !== null) {
         runtimeContext.unknownScanQueued = true;
         return runtimeContext.unknownScanPromise;
@@ -1476,7 +1571,7 @@ function mergeDependentFiles(
 }
 
 async function retranspileDependentFile(
-    runtimeContext: RuntimeContext,
+    runtimeContext: RuntimeContext & ScriptNameRegistrationContext,
     filePath: string,
     dependentFile: string,
     verbose: boolean,
@@ -1536,7 +1631,10 @@ function getSymbolIdFromFilePath(filePath: string): string {
     return `gml/script/${fileName}`;
 }
 
-function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: string): number {
+function removeCachedPatchesForFile(
+    runtimeContext: Pick<FileRemovalCleanupContext, "lastSuccessfulPatches">,
+    filePath: string
+): number {
     const symbolId = getSymbolIdFromFilePath(filePath);
     let removedCount = runtimeContext.lastSuccessfulPatches.delete(symbolId) ? 1 : 0;
 
@@ -1555,10 +1653,16 @@ function removeCachedPatchesForFile(runtimeContext: RuntimeContext, filePath: st
     return removedCount;
 }
 
-function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
+function cleanupRemovedFile(
+    runtimeContext: FileRemovalCleanupContext,
+    filePath: string,
+    verbose: boolean,
+    quiet: boolean
+): void {
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
+    runtimeContext.fileContentLengths.delete(filePath);
     const removedPatchCount = removeCachedPatchesForFile(runtimeContext, filePath);
 
     const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
@@ -1574,7 +1678,7 @@ function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, ve
     }
 }
 
-async function updateFileSnapshot(runtimeContext: RuntimeContext, filePath: string): Promise<void> {
+async function updateFileSnapshot(runtimeContext: FileSnapshotWriter, filePath: string): Promise<void> {
     try {
         const stats = await stat(filePath);
         runtimeContext.fileSnapshots.set(filePath, stats.mtimeMs);

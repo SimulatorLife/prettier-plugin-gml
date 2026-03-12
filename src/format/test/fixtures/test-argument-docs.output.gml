@@ -79,7 +79,7 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
 
 /// @param {Struct} structure
 /// @return {any}
-function scr_struct_get(structure, key, default_value) {
+function scr_struct_get(structure, key, default_value = undefined) {
     if (is_undefined(structure)) {
         return default_value;
     }
@@ -97,7 +97,7 @@ function scr_struct_get(structure, key, default_value) {
 /// @param {Function/undefined} callback
 /// @param {*} [extra]
 /// @return {string}
-function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
+function scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 

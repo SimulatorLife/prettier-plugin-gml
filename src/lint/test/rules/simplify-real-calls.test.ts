@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 const { Lint } = LintWorkspace;
 
@@ -35,7 +35,6 @@ function createContext(sourceText: string): {
     const messages: Array<{ messageId: string; fix?: { range: [number, number]; text: string } }> = [];
     const context = {
         options: [{}],
-        settings: { gml: { project: { getContext: () => null } } },
         sourceCode: { text: sourceText },
         report(descriptor: {
             messageId: string;

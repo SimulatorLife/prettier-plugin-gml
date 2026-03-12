@@ -42,36 +42,23 @@ function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, 
     );
 }
 
-function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
-    const coreOptionOverrides = resolveCoreOptionOverrides();
-    const formatOptionDefaults = extractOptionDefaults(formatOptions);
+const coreOptionOverrides = resolveCoreOptionOverrides();
+const formatOptionDefaults = extractOptionDefaults(formatOptions);
 
-    return {
-        // Merge order:
-        // GML Prettier defaults -> option defaults -> fixed overrides
-        ...BASE_PRETTIER_DEFAULTS,
-        ...formatOptionDefaults,
-        ...coreOptionOverrides
-    };
-}
-
-export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
-
-function preserveTopLevelDescriptionGap(source: string, formatted: string): string {
-    const sourceStartsWithDescriptionGap = /^\/\/\/\s*@description[^\r\n]*\r?\n[ \t]*\r?\n[ \t]*var\b/.test(source);
-    if (!sourceStartsWithDescriptionGap) {
-        return formatted;
-    }
-
-    return formatted.replace(/^(\/\/\/\s*@description[^\r\n]*\n)(var\b)/, "$1\n$2");
-}
+export const defaultOptions: GmlFormatDefaultOptions = Object.freeze({
+    // Merge order:
+    // GML Prettier defaults -> option defaults -> fixed overrides
+    ...BASE_PRETTIER_DEFAULTS,
+    ...formatOptionDefaults,
+    ...coreOptionOverrides
+});
 
 function preserveBannerSpacingGaps(source: string, formatted: string): string {
     let result = formatted;
 
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8,}\s+Banner/u.test(source);
+    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8}\S+/u.test(source);
     if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8,}\s+Banner)/u, "$1\n$2");
+        result = result.replace(/([^\n]\n)(\/{8}\S+)/u, "$1\n$2");
     }
 
     const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
@@ -85,6 +72,33 @@ function preserveBannerSpacingGaps(source: string, formatted: string): string {
     }
 
     return result;
+}
+
+function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
+    source: string,
+    formatted: string
+): boolean {
+    if (source.endsWith("\n") || source.endsWith("\r")) {
+        return false;
+    }
+
+    if (formatted !== `${source}\n`) {
+        return false;
+    }
+
+    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
+        return false;
+    }
+
+    return source.includes("\n*/\n\n");
+}
+
+function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
+    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
+        return formatted;
+    }
+
+    return source;
 }
 
 /**
@@ -104,7 +118,7 @@ async function format(source: string, options: SupportOptions = {}) {
     }
 
     const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    return preserveTopLevelDescriptionGap(source, withBannerSpacing);
+    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
 }
 
 export const Format: GmlFormat = {

@@ -1,4 +1,4 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../catalog.js";
@@ -65,7 +65,89 @@ export interface SourceTextEdit {
     readonly text: string;
 }
 
-export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
+const CLONE_SKIPPED_NODE_KEYS = new Set(["parent", "enclosingNode", "precedingNode", "followingNode"]);
+
+function cloneNodeValueWithoutTraversalLinks(nodeValue: unknown, seenNodes: WeakMap<object, unknown>): unknown {
+    if (!isObjectLike(nodeValue)) {
+        return nodeValue;
+    }
+
+    const objectNodeValue = nodeValue as object;
+    const existingClone = seenNodes.get(objectNodeValue);
+    if (existingClone) {
+        return existingClone;
+    }
+
+    if (Array.isArray(nodeValue)) {
+        const clonedArray: unknown[] = [];
+        seenNodes.set(objectNodeValue, clonedArray);
+        for (const entry of nodeValue) {
+            clonedArray.push(cloneNodeValueWithoutTraversalLinks(entry, seenNodes));
+        }
+        return clonedArray;
+    }
+
+    const clonedRecord: Record<string, unknown> = {};
+    seenNodes.set(objectNodeValue, clonedRecord);
+    for (const [key, value] of Object.entries(nodeValue)) {
+        if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
+            continue;
+        }
+        clonedRecord[key] = cloneNodeValueWithoutTraversalLinks(value, seenNodes);
+    }
+
+    return clonedRecord;
+}
+
+function restoreLocalParentLinks(clonedNode: unknown): void {
+    const visitedNodes = new WeakSet<object>();
+
+    const visit = (currentValue: unknown, parentNode: Record<string, unknown> | null): void => {
+        if (!isObjectLike(currentValue)) {
+            return;
+        }
+
+        const objectValue = currentValue as object;
+        if (visitedNodes.has(objectValue)) {
+            return;
+        }
+        visitedNodes.add(objectValue);
+
+        if (Array.isArray(currentValue)) {
+            for (const entry of currentValue) {
+                visit(entry, parentNode);
+            }
+            return;
+        }
+
+        const currentRecord = currentValue as Record<string, unknown>;
+        if (parentNode) {
+            currentRecord.parent = parentNode;
+        }
+
+        for (const [key, value] of Object.entries(currentRecord)) {
+            if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
+                continue;
+            }
+            visit(value, currentRecord);
+        }
+    };
+
+    visit(clonedNode, null);
+}
+
+export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
+    const clonedNode = cloneNodeValueWithoutTraversalLinks(node, new WeakMap<object, unknown>());
+    restoreLocalParentLinks(clonedNode);
+    return clonedNode as T;
+}
+
+type RuleMetaOverrides = Readonly<{
+    fixable?: "code" | "whitespace" | null;
+    messageText?: string;
+}>;
+
+export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOverrides = {}): Rule.RuleMetaData {
     const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
@@ -73,17 +155,63 @@ export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     };
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        [definition.messageId]: overrides.messageText ?? `${definition.messageId} diagnostic.`,
         unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
 
-    return Object.freeze({
+    const meta: Rule.RuleMetaData = {
         type: "suggestion",
-        fixable: "code",
         docs: Object.freeze(docs),
         schema: definition.schema,
         messages: Object.freeze(messages)
-    });
+    };
+
+    if (overrides.fixable === undefined) {
+        meta.fixable = "code";
+    } else if (overrides.fixable !== null) {
+        meta.fixable = overrides.fixable;
+    }
+
+    return Object.freeze(meta);
+}
+
+/**
+ * Returns `true` when a node sits in a statement slot rather than an
+ * expression-only position such as a `for` header or call argument list.
+ *
+ * @param parentKey Property name linking the node to its parent.
+ * @returns Whether the parent relationship is statement-shaped.
+ */
+export function isStandaloneStatementParentKey(parentKey: string | null): boolean {
+    return parentKey === "body" || parentKey === "consequent" || parentKey === "alternate";
+}
+
+/**
+ * Detects comment tokens inside a source span so fixers can skip rewrites that
+ * would risk deleting authored comments embedded in the replaced text.
+ *
+ * @param sourceText Full file text.
+ * @param start Inclusive start offset.
+ * @param end Exclusive end offset.
+ * @returns Whether the span contains line or block comment markers.
+ */
+export function sourceRangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
+    const rangeText = new Set(sourceText.slice(start, end));
+    return rangeText.has("//") || rangeText.has("/*") || rangeText.has("*/");
+}
+
+/**
+ * Reads program text once, applies a deterministic rewrite, and reports the
+ * resulting full-text fix when the rewrite changes output.
+ */
+export function reportProgramTextRewrite(
+    context: Rule.RuleContext,
+    definition: GmlRuleDefinition,
+    rewrite: (sourceText: string) => string
+): void {
+    const sourceText = context.sourceCode.text;
+    const rewrittenText = rewrite(sourceText);
+    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
 }
 
 export function walkAstNodesWithParent(root: unknown, visit: (context: AstNodeParentVisitContext) => void): void {

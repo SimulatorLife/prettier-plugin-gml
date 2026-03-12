@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import antlr4, { type RecognitionException, type Recognizer, type Token, type TokenStream } from "antlr4";
 
 import type { TokenMetadataOptions } from "../types/index.js";

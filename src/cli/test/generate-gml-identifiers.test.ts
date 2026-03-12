@@ -4,7 +4,13 @@ import vm from "node:vm";
 
 import { __test__ } from "../src/commands/generate-gml-identifiers.js";
 
-const { parseArrayLiteral, collectManualArrayIdentifiers, assertManualIdentifierArray } = __test__;
+const {
+    parseArrayLiteral,
+    collectManualArrayIdentifiers,
+    assertManualIdentifierArray,
+    extractDeprecatedReplacementFromManualHtml,
+    parseObsoleteIdentifierTableEntries
+} = __test__;
 
 const SAMPLE_SOURCE = `
 const KEYWORDS = [
@@ -93,5 +99,63 @@ void describe("generate-gml-identifiers", () => {
         });
 
         assert.deepEqual(values, ["alpha"]);
+    });
+
+    void it("extracts direct replacement metadata from deprecated manual pages", () => {
+        const replacement = extractDeprecatedReplacementFromManualHtml(`
+            <p class="note"><b>WARNING!</b> This function is deprecated (and replaced by
+            <span class="inline"><a href="array_length.htm">array_length()</a></span>).</p>
+        `);
+
+        assert.deepEqual(replacement, {
+            replacement: "array_length",
+            replacementKind: "direct-rename"
+        });
+    });
+
+    void it("parses obsolete identifier tables into normalized deprecated entries", () => {
+        const entries = parseObsoleteIdentifierTableEntries(`
+            <p><a class="dropspot" data-target="drop-down" href="#">Backgrounds</a></p>
+            <div class="droptext" data-targetname="drop-down">
+              <p class="dropspot">the following functions are obsolete:</p>
+              <table>
+                <tbody>
+                  <tr>
+                    <td>draw_background</td>
+                    <td>room_set_<br />background_colour</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="dropspot">background variables are no longer required:</p>
+              <table>
+                <tbody>
+                  <tr>
+                    <td>background_<br />index[0..7]</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+        `);
+
+        assert.deepEqual(entries, [
+            {
+                name: "draw_background",
+                type: "function",
+                legacyCategory: "Backgrounds",
+                legacyUsage: "call"
+            },
+            {
+                name: "room_set_background_colour",
+                type: "function",
+                legacyCategory: "Backgrounds",
+                legacyUsage: "call"
+            },
+            {
+                name: "background_index",
+                type: "variable",
+                legacyCategory: "Backgrounds",
+                legacyUsage: "indexed-identifier"
+            }
+        ]);
     });
 });

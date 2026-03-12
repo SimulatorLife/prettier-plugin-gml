@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
 

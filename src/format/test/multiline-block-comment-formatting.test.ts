@@ -30,6 +30,19 @@ var x = 1;
         assert.equal(formatted, input);
     });
 
+    void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {
+        const input = `/*
+This comment should remain plain text
+No doc-style stars should be inserted
+*/
+
+var x = 1;
+`;
+
+        const formatted = await Format.format(input, { parser: "gml" });
+        assert.strictEqual(formatted, input);
+    });
+
     void it("filters out empty lines from multi-line block comments", async () => {
         const input = `/*
 
@@ -82,7 +95,7 @@ var x = 1;
 
     void it("does not remove duplicate doc-comment lines (deduplication is a lint-only operation)", () => {
         // The formatter must not strip or rewrite doc-comment content — that is a
-        // semantic/content rewrite owned exclusively by the `@gml-modules/lint`
+        // semantic/content rewrite owned exclusively by the `@gmloop/lint`
         // `normalize-doc-comments` rule (target-state.md §2.2, §3.2).
         const input = "/* helper */\n/// @description Foo\n/// @description Foo\nfunction foo() {}\n";
 

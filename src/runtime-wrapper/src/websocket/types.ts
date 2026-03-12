@@ -58,6 +58,12 @@ export interface PatchQueueMetrics {
     totalQueued: number;
     totalFlushed: number;
     totalDropped: number;
+    /**
+     * Cumulative count of patches skipped during flush because a later patch
+     * with the same ID was already in the same flush batch. Only the most-recent
+     * patch per ID is applied; earlier duplicates are counted here.
+     */
+    totalDeduplicated: number;
     maxQueueDepth: number;
     flushCount: number;
     lastFlushSize: number;

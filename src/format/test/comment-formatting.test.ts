@@ -24,7 +24,7 @@ void test("preserves triple-slash continuation lines adjacent to doc tags", asyn
     );
 });
 
-void test("normalizes method-list triple-slash lines into plain line comments", async () => {
+void test("does not normalize method-list triple-slash lines into plain line comments", async () => {
     const source = [
         "// Feather disable all",
         "/// .__Destroy()",
@@ -36,17 +36,12 @@ void test("normalizes method-list triple-slash lines into plain line comments", 
 
     const formatted = await Format.format(source);
 
-    assert.equal(
-        formatted,
-        [
-            "// Feather disable all",
-            "// .__Destroy()",
-            "// .__GetBuffer()",
-            "",
-            "function __Batch() constructor {}",
-            ""
-        ].join("\n")
-    );
+    assert.match(formatted, /^\/\/\/ \.__Destroy\(\)$/m);
+    assert.match(formatted, /^\/\/\/ \.__GetBuffer\(\)$/m);
+    assert.match(formatted, /^\/\/\/$/m);
+    assert.doesNotMatch(formatted, /^\/\/ \.__Destroy\(\)$/m);
+    assert.doesNotMatch(formatted, /^\/\/ \.__GetBuffer\(\)$/m);
+    assert.doesNotMatch(formatted, /^\/\/ \/ \.__Destroy\(\)$/m);
 });
 
 void test("does not insert empty doc separator between description and continuation", async () => {
@@ -89,7 +84,7 @@ void test("keeps indented non-decorative block comments attached to function bod
     );
 });
 
-void test("collapses decorative slash banners into attached block comments without extra indentation", async () => {
+void test("does not collapse decorative slash banners into attached block comments", async () => {
     const source = [
         "function demo() {",
         "    /*",
@@ -105,19 +100,9 @@ void test("collapses decorative slash banners into attached block comments witho
 
     const formatted = await Format.format(source);
 
-    assert.equal(
-        formatted,
-        [
-            "function demo() {",
-            "    /*",
-            "        Block docs",
-            "    */",
-            "    /* Return an array */",
-            "    return [1, 2, 3];",
-            "}",
-            ""
-        ].join("\n")
-    );
+    assert.match(formatted, /\/\*\/{20,}/u);
+    assert.match(formatted, /\*\/{20,}/u);
+    assert.doesNotMatch(formatted, /\/\* Return an array \*\//u);
 });
 
 void test("preserves adjacent non-decorative block comment blocks as separate blocks", async () => {
@@ -199,7 +184,7 @@ void test("does not merge adjacent non-decorative block comment blocks separated
     );
 });
 
-void test("collapses multiple consecutive decorative banners into a single attached one-line block comment", async () => {
+void test("does not collapse multiple consecutive decorative banners into one-line block comments", async () => {
     const source = [
         "function demo() {",
         "\t/*////////////////////////////////////////////////////",
@@ -215,17 +200,67 @@ void test("collapses multiple consecutive decorative banners into a single attac
 
     const formatted = await Format.format(source);
 
+    const decorativeBannerOpenMatches = formatted.match(/\/\*\/{20,}/gu) ?? [];
+    assert.equal(decorativeBannerOpenMatches.length, 2);
+    assert.doesNotMatch(formatted, /\/\* Block docs \*\//u);
+    assert.doesNotMatch(formatted, /\/\* Return an array \*\//u);
+});
+
+void test("does not drop slash-only line after decorative block comment", async () => {
+    const source = [
+        "function demo() {",
+        "    /*////////////////////////////////////////////////////",
+        "            Block docs",
+        "    */////////////////////////////////////////////////////",
+        "    //////////////////////////////////////////////////////",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    const slashOnlyBannerLines = formatted.match(/^\s*\/{21,}\s*$/gmu) ?? [];
+    assert.equal(slashOnlyBannerLines.length, 1);
+});
+
+void test("does not duplicate same-line slash suffix after decorative block comments", async () => {
+    const source = [
+        "/*////////////////////////////////////////////////////////////////",
+        "    Orthogonalize the P2 direction to the vector from P1 to P3",
+        "*/////////////////////////////////////////////////////////////////",
+        "",
+        "/*////////////////////////////////////////////////////////////////////////////////////////////////////////",
+        "    The idea behind the algorithm is to imagine a sphere placed at P1 with radius of the first bone, and",
+        "    another sphere at P3 with the radius of the second bone. The intersection between these spheres is a",
+        "    circle representing all the possible placements of P2.",
+        "    The first step is to find the middle point of this circle, and the radius of this intersection circle",
+        "*/////////////////////////////////////////////////////////////////////////////////////////////////////////",
+        "var p1_p3sqr = p1_p3 * p1_p3",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source, { printWidth: 120 });
+
     assert.equal(
         formatted,
         [
-            "function demo() {",
-            "    /* Block docs */",
-            "    /* Return an array */",
-            "    return [1, 2, 3];",
-            "}",
+            "/*////////////////////////////////////////////////////////////////",
+            "    Orthogonalize the P2 direction to the vector from P1 to P3",
+            "*/////////////////////////////////////////////////////////////////",
+            "",
+            "/*////////////////////////////////////////////////////////////////////////////////////////////////////////",
+            "    The idea behind the algorithm is to imagine a sphere placed at P1 with radius of the first bone, and",
+            "    another sphere at P3 with the radius of the second bone. The intersection between these spheres is a",
+            "    circle representing all the possible placements of P2.",
+            "    The first step is to find the middle point of this circle, and the radius of this intersection circle",
+            "*/////////////////////////////////////////////////////////////////////////////////////////////////////////",
+            "var p1_p3sqr = p1_p3 * p1_p3;",
             ""
         ].join("\n")
     );
+    const slashOnlyBannerLines = formatted.match(/^\s*\/{21,}\s*$/gmu) ?? [];
+    assert.equal(slashOnlyBannerLines.length, 0);
 });
 
 void test("does not convert adjacent multi-line block comment blocks into line comments", async () => {
@@ -290,7 +325,7 @@ void test("does not collapse a non-decorative multi-line block comment into a on
     );
 });
 
-void test("collapses decorative banners even when surrounded by adjacent block comment blocks", async () => {
+void test("does not collapse decorative banners when surrounded by adjacent block comment blocks", async () => {
     const source = [
         "function demo() {",
         "    /*",
@@ -309,22 +344,8 @@ void test("collapses decorative banners even when surrounded by adjacent block c
 
     const formatted = await Format.format(source);
 
-    assert.equal(
-        formatted,
-        [
-            "function demo() {",
-            "    /*",
-            "        Block docs",
-            "    */",
-            "    /* Return an array */",
-            "    /*",
-            "        Trailing docs",
-            "    */",
-            "    return [1, 2, 3];",
-            "}",
-            ""
-        ].join("\n")
-    );
+    assert.match(formatted, /\/\*\/{20,}/u);
+    assert.doesNotMatch(formatted, /\/\* Return an array \*\//u);
 });
 
 void test("formats top-level doc block comments without duplicating leading stars", async () => {
@@ -351,6 +372,77 @@ void test("formats top-level doc block comments without duplicating leading star
             " * Author: Sohom Sahaun | @sohomsahaun",
             " */",
             "function demo() {}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("preserves blank lines between adjacent function doc-comment tags", async () => {
+    const source = [
+        "/// @description Create collectible particles and inherit",
+        "",
+        "/// @function scr_bezier_4()",
+        "function scr_bezier_4() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/// @description Create collectible particles and inherit",
+            "",
+            "/// @function scr_bezier_4()",
+            "function scr_bezier_4() {}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("preserves source order for mixed function doc-comment prefixes", async () => {
+    const source = [
+        "/// @function scr_create_fx",
+        "// @param sprite_index",
+        "/* @description Create an effect */",
+        "/// @returns {Id.Instance} instance",
+        "function scr_create_fx() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/// @function scr_create_fx",
+            "// @param sprite_index",
+            "/* @description Create an effect */",
+            "/// @returns {Id.Instance} instance",
+            "function scr_create_fx() {}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("normalizes top-level decorative banner indentation", async () => {
+    const source = [
+        "\t/*////////////////////////////////////////////////////",
+        "\t    Banner docs",
+        "\t    */////////////////////////////////////////////////////",
+        "var value = 1;",
+        ""
+    ].join("\n");
+
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        [
+            "/*////////////////////////////////////////////////////",
+            "    Banner docs",
+            "*/////////////////////////////////////////////////////",
+            "var value = 1;",
             ""
         ].join("\n")
     );

@@ -1,7 +1,43 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
+import { isGmlParseError, isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
+
+void describe("isGmlParseError", () => {
+    void it("returns true for objects with name GameMakerSyntaxError", () => {
+        const parseErrorLike = { name: "GameMakerSyntaxError", message: "Unexpected token" };
+        assert.equal(isGmlParseError(parseErrorLike), true);
+    });
+
+    void it("returns true for an actual Error with name overridden to GameMakerSyntaxError", () => {
+        const error = new Error("Syntax error");
+        error.name = "GameMakerSyntaxError";
+        assert.equal(isGmlParseError(error), true);
+    });
+
+    void it("returns false for a standard Error", () => {
+        assert.equal(isGmlParseError(new Error("boom")), false);
+    });
+
+    void it("returns false for a SyntaxError (name is SyntaxError, not GameMakerSyntaxError)", () => {
+        assert.equal(isGmlParseError(new SyntaxError("boom")), false);
+    });
+
+    void it("returns false for null and undefined", () => {
+        assert.equal(isGmlParseError(null), false);
+        assert.equal(isGmlParseError(undefined), false);
+    });
+
+    void it("returns false for primitive values", () => {
+        assert.equal(isGmlParseError("GameMakerSyntaxError"), false);
+        assert.equal(isGmlParseError(42), false);
+    });
+
+    void it("returns false for plain objects with a different name", () => {
+        assert.equal(isGmlParseError({ name: "TypeError", message: "x" }), false);
+        assert.equal(isGmlParseError({ message: "x" }), false);
+    });
+});
 
 void describe("isSyntaxErrorWithLocation", () => {
     void it("identifies syntax errors with location metadata", () => {

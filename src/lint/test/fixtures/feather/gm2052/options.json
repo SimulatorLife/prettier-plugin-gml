@@ -1,1 +1,5 @@
-{}
+{
+  "lintRules": {
+    "feather/gm2052": "error"
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "plugins": ["@gml-modules/format"],
+  "plugins": ["@gmloop/format"],
   "overrides": [
     {
       "files": "*.gml",
@@ -9,7 +9,7 @@
         "tabWidth": 4,
         "useTabs": false,
         "semi": true,
-        "allowSingleLineIfStatements": false,
+        "allowInlineControlFlowBlocks": false,
         "logicalOperatorsStyle": "keywords",
         "bracketSpacing": true,
         "bracketSameLine": false

@@ -8,9 +8,9 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { CLI } from "@gml-modules/cli";
-import { Core } from "@gml-modules/core";
-import { Format } from "@gml-modules/format";
+import { CLI } from "@gmloop/cli";
+import { Core } from "@gmloop/core";
+import { Format } from "@gmloop/format";
 
 import { findRepoRoot } from "../src/shared/repo-root.js";
 

@@ -16,8 +16,7 @@ import {
     isMapLike,
     isRegExpLike,
     isSetLike,
-    isUint8ArrayLike,
-    isWorkspaceEditLike
+    isUint8ArrayLike
 } from "../src/utils/capability-probes.js";
 
 void describe("capability probes", () => {
@@ -160,32 +159,6 @@ void describe("capability probes", () => {
         };
 
         assert.equal(ensureMap(invalidIterable).size, 0);
-    });
-
-    void it("identifies workspace-edit-like objects", () => {
-        const validWorkspaceEdit = {
-            edits: [],
-            addEdit() {},
-            groupByFile() {
-                return new Map();
-            }
-        };
-
-        assert.equal(isWorkspaceEditLike(validWorkspaceEdit), true);
-
-        assert.equal(isWorkspaceEditLike({ edits: [] }), false);
-        assert.equal(isWorkspaceEditLike({ edits: [], addEdit() {} }), false);
-        assert.equal(isWorkspaceEditLike({ addEdit() {}, groupByFile() {} }), false);
-        assert.equal(isWorkspaceEditLike(null), false);
-        assert.equal(isWorkspaceEditLike(), false);
-        assert.equal(
-            isWorkspaceEditLike({
-                edits: "not an array",
-                addEdit() {},
-                groupByFile() {}
-            }),
-            false
-        );
     });
 
     void it("detects date-like values", () => {

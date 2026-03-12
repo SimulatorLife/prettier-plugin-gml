@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { readPackageJson, resolveCandidateRoot, resolvePackageJsonPath } from "../../shared/index.js";
 

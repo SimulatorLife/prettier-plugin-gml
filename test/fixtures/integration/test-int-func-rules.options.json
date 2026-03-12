@@ -1,5 +1,5 @@
 {
-  "allowSingleLineIfStatements": false,
+  "allowInlineControlFlowBlocks": false,
   "printWidth": 95,
   "lintRules": {
     "gml/normalize-doc-comments": "error",

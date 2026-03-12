@@ -1,8 +1,9 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
+import { convertToESTree } from "./ast/estree-converter.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
@@ -276,7 +277,7 @@ export class GMLParser {
         }
 
         if (shouldConvertToESTree) {
-            astTree = Core.convertToESTree(astTree, {
+            astTree = convertToESTree(astTree, {
                 includeLocations: this.options.getLocations,
                 includeRange: this.options.getLocations && this.options.simplifyLocations,
                 includeComments: this.options.getComments
@@ -412,7 +413,7 @@ export class GMLParser {
  *
  * @remarks
  * This convenience export allows consumers to access Core.getLineBreakCount
- * directly from the parser module without importing @gml-modules/core.
+ * directly from the parser module without importing @gmloop/core.
  * Useful for calculating line metrics or validating source spans.
  */
 export const getLineBreakCount: typeof Core.getLineBreakCount = Core.getLineBreakCount;

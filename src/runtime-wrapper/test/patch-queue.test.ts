@@ -262,6 +262,7 @@ void test("getPatchQueueMetrics returns initial metrics when queuing is enabled"
     assert.strictEqual(metrics.totalQueued, 0);
     assert.strictEqual(metrics.totalFlushed, 0);
     assert.strictEqual(metrics.totalDropped, 0);
+    assert.strictEqual(metrics.totalDeduplicated, 0);
     assert.strictEqual(metrics.maxQueueDepth, 0);
     assert.strictEqual(metrics.flushCount, 0);
     assert.strictEqual(metrics.lastFlushSize, 0);
@@ -662,6 +663,203 @@ void test("patch queue clears flush timer on disconnect", async () => {
         );
 
         assert.strictEqual(metrics.flushCount, 1);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue deduplicates patches with the same ID on flush", async () => {
+    // Simulates rapid saves: the same script is patched three times within the
+    // flush window. Only the last version should be applied; earlier occurrences
+    // are counted in totalDeduplicated and still reflected in totalFlushed.
+    let batchCallCount = 0;
+    const batchArgs: Array<Array<unknown>> = [];
+
+    const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 500,
+            maxQueueSize: 50
+        },
+        wrapperMutator: (wrapper) => {
+            const originalApplyPatchBatch = wrapper.applyPatchBatch.bind(wrapper);
+            wrapper.applyPatchBatch = (patches: Array<unknown>) => {
+                batchCallCount++;
+                batchArgs.push(patches);
+                return originalApplyPatchBatch(patches);
+            };
+            return wrapper;
+        }
+    });
+
+    try {
+        // Send three patches for the same script ID within the flush window.
+        sendScriptPatch(ws, "script:rapidly_edited", "return 1;");
+        sendScriptPatch(ws, "script:rapidly_edited", "return 2;");
+        sendScriptPatch(ws, "script:rapidly_edited", "return 3;");
+
+        await waitForQueueMetrics(
+            client,
+            "queue to contain three duplicate patches",
+            (snapshot) => snapshot.totalQueued === 3
+        );
+
+        const flushed = client.flushPatchQueue();
+
+        const metrics = await waitForQueueMetrics(
+            client,
+            "queue to flush deduplicated patches",
+            (snapshot) => snapshot.flushCount === 1,
+            300
+        );
+
+        // flushPatchQueue returns the original queue size (before deduplication).
+        assert.strictEqual(flushed, 3);
+
+        // totalFlushed counts all patches removed from the queue (including deduped).
+        assert.strictEqual(metrics.totalFlushed, 3);
+
+        // Two of the three patches were deduplicated (only the last one applied).
+        assert.strictEqual(metrics.totalDeduplicated, 2);
+
+        // applyPatchBatch was called with only the deduplicated patch.
+        assert.strictEqual(batchCallCount, 1);
+        assert.strictEqual(batchArgs[0].length, 1);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue deduplicates preserving the latest body of each patch", async () => {
+    // Verifies that after deduplication, the function actually installed is the
+    // one from the LAST patch for that ID (not an earlier version).
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 500,
+            maxQueueSize: 50
+        }
+    });
+
+    try {
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:versioned", js_body: "return 'v1';" }));
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:versioned", js_body: "return 'v2';" }));
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:versioned", js_body: "return 'v3';" }));
+
+        await waitForQueueMetrics(client, "queue to capture three patches", (snapshot) => snapshot.totalQueued === 3);
+
+        client.flushPatchQueue();
+
+        await waitForQueueMetrics(
+            client,
+            "queue to flush with deduplication",
+            (snapshot) => snapshot.flushCount === 1 && snapshot.totalDeduplicated === 2,
+            300
+        );
+
+        const fn = wrapper.getScript("script:versioned");
+        assert.ok(typeof fn === "function", "Script should be registered after flush");
+        assert.strictEqual(fn(null, null, []), "v3", "Latest patch body should be installed");
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue deduplication preserves patches without string IDs", async () => {
+    let capturedBatch: Array<unknown> | null = null;
+
+    const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 500,
+            maxQueueSize: 50
+        },
+        wrapperMutator: (wrapper) => {
+            wrapper.applyPatchBatch = (patches: Array<unknown>) => {
+                capturedBatch = patches;
+                return {
+                    success: true,
+                    version: wrapper.getVersion(),
+                    appliedCount: patches.length,
+                    rolledBack: false
+                };
+            };
+            return wrapper;
+        }
+    });
+
+    try {
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:stable", js_body: "return 1;" }));
+        ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:stable", js_body: "return 2;" }));
+        ws.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: 42,
+                js_body: "return 99;"
+            })
+        );
+
+        await waitForQueueMetrics(
+            client,
+            "queue to capture duplicate and unidentifiable patches",
+            (snapshot) => snapshot.totalQueued === 3
+        );
+
+        client.flushPatchQueue();
+
+        const metrics = await waitForQueueMetrics(
+            client,
+            "queue to flush deduplicated and unidentifiable patches",
+            (snapshot) => snapshot.flushCount === 1,
+            300
+        );
+
+        assert.strictEqual(metrics.totalDeduplicated, 1, "Only duplicate string IDs should be deduplicated");
+        assert.ok(capturedBatch, "Expected applyPatchBatch to be invoked");
+        assert.strictEqual(capturedBatch.length, 2, "Latest duplicate and non-string-id patch should both be retained");
+
+        const latestStablePatch = capturedBatch[0] as { id: string; js_body: string };
+        const nonStringIdPatch = capturedBatch[1] as { id: number; js_body: string };
+        assert.strictEqual(latestStablePatch.id, "script:stable");
+        assert.strictEqual(latestStablePatch.js_body, "return 2;");
+        assert.strictEqual(nonStringIdPatch.id, 42);
+        assert.strictEqual(nonStringIdPatch.js_body, "return 99;");
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue does not deduplicate patches with different IDs", async () => {
+    const { client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 500,
+            maxQueueSize: 50
+        }
+    });
+
+    try {
+        sendScriptPatch(ws, "script:alpha");
+        sendScriptPatch(ws, "script:beta");
+        sendScriptPatch(ws, "script:gamma");
+
+        await waitForQueueMetrics(
+            client,
+            "queue to capture three distinct patches",
+            (snapshot) => snapshot.totalQueued === 3
+        );
+
+        client.flushPatchQueue();
+
+        const metrics = await waitForQueueMetrics(
+            client,
+            "queue to flush without deduplication",
+            (snapshot) => snapshot.flushCount === 1,
+            300
+        );
+
+        assert.strictEqual(metrics.totalDeduplicated, 0, "No patches should be deduplicated for distinct IDs");
+        assert.strictEqual(metrics.totalFlushed, 3);
     } finally {
         client.disconnect();
         restoreRuntimeGlobals();
