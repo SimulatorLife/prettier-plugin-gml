@@ -1,6 +1,7 @@
 import { Core } from "@gmloop/core";
 
 import { executeNamingConventionCodemod } from "./codemods/naming-convention/index.js";
+import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
 import type { RefactorEngine } from "./refactor-engine.js";
 import type {
     ConfiguredCodemodRunRequest,
@@ -34,12 +35,6 @@ type ConfiguredCodemodExecutionResult = {
     summary: ConfiguredCodemodSummary;
 };
 
-function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
-    return Core.assertPlainObject(value, {
-        errorMessage: `${context} must be a plain object`
-    });
-}
-
 function isNullableString(value: unknown): value is string | null {
     return typeof value === "string" || value === null;
 }
@@ -52,7 +47,7 @@ function normalizeLoopLengthHoistingConfig(
         return false;
     }
 
-    const object = assertPlainObject(value, context);
+    const object = assertRefactorConfigPlainObject(value, context);
     const allowedKeys = new Set(["functionSuffixes"]);
 
     for (const key of Object.keys(object)) {
@@ -65,7 +60,10 @@ function normalizeLoopLengthHoistingConfig(
         return {};
     }
 
-    const functionSuffixesObject = assertPlainObject(object.functionSuffixes, `${context}.functionSuffixes`);
+    const functionSuffixesObject = assertRefactorConfigPlainObject(
+        object.functionSuffixes,
+        `${context}.functionSuffixes`
+    );
     const functionSuffixes: Record<string, string | null> = {};
 
     for (const [functionName, suffixValue] of Object.entries(functionSuffixesObject)) {
@@ -92,7 +90,7 @@ function normalizeNamingConventionConfig(
         return false;
     }
 
-    const object = assertPlainObject(value, context);
+    const object = assertRefactorConfigPlainObject(value, context);
     const keys = Object.keys(object);
 
     if (keys.length > 0) {
