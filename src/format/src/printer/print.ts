@@ -2457,8 +2457,7 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
-        const nextNodePrintsDocCommentBlock =
-            Core.isNonEmptyArray(nextNode?.docComments) || Core.isNonEmptyArray(nextNode?._syntheticDocLines);
+        const nextNodePrintsDocCommentBlock = Core.isNonEmptyArray(nextNode?.docComments);
 
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
@@ -2506,10 +2505,7 @@ function handleTerminalTrailingSpacing({
     const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
-    const hasAttachedDocComment =
-        node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        Core.isNonEmptyArray(node?.docComments) ||
-        Core.isNonEmptyArray(node?._syntheticDocLines);
+    const hasAttachedDocComment = node?.[DOC_COMMENT_OUTPUT_FLAG] === true || Core.isNonEmptyArray(node?.docComments);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&
