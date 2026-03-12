@@ -54,7 +54,7 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
-export { listRegisteredCodemods } from "./codemod-registry.js";
+export { executeRegisteredCodemods, listConfiguredCodemods, listRegisteredCodemods } from "./codemod-registry.js";
 export * as Codemods from "./codemods/index.js";
 export type {
     LoopLengthHoistFunctionSuffixes,
@@ -149,11 +149,14 @@ export type {
     PartialSemanticAnalyzer,
     PrepareRenamePlanOptions,
     Range,
+    RefactorCodemodConfigEntry,
+    RefactorCodemodConfigMap,
     RefactorCodemodId,
     RefactorEngineDependencies,
     RefactorProjectAnalysisProvider,
     RefactorProjectConfig,
     RegisteredCodemod,
+    RegisteredCodemodSelection,
     RenameImpactAnalysis,
     RenameImpactGraph,
     RenameImpactNode,

@@ -37,6 +37,8 @@ type SemanticFileRecord = {
 };
 
 type SemanticIdentifierCollections = {
+    enumMembers?: Record<string, SemanticIdentifierEntry>;
+    enums?: Record<string, SemanticIdentifierEntry>;
     globalVariables?: Record<string, SemanticIdentifierEntry>;
     instanceVariables?: Record<string, SemanticIdentifierEntry>;
     macros?: Record<string, SemanticIdentifierEntry>;
@@ -109,6 +111,8 @@ type BridgeNamingConventionCategory =
     | "function"
     | "constructorFunction"
     | "structDeclaration"
+    | "enum"
+    | "enumMember"
     | "macro";
 
 type BridgeNamingConventionTarget = {
@@ -137,6 +141,8 @@ type BridgeTextEdit = {
 };
 
 type BridgeGroupedTextEdits = Map<string, Array<BridgeTextEdit>>;
+type NamingTargetPathPredicate = (candidatePath: string | null | undefined) => boolean;
+type NamingTargetSink = (target: BridgeNamingConventionTarget) => void;
 
 function createWorkspaceEdit(): WorkspaceEdit {
     const workspace = {
@@ -757,12 +763,26 @@ export class GmlSemanticBridge {
             targets.push(target);
         };
 
+        this.collectResourceNamingConventionTargets(shouldIncludePath, pushTarget);
+        this.collectScriptCallableNamingConventionTargets(shouldIncludePath, pushTarget);
+        this.collectExactIdentifierNamingTargets(this.identifiers.macros ?? {}, "macro", shouldIncludePath, pushTarget);
+        this.collectExactIdentifierNamingTargets(this.identifiers.enums ?? {}, "enum", shouldIncludePath, pushTarget);
+        this.collectEnumMemberNamingConventionTargets(shouldIncludePath, pushTarget);
+        this.collectGlobalAndInstanceNamingTargets(shouldIncludePath, pushTarget);
+        this.collectLocalNamingConventionTargets(shouldIncludePath, pushTarget);
+
+        return targets;
+    }
+
+    private collectResourceNamingConventionTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
         for (const resource of Object.values(this.resources)) {
             if (!resource?.name || !shouldIncludePath(resource.path)) {
                 continue;
             }
 
-            const symbolId = this.generateResourceScipId(resource);
             const category = this.getResourceNamingCategory(resource.resourceType);
             if (!category) {
                 continue;
@@ -774,34 +794,56 @@ export class GmlSemanticBridge {
                 occurrences: [],
                 path: resource.path,
                 scopeId: null,
-                symbolId
+                symbolId: this.generateResourceScipId(resource)
             });
         }
+    }
 
-        const identifiers = this.identifiers;
-        for (const entry of Object.values(identifiers.scripts ?? {})) {
+    private collectScriptCallableNamingConventionTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
+        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
-            if (!shouldIncludePath(declarationFilePath)) {
+            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
                 continue;
             }
 
-            const declarationKinds = this.extractDeclarationKinds(entry);
             const isScriptResource =
-                typeof entry?.resourcePath === "string" &&
-                entry?.name === this.resources?.[entry.resourcePath]?.name &&
+                typeof entry.resourcePath === "string" &&
+                entry.name === this.resources?.[entry.resourcePath]?.name &&
                 this.resources?.[entry.resourcePath]?.resourceType === "GMScript";
             if (isScriptResource) {
                 continue;
             }
 
-            let category: BridgeNamingConventionTarget["category"] = "function";
-            if (declarationKinds.has("constructor")) {
-                category = "constructorFunction";
-            } else if (declarationKinds.has("struct")) {
-                category = "structDeclaration";
-            }
+            const declarationKinds = this.extractDeclarationKinds(entry);
+            const category = declarationKinds.has("constructor")
+                ? "constructorFunction"
+                : declarationKinds.has("struct")
+                  ? "structDeclaration"
+                  : "function";
 
-            if (typeof entry?.name !== "string") {
+            pushTarget({
+                category,
+                name: entry.name,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry)
+            });
+        }
+    }
+
+    private collectExactIdentifierNamingTargets(
+        entries: Record<string, SemanticIdentifierEntry>,
+        category: BridgeNamingConventionTarget["category"],
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
+        for (const entry of Object.values(entries)) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
                 continue;
             }
 
@@ -814,40 +856,41 @@ export class GmlSemanticBridge {
                 symbolId: this.generateScipId(entry)
             });
         }
+    }
 
-        for (const entry of Object.values(identifiers.macros ?? {})) {
+    private collectEnumMemberNamingConventionTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
+        for (const entry of Object.values(this.identifiers.enumMembers ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
             if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
                 continue;
             }
 
             pushTarget({
-                category: "macro",
+                category: "enumMember",
                 name: entry.name,
-                occurrences: [],
+                occurrences: this.collectEntryOccurrences(entry),
                 path: declarationFilePath,
                 scopeId: entry.scopeId ?? null,
-                symbolId: this.generateScipId(entry)
+                symbolId: null
             });
         }
+    }
 
-        for (const entry of Object.values(identifiers.globalVariables ?? {})) {
-            const declarationFilePath = this.getDeclarationFilePath(entry);
-            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
-                continue;
-            }
+    private collectGlobalAndInstanceNamingTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
+        this.collectExactIdentifierNamingTargets(
+            this.identifiers.globalVariables ?? {},
+            "globalVariable",
+            shouldIncludePath,
+            pushTarget
+        );
 
-            pushTarget({
-                category: "globalVariable",
-                name: entry.name,
-                occurrences: [],
-                path: declarationFilePath,
-                scopeId: entry.scopeId ?? null,
-                symbolId: this.generateScipId(entry)
-            });
-        }
-
-        for (const entry of Object.values(identifiers.instanceVariables ?? {})) {
+        for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
             const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
             if (!shouldIncludePath(declarationFilePath) || typeof entryName !== "string") {
@@ -863,9 +906,15 @@ export class GmlSemanticBridge {
                 symbolId: this.generateScipId(entry, entryName)
             });
         }
+    }
 
+    private collectLocalNamingConventionTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
         const scopes = (this.projectIndex.scopes ?? {}) as Record<string, SemanticScopeRecord>;
         const files = (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>;
+
         for (const [filePath, fileRecord] of Object.entries(files)) {
             if (!shouldIncludePath(filePath)) {
                 continue;
@@ -877,11 +926,10 @@ export class GmlSemanticBridge {
                 }
 
                 const classifications = Core.asArray(declaration.classifications);
-                if (!classifications.includes("variable") && !classifications.includes("parameter")) {
-                    continue;
-                }
-
-                if (classifications.includes("global")) {
+                if (
+                    (!classifications.includes("variable") && !classifications.includes("parameter")) ||
+                    classifications.includes("global")
+                ) {
                     continue;
                 }
 
@@ -892,8 +940,8 @@ export class GmlSemanticBridge {
                         ? "catchArgument"
                         : "argument"
                     : "localVariable";
-
                 const occurrences = this.collectLocalOccurrences(filePath, declaration);
+
                 if (occurrences.length === 0) {
                     continue;
                 }
@@ -908,8 +956,6 @@ export class GmlSemanticBridge {
                 });
             }
         }
-
-        return targets;
     }
 
     /**
@@ -1139,6 +1185,62 @@ export class GmlSemanticBridge {
         }
 
         return occurrences;
+    }
+
+    private collectEntryOccurrences(entry: SemanticIdentifierEntry): Array<SymbolOccurrence> {
+        const occurrences: Array<SymbolOccurrence> = [];
+
+        for (const declaration of entry.declarations ?? []) {
+            const declarationStartRecord = Core.isObjectLike(declaration.start)
+                ? (declaration.start as Record<string, unknown>)
+                : null;
+            const declarationEndRecord = Core.isObjectLike(declaration.end)
+                ? (declaration.end as Record<string, unknown>)
+                : null;
+            const declarationStart =
+                typeof declarationStartRecord?.index === "number" ? declarationStartRecord.index : 0;
+            const declarationEnd = typeof declarationEndRecord?.index === "number" ? declarationEndRecord.index : 0;
+
+            occurrences.push({
+                path: typeof declaration.filePath === "string" ? declaration.filePath : "",
+                start: declarationStart,
+                end: declarationEnd,
+                scopeId: typeof declaration.scopeId === "string" ? declaration.scopeId : undefined,
+                kind: "definition"
+            });
+        }
+
+        for (const reference of entry.references ?? []) {
+            const referenceStartRecord = Core.isObjectLike(reference.start)
+                ? (reference.start as Record<string, unknown>)
+                : null;
+            const referenceEndRecord = Core.isObjectLike(reference.end)
+                ? (reference.end as Record<string, unknown>)
+                : null;
+            const referenceLocationRecord = Core.isObjectLike(reference.location)
+                ? (reference.location as Record<string, unknown>)
+                : null;
+            const locationStartRecord = Core.isObjectLike(referenceLocationRecord?.start)
+                ? (referenceLocationRecord.start as Record<string, unknown>)
+                : null;
+            const locationEndRecord = Core.isObjectLike(referenceLocationRecord?.end)
+                ? (referenceLocationRecord.end as Record<string, unknown>)
+                : null;
+            const referenceStart = typeof referenceStartRecord?.index === "number" ? referenceStartRecord.index : 0;
+            const referenceEnd = typeof referenceEndRecord?.index === "number" ? referenceEndRecord.index : 0;
+            const locationStart = typeof locationStartRecord?.index === "number" ? locationStartRecord.index : 0;
+            const locationEnd = typeof locationEndRecord?.index === "number" ? locationEndRecord.index : 0;
+
+            occurrences.push({
+                path: typeof reference.filePath === "string" ? reference.filePath : "",
+                start: referenceStart || locationStart,
+                end: referenceEnd || locationEnd,
+                scopeId: typeof reference.scopeId === "string" ? reference.scopeId : undefined,
+                kind: "reference"
+            });
+        }
+
+        return occurrences.filter((occurrence) => occurrence.path.length > 0);
     }
 
     private findResourceByName(name: string, caseInsensitive = false): any {

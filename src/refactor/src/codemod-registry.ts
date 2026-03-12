@@ -1,19 +1,288 @@
-import type { RegisteredCodemod } from "./types.js";
+import { Core } from "@gmloop/core";
 
-const REGISTERED_CODEMODS: ReadonlyArray<RegisteredCodemod> = Object.freeze([
-    Object.freeze({
+import { executeNamingConventionCodemod } from "./codemods/naming-convention/index.js";
+import type { RefactorEngine } from "./refactor-engine.js";
+import type {
+    ConfiguredCodemodRunRequest,
+    ConfiguredCodemodRunResult,
+    ConfiguredCodemodSummary,
+    RefactorCodemodConfigEntry,
+    RefactorCodemodConfigMap,
+    RefactorCodemodId,
+    RefactorProjectConfig,
+    RegisteredCodemod,
+    RegisteredCodemodSelection
+} from "./types.js";
+
+type RegisteredCodemodDefinition<T extends RefactorCodemodId> = {
+    id: T;
+    description: string;
+    normalizeConfig: (value: unknown, context: string) => RefactorCodemodConfigEntry<T>;
+    execute: (
+        engine: RefactorEngine,
+        request: ConfiguredCodemodRunRequest,
+        effectiveConfig: RefactorCodemodConfigMap[T]
+    ) => Promise<ConfiguredCodemodExecutionResult>;
+};
+
+type RegisteredCodemodDefinitions = {
+    [T in RefactorCodemodId]: RegisteredCodemodDefinition<T>;
+};
+
+type ConfiguredCodemodExecutionResult = {
+    appliedFiles: Map<string, string>;
+    summary: ConfiguredCodemodSummary;
+};
+
+function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
+    return Core.assertPlainObject(value, {
+        errorMessage: `${context} must be a plain object`
+    });
+}
+
+function isNullableString(value: unknown): value is string | null {
+    return typeof value === "string" || value === null;
+}
+
+function normalizeLoopLengthHoistingConfig(
+    value: unknown,
+    context: string
+): RefactorCodemodConfigEntry<"loopLengthHoisting"> {
+    if (value === false) {
+        return false;
+    }
+
+    const object = assertPlainObject(value, context);
+    const allowedKeys = new Set(["functionSuffixes"]);
+
+    for (const key of Object.keys(object)) {
+        if (!allowedKeys.has(key)) {
+            throw new TypeError(`${context} contains unknown property ${JSON.stringify(key)}`);
+        }
+    }
+
+    if (object.functionSuffixes === undefined) {
+        return {};
+    }
+
+    const functionSuffixesObject = assertPlainObject(object.functionSuffixes, `${context}.functionSuffixes`);
+    const functionSuffixes: Record<string, string | null> = {};
+
+    for (const [functionName, suffixValue] of Object.entries(functionSuffixesObject)) {
+        if (isNullableString(suffixValue)) {
+            functionSuffixes[functionName] = suffixValue;
+            continue;
+        }
+
+        throw new TypeError(
+            `${context}.functionSuffixes.${functionName} must be a string or null, received ${typeof suffixValue}`
+        );
+    }
+
+    return {
+        functionSuffixes
+    };
+}
+
+function normalizeNamingConventionConfig(
+    value: unknown,
+    context: string
+): RefactorCodemodConfigEntry<"namingConvention"> {
+    if (value === false) {
+        return false;
+    }
+
+    const object = assertPlainObject(value, context);
+    const keys = Object.keys(object);
+
+    if (keys.length > 0) {
+        throw new TypeError(`${context} does not currently accept configuration properties`);
+    }
+
+    return {};
+}
+
+const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.freeze({
+    loopLengthHoisting: Object.freeze({
         id: "loopLengthHoisting",
-        description: "Hoist repeated loop-length helper calls out of for-loop test expressions."
+        description: "Hoist repeated loop-length helper calls out of for-loop test expressions.",
+        normalizeConfig: normalizeLoopLengthHoistingConfig,
+        async execute(
+            engine: RefactorEngine,
+            request: ConfiguredCodemodRunRequest,
+            effectiveConfig: RefactorCodemodConfigMap["loopLengthHoisting"]
+        ): Promise<ConfiguredCodemodExecutionResult> {
+            if (request.gmlFilePaths.length === 0) {
+                return {
+                    appliedFiles: new Map(),
+                    summary: {
+                        id: "loopLengthHoisting",
+                        changed: false,
+                        changedFiles: [],
+                        warnings: ["No .gml files were selected for loop-length hoisting."],
+                        errors: []
+                    }
+                };
+            }
+
+            const result = await engine.executeLoopLengthHoistingCodemod({
+                filePaths: request.gmlFilePaths,
+                readFile: request.readFile,
+                writeFile: request.writeFile,
+                options: effectiveConfig,
+                dryRun: request.dryRun
+            });
+
+            return {
+                appliedFiles: result.applied,
+                summary: {
+                    id: "loopLengthHoisting",
+                    changed: result.changedFiles.length > 0,
+                    changedFiles: result.changedFiles.map((entry) => entry.path),
+                    warnings: [],
+                    errors: []
+                }
+            };
+        }
     }),
-    Object.freeze({
+    namingConvention: Object.freeze({
         id: "namingConvention",
-        description: "Plan and apply naming-policy-driven renames using namingConventionPolicy."
+        description: "Plan and apply naming-policy-driven renames using namingConventionPolicy.",
+        normalizeConfig: normalizeNamingConventionConfig,
+        async execute(
+            engine: RefactorEngine,
+            request: ConfiguredCodemodRunRequest,
+            effectiveConfig: RefactorCodemodConfigMap["namingConvention"]
+        ): Promise<ConfiguredCodemodExecutionResult> {
+            const result = await executeNamingConventionCodemod(engine, {
+                projectRoot: request.projectRoot,
+                config: {
+                    ...request.config,
+                    codemods: {
+                        ...request.config.codemods,
+                        namingConvention: effectiveConfig
+                    }
+                },
+                targetPaths: request.targetPaths,
+                applyOptions: {
+                    dryRun: request.dryRun,
+                    readFile: request.readFile,
+                    writeFile: request.writeFile,
+                    renameFile: request.renameFile,
+                    deleteFile: request.deleteFile
+                }
+            });
+
+            const changedFiles = new Set<string>();
+            for (const edit of result.plan.workspace.edits) {
+                changedFiles.add(edit.path);
+            }
+            for (const metadataEdit of result.plan.workspace.metadataEdits) {
+                changedFiles.add(metadataEdit.path);
+            }
+            for (const fileRename of result.plan.workspace.fileRenames) {
+                changedFiles.add(fileRename.oldPath);
+                changedFiles.add(fileRename.newPath);
+            }
+
+            return {
+                appliedFiles: result.applied,
+                summary: {
+                    id: "namingConvention",
+                    changed: changedFiles.size > 0,
+                    changedFiles: [...changedFiles],
+                    warnings: result.plan.warnings,
+                    errors: result.plan.errors
+                }
+            };
+        }
     })
-]);
+});
+
+function getRegisteredCodemodDefinition<T extends RefactorCodemodId>(codemodId: T): RegisteredCodemodDefinition<T> {
+    return REGISTERED_CODEMOD_DEFINITIONS[codemodId];
+}
 
 /**
  * List codemods that can be configured and executed by the refactor workspace.
  */
 export function listRegisteredCodemods(): Array<RegisteredCodemod> {
-    return [...REGISTERED_CODEMODS];
+    return Object.values(REGISTERED_CODEMOD_DEFINITIONS).map((definition) => ({
+        id: definition.id,
+        description: definition.description
+    }));
+}
+
+/**
+ * Normalize a single codemod config entry from `gmloop.json`.
+ */
+export function normalizeRegisteredCodemodConfig<T extends RefactorCodemodId>(
+    codemodId: T,
+    value: unknown,
+    context: string
+): RefactorCodemodConfigEntry<T> {
+    return getRegisteredCodemodDefinition(codemodId).normalizeConfig(value, context);
+}
+
+/**
+ * Resolve the configured/selected state for all registered codemods.
+ */
+export function listConfiguredCodemods(
+    config: RefactorProjectConfig,
+    selectedCodemods: ReadonlyArray<RefactorCodemodId> = []
+): Array<RegisteredCodemodSelection> {
+    const selectedCodemodSet = new Set(selectedCodemods);
+    const configuredCodemods = config.codemods ?? {};
+
+    return Object.values(REGISTERED_CODEMOD_DEFINITIONS).map((definition) => {
+        const configuredEntry = configuredCodemods[definition.id];
+        const configured = configuredEntry !== undefined && configuredEntry !== false;
+        const selected = selectedCodemodSet.size === 0 || selectedCodemodSet.has(definition.id);
+
+        return {
+            id: definition.id,
+            description: definition.description,
+            configured,
+            selected,
+            effectiveConfig: configured && selected ? configuredEntry : null
+        };
+    });
+}
+
+/**
+ * Execute the configured codemod set in stable registry order.
+ */
+export async function executeRegisteredCodemods(
+    engine: RefactorEngine,
+    request: ConfiguredCodemodRunRequest
+): Promise<ConfiguredCodemodRunResult> {
+    Core.assertArray(request.targetPaths, {
+        errorMessage: "executeConfiguredCodemods requires targetPaths"
+    });
+    Core.assertArray(request.gmlFilePaths, {
+        errorMessage: "executeConfiguredCodemods requires gmlFilePaths"
+    });
+
+    const configuredSelections = listConfiguredCodemods(request.config, request.onlyCodemods ?? []).filter(
+        (selection) => selection.configured && selection.selected && selection.effectiveConfig !== null
+    );
+    const appliedFiles = new Map<string, string>();
+    const summaries: Array<ConfiguredCodemodSummary> = [];
+
+    await Core.runSequentially(configuredSelections, async (selection) => {
+        const definition = getRegisteredCodemodDefinition(selection.id);
+        const result = await definition.execute(engine, request, selection.effectiveConfig);
+
+        for (const [filePath, content] of result.appliedFiles.entries()) {
+            appliedFiles.set(filePath, content);
+        }
+
+        summaries.push(result.summary);
+    });
+
+    return {
+        dryRun: request.dryRun ?? true,
+        summaries,
+        appliedFiles
+    };
 }

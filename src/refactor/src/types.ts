@@ -87,11 +87,26 @@ export interface NamingConventionPolicy {
 export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
 
 /**
+ * Normalized config payloads keyed by registered codemod id.
+ */
+export interface RefactorCodemodConfigMap {
+    loopLengthHoisting: LoopLengthHoistingCodemodOptions;
+    namingConvention: Record<string, never>;
+}
+
+/**
+ * Config payload for a single registered codemod.
+ */
+export type RefactorCodemodConfigEntry<T extends RefactorCodemodId = RefactorCodemodId> =
+    | RefactorCodemodConfigMap[T]
+    | false;
+
+/**
  * Refactor-specific configuration loaded from the `refactor` section of `gmloop.json`.
  */
 export interface RefactorProjectConfig {
     namingConventionPolicy?: NamingConventionPolicy;
-    codemods?: Partial<Record<RefactorCodemodId, LoopLengthHoistingCodemodOptions | Record<string, never> | false>>;
+    codemods?: Partial<{ [K in RefactorCodemodId]: RefactorCodemodConfigEntry<K> }>;
 }
 
 /**
@@ -676,6 +691,17 @@ export interface ConfiguredCodemodRunRequest {
 export interface RegisteredCodemod {
     id: RefactorCodemodId;
     description: string;
+}
+
+/**
+ * Effective registration state for a codemod after config normalization and CLI filtering.
+ */
+export interface RegisteredCodemodSelection {
+    id: RefactorCodemodId;
+    description: string;
+    configured: boolean;
+    selected: boolean;
+    effectiveConfig: RefactorCodemodConfigMap[RefactorCodemodId] | null;
 }
 
 export interface PrepareRenamePlanOptions {

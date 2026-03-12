@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -70,8 +70,9 @@ void test("refactor codemod --list discovers gmloop.json and tolerates unrelated
         assert.equal(result.exitCode, 0);
         assert.match(result.stdout, /Project root:/);
         assert.match(result.stdout, /Config path:/);
-        assert.match(result.stdout, /loopLengthHoisting: configured/);
-        assert.match(result.stdout, /namingConvention: not configured/);
+        assert.match(result.stdout, /loopLengthHoisting: configured, selected/);
+        assert.match(result.stdout, /Effective config: \{\}/);
+        assert.match(result.stdout, /namingConvention: not configured, selected/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }
@@ -101,8 +102,56 @@ void test("refactor codemod --only filters configured codemods during listing", 
         });
 
         assert.equal(result.exitCode, 0);
-        assert.match(result.stdout, /loopLengthHoisting: configured/);
-        assert.match(result.stdout, /namingConvention: configured \(filtered out\)/);
+        assert.match(result.stdout, /loopLengthHoisting: configured, selected/);
+        assert.match(result.stdout, /namingConvention: configured, filtered out/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write applies configured namingConvention renames across project resources", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    scriptResourceName: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(projectRoot, "demo_script", "function demo_script() {\n    return 1;\n}\n");
+        await writeScriptResource(
+            projectRoot,
+            "consumer_script",
+            "function consumer_script() {\n    return demo_script();\n}\n"
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "scripts/demo_script", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts/demoScript/demoScript.gml"));
+        const renamedSource = await readFile(path.join(projectRoot, "scripts/demoScript/demoScript.gml"), "utf8");
+        const consumerSource = await readFile(
+            path.join(projectRoot, "scripts/consumer_script/consumer_script.gml"),
+            "utf8"
+        );
+        const renamedMetadata = await readFile(path.join(projectRoot, "scripts/demoScript/demoScript.yy"), "utf8");
+
+        assert.match(renamedSource, /function demoScript\(\)/);
+        assert.match(consumerSource, /demoScript\(\)/);
+        assert.match(renamedMetadata, /"name"\s*:\s*"demoScript"/);
+        await assert.rejects(access(path.join(projectRoot, "scripts/demo_script/demo_script.gml")));
+        assert.match(result.stdout, /\[namingConvention\] changed/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }

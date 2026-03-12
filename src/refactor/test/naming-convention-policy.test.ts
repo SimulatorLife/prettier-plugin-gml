@@ -10,6 +10,12 @@ void test("resolveNamingConventionRules applies inheritance and explicit disable
                 caseStyle: "camel",
                 bannedPrefixes: ["_"]
             },
+            typeName: {
+                caseStyle: "pascal"
+            },
+            member: {
+                suffix: "_member"
+            },
             globalVariable: {
                 prefix: "g_"
             },
@@ -29,6 +35,9 @@ void test("resolveNamingConventionRules applies inheritance and explicit disable
     assert.equal(resolved.globalVariable?.maxChars, null);
     assert.deepEqual(resolved.globalVariable?.bannedPrefixes, ["_"]);
     assert.deepEqual(resolved.globalVariable?.bannedSuffixes, []);
+    assert.equal(resolved.structDeclaration?.caseStyle, "pascal");
+    assert.equal(resolved.enum?.caseStyle, "pascal");
+    assert.equal(resolved.enumMember?.suffix, "_member");
     assert.equal(resolved.loopIndexVariable, undefined);
 });
 

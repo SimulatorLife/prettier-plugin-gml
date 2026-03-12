@@ -1,11 +1,11 @@
 import { Core } from "@gmloop/core";
 
-import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
+import { listRegisteredCodemods, normalizeRegisteredCodemodConfig } from "./codemod-registry.js";
 import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
 import type { GmloopProjectConfig, NamingConventionPolicy, RefactorCodemodId, RefactorProjectConfig } from "./types.js";
 
 const REFACTOR_CONFIG_KEYS = new Set(["namingConventionPolicy", "codemods"]);
-const REFACTOR_CODEMOD_IDS = new Set<RefactorCodemodId>(["loopLengthHoisting", "namingConvention"]);
+const REFACTOR_CODEMOD_IDS = new Set<RefactorCodemodId>(listRegisteredCodemods().map((codemod) => codemod.id));
 
 function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
     return Core.assertPlainObject(value, {
@@ -13,72 +13,12 @@ function assertPlainObject(value: unknown, context: string): Record<string, unkn
     });
 }
 
-function isNullableString(value: unknown): value is string | null {
-    return typeof value === "string" || value === null;
-}
-
-function normalizeLoopLengthHoistingConfig(value: unknown, context: string): LoopLengthHoistingCodemodOptions | false {
-    if (value === false) {
-        return false;
-    }
-
-    const object = assertPlainObject(value, context);
-    const allowedKeys = new Set(["functionSuffixes"]);
-
-    for (const key of Object.keys(object)) {
-        if (!allowedKeys.has(key)) {
-            throw new TypeError(`${context} contains unknown property ${JSON.stringify(key)}`);
-        }
-    }
-
-    if (object.functionSuffixes === undefined) {
-        return {};
-    }
-
-    const functionSuffixesObject = assertPlainObject(object.functionSuffixes, `${context}.functionSuffixes`);
-    const functionSuffixes: Record<string, string | null> = {};
-
-    for (const [functionName, suffixValue] of Object.entries(functionSuffixesObject)) {
-        if (isNullableString(suffixValue)) {
-            functionSuffixes[functionName] = suffixValue;
-            continue;
-        }
-
-        throw new TypeError(
-            `${context}.functionSuffixes.${functionName} must be a string or null, received ${typeof suffixValue}`
-        );
-    }
-
-    return {
-        functionSuffixes
-    };
-}
-
-function normalizeNamingConventionCodemodConfig(value: unknown, context: string): Record<string, never> | false {
-    if (value === false) {
-        return false;
-    }
-
-    const object = assertPlainObject(value, context);
-    const keys = Object.keys(object);
-
-    if (keys.length > 0) {
-        throw new TypeError(`${context} does not currently accept configuration properties`);
-    }
-
-    return {};
-}
-
-function normalizeCodemodConfigEntry(
-    codemodId: RefactorCodemodId,
-    value: unknown,
-    context: string
-): LoopLengthHoistingCodemodOptions | Record<string, never> | false {
-    if (codemodId === "loopLengthHoisting") {
-        return normalizeLoopLengthHoistingConfig(value, context);
-    }
-
-    return normalizeNamingConventionCodemodConfig(value, context);
+function assignNormalizedCodemodConfigEntry<T extends RefactorCodemodId>(
+    codemods: NonNullable<RefactorProjectConfig["codemods"]>,
+    codemodId: T,
+    value: NonNullable<RefactorProjectConfig["codemods"]>[T]
+): void {
+    codemods[codemodId] = value;
 }
 
 /**
@@ -116,10 +56,10 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
             }
 
             const codemodId = rawCodemodId as RefactorCodemodId;
-            codemods[codemodId] = normalizeCodemodConfigEntry(
+            assignNormalizedCodemodConfigEntry(
+                codemods,
                 codemodId,
-                codemodConfig,
-                `gmloop.json refactor.codemods.${codemodId}`
+                normalizeRegisteredCodemodConfig(codemodId, codemodConfig, `gmloop.json refactor.codemods.${codemodId}`)
             );
         }
 

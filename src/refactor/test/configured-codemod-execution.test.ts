@@ -34,6 +34,28 @@ void test("listRegisteredCodemods returns the v1 configured codemod set", () => 
     );
 });
 
+void test("listConfiguredCodemods reports normalized effective config and selection state", () => {
+    assert.deepEqual(
+        Refactor.listConfiguredCodemods({ codemods: { loopLengthHoisting: {} } }, ["loopLengthHoisting"]),
+        [
+            {
+                id: "loopLengthHoisting",
+                description: "Hoist repeated loop-length helper calls out of for-loop test expressions.",
+                configured: true,
+                selected: true,
+                effectiveConfig: {}
+            },
+            {
+                id: "namingConvention",
+                description: "Plan and apply naming-policy-driven renames using namingConventionPolicy.",
+                configured: false,
+                selected: false,
+                effectiveConfig: null
+            }
+        ]
+    );
+});
+
 void test("executeConfiguredCodemods defaults to dry-run for loop-length hoisting", async () => {
     const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
     const engine = new Refactor.RefactorEngine();
@@ -170,4 +192,54 @@ void test("executeConfiguredCodemods reports namingConvention batch rename confl
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, false);
     assert.match(result.summaries[0]?.errors[0] ?? "", /collides/);
+});
+
+void test("executeConfiguredCodemods surfaces namingConvention hot reload warnings from top-level plans", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "bad_name",
+                category: "function",
+                path: "scripts/example.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_name",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(): Promise<BatchRenamePlanSummary> {
+            return {
+                ...createBatchRenamePlanSummary([]),
+                hotReload: {
+                    valid: true,
+                    errors: [],
+                    warnings: ["Transpiler compatibility validated for 1 symbol(s) in 1 file(s)"]
+                }
+            };
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: [],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "function bad_name() {}\n"
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.match(result.summaries[0]?.warnings[0] ?? "", /Transpiler compatibility validated/);
 });

@@ -545,6 +545,18 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-ho
 
 # Verbose output with diagnostics
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
+
+# List configured gmloop.json codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods
+pnpm run cli -- refactor codemod
+
+# Apply configured codemods to selected paths only
+pnpm run cli -- refactor codemod scripts/player --write
+
+# Apply only one configured codemod
+pnpm run cli -- refactor codemod --only namingConvention --write
 ```
 
 **Options:**
@@ -555,6 +567,40 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - `--dry-run` - Show what would be changed without modifying files
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
+
+**Codemod options (`refactor codemod`):**
+- `--config <path>` - Explicit path to `gmloop.json`
+- `--write` - Apply configured codemods (default is dry-run)
+- `--only <ids>` - Comma-separated list of configured codemod ids to run
+- `--list` - Print discovered codemods and their effective normalized config
+
+**`gmloop.json` refactor config:**
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "localVariable": {
+                    "caseStyle": "camel"
+                }
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
 
 **Ownership note:** `refactor` is a separate domain from lint.
 - Use `lint --fix` for lint-owned diagnostics/content rewrites.
@@ -569,6 +615,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 
 **Current scope:**
 - Safe rename planning/execution
+- Configured codemod execution via `gmloop.json`
 - Dry-run preview support
 - Hot-reload validation integration
 - Verbose diagnostics for conflict/impact review

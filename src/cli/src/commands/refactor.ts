@@ -24,6 +24,7 @@ const {
     RefactorEngine,
     formatRenamePlanReport,
     generateRenamePreview,
+    listConfiguredCodemods,
     listRegisteredCodemods,
     loadGmloopProjectConfig
 } = Refactor;
@@ -349,13 +350,17 @@ async function performRename(options: ValidatedRenameOptions): Promise<void> {
 function formatCodemodSelectionSummary(
     config: LoadedGmloopProjectConfig,
     selectedCodemods: Array<RegisteredCodemodId>
-): Array<string> {
-    const configuredCodemods = config.refactor?.codemods ?? {};
+) {
+    return listConfiguredCodemods(config.refactor ?? {}, selectedCodemods).map((codemod) => {
+        const stateLabel = codemod.configured ? "configured" : "not configured";
+        const selectionLabel = codemod.selected ? "selected" : "filtered out";
+        const configLabel = codemod.effectiveConfig === null ? "n/a" : JSON.stringify(codemod.effectiveConfig, null, 2);
 
-    return listRegisteredCodemods().map((codemod) => {
-        const configured = configuredCodemods[codemod.id] !== undefined && configuredCodemods[codemod.id] !== false;
-        const selected = selectedCodemods.length === 0 || selectedCodemods.includes(codemod.id);
-        return `${codemod.id}: ${configured ? "configured" : "not configured"}${selected ? "" : " (filtered out)"}`;
+        return [
+            `${codemod.id}: ${stateLabel}, ${selectionLabel}`,
+            `  Description: ${codemod.description}`,
+            `  Effective config: ${configLabel}`
+        ].join("\n");
     });
 }
 
@@ -384,16 +389,9 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     });
     const engine = createRefactorEngineForProject(projectIndex, projectRoot);
     const gmlFilePaths = await collectTargetGmlFiles(projectRoot, targetPaths);
-    const configuredCodemods = config.refactor?.codemods ?? {};
-    const selectedCodemodIds =
-        onlyCodemods.length > 0
-            ? onlyCodemods
-            : listRegisteredCodemods()
-                  .map((codemod) => codemod.id)
-                  .filter(
-                      (codemodId) =>
-                          configuredCodemods[codemodId] !== undefined && configuredCodemods[codemodId] !== false
-                  );
+    const selectedCodemodIds = listConfiguredCodemods(config.refactor ?? {}, onlyCodemods)
+        .filter((codemod) => codemod.configured && codemod.selected)
+        .map((codemod) => codemod.id);
 
     if (selectedCodemodIds.length === 0) {
         console.log("No configured codemods were selected. Nothing to do.");

@@ -330,6 +330,39 @@ void describe("GmlSemanticBridge tests", () => {
                         ]
                     }
                 },
+                enums: {
+                    state_enum: {
+                        identifierId: "enum:state_enum",
+                        name: "state_enum",
+                        declarations: [
+                            {
+                                name: "state_enum",
+                                filePath: "scripts/demo_script/demo_script.gml"
+                            }
+                        ]
+                    }
+                },
+                enumMembers: {
+                    "enum-member:ready": {
+                        identifierId: "enum-member:ready",
+                        name: "ready_state",
+                        declarations: [
+                            {
+                                name: "ready_state",
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                start: { index: 120 },
+                                end: { index: 131 }
+                            }
+                        ],
+                        references: [
+                            {
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                start: { index: 150 },
+                                end: { index: 161 }
+                            }
+                        ]
+                    }
+                },
                 instanceVariables: {}
             },
             scopes: {
@@ -389,6 +422,13 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(targets.some((target) => target.category === "scriptResourceName" && target.name === "demo_script"));
         assert.ok(
             targets.some((target) => target.category === "constructorFunction" && target.name === "build_widget")
+        );
+        assert.ok(targets.some((target) => target.category === "enum" && target.name === "state_enum"));
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "enumMember" && target.name === "ready_state" && target.occurrences.length === 2
+            )
         );
         assert.ok(targets.some((target) => target.category === "macro" && target.name === "DEMO_MACRO"));
         assert.ok(targets.some((target) => target.category === "globalVariable" && target.name === "global_score"));

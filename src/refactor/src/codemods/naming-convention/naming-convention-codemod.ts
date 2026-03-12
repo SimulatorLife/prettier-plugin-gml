@@ -163,11 +163,19 @@ export async function planNamingConventionCodemod(
     let topLevelRenamePlan: NamingConventionCodemodPlan["topLevelRenamePlan"] = null;
     if (topLevelRenames.length > 0) {
         topLevelRenamePlan = await engine.prepareBatchRenamePlan(topLevelRenames, {
-            validateHotReload: false
+            validateHotReload: true
         });
         appendWorkspaceEdits(workspace, topLevelRenamePlan.workspace);
-        warnings.push(...topLevelRenamePlan.batchValidation.warnings, ...topLevelRenamePlan.validation.warnings);
-        errors.push(...topLevelRenamePlan.batchValidation.errors, ...topLevelRenamePlan.validation.errors);
+        warnings.push(
+            ...topLevelRenamePlan.batchValidation.warnings,
+            ...topLevelRenamePlan.validation.warnings,
+            ...(topLevelRenamePlan.hotReload?.warnings ?? [])
+        );
+        errors.push(
+            ...topLevelRenamePlan.batchValidation.errors,
+            ...topLevelRenamePlan.validation.errors,
+            ...(topLevelRenamePlan.hotReload?.errors ?? [])
+        );
     }
 
     return {

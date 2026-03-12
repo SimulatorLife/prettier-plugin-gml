@@ -9,8 +9,9 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
+import { executeRegisteredCodemods } from "./codemod-registry.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
-import { executeNamingConventionCodemod, planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
+import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
 import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -22,7 +23,6 @@ import {
     type BatchRenameValidation,
     type ConfiguredCodemodRunRequest,
     type ConfiguredCodemodRunResult,
-    type ConfiguredCodemodSummary,
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
@@ -70,6 +70,21 @@ import {
     WorkspaceEdit
 } from "./workspace-edit.js";
 
+function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    const deduplicatedByStart = new Map<string, SymbolOccurrence>();
+
+    for (const occurrence of occurrences) {
+        const key = [occurrence.path ?? "", occurrence.start].join(":");
+        const existing = deduplicatedByStart.get(key);
+
+        if (!existing || occurrence.end > existing.end) {
+            deduplicatedByStart.set(key, occurrence);
+        }
+    }
+
+    return [...deduplicatedByStart.values()];
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -116,7 +131,9 @@ export class RefactorEngine {
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache.getSymbolOccurrences(symbolName);
+        return this.semanticCache
+            .getSymbolOccurrences(symbolName)
+            .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
     }
 
     /**
@@ -1042,27 +1059,10 @@ export class RefactorEngine {
      * codemods observe edits produced by earlier ones during the same run.
      */
     async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
-        const {
-            projectRoot,
-            targetPaths,
-            gmlFilePaths,
-            config,
-            readFile,
-            writeFile,
-            renameFile,
-            deleteFile,
-            dryRun = true,
-            onlyCodemods = []
-        } = request;
+        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [] } = request;
 
         Core.assertNonEmptyString(projectRoot, {
             errorMessage: "executeConfiguredCodemods requires a projectRoot"
-        });
-        Core.assertArray(targetPaths, {
-            errorMessage: "executeConfiguredCodemods requires targetPaths"
-        });
-        Core.assertArray(gmlFilePaths, {
-            errorMessage: "executeConfiguredCodemods requires gmlFilePaths"
         });
         Core.assertFunction(readFile, "readFile", {
             errorMessage: "executeConfiguredCodemods requires a readFile function"
@@ -1077,7 +1077,6 @@ export class RefactorEngine {
         const configuredCodemods = config.codemods ?? {};
         const overlay = new Map<string, string>();
         const appliedFiles = new Map<string, string>();
-        const summaries: Array<ConfiguredCodemodSummary> = [];
 
         const readThroughOverlay = async (filePath: string): Promise<string> => {
             if (overlay.has(filePath)) {
@@ -1096,92 +1095,26 @@ export class RefactorEngine {
             }
         };
 
-        const shouldRunCodemod = (codemodId: ConfiguredCodemodSummary["id"]): boolean => {
-            if (configuredCodemods[codemodId] === false || configuredCodemods[codemodId] === undefined) {
-                return false;
-            }
+        const result = await executeRegisteredCodemods(this, {
+            ...request,
+            config: {
+                ...request.config,
+                codemods: configuredCodemods
+            },
+            readFile: readThroughOverlay,
+            writeFile: dryRun ? undefined : writeWithOverlay,
+            dryRun,
+            onlyCodemods: [...requestedCodemods]
+        });
 
-            return requestedCodemods.size === 0 || requestedCodemods.has(codemodId);
-        };
-
-        if (shouldRunCodemod("loopLengthHoisting")) {
-            const loopLengthConfig = configuredCodemods.loopLengthHoisting;
-            if (gmlFilePaths.length === 0) {
-                summaries.push({
-                    id: "loopLengthHoisting",
-                    changed: false,
-                    changedFiles: [],
-                    warnings: ["No .gml files were selected for loop-length hoisting."],
-                    errors: []
-                });
-            } else {
-                const loopLengthResult = await this.executeLoopLengthHoistingCodemod({
-                    filePaths: gmlFilePaths,
-                    readFile: readThroughOverlay,
-                    writeFile: dryRun ? undefined : writeWithOverlay,
-                    options:
-                        loopLengthConfig === false || loopLengthConfig === undefined ? undefined : loopLengthConfig,
-                    dryRun
-                });
-
-                for (const [filePath, content] of loopLengthResult.applied.entries()) {
-                    overlay.set(filePath, content);
-                    appliedFiles.set(filePath, content);
-                }
-
-                summaries.push({
-                    id: "loopLengthHoisting",
-                    changed: loopLengthResult.changedFiles.length > 0,
-                    changedFiles: loopLengthResult.changedFiles.map((entry) => entry.path),
-                    warnings: [],
-                    errors: []
-                });
-            }
-        }
-
-        if (shouldRunCodemod("namingConvention")) {
-            const namingResult = await executeNamingConventionCodemod(this, {
-                projectRoot,
-                config,
-                targetPaths,
-                applyOptions: {
-                    dryRun,
-                    readFile: readThroughOverlay,
-                    writeFile: dryRun ? undefined : writeWithOverlay,
-                    renameFile,
-                    deleteFile
-                }
-            });
-
-            for (const [filePath, content] of namingResult.applied.entries()) {
-                overlay.set(filePath, content);
-                appliedFiles.set(filePath, content);
-            }
-
-            const changedFiles = new Set<string>();
-            for (const edit of namingResult.plan.workspace.edits) {
-                changedFiles.add(edit.path);
-            }
-            for (const metadataEdit of namingResult.plan.workspace.metadataEdits) {
-                changedFiles.add(metadataEdit.path);
-            }
-            for (const fileRename of namingResult.plan.workspace.fileRenames) {
-                changedFiles.add(fileRename.oldPath);
-                changedFiles.add(fileRename.newPath);
-            }
-
-            summaries.push({
-                id: "namingConvention",
-                changed: changedFiles.size > 0,
-                changedFiles: [...changedFiles],
-                warnings: namingResult.plan.warnings,
-                errors: namingResult.plan.errors
-            });
+        for (const [filePath, content] of result.appliedFiles.entries()) {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
         }
 
         return {
             dryRun,
-            summaries,
+            summaries: result.summaries,
             appliedFiles
         };
     }
