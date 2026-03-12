@@ -429,6 +429,190 @@ void test("detectRegressions accepts heterogeneous result containers", () => {
     assert.equal(regressions[0].detail?.displayName, "suite :: test :: scenario");
 });
 
+void test("does not treat a JUnit-undefined-wrapper renamed failure as a regression", () => {
+    // Reproduces the scenario where node's JUnit reporter emits `<undefined>` instead of
+    // `<testsuite>` for a test file that crashes the IPC deserializer. The malformed tag
+    // is never closed, so all subsequent tests appear nested under it and get a different
+    // suite-path prefix. Tests that were already failing in base must not be reported as
+    // new regressions just because their key gained an extra suite-path prefix.
+    const baseDir = path.join(workspace, "base/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+
+    // Base: a cross-module test that is already failing
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="Cross-module integration fixtures">
+        <testcase name="runs integration case test-int-struct-literal" classname="test"
+                  file="/repo/test/dist/cross-module-integration.test.js">
+          <failure message="actual !== expected" />
+        </testcase>
+        <testcase name="runs integration case test-int-no-globalvar" classname="test"
+                  file="/repo/test/dist/cross-module-integration.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    // Merged: the same tests, but nested under a malformed <undefined> wrapper that the
+    // node JUnit reporter emits when it encounters an IPC-deserialization error.
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <undefined name="Hot reload patch metadata">
+        <testsuite name="Cross-module integration fixtures">
+          <testcase name="runs integration case test-int-struct-literal" classname="test"
+                    file="/repo/test/dist/cross-module-integration.test.js">
+            <failure message="actual !== expected" />
+          </testcase>
+          <testcase name="runs integration case test-int-no-globalvar" classname="test"
+                    file="/repo/test/dist/cross-module-integration.test.js" />
+        </testsuite>
+      </undefined>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const merged = readTestResults(["merge/reports"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    // The failure in the renamed test was already present in base; it must not be
+    // counted as a new regression.
+    assert.strictEqual(regressions.length, 0);
+});
+
+void test("still detects genuine new failures even when other tests were renamed by JUnit structure change", () => {
+    // When a JUnit XML structure change renames existing tests, genuinely new failures
+    // (tests that did not exist in base at all, or were passing before) must still be
+    // reported as regressions.
+    const baseDir = path.join(workspace, "base/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="Suite A">
+        <testcase name="was passing" classname="test"
+                  file="/repo/test/dist/suite-a.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    // Merged: "was passing" is now renamed under a wrapper AND is now failing.
+    // Because the base test was passing, this should be a regression.
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <undefined name="Hot reload patch metadata">
+        <testsuite name="Suite A">
+          <testcase name="was passing" classname="test"
+                    file="/repo/test/dist/suite-a.test.js">
+            <failure message="now broken" />
+          </testcase>
+        </testsuite>
+      </undefined>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const merged = readTestResults(["merge/reports"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    // "was passing" was previously passing; the new failure is a genuine regression.
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].to, "failed");
+});
+
+void test("does not count a node runner file-level IPC crash as a regression when inner tests passed", () => {
+    // When the node test runner encounters an IPC-deserialization error while processing
+    // a test file, it emits a synthetic <testcase> whose `name` is the relative file path
+    // (e.g. "src/cli/dist/test/foo.test.js"). If the file's actual inner tests all passed,
+    // this file-level wrapper failure is a runner infrastructure artefact, not a code
+    // regression.
+    const baseDir = path.join(workspace, "base/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="Hot reload patch metadata">
+        <testcase name="should include metadata" classname="test"
+                  file="/repo/src/cli/dist/test/hot-reload-metadata.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    // Merged: the inner test still passes, but the file-level wrapper (name == relative
+    // file path) fails with a node test runner IPC error.
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <undefined name="Hot reload patch metadata">
+        <testcase name="should include metadata" classname="test"
+                  file="/repo/src/cli/dist/test/hot-reload-metadata.test.js" />
+      </undefined>
+      <testcase name="src/cli/dist/test/hot-reload-metadata.test.js" classname="test"
+                file="/repo/src/cli/dist/test/hot-reload-metadata.test.js">
+        <failure message="Unable to deserialize cloned data due to invalid or unsupported version." />
+      </testcase>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const merged = readTestResults(["merge/reports"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    // The file-level crash is an infrastructure artefact; it must not count as a regression.
+    assert.strictEqual(regressions.length, 0);
+});
+
+void test("still counts a file-level crash as a regression when no inner tests passed", () => {
+    // If the test file produced no passing inner tests at all, the file-level crash
+    // is likely a genuine failure (e.g., an import error) rather than a runner fluke.
+    const baseDir = path.join(workspace, "base/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="some unrelated test" classname="test"
+                  file="/repo/src/cli/dist/test/other.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    // Merged: file-level crash with NO passing inner tests from that file.
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="some unrelated test" classname="test"
+                  file="/repo/src/cli/dist/test/other.test.js" />
+      </testsuite>
+      <testcase name="src/cli/dist/test/broken.test.js" classname="test"
+                file="/repo/src/cli/dist/test/broken.test.js">
+        <failure message="Cannot find module './missing.js'" />
+      </testcase>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const merged = readTestResults(["merge/reports"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    // No passing inner tests from broken.test.js → treat as genuine regression.
+    assert.strictEqual(regressions.length, 1);
+    assert.ok(regressions[0].key.includes("broken.test.js"));
+});
+
 void test("readTestResults preserves project health stats when present", () => {
     const resultsDir = path.join(workspace, "reports");
 

@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import { Parser } from "@gmloop/parser";
+import { Transpiler } from "@gmloop/transpiler";
 
 import { type TranspilationContext, transpileFile } from "../src/modules/transpilation/coordinator.js";
 

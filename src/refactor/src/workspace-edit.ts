@@ -84,6 +84,30 @@ export class WorkspaceEdit {
 }
 
 /**
+ * Determine whether a value behaves like a {@link WorkspaceEdit} by confirming
+ * it exposes an `edits` array and the required methods. Accepts any object that
+ * conforms to the expected contract (duck-typed interface) so refactor operations
+ * can work with substitutable implementations without relying on `instanceof` checks
+ * that break polymorphism across module boundaries.
+ *
+ * @param value - Candidate value to inspect.
+ * @returns `true` when the value exposes the WorkspaceEdit contract.
+ */
+export function isWorkspaceEditLike(value?: unknown): boolean {
+    if (value == null || typeof value !== "object") {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+
+    return (
+        Array.isArray(candidate.edits) &&
+        typeof candidate.addEdit === "function" &&
+        typeof candidate.groupByFile === "function"
+    );
+}
+
+/**
  * Safely extract metadataEdits and fileRenames arrays from a workspace-like object.
  * Returns empty arrays if the properties are missing or not arrays.
  *

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import { Parser } from "@gmloop/parser";
 
 import { Transpiler } from "../index.js";
 
@@ -89,8 +89,43 @@ void test("GmlToJsEmitter folds string equality literals", () => {
     assert.ok(result.includes("isMatch = true"), "Should emit folded boolean constant for string equality");
 });
 
-void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
-    assert.equal(Transpiler.mapBinaryOperator("div"), "/");
+void test("GmlToJsEmitter emits escaped literals for folded strings with control characters", () => {
+    const ast = {
+        type: "Program",
+        body: [
+            {
+                type: "ExpressionStatement",
+                expression: {
+                    type: "AssignmentExpression",
+                    operator: "=",
+                    left: { type: "Identifier", name: "value" },
+                    right: {
+                        type: "BinaryExpression",
+                        operator: "+",
+                        left: { type: "Literal", value: "line\nnext" },
+                        right: { type: "Literal", value: '\t"quoted"' }
+                    }
+                }
+            }
+        ]
+    } as unknown as Parameters<typeof Transpiler.emitJavaScript>[0];
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.equal(result, String.raw`value = "line\nnext\t\"quoted\"";`);
+});
+
+void test("GmlToJsEmitter passes through GML div operator unchanged (div is special-cased in the emitter)", () => {
+    assert.equal(Transpiler.mapBinaryOperator("div"), "div");
+});
+
+void test("GmlToJsEmitter lowers GML div operator to Math.trunc integer division", () => {
+    // `div` must lower to Math.trunc(a / b), not plain `/`.
+    // Plain division produces floats; Math.trunc truncates toward zero like GML semantics.
+    const source = "result = a div b";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.match(result, /Math\.trunc\(a \/ b\)/, "Should emit Math.trunc(a / b) for the div operator");
 });
 
 void test("GmlToJsEmitter maps GML mod operator to JavaScript modulo", () => {
@@ -231,6 +266,31 @@ void test("GmlToJsEmitter routes script calls through the wrapper helper", () =>
         result.includes('__call_script("gml/script/scr_attack", self, other, [target])'),
         "Should call scripts through __call_script helper"
     );
+});
+
+void test("GmlToJsEmitter does not emit script callees when symbol metadata is available", () => {
+    const source = "obj.scr_attack(target)";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const defaultOracle = Transpiler.createSemanticOracle();
+    const sem: SemanticAnalyzers = Object.assign(Object.create(defaultOracle), {
+        callTargetKind() {
+            return "script";
+        },
+        callTargetSymbol() {
+            return "gml/script/scr_attack";
+        },
+        nameOfIdent(node) {
+            if (node.name === "scr_attack") {
+                throw new Error("Script callee should not be resolved when symbol metadata exists");
+            }
+            return defaultOracle.nameOfIdent(node);
+        }
+    });
+    const emitter = new Transpiler.GmlToJsEmitter(sem);
+    const result = emitter.emit(ast);
+
+    assert.ok(result.includes('__call_script("gml/script/scr_attack", self, other, [target])'));
 });
 
 void test("GmlToJsEmitter allows overriding the script call helper name", () => {

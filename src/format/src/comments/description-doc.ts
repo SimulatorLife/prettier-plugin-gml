@@ -1,5 +1,5 @@
 // TODO: Is this duplicating lint's logic?
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { type Doc } from "prettier";
 
 import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";
@@ -61,6 +61,14 @@ function coerceDocCommentEntriesToRawLines(docCommentDocs: MutableDocCommentLine
         const entry = docCommentDocs[index];
         if (typeof entry === "string") {
             continue;
+        }
+
+        if (Core.isObjectLike(entry)) {
+            const docText = (entry as { _gmlDocText?: unknown })._gmlDocText;
+            if (typeof docText === "string") {
+                docCommentDocs[index] = docText;
+                continue;
+            }
         }
 
         const rawText = Core.getLineCommentRawText(entry, {});

@@ -1,3 +1,6 @@
 {
+  "lintRules": {
+    "feather/gm1062": "error"
+  },
   "printWidth": 80
 }

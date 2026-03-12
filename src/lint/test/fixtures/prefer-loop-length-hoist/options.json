@@ -1,0 +1,5 @@
+{
+  "lintRules": {
+    "gml/prefer-hoistable-loop-accessors": "error"
+  }
+}

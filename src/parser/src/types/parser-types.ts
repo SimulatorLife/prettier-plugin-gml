@@ -1,4 +1,4 @@
-import type { ScopeTrackerOptions } from "@gml-modules/core";
+import type { ScopeTrackerOptions } from "@gmloop/core";
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 
 export type ParserContext =
@@ -28,7 +28,7 @@ export type {
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions
-} from "@gml-modules/core";
+} from "@gmloop/core";
 
 /**
  * Comment extraction options.

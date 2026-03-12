@@ -1,4 +1,4 @@
-import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gmloop/core";
 
 import {
     convertLegacyReturnsDescriptionLinesToMetadata,

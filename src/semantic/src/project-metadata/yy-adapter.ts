@@ -1,7 +1,7 @@
 import fs from "node:fs";
 
 import { Yy } from "@bscotch/yy";
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const PROJECT_METADATA_PARSE_ERROR = "ProjectMetadataParseError";
 const PROJECT_METADATA_SCHEMA_VALIDATION_ERROR = "ProjectMetadataSchemaValidationError";

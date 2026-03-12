@@ -1,7 +1,12 @@
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { applySourceTextEdits, createMeta, reportFullTextRewrite, type SourceTextEdit } from "../rule-base-helpers.js";
+import {
+    applySourceTextEdits,
+    createMeta,
+    reportProgramTextRewrite,
+    type SourceTextEdit
+} from "../rule-base-helpers.js";
 
 type LineRecord = Readonly<{
     start: number;
@@ -150,24 +155,24 @@ export function createNoEmptyRegionsRule(definition: GmlRuleDefinition): Rule.Ru
         create(context) {
             return Object.freeze({
                 Program() {
-                    const sourceText = context.sourceCode.text;
-                    const lines = collectSourceLines(sourceText);
-                    if (lines.length === 0) {
-                        return;
-                    }
+                    reportProgramTextRewrite(context, definition, (sourceText) => {
+                        const lines = collectSourceLines(sourceText);
+                        if (lines.length === 0) {
+                            return sourceText;
+                        }
 
-                    const emptyRegionBlocks = collectEmptyRegionBlocks(lines);
-                    if (emptyRegionBlocks.length === 0) {
-                        return;
-                    }
+                        const emptyRegionBlocks = collectEmptyRegionBlocks(lines);
+                        if (emptyRegionBlocks.length === 0) {
+                            return sourceText;
+                        }
 
-                    const deletionEdits = createEmptyRegionDeletionEdits(lines, emptyRegionBlocks);
-                    if (deletionEdits.length === 0) {
-                        return;
-                    }
+                        const deletionEdits = createEmptyRegionDeletionEdits(lines, emptyRegionBlocks);
+                        if (deletionEdits.length === 0) {
+                            return sourceText;
+                        }
 
-                    const rewrittenText = applySourceTextEdits(sourceText, deletionEdits);
-                    reportFullTextRewrite(context, definition.messageId, sourceText, rewrittenText);
+                        return applySourceTextEdits(sourceText, deletionEdits);
+                    });
                 }
             });
         }

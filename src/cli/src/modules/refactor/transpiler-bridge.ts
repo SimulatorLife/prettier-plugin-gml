@@ -1,20 +1,15 @@
-import { Transpiler } from "@gml-modules/transpiler";
-
-type MaybePromise<T> = T | Promise<T>;
-
-type TranspilerBridge = {
-    transpileScript: (request: { sourceText: string; symbolId: string }) => MaybePromise<Record<string, unknown>>;
-};
+import type * as Refactor from "@gmloop/refactor";
+import { Transpiler } from "@gmloop/transpiler";
 
 /**
- * Transpiler bridge that adapts @gml-modules/transpiler to the refactor engine.
+ * Transpiler bridge that adapts @gmloop/transpiler to the refactor engine.
  */
-export class GmlTranspilerBridge implements TranspilerBridge {
+export class GmlTranspilerBridge implements Refactor.TranspilerBridge {
     /**
      * Transpile a script into a hot-reload compatibility patch.
      * @param request Transpilation request details
      */
-    transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>> {
+    transpileScript(request: { sourceText: string; symbolId: string }): Refactor.MaybePromise<Record<string, unknown>> {
         const { sourceText, symbolId } = request;
 
         // Note: For full semantic-aware transpilation, we would need a semantic oracle.

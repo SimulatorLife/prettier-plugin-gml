@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;

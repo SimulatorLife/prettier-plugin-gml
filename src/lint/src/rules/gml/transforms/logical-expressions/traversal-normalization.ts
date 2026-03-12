@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 const { isObjectLike, isNode } = Core;
 
@@ -7,19 +7,32 @@ const { isObjectLike, isNode } = Core;
  * Handles De Morgan's laws, double negation, and boolean constant simplification.
  */
 export function applyLogicalNormalization(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+    return applyLogicalNormalizationWithChangeMetadata(ast).ast;
+}
+
+/**
+ * Apply logical-expression normalization and surface whether any node changed.
+ */
+export function applyLogicalNormalizationWithChangeMetadata(
+    ast: MutableGameMakerAstNode
+): Readonly<{ ast: MutableGameMakerAstNode; changed: boolean }> {
     if (!isObjectLike(ast)) {
-        return ast;
+        return Object.freeze({ ast, changed: false });
     }
 
     // Repeatedly apply passes until no changes occur, or max limit reached
     let changed = true;
+    let changedAtLeastOnce = false;
     let iterations = 0;
     while (changed && iterations < 10) {
         changed = traverseAndSimplify(ast);
+        if (changed) {
+            changedAtLeastOnce = true;
+        }
         iterations++;
     }
 
-    return ast;
+    return Object.freeze({ ast, changed: changedAtLeastOnce });
 }
 
 function traverseAndSimplify(node: any): boolean {
@@ -58,7 +71,7 @@ function simplifyNode(node: any): boolean {
     if (node.type === "UnaryExpression" && node.operator === "!") {
         return simplifyNot(node);
     }
-    if (node.type === "LogicalExpression") {
+    if (isLogicalBinaryNode(node)) {
         return simplifyLogical(node);
     }
 
@@ -69,6 +82,69 @@ function simplifyNode(node: any): boolean {
         return simplifyStatementList(node.body);
     }
     return false;
+}
+
+function isLogicalOperator(operator: unknown): boolean {
+    return operator === "&&" || operator === "||";
+}
+
+function isLogicalBinaryNode(node: any): boolean {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type !== "LogicalExpression" && node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    return isLogicalOperator(node.operator);
+}
+
+function unwrapParenthesizedExpressionNode(node: any): any {
+    let currentNode = node;
+    while (currentNode && currentNode.type === "ParenthesizedExpression") {
+        currentNode = currentNode.expression;
+    }
+
+    return currentNode;
+}
+
+function isNegatedExpression(node: any): boolean {
+    return Boolean(node && node.type === "UnaryExpression" && node.operator === "!");
+}
+
+function readExclusiveOrOperands(
+    leftTerm: any,
+    rightTerm: any
+): Readonly<{ leftOperand: any; rightOperand: any }> | null {
+    const leftOperands = [leftTerm.left, leftTerm.right];
+    const rightOperands = [rightTerm.left, rightTerm.right];
+
+    for (const leftNegatedCandidate of leftOperands) {
+        if (!isNegatedExpression(leftNegatedCandidate)) {
+            continue;
+        }
+
+        const leftPositiveCandidate = leftTerm.left === leftNegatedCandidate ? leftTerm.right : leftTerm.left;
+        for (const rightNegatedCandidate of rightOperands) {
+            if (!isNegatedExpression(rightNegatedCandidate)) {
+                continue;
+            }
+
+            const rightPositiveCandidate = rightTerm.left === rightNegatedCandidate ? rightTerm.right : rightTerm.left;
+            if (
+                nodesAreEqual(leftPositiveCandidate, rightNegatedCandidate.argument) &&
+                nodesAreEqual(rightPositiveCandidate, leftNegatedCandidate.argument)
+            ) {
+                return Object.freeze({
+                    leftOperand: leftPositiveCandidate,
+                    rightOperand: rightPositiveCandidate
+                });
+            }
+        }
+    }
+
+    return null;
 }
 
 function simplifyStatementList(body: any[]): boolean {
@@ -102,14 +178,15 @@ function simplifyIfStatement(node: any): boolean {
     // 1. if (cond) return true; else return false; -> return cond;
     // 2. if (cond) return false; else return true; -> return !cond;
 
-    // Check structure: has consequent and alternate
-    if (!node.consequent || !node.alternate) return false;
+    if (!node.consequent) {
+        return false;
+    }
 
     // Normalize blocks to single statements if they contain only one statement
     const consequent = unwrapBlock(node.consequent);
-    const alternate = unwrapBlock(node.alternate);
+    const alternate = node.alternate ? unwrapBlock(node.alternate) : null;
 
-    if (consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
+    if (alternate && consequent.type === "ReturnStatement" && alternate.type === "ReturnStatement") {
         const consArg = consequent.argument;
         const altArg = alternate.argument;
 
@@ -125,15 +202,11 @@ function simplifyIfStatement(node: any): boolean {
     }
 
     // 3. if (cond) x = A; else x = B; -> x = cond ? A : B;
-    if (consequent.type === "ExpressionStatement" && alternate.type === "ExpressionStatement") {
-        const consExp = consequent.expression;
-        const altExp = alternate.expression;
+    if (alternate) {
+        const consExp = getAssignmentExpressionFromStatementLikeNode(consequent);
+        const altExp = getAssignmentExpressionFromStatementLikeNode(alternate);
 
-        if (
-            consExp.type === "AssignmentExpression" &&
-            altExp.type === "AssignmentExpression" && // Check if targets valid (same identifier/member expression)
-            nodesRecursiveEqual(consExp.left, altExp.left)
-        ) {
+        if (consExp && altExp && nodesRecursiveEqual(consExp.left, altExp.left)) {
             // x = cond ? A : B;
             const conditional = {
                 type: "ConditionalExpression",
@@ -160,37 +233,60 @@ function simplifyIfStatement(node: any): boolean {
 
     // 4. if (is_undefined(x)) x = y; -> x ??= y;
     // 5. if (x == undefined) x = y; -> x ??= y;
-    if (
-        !node.alternate && // if (cond) stmt;
-        consequent.type === "ExpressionStatement"
-    ) {
-        const assignment = consequent.expression;
-        if (assignment.type === "AssignmentExpression" && assignment.operator === "=") {
-            const target = assignment.left;
-            const value = assignment.right;
+    if (!node.alternate) {
+        const assignment = getAssignmentExpressionFromStatementLikeNode(consequent);
+        if (!assignment || assignment.operator !== "=") {
+            return false;
+        }
 
-            // Check condition: is_undefined(x) or x == undefined
-            if (isUndefinedCheck(node.test, target)) {
-                // x ??= value;
-                const coalesceAssign = {
-                    type: "AssignmentExpression",
-                    operator: "??=",
-                    left: target,
-                    right: value
-                };
-                const statement = {
-                    type: "ExpressionStatement",
-                    expression: coalesceAssign,
-                    start: node.start,
-                    end: node.end
-                };
-                replaceNode(node, statement);
-                return true;
-            }
+        const target = assignment.left;
+        const value = assignment.right;
+
+        // Check condition: is_undefined(x) or x == undefined
+        if (isUndefinedCheck(node.test, target)) {
+            // x ??= value;
+            const coalesceAssign = {
+                type: "AssignmentExpression",
+                operator: "??=",
+                left: target,
+                right: value
+            };
+            const statement = {
+                type: "ExpressionStatement",
+                expression: coalesceAssign,
+                start: node.start,
+                end: node.end
+            };
+            replaceNode(node, statement);
+            return true;
         }
     }
 
     return false;
+}
+
+function getAssignmentExpressionFromStatementLikeNode(node: any): any {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "AssignmentExpression") {
+        return node;
+    }
+
+    if (node.type !== "ExpressionStatement") {
+        return null;
+    }
+
+    if (!node.expression || typeof node.expression !== "object") {
+        return null;
+    }
+
+    if (node.expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    return node.expression;
 }
 
 function resolveBooleanReturnNegation(firstValue: boolean | null, secondValue: boolean | null): boolean | null {
@@ -241,11 +337,22 @@ function unwrapBlock(node: any): any {
 }
 
 function isUndefinedCheck(condition: any, target: any): boolean {
+    while (condition && condition.type === "ParenthesizedExpression") {
+        condition = condition.expression;
+    }
+
+    if (!condition || typeof condition !== "object") {
+        return false;
+    }
+
+    const callee = condition?.callee ?? condition?.object;
+
     // is_undefined(target)
     if (
         condition.type === "CallExpression" &&
-        condition.callee.type === "Identifier" &&
-        condition.callee.name === "is_undefined" &&
+        callee &&
+        callee.type === "Identifier" &&
+        callee.name === "is_undefined" &&
         condition.arguments.length === 1
     ) {
         return nodesRecursiveEqual(condition.arguments[0], target);
@@ -253,18 +360,21 @@ function isUndefinedCheck(condition: any, target: any): boolean {
 
     // target == undefined
     if (condition.type === "BinaryExpression" && condition.operator === "==") {
-        if (
-            nodesRecursiveEqual(condition.left, target) &&
-            condition.right.type === "Identifier" &&
-            condition.right.name === "undefined"
-        ) {
+        const leftUndefined =
+            condition.left &&
+            ((condition.left.type === "Identifier" && condition.left.name === "undefined") ||
+                (condition.left.type === "Literal" &&
+                    (condition.left.value === undefined || condition.left.value === "undefined")));
+        const rightUndefined =
+            condition.right &&
+            ((condition.right.type === "Identifier" && condition.right.name === "undefined") ||
+                (condition.right.type === "Literal" &&
+                    (condition.right.value === undefined || condition.right.value === "undefined")));
+
+        if (nodesRecursiveEqual(condition.left, target) && rightUndefined) {
             return true;
         }
-        if (
-            nodesRecursiveEqual(condition.right, target) &&
-            condition.left.type === "Identifier" &&
-            condition.left.name === "undefined"
-        ) {
+        if (nodesRecursiveEqual(condition.right, target) && leftUndefined) {
             return true;
         }
     }
@@ -306,7 +416,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A || B) -> !A && !B
-    if (argument.type === "LogicalExpression" && argument.operator === "||") {
+    if (isLogicalBinaryNode(argument) && argument.operator === "||") {
         // Create (!A) && (!B)
         const left = argument.left;
         const right = argument.right;
@@ -333,7 +443,7 @@ function simplifyNot(node: any): boolean {
         };
 
         const newLogical = {
-            type: "LogicalExpression",
+            type: argument.type,
             operator: "&&",
             left: newLeft,
             right: newRight,
@@ -347,7 +457,7 @@ function simplifyNot(node: any): boolean {
     }
 
     // De Morgan's: !(A && B) -> !A || !B
-    if (argument.type === "LogicalExpression" && argument.operator === "&&") {
+    if (isLogicalBinaryNode(argument) && argument.operator === "&&") {
         const left = argument.left;
         const right = argument.right;
 
@@ -370,7 +480,7 @@ function simplifyNot(node: any): boolean {
         };
 
         const newLogical = {
-            type: "LogicalExpression",
+            type: argument.type,
             operator: "||",
             left: newLeft,
             right: newRight,
@@ -399,10 +509,15 @@ function simplifyLogical(node: any): boolean {
     // Simplify: false || A -> A
 
     // We assume short-circuiting behavior.
+    const leftNode = unwrapParenthesizedExpressionNode(node.left);
+    const rightNode = unwrapParenthesizedExpressionNode(node.right);
+    if (!leftNode || !rightNode) {
+        return false;
+    }
 
     // Check for boolean literals
-    const leftBool = getBooleanValue(node.left);
-    const rightBool = getBooleanValue(node.right);
+    const leftBool = getBooleanValue(leftNode);
+    const rightBool = getBooleanValue(rightNode);
 
     if (node.operator === "&&") {
         // true && A -> A
@@ -447,55 +562,50 @@ function simplifyLogical(node: any): boolean {
     // Absorption: A && (A || B) -> A
 
     // Check if right is parenthesized, unwrap for inspection
-    let right = node.right;
-    while (right.type === "ParenthesizedExpression") right = right.expression;
-    let left = node.left;
-    while (left.type === "ParenthesizedExpression") left = left.expression;
-
     if (
         node.operator === "||" &&
-        right.type === "LogicalExpression" &&
-        right.operator === "&&" &&
-        nodesAreEqual(left, right.left)
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "&&" &&
+        nodesAreEqual(leftNode, rightNode.left)
     ) {
         // A || (A && B) -> A
-        replaceNode(node, left);
+        replaceNode(node, leftNode);
         return true;
     }
 
     if (
         node.operator === "&&" &&
-        right.type === "LogicalExpression" &&
-        right.operator === "||" &&
-        nodesAreEqual(left, right.left)
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "||" &&
+        nodesAreEqual(leftNode, rightNode.left)
     ) {
         // A && (A || B) -> A
-        replaceNode(node, left);
+        replaceNode(node, leftNode);
         return true;
     }
 
     // Distributive / Shared Term: (A && B) || (A && C) -> A && (B || C)
     if (
         node.operator === "||" &&
-        left.type === "LogicalExpression" &&
-        left.operator === "&&" &&
-        right.type === "LogicalExpression" &&
-        right.operator === "&&"
+        isLogicalBinaryNode(leftNode) &&
+        leftNode.operator === "&&" &&
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "&&"
     ) {
         // (A && B) || (A && C) -> A && (B || C)
-        if (nodesAreEqual(left.left, right.left)) {
+        if (nodesAreEqual(leftNode.left, rightNode.left)) {
             const newRight = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "||",
-                left: left.right,
-                right: right.right,
-                start: right.start, // Approx
-                end: right.end
+                left: leftNode.right,
+                right: rightNode.right,
+                start: rightNode.start, // Approx
+                end: rightNode.end
             };
             const newRoot = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
-                left: left.left,
+                left: leftNode.left,
                 right: newRight,
                 start: node.start,
                 end: node.end
@@ -505,20 +615,20 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (B && A) || (C && A) -> (B || C) && A
-        if (nodesAreEqual(left.right, right.right)) {
+        if (nodesAreEqual(leftNode.right, rightNode.right)) {
             const newLeft = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "||",
-                left: left.left,
-                right: right.left,
-                start: left.start,
-                end: left.end
+                left: leftNode.left,
+                right: rightNode.left,
+                start: leftNode.start,
+                end: leftNode.end
             };
             const newRoot = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: newLeft,
-                right: left.right,
+                right: leftNode.right,
                 start: node.start,
                 end: node.end
             };
@@ -527,60 +637,34 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (A && B) || (A && !B) -> A (Complement/Redundancy)
-        if (nodesAreEqual(left.left, right.left) && areNegations(left.right, right.right)) {
-            replaceNode(node, left.left);
+        if (nodesAreEqual(leftNode.left, rightNode.left) && areNegations(leftNode.right, rightNode.right)) {
+            replaceNode(node, leftNode.left);
             return true;
         }
 
         // (B && A) || (!B && A) -> A
-        if (nodesAreEqual(left.right, right.right) && areNegations(left.left, right.left)) {
-            replaceNode(node, left.right);
+        if (nodesAreEqual(leftNode.right, rightNode.right) && areNegations(leftNode.left, rightNode.left)) {
+            replaceNode(node, leftNode.right);
             return true;
         }
 
         // XOR Pattern: (A && !B) || (!A && B) -> (A || B) && !(A && B)
-        // Checks that match (A && !B) || (!A && B)
-        const term1 = node.left;
-        const term2 = node.right;
-
-        let A, B, notA, notB;
-
-        // Extract from Left: (A && !B) or (!A && B)
-        if (term1.left.type === "UnaryExpression" && term1.left.operator === "!") {
-            notA = term1.left;
-            B = term1.right;
-            // Expect Right to be (A && !B)
-            if (term2.right.type === "UnaryExpression" && term2.right.operator === "!") {
-                notB = term2.right;
-                A = term2.left;
-            }
-        } else if (term1.right.type === "UnaryExpression" && term1.right.operator === "!") {
-            notB = term1.right;
-            A = term1.left;
-            // Expect Right to be (!A && B)
-            if (term2.left.type === "UnaryExpression" && term2.left.operator === "!") {
-                notA = term2.left;
-                B = term2.right;
-            }
-        }
-
-        if (A && B && notA && notB && nodesAreEqual(A, notA.argument) && nodesAreEqual(B, notB.argument)) {
+        const exclusiveOrOperands = readExclusiveOrOperands(leftNode, rightNode);
+        if (exclusiveOrOperands) {
+            const { leftOperand, rightOperand } = exclusiveOrOperands;
             // Construct (A || B) && !(A && B)
             const orPart = {
-                type: "BinaryExpression", // LogicalExpression in some usages, but GML printer handles both
+                type: node.type,
                 operator: "||",
-                left: A,
-                right: B
+                left: leftOperand,
+                right: rightOperand
             };
-            // Make sure to use proper types for your printer.
-            // Assuming LogicalExpression for ||, &&
-            (orPart as any).type = "LogicalExpression";
 
             const andPart = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
-                left: A,
-                right: B
+                left: leftOperand,
+                right: rightOperand
             };
 
             const notAndPart = {
@@ -591,7 +675,7 @@ function simplifyLogical(node: any): boolean {
             };
 
             const finalExpr = {
-                type: "LogicalExpression",
+                type: node.type,
                 operator: "&&",
                 left: orPart,
                 right: notAndPart,
@@ -621,9 +705,25 @@ function areNegations(node1: any, node2: any): boolean {
 }
 
 function getBooleanValue(node: any): boolean | undefined {
-    if (node.type === "Literal" && typeof node.value === "boolean") {
-        return node.value;
+    const currentNode = unwrapParenthesizedExpressionNode(node);
+    if (!currentNode || currentNode.type !== "Literal") {
+        return undefined;
     }
+
+    if (typeof currentNode.value === "boolean") {
+        return currentNode.value;
+    }
+
+    if (typeof currentNode.value === "string") {
+        if (currentNode.value === "true") {
+            return true;
+        }
+
+        if (currentNode.value === "false") {
+            return false;
+        }
+    }
+
     return undefined;
 }
 

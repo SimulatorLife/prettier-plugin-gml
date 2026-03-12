@@ -8,7 +8,7 @@
  * @module printer/type-guards
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { safeGetParentNode } from "./path-utils.js";
 
@@ -17,14 +17,6 @@ const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
 const OBJECT_TYPE = "object";
 const UNDEFINED_TYPE = "undefined";
-
-/**
- * Cached regex for detecting decorative banner-style comment lines.
- */
-// TODO: Decorative banner-comment are fixed by the linter, so some of this functionality should maybe live in the 'Core' module instead for reuse
-const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-    String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
-);
 
 /**
  * Set of node types considered simple call arguments for formatting purposes.
@@ -42,40 +34,6 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 // ============================================================================
 // Comment Type Guards
 // ============================================================================
-
-/**
- * Determines if a comment is a decorative banner-style block comment.
- *
- * A decorative comment consists entirely of lines matching the pattern of
- * slash-based decorative banners (e.g., "////////////////////").
- */
-export function isDecorativeBlockComment(comment: any): boolean {
-    if (!comment || (comment.type !== "BlockComment" && comment.type !== "CommentBlock")) {
-        return false;
-    }
-
-    const value = comment.value;
-    if (typeof value !== "string") {
-        return false;
-    }
-
-    const lines = value.split(/\r?\n/);
-    let hasDecorativeContent = false;
-    for (const line_ of lines) {
-        const normalizedLine = line_.replaceAll("\t", "    ");
-        if (!Core.isNonEmptyTrimmedString(normalizedLine)) {
-            continue;
-        }
-
-        if (!DECORATIVE_SLASH_LINE_PATTERN.test(normalizedLine)) {
-            // Found a non-decorative line -> treat entire comment as normal content
-            return false;
-        }
-        hasDecorativeContent = true;
-    }
-
-    return hasDecorativeContent;
-}
 
 /**
  * Determines if a comment is an inline empty block comment.
@@ -388,78 +346,6 @@ export function isValidIdentifierName(name: any): boolean {
 }
 
 // ============================================================================
-// Logical Expression Type Guards
-// ============================================================================
-
-/**
- * Determines if a node is a logical comparison clause pattern.
- */
-export function isLogicalComparisonClause(node: any): boolean {
-    const clauseExpression = unwrapLogicalClause(node);
-    if (clauseExpression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!Core.isLogicalOrOperator(clauseExpression.operator)) {
-        return false;
-    }
-
-    return isComparisonAndConjunction(clauseExpression.left) && isComparisonAndConjunction(clauseExpression.right);
-}
-
-/**
- * Determines if a node is a comparison-and-conjunction pattern.
- */
-export function isComparisonAndConjunction(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    if (expression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!Core.isLogicalAndOperator(expression.operator)) {
-        return false;
-    }
-
-    if (!isComparisonExpression(expression.left)) {
-        return false;
-    }
-
-    return isSimpleLogicalOperand(expression.right);
-}
-
-/**
- * Determines if a node is a comparison expression.
- */
-export function isComparisonExpression(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    return expression?.type === "BinaryExpression" && Core.isComparisonBinaryOperator(expression.operator);
-}
-
-/**
- * Determines if a node is a simple logical operand.
- */
-export function isSimpleLogicalOperand(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    if (!expression) {
-        return false;
-    }
-
-    if (expression.type === "Identifier") {
-        return true;
-    }
-
-    if (expression.type === "Literal") {
-        return true;
-    }
-
-    if (expression.type === "UnaryExpression") {
-        return isSimpleLogicalOperand(expression.argument);
-    }
-
-    return isComparisonExpression(expression);
-}
-
-// ============================================================================
 // Helper Functions (Internal)
 // ============================================================================
 
@@ -487,19 +373,6 @@ function checkSyntheticParenFlattening(path: any): boolean {
 
         depth += 1;
     }
-}
-
-/**
- * Unwraps a logical clause by removing surrounding parenthesized expressions.
- *
- * @internal
- */
-function unwrapLogicalClause(node: any): any {
-    let current = node;
-    while (current?.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current ?? null;
 }
 
 /**

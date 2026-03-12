@@ -35,6 +35,13 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferLoopInvariantExpressions",
+        shortName: "prefer-loop-invariant-expressions",
+        fullId: "gml/prefer-loop-invariant-expressions",
+        messageId: "preferLoopInvariantExpressions",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlPreferRepeatLoops",
         shortName: "prefer-repeat-loops",
         fullId: "gml/prefer-repeat-loops",
@@ -57,10 +64,31 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        mapKey: "GmlPreferArrayPush",
+        shortName: "prefer-array-push",
+        fullId: "gml/prefer-array-push",
+        messageId: "preferArrayPush",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
         mapKey: "GmlPreferCompoundAssignments",
         shortName: "prefer-compound-assignments",
         fullId: "gml/prefer-compound-assignments",
         messageId: "preferCompoundAssignments",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlPreferIncrementDecrementOperators",
+        shortName: "prefer-increment-decrement-operators",
+        fullId: "gml/prefer-increment-decrement-operators",
+        messageId: "preferIncrementDecrementOperators",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlPreferDirectReturn",
+        shortName: "prefer-direct-return",
+        fullId: "gml/prefer-direct-return",
+        messageId: "preferDirectReturn",
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {
@@ -90,6 +118,20 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "no-empty-regions",
         fullId: "gml/no-empty-regions",
         messageId: "noEmptyRegions",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNoLegacyApi",
+        shortName: "no-legacy-api",
+        fullId: "gml/no-legacy-api",
+        messageId: "noLegacyApi",
+        schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
+    },
+    {
+        mapKey: "GmlNoScientificNotation",
+        shortName: "no-scientific-notation",
+        fullId: "gml/no-scientific-notation",
+        messageId: "noScientificNotation",
         schema: Object.freeze([{ type: "object", additionalProperties: false, properties: {} }])
     },
     {

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Refactor } from "@gml-modules/refactor";
+import { Refactor } from "@gmloop/refactor";
 
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
@@ -269,5 +269,175 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(manifestEdit);
         assert.match(manifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
         assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+    });
+
+    void it("listNamingConventionTargets classifies resource, callable, macro, global, and local targets", async () => {
+        const mockProjectIndex = {
+            resources: {
+                "scripts/demo_script/demo_script.yy": {
+                    path: "scripts/demo_script/demo_script.yy",
+                    name: "demo_script",
+                    resourceType: "GMScript"
+                }
+            },
+            identifiers: {
+                scripts: {
+                    "scope:script:demo_script": {
+                        identifierId: "script:scope:script:demo_script",
+                        name: "demo_script",
+                        resourcePath: "scripts/demo_script/demo_script.yy",
+                        declarations: [
+                            {
+                                name: "demo_script",
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                classifications: ["script"]
+                            }
+                        ]
+                    },
+                    "scope:script:build_widget": {
+                        identifierId: "script:scope:script:build_widget",
+                        name: "build_widget",
+                        declarations: [
+                            {
+                                name: "build_widget",
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                classifications: ["function", "constructor"]
+                            }
+                        ]
+                    }
+                },
+                macros: {
+                    DEMO_MACRO: {
+                        identifierId: "macro:DEMO_MACRO",
+                        name: "DEMO_MACRO",
+                        declarations: [
+                            {
+                                name: "DEMO_MACRO",
+                                filePath: "scripts/demo_script/demo_script.gml"
+                            }
+                        ]
+                    }
+                },
+                globalVariables: {
+                    global_score: {
+                        identifierId: "global:global_score",
+                        name: "global_score",
+                        declarations: [
+                            {
+                                name: "global_score",
+                                filePath: "scripts/demo_script/demo_script.gml"
+                            }
+                        ]
+                    }
+                },
+                enums: {
+                    state_enum: {
+                        identifierId: "enum:state_enum",
+                        name: "state_enum",
+                        declarations: [
+                            {
+                                name: "state_enum",
+                                filePath: "scripts/demo_script/demo_script.gml"
+                            }
+                        ]
+                    }
+                },
+                enumMembers: {
+                    "enum-member:ready": {
+                        identifierId: "enum-member:ready",
+                        name: "ready_state",
+                        declarations: [
+                            {
+                                name: "ready_state",
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                start: { index: 120 },
+                                end: { index: 131 }
+                            }
+                        ],
+                        references: [
+                            {
+                                filePath: "scripts/demo_script/demo_script.gml",
+                                start: { index: 150 },
+                                end: { index: 161 }
+                            }
+                        ]
+                    }
+                },
+                instanceVariables: {}
+            },
+            scopes: {
+                "scope:catch": {
+                    kind: "catch"
+                }
+            },
+            files: {
+                "scripts/demo_script/demo_script.gml": {
+                    declarations: [
+                        {
+                            name: "bad_name",
+                            scopeId: "scope:local",
+                            classifications: ["variable"],
+                            start: { index: 4 },
+                            end: { index: 12 }
+                        },
+                        {
+                            name: "err_value",
+                            scopeId: "scope:catch",
+                            classifications: ["parameter"],
+                            start: { index: 30 },
+                            end: { index: 39 }
+                        }
+                    ],
+                    references: [
+                        {
+                            name: "bad_name",
+                            scopeId: "scope:local",
+                            start: { index: 60 },
+                            end: { index: 68 },
+                            declaration: {
+                                name: "bad_name",
+                                scopeId: "scope:local",
+                                start: { index: 4 }
+                            }
+                        },
+                        {
+                            name: "err_value",
+                            scopeId: "scope:catch",
+                            start: { index: 90 },
+                            end: { index: 99 },
+                            declaration: {
+                                name: "err_value",
+                                scopeId: "scope:catch",
+                                start: { index: 30 }
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+
+        assert.ok(targets.some((target) => target.category === "scriptResourceName" && target.name === "demo_script"));
+        assert.ok(
+            targets.some((target) => target.category === "constructorFunction" && target.name === "build_widget")
+        );
+        assert.ok(targets.some((target) => target.category === "enum" && target.name === "state_enum"));
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "enumMember" && target.name === "ready_state" && target.occurrences.length === 2
+            )
+        );
+        assert.ok(targets.some((target) => target.category === "macro" && target.name === "DEMO_MACRO"));
+        assert.ok(targets.some((target) => target.category === "globalVariable" && target.name === "global_score"));
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "localVariable" && target.name === "bad_name" && target.occurrences.length === 2
+            )
+        );
+        assert.ok(targets.some((target) => target.category === "catchArgument" && target.name === "err_value"));
     });
 });

@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
+import { Core } from "@gmloop/core";
+import { Semantic } from "@gmloop/semantic";
 
 const { fromPosixPath } = Core;
 

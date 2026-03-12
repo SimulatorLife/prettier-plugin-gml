@@ -3,7 +3,7 @@
  * This module provides identifier validation and reserved keyword checking.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Validate and normalize an identifier name.
@@ -31,6 +31,24 @@ export function assertValidIdentifierName(name: unknown): string {
     }
 
     return validated;
+}
+
+/**
+ * Attempt to normalize and validate an identifier name.
+ * Returns the validated name on success, or `null` if the name is syntactically
+ * invalid. This is a safe, non-throwing counterpart to `assertValidIdentifierName`
+ * for contexts where an invalid name should be silently skipped rather than
+ * propagated as an exception.
+ *
+ * @param name - The identifier name to validate
+ * @returns The validated name, or `null` if the name is invalid
+ */
+export function tryNormalizeIdentifierName(name: unknown): string | null {
+    try {
+        return assertValidIdentifierName(name);
+    } catch {
+        return null;
+    }
 }
 
 /**

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import { Parser } from "@gmloop/parser";
 
 import { Transpiler } from "../index.js";
 

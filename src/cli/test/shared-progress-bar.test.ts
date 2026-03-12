@@ -9,7 +9,7 @@ import {
     resolveProgressBarWidth,
     setDefaultProgressBarWidth
 } from "../src/runtime-options/progress-bar.js";
-import { buildEnvConfiguredValueTests } from "./helpers/env-configured-value-test-builder.js";
+import { buildEnvConfiguredValueTests } from "./test-helpers/env-configured-value-test-builder.js";
 
 void describe("progress bar utilities", () => {
     buildEnvConfiguredValueTests({

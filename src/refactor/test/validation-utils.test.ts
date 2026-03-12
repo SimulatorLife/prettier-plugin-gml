@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { assertValidIdentifierName, extractSymbolName, parseSymbolIdParts } from "../src/validation-utils.js";
+import {
+    assertValidIdentifierName,
+    extractSymbolName,
+    parseSymbolIdParts,
+    tryNormalizeIdentifierName
+} from "../src/validation-utils.js";
 
 void describe("assertValidIdentifierName", () => {
     void test("accepts valid identifier", () => {
@@ -53,6 +58,44 @@ void describe("assertValidIdentifierName", () => {
         assert.throws(() => assertValidIdentifierName("name-with-dash"), {
             message: /not a valid GML identifier/
         });
+    });
+});
+
+void describe("tryNormalizeIdentifierName", () => {
+    void test("returns validated name for a valid identifier", () => {
+        assert.strictEqual(tryNormalizeIdentifierName("validName"), "validName");
+    });
+
+    void test("returns validated name for identifier with underscores and digits", () => {
+        assert.strictEqual(tryNormalizeIdentifierName("valid_name_123"), "valid_name_123");
+    });
+
+    void test("returns null for empty string", () => {
+        assert.strictEqual(tryNormalizeIdentifierName(""), null);
+    });
+
+    void test("returns null for identifier with leading whitespace", () => {
+        assert.strictEqual(tryNormalizeIdentifierName(" name"), null);
+    });
+
+    void test("returns null for identifier starting with a digit", () => {
+        assert.strictEqual(tryNormalizeIdentifierName("123name"), null);
+    });
+
+    void test("returns null for identifier with special characters", () => {
+        assert.strictEqual(tryNormalizeIdentifierName("name-with-dash"), null);
+    });
+
+    void test("returns null for non-string input: number", () => {
+        assert.strictEqual(tryNormalizeIdentifierName(42), null);
+    });
+
+    void test("returns null for non-string input: null", () => {
+        assert.strictEqual(tryNormalizeIdentifierName(null), null);
+    });
+
+    void test("returns null for non-string input: undefined", () => {
+        assert.strictEqual(tryNormalizeIdentifierName(undefined), null);
     });
 });
 

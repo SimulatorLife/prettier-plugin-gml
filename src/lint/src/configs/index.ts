@@ -16,12 +16,18 @@ export const GML_LINT_FILES_GLOB = Object.freeze(["**/*.gml"]);
 
 const RECOMMENDED_RULES = Object.freeze({
     "gml/prefer-hoistable-loop-accessors": "warn",
+    "gml/prefer-loop-invariant-expressions": "warn",
     "gml/prefer-repeat-loops": "warn",
     "gml/prefer-struct-literal-assignments": "warn",
+    "gml/prefer-array-push": "warn",
     "gml/prefer-compound-assignments": "warn",
+    "gml/prefer-increment-decrement-operators": "warn",
+    "gml/prefer-direct-return": "warn",
     "gml/optimize-logical-flow": "warn",
     "gml/no-globalvar": "warn",
     "gml/no-empty-regions": "warn",
+    "gml/no-legacy-api": "warn",
+    "gml/no-scientific-notation": "error",
     "gml/no-unnecessary-string-interpolation": "warn",
     "gml/remove-default-comments": "warn",
     "gml/normalize-doc-comments": "warn",
@@ -48,6 +54,7 @@ const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = O
 function createPerformanceRuleSet(): Readonly<Record<string, "off" | "warn" | "error">> {
     const rules: Record<string, "off" | "warn" | "error"> = {
         "gml/prefer-hoistable-loop-accessors": "off",
+        "gml/prefer-loop-invariant-expressions": "off",
         "gml/prefer-struct-literal-assignments": "off",
         "gml/no-globalvar": "warn",
         "gml/prefer-string-interpolation": "off"

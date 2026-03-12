@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE = "Project root discovery was aborted.";
 export const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";

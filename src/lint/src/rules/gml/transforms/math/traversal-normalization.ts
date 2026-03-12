@@ -2,7 +2,7 @@
  * Collection of helper routines that reshape math-heavy AST fragments into a normalized form.
  * This includes simplifications, constant conversions, and traversal-safe replacements so the printer emits consistent expressions.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
 
@@ -99,6 +99,13 @@ const CALL_SIMPLIFIERS: SimplificationHandler[] = [
     (node, context) => attemptConvertPowerToExp(node, context),
     (node, context) => attemptConvertPointDirection(node, context),
     (node) => attemptSimplifyTrigonometricCall(node)
+];
+
+const SCALAR_CONDENSING_SIMPLIFIERS: SimplificationHandler[] = [
+    (node, context) => attemptCondenseSimpleScalarProduct(node, context),
+    (node, context) => attemptCondenseScalarProduct(node, context),
+    (node, context) => attemptCondenseNumericChainWithMultipleBases(node, context),
+    (node, context) => attemptCollectDistributedScalars(node, context)
 ];
 
 function applySimplifiers(
@@ -857,6 +864,10 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
             continue;
         }
 
+        if (!isSafeReciprocalCancellationOperand(expression.right)) {
+            continue;
+        }
+
         const numeratorValue = parseNumericFactor(expression.left);
         if (numeratorValue === null || Math.abs(numeratorValue - 1) > tolerance) {
             continue;
@@ -864,6 +875,10 @@ function cancelSimpleReciprocalNumeratorPairs(terms) {
 
         const matchIndex = terms.findIndex((candidate, candidateIndex) => {
             if (candidateIndex === index || consumed.has(candidateIndex) || Core.hasComment(candidate.expression)) {
+                return false;
+            }
+
+            if (!isSafeReciprocalCancellationOperand(candidate.expression)) {
                 return false;
             }
 
@@ -1358,6 +1373,10 @@ function collectReciprocalRatioTerms({
             continue;
         }
 
+        if (!isSafeReciprocalCancellationOperand(numerator) || !isSafeReciprocalCancellationOperand(denominator)) {
+            continue;
+        }
+
         if (Core.hasComment(expression.left) || Core.hasComment(expression.right)) {
             return null;
         }
@@ -1436,6 +1455,10 @@ function buildReciprocalRatioRemovalPlan({
 
             const candidate = Core.unwrapParenthesizedExpression(term.expression);
             if (!candidate) {
+                continue;
+            }
+
+            if (!isSafeReciprocalCancellationOperand(candidate)) {
                 continue;
             }
 
@@ -4027,6 +4050,19 @@ function isSafeOperand(node) {
     }
 }
 
+function isSafeReciprocalCancellationOperand(node) {
+    const expression = Core.unwrapParenthesizedExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (expression.type === UNARY_EXPRESSION && expression.operator === "-") {
+        return isSafeReciprocalCancellationOperand(expression.argument);
+    }
+
+    return isSafeOperand(expression);
+}
+
 function areAllSafe(nodes) {
     if (!Array.isArray(nodes)) {
         return false;
@@ -4752,22 +4788,7 @@ function applyScalarCondensing(
             let iterationCount = 0;
             while (changed && iterationCount < 1000) {
                 iterationCount += 1;
-                changed = false;
-                if (attemptCondenseSimpleScalarProduct(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCondenseScalarProduct(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCondenseNumericChainWithMultipleBases(node, traversalContext)) {
-                    changed = true;
-                    continue;
-                }
-                if (attemptCollectDistributedScalars(node, traversalContext)) {
-                    changed = true;
-                }
+                changed = applySimplifiers(node, traversalContext, SCALAR_CONDENSING_SIMPLIFIERS);
             }
         }
 

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const FUNCTION_DECLARATION_PATTERN = /\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
 const FUNCTION_ASSIGNMENT_PATTERN = /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*function\b/g;

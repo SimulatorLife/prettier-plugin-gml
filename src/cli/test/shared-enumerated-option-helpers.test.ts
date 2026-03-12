@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { createEnumeratedOptionHelpers } = Core;
 
@@ -20,10 +20,9 @@ void describe("createEnumeratedOptionHelpers", () => {
     });
 
     void it("throws with a descriptive message when value is not allowed", () => {
-        const helpers = createEnumeratedOptionHelpers(
-            ["json"],
-            (list, received) => `Expected values: ${list}. Received: ${received}.`
-        );
+        const helpers = createEnumeratedOptionHelpers(["json"], {
+            formatError: (list, received) => `Expected values: ${list}. Received: ${received}.`
+        });
 
         assert.throws(
             () => helpers.requireValue("yaml"),

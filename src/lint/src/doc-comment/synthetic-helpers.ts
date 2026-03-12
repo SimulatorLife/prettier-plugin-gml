@@ -1,6 +1,4 @@
-import { Core } from "@gml-modules/core";
-
-import { isFunctionLikeDocCommentNode } from "./ast-contract.js";
+import { Core } from "@gmloop/core";
 
 const {
     getIdentifierText,
@@ -261,7 +259,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             return;
         }
 
-        if (node !== functionNode && isFunctionLikeDocCommentNode(node)) {
+        if (node !== functionNode && Core.isFunctionLikeNode(node)) {
             return;
         }
 

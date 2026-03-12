@@ -4,10 +4,10 @@
  * The `function-parameter-naming` module must only export layout-helper functions
  * that are safe for the formatter to own. Semantic/content rewrites — such as
  * renaming `argumentN`-style parameters from `@function` doc tags or filtering
- * redundant argument-alias declarations — belong exclusively in `@gml-modules/lint`.
+ * redundant argument-alias declarations — belong exclusively in `@gmloop/lint`.
  *
- * The format workspace must not depend on `@gml-modules/lint`. Any import of
- * `Lint` inside `@gml-modules/format` is a boundary violation.
+ * The format workspace must not depend on `@gmloop/lint`. Any import of
+ * `Lint` inside `@gmloop/format` is a boundary violation.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -22,8 +22,8 @@ void test("function-parameter-naming exports only layout-helper functions (bound
         ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
         [
             "function-parameter-naming must only export formatter-owned layout helpers.",
-            "Semantic rewrites (parameter renaming, alias filtering) belong in @gml-modules/lint.",
-            "target-state.md §2.2, §3.2: format workspace must not import @gml-modules/lint."
+            "Semantic rewrites (parameter renaming, alias filtering) belong in @gmloop/lint.",
+            "target-state.md §2.2, §3.2: format workspace must not import @gmloop/lint."
         ].join(" ")
     );
 });

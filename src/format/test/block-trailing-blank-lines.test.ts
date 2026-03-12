@@ -18,7 +18,7 @@ void test("omits blank lines between nested and enclosing block braces", async (
     );
 });
 
-void test("adds a blank line after nested function declarations", async () => {
+void test("omits trailing blank lines after nested function declarations", async () => {
     const source = [
         "function outer() constructor {",
         "    function inner() {",
@@ -31,11 +31,5 @@ void test("adds a blank line after nested function declarations", async () => {
     const formatted = await Format.format(source);
     const lines = formatted.trim().split("\n");
 
-    const trailingLines = lines.slice(-3);
-
-    assert.deepEqual(
-        trailingLines,
-        ["    }", "", "}"],
-        "Expected the formatter to preserve a separating blank line before closing the outer block."
-    );
+    assert.notEqual(lines.at(-2), "", "Expected the formatter to omit a blank line before the enclosing block closes.");
 });

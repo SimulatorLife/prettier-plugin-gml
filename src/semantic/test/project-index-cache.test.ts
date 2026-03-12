@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { AbortSignalLike } from "@gml-modules/core";
+import type { AbortSignalLike } from "@gmloop/core";
 
 import {
     evaluateProjectIndexCacheSizePolicy,
@@ -86,6 +86,9 @@ void test("saveProjectIndexCache writes payload and loadProjectIndexCache return
         });
 
         assert.equal(saveResult.status, ProjectIndexCacheStatus.WRITTEN);
+
+        const serializedCache = await readFile(saveResult.cacheFilePath, "utf8");
+        assert.equal(serializedCache.endsWith("\n"), false);
 
         const loadResult = await loadProjectIndexCache({
             projectRoot,

@@ -6,7 +6,7 @@
  * interrupting the running watcher.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
 
 import { createPortValidator } from "../cli-core/command-parsing.js";
@@ -14,8 +14,8 @@ import { createPortValidator } from "../cli-core/command-parsing.js";
 const { getErrorMessage } = Core;
 
 interface WatchStatusCommandOptions {
-    host?: string;
-    port?: number;
+    statusHost?: string;
+    statusPort?: number;
     format?: "pretty" | "json";
     endpoint?: "status" | "health" | "ping" | "ready";
 }
@@ -181,16 +181,16 @@ function displayPretty(data: unknown, endpoint: string): void {
  * Executes the watch-status command.
  *
  * @param {object} options - Command options
- * @param {string} [options.host] - Status server host
- * @param {number} [options.port] - Status server port
+ * @param {string} [options.statusHost] - Status server host
+ * @param {number} [options.statusPort] - Status server port
  * @param {string} [options.format] - Output format (pretty or json)
  * @param {string} [options.endpoint] - Endpoint to query
  */
 export async function runWatchStatusCommand(options: WatchStatusCommandOptions = {}): Promise<void> {
-    const { host = "127.0.0.1", port = 17_891, format = "pretty", endpoint = "status" } = options;
+    const { statusHost = "127.0.0.1", statusPort = 17_891, format = "pretty", endpoint = "status" } = options;
 
     try {
-        const data = await fetchStatus(host, port, endpoint);
+        const data = await fetchStatus(statusHost, statusPort, endpoint);
 
         if (format === "json") {
             console.log(JSON.stringify(data, null, 2));
@@ -204,7 +204,7 @@ export async function runWatchStatusCommand(options: WatchStatusCommandOptions =
 
         if (message.includes("ECONNREFUSED") || message.includes("fetch failed")) {
             console.error(
-                `Failed to connect to watch status server at ${host}:${port}.\nIs the watch command running?`
+                `Failed to connect to watch status server at ${statusHost}:${statusPort}.\nIs the watch command running?`
             );
         } else {
             console.error(`Error querying watch status: ${message}`);
@@ -223,9 +223,11 @@ export function createWatchStatusCommand(): Command {
 
     command
         .description("Query the running watch command's status server for metrics and diagnostics")
-        .addOption(new Option("--host <host>", "Status server host").default("127.0.0.1").env("WATCH_STATUS_HOST"))
         .addOption(
-            new Option("--port <port>", "Status server port")
+            new Option("--status-host <host>", "Status server host").default("127.0.0.1").env("WATCH_STATUS_HOST")
+        )
+        .addOption(
+            new Option("--status-port <port>", "Status server port")
                 .argParser(createPortValidator())
                 .default(17_891)
                 .env("WATCH_STATUS_PORT")
@@ -237,6 +239,15 @@ export function createWatchStatusCommand(): Command {
             new Option("--endpoint <endpoint>", "Endpoint to query")
                 .choices(["status", "health", "ping", "ready"] as const)
                 .default("status")
+        )
+        .addHelpText(
+            "after",
+            `
+Examples:
+  pnpm run cli watch-status
+  pnpm run cli watch-status --status-port 18000
+  pnpm run cli watch-status --endpoint health
+  pnpm run cli watch-status --format json`
         )
         .action((options: WatchStatusCommandOptions) => runWatchStatusCommand(options));
 

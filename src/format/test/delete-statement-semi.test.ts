@@ -15,4 +15,11 @@ void describe("delete statements", () => {
 
         assert.strictEqual(formatted, "delete foo; // comment\n");
     });
+
+    void it("preserves a source blank line after trailing delete comments", async () => {
+        const source = ["delete foo // comment", "", "do_something()", ""].join("\n");
+        const formatted = await Format.format(source);
+
+        assert.strictEqual(formatted, ["delete foo; // comment", "", "do_something();", ""].join("\n"));
+    });
 });
