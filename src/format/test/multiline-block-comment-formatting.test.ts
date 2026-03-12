@@ -25,9 +25,14 @@ var x = 1;`;
 var x = 1;
 `;
 
+        // The formatter adds a trailing newline deterministically regardless of
+        // whether the source had one — source-aware newline suppression violates
+        // the formatter/linter split contract (target-state.md §3.2).
+        const expected = `${input}\n`;
+
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        assert.equal(formatted, expected);
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {

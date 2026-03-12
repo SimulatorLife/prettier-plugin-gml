@@ -100,7 +100,13 @@ function isTopLevelLineComment(line: string | undefined): boolean {
 
 /** Returns `true` when a blank line should be inserted before a top-level comment at `previousLine`. */
 function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
-    return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
+    return (
+        isNonEmptyTrimmedString(previousLine) &&
+        !isTopLevelLineComment(previousLine) &&
+        // Do not insert a blank between a closing block-comment line and an immediately
+        // following line comment — the two belong to the same doc-comment cluster.
+        !previousLine.trimEnd().endsWith("*/")
+    );
 }
 
 /** Returns `true` when `line` contains a plain `//` (not `///`) comment, optionally indented. */
@@ -144,6 +150,45 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
         result.push(line);
         previousLine = line;
         insideBlockComment = updateBlockCommentState(line, insideBlockComment);
+    }
+
+    return result.join("\n");
+}
+
+/**
+ * Returns `true` when a line is a top-level decorative block comment:
+ * a block comment opening immediately followed by 20 or more slash
+ * characters at column 0.  These are visual separators used as section
+ * banners and receive the same blank-line treatment as top-level line
+ * comments.
+ */
+function isTopLevelDecorativeBlockComment(line: string): boolean {
+    return typeof line === "string" && /^\/\*\/{20,}/.test(line);
+}
+
+/**
+ * Ensures a blank line before top-level decorative block comment banners
+ * when preceded by non-blank content.
+ *
+ * This mirrors the deterministic blank-line insertion that
+ * {@link ensureBlankLineBeforeTopLevelLineComments} applies to line
+ * comments: the formatter always inserts a blank separator before these
+ * visual block banners, regardless of whether the original source had one.
+ * This keeps the rule source-unaware and fully deterministic
+ * (target-state.md section 3.2).
+ */
+function ensureBlankLineBeforeTopLevelDecorativeBlockComments(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+    let previousLine: string | undefined;
+
+    for (const line of lines) {
+        if (isTopLevelDecorativeBlockComment(line) && isNonEmptyTrimmedString(previousLine)) {
+            result.push("");
+        }
+
+        result.push(line);
+        previousLine = line;
     }
 
     return result.join("\n");
@@ -201,6 +246,7 @@ export function normalizeFormattedOutput(formatted: string): string {
         normalizeInlineTrailingCommentSpacing,
         normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,
+        ensureBlankLineBeforeTopLevelDecorativeBlockComments,
         trimDecorativeCommentBlankLines,
         collapseDuplicateBlankLines,
         collapseWhitespaceOnlyBlankLines,

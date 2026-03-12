@@ -600,4 +600,49 @@ void describe("formatter boundaries ownership", () => {
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
+
+    void it("always appends a trailing newline regardless of whether source had one (§3.2 determinism)", async () => {
+        // The formatter must be a deterministic function of its input: the same
+        // source with the same options must always produce the same output.
+        // A source-aware trailing-newline suppression (e.g. returning the original
+        // source verbatim when it had no trailing newline) violates §3.2 because
+        // the output depends on whether the source happened to end with "\n".
+        const withoutNewline = "var x = 1;";
+        const withNewline = "var x = 1;\n";
+
+        const formattedWithout = await Format.format(withoutNewline);
+        const formattedWith = await Format.format(withNewline);
+
+        assert.ok(
+            formattedWithout.endsWith("\n"),
+            "Formatter must always produce a trailing newline even when source lacks one (§3.2 determinism)"
+        );
+        assert.strictEqual(
+            formattedWithout,
+            formattedWith,
+            "Formatter output must be identical whether or not the source had a trailing newline (§3.2 determinism)"
+        );
+    });
+
+    void it("does not conditionally preserve banner spacing gaps based on source content (§3.2 determinism)", async () => {
+        // Inserting a blank line before a banner comment only when the original
+        // source had a gap is source-aware and non-deterministic — the same code
+        // formatted from two sources with different surrounding whitespace would
+        // yield different output.  The formatter must apply blank-line rules
+        // deterministically through normalizeFormattedOutput (e.g.
+        // ensureBlankLineBeforeTopLevelLineComments) rather than consulting source.
+        const withGap = "var x = 1;\n\n//////// Banner comment\nvar y = 2;\n";
+        const withoutGap = "var x = 1;\n//////// Banner comment\nvar y = 2;\n";
+
+        const formattedWithGap = await Format.format(withGap);
+        const formattedWithoutGap = await Format.format(withoutGap);
+
+        // Both inputs contain the same code; deterministic layout rules must
+        // produce the same blank-line decision for the banner comment.
+        assert.strictEqual(
+            formattedWithGap,
+            formattedWithoutGap,
+            "Formatter must produce the same blank-line layout before a banner comment regardless of source whitespace (§3.2 determinism)"
+        );
+    });
 });
