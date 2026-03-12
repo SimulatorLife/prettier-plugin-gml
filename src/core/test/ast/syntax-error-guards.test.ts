@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isGmlParseError, isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
+import { isGmlParseError, isSyntaxErrorWithLocation } from "../../src/ast/syntax-error-guards.js";
 
 void describe("isGmlParseError", () => {
     void it("returns true for objects with name GameMakerSyntaxError", () => {

@@ -10,6 +10,7 @@ export * from "./object-graph.js";
 export * from "./parser-transform.js";
 export * from "./scope-tracker.js";
 export * from "./strip-comments-transform.js";
+export * from "./syntax-error-guards.js";
 export * from "./type-guards.js";
 export type {
     FeatherFixDetail,

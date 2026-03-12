@@ -16,6 +16,5 @@ export * from "./numeric-options.js";
 export * from "./object.js";
 export * from "./regexp.js";
 export * from "./string.js";
-export * from "./syntax-error-guards.js";
 export * from "./text-scan.js";
 export * from "./time.js";
