@@ -54,6 +54,7 @@ import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { escapeTemplateText, stringifyStructKey } from "./js-string-utils.js";
 import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
@@ -668,7 +669,7 @@ export class GmlToJsEmitter {
         }
         // Fast path: single static text
         if (atoms.length === 1 && atoms[0]?.type === "TemplateStringText") {
-            return `\`${Core.escapeTemplateText(atoms[0].value)}\``;
+            return `\`${escapeTemplateText(atoms[0].value)}\``;
         }
         // Build template string with StringBuilder to avoid O(n²) string concatenation
         const builder = new StringBuilder(atoms.length + 2);
@@ -678,7 +679,7 @@ export class GmlToJsEmitter {
                 continue;
             }
             builder.append(
-                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
+                atom.type === "TemplateStringText" ? escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
             );
         }
         builder.append("`");
@@ -686,7 +687,7 @@ export class GmlToJsEmitter {
     }
 
     private visitTemplateStringText(ast: TemplateStringTextNode): string {
-        return Core.escapeTemplateText(ast.value);
+        return escapeTemplateText(ast.value);
     }
 
     private visitStructExpression(ast: StructExpressionNode): string {
@@ -822,7 +823,7 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return Core.stringifyStructKey(prop.name);
+            return stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
     }
