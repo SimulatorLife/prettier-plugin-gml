@@ -16,7 +16,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeFormattedOutput } from "../src/printer/normalize-formatted-output.js";
+import {
+    ensureBlankLineBeforeTopLevelDecorativeBlockComments,
+    ensureBlankLineBeforeTopLevelSlashOnlyBanners,
+    normalizeFormattedOutput
+} from "../src/printer/normalize-formatted-output.js";
 
 void test("normalizeFormattedOutput preserves @function tags (content rewrites belong in lint)", () => {
     const input = [
@@ -130,5 +134,89 @@ void test("normalizeFormattedOutput does not collapse blank lines around vertex_
         result,
         input,
         "normalizeFormattedOutput must not collapse blank lines around vertex_format_begin/end — that is GML API domain knowledge belonging in @gmloop/lint (target-state.md §2.1, §3.2)"
+    );
+});
+
+// ---------------------------------------------------------------------------
+// Deterministic banner blank-line rules (removed from source-aware patching)
+// ---------------------------------------------------------------------------
+
+void test("ensureBlankLineBeforeTopLevelDecorativeBlockComments inserts blank line before slash-asterisk banner preceded by code", () => {
+    // Replacing the legacy preserveBannerSpacingGaps source-aware check:
+    // the rule must fire unconditionally when a decorative block comment
+    // opener (slash-asterisk + 20+ slashes) is not preceded by a blank line.
+    const input = [
+        "}",
+        "/*////////////////////////////////////////////////////////////////",
+        "content line",
+        "*/////////////////////////////////////////////////////////////////",
+        ""
+    ].join("\n");
+
+    const result = ensureBlankLineBeforeTopLevelDecorativeBlockComments(input);
+
+    assert.ok(
+        result.includes("}\n\n/*"),
+        `Expected a blank line inserted between '}' and the decorative block comment opener.\nActual:\n${result}`
+    );
+});
+
+void test("ensureBlankLineBeforeTopLevelDecorativeBlockComments is idempotent when blank line already exists", () => {
+    const input = [
+        "}",
+        "",
+        "/*////////////////////////////////////////////////////////////////",
+        "content line",
+        "*/////////////////////////////////////////////////////////////////",
+        ""
+    ].join("\n");
+
+    const result = ensureBlankLineBeforeTopLevelDecorativeBlockComments(input);
+
+    assert.ok(
+        !result.includes("}\n\n\n/*"),
+        `Expected no duplicate blank lines — the rule must be idempotent.\nActual:\n${result}`
+    );
+    assert.ok(result.includes("}\n\n/*"), `Expected exactly one blank line.\nActual:\n${result}`);
+});
+
+void test("ensureBlankLineBeforeTopLevelSlashOnlyBanners inserts blank line before pure-slash banner preceded by code", () => {
+    // Replacing the legacy preserveBannerSpacingGaps camera-banner check:
+    // a line consisting solely of 21+ slashes that follows code must be
+    // preceded by a blank line unconditionally.
+    const input = [
+        'var message = "ready";',
+        "////////////////////////////////////////",
+        "//---camera---//",
+        "////////////////////////////////////",
+        ""
+    ].join("\n");
+
+    const result = ensureBlankLineBeforeTopLevelSlashOnlyBanners(input);
+
+    assert.ok(
+        result.includes('"ready";\n\n//'),
+        `Expected a blank line inserted before the slash-only banner.\nActual:\n${result}`
+    );
+});
+
+void test("ensureBlankLineBeforeTopLevelSlashOnlyBanners does NOT insert blank line between a banner triplet (closing slash-only line follows a label comment)", () => {
+    // The closing slash-only line of a camera banner triplet is preceded by
+    // a //--- label line (which IS a top-level line comment). The rule must
+    // NOT insert a blank line between the label and the closing slash-only line.
+    const input = [
+        "var x = 1;",
+        "////////////////////////////////////////",
+        "//---camera section---//",
+        "////////////////////////////////////",
+        "moreCode();",
+        ""
+    ].join("\n");
+
+    const result = ensureBlankLineBeforeTopLevelSlashOnlyBanners(input);
+
+    assert.ok(
+        !result.includes("//---camera section---//\n\n////"),
+        `Expected NO blank line between the label comment and the closing slash-only line.\nActual:\n${result}`
     );
 });

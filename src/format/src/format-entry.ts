@@ -11,7 +11,11 @@ import { gmlFormatComponents } from "./components/format-components.js";
 import type { GmlFormat, GmlFormatDefaultOptions } from "./components/format-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
-import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
+import {
+    ensureBlankLineBeforeTopLevelDecorativeBlockComments,
+    ensureBlankLineBeforeTopLevelSlashOnlyBanners,
+    normalizeFormattedOutput
+} from "./printer/normalize-formatted-output.js";
 
 export const parsers = gmlFormatComponents.parsers;
 export const printers = gmlFormatComponents.printers;
@@ -53,56 +57,27 @@ export const defaultOptions: GmlFormatDefaultOptions = Object.freeze({
     ...coreOptionOverrides
 });
 
-function preserveBannerSpacingGaps(source: string, formatted: string): string {
-    let result = formatted;
-
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8}\S+/u.test(source);
-    if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8}\S+)/u, "$1\n$2");
-    }
-
-    const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
-    if (sourceHasCameraBannerGap) {
-        result = result.replace(/([^\n]\n)(\/{21,}\n\/{2}-+)/u, "$1\n$2");
-    }
-
-    const sourceHasDecorativeBlockGap = /\r?\n[ \t]*\r?\n[ \t]*\/\*\/{20,}/u.test(source);
-    if (sourceHasDecorativeBlockGap) {
-        result = result.replace(/([^\n]\n)(\/\*\/{20,})/u, "$1\n$2");
-    }
-
-    return result;
-}
-
-function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
-    source: string,
-    formatted: string
-): boolean {
-    if (source.endsWith("\n") || source.endsWith("\r")) {
-        return false;
-    }
-
-    if (formatted !== `${source}\n`) {
-        return false;
-    }
-
-    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
-        return false;
-    }
-
-    return source.includes("\n*/\n\n");
-}
-
-function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
-    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
-        return formatted;
-    }
-
-    return source;
-}
-
 /**
  * Utility function and entry point to format GML source code.
+ *
+ * This is a thin, deterministic wrapper around `prettier.format`. It must not
+ * inspect or compare the original `source` text to patch the output — doing so
+ * would make formatting non-deterministic and violate the formatter boundary
+ * contract (target-state.md §3.2). Any blank-line policy, trailing-newline
+ * insertion, or comment-spacing normalization belongs in the Prettier
+ * printer/normalizer layer or in the linter workspace.
+ *
+ * After Prettier formats the document, two deterministic blank-line rules are
+ * applied. Both replace the former `preserveBannerSpacingGaps` function, which
+ * consulted the original source text to conditionally insert blank lines —
+ * a source-aware approach that violated §3.2:
+ *
+ *  - `ensureBlankLineBeforeTopLevelDecorativeBlockComments` — inserts a blank
+ *    line before top-level decorative block comment banners (those opening with
+ *    a slash-asterisk pair followed by 20+ slashes, e.g. slash-star-slash×20).
+ *  - `ensureBlankLineBeforeTopLevelSlashOnlyBanners` — inserts a blank line
+ *    before top-level slash-only decorative lines (21+ consecutive forward
+ *    slashes, no other content), such as camera-movement section separators.
  */
 async function format(source: string, options: SupportOptions = {}) {
     const prettierFormatOptions: Record<string, unknown> = {
@@ -117,8 +92,9 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
+    return ensureBlankLineBeforeTopLevelDecorativeBlockComments(
+        ensureBlankLineBeforeTopLevelSlashOnlyBanners(formatted)
+    );
 }
 
 export const Format: GmlFormat = {

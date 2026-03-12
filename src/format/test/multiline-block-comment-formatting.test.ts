@@ -27,7 +27,10 @@ var x = 1;
 
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        // The formatter always appends a trailing newline (deterministic layout rule); the
+        // source-aware exception that used to return the raw source verbatim was removed as
+        // part of the target-state alignment (target-state.md §3.2).
+        assert.equal(formatted, `${input}\n`);
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {

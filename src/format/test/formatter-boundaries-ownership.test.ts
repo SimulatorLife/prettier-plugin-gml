@@ -600,4 +600,50 @@ void describe("formatter boundaries ownership", () => {
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
+
+    void it("format() is deterministic — output does not depend on original source text (§3.2)", async () => {
+        // format() must not inspect the original source to patch its own output.
+        // Two sources that produce identical Prettier output must produce identical
+        // Format.format() output, regardless of their original form.
+        //
+        // This test catches regressions where source-aware patching was re-introduced:
+        // the formatter is not allowed to consult the source to preserve banner gaps,
+        // recover trailing newlines, or apply any other conditional post-processing.
+        const sourceWithoutNewline = "var x = 1;";
+        const sourceWithNewline = "var x = 1;\n";
+
+        const formattedWithout = await Format.format(sourceWithoutNewline);
+        const formattedWith = await Format.format(sourceWithNewline);
+
+        assert.strictEqual(
+            formattedWithout,
+            formattedWith,
+            "format() must produce identical output for sources that differ only in trailing whitespace — source-aware patching is prohibited (target-state.md §3.2)."
+        );
+        assert.ok(
+            formattedWith.endsWith("\n"),
+            "format() must always produce output ending with a trailing newline (deterministic layout rule)."
+        );
+    });
+
+    void it("format() always appends a trailing newline, even to files that originally lacked one (§3.2)", async () => {
+        // The legacy preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment
+        // function would return the original source unchanged for certain top-level
+        // block comment files that lacked a trailing newline. That behavior was
+        // source-aware and therefore violated the formatter boundary contract.
+        // The formatter must always add a trailing newline regardless of the source.
+        const sourceWithoutTrailingNewline = "/*\nA plain top-level block comment\n*/\n\nvar x = 1;";
+
+        const formatted = await Format.format(sourceWithoutTrailingNewline);
+
+        assert.ok(
+            formatted.endsWith("\n"),
+            "format() must always produce a trailing newline — the source-aware trailing-newline exception was removed (target-state.md §3.2)."
+        );
+        assert.notStrictEqual(
+            formatted,
+            sourceWithoutTrailingNewline,
+            "Formatter output must differ from a source lacking a trailing newline (the formatter adds one deterministically)."
+        );
+    });
 });

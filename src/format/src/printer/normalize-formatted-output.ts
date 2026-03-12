@@ -98,6 +98,31 @@ function isTopLevelLineComment(line: string | undefined): boolean {
     return typeof line === "string" && line.startsWith("//");
 }
 
+/**
+ * Returns `true` when `line` is a top-level decorative block comment whose opening
+ * token consists of a slash-asterisk pair immediately followed by 20 or more forward
+ * slashes (for example a long decorative banner opener).
+ *
+ * These are the same patterns the legacy source-aware patching in format-entry.ts once
+ * inspected the original source for. Detecting them in the formatted output directly
+ * keeps the blank-line rule deterministic.
+ */
+function isTopLevelDecorativeBlockComment(line: string | undefined): boolean {
+    return typeof line === "string" && /^\/\*\/{20,}/.test(line);
+}
+
+/**
+ * Returns `true` when `line` is a top-level slash-only decorative banner: a line at
+ * column 0 consisting of 21 or more consecutive forward slashes and nothing else.
+ *
+ * These pure-slash lines visually delimit code sections (e.g. camera-movement blocks).
+ * Detecting them by their structure — rather than by consulting the original source —
+ * satisfies the formatter-boundary contract.
+ */
+function isTopLevelSlashOnlyBanner(line: string | undefined): boolean {
+    return typeof line === "string" && /^\/{21,}\s*$/.test(line);
+}
+
 /** Returns `true` when a blank line should be inserted before a top-level comment at `previousLine`. */
 function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
     return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
@@ -192,6 +217,61 @@ function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
 
+/**
+ * Ensures a single blank line before any top-level decorative block comment that opens
+ * with a slash-asterisk pair followed by 20 or more forward slashes.
+ *
+ * These banners act as visual section dividers. Adding a blank line before them
+ * deterministically (rather than consulting the original source) satisfies the
+ * formatter-boundary contract (target-state.md section 3.2) while keeping output consistent.
+ */
+export function ensureBlankLineBeforeTopLevelDecorativeBlockComments(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+    let previousLine: string | undefined;
+
+    for (const line of lines) {
+        if (isTopLevelDecorativeBlockComment(line) && isNonEmptyTrimmedString(previousLine)) {
+            result.push("");
+        }
+
+        result.push(line);
+        previousLine = line;
+    }
+
+    return result.join("\n");
+}
+
+/**
+ * Ensures a single blank line before any top-level slash-only decorative banner:
+ * a line at column 0 consisting of 21 or more consecutive forward slashes and no other
+ * content (e.g. `////////////////////////////////////////`).
+ *
+ * These banners act as visual section delimiters. The rule is applied deterministically
+ * (the original source is not consulted) in accordance with target-state.md section 3.2.
+ *
+ * The blank line is only inserted when the preceding line is non-blank and not itself
+ * a top-level line comment — the same guard used by `ensureBlankLineBeforeTopLevelLineComments`.
+ * This prevents inserting an extra blank line in the middle of a slash-banner triplet
+ * where both the opening and closing lines are pure-slash and only a label line separates them.
+ */
+export function ensureBlankLineBeforeTopLevelSlashOnlyBanners(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+    let previousLine: string | undefined;
+
+    for (const line of lines) {
+        if (isTopLevelSlashOnlyBanner(line) && shouldInsertBlankLineBeforeTopLevelComment(previousLine)) {
+            result.push("");
+        }
+
+        result.push(line);
+        previousLine = line;
+    }
+
+    return result.join("\n");
+}
+
 export function normalizeFormattedOutput(formatted: string): string {
     const normalized = [
         collapseDuplicateBlankLines,
@@ -201,6 +281,8 @@ export function normalizeFormattedOutput(formatted: string): string {
         normalizeInlineTrailingCommentSpacing,
         normalizeSingleCommentBlockIndentation,
         ensureBlankLineBeforeTopLevelLineComments,
+        ensureBlankLineBeforeTopLevelDecorativeBlockComments,
+        ensureBlankLineBeforeTopLevelSlashOnlyBanners,
         trimDecorativeCommentBlankLines,
         collapseDuplicateBlankLines,
         collapseWhitespaceOnlyBlankLines,
