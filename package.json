@@ -44,7 +44,10 @@
     "transpiler",
     "feather",
     "2.3+",
-    "refactor"
+    "refactor",
+    "GMLoop",
+    "lint",
+    "codemod"
   ],
   "author": "Two Scoop Studio",
   "engines": {

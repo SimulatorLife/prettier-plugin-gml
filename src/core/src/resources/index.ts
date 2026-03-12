@@ -9,12 +9,19 @@ export {
     getFeatherMetadata,
     loadBundledFeatherMetadata
 } from "./feather-metadata.js";
+export type {
+    DeprecatedIdentifierDiagnosticOwner,
+    DeprecatedIdentifierLegacyUsage,
+    DeprecatedIdentifierMetadataEntry,
+    DeprecatedIdentifierReplacementKind
+} from "./gml-identifier-loading.js";
 export {
     clearIdentifierMetadataCache,
     getIdentifierMetadata,
     GML_IDENTIFIER_METADATA_PATH,
     GML_IDENTIFIER_METADATA_URL,
     loadBundledIdentifierMetadata,
+    loadDeprecatedIdentifierEntries,
     loadManualFunctionNames,
     loadReservedIdentifierNames,
     normalizeIdentifierMetadataEntries,

@@ -1,6 +1,7 @@
 /* eslint-disable no-control-regex -- disabled to intentionally match control characters in feather comments */
 import type { Rule } from "eslint";
 
+import { getDeprecatedIdentifierCatalogEntry } from "../../services/deprecated-identifiers/index.js";
 import type { FeatherManifestEntry } from "./manifest.js";
 
 type EnumBlockMatch = {
@@ -154,6 +155,15 @@ function resolveReportLoc(context: Rule.RuleContext, index: number): { line: num
         line,
         column: clampedIndex - lastLineStart
     };
+}
+
+function getDirectDeprecatedReplacement(identifierName: string): string | null {
+    const entry = getDeprecatedIdentifierCatalogEntry(identifierName);
+    if (!entry || entry.replacementKind !== "direct-rename" || entry.replacement === null) {
+        return null;
+    }
+
+    return entry.replacement;
 }
 
 function createFullTextRewriteRule(
@@ -644,6 +654,11 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
+                    const replacement = getDirectDeprecatedReplacement("os_win32");
+                    if (!replacement) {
+                        return;
+                    }
+
                     const legacyOsSymbolPattern = /\bos_win32\b/g;
                     for (const match of sourceText.matchAll(legacyOsSymbolPattern)) {
                         const start = match.index ?? 0;
@@ -651,7 +666,7 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         context.report({
                             loc: resolveReportLoc(context, start),
                             messageId: "diagnostic",
-                            fix: (fixer) => fixer.replaceTextRange([start, end], "os_windows")
+                            fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                         });
                     }
                 }
@@ -891,9 +906,15 @@ function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
+        const arrayLengthReplacement = getDirectDeprecatedReplacement("array_length_1d");
+        const arrayHeightReplacement = getDirectDeprecatedReplacement("array_height_2d");
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, "array_length(");
-        rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, "array_height(");
+        if (arrayLengthReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, `${arrayLengthReplacement}(`);
+        }
+        if (arrayHeightReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, `${arrayHeightReplacement}(`);
+        }
         return rewritten;
     });
 }

@@ -81,6 +81,17 @@ export interface NamingConventionPolicy {
     exclusiveSuffixes?: Record<string, NamingCategory>;
 }
 
+export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
+
+export interface RefactorProjectConfig {
+    namingConventionPolicy?: NamingConventionPolicy;
+    codemods?: Partial<Record<RefactorCodemodId, LoopLengthHoistingCodemodOptions | Record<string, never> | false>>;
+}
+
+export type GmloopProjectConfig = Record<string, unknown> & {
+    refactor?: RefactorProjectConfig;
+};
+
 /**
  * Normalized rule values after inheritance/default resolution for a category.
  */
@@ -462,6 +473,10 @@ export interface KeywordProvider {
     getReservedKeywords(): MaybePromise<Array<string>>;
 }
 
+export interface NamingConventionTargetProvider {
+    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<NamingConventionTarget>>;
+}
+
 /**
  * Workspace edit validation.
  *
@@ -509,7 +524,8 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<FileSymbolProvider> &
     Partial<DependencyAnalyzer> &
     Partial<KeywordProvider> &
-    Partial<EditValidator>;
+    Partial<EditValidator> &
+    Partial<NamingConventionTargetProvider>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
@@ -564,6 +580,65 @@ export interface ExecuteLoopLengthHoistingCodemodResult {
     workspace: WorkspaceEdit;
     applied: Map<string, string>;
     changedFiles: Array<LoopLengthHoistingFileSummary>;
+}
+
+export interface NamingConventionTarget {
+    name: string;
+    category: NamingCategory;
+    path: string;
+    scopeId: string | null;
+    symbolId: string | null;
+    occurrences: Array<SymbolOccurrence>;
+}
+
+export interface NamingConventionViolation {
+    category: NamingCategory;
+    currentName: string;
+    suggestedName: string | null;
+    path: string;
+    symbolId: string | null;
+    message: string;
+}
+
+export interface NamingConventionCodemodPlan {
+    workspace: WorkspaceEdit;
+    violations: Array<NamingConventionViolation>;
+    warnings: Array<string>;
+    errors: Array<string>;
+    topLevelRenamePlan: BatchRenamePlanSummary | null;
+    localRenameCount: number;
+}
+
+export interface ConfiguredCodemodSummary {
+    id: RefactorCodemodId;
+    changed: boolean;
+    changedFiles: Array<string>;
+    warnings: Array<string>;
+    errors: Array<string>;
+}
+
+export interface ConfiguredCodemodRunResult {
+    dryRun: boolean;
+    summaries: Array<ConfiguredCodemodSummary>;
+    appliedFiles: Map<string, string>;
+}
+
+export interface ConfiguredCodemodRunRequest {
+    projectRoot: string;
+    targetPaths: Array<string>;
+    gmlFilePaths: Array<string>;
+    config: RefactorProjectConfig;
+    readFile: WorkspaceReadFile;
+    writeFile?: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
+    dryRun?: boolean;
+    onlyCodemods?: Array<RefactorCodemodId>;
+}
+
+export interface RegisteredCodemod {
+    id: RefactorCodemodId;
+    description: string;
 }
 
 export interface PrepareRenamePlanOptions {
