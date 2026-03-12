@@ -1,14 +1,18 @@
 /**
- * JavaScript string manipulation utilities for GML tooling.
+ * JavaScript string manipulation utilities for the GML transpiler.
  *
  * This module provides utilities for working with JavaScript identifiers,
- * template literals, and object keys when emitting or manipulating JavaScript
- * code generated from GML source.
+ * template literals, and object keys when emitting JavaScript code generated
+ * from GML source.
  *
  * Key capabilities:
  * - Validating ECMAScript identifier syntax
  * - Escaping template string content
  * - Normalizing and quoting object property keys
+ *
+ * These utilities are transpiler-domain helpers — they operate on JavaScript
+ * output semantics, not GML language semantics, and belong here rather than in
+ * `@gmloop/core`. (target-state.md §2.1, "Transpiler owns GML AST → JS.")
  */
 
 /**
