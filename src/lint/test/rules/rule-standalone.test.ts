@@ -1559,3 +1559,12 @@ void test("optimize-logical-flow does not rewrite unchanged struct accessor cond
     assertEquals(result.messages.length, 0);
     assertEquals(result.output, input);
 });
+
+void test("optimize-logical-flow handles parenthesized logical operands without crashing", () => {
+    const input = ["function compare_ranges(a, b, c, d) {", "    return (a > b) || (c < d);", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});

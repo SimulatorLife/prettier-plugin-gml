@@ -2234,6 +2234,25 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
     return /\r?\n[ \t]*\r?\n/u.test(betweenText);
 }
 
+function hasTrailingCommentOnStatementLine(node, originalText: string): boolean {
+    const nodeEndIndex = Core.getNodeEndIndex(node);
+    if (typeof nodeEndIndex !== NUMBER_TYPE || nodeEndIndex < 0 || nodeEndIndex >= originalText.length) {
+        return false;
+    }
+
+    let lineEndIndex = nodeEndIndex;
+    while (lineEndIndex < originalText.length) {
+        const character = originalText[lineEndIndex];
+        if (character === "\n" || character === "\r") {
+            break;
+        }
+
+        lineEndIndex += 1;
+    }
+
+    return /\/\/|\/\*/u.test(originalText.slice(nodeEndIndex, lineEndIndex));
+}
+
 function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
     const nodeStartIndex = Core.getNodeStartIndex(node);
     if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
@@ -2343,6 +2362,8 @@ function handleIntermediateTrailingSpacing({
         originalText !== null &&
         nextNode != null &&
         hasBlankLineBetweenStatements(node, nextNode, originalText);
+    const currentStatementHasTrailingComment =
+        originalText !== null && hasTrailingCommentOnStatementLine(node, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
@@ -2441,6 +2462,8 @@ function handleIntermediateTrailingSpacing({
 
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
+        const shouldPreserveSourceGapAfterTrailingComment =
+            currentStatementHasTrailingComment && hasSourceBlankLineBeforeNextNode;
 
         const shouldApplyGenericSourceBlankLineSpacing =
             !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
@@ -2448,7 +2471,8 @@ function handleIntermediateTrailingSpacing({
         if (
             shouldApplyGenericSourceBlankLineSpacing ||
             nextNodeHasBlockCommentImmediatelyBefore ||
-            shouldPreserveSourceGapBeforeDocCommentedNode
+            shouldPreserveSourceGapBeforeDocCommentedNode ||
+            shouldPreserveSourceGapAfterTrailingComment
         ) {
             parts.push(hardlineDoc);
         }

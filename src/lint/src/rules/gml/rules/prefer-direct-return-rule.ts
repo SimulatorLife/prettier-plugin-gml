@@ -91,6 +91,26 @@ function containsCommentToken(sourceText: string): boolean {
     return sourceText.includes("//") || sourceText.includes("/*") || sourceText.includes("*/");
 }
 
+function containsCommentOutsideInitializer(
+    sourceText: string,
+    replacementStart: number,
+    initializerStart: number,
+    initializerEnd: number,
+    nextStatementStart: number,
+    returnEnd: number,
+    commentDetectionEnd: number
+): boolean {
+    const declarationPrefix = sourceText.slice(replacementStart, initializerStart);
+    const betweenInitializerAndReturn = sourceText.slice(initializerEnd, nextStatementStart);
+    const returnSuffix = sourceText.slice(returnEnd, commentDetectionEnd);
+
+    return (
+        containsCommentToken(declarationPrefix) ||
+        containsCommentToken(betweenInitializerAndReturn) ||
+        containsCommentToken(returnSuffix)
+    );
+}
+
 function findLineEndOffset(sourceText: string, offset: number): number {
     let cursor = Math.max(0, offset);
     while (cursor < sourceText.length && sourceText[cursor] !== "\n" && sourceText[cursor] !== "\r") {
@@ -170,11 +190,13 @@ function buildDirectReturnCandidate(
     }
 
     const declarationStart = getNodeStartIndex(variableDeclarationNode);
+    const nextStatementStart = getNodeStartIndex(nextStatement);
     const returnEnd = getNodeEndIndex(nextStatement);
     const initializerStart = getNodeStartIndex(declarator.init);
     const initializerEnd = getNodeEndIndex(declarator.init);
     if (
         typeof declarationStart !== "number" ||
+        typeof nextStatementStart !== "number" ||
         typeof returnEnd !== "number" ||
         typeof initializerStart !== "number" ||
         typeof initializerEnd !== "number"
@@ -189,8 +211,17 @@ function buildDirectReturnCandidate(
     const replacementEnd = readStatementReplacementEndOffset(sourceText, returnEnd);
 
     const commentDetectionEnd = findLineEndOffset(sourceText, replacementEnd);
-    const declarationAndReturnSpan = sourceText.slice(replacementStart, commentDetectionEnd);
-    if (containsCommentToken(declarationAndReturnSpan)) {
+    if (
+        containsCommentOutsideInitializer(
+            sourceText,
+            replacementStart,
+            initializerStart,
+            initializerEnd,
+            nextStatementStart,
+            returnEnd,
+            commentDetectionEnd
+        )
+    ) {
         return null;
     }
 

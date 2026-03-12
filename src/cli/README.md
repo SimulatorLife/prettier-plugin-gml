@@ -1,6 +1,6 @@
-# Prettier Plugin GML - CLI Package
+# GMLoop CLI Package
 
-Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
+Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
 ## Formatter/Linter contract
 

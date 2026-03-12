@@ -798,7 +798,7 @@ import {
     createRuntimeWrapper,
     createWebSocketClient,
     createLogger
-} from "@prettier-plugin-gml/runtime-wrapper";
+} from "@gmloop/runtime-wrapper";
 
 // Create logger for structured diagnostics
 const logger = createLogger({
@@ -970,7 +970,7 @@ Emitted when the entire registry is cleared via `wrapper.clearRegistry()`.
 ### Usage Example
 
 ```javascript
-import { createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 const auditLog: Array<unknown> = [];
 
@@ -1289,7 +1289,7 @@ Creates a diagnostic logger for runtime wrapper operations.
 **Example:**
 
 ```javascript
-import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 // Create logger with info level for development
 const logger = createLogger({
