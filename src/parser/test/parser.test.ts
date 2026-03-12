@@ -242,6 +242,7 @@ void describe("GameMaker parser fixtures", () => {
 
         assert.equal(parser.options.getComments, true);
         assert.equal(parser.options.getLocations, true);
+        assert.equal(parser.options.attachFunctionDocComments, true);
         assert.equal(parser.options.astFormat, "gml");
     });
 
@@ -474,6 +475,30 @@ void describe("GameMaker parser fixtures", () => {
         assert.ok(functionDocComment, "Expected the parser to attach a function-tag doc comment.");
         assert.strictEqual(functionDocComment._gmlAttachedDocComment, true);
         assert.match(String(functionDocComment.value), /@function\b/i);
+    });
+
+    void it("skips parser-owned @function attachment when disabled", () => {
+        const source = ["/// @function scr_target", "function scr_target() {", "    return 1;", "}", ""].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getComments: true,
+            getLocations: true,
+            simplifyLocations: false,
+            attachFunctionDocComments: false
+        });
+
+        const [functionDeclaration] = ast.body;
+        assert.ok(functionDeclaration?.type === "FunctionDeclaration", "Expected a function declaration target.");
+        assert.ok(
+            !Array.isArray(functionDeclaration.docComments) || functionDeclaration.docComments.length === 0,
+            "Function declaration should not receive parser-owned @function attachments when disabled."
+        );
+
+        assert.ok(Array.isArray(ast.comments), "Expected parser comments to remain available.");
+        const functionTagComment = ast.comments.find(
+            (comment: { value?: unknown }) => typeof comment?.value === "string" && /@function\b/i.test(comment.value)
+        );
+        assert.ok(functionTagComment, "Expected source comment list to retain the @function comment.");
     });
 
     void it("captures the full range of member access expressions", () => {
