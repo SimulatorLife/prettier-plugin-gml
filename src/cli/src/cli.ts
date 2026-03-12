@@ -396,7 +396,7 @@ cliCommandRegistry.registerCommand({
 
 cliCommandRegistry.registerCommand({
     command: createRefactorCommand(),
-    run: ({ command }) => runRefactorCommand(command.opts()),
+    run: ({ command }) => runRefactorCommand(command),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to perform refactor operation.",

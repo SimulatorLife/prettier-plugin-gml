@@ -280,8 +280,7 @@ function loadIdentifierMetadata() {
  * @returns {() => void} Cleanup handler that restores the previous loader when
  *          invoked. The handler intentionally degrades to a no-op when another
  *          caller swapped the loader before cleanup runs. Identifier casing
- *          integrations layer overrides during try/finally flows described in
- *          `docs/legacy-identifier-case-plan.md#legacy-architecture-snapshot`; blindly
+ *          integrations layer overrides during try/finally flows; blindly
  *          reinstating `previousLoader` would roll back those newer overrides
  *          and leave the formatter reading stale metadata mid-run.
  */

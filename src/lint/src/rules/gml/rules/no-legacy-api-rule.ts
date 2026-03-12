@@ -14,60 +14,153 @@ import {
 const { Core } = CoreWorkspace;
 
 type AstNodeWithType = Readonly<{ type: string }>;
+type DeprecatedCatalogEntry = NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>>;
+type DeclaredIdentifierScope = Readonly<{
+    start: number;
+    end: number;
+    names: ReadonlySet<string>;
+}>;
 
 function isRuleOwnedCatalogEntry(
     entry: ReturnType<typeof getDeprecatedIdentifierCatalogEntry>
-): entry is NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>> {
-    return entry !== null && entry.diagnosticOwner !== "feather";
+): entry is DeprecatedCatalogEntry {
+    return entry !== null && (entry.diagnosticOwner !== "feather" || entry.replacementKind === "direct-rename");
 }
 
-function canFixCatalogEntry(entry: NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>>): boolean {
+function canFixCatalogEntry(entry: DeprecatedCatalogEntry): boolean {
     return entry.replacementKind === "direct-rename" && entry.replacement !== null;
 }
 
-function collectLocallyDeclaredIdentifiers(programNode: unknown): ReadonlySet<string> {
-    const declaredIdentifiers = new Set<string>();
+function readDeclaredPatternNames(node: unknown): ReadonlyArray<string> {
+    const identifierName = Core.getIdentifierName(node as never);
+    if (identifierName) {
+        return [identifierName.toLowerCase()];
+    }
 
-    walkAstNodesWithParent(programNode, ({ node }) => {
+    if (!isAstNodeWithType(node) || node.type !== "AssignmentPattern") {
+        return [];
+    }
+
+    return readDeclaredPatternNames((node as Readonly<{ left?: unknown }>).left);
+}
+
+function collectScopedDeclaredIdentifiers(programNode: unknown, sourceTextLength: number): ReadonlyArray<DeclaredIdentifierScope> {
+    const scopes: Array<{ start: number; end: number; names: Set<string> }> = [
+        {
+            start: 0,
+            end: sourceTextLength,
+            names: new Set<string>()
+        }
+    ];
+
+    const visitScope = (
+        node: unknown,
+        activeScope: { start: number; end: number; names: Set<string> },
+        parent: AstNodeWithType | null
+    ): void => {
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visitScope(entry, activeScope, parent);
+            }
+            return;
+        }
+
         if (!isAstNodeWithType(node)) {
             return;
         }
 
         if (node.type === "VariableDeclarator") {
-            const identifierName = Core.getIdentifierName((node as Readonly<{ id?: unknown }>).id as never);
-            if (identifierName) {
-                declaredIdentifiers.add(identifierName.toLowerCase());
-            }
-            return;
-        }
-
-        if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
-            const functionName = (node as Readonly<{ id?: unknown }>).id;
-            if (typeof functionName === "string" && functionName.length > 0) {
-                declaredIdentifiers.add(functionName.toLowerCase());
+            for (const declaredName of readDeclaredPatternNames((node as Readonly<{ id?: unknown }>).id)) {
+                activeScope.names.add(declaredName);
             }
 
-            const params = (node as Readonly<{ params?: ReadonlyArray<unknown> }>).params;
-            for (const parameter of params ?? []) {
-                const parameterName =
-                    Core.getIdentifierName(parameter as never) ??
-                    Core.getIdentifierName((parameter as Readonly<{ left?: unknown }>).left as never);
-                if (parameterName) {
-                    declaredIdentifiers.add(parameterName.toLowerCase());
-                }
-            }
+            visitScope((node as Readonly<{ init?: unknown }>).init, activeScope, node);
             return;
         }
 
         if (node.type === "EnumDeclaration") {
             const enumName = Core.getIdentifierName((node as Readonly<{ name?: unknown }>).name as never);
             if (enumName) {
-                declaredIdentifiers.add(enumName.toLowerCase());
+                activeScope.names.add(enumName.toLowerCase());
             }
         }
-    });
 
-    return declaredIdentifiers;
+        if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+            const functionName = (node as Readonly<{ id?: unknown }>).id;
+            if (
+                typeof functionName === "string" &&
+                functionName.length > 0 &&
+                parent?.type !== "VariableDeclarator" &&
+                parent?.type !== "AssignmentExpression" &&
+                parent?.type !== "Property"
+            ) {
+                activeScope.names.add(functionName.toLowerCase());
+            }
+
+            const nestedScope = {
+                start: getNodeStartIndex(node) ?? activeScope.start,
+                end: getNodeEndIndex(node) ?? activeScope.end,
+                names: new Set<string>()
+            };
+            scopes.push(nestedScope);
+
+            for (const parameter of (node as Readonly<{ params?: ReadonlyArray<unknown> }>).params ?? []) {
+                for (const declaredName of readDeclaredPatternNames(parameter)) {
+                    nestedScope.names.add(declaredName);
+                }
+            }
+
+            visitScope((node as Readonly<{ body?: unknown }>).body, nestedScope, node);
+            return;
+        }
+
+        Core.forEachNodeChild(node, (child) => visitScope(child, activeScope, node));
+    };
+
+    visitScope(programNode, scopes[0], null);
+
+    return scopes.map((scope) =>
+        Object.freeze({
+            start: scope.start,
+            end: scope.end,
+            names: scope.names as ReadonlySet<string>
+        })
+    );
+}
+
+function findInnermostDeclaredIdentifierScope(
+    scopes: ReadonlyArray<DeclaredIdentifierScope>,
+    offset: number
+): DeclaredIdentifierScope | null {
+    let matchedScope: DeclaredIdentifierScope | null = null;
+    for (const scope of scopes) {
+        if (offset < scope.start || offset >= scope.end) {
+            continue;
+        }
+
+        if (
+            matchedScope === null ||
+            (scope.start >= matchedScope.start && scope.end <= matchedScope.end)
+        ) {
+            matchedScope = scope;
+        }
+    }
+
+    return matchedScope;
+}
+
+function isIdentifierShadowedByLocalScope(
+    scopes: ReadonlyArray<DeclaredIdentifierScope>,
+    identifierName: string,
+    node: unknown
+): boolean {
+    const start = getNodeStartIndex(node);
+    if (typeof start !== "number") {
+        return false;
+    }
+
+    const containingScope = findInnermostDeclaredIdentifierScope(scopes, start);
+    return containingScope?.names.has(identifierName.toLowerCase()) ?? false;
 }
 
 function isBareIdentifierDeclarationContext(parent: AstNodeWithType | null, parentKey: string | null): boolean {
@@ -102,7 +195,7 @@ function isBareIdentifierDeclarationContext(parent: AstNodeWithType | null, pare
     }
 }
 
-function buildReplacementSuffix(entry: NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>>): string {
+function buildReplacementSuffix(entry: DeprecatedCatalogEntry): string {
     return canFixCatalogEntry(entry) ? `; use '${entry.replacement}' instead` : "";
 }
 
@@ -111,7 +204,7 @@ function reportIdentifierRange(
     definition: GmlRuleDefinition,
     node: unknown,
     identifierName: string,
-    entry: NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>>
+    entry: DeprecatedCatalogEntry
 ): void {
     const start = getNodeStartIndex(node);
     const end = getNodeEndIndex(node);
@@ -138,7 +231,10 @@ export function createNoLegacyApiRule(definition: GmlRuleDefinition): Rule.RuleM
         create(context) {
             return Object.freeze({
                 Program(programNode) {
-                    const locallyDeclaredIdentifiers = collectLocallyDeclaredIdentifiers(programNode);
+                    const declaredIdentifierScopes = collectScopedDeclaredIdentifiers(
+                        programNode,
+                        context.sourceCode.text.length
+                    );
 
                     walkAstNodesWithParent(programNode, ({ node, parent, parentKey }) => {
                         if (!isAstNodeWithType(node)) {
@@ -151,7 +247,7 @@ export function createNoLegacyApiRule(definition: GmlRuleDefinition): Rule.RuleM
                             if (typeof identifierName !== "string") {
                                 return;
                             }
-                            if (locallyDeclaredIdentifiers.has(identifierName.toLowerCase())) {
+                            if (isIdentifierShadowedByLocalScope(declaredIdentifierScopes, identifierName, callee)) {
                                 return;
                             }
 
@@ -173,7 +269,7 @@ export function createNoLegacyApiRule(definition: GmlRuleDefinition): Rule.RuleM
                             if (typeof identifierName !== "string") {
                                 return;
                             }
-                            if (locallyDeclaredIdentifiers.has(identifierName.toLowerCase())) {
+                            if (isIdentifierShadowedByLocalScope(declaredIdentifierScopes, identifierName, objectNode)) {
                                 return;
                             }
 
@@ -198,7 +294,7 @@ export function createNoLegacyApiRule(definition: GmlRuleDefinition): Rule.RuleM
                         if (!identifierName) {
                             return;
                         }
-                        if (locallyDeclaredIdentifiers.has(identifierName.toLowerCase())) {
+                        if (isIdentifierShadowedByLocalScope(declaredIdentifierScopes, identifierName, node)) {
                             return;
                         }
 

@@ -142,13 +142,15 @@ type ManualPayloads = Readonly<{
     obsoleteFunctions: string;
 }>;
 
+const DIRECT_RENAME_REPLACEMENT_KIND = "direct-rename" as const satisfies DeprecatedReplacementKind;
+
 const LEGACY_IDENTIFIER_SUPPLEMENTS: ReadonlyArray<LegacySupplement> = Object.freeze([
     Object.freeze({
         name: "os_win32",
         type: "literal",
         deprecated: true,
         replacement: "os_windows",
-        replacementKind: "direct-rename",
+        replacementKind: DIRECT_RENAME_REPLACEMENT_KIND,
         legacyCategory: "Feather Deprecated Constants",
         legacyUsage: "identifier",
         diagnosticOwner: "feather"
@@ -161,7 +163,7 @@ const DIRECT_REPLACEMENT_SUPPLEMENTS = Object.freeze(
             "array_length_1d",
             Object.freeze({
                 replacement: "array_length",
-                replacementKind: "direct-rename",
+                replacementKind: DIRECT_RENAME_REPLACEMENT_KIND,
                 legacyCategory: "Deprecated Arrays",
                 diagnosticOwner: "feather"
             })
@@ -170,7 +172,7 @@ const DIRECT_REPLACEMENT_SUPPLEMENTS = Object.freeze(
             "array_height_2d",
             Object.freeze({
                 replacement: "array_height",
-                replacementKind: "direct-rename",
+                replacementKind: DIRECT_RENAME_REPLACEMENT_KIND,
                 legacyCategory: "Deprecated Arrays",
                 diagnosticOwner: "feather"
             })
@@ -179,7 +181,7 @@ const DIRECT_REPLACEMENT_SUPPLEMENTS = Object.freeze(
             "array_length_2d",
             Object.freeze({
                 replacement: "array_length",
-                replacementKind: "direct-rename",
+                replacementKind: DIRECT_RENAME_REPLACEMENT_KIND,
                 legacyCategory: "Deprecated Arrays",
                 diagnosticOwner: "gml"
             })
@@ -384,7 +386,7 @@ const TYPE_PRIORITY = new Map([
 const REPLACEMENT_PRIORITY = new Map<DeprecatedReplacementKind, number>([
     ["none", 0],
     ["manual-migration", 1],
-    ["direct-rename", 2]
+    [DIRECT_RENAME_REPLACEMENT_KIND, 2]
 ]);
 
 function parseDocument(html: string) {
@@ -449,11 +451,15 @@ function normalizeDeprecatedReplacementKind(
     replacementKind: unknown,
     replacement: string | undefined
 ): DeprecatedReplacementKind {
-    if (replacementKind === "direct-rename" || replacementKind === "manual-migration" || replacementKind === "none") {
+    if (
+        replacementKind === DIRECT_RENAME_REPLACEMENT_KIND ||
+        replacementKind === "manual-migration" ||
+        replacementKind === "none"
+    ) {
         return replacementKind;
     }
 
-    return typeof replacement === "string" && replacement.length > 0 ? "direct-rename" : "none";
+    return typeof replacement === "string" && replacement.length > 0 ? DIRECT_RENAME_REPLACEMENT_KIND : "none";
 }
 
 function getReplacementPriority(replacementKind: DeprecatedReplacementKind | undefined): number {
@@ -779,24 +785,40 @@ async function collectManualHtmlBasenames(
 ): Promise<Map<string, string | null>> {
     const basenames = new Map<string, string | null>();
     const entries = await readdir(directoryPath, { withFileTypes: true });
+    const directoryEntries = entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => {
+            const absolutePath = path.join(directoryPath, entry.name);
+            const relativePath =
+                relativeDirectoryPath.length > 0 ? path.posix.join(relativeDirectoryPath, entry.name) : entry.name;
+
+            return {
+                absolutePath,
+                relativePath
+            };
+        });
+    const childBasenameMaps = await Promise.all(
+        directoryEntries.map(async ({ absolutePath, relativePath }) => {
+            return await collectManualHtmlBasenames(absolutePath, relativePath);
+        })
+    );
+
+    for (const childBasenames of childBasenameMaps) {
+        for (const [basename, candidatePath] of childBasenames) {
+            if (!basenames.has(basename)) {
+                basenames.set(basename, candidatePath);
+                continue;
+            }
+
+            const current = basenames.get(basename) ?? null;
+            if (current !== candidatePath) {
+                basenames.set(basename, null);
+            }
+        }
+    }
 
     for (const entry of entries) {
-        const absolutePath = path.join(directoryPath, entry.name);
-        const relativePath =
-            relativeDirectoryPath.length > 0 ? path.posix.join(relativeDirectoryPath, entry.name) : entry.name;
         if (entry.isDirectory()) {
-            const childBasenames = await collectManualHtmlBasenames(absolutePath, relativePath);
-            for (const [basename, candidatePath] of childBasenames) {
-                if (!basenames.has(basename)) {
-                    basenames.set(basename, candidatePath);
-                    continue;
-                }
-
-                const current = basenames.get(basename) ?? null;
-                if (current !== candidatePath) {
-                    basenames.set(basename, null);
-                }
-            }
             continue;
         }
 
@@ -804,6 +826,8 @@ async function collectManualHtmlBasenames(
             continue;
         }
 
+        const relativePath =
+            relativeDirectoryPath.length > 0 ? path.posix.join(relativeDirectoryPath, entry.name) : entry.name;
         const basename = path.basename(entry.name, ".htm");
         if (!basenames.has(basename)) {
             basenames.set(basename, relativePath.replaceAll(path.sep, "/"));
@@ -829,7 +853,7 @@ function extractDeprecatedReplacementFromManualHtml(html: string): ManualDepreca
 
     return Object.freeze({
         replacement: directReplacementMatch[1],
-        replacementKind: "direct-rename" as const
+        replacementKind: DIRECT_RENAME_REPLACEMENT_KIND
     });
 }
 
@@ -935,6 +959,7 @@ async function mergeDeprecatedReplacementMetadataFromManualPages(
     const manualContentsPath = path.join(manualRoot, "Manual", "contents");
     const manualBasenames = await collectManualHtmlBasenames(manualContentsPath);
     const pageCache = new Map<string, string>();
+    const relativePagePaths = new Set<string>();
 
     for (const [identifier, entry] of identifierMap.entries()) {
         if (!entry.deprecated || entry.replacement) {
@@ -946,12 +971,35 @@ async function mergeDeprecatedReplacementMetadataFromManualPages(
             continue;
         }
 
-        const pageHtml =
-            pageCache.get(relativePagePath) ??
-            (await readFile(path.join(manualContentsPath, relativePagePath), "utf8").then((contents) => {
-                pageCache.set(relativePagePath, contents);
-                return contents;
-            }));
+        relativePagePaths.add(relativePagePath);
+    }
+
+    const loadedPageEntries = await Promise.all(
+        Array.from(relativePagePaths, async (relativePagePath) => {
+            const pageHtml = await readFile(path.join(manualContentsPath, relativePagePath), "utf8");
+            return [relativePagePath, pageHtml] as const;
+        })
+    );
+
+    for (const [relativePagePath, pageHtml] of loadedPageEntries) {
+        pageCache.set(relativePagePath, pageHtml);
+    }
+
+    for (const [identifier, entry] of identifierMap.entries()) {
+        if (!entry.deprecated || entry.replacement) {
+            continue;
+        }
+
+        const relativePagePath = manualBasenames.get(identifier);
+        if (relativePagePath === undefined || relativePagePath === null) {
+            continue;
+        }
+
+        const pageHtml = pageCache.get(relativePagePath);
+        if (pageHtml === undefined) {
+            continue;
+        }
+
         const replacement = extractDeprecatedReplacementFromManualHtml(pageHtml);
         if (!replacement) {
             continue;

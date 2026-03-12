@@ -10,6 +10,7 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
+import { executeNamingConventionCodemod, planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
 import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -19,6 +20,9 @@ import {
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
+    type ConfiguredCodemodRunRequest,
+    type ConfiguredCodemodRunResult,
+    type ConfiguredCodemodSummary,
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
@@ -30,6 +34,7 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    type NamingConventionCodemodPlan,
     OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
@@ -1017,6 +1022,158 @@ export class RefactorEngine {
         });
 
         return { workspace, applied, changedFiles };
+    }
+
+    async planNamingConventionCodemod(parameters: {
+        projectRoot: string;
+        config: ConfiguredCodemodRunRequest["config"];
+        targetPaths: Array<string>;
+    }): Promise<NamingConventionCodemodPlan> {
+        return await planNamingConventionCodemod(this, parameters);
+    }
+
+    async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
+        const {
+            projectRoot,
+            targetPaths,
+            gmlFilePaths,
+            config,
+            readFile,
+            writeFile,
+            renameFile,
+            deleteFile,
+            dryRun = true,
+            onlyCodemods = []
+        } = request;
+
+        Core.assertNonEmptyString(projectRoot, {
+            errorMessage: "executeConfiguredCodemods requires a projectRoot"
+        });
+        Core.assertArray(targetPaths, {
+            errorMessage: "executeConfiguredCodemods requires targetPaths"
+        });
+        Core.assertArray(gmlFilePaths, {
+            errorMessage: "executeConfiguredCodemods requires gmlFilePaths"
+        });
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeConfiguredCodemods requires a readFile function"
+        });
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeConfiguredCodemods requires a writeFile function when dryRun is false"
+            });
+        }
+
+        const requestedCodemods = new Set(onlyCodemods);
+        const configuredCodemods = config.codemods ?? {};
+        const overlay = new Map<string, string>();
+        const appliedFiles = new Map<string, string>();
+        const summaries: Array<ConfiguredCodemodSummary> = [];
+
+        const readThroughOverlay = async (filePath: string): Promise<string> => {
+            if (overlay.has(filePath)) {
+                return overlay.get(filePath) ?? "";
+            }
+
+            return await readFile(filePath);
+        };
+
+        const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
+
+            if (!dryRun && writeFile) {
+                await writeFile(filePath, content);
+            }
+        };
+
+        const shouldRunCodemod = (codemodId: ConfiguredCodemodSummary["id"]): boolean => {
+            if (configuredCodemods[codemodId] === false || configuredCodemods[codemodId] === undefined) {
+                return false;
+            }
+
+            return requestedCodemods.size === 0 || requestedCodemods.has(codemodId);
+        };
+
+        if (shouldRunCodemod("loopLengthHoisting")) {
+            const loopLengthConfig = configuredCodemods.loopLengthHoisting;
+            if (gmlFilePaths.length === 0) {
+                summaries.push({
+                    id: "loopLengthHoisting",
+                    changed: false,
+                    changedFiles: [],
+                    warnings: ["No .gml files were selected for loop-length hoisting."],
+                    errors: []
+                });
+            } else {
+                const loopLengthResult = await this.executeLoopLengthHoistingCodemod({
+                    filePaths: gmlFilePaths,
+                    readFile: readThroughOverlay,
+                    writeFile: dryRun ? undefined : writeWithOverlay,
+                    options: loopLengthConfig === false || loopLengthConfig === undefined ? undefined : loopLengthConfig,
+                    dryRun
+                });
+
+                for (const [filePath, content] of loopLengthResult.applied.entries()) {
+                    overlay.set(filePath, content);
+                    appliedFiles.set(filePath, content);
+                }
+
+                summaries.push({
+                    id: "loopLengthHoisting",
+                    changed: loopLengthResult.changedFiles.length > 0,
+                    changedFiles: loopLengthResult.changedFiles.map((entry) => entry.path),
+                    warnings: [],
+                    errors: []
+                });
+            }
+        }
+
+        if (shouldRunCodemod("namingConvention")) {
+            const namingResult = await executeNamingConventionCodemod(this, {
+                projectRoot,
+                config,
+                targetPaths,
+                applyOptions: {
+                    dryRun,
+                    readFile: readThroughOverlay,
+                    writeFile: dryRun ? undefined : writeWithOverlay,
+                    renameFile,
+                    deleteFile
+                }
+            });
+
+            for (const [filePath, content] of namingResult.applied.entries()) {
+                overlay.set(filePath, content);
+                appliedFiles.set(filePath, content);
+            }
+
+            const changedFiles = new Set<string>();
+            for (const edit of namingResult.plan.workspace.edits) {
+                changedFiles.add(edit.path);
+            }
+            for (const metadataEdit of namingResult.plan.workspace.metadataEdits) {
+                changedFiles.add(metadataEdit.path);
+            }
+            for (const fileRename of namingResult.plan.workspace.fileRenames) {
+                changedFiles.add(fileRename.oldPath);
+                changedFiles.add(fileRename.newPath);
+            }
+
+            summaries.push({
+                id: "namingConvention",
+                changed: changedFiles.size > 0,
+                changedFiles: [...changedFiles],
+                warnings: namingResult.plan.warnings,
+                errors: namingResult.plan.errors
+            });
+        }
+
+        return {
+            dryRun,
+            summaries,
+            appliedFiles
+        };
     }
 
     /**

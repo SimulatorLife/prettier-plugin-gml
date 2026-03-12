@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gmloop/core";
+import type * as Refactor from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
 type ResourceAssetReferenceRecord = {
@@ -652,6 +653,176 @@ export class GmlSemanticBridge {
         return dependents;
     }
 
+    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<Refactor.NamingConventionTarget>> {
+        const targets: Array<Refactor.NamingConventionTarget> = [];
+        const includedFiles = new Set(filePaths);
+        const shouldFilterByFile = includedFiles.size > 0;
+
+        const shouldIncludePath = (candidatePath: string | null | undefined): boolean => {
+            if (!candidatePath) {
+                return false;
+            }
+
+            return !shouldFilterByFile || includedFiles.has(candidatePath);
+        };
+
+        const pushTarget = (target: Refactor.NamingConventionTarget): void => {
+            targets.push(target);
+        };
+
+        for (const resource of Object.values(this.resources ?? {})) {
+            if (!resource?.name || !shouldIncludePath(resource.path)) {
+                continue;
+            }
+
+            const symbolId = this.generateResourceScipId(resource);
+            const category = this.getResourceNamingCategory(resource.resourceType);
+            if (!category) {
+                continue;
+            }
+
+            pushTarget({
+                category,
+                name: resource.name,
+                occurrences: [],
+                path: resource.path,
+                scopeId: null,
+                symbolId
+            });
+        }
+
+        const identifiers = this.identifiers ?? {};
+        for (const entry of Object.values(identifiers.scripts ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            if (!shouldIncludePath(declarationFilePath)) {
+                continue;
+            }
+
+            const declarationKinds = this.extractDeclarationKinds(entry);
+            const isScriptResource =
+                typeof entry?.resourcePath === "string" &&
+                entry?.name === this.resources?.[entry.resourcePath]?.name &&
+                this.resources?.[entry.resourcePath]?.resourceType === "GMScript";
+            if (isScriptResource) {
+                continue;
+            }
+
+            let category: Refactor.NamingConventionTarget["category"] = "function";
+            if (declarationKinds.has("constructor")) {
+                category = "constructorFunction";
+            } else if (declarationKinds.has("struct")) {
+                category = "structDeclaration";
+            }
+
+            if (typeof entry?.name !== "string") {
+                continue;
+            }
+
+            pushTarget({
+                category,
+                name: entry.name,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry)
+            });
+        }
+
+        for (const entry of Object.values(identifiers.macros ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
+                continue;
+            }
+
+            pushTarget({
+                category: "macro",
+                name: entry.name,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry)
+            });
+        }
+
+        for (const entry of Object.values(identifiers.globalVariables ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
+                continue;
+            }
+
+            pushTarget({
+                category: "globalVariable",
+                name: entry.name,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry)
+            });
+        }
+
+        for (const entry of Object.values(identifiers.instanceVariables ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
+            if (!shouldIncludePath(declarationFilePath) || typeof entryName !== "string") {
+                continue;
+            }
+
+            pushTarget({
+                category: "instanceVariable",
+                name: entryName,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry, entryName)
+            });
+        }
+
+        const scopes = this.projectIndex.scopes ?? {};
+        for (const [filePath, fileRecord] of Object.entries(this.projectIndex.files ?? {})) {
+            if (!shouldIncludePath(filePath)) {
+                continue;
+            }
+
+            for (const declaration of fileRecord?.declarations ?? []) {
+                if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
+                    continue;
+                }
+
+                const classifications = Core.asArray(declaration.classifications);
+                if (!classifications.includes("variable") && !classifications.includes("parameter")) {
+                    continue;
+                }
+
+                if (classifications.includes("global")) {
+                    continue;
+                }
+
+                const scopeRecord = declaration.scopeId ? scopes[declaration.scopeId] : null;
+                const category = classifications.includes("parameter")
+                    ? scopeRecord?.kind === "catch"
+                        ? "catchArgument"
+                        : "argument"
+                    : "localVariable";
+
+                const occurrences = this.collectLocalOccurrences(filePath, declaration);
+                if (occurrences.length === 0) {
+                    continue;
+                }
+
+                pushTarget({
+                    category,
+                    name: declaration.name,
+                    occurrences,
+                    path: filePath,
+                    scopeId: declaration.scopeId ?? null,
+                    symbolId: null
+                });
+            }
+        }
+
+        return targets;
+    }
+
     /**
      * Perform a scope-aware lookup for a name.
      */
@@ -754,6 +925,131 @@ export class GmlSemanticBridge {
         }
 
         return null;
+    }
+
+    private getDeclarationFilePath(entry: any): string | null {
+        for (const declaration of entry?.declarations ?? []) {
+            if (typeof declaration?.filePath === "string") {
+                return declaration.filePath;
+            }
+        }
+
+        if (typeof entry?.resourcePath === "string") {
+            return entry.resourcePath;
+        }
+
+        return null;
+    }
+
+    private extractDeclarationKinds(entry: any): Set<string> {
+        const declarationKinds = new Set<string>();
+
+        for (const declaration of entry?.declarations ?? []) {
+            for (const classification of Core.asArray(declaration?.classifications)) {
+                if (typeof classification === "string") {
+                    declarationKinds.add(classification);
+                }
+            }
+        }
+
+        for (const declarationKind of Core.asArray(entry?.declarationKinds)) {
+            if (typeof declarationKind === "string") {
+                declarationKinds.add(declarationKind);
+            }
+        }
+
+        return declarationKinds;
+    }
+
+    private getResourceNamingCategory(
+        resourceType: string | null | undefined
+    ): Refactor.NamingConventionTarget["category"] | null {
+        switch (resourceType) {
+            case "GMScript": {
+                return "scriptResourceName";
+            }
+            case "GMObject": {
+                return "objectResourceName";
+            }
+            case "GMRoom": {
+                return "roomResourceName";
+            }
+            case "GMSprite": {
+                return "spriteResourceName";
+            }
+            case "GMAudio": {
+                return "audioResourceName";
+            }
+            case "GMTimeline": {
+                return "timelineResourceName";
+            }
+            case "GMShader": {
+                return "shaderResourceName";
+            }
+            case "GMFont": {
+                return "fontResourceName";
+            }
+            case "GMPath": {
+                return "pathResourceName";
+            }
+            case "GMSequence": {
+                return "sequenceResourceName";
+            }
+            case "GMTileSet": {
+                return "tilesetResourceName";
+            }
+            default: {
+                return null;
+            }
+        }
+    }
+
+    private collectLocalOccurrences(filePath: string, declaration: any): Array<SymbolOccurrence> {
+        const fileRecord = this.projectIndex.files?.[filePath];
+        if (!fileRecord) {
+            return [];
+        }
+
+        const declarationStartIndex = declaration?.start?.index ?? null;
+        const declarationScopeId = declaration?.scopeId ?? null;
+        const occurrences: Array<SymbolOccurrence> = [];
+
+        const matchesDeclaration = (candidate: any): boolean => {
+            if (!candidate) {
+                return false;
+            }
+
+            const candidateDeclaration = candidate.declaration ?? null;
+            return (
+                candidateDeclaration?.scopeId === declarationScopeId &&
+                candidateDeclaration?.start?.index === declarationStartIndex &&
+                candidate.name === declaration.name
+            );
+        };
+
+        occurrences.push({
+            path: filePath,
+            start: declaration.start?.index ?? 0,
+            end: declaration.end?.index ?? 0,
+            scopeId: declaration.scopeId ?? undefined,
+            kind: "definition"
+        });
+
+        for (const reference of fileRecord.references ?? []) {
+            if (!matchesDeclaration(reference)) {
+                continue;
+            }
+
+            occurrences.push({
+                path: filePath,
+                start: reference.start?.index ?? 0,
+                end: reference.end?.index ?? 0,
+                scopeId: reference.scopeId ?? undefined,
+                kind: "reference"
+            });
+        }
+
+        return occurrences;
     }
 
     private findResourceByName(name: string, caseInsensitive = false): any {

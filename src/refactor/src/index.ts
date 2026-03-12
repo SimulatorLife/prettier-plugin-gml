@@ -1,7 +1,10 @@
+import * as CodemodRegistryAPI from "./codemod-registry.js";
 import * as CodemodsAPI from "./codemods/index.js";
 import * as HotReloadAPI from "./hot-reload.js";
+import * as NamingConventionPolicyAPI from "./naming-convention-policy.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as ProjectAnalysisProviderAPI from "./project-analysis-provider.js";
+import * as ProjectConfigAPI from "./project-config.js";
 import * as RefactorAPI from "./refactor-engine.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -26,6 +29,9 @@ import { WorkspaceEdit } from "./workspace-edit.js";
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     ...ProjectAnalysisProviderAPI,
+    ...ProjectConfigAPI,
+    ...NamingConventionPolicyAPI,
+    ...CodemodRegistryAPI,
     ...CodemodsAPI,
     WorkspaceEdit,
     SemanticQueryCache,
@@ -48,6 +54,7 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
+export { listRegisteredCodemods } from "./codemod-registry.js";
 export * as Codemods from "./codemods/index.js";
 export type {
     LoopLengthHoistFunctionSuffixes,
@@ -56,6 +63,7 @@ export type {
     LoopLengthHoistingEdit
 } from "./codemods/loop-length-hoisting/index.js";
 export { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
+export { executeNamingConventionCodemod, planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 export {
     checkHotReloadSafety,
     computeHotReloadCascade,
@@ -63,6 +71,14 @@ export {
     generateTranspilerPatches,
     prepareHotReloadUpdates
 } from "./hot-reload.js";
+export {
+    evaluateNamingConvention,
+    formatNamingCaseStyle,
+    NAMING_CASE_STYLES,
+    NAMING_CATEGORY_PARENTS,
+    normalizeNamingConventionPolicy,
+    resolveNamingConventionRules
+} from "./naming-convention-policy.js";
 export type { OccurrenceClassification } from "./occurrence-analysis.js";
 export {
     classifyOccurrences,
@@ -72,6 +88,7 @@ export {
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
 export { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
+export { loadGmloopProjectConfig, normalizeRefactorProjectConfig } from "./project-config.js";
 export { RefactorEngine } from "./refactor-engine.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
@@ -94,6 +111,9 @@ export type {
     BatchRenamePlanSummary,
     BatchRenameValidation,
     CascadeEntry,
+    ConfiguredCodemodRunRequest,
+    ConfiguredCodemodRunResult,
+    ConfiguredCodemodSummary,
     ConflictEntry,
     ConflictTypeValue,
     DependencyAnalyzer,
@@ -106,6 +126,7 @@ export type {
     ExecuteRenameResult,
     FileSymbol,
     FileSymbolProvider,
+    GmloopProjectConfig,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
     HotReloadSafetySummary,
@@ -116,7 +137,11 @@ export type {
     MaybePromise,
     NamingCaseStyle,
     NamingCategory,
+    NamingConventionCodemodPlan,
     NamingConventionPolicy,
+    NamingConventionTarget,
+    NamingConventionTargetProvider,
+    NamingConventionViolation,
     NamingRuleConfig,
     OccurrenceKindValue,
     OccurrenceTracker,
@@ -124,8 +149,11 @@ export type {
     PartialSemanticAnalyzer,
     PrepareRenamePlanOptions,
     Range,
+    RefactorCodemodId,
     RefactorEngineDependencies,
     RefactorProjectAnalysisProvider,
+    RefactorProjectConfig,
+    RegisteredCodemod,
     RenameImpactAnalysis,
     RenameImpactGraph,
     RenameImpactNode,

@@ -6,7 +6,7 @@
 
 import { Core } from "@gmloop/core";
 
-import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;

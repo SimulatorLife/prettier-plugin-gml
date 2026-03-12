@@ -3,7 +3,7 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
-import { RefactorEngine } from "../../refactor-engine.js";
+import type { RefactorEngine } from "../../refactor-engine.js";
 import type {
     ApplyWorkspaceEditOptions,
     NamingConventionCodemodPlan,
