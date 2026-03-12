@@ -1,5 +1,6 @@
 import { Core } from "@gmloop/core";
 
+import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
 import type {
     NamingCaseStyle,
     NamingCategory,
@@ -70,12 +71,6 @@ function isNamingCaseStyle(value: unknown): value is NamingCaseStyle {
     return typeof value === "string" && NAMING_CASE_STYLE_SET.has(value);
 }
 
-function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
-    return Core.assertPlainObject(value, {
-        errorMessage: `${context} must be a plain object`
-    });
-}
-
 function normalizeStringArray(value: unknown, context: string): Array<string> {
     const array = Core.assertArray(value, {
         errorMessage: `${context} must be an array`
@@ -91,7 +86,7 @@ function normalizeStringArray(value: unknown, context: string): Array<string> {
 }
 
 function normalizeNamingRuleConfig(config: unknown, context: string): NamingRuleConfig {
-    const object = assertPlainObject(config, context);
+    const object = assertRefactorConfigPlainObject(config, context);
     const allowedKeys = new Set([
         "caseStyle",
         "prefix",
@@ -169,7 +164,7 @@ function normalizeExclusiveAffixMap(value: unknown, context: string): Record<str
         return undefined;
     }
 
-    const object = assertPlainObject(value, context);
+    const object = assertRefactorConfigPlainObject(value, context);
     const normalized: Record<string, NamingCategory> = {};
 
     for (const [affix, categoryValue] of Object.entries(object)) {
@@ -195,7 +190,7 @@ export function normalizeNamingConventionPolicy(
         };
     }
 
-    const object = assertPlainObject(policy, context);
+    const object = assertRefactorConfigPlainObject(policy, context);
     const allowedKeys = new Set(["rules", "exclusivePrefixes", "exclusiveSuffixes"]);
 
     for (const key of Object.keys(object)) {
@@ -204,7 +199,7 @@ export function normalizeNamingConventionPolicy(
         }
     }
 
-    const rulesObject = assertPlainObject(object.rules ?? {}, `${context}.rules`);
+    const rulesObject = assertRefactorConfigPlainObject(object.rules ?? {}, `${context}.rules`);
     const rules: NamingConventionPolicy["rules"] = {};
 
     for (const [rawCategory, rawRule] of Object.entries(rulesObject)) {

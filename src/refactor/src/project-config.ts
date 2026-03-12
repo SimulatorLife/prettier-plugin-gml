@@ -2,16 +2,11 @@ import { Core } from "@gmloop/core";
 
 import { listRegisteredCodemods, normalizeRegisteredCodemodConfig } from "./codemod-registry.js";
 import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
+import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
 import type { GmloopProjectConfig, NamingConventionPolicy, RefactorCodemodId, RefactorProjectConfig } from "./types.js";
 
 const REFACTOR_CONFIG_KEYS = new Set(["namingConventionPolicy", "codemods"]);
 const REFACTOR_CODEMOD_IDS = new Set<RefactorCodemodId>(listRegisteredCodemods().map((codemod) => codemod.id));
-
-function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
-    return Core.assertPlainObject(value, {
-        errorMessage: `${context} must be a plain object`
-    });
-}
 
 function assignNormalizedCodemodConfigEntry<T extends RefactorCodemodId>(
     codemods: NonNullable<RefactorProjectConfig["codemods"]>,
@@ -29,7 +24,7 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
         return {};
     }
 
-    const object = assertPlainObject(config, "gmloop.json refactor config");
+    const object = assertRefactorConfigPlainObject(config, "gmloop.json refactor config");
 
     for (const key of Object.keys(object)) {
         if (!REFACTOR_CONFIG_KEYS.has(key)) {
@@ -47,7 +42,7 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
     }
 
     if (object.codemods !== undefined) {
-        const codemodsObject = assertPlainObject(object.codemods, "gmloop.json refactor.codemods");
+        const codemodsObject = assertRefactorConfigPlainObject(object.codemods, "gmloop.json refactor.codemods");
         const codemods: RefactorProjectConfig["codemods"] = {};
 
         for (const [rawCodemodId, codemodConfig] of Object.entries(codemodsObject)) {
