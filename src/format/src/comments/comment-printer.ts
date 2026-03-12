@@ -1622,17 +1622,19 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         return null;
     }
 
-    if (isCanonicalTopLevelDocBlockComment(comment, originalText)) {
-        const docBlockTextLines = normalizeCanonicalDocBlockTextLines(significantLines);
-        if (docBlockTextLines !== null) {
-            return ["/**", ...docBlockTextLines.map(formatCanonicalDocBlockTextLine), " */"].join("\n");
-        }
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+
+    if (isCanonicalTopLevelDocBlockComment(comment, originalText) && sourceSpan !== null) {
+        // Boundary contract: comment-content normalization is lint-owned
+        // (`gml/normalize-doc-comments` / `gml/normalize-banner-comments`).
+        // The formatter must keep top-level doc-block text verbatim and only
+        // control layout around the comment.
+        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
     }
 
     const interiorLines = lines.slice(1, -1);
     const hasInteriorBlankLines = interiorLines.some((line) => line.trim().length === 0);
     if (!hasInteriorBlankLines) {
-        const sourceSpan = resolveCommentSourceSpan(comment, originalText);
         if (sourceSpan !== null) {
             return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
         }
@@ -1651,29 +1653,6 @@ function isCanonicalTopLevelDocBlockComment(comment, originalText): boolean {
 
     const { startIndex } = sourceSpan;
     return originalText.startsWith("/**", startIndex);
-}
-
-function normalizeCanonicalDocBlockTextLines(lines: string[]): string[] | null {
-    const normalizedLines = [];
-
-    for (const line of lines) {
-        const trimmedStartLine = line.trimStart();
-        if (!trimmedStartLine.startsWith("*")) {
-            return null;
-        }
-
-        normalizedLines.push(trimmedStartLine.slice(1).trim());
-    }
-
-    if (normalizedLines.length > 1 && normalizedLines[0] === "") {
-        normalizedLines.shift();
-    }
-
-    return normalizedLines;
-}
-
-function formatCanonicalDocBlockTextLine(line: string): string {
-    return line.length === 0 ? " *" : ` * ${line}`;
 }
 
 function hasAdjacentBlockCommentInSource(comment, originalText): boolean {

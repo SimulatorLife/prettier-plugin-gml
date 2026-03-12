@@ -194,6 +194,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves canonical top-level doc-block comment body verbatim", async () => {
+        const source = [
+            "/**",
+            " *   @description   Keep    exact   spacing.",
+            " * @param value   spaced",
+            " */",
+            "function keep_doc(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /\*\*[\s\S]*\* {3}@description {3}Keep {4}exact {3}spacing\.[\s\S]*\* @param value {3}spaced[\s\S]*\*\//,
+            "Formatter must preserve canonical doc-block content verbatim; text normalization belongs to lint rules."
+        );
+    });
+
     void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
         // Legacy double-slash `// @function` doc comments are normalised by the
         // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter

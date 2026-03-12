@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     cloneAstNodeWithoutTraversalLinks,
     findFirstAstNodeBy,
+    sourceRangeContainsCommentToken,
     walkAstNodes
 } from "../../src/rules/gml/rule-base-helpers.js";
 import { assertEquals } from "../assertions.js";
@@ -104,4 +105,24 @@ void test("cloneAstNodeWithoutTraversalLinks preserves nested node values", () =
     assert.equal(clonedRight.value, "42");
     assert.equal(clonedLeft.parent, clonedRoot);
     assert.equal(clonedRight.parent, clonedRoot);
+});
+
+void test("sourceRangeContainsCommentToken detects line and block comment markers within the requested span", () => {
+    const sourceText = [
+        "var plain = 1;",
+        "var withLine = 2; // inline",
+        "/* block */ var withBlock = 3;",
+        "var tail = 4;"
+    ].join("\n");
+
+    const plainStart = sourceText.indexOf("var plain = 1;");
+    const plainEnd = plainStart + "var plain = 1;".length;
+    const lineStart = sourceText.indexOf("var withLine = 2;");
+    const lineEnd = lineStart + "var withLine = 2; // inline".length;
+    const blockStart = sourceText.indexOf("/* block */");
+    const blockEnd = blockStart + "/* block */".length;
+
+    assert.equal(sourceRangeContainsCommentToken(sourceText, plainStart, plainEnd), false);
+    assert.equal(sourceRangeContainsCommentToken(sourceText, lineStart, lineEnd), true);
+    assert.equal(sourceRangeContainsCommentToken(sourceText, blockStart, blockEnd), true);
 });
