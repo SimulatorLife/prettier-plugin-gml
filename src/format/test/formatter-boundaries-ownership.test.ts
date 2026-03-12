@@ -621,4 +621,77 @@ void describe("formatter boundaries ownership", () => {
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
+
+    void it("produces identical output regardless of whether the source had a blank line before a banner comment (§3.2)", async () => {
+        // preserveBannerSpacingGaps was a post-Prettier patch that inspected `source`
+        // to conditionally add blank lines before banner-comment patterns.  This made
+        // the formatter non-deterministic: two files with identical logical structure
+        // but different surrounding whitespace would produce different output.
+        // The function has been removed; blank-line placement before top-level comments
+        // is now handled deterministically by `normalizeFormattedOutput` (called
+        // downstream by the CLI).  target-state.md §3.2: "Formatter must not perform
+        // semantic/content rewrites or syntax repair."
+        const sourceWithGap = [
+            "var a = 1;",
+            "",
+            "////////////////////////////////////////",
+            "// Section header",
+            "////////////////////////////////////////",
+            "var b = 2;",
+            ""
+        ].join("\n");
+
+        const sourceWithoutGap = [
+            "var a = 1;",
+            "////////////////////////////////////////",
+            "// Section header",
+            "////////////////////////////////////////",
+            "var b = 2;",
+            ""
+        ].join("\n");
+
+        const formattedWithGap = await Format.format(sourceWithGap);
+        const formattedWithoutGap = await Format.format(sourceWithoutGap);
+
+        assert.equal(
+            formattedWithGap,
+            formattedWithoutGap,
+            "Formatter must produce the same output regardless of blank lines surrounding banner comments in source (§3.2)."
+        );
+    });
+
+    void it("does not return source verbatim for files without trailing newline — formatter always normalises (§3.2)", async () => {
+        // preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment was a
+        // recovery fallback that returned `source` unchanged when Prettier's only
+        // change was adding a trailing newline to a top-level block comment file.
+        // Returning the raw source violates target-state.md §3.2: "The formatter
+        // must never attempt recovery or fallback printing."
+        //
+        // The function has been removed; `format()` now delegates entirely to
+        // `prettier.format()` without inspecting source to patch the result.
+        const sourceWithoutTrailingNewline = ["/*", " * Top-level file header.", " */", "", "var x = 1"].join("\n");
+
+        // Confirm the source does not end with a newline
+        assert.equal(
+            sourceWithoutTrailingNewline.endsWith("\n"),
+            false,
+            "Test precondition: source must not end with a newline."
+        );
+
+        const formatted = await Format.format(sourceWithoutTrailingNewline);
+
+        // The formatter must add a trailing newline
+        assert.equal(
+            formatted.endsWith("\n"),
+            true,
+            "Formatter must produce output with a trailing newline, not return source verbatim (§3.2)."
+        );
+
+        // The formatted output must differ from the raw source (normalisation was applied)
+        assert.notEqual(
+            formatted,
+            sourceWithoutTrailingNewline,
+            "Formatter must not return source verbatim as a recovery fallback (§3.2)."
+        );
+    });
 });
