@@ -1884,15 +1884,19 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        Core.assertNonEmptyString(oldName, {
-            errorMessage: "detectRenameConflicts requires oldName as a non-empty string"
-        });
-        Core.assertNonEmptyString(newName, {
-            errorMessage: "detectRenameConflicts requires newName as a non-empty string"
-        });
-        Core.assertArray(occurrences, {
-            errorMessage: "detectRenameConflicts requires occurrences as an array"
-        });
+        try {
+            Core.assertNonEmptyString(oldName, {
+                errorMessage: "detectRenameConflicts requires oldName as a non-empty string"
+            });
+            Core.assertNonEmptyString(newName, {
+                errorMessage: "detectRenameConflicts requires newName as a non-empty string"
+            });
+            Core.assertArray(occurrences, {
+                errorMessage: "detectRenameConflicts requires occurrences as an array"
+            });
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        }
 
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
