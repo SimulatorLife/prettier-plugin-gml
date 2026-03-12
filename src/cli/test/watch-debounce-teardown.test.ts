@@ -94,11 +94,7 @@ void describe("Watch debounce handler teardown (resource-leak regression)", () =
                         "setTimeout",
                         // Intercept setTimeout to detect retry timers spawned post-cleanup.
                         ((handler: (...args: Array<unknown>) => void, timeout?: number, ...args: Array<unknown>) => {
-                            const id = originalSetTimeout(
-                                handler as (...handlerArgs: Array<unknown>) => void,
-                                timeout,
-                                ...args
-                            );
+                            const id = originalSetTimeout(handler, timeout, ...args);
                             if (cleanupPhaseActive && timeout === TRANSIENT_RETRY_DELAY_MS) {
                                 retryTimersCreatedAfterCleanup += 1;
                             }
