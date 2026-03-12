@@ -260,7 +260,10 @@ export class GMLParser {
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
-            normalizeFunctionDocCommentAttachments(astTree, this.comments, this.text);
+
+            if (this.options.attachFunctionDocComments) {
+                normalizeFunctionDocCommentAttachments(astTree, this.comments, this.text);
+            }
         }
 
         const shouldConvertToESTree =
