@@ -20,6 +20,26 @@ type TernaryExpressionNode = GameMakerAstNode & {
     alternate: GameMakerAstNode | null;
 };
 
+function isExplicitLeftDefaultParameter(parameter: GameMakerAstNode | null): boolean {
+    if (!parameter) {
+        return false;
+    }
+
+    if (parameter.type === "AssignmentPattern") {
+        return true;
+    }
+
+    if (parameter.type !== "DefaultParameter" || parameter.right == null) {
+        return false;
+    }
+
+    if (parameter._featherMaterializedTrailingUndefined === true) {
+        return false;
+    }
+
+    return !Core.isUndefinedSentinel(parameter.right);
+}
+
 function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parameter: GameMakerAstNode | null): boolean {
     if (!Core.isObjectLike(node) || !Array.isArray(node.params)) {
         return false;
@@ -33,24 +53,7 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
         }
 
         for (let offset = 0; offset < idx; offset += 1) {
-            const leftParam = paramsList[offset];
-            if (!leftParam) {
-                continue;
-            }
-
-            if (leftParam.type === "DefaultParameter" && leftParam.right != null) {
-                if (leftParam._featherMaterializedTrailingUndefined === true) {
-                    continue;
-                }
-
-                if (!Core.isUndefinedSentinel(leftParam.right)) {
-                    return true;
-                }
-
-                continue;
-            }
-
-            if (leftParam.type === "AssignmentPattern") {
+            if (isExplicitLeftDefaultParameter(paramsList[offset])) {
                 return true;
             }
         }
