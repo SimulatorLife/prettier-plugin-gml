@@ -1,4 +1,4 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import { printExpression, readNodeText } from "../../../language/print-expression.js";

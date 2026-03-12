@@ -11,9 +11,9 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
-import { Refactor } from "@gml-modules/refactor";
-import { Semantic } from "@gml-modules/semantic";
+import { Core } from "@gmloop/core";
+import { Refactor } from "@gmloop/refactor";
+import { Semantic } from "@gmloop/semantic";
 import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";

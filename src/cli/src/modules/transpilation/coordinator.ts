@@ -8,9 +8,9 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
-import type { EventPatch, ScriptPatch, Transpiler } from "@gml-modules/transpiler";
+import { Core } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
+import type { EventPatch, ScriptPatch, Transpiler } from "@gmloop/transpiler";
 
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";

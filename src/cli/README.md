@@ -1,6 +1,6 @@
-# Prettier Plugin GML - CLI Package
+# GMLoop CLI Package
 
-Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
+Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
 ## Formatter/Linter contract
 
@@ -20,14 +20,14 @@ Contract migration mapping:
 The CLI wires formatter-only runtime integration and lint execution.
 
 - `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
+- `lint` applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`.
 - Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
 Ownership summary:
 
-- `@gml-modules/format`: formatter-only AST normalization + printing
-- `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
+- `@gmloop/format`: formatter-only AST normalization + printing
+- `@gmloop/lint`: diagnostics + semantic/content rewrites + language plugin
+- `@gmloop/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
 - Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
 
 ## Commands
@@ -58,7 +58,7 @@ inconsistent multi-extension formatting behavior.
 
 ### `lint` - Lint and Auto-Fix GML Files
 
-Runs `@gml-modules/lint` over one or more paths, with optional ESLint autofix support.
+Runs `@gmloop/lint` over one or more paths, with optional ESLint autofix support.
 
 ```bash
 pnpm run cli -- lint path/to/project
@@ -78,7 +78,7 @@ pnpm run cli -- lint --fix path/to/project
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
-`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gml-modules/refactor`.
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -726,7 +726,7 @@ The transpilation coordinator module (`src/modules/transpilation/coordinator.ts`
 **API:**
 
 ```typescript
-import { transpileFile, displayTranspilationStatistics } from "@gml-modules/cli/modules/transpilation";
+import { transpileFile, displayTranspilationStatistics } from "/cli/modules/transpilation";
 
 // Transpile a single file with lifecycle management
 const result = transpileFile(

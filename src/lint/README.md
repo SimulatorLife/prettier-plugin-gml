@@ -1,14 +1,14 @@
-# @gml-modules/lint
+# @gmloop/lint
 
-`@gml-modules/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
+`@gmloop/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
 
-It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gml-modules/format`.
+It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gmloop/format`.
 
 - Owns:
     - ESLint language wiring for GML (`language: "gml/gml"`)
     - Lint rules and single-file-safe autofix behavior
 - Does not own:
-    - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gml-modules/format` or its internal APIs.
+    - Prettier formatting behavior (should not directly manipulate whitespace, semicolons, line breaks, indentation, etc.) Should NOT depend on `@gmloop/format` or its internal APIs.
     - Parser internals/grammar ownership
     - Project-wide identifier indexing, rename safety, or hoist-name generation
     - Refactor transaction planning/execution
@@ -17,7 +17,7 @@ See [../../docs/target-state.md](../../docs/target-state.md) for the split contr
 
 ## Install and Peer Requirements
 
-- Package: `@gml-modules/lint`
+- Package: `@gmloop/lint`
 - Peer dependency: `eslint` `>=9.39.0 <10`
 - Runtime: Node `>=22`
 
@@ -25,7 +25,7 @@ See [../../docs/target-state.md](../../docs/target-state.md) for the split contr
 
 ```js
 // eslint.config.js
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 export default [...LintWorkspace.Lint.configs.recommended];
 ```
@@ -46,7 +46,7 @@ This wires:
 Example:
 
 ```js
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 export default [
     ...LintWorkspace.Lint.configs.recommended,
@@ -77,7 +77,7 @@ Recovery mode is controlled by language options:
 The workspace exports a single namespace:
 
 ```ts
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 LintWorkspace.Lint;
 ```
@@ -143,7 +143,7 @@ would be dropped and the initializer does not reference the declared identifier.
 `normalize-data-structure-accessors` only applies repairs when the syntax or surrounding code provides enough evidence. Multi-coordinate structured access is normalized to `[# ...]`, because grids are the only GameMaker data structure that support more than one coordinate. The rule intentionally does not guess list/map accessors from variable naming conventions, and any constructor-based accessor provenance is cleared immediately when the tracked variable is reassigned.
 
 `normalize-operator-aliases` is intentionally syntax-safety scoped: it repairs invalid `not` keyword usage to `!` in executable code (while skipping uses in comments and string literals), and avoids style rewrites.
-Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gml-modules/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
+Logical operator style normalization (`&&`/`||`/`^^` vs `and`/`or`/`xor`) belongs to the formatter (`@gmloop/format`, `logicalOperatorsStyle`), so lint does not rewrite those forms.
 
 `optimize-logical-flow` condenses boolean passthrough branches (for example `if (cond) return true; return false;`) into direct returns and rewrites undefined guard assignments (`if (is_undefined(x)) x = y;` / `if (x == undefined) x = y;`) into `x ??= y;` when it is safe. Comment-bearing ranges are intentionally skipped so autofixes never strip authored comments while optimizing nearby comment-free logic.
 `optimize-logical-flow` and `optimize-math-expressions` now clone candidate AST fragments using a traversal-link-stripping helper (skipping `parent`/context pointers) so autofix performance remains stable on very large scripts.
@@ -157,8 +157,8 @@ Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.fe
 ## Development
 
 ```bash
-pnpm --filter @gml-modules/lint run build:types
-pnpm --filter @gml-modules/lint run test
+pnpm --filter @gmloop/lint run build:types
+pnpm --filter @gmloop/lint run test
 ```
 
 ## TODO

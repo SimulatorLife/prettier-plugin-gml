@@ -5,10 +5,10 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import type { Stream } from "node:stream";
 
-import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
+import { Core } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 import { Command, InvalidArgumentError, Option } from "commander";
-// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gml-modules/format; CLI memory command needs direct import for benchmarking
+// eslint-disable-next-line import/no-extraneous-dependencies -- prettier is a transitive dependency through @gmloop/format; CLI memory command needs direct import for benchmarking
 import prettierStandaloneModule from "prettier/standalone.mjs";
 
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";

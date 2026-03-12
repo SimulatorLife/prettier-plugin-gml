@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { promisify } from "node:util";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 import { ESLint, type Linter } from "eslint";
 
 import { assertEquals } from "../assertions.js";

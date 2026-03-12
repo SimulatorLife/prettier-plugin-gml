@@ -7,7 +7,7 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import * as HotReload from "./hot-reload.js";
@@ -140,7 +140,7 @@ export class RefactorEngine {
 
     /**
      * Check if an identifier name is already occupied in the project.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a proposed variable name or identifier is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
@@ -152,7 +152,7 @@ export class RefactorEngine {
 
     /**
      * List all files where an identifier occurs.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a rename or refactor would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {

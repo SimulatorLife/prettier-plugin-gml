@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { warnWithReason } from "./logger.js";
 import { deleteIdentifierCaseOption, setIdentifierCaseOption } from "./option-store.js";

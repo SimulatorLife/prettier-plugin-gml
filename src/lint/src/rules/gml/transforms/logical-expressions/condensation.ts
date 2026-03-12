@@ -1,7 +1,7 @@
 /**
  * Helpers that build boolean truth tables for branches and rewrite redundant logical nesting to concise expressions.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const {
     cloneAstNode,

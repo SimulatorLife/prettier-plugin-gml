@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/lint",
+  "name": "@gmloop/lint",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,8 +17,8 @@
     "test": "pnpm run build:types && node --test 'dist/test/**/*.test.js'"
   },
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*)"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/parser": "workspace:*"
   },
   "peerDependencies": {
     "eslint": ">=9.39.0 <10"

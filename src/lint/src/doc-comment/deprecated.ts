@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
 import { resolveDocCommentTraversalService } from "./manager.js";

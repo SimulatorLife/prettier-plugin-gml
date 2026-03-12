@@ -1,4 +1,4 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 
 export type RecoveryMode = "none" | "limited";
 

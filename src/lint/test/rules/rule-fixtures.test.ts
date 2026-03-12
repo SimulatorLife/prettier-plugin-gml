@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";

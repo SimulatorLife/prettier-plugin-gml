@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 void describe("normalizeOptionalParamToken", () => {
     void it("wraps Feather sentinels in brackets", () => {

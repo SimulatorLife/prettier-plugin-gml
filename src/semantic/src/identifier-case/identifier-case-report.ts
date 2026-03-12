@@ -8,7 +8,7 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { ConflictSeverity, normalizeConflictSeverityWithFallback } from "./conflict-severity.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";

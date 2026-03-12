@@ -6,12 +6,12 @@
  * because ESTree conversion is one of the parser's output formats, produced
  * when the caller sets `astFormat: "estree"` in the parser options.
  *
- * Previously this file lived in `@gml-modules/core` (`core/src/ast/estree-converter.ts`).
+ * Previously this file lived in `@gmloop/core` (`core/src/ast/estree-converter.ts`).
  * It was moved here because the Core workspace must not own Prettier-specific
  * behaviour; the parser owns its own output-format conversions and is the sole
  * consumer of this utility.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * A raw AST location boundary as stored in the GML AST.

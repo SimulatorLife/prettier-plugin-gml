@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import { Parser } from "@gmloop/parser";
+import { Transpiler } from "@gmloop/transpiler";
 
 /**
  * Micro-benchmarks for StringBuilder performance improvements.

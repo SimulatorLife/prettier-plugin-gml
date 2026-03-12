@@ -4,18 +4,18 @@ This package powers GML-native codemods and semantic refactoring transactions, a
 
 ## Ownership Boundaries
 
-`@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**.
+`@gmloop/refactor` is the owner of **Global Transactions (Codemods)**.
 
-- Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
+- Depends on `@gmloop/semantic` for symbol/scope analysis inputs.
 - Owns atomic cross-file edits, metadata updates, and structural migrations.
 - Implements a jscodeshift-like Collection API for GML ASTs.
 - Is the ONLY layer that should decide whether a rename requires cross-file edits or metadata changes.
 
 It does not replace lint or formatter domains:
 
-- `@gml-modules/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
-- `@gml-modules/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
-- `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
+- `@gmloop/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
+- `@gmloop/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
+- `@gmloop/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities
 
@@ -142,7 +142,7 @@ This is essential for:
 Ensure renames maintain semantic consistency across file boundaries:
 
 ```javascript
-import { validateCrossFileConsistency } from "@gml-modules/refactor";
+import { validateCrossFileConsistency } from "@gmloop/refactor";
 
 // Get occurrences for the symbol being renamed
 const occurrences = await engine.gatherSymbolOccurrences("scr_player");
@@ -184,7 +184,7 @@ This validation is particularly useful for:
 Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
 
 ```javascript
-import { validateRenameStructure } from "@gml-modules/refactor";
+import { validateRenameStructure } from "@gmloop/refactor";
 
 // Quick structural validation before planning
 const errors = await validateRenameStructure(
@@ -274,7 +274,7 @@ The method detects:
 Efficiently validate rename safety across multiple scopes for hot reload scenarios:
 
 ```javascript
-import { batchValidateScopeConflicts } from "@gml-modules/refactor";
+import { batchValidateScopeConflicts } from "@gmloop/refactor";
 
 // Get occurrences from semantic analyzer
 const occurrences = await engine.gatherSymbolOccurrences("player_hp");
@@ -991,7 +991,7 @@ import {
     groupOccurrencesByFile,
     findOccurrencesInFile,
     countAffectedFiles
-} from "@gml-modules/refactor";
+} from "@gmloop/refactor";
 
 // Get only definition sites
 const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
@@ -1027,7 +1027,7 @@ These utilities are particularly useful for:
 The refactor engine supports caching of semantic analyzer queries to optimize batch operations and impact analysis. During complex refactoring workflows, the same semantic data is often queried repeatedly (e.g., symbol occurrences, dependencies). The `SemanticQueryCache` memoizes these results within a session to reduce redundant queries.
 
 ```javascript
-import { SemanticQueryCache } from "@gml-modules/refactor";
+import { SemanticQueryCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const cache = new SemanticQueryCache(semantic, {
@@ -1076,7 +1076,7 @@ The cache is particularly beneficial for:
 The refactor engine also provides a specialized cache for rename validation results. During interactive rename sessions (e.g., IDE rename dialogs), the same symbol-to-name combinations are often validated repeatedly as users type new names. The `RenameValidationCache` caches validation results to provide faster feedback for IDE integrations.
 
 ```javascript
-import { RenameValidationCache } from "@gml-modules/refactor";
+import { RenameValidationCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const validationCache = new RenameValidationCache({

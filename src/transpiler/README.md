@@ -1,11 +1,11 @@
 # GML Transpiler Module
 
-This package implements the GML → JavaScript transpiler for the prettier-plugin-gml project. The transpiler converts GML source code into JavaScript that can be executed in the runtime wrapper for hot-reload functionality.
+This package implements the GML → JavaScript transpiler for the GMLoop toolchain. The transpiler converts GML source code into JavaScript that can be executed in the runtime wrapper for hot-reload functionality.
 
 ## Ownership Boundaries
 
-- The transpiler may consume semantic classification data from `@gml-modules/semantic`.
-- It does **not** own refactor/rename planning and should not depend on `@gml-modules/refactor`.
+- The transpiler may consume semantic classification data from `@gmloop/semantic`.
+- It does **not** own refactor/rename planning and should not depend on `@gmloop/refactor`.
 - Refactor operations remain in the refactor engine and integration layer (CLI).
 
 ## Architecture
@@ -50,7 +50,7 @@ const jsCode = emitJavaScript(ast);
 
 ### Semantic Analysis Integration
 
-The transpiler integrates with the `@gml-modules/semantic` package to provide accurate identifier and function call classification:
+The transpiler integrates with the `@gmloop/semantic` package to provide accurate identifier and function call classification:
 
 ```javascript
 import { createSemanticOracle } from "gamemaker-language-transpiler";

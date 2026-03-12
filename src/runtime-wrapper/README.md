@@ -798,7 +798,7 @@ import {
     createRuntimeWrapper,
     createWebSocketClient,
     createLogger
-} from "@prettier-plugin-gml/runtime-wrapper";
+} from "@gmloop/runtime-wrapper";
 
 // Create logger for structured diagnostics
 const logger = createLogger({
@@ -970,7 +970,7 @@ Emitted when the entire registry is cleared via `wrapper.clearRegistry()`.
 ### Usage Example
 
 ```javascript
-import { createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 const auditLog: Array<unknown> = [];
 
@@ -1289,7 +1289,7 @@ Creates a diagnostic logger for runtime wrapper operations.
 **Example:**
 
 ```javascript
-import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 // Create logger with info level for development
 const logger = createLogger({
@@ -1465,7 +1465,7 @@ The `RuntimeWebSocketClient` interface follows the Interface Segregation Princip
 
 ### Browser-Compatible Core Helpers
 
-The runtime wrapper ships into the GameMaker HTML5 build as part of the hot-reload runtime bundle. Because that bundle runs inside a browser environment, it cannot statically resolve workspace-import specifiers such as `@gml-modules/core`. The runtime wrapper therefore carries its own miniature helper module (`src/runtime/runtime-core-helpers.ts`) that reimplements just the predicates and utilities (`isErrorLike`, `isNonEmptyString`, `cloneObjectEntries`, `areNumbersApproximatelyEqual`, `toArray`) required by `runtime-wrapper.ts`, `patch-utils.ts`, and the WebSocket client. Keeping this helper module narrow avoids bundling the entire `@gml-modules/core` namespace into the injected assets while still letting the runtime wrapper reuse well-tested core-like helpers.
+The runtime wrapper ships into the GameMaker HTML5 build as part of the hot-reload runtime bundle. Because that bundle runs inside a browser environment, it cannot statically resolve workspace-import specifiers such as `@gmloop/core`. The runtime wrapper therefore carries its own miniature helper module (`src/runtime/runtime-core-helpers.ts`) that reimplements just the predicates and utilities (`isErrorLike`, `isNonEmptyString`, `cloneObjectEntries`, `areNumbersApproximatelyEqual`, `toArray`) required by `runtime-wrapper.ts`, `patch-utils.ts`, and the WebSocket client. Keeping this helper module narrow avoids bundling the entire `@gmloop/core` namespace into the injected assets while still letting the runtime wrapper reuse well-tested core-like helpers.
 
 **Example - Depending on minimal interfaces:**
 

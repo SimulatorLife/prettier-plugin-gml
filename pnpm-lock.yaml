@@ -11,31 +11,31 @@ importers:
       '@eslint/js':
         specifier: ^9.38.0
         version: 9.39.2
-      '@gml-modules/cli':
+      '@gmloop/cli':
         specifier: workspace:*
         version: link:src/cli
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:src/core
-      '@gml-modules/format':
+      '@gmloop/format':
         specifier: workspace:*
         version: link:src/format
-      '@gml-modules/lint':
+      '@gmloop/lint':
         specifier: workspace:*
         version: link:src/lint
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:src/parser
-      '@gml-modules/refactor':
+      '@gmloop/refactor':
         specifier: workspace:*
         version: link:src/refactor
-      '@gml-modules/runtime-wrapper':
+      '@gmloop/runtime-wrapper':
         specifier: workspace:*
         version: link:src/runtime-wrapper
-      '@gml-modules/semantic':
+      '@gmloop/semantic':
         specifier: workspace:*
         version: link:src/semantic
-      '@gml-modules/transpiler':
+      '@gmloop/transpiler':
         specifier: workspace:*
         version: link:src/transpiler
       '@prettier/plugin-xml':
@@ -131,25 +131,25 @@ importers:
 
   src/cli:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/format':
+      '@gmloop/format':
         specifier: workspace:*
         version: link:../format
-      '@gml-modules/lint':
+      '@gmloop/lint':
         specifier: workspace:*
         version: link:../lint
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
-      '@gml-modules/refactor':
+      '@gmloop/refactor':
         specifier: workspace:*
         version: link:../refactor
-      '@gml-modules/semantic':
+      '@gmloop/semantic':
         specifier: workspace:*
         version: link:../semantic
-      '@gml-modules/transpiler':
+      '@gmloop/transpiler':
         specifier: workspace:*
         version: link:../transpiler
       commander:
@@ -175,10 +175,10 @@ importers:
 
   src/format:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
       prettier:
@@ -187,11 +187,11 @@ importers:
 
   src/lint:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/parser':
-        specifier: workspace:*)
+      '@gmloop/parser':
+        specifier: workspace:*
         version: link:../parser
     devDependencies:
       eslint:
@@ -203,7 +203,7 @@ importers:
 
   src/parser:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
       antlr4:
@@ -212,19 +212,19 @@ importers:
 
   src/refactor:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
-      '@gml-modules/semantic':
+      '@gmloop/semantic':
         specifier: workspace:*
         version: link:../semantic
 
   src/runtime-wrapper:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
 
@@ -233,22 +233,22 @@ importers:
       '@bscotch/yy':
         specifier: ^2.7.0
         version: 2.7.0
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
 
   src/transpiler:
     dependencies:
-      '@gml-modules/core':
+      '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gml-modules/parser':
+      '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
-      '@gml-modules/semantic':
+      '@gmloop/semantic':
         specifier: workspace:*
         version: link:../semantic
 

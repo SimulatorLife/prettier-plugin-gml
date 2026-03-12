@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gmloop/core";
 import type { Token } from "antlr4";
 
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";

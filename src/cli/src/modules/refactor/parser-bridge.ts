@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-import { Parser } from "@gml-modules/parser";
-import type * as Refactor from "@gml-modules/refactor";
+import { Parser } from "@gmloop/parser";
+import type * as Refactor from "@gmloop/refactor";
 
 /**
- * Parser bridge that adapts @gml-modules/parser to the refactor engine.
+ * Parser bridge that adapts @gmloop/parser to the refactor engine.
  */
 export class GmlParserBridge implements Refactor.ParserBridge {
     /**
@@ -20,7 +20,7 @@ export class GmlParserBridge implements Refactor.ParserBridge {
 
         const ast = parser.parse();
 
-        // Adapt the @gml-modules/parser AST to @gml-modules/refactor AST
+        // Adapt the @gmloop/parser AST to @gmloop/refactor AST
         return this.adaptNode(ast);
     }
 

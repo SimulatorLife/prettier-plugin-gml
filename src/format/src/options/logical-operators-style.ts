@@ -3,7 +3,7 @@
  * outputs logical operators as keywords (e.g. `and`, `or`) or symbols (e.g. `&&`, `||`). The module provides an
  * enumerated set of supported styles.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { createEnumeratedOptionHelpers } = Core;
 

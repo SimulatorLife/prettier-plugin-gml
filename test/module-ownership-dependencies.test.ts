@@ -26,22 +26,22 @@ function getDependencyVersion(packageJson: PackageJson, dependencyName: string):
 
 void describe("workspace ownership dependency policy", () => {
     void it("format workspace remains decoupled from semantic and refactor packages", () => {
-        const formatPackage = readWorkspacePackage("@gml-modules/format");
+        const formatPackage = readWorkspacePackage("@gmloop/format");
 
-        assert.strictEqual(getDependencyVersion(formatPackage, "@gml-modules/semantic"), null);
-        assert.strictEqual(getDependencyVersion(formatPackage, "@gml-modules/refactor"), null);
+        assert.strictEqual(getDependencyVersion(formatPackage, "@gmloop/semantic"), null);
+        assert.strictEqual(getDependencyVersion(formatPackage, "@gmloop/refactor"), null);
     });
 
     void it("refactor workspace owns semantic-backed refactor behavior", () => {
-        const refactorPackage = readWorkspacePackage("@gml-modules/refactor");
-        const semanticPackage = readWorkspacePackage("@gml-modules/semantic");
+        const refactorPackage = readWorkspacePackage("@gmloop/refactor");
+        const semanticPackage = readWorkspacePackage("@gmloop/semantic");
 
         assert.ok(
-            getDependencyVersion(refactorPackage, "@gml-modules/semantic"),
+            getDependencyVersion(refactorPackage, "@gmloop/semantic"),
             "Refactor workspace should declare a semantic dependency."
         );
         assert.strictEqual(
-            getDependencyVersion(semanticPackage, "@gml-modules/refactor"),
+            getDependencyVersion(semanticPackage, "@gmloop/refactor"),
             null,
             "Semantic workspace must remain analysis-only and not depend on refactor."
         );

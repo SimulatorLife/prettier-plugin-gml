@@ -18,7 +18,7 @@ Rule-level timing (ESLint stats):
 ```bash
 node --input-type=module <<'EOF'
 import { ESLint } from "eslint";
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "/lint";
 
 const eslint = new ESLint({
   overrideConfigFile: true,
@@ -74,7 +74,7 @@ Lint now keeps this rule strictly single-file:
 - equivalent invariant expressions inside one loop reuse a single generated hoist and ancestor loops skip re-hoisting synthetic `cached_*` initializers,
 - collision-heavy files avoid repeated $O(n)$ renormalization work for `cached_value[_N]` candidates.
 
-Project-wide identifier indexing and cross-file safety checks belong in `@gml-modules/refactor`, not in the lint workspace.
+Project-wide identifier indexing and cross-file safety checks belong in `/refactor`, not in the lint workspace.
 
 ### Regression coverage
 

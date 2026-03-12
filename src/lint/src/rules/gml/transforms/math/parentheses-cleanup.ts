@@ -2,7 +2,7 @@
  * Removes redundant parentheses around multiplicative identities when formatting math expressions.
  * This cleanup keeps expressions concise for the printer while respecting structural safety rules.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import {
     attemptCondenseScalarProduct,

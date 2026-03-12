@@ -4,7 +4,7 @@
  * and hot reload update preparation.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import * as SymbolQueries from "./symbol-queries.js";
 import {

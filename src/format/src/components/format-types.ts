@@ -1,4 +1,4 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gmloop/core";
 import type { Parser, ParserOptions, Plugin as PrettierPlugin, Printer, SupportOptions } from "prettier";
 
 export type GmlAst = MutableGameMakerAstNode;
@@ -40,7 +40,7 @@ export type GmlFormat = Omit<PrettierPlugin<GmlAst>, "defaultOptions"> & {
      * source. Owned by the format workspace because all of its
      * transforms are purely layout-level (blank-line collapsing, whitespace
      * normalization, etc.). Content/semantic rewrites are never applied here;
-     * those belong in the `@gml-modules/lint` workspace.
+     * those belong in the `@gmloop/lint` workspace.
      */
     normalizeFormattedOutput: (formatted: string) => string;
 };

@@ -4,7 +4,7 @@
  * that coordinate semantic analysis, transpiler integration, and safe renaming.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";

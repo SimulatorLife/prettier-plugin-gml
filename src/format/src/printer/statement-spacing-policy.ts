@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 // The printer hits this helper in hot loops, so prefer a switch statement over
 // re-allocating arrays on every call (see PR #110 micro-benchmark in commit

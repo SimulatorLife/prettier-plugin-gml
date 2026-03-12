@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { Semantic } from "@gml-modules/semantic";
+import { Semantic } from "@gmloop/semantic";
 
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-bootstrap-"));

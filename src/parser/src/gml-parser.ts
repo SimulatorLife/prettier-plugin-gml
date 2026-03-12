@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
@@ -413,7 +413,7 @@ export class GMLParser {
  *
  * @remarks
  * This convenience export allows consumers to access Core.getLineBreakCount
- * directly from the parser module without importing @gml-modules/core.
+ * directly from the parser module without importing @gmloop/core.
  * Useful for calculating line metrics or validating source spans.
  */
 export const getLineBreakCount: typeof Core.getLineBreakCount = Core.getLineBreakCount;

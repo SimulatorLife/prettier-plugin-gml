@@ -1,4 +1,4 @@
-import type { GameMakerAstNode } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gmloop/core";
 
 import { defaultGmlFormatComponentImplementations } from "./default-component-instances.js";
 import type { GmlFormatComponentBundle } from "./format-types.js";
