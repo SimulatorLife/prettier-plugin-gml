@@ -9,7 +9,7 @@ import { Core } from "@gmloop/core";
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { GMLParser } from "../src/gml-parser.js";
-import { defaultParserOptions, type ParserOptions } from "../src/types/index.js";
+import { defaultParserOptions, type ParserOptions, type ScopeTracker } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "../../test/input");
@@ -680,5 +680,38 @@ switch (x) {
     void it("allows property access on parenthesized expressions in general", () => {
         const source = "var a = (b + c).d;";
         assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("throws when scope tracking is enabled without a scope tracker factory", () => {
+        const source = "var value = 1;";
+
+        assert.throws(
+            () =>
+                parseFixture(source, {
+                    options: {
+                        scopeTrackerOptions: {
+                            enabled: true,
+                            getIdentifierMetadata: false
+                        }
+                    }
+                }),
+            /Invalid createScopeTracker function\./
+        );
+    });
+
+    void it("ignores an invalid scope tracker factory when scope tracking is disabled", () => {
+        const source = "var value = 1;";
+
+        assert.doesNotThrow(() =>
+            parseFixture(source, {
+                options: {
+                    scopeTrackerOptions: {
+                        enabled: false,
+                        getIdentifierMetadata: false,
+                        createScopeTracker: "not-a-function" as unknown as () => ScopeTracker | null
+                    }
+                }
+            })
+        );
     });
 });
