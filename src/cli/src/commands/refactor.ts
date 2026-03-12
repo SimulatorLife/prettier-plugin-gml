@@ -27,6 +27,8 @@ const {
     listRegisteredCodemods,
     loadGmloopProjectConfig
 } = Refactor;
+type RegisteredCodemodId = ReturnType<typeof listRegisteredCodemods>[number]["id"];
+type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof loadGmloopProjectConfig>>;
 
 type RefactorCommandOptions = {
     symbolId?: string;
@@ -58,7 +60,7 @@ type ValidatedRenameOptions = RefactorContext & {
 type ValidatedCodemodOptions = RefactorContext & {
     configPath: string;
     dryRun: boolean;
-    onlyCodemods: Array<Refactor.RefactorCodemodId>;
+    onlyCodemods: Array<RegisteredCodemodId>;
     list: boolean;
     targetPaths: Array<string>;
 };
@@ -82,7 +84,7 @@ function resolveProjectRootOption(projectRootOption: string | undefined): string
     return resolvedPath.toLowerCase().endsWith(".yyp") ? path.dirname(resolvedPath) : resolvedPath;
 }
 
-function normalizeRequestedCodemods(onlyOption: string | undefined): Array<Refactor.RefactorCodemodId> {
+function normalizeRequestedCodemods(onlyOption: string | undefined): Array<RegisteredCodemodId> {
     if (!onlyOption) {
         return [];
     }
@@ -94,15 +96,18 @@ function normalizeRequestedCodemods(onlyOption: string | undefined): Array<Refac
     const validCodemodIds = new Set(listRegisteredCodemods().map((codemod) => codemod.id));
 
     return requestedIds.map((requestedId) => {
-        if (!validCodemodIds.has(requestedId as Refactor.RefactorCodemodId)) {
+        if (!validCodemodIds.has(requestedId as RegisteredCodemodId)) {
             throw new Error(`Unknown codemod '${requestedId}'. Valid codemods: ${[...validCodemodIds].join(", ")}`);
         }
 
-        return requestedId as Refactor.RefactorCodemodId;
+        return requestedId as RegisteredCodemodId;
     });
 }
 
-async function resolveDiscoveredProjectRoot(projectRootOption: string | undefined, configPathOption: string | undefined): Promise<string> {
+async function resolveDiscoveredProjectRoot(
+    projectRootOption: string | undefined,
+    configPathOption: string | undefined
+): Promise<string> {
     const explicitProjectRoot = resolveProjectRootOption(projectRootOption);
     if (explicitProjectRoot) {
         return explicitProjectRoot;
@@ -167,7 +172,7 @@ async function validateCodemodOptions(
         projectRoot,
         verbose: Boolean(options.verbose),
         configPath: await resolveCodemodConfigPath(projectRoot, options.config),
-        dryRun: !Boolean(options.write),
+        dryRun: !options.write,
         onlyCodemods: normalizeRequestedCodemods(options.only),
         list: Boolean(options.list),
         targetPaths
@@ -175,7 +180,7 @@ async function validateCodemodOptions(
 }
 
 async function validateRefactorIntent(command: CommanderCommandLike): Promise<RefactorCommandIntent> {
-    const options = command.opts<RefactorCommandOptions>();
+    const options = command.opts() as RefactorCommandOptions;
     const [operation, ...remainingArgs] = command.args;
 
     if (operation === "codemod") {
@@ -226,7 +231,10 @@ async function collectTargetGmlFiles(projectRoot: string, targetPaths: Array<str
     return [...collectedFiles].sort();
 }
 
-function createRefactorEngineForProject(projectIndex: unknown, projectRoot: string): Refactor.RefactorEngine {
+function createRefactorEngineForProject(
+    projectIndex: unknown,
+    projectRoot: string
+): InstanceType<typeof RefactorEngine> {
     const semantic = new GmlSemanticBridge(projectIndex, projectRoot);
     const parser = new GmlParserBridge();
     const formatter = new GmlTranspilerBridge();
@@ -339,8 +347,8 @@ async function performRename(options: ValidatedRenameOptions): Promise<void> {
 }
 
 function formatCodemodSelectionSummary(
-    config: Refactor.GmloopProjectConfig,
-    selectedCodemods: Array<Refactor.RefactorCodemodId>
+    config: LoadedGmloopProjectConfig,
+    selectedCodemods: Array<RegisteredCodemodId>
 ): Array<string> {
     const configuredCodemods = config.refactor?.codemods ?? {};
 
@@ -382,7 +390,10 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
             ? onlyCodemods
             : listRegisteredCodemods()
                   .map((codemod) => codemod.id)
-                  .filter((codemodId) => configuredCodemods[codemodId] !== undefined && configuredCodemods[codemodId] !== false);
+                  .filter(
+                      (codemodId) =>
+                          configuredCodemods[codemodId] !== undefined && configuredCodemods[codemodId] !== false
+                  );
 
     if (selectedCodemodIds.length === 0) {
         console.log("No configured codemods were selected. Nothing to do.");
@@ -453,12 +464,7 @@ export function createRefactorCommand(): Command {
             )
         )
         .addOption(new Option("--new-name <name>", "New name for the symbol"))
-        .addOption(
-            new Option("--project-root <path>", "Root directory of the GameMaker project").default(
-                process.cwd(),
-                "current directory"
-            )
-        )
+        .addOption(new Option("--project-root <path>", "Root directory of the GameMaker project"))
         .addOption(new Option("--config <path>", "Path to gmloop.json for configured codemod execution"))
         .addOption(new Option("--dry-run", "Show what would be changed without modifying files").default(false))
         .addOption(new Option("--write", "Apply configured codemods instead of running in dry-run mode").default(false))
@@ -478,11 +484,7 @@ export async function runRefactorCommand(command: CommanderCommandLike): Promise
     try {
         const intent = await validateRefactorIntent(command);
 
-        if (intent.mode === "codemod") {
-            await performConfiguredCodemods(intent.options);
-        } else {
-            await performRename(intent.options);
-        }
+        await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
     } catch (error) {
         const message = Core.getErrorMessage(error, {
             fallback: "Unknown refactor error"

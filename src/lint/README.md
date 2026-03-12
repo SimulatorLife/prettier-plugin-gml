@@ -149,10 +149,11 @@ would be dropped and the initializer does not reference the declared identifier.
 
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
 
-`no-legacy-api` reports deprecated built-ins that belong to lint-owned
-replacement mappings and auto-fixes direct rename cases. Feather-owned legacy
-diagnostics continue to live under the `feather/*` namespace rather than being
-duplicated in `gml/*`.
+`no-legacy-api` reports deprecated built-ins and auto-fixes safe local direct
+renames, including deprecated replacements that were historically surfaced
+through Feather parity rules. Structural or project-aware migrations remain
+report-only and continue to belong in lint diagnostics or explicit refactor
+commands rather than unsafe autofixes.
 
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 

@@ -44,7 +44,10 @@ function readDeclaredPatternNames(node: unknown): ReadonlyArray<string> {
     return readDeclaredPatternNames((node as Readonly<{ left?: unknown }>).left);
 }
 
-function collectScopedDeclaredIdentifiers(programNode: unknown, sourceTextLength: number): ReadonlyArray<DeclaredIdentifierScope> {
+function collectScopedDeclaredIdentifiers(
+    programNode: unknown,
+    sourceTextLength: number
+): ReadonlyArray<DeclaredIdentifierScope> {
     const scopes: Array<{ start: number; end: number; names: Set<string> }> = [
         {
             start: 0,
@@ -138,10 +141,7 @@ function findInnermostDeclaredIdentifierScope(
             continue;
         }
 
-        if (
-            matchedScope === null ||
-            (scope.start >= matchedScope.start && scope.end <= matchedScope.end)
-        ) {
+        if (matchedScope === null || (scope.start >= matchedScope.start && scope.end <= matchedScope.end)) {
             matchedScope = scope;
         }
     }
@@ -269,7 +269,9 @@ export function createNoLegacyApiRule(definition: GmlRuleDefinition): Rule.RuleM
                             if (typeof identifierName !== "string") {
                                 return;
                             }
-                            if (isIdentifierShadowedByLocalScope(declaredIdentifierScopes, identifierName, objectNode)) {
+                            if (
+                                isIdentifierShadowedByLocalScope(declaredIdentifierScopes, identifierName, objectNode)
+                            ) {
                                 return;
                             }
 

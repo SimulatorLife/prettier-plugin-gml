@@ -1024,6 +1024,9 @@ export class RefactorEngine {
         return { workspace, applied, changedFiles };
     }
 
+    /**
+     * Plan naming-policy-driven edits for the selected project paths.
+     */
     async planNamingConventionCodemod(parameters: {
         projectRoot: string;
         config: ConfiguredCodemodRunRequest["config"];
@@ -1032,6 +1035,12 @@ export class RefactorEngine {
         return await planNamingConventionCodemod(this, parameters);
     }
 
+    /**
+     * Execute codemods selected from normalized project configuration.
+     *
+     * Codemods run in a stable order and share an in-memory overlay so later
+     * codemods observe edits produced by earlier ones during the same run.
+     */
     async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
         const {
             projectRoot,
@@ -1110,7 +1119,8 @@ export class RefactorEngine {
                     filePaths: gmlFilePaths,
                     readFile: readThroughOverlay,
                     writeFile: dryRun ? undefined : writeWithOverlay,
-                    options: loopLengthConfig === false || loopLengthConfig === undefined ? undefined : loopLengthConfig,
+                    options:
+                        loopLengthConfig === false || loopLengthConfig === undefined ? undefined : loopLengthConfig,
                     dryRun
                 });
 

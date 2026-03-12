@@ -9,10 +9,9 @@ import type {
     NamingConventionCodemodPlan,
     NamingConventionTarget,
     NamingConventionViolation,
-    RefactorProjectConfig,
-    WorkspaceEdit
+    RefactorProjectConfig
 } from "../../types.js";
-import { WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
+import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 
 function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string>, targetPath: string): boolean {
     if (selectedPaths.length === 0) {
@@ -59,6 +58,9 @@ function collectLocalScopeNames(targets: ReadonlyArray<NamingConventionTarget>):
     return namesByScope;
 }
 
+/**
+ * Plan naming-policy-driven edits for the selected project paths.
+ */
 export async function planNamingConventionCodemod(
     engine: RefactorEngine,
     parameters: {
@@ -178,6 +180,9 @@ export async function planNamingConventionCodemod(
     };
 }
 
+/**
+ * Execute a naming-convention codemod plan when it contains no blocking errors.
+ */
 export async function executeNamingConventionCodemod(
     engine: RefactorEngine,
     parameters: {

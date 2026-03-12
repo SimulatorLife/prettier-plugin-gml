@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gmloop/core";
-import type * as Refactor from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
 type ResourceAssetReferenceRecord = {
@@ -13,6 +12,57 @@ type ResourceAssetReferenceRecord = {
 type ResourceMetadataRecord = {
     assetReferences: Array<ResourceAssetReferenceRecord>;
     path: string;
+};
+
+type SemanticResourceRecord = {
+    name?: string;
+    path?: string;
+    resourceType?: string;
+};
+
+type SemanticIdentifierEntry = {
+    declarationKinds?: Array<unknown>;
+    declarations?: Array<Record<string, unknown>>;
+    identifierId?: string;
+    key?: string;
+    name?: string;
+    references?: Array<Record<string, unknown>>;
+    resourcePath?: string;
+    scopeId?: string;
+};
+
+type SemanticFileRecord = {
+    declarations?: Array<Record<string, unknown>>;
+    references?: Array<Record<string, unknown>>;
+};
+
+type SemanticIdentifierCollections = {
+    globalVariables?: Record<string, SemanticIdentifierEntry>;
+    instanceVariables?: Record<string, SemanticIdentifierEntry>;
+    macros?: Record<string, SemanticIdentifierEntry>;
+    scripts?: Record<string, SemanticIdentifierEntry>;
+};
+
+type SemanticScopeRecord = {
+    kind?: string;
+};
+
+type SemanticScriptCallRecord = {
+    from?: {
+        filePath?: string;
+        scopeId?: string;
+    };
+    location?: {
+        end?: {
+            index?: number;
+        };
+        start?: {
+            index?: number;
+        };
+    };
+    target?: {
+        name?: string;
+    };
 };
 
 type MaybePromise<T> = T | Promise<T>;
@@ -36,6 +86,38 @@ type FileSymbol = {
 type DependentSymbol = {
     filePath: string;
     symbolId: string;
+};
+
+type BridgeNamingConventionCategory =
+    | "resource"
+    | "scriptResourceName"
+    | "objectResourceName"
+    | "roomResourceName"
+    | "spriteResourceName"
+    | "audioResourceName"
+    | "timelineResourceName"
+    | "shaderResourceName"
+    | "fontResourceName"
+    | "pathResourceName"
+    | "sequenceResourceName"
+    | "tilesetResourceName"
+    | "localVariable"
+    | "globalVariable"
+    | "instanceVariable"
+    | "argument"
+    | "catchArgument"
+    | "function"
+    | "constructorFunction"
+    | "structDeclaration"
+    | "macro";
+
+type BridgeNamingConventionTarget = {
+    category: BridgeNamingConventionCategory;
+    name: string;
+    occurrences: Array<SymbolOccurrence>;
+    path: string;
+    scopeId: string | null;
+    symbolId: string | null;
 };
 
 type WorkspaceEdit = {
@@ -126,26 +208,28 @@ function isResourceMetadataRecord(value: unknown): value is ResourceMetadataReco
  * Semantic bridge that adapts @gmloop/semantic ProjectIndex to the refactor engine.
  */
 export class GmlSemanticBridge {
-    private projectIndex: any;
+    private projectIndex: Record<string, unknown>;
     private projectRoot: string;
 
-    constructor(projectIndex: any, projectRoot: string = process.cwd()) {
-        this.projectIndex = projectIndex;
+    constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
+        this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
         this.projectRoot = projectRoot;
     }
 
     /**
      * Get the resources map from the project index.
      */
-    private get resources(): any {
-        return this.projectIndex.resources;
+    private get resources(): Record<string, SemanticResourceRecord> {
+        return (this.projectIndex.resources ?? {}) as Record<string, SemanticResourceRecord>;
     }
 
     /**
      * Get the identifiers map, handling structural differences in the project index.
      */
-    private get identifiers(): any {
-        return this.projectIndex.identifiers ?? this.projectIndex.identifierCollections;
+    private get identifiers(): SemanticIdentifierCollections {
+        return (this.projectIndex.identifiers ??
+            this.projectIndex.identifierCollections ??
+            {}) as SemanticIdentifierCollections;
     }
 
     /**
@@ -523,7 +607,10 @@ export class GmlSemanticBridge {
      * Collect occurrences from project relationships (script calls).
      */
     private collectOccurrencesFromRelationships(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
-        const scriptCalls = this.projectIndex.relationships?.scriptCalls;
+        const relationships = this.projectIndex.relationships as
+            | { scriptCalls?: Array<SemanticScriptCallRecord> }
+            | undefined;
+        const scriptCalls = relationships?.scriptCalls;
         if (!Array.isArray(scriptCalls)) {
             return;
         }
@@ -653,9 +740,9 @@ export class GmlSemanticBridge {
         return dependents;
     }
 
-    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<Refactor.NamingConventionTarget>> {
-        const targets: Array<Refactor.NamingConventionTarget> = [];
-        const includedFiles = new Set(filePaths);
+    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<BridgeNamingConventionTarget>> {
+        const targets: Array<BridgeNamingConventionTarget> = [];
+        const includedFiles = filePaths === undefined ? new Set<string>() : new Set(filePaths);
         const shouldFilterByFile = includedFiles.size > 0;
 
         const shouldIncludePath = (candidatePath: string | null | undefined): boolean => {
@@ -666,11 +753,11 @@ export class GmlSemanticBridge {
             return !shouldFilterByFile || includedFiles.has(candidatePath);
         };
 
-        const pushTarget = (target: Refactor.NamingConventionTarget): void => {
+        const pushTarget = (target: BridgeNamingConventionTarget): void => {
             targets.push(target);
         };
 
-        for (const resource of Object.values(this.resources ?? {})) {
+        for (const resource of Object.values(this.resources)) {
             if (!resource?.name || !shouldIncludePath(resource.path)) {
                 continue;
             }
@@ -691,7 +778,7 @@ export class GmlSemanticBridge {
             });
         }
 
-        const identifiers = this.identifiers ?? {};
+        const identifiers = this.identifiers;
         for (const entry of Object.values(identifiers.scripts ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
             if (!shouldIncludePath(declarationFilePath)) {
@@ -707,7 +794,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            let category: Refactor.NamingConventionTarget["category"] = "function";
+            let category: BridgeNamingConventionTarget["category"] = "function";
             if (declarationKinds.has("constructor")) {
                 category = "constructorFunction";
             } else if (declarationKinds.has("struct")) {
@@ -777,8 +864,9 @@ export class GmlSemanticBridge {
             });
         }
 
-        const scopes = this.projectIndex.scopes ?? {};
-        for (const [filePath, fileRecord] of Object.entries(this.projectIndex.files ?? {})) {
+        const scopes = (this.projectIndex.scopes ?? {}) as Record<string, SemanticScopeRecord>;
+        const files = (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>;
+        for (const [filePath, fileRecord] of Object.entries(files)) {
             if (!shouldIncludePath(filePath)) {
                 continue;
             }
@@ -797,7 +885,8 @@ export class GmlSemanticBridge {
                     continue;
                 }
 
-                const scopeRecord = declaration.scopeId ? scopes[declaration.scopeId] : null;
+                const scopeId = typeof declaration.scopeId === "string" ? declaration.scopeId : null;
+                const scopeRecord = scopeId ? scopes[scopeId] : null;
                 const category = classifications.includes("parameter")
                     ? scopeRecord?.kind === "catch"
                         ? "catchArgument"
@@ -814,7 +903,7 @@ export class GmlSemanticBridge {
                     name: declaration.name,
                     occurrences,
                     path: filePath,
-                    scopeId: declaration.scopeId ?? null,
+                    scopeId,
                     symbolId: null
                 });
             }
@@ -963,7 +1052,7 @@ export class GmlSemanticBridge {
 
     private getResourceNamingCategory(
         resourceType: string | null | undefined
-    ): Refactor.NamingConventionTarget["category"] | null {
+    ): BridgeNamingConventionTarget["category"] | null {
         switch (resourceType) {
             case "GMScript": {
                 return "scriptResourceName";

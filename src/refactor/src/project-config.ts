@@ -1,13 +1,8 @@
 import { Core } from "@gmloop/core";
 
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
-import type {
-    GmloopProjectConfig,
-    LoopLengthHoistingCodemodOptions,
-    NamingConventionPolicy,
-    RefactorCodemodId,
-    RefactorProjectConfig
-} from "./types.js";
+import type { GmloopProjectConfig, NamingConventionPolicy, RefactorCodemodId, RefactorProjectConfig } from "./types.js";
 
 const REFACTOR_CONFIG_KEYS = new Set(["namingConventionPolicy", "codemods"]);
 const REFACTOR_CODEMOD_IDS = new Set<RefactorCodemodId>(["loopLengthHoisting", "namingConvention"]);
@@ -16,6 +11,10 @@ function assertPlainObject(value: unknown, context: string): Record<string, unkn
     return Core.assertPlainObject(value, {
         errorMessage: `${context} must be a plain object`
     });
+}
+
+function isNullableString(value: unknown): value is string | null {
+    return typeof value === "string" || value === null;
 }
 
 function normalizeLoopLengthHoistingConfig(value: unknown, context: string): LoopLengthHoistingCodemodOptions | false {
@@ -40,7 +39,7 @@ function normalizeLoopLengthHoistingConfig(value: unknown, context: string): Loo
     const functionSuffixes: Record<string, string | null> = {};
 
     for (const [functionName, suffixValue] of Object.entries(functionSuffixesObject)) {
-        if (typeof suffixValue === "string" || suffixValue === null) {
+        if (isNullableString(suffixValue)) {
             functionSuffixes[functionName] = suffixValue;
             continue;
         }
@@ -82,6 +81,9 @@ function normalizeCodemodConfigEntry(
     return normalizeNamingConventionCodemodConfig(value, context);
 }
 
+/**
+ * Normalize and validate the `refactor` section of `gmloop.json`.
+ */
 export function normalizeRefactorProjectConfig(config: unknown): RefactorProjectConfig {
     if (config === undefined) {
         return {};
@@ -127,6 +129,9 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
     return normalized;
 }
 
+/**
+ * Load a project-level `gmloop.json` file and normalize its refactor settings.
+ */
 export async function loadGmloopProjectConfig(configPath: string): Promise<GmloopProjectConfig> {
     const rawConfig = await Core.readTextFile(configPath);
     const parsed = Core.parseJsonObjectWithContext(rawConfig, {

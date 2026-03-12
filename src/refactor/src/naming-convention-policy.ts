@@ -60,7 +60,15 @@ type RuntimeResolvedNamingRule = ResolvedNamingRule & {
 };
 
 const NAMING_CATEGORY_SET = new Set(Object.keys(NAMING_CATEGORY_PARENTS));
-const NAMING_CASE_STYLE_SET = new Set(NAMING_CASE_STYLES);
+const NAMING_CASE_STYLE_SET: ReadonlySet<string> = new Set(NAMING_CASE_STYLES);
+
+function isNamingCategory(value: unknown): value is NamingCategory {
+    return typeof value === "string" && NAMING_CATEGORY_SET.has(value);
+}
+
+function isNamingCaseStyle(value: unknown): value is NamingCaseStyle {
+    return typeof value === "string" && NAMING_CASE_STYLE_SET.has(value);
+}
 
 function assertPlainObject(value: unknown, context: string): Record<string, unknown> {
     return Core.assertPlainObject(value, {
@@ -103,10 +111,10 @@ function normalizeNamingRuleConfig(config: unknown, context: string): NamingRule
     const normalized: NamingRuleConfig = {};
 
     if (object.caseStyle !== undefined) {
-        if (typeof object.caseStyle !== "string" || !NAMING_CASE_STYLE_SET.has(object.caseStyle)) {
+        if (!isNamingCaseStyle(object.caseStyle)) {
             throw new TypeError(`${context}.caseStyle must be one of ${NAMING_CASE_STYLES.join(", ")}`);
         }
-        normalized.caseStyle = object.caseStyle as NamingCaseStyle;
+        normalized.caseStyle = object.caseStyle;
     }
 
     if (object.prefix !== undefined) {
@@ -165,15 +173,18 @@ function normalizeExclusiveAffixMap(value: unknown, context: string): Record<str
     const normalized: Record<string, NamingCategory> = {};
 
     for (const [affix, categoryValue] of Object.entries(object)) {
-        if (!NAMING_CATEGORY_SET.has(categoryValue)) {
+        if (!isNamingCategory(categoryValue)) {
             throw new TypeError(`${context}.${affix} must reference a known naming category`);
         }
-        normalized[affix] = categoryValue as NamingCategory;
+        normalized[affix] = categoryValue;
     }
 
     return normalized;
 }
 
+/**
+ * Normalize and validate a user-authored naming convention policy.
+ */
 export function normalizeNamingConventionPolicy(
     policy: NamingConventionPolicy | undefined,
     context = "namingConventionPolicy"
@@ -197,11 +208,11 @@ export function normalizeNamingConventionPolicy(
     const rules: NamingConventionPolicy["rules"] = {};
 
     for (const [rawCategory, rawRule] of Object.entries(rulesObject)) {
-        if (!NAMING_CATEGORY_SET.has(rawCategory)) {
+        if (!isNamingCategory(rawCategory)) {
             throw new TypeError(`${context}.rules contains unknown category ${JSON.stringify(rawCategory)}`);
         }
 
-        const category = rawCategory as NamingCategory;
+        const category = rawCategory;
         rules[category] =
             rawRule === false ? false : normalizeNamingRuleConfig(rawRule, `${context}.rules.${category}`);
     }
@@ -234,6 +245,9 @@ function resolveRuleChain(
     return chain;
 }
 
+/**
+ * Resolve inherited naming rules for every supported naming category.
+ */
 export function resolveNamingConventionRules(policy: NamingConventionPolicy): ResolvedNamingConventionRules {
     const resolved: ResolvedNamingConventionRules = {};
 
@@ -316,6 +330,9 @@ function capitalize(word: string): string {
     return word.length === 0 ? word : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
 }
 
+/**
+ * Rewrite an identifier core into the requested naming case style.
+ */
 export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle): string {
     const words = splitIdentifierWords(value);
     if (words.length === 0) {
@@ -420,6 +437,9 @@ function stripKnownAffixes(
     return coreName;
 }
 
+/**
+ * Evaluate a single identifier against the resolved naming policy.
+ */
 export function evaluateNamingConvention(
     currentName: string,
     category: NamingCategory,

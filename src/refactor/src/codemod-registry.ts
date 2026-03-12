@@ -11,6 +11,9 @@ const REGISTERED_CODEMODS: ReadonlyArray<RegisteredCodemod> = Object.freeze([
     })
 ]);
 
+/**
+ * List codemods that can be configured and executed by the refactor workspace.
+ */
 export function listRegisteredCodemods(): Array<RegisteredCodemod> {
     return [...REGISTERED_CODEMODS];
 }

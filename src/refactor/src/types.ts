@@ -81,13 +81,25 @@ export interface NamingConventionPolicy {
     exclusiveSuffixes?: Record<string, NamingCategory>;
 }
 
+/**
+ * Stable identifiers for codemods exposed through project configuration and the CLI.
+ */
 export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
 
+/**
+ * Refactor-specific configuration loaded from the `refactor` section of `gmloop.json`.
+ */
 export interface RefactorProjectConfig {
     namingConventionPolicy?: NamingConventionPolicy;
     codemods?: Partial<Record<RefactorCodemodId, LoopLengthHoistingCodemodOptions | Record<string, never> | false>>;
 }
 
+/**
+ * Unified project configuration shape loaded from `gmloop.json`.
+ *
+ * The top-level object is intentionally open-ended so formatter and lint
+ * settings can coexist with refactor configuration in the same file.
+ */
 export type GmloopProjectConfig = Record<string, unknown> & {
     refactor?: RefactorProjectConfig;
 };
@@ -473,6 +485,10 @@ export interface KeywordProvider {
     getReservedKeywords(): MaybePromise<Array<string>>;
 }
 
+/**
+ * Semantic adapter surface used by naming-convention codemods to enumerate
+ * renameable identifiers and resources.
+ */
 export interface NamingConventionTargetProvider {
     listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<NamingConventionTarget>>;
 }
@@ -582,6 +598,9 @@ export interface ExecuteLoopLengthHoistingCodemodResult {
     changedFiles: Array<LoopLengthHoistingFileSummary>;
 }
 
+/**
+ * Normalized naming-convention target emitted by semantic adapters.
+ */
 export interface NamingConventionTarget {
     name: string;
     category: NamingCategory;
@@ -591,6 +610,9 @@ export interface NamingConventionTarget {
     occurrences: Array<SymbolOccurrence>;
 }
 
+/**
+ * A single naming-policy violation detected during codemod planning.
+ */
 export interface NamingConventionViolation {
     category: NamingCategory;
     currentName: string;
@@ -600,6 +622,9 @@ export interface NamingConventionViolation {
     message: string;
 }
 
+/**
+ * Naming-convention planning result, including collected edits and any blocking errors.
+ */
 export interface NamingConventionCodemodPlan {
     workspace: WorkspaceEdit;
     violations: Array<NamingConventionViolation>;
@@ -609,6 +634,9 @@ export interface NamingConventionCodemodPlan {
     localRenameCount: number;
 }
 
+/**
+ * Summary emitted for each configured codemod run.
+ */
 export interface ConfiguredCodemodSummary {
     id: RefactorCodemodId;
     changed: boolean;
@@ -617,12 +645,18 @@ export interface ConfiguredCodemodSummary {
     errors: Array<string>;
 }
 
+/**
+ * Aggregate result for a configured codemod execution request.
+ */
 export interface ConfiguredCodemodRunResult {
     dryRun: boolean;
     summaries: Array<ConfiguredCodemodSummary>;
     appliedFiles: Map<string, string>;
 }
 
+/**
+ * Parameters for executing codemods selected from `gmloop.json`.
+ */
 export interface ConfiguredCodemodRunRequest {
     projectRoot: string;
     targetPaths: Array<string>;
@@ -636,6 +670,9 @@ export interface ConfiguredCodemodRunRequest {
     onlyCodemods?: Array<RefactorCodemodId>;
 }
 
+/**
+ * Public metadata describing a codemod registered with the refactor workspace.
+ */
 export interface RegisteredCodemod {
     id: RefactorCodemodId;
     description: string;
