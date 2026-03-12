@@ -217,7 +217,7 @@ function readFilename(context: GMLLanguageContext): string {
 
 function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
     if (!languageOptions || typeof languageOptions !== "object") {
-        return { recovery: "limited" };
+        return { recovery: "none" };
     }
 
     const options = languageOptions as Record<string, unknown>;
@@ -227,7 +227,7 @@ function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
         return { recovery };
     }
 
-    return { recovery: "limited" };
+    return { recovery: "none" };
 }
 
 function readRecoveryMode(parseContext: { languageOptions?: unknown }): RecoveryMode {
@@ -483,7 +483,10 @@ export const gmlLanguage = Object.freeze({
     lineStart: 1,
     columnStart: 0,
     nodeTypeKey: "type",
-    defaultLanguageOptions: Object.freeze({ recovery: "limited" }),
+    // Default to strict parsing so AST-based lint rules never run on recovered
+    // syntax unless callers explicitly opt into limited recovery.
+    // This enforces target-state.md §3.1 (two-tier malformed-code strategy).
+    defaultLanguageOptions: Object.freeze({ recovery: "none" }),
     visitorKeys: GML_VISITOR_KEYS,
     parse(file: GMLLanguageContext, parseContext: { languageOptions?: unknown }) {
         const sourceText = readSourceText(file);

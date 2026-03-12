@@ -117,8 +117,11 @@ async function lintTextWithConfiguredRules(
     ESLintImplementation: typeof ESLint,
     sourceText: string,
     rules: Linter.RulesRecord,
-    fix: boolean
+    fix: boolean,
+    languageOptions?: { recovery: "none" | "limited" }
 ) {
+    const normalizedLanguageOptions = languageOptions ?? { recovery: "none" };
+
     const eslint = new ESLintImplementation({
         overrideConfigFile: true,
         fix,
@@ -129,6 +132,7 @@ async function lintTextWithConfiguredRules(
                     gml: Lint.plugin
                 },
                 language: "gml/gml",
+                languageOptions: normalizedLanguageOptions,
                 rules
             }
         ]
@@ -191,7 +195,7 @@ void test("language object pins ESLint v9 language behavior fields", () => {
     assertEquals(language.lineStart, 1);
     assertEquals(language.columnStart, 0);
     assertEquals(language.nodeTypeKey, "type");
-    assert.deepEqual(language.defaultLanguageOptions, { recovery: "limited" });
+    assert.deepEqual(language.defaultLanguageOptions, { recovery: "none" });
     assert.deepEqual(language.visitorKeys, {});
 });
 
@@ -410,7 +414,8 @@ void test("require-argument-separators reports precise location and fixes commen
             "gml/no-globalvar": "off",
             "gml/require-argument-separators": "error"
         },
-        false
+        false,
+        { recovery: "limited" }
     );
 
     assertEquals(diagnosticResult.fatalErrorCount, 0);
@@ -425,7 +430,8 @@ void test("require-argument-separators reports precise location and fixes commen
             "gml/no-globalvar": "off",
             "gml/require-argument-separators": "error"
         },
-        true
+        true,
+        { recovery: "limited" }
     );
     assertEquals(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
