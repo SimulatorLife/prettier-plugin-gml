@@ -1003,8 +1003,14 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
 
+            // Cancel (not flush) all pending debounced handlers. Flushing would invoke each
+            // callback immediately after the watcher has already been closed, spawning new
+            // async file reads and — for transiently-empty files — new setTimeout timers via
+            // delayFileReadRetry() that have no abort-signal protection when cleanup is
+            // triggered by SIGINT/SIGTERM. Those timers outlive the cleanup phase and
+            // constitute a resource leak. Cancelling discards the pending work cleanly.
             for (const debouncedHandler of runtimeContext.debouncedHandlers.values()) {
-                debouncedHandler.flush();
+                debouncedHandler.cancel();
             }
             runtimeContext.debouncedHandlers.clear();
 
