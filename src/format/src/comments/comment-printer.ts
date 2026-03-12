@@ -209,11 +209,12 @@ function printComment(commentPath, options) {
                     comment.trailing !== true && (comment as PrinterComment).followingNode != null;
 
                 const hasSourceLeadingBlankLine = hasSimpleLeadingBlankLineInSource(comment, options?.originalText);
-                const hasLeadingWhitespaceBlankLine = hasLeadingBlankLineInWhitespace(comment);
+                // When the preceding significant character is inside a comment, Prettier already
+                // preserves blank lines between consecutive leading comments. Emitting an extra
+                // hardline here too would produce a double blank line, so defer to Prettier.
+                const prevIsInsideComment = isPreviousSignificantCharInsideComment(comment, options?.originalText);
                 const shouldPrependDecorativeBlankLine =
-                    comment._gmlForceLeadingBlankLine !== true &&
-                    !hasLeadingWhitespaceBlankLine &&
-                    hasSourceLeadingBlankLine;
+                    comment._gmlForceLeadingBlankLine !== true && !prevIsInsideComment && hasSourceLeadingBlankLine;
 
                 if (isAttachedLeadingComment) {
                     comment.leadingWS = "";
@@ -294,12 +295,23 @@ function printComment(commentPath, options) {
                 previousSignificantCharacter === "}" &&
                 previousSignificantIndex !== null &&
                 isSourceIndexInsideLineComment(previousSignificantIndex, options?.originalText);
+            // When the preceding significant content is inside a comment, Prettier already
+            // handles blank-line preservation between consecutive leading comments in its core
+            // algorithm. Adding a hardline here too would produce a double blank line. Defer to
+            // Prettier by suppressing our blank-line addition whenever the previous significant
+            // character belongs to a comment token (either directly inside a `//` line comment,
+            // or ends with `/` which is the case for block-comment slash suffixes like `*/...`).
+            const previousSignificantIsInsideComment = isPreviousSignificantCharInsideComment(
+                comment,
+                options?.originalText
+            );
             const allowSourceDrivenBlankLinePrepend =
                 (sourceIndentationWidth === 0 || previousSignificantCharacter === "{") &&
                 previousSignificantCharacter !== null &&
                 previousSignificantCharacter !== "/" &&
                 previousSignificantCharacter !== "*" &&
                 !previousSignificantIsCommentedOutBrace &&
+                !previousSignificantIsInsideComment &&
                 !hasTopLevelDocLineImmediatelyBeforeComment(comment, options?.originalText);
             let normalized = formatDocLikeLineComment(comment, formattingOptions, options?.originalText) ?? "";
             if (normalized === "") {
@@ -316,8 +328,13 @@ function printComment(commentPath, options) {
             const isMethodListCommentLine = /^\/\/\s+\.[A-Za-z_]/.test(normalizedTrimmedStart);
             const preservedCommentShouldPrependBlankLine =
                 comment._gmlForceLeadingBlankLine === true ||
+                // `comment.leadingWS` stores source whitespace that Prettier never renders for
+                // regular leading comments. Checking `!hasLeadingBlankLineInWhitespace` against it
+                // incorrectly blocks blank-line emission for banner comments when the source has a
+                // blank line (leadingWS would be "\n\n", making the old guard false). Use the
+                // source span directly so the presence of a blank line in the original source
+                // deterministically triggers blank-line preservation in the output.
                 (allowSourceDrivenBlankLinePrepend &&
-                    !hasLeadingBlankLineInWhitespace(comment) &&
                     hasSimpleLeadingBlankLineInSource(comment, options?.originalText));
             const normalizedCommentShouldPrependBlankLine =
                 comment._gmlForceLeadingBlankLine === true ||
@@ -388,6 +405,22 @@ function getCommentStartIndex(comment) {
     return null;
 }
 
+/**
+ * Returns true when the most recent non-whitespace character before `comment`
+ * in the source belongs to a comment token (i.e. is the last char of a line
+ * comment or is `/` from a block-comment slash suffix like `*\/...`).
+ * When true, Prettier's core already preserves blank lines between consecutive
+ * leading comments, so the printer must not emit an extra hardline.
+ */
+function isPreviousSignificantCharInsideComment(comment, originalText): boolean {
+    const prevIndex = resolvePreviousSignificantSourceIndexBeforeComment(comment, originalText);
+    const prevChar = prevIndex !== null ? (originalText as string)[prevIndex] : null;
+    return (
+        prevChar === "/" ||
+        (prevIndex !== null && isSourceIndexInsideLineComment(prevIndex, originalText))
+    );
+}
+
 function resolveCommentSourceSpan(comment, originalText) {
     if (!Core.isObjectLike(comment)) {
         return null;
@@ -405,11 +438,6 @@ function resolveCommentSourceSpan(comment, originalText) {
     }
 
     return { startIndex, endIndex, originalText };
-}
-
-function hasLeadingBlankLineInWhitespace(comment): boolean {
-    const leadingWhitespace = typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
-    return /\n[\t ]*\n/u.test(leadingWhitespace);
 }
 
 function resolveCommentSourceIndentationWidth(comment, originalText): number | null {
