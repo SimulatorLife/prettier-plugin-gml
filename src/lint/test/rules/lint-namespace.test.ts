@@ -32,9 +32,15 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
     }
 
     assertEquals((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlNoLegacyApi, "gml/no-legacy-api");
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlPreferArrayPush, "gml/prefer-array-push");
     assertEquals(
         (Lint.ruleIds as Record<string, string>).GmlPreferCompoundAssignments,
         "gml/prefer-compound-assignments"
+    );
+    assertEquals(
+        (Lint.ruleIds as Record<string, string>).GmlPreferIncrementDecrementOperators,
+        "gml/prefer-increment-decrement-operators"
     );
     assertEquals((Lint.ruleIds as Record<string, string>).GmlPreferDirectReturn, "gml/prefer-direct-return");
     assertEquals((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
@@ -59,9 +65,12 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assertEquals(recommended.language, "gml/gml");
     assertEquals(recommended.rules["gml/require-argument-separators"], "error");
     assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
-    assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
+    assertEquals(recommended.rules["gml/no-legacy-api"], "warn");
+    assertEquals(recommended.rules["gml/no-scientific-notation"], "error");
+    assertEquals(recommended.rules["gml/prefer-array-push"], "warn");
     assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
     assertEquals(recommended.rules["gml/prefer-direct-return"], "warn");
+    assertEquals(recommended.rules["gml/prefer-increment-decrement-operators"], "warn");
     assertEquals(recommended.rules["gml/prefer-loop-invariant-expressions"], "warn");
     assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
 

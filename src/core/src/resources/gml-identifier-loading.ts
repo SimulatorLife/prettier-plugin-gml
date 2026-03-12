@@ -9,6 +9,37 @@ export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl("gml-identi
 export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath("gml-identifiers.json");
 
 /**
+ * Replacement semantics for a deprecated built-in GML identifier.
+ */
+export type DeprecatedIdentifierReplacementKind = "direct-rename" | "manual-migration" | "none";
+
+/**
+ * Source-code shape that a deprecated built-in identifier can appear in.
+ */
+export type DeprecatedIdentifierLegacyUsage = "call" | "identifier" | "indexed-identifier" | "call-or-identifier";
+
+/**
+ * Canonical lint owner for deprecated identifiers that overlap with Feather
+ * parity diagnostics.
+ */
+export type DeprecatedIdentifierDiagnosticOwner = "gml" | "feather";
+
+/**
+ * Normalized deprecated identifier metadata derived from the bundled manual
+ * artifact.
+ */
+export type DeprecatedIdentifierMetadataEntry = Readonly<{
+    name: string;
+    type: string;
+    replacement: string | null;
+    replacementKind: DeprecatedIdentifierReplacementKind;
+    legacyCategory: string | null;
+    legacyUsage: DeprecatedIdentifierLegacyUsage;
+    diagnosticOwner: DeprecatedIdentifierDiagnosticOwner | null;
+    descriptor: Readonly<Record<string, unknown>>;
+}>;
+
+/**
  * Load the bundled identifier metadata JSON artefact.
  *
  * Centralizing path resolution keeps consumers from depending on the
@@ -23,6 +54,7 @@ export function loadBundledIdentifierMetadata() {
 }
 
 let cachedIdentifierMetadata: unknown = null;
+let cachedDeprecatedIdentifierEntries: ReadonlyArray<DeprecatedIdentifierMetadataEntry> | null = null;
 
 /**
  * Cached Set of manual function names to avoid re-allocating on every call.
@@ -64,6 +96,7 @@ export function getIdentifierMetadata() {
  */
 export function clearIdentifierMetadataCache() {
     cachedIdentifierMetadata = null;
+    cachedDeprecatedIdentifierEntries = null;
     cachedManualFunctionNames = null;
     cachedReservedIdentifierNames.clear();
 }
@@ -105,10 +138,94 @@ export function normalizeIdentifierMetadataEntries(metadata) {
     }, []);
 }
 
+/**
+ * Load normalized deprecated identifier entries from the bundled metadata.
+ *
+ * The result is cached and intentionally preserves the original descriptor so
+ * lint consumers can inspect additional metadata fields without reparsing the
+ * JSON payload.
+ *
+ * @returns Readonly array of deprecated identifier metadata entries.
+ */
+export function loadDeprecatedIdentifierEntries(): ReadonlyArray<DeprecatedIdentifierMetadataEntry> {
+    if (cachedDeprecatedIdentifierEntries !== null) {
+        return cachedDeprecatedIdentifierEntries;
+    }
+
+    const metadata = loadIdentifierMetadata();
+    const entries = normalizeIdentifierMetadataEntries(metadata);
+    const deprecatedEntries: Array<DeprecatedIdentifierMetadataEntry> = [];
+
+    for (const entry of entries) {
+        const descriptorRecord = entry.descriptor as Readonly<Record<string, unknown>>;
+        if (descriptorRecord.deprecated !== true) {
+            continue;
+        }
+
+        const replacement = getStringField(descriptorRecord, "replacement");
+        deprecatedEntries.push(
+            Object.freeze({
+                name: entry.name,
+                type: entry.type,
+                replacement,
+                replacementKind: normalizeDeprecatedReplacementKind(descriptorRecord, replacement),
+                legacyCategory: getStringField(descriptorRecord, "legacyCategory"),
+                legacyUsage: normalizeDeprecatedLegacyUsage(descriptorRecord, entry.type),
+                diagnosticOwner: normalizeDeprecatedDiagnosticOwner(descriptorRecord),
+                descriptor: descriptorRecord
+            })
+        );
+    }
+
+    cachedDeprecatedIdentifierEntries = Object.freeze(deprecatedEntries);
+    return cachedDeprecatedIdentifierEntries;
+}
+
 type IdentifierMetadataDescriptor = {
     type: string;
     [key: string]: unknown;
 };
+
+function getStringField(record: Readonly<Record<string, unknown>>, key: string): string | null {
+    const value = record[key];
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeDeprecatedReplacementKind(
+    record: Readonly<Record<string, unknown>>,
+    replacement: string | null
+): DeprecatedIdentifierReplacementKind {
+    const replacementKind = record.replacementKind;
+    if (replacementKind === "direct-rename" || replacementKind === "manual-migration" || replacementKind === "none") {
+        return replacementKind;
+    }
+
+    return replacement ? "direct-rename" : "none";
+}
+
+function normalizeDeprecatedLegacyUsage(
+    record: Readonly<Record<string, unknown>>,
+    normalizedType: string
+): DeprecatedIdentifierLegacyUsage {
+    const legacyUsage = record.legacyUsage;
+    if (
+        legacyUsage === "call" ||
+        legacyUsage === "identifier" ||
+        legacyUsage === "indexed-identifier" ||
+        legacyUsage === "call-or-identifier"
+    ) {
+        return legacyUsage;
+    }
+
+    return normalizedType === "function" ? "call" : "identifier";
+}
+
+function normalizeDeprecatedDiagnosticOwner(
+    record: Readonly<Record<string, unknown>>
+): DeprecatedIdentifierDiagnosticOwner | null {
+    const diagnosticOwner = record.diagnosticOwner;
+    return diagnosticOwner === "gml" || diagnosticOwner === "feather" ? diagnosticOwner : null;
+}
 
 function normalizeIdentifierDescriptor(name: string, descriptor: unknown): IdentifierMetadataDescriptor | null {
     if (!isPlainObject(descriptor)) {

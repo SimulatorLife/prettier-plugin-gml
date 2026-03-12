@@ -1,8 +1,12 @@
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
 import process from "node:process";
 import vm from "node:vm";
 
 import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
+import { parseHTML } from "linkedom";
+import type { Element } from "linkedom/types/interface/element.js";
 
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
@@ -33,6 +37,7 @@ const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot("resources", "gml-identifiers.js
 const DEFAULT_GML_SOURCE_PATH = "Manual/contents/assets/scripts/gml.js";
 const DEFAULT_KEYWORDS_PATH = "ZeusDocs_keywords.json";
 const DEFAULT_TAGS_PATH = "ZeusDocs_tags.json";
+const DEFAULT_OBSOLETE_FUNCTIONS_PATH = "Manual/contents/Additional_Information/Obsolete_Functions.htm";
 
 const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
@@ -76,6 +81,111 @@ interface ManualIdentifierMetadata {
     type: string;
     source: string;
 }
+
+type DeprecatedReplacementKind = "direct-rename" | "manual-migration" | "none";
+type DeprecatedLegacyUsage = "call" | "identifier" | "indexed-identifier" | "call-or-identifier";
+type DeprecatedDiagnosticOwner = "gml" | "feather";
+
+type IdentifierMapEntry = {
+    type: string;
+    sources: Set<string>;
+    manualPath?: string;
+    tags: Set<string>;
+    deprecated: boolean;
+    replacement?: string;
+    replacementKind?: DeprecatedReplacementKind;
+    legacyCategory?: string;
+    legacyUsage?: DeprecatedLegacyUsage;
+    diagnosticOwner?: DeprecatedDiagnosticOwner;
+};
+
+type IdentifierMapMergeData = Readonly<{
+    type?: string;
+    sources?: ReadonlyArray<string>;
+    manualPath?: string;
+    tags?: ReadonlyArray<string>;
+    deprecated?: boolean;
+    replacement?: string;
+    replacementKind?: DeprecatedReplacementKind;
+    legacyCategory?: string;
+    legacyUsage?: DeprecatedLegacyUsage;
+    diagnosticOwner?: DeprecatedDiagnosticOwner;
+}>;
+
+type LegacySupplement = Readonly<{
+    name: string;
+    type: string;
+    deprecated: true;
+    replacement?: string;
+    replacementKind?: DeprecatedReplacementKind;
+    legacyCategory?: string;
+    legacyUsage: DeprecatedLegacyUsage;
+    diagnosticOwner?: DeprecatedDiagnosticOwner;
+}>;
+
+type ObsoleteIdentifierDescriptor = Readonly<{
+    name: string;
+    type: string;
+    legacyCategory: string;
+    legacyUsage: DeprecatedLegacyUsage;
+}>;
+
+type ManualDeprecatedReplacement = Readonly<{
+    replacement: string;
+    replacementKind: DeprecatedReplacementKind;
+}>;
+
+type ManualPayloads = Readonly<{
+    gmlSource: string;
+    keywords: string;
+    tags: string;
+    obsoleteFunctions: string;
+}>;
+
+const LEGACY_IDENTIFIER_SUPPLEMENTS: ReadonlyArray<LegacySupplement> = Object.freeze([
+    Object.freeze({
+        name: "os_win32",
+        type: "literal",
+        deprecated: true,
+        replacement: "os_windows",
+        replacementKind: "direct-rename",
+        legacyCategory: "Feather Deprecated Constants",
+        legacyUsage: "identifier",
+        diagnosticOwner: "feather"
+    })
+]);
+
+const DIRECT_REPLACEMENT_SUPPLEMENTS = Object.freeze(
+    new Map<string, Omit<LegacySupplement, "name" | "deprecated" | "type" | "legacyUsage">>([
+        [
+            "array_length_1d",
+            Object.freeze({
+                replacement: "array_length",
+                replacementKind: "direct-rename",
+                legacyCategory: "Deprecated Arrays",
+                diagnosticOwner: "feather"
+            })
+        ],
+        [
+            "array_height_2d",
+            Object.freeze({
+                replacement: "array_height",
+                replacementKind: "direct-rename",
+                legacyCategory: "Deprecated Arrays",
+                diagnosticOwner: "feather"
+            })
+        ],
+        [
+            "array_length_2d",
+            Object.freeze({
+                replacement: "array_length",
+                replacementKind: "direct-rename",
+                legacyCategory: "Deprecated Arrays",
+                diagnosticOwner: "gml"
+            })
+        ]
+    ])
+);
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -271,7 +381,86 @@ const TYPE_PRIORITY = new Map([
     ["function", 90]
 ]);
 
-function mergeEntry(map, identifier, data) {
+const REPLACEMENT_PRIORITY = new Map<DeprecatedReplacementKind, number>([
+    ["none", 0],
+    ["manual-migration", 1],
+    ["direct-rename", 2]
+]);
+
+function parseDocument(html: string) {
+    return parseHTML(html).document;
+}
+
+function getDirectChildren(element: Element | null | undefined, selector?: string): Array<Element> {
+    const predicate = selector ? (child: Element) => child.matches?.(selector) === true : () => true;
+    return Array.from(element?.children ?? []).filter(predicate);
+}
+
+function replaceBreaksWithNewlines(clone: Element) {
+    const document = clone.ownerDocument;
+    for (const br of clone.querySelectorAll("br")) {
+        br.parentNode?.replaceChild(document.createTextNode("\n"), br);
+    }
+}
+
+function normalizeCellIdentifierText(rawText: string): string {
+    return rawText.replaceAll("\u00A0", " ").replaceAll(/\s+/g, "");
+}
+
+function extractCellIdentifierText(cell: Element | null | undefined): string | null {
+    if (!cell) {
+        return null;
+    }
+
+    const clone = cell.cloneNode(true) as Element;
+    replaceBreaksWithNewlines(clone);
+    const normalized = normalizeCellIdentifierText(clone.textContent ?? "");
+    return normalized.length > 0 ? normalized : null;
+}
+
+function looksLikeFunctionIdentifier(identifierName: string): boolean {
+    return /^(?:action_|achievement_|ads_|analytics_|audio_|background_(?:get|set|create|add|replace|delete|duplicate|assign|save|prefetch|flush)|buffer_|d3d_|display_|draw_|facebook_|iap_|layer_|matrix_|network_|object_(?:get|set)|playhaven_|pocketchange_|room_|script_|shop_|sound_|steam_|surface_|tile_|vertex_|winphone_)/u.test(
+        identifierName
+    );
+}
+
+function inferLegacyUsageFromIdentifierName(identifierName: string): DeprecatedLegacyUsage {
+    if (
+        /^(?:background_|view_|show_|caption_|argument_relative$|room_caption$|room_speed$|transition_|game_guid$|error_|gamemaker_|secure_mode$|buffer_surface_copy$|os_)/u.test(
+            identifierName
+        )
+    ) {
+        return "identifier";
+    }
+
+    return looksLikeFunctionIdentifier(identifierName) ? "call" : "call-or-identifier";
+}
+
+function inferLegacyTypeFromUsage(legacyUsage: DeprecatedLegacyUsage): string {
+    return legacyUsage === "call" ? "function" : "variable";
+}
+
+function parseIndexedLegacyIdentifier(identifierText: string): string | null {
+    const match = /^([A-Za-z_][A-Za-z0-9_]*)\[\d+\.\.\d+\]$/u.exec(identifierText);
+    return match?.[1] ?? null;
+}
+
+function normalizeDeprecatedReplacementKind(
+    replacementKind: unknown,
+    replacement: string | undefined
+): DeprecatedReplacementKind {
+    if (replacementKind === "direct-rename" || replacementKind === "manual-migration" || replacementKind === "none") {
+        return replacementKind;
+    }
+
+    return typeof replacement === "string" && replacement.length > 0 ? "direct-rename" : "none";
+}
+
+function getReplacementPriority(replacementKind: DeprecatedReplacementKind | undefined): number {
+    return REPLACEMENT_PRIORITY.get(replacementKind ?? "none") ?? 0;
+}
+
+function mergeEntry(map: Map<string, IdentifierMapEntry>, identifier: string, data: IdentifierMapMergeData) {
     const current = map.get(identifier);
     const sourceList = data.sources ?? [];
     const tagList = data.tags ?? [];
@@ -285,7 +474,12 @@ function mergeEntry(map, identifier, data) {
             sources: sources.length === 0 ? new Set() : new Set(sources),
             manualPath: data.manualPath,
             tags: tags.length === 0 ? new Set() : new Set(tags),
-            deprecated: Boolean(data.deprecated)
+            deprecated: Boolean(data.deprecated),
+            replacement: data.replacement,
+            replacementKind: normalizeDeprecatedReplacementKind(data.replacementKind, data.replacement),
+            legacyCategory: data.legacyCategory,
+            legacyUsage: data.legacyUsage,
+            diagnosticOwner: data.diagnosticOwner
         });
         return;
     }
@@ -301,6 +495,29 @@ function mergeEntry(map, identifier, data) {
     }
     if (data.deprecated) {
         current.deprecated = true;
+    }
+    if (data.legacyCategory && !current.legacyCategory) {
+        current.legacyCategory = data.legacyCategory;
+    }
+    if (data.legacyUsage && !current.legacyUsage) {
+        current.legacyUsage = data.legacyUsage;
+    }
+    if (data.diagnosticOwner && !current.diagnosticOwner) {
+        current.diagnosticOwner = data.diagnosticOwner;
+    }
+
+    const incomingReplacementKind = normalizeDeprecatedReplacementKind(data.replacementKind, data.replacement);
+    if (
+        data.replacement &&
+        getReplacementPriority(incomingReplacementKind) >= getReplacementPriority(current.replacementKind)
+    ) {
+        current.replacement = data.replacement;
+        current.replacementKind = incomingReplacementKind;
+    } else if (
+        current.replacement === undefined &&
+        getReplacementPriority(incomingReplacementKind) > getReplacementPriority(current.replacementKind)
+    ) {
+        current.replacementKind = incomingReplacementKind;
     }
 
     const incomingType = data.type ?? "unknown";
@@ -349,7 +566,7 @@ function assertManualIdentifierArray(values: unknown, { identifier, source }: Ma
 }
 
 function collectManualArrayIdentifiers(
-    identifierMap: Map<string, unknown>,
+    identifierMap: Map<string, IdentifierMapEntry>,
     values: unknown,
     { type, source }: ManualIdentifierMetadata,
     { identifier }: ManualIdentifierArrayDescriptor = {}
@@ -438,7 +655,7 @@ function collectParsedManualIdentifierArrays({ identifierMap, parsedArrays, verb
  * focused on orchestration while preserving the original timeSync reporting.
  */
 function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
-    const identifierMap = new Map();
+    const identifierMap = new Map<string, IdentifierMapEntry>();
     const parsedArrays = parseManualIdentifierArrays({
         gmlSource,
         vmEvalTimeoutMs,
@@ -455,7 +672,165 @@ function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
 }
 
 function shouldIncludeManualReference(normalizedPath) {
-    return normalizedPath.startsWith("3_Scripting") && normalizedPath.includes("4_GML_Reference");
+    return normalizedPath.startsWith("3_Scripting");
+}
+
+function classifyObsoleteTableIdentifiers(
+    table: Element,
+    legacyCategory: string,
+    explicitUsageHint: DeprecatedLegacyUsage | null
+): Array<ObsoleteIdentifierDescriptor> {
+    const identifiers: Array<ObsoleteIdentifierDescriptor> = [];
+
+    for (const row of table.querySelectorAll("tr")) {
+        for (const cell of getDirectChildren(row, "td")) {
+            const identifierText = extractCellIdentifierText(cell);
+            if (!identifierText) {
+                continue;
+            }
+
+            const indexedIdentifier = parseIndexedLegacyIdentifier(identifierText);
+            const normalizedName = indexedIdentifier ?? identifierText;
+            const legacyUsage = indexedIdentifier
+                ? "indexed-identifier"
+                : (explicitUsageHint ?? inferLegacyUsageFromIdentifierName(normalizedName));
+
+            identifiers.push(
+                Object.freeze({
+                    name: normalizedName,
+                    type: inferLegacyTypeFromUsage(legacyUsage),
+                    legacyCategory,
+                    legacyUsage
+                })
+            );
+        }
+    }
+
+    return identifiers;
+}
+
+function inferTableLegacyUsage(paragraphText: string | null): DeprecatedLegacyUsage | null {
+    if (!paragraphText) {
+        return null;
+    }
+
+    const normalizedText = paragraphText.replaceAll("\u00A0", " ").toLowerCase();
+    if (normalizedText.includes("variables and functions")) {
+        return null;
+    }
+    if (
+        normalizedText.includes("functions are obsolete") ||
+        normalizedText.includes("functions are considered obsolete")
+    ) {
+        return "call";
+    }
+    if (normalizedText.includes("variables are no longer required") || normalizedText.includes("global variables")) {
+        return "identifier";
+    }
+
+    return null;
+}
+
+function parseObsoleteIdentifierTableEntries(
+    obsoleteFunctionsHtml: string
+): ReadonlyArray<ObsoleteIdentifierDescriptor> {
+    const document = parseDocument(obsoleteFunctionsHtml);
+    const identifiers: Array<ObsoleteIdentifierDescriptor> = [];
+    const seenKeys = new Set<string>();
+
+    for (const headingLink of document.querySelectorAll("a.dropspot[data-target]")) {
+        const legacyCategory = headingLink.textContent?.replaceAll("\u00A0", " ").replaceAll(/\s+/g, " ").trim() ?? "";
+        if (legacyCategory.length === 0) {
+            continue;
+        }
+
+        const section = headingLink.parentElement?.nextElementSibling;
+        if (!section) {
+            continue;
+        }
+
+        let currentUsageHint: DeprecatedLegacyUsage | null = null;
+        for (const child of getDirectChildren(section)) {
+            if (child.matches?.("p")) {
+                currentUsageHint = inferTableLegacyUsage(child.textContent);
+                continue;
+            }
+            if (!child.matches?.("table")) {
+                continue;
+            }
+
+            for (const identifier of classifyObsoleteTableIdentifiers(child, legacyCategory, currentUsageHint)) {
+                const dedupeKey = `${identifier.legacyUsage}:${identifier.name}`;
+                if (seenKeys.has(dedupeKey)) {
+                    continue;
+                }
+                seenKeys.add(dedupeKey);
+                identifiers.push(identifier);
+            }
+        }
+    }
+
+    return Object.freeze(identifiers);
+}
+
+async function collectManualHtmlBasenames(
+    directoryPath: string,
+    relativeDirectoryPath = ""
+): Promise<Map<string, string | null>> {
+    const basenames = new Map<string, string | null>();
+    const entries = await readdir(directoryPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const absolutePath = path.join(directoryPath, entry.name);
+        const relativePath =
+            relativeDirectoryPath.length > 0 ? path.posix.join(relativeDirectoryPath, entry.name) : entry.name;
+        if (entry.isDirectory()) {
+            const childBasenames = await collectManualHtmlBasenames(absolutePath, relativePath);
+            for (const [basename, candidatePath] of childBasenames) {
+                if (!basenames.has(basename)) {
+                    basenames.set(basename, candidatePath);
+                    continue;
+                }
+
+                const current = basenames.get(basename) ?? null;
+                if (current !== candidatePath) {
+                    basenames.set(basename, null);
+                }
+            }
+            continue;
+        }
+
+        if (path.extname(entry.name).toLowerCase() !== ".htm") {
+            continue;
+        }
+
+        const basename = path.basename(entry.name, ".htm");
+        if (!basenames.has(basename)) {
+            basenames.set(basename, relativePath.replaceAll(path.sep, "/"));
+            continue;
+        }
+
+        const current = basenames.get(basename) ?? null;
+        if (current !== relativePath) {
+            basenames.set(basename, null);
+        }
+    }
+
+    return basenames;
+}
+
+function extractDeprecatedReplacementFromManualHtml(html: string): ManualDeprecatedReplacement | null {
+    const directReplacementMatch = /replaced by\s+(?:<span[^>]*>\s*)?<a[^>]*>([A-Za-z_][A-Za-z0-9_]*)\(\)<\/a>/iu.exec(
+        html
+    );
+    if (!directReplacementMatch?.[1]) {
+        return null;
+    }
+
+    return Object.freeze({
+        replacement: directReplacementMatch[1],
+        replacementKind: "direct-rename" as const
+    });
 }
 
 function findManualTagEntry(manualTags, normalizedPath) {
@@ -502,14 +877,92 @@ function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
 
         const tags = resolveManualTagsForPath(manualTags, normalizedPath);
         const type = classifyFromPath(normalizedPath, tags);
-        const deprecated = isManualEntryDeprecated(normalizedPath, tags);
+        const directReplacementSupplement = DIRECT_REPLACEMENT_SUPPLEMENTS.get(identifier);
+        const deprecated = isManualEntryDeprecated(normalizedPath, tags) || Boolean(directReplacementSupplement);
 
         mergeEntry(identifierMap, identifier, {
             type,
             sources: [MANUAL_KEYWORD_SOURCE],
             manualPath: normalizedPath,
             tags,
-            deprecated
+            deprecated,
+            replacement: directReplacementSupplement?.replacement,
+            replacementKind: directReplacementSupplement?.replacementKind,
+            legacyCategory: directReplacementSupplement?.legacyCategory,
+            legacyUsage: directReplacementSupplement ? "call" : type === "function" ? "call" : "identifier",
+            diagnosticOwner: directReplacementSupplement?.diagnosticOwner
+        });
+    }
+}
+
+function mergeLegacyIdentifierSupplements(identifierMap: Map<string, IdentifierMapEntry>) {
+    for (const supplement of LEGACY_IDENTIFIER_SUPPLEMENTS) {
+        mergeEntry(identifierMap, supplement.name, {
+            type: supplement.type,
+            sources: ["manual:legacy-supplement"],
+            deprecated: supplement.deprecated,
+            replacement: supplement.replacement,
+            replacementKind: supplement.replacementKind,
+            legacyCategory: supplement.legacyCategory,
+            legacyUsage: supplement.legacyUsage,
+            diagnosticOwner: supplement.diagnosticOwner
+        });
+    }
+}
+
+function mergeObsoleteIdentifierEntries(
+    identifierMap: Map<string, IdentifierMapEntry>,
+    obsoleteIdentifiers: ReadonlyArray<ObsoleteIdentifierDescriptor>
+) {
+    for (const identifier of obsoleteIdentifiers) {
+        mergeEntry(identifierMap, identifier.name, {
+            type: identifier.type,
+            sources: ["manual:Obsolete_Functions.htm"],
+            manualPath: "Additional_Information/Obsolete_Functions",
+            tags: ["obsolete_functions"],
+            deprecated: true,
+            replacementKind: "manual-migration",
+            legacyCategory: identifier.legacyCategory,
+            legacyUsage: identifier.legacyUsage
+        });
+    }
+}
+
+async function mergeDeprecatedReplacementMetadataFromManualPages(
+    identifierMap: Map<string, IdentifierMapEntry>,
+    manualRoot: string
+) {
+    const manualContentsPath = path.join(manualRoot, "Manual", "contents");
+    const manualBasenames = await collectManualHtmlBasenames(manualContentsPath);
+    const pageCache = new Map<string, string>();
+
+    for (const [identifier, entry] of identifierMap.entries()) {
+        if (!entry.deprecated || entry.replacement) {
+            continue;
+        }
+
+        const relativePagePath = manualBasenames.get(identifier);
+        if (relativePagePath === undefined || relativePagePath === null) {
+            continue;
+        }
+
+        const pageHtml =
+            pageCache.get(relativePagePath) ??
+            (await readFile(path.join(manualContentsPath, relativePagePath), "utf8").then((contents) => {
+                pageCache.set(relativePagePath, contents);
+                return contents;
+            }));
+        const replacement = extractDeprecatedReplacementFromManualHtml(pageHtml);
+        if (!replacement) {
+            continue;
+        }
+
+        mergeEntry(identifierMap, identifier, {
+            type: entry.type,
+            sources: ["manual:deprecated-page"],
+            replacement: replacement.replacement,
+            replacementKind: replacement.replacementKind,
+            legacyUsage: entry.legacyUsage ?? (entry.type === "function" ? "call" : "identifier")
         });
     }
 }
@@ -522,7 +975,13 @@ function buildIdentifierMapFromManualPayloads({ payloads, vmEvalTimeoutMs, verbo
     });
 }
 
-function decodeManualKeywordAndTagPayloads({ payloads, verbose }) {
+function decodeManualKeywordAndTagPayloads({
+    payloads,
+    verbose
+}: {
+    payloads: ManualPayloads;
+    verbose: { parsing?: boolean };
+}) {
     if (verbose.parsing) {
         console.log("Merging manual keyword metadata…");
     }
@@ -532,7 +991,7 @@ function decodeManualKeywordAndTagPayloads({ payloads, verbose }) {
         () =>
             decodeManualKeywordsPayload(payloads?.keywords, {
                 source: "ZeusDocs_keywords.json"
-            }),
+            }) as Record<string, string>,
         { verbose }
     );
     const manualTags = timeSync(
@@ -540,17 +999,49 @@ function decodeManualKeywordAndTagPayloads({ payloads, verbose }) {
         () =>
             decodeManualTagsPayload(payloads?.tags, {
                 source: "ZeusDocs_tags.json"
-            }),
+            }) as Record<string, string>,
         { verbose }
     );
 
     return { manualKeywords, manualTags };
 }
 
-function classifyManualIdentifierMetadata({ identifierMap, manualKeywords, manualTags, verbose }) {
+function classifyManualIdentifierMetadata({
+    identifierMap,
+    manualKeywords,
+    manualTags,
+    verbose
+}: {
+    identifierMap: Map<string, IdentifierMapEntry>;
+    manualKeywords: Record<string, string>;
+    manualTags: Record<string, string>;
+    verbose: { parsing?: boolean };
+}) {
     timeSync(
         "Classifying manual identifiers",
         () => classifyManualIdentifiers(identifierMap, manualKeywords, manualTags),
+        { verbose }
+    );
+}
+
+function collectObsoleteIdentifierMetadata({
+    identifierMap,
+    payloads,
+    verbose
+}: {
+    identifierMap: Map<string, IdentifierMapEntry>;
+    payloads: ManualPayloads;
+    verbose: { parsing?: boolean };
+}) {
+    timeSync(
+        "Collecting obsolete identifier metadata",
+        () => {
+            mergeObsoleteIdentifierEntries(
+                identifierMap,
+                parseObsoleteIdentifierTableEntries(payloads.obsoleteFunctions)
+            );
+            mergeLegacyIdentifierSupplements(identifierMap);
+        },
         { verbose }
     );
 }
@@ -588,7 +1079,7 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, manualCo
  * while keeping {@link runGenerateGmlIdentifiers} free from map mutations and
  * tag bookkeeping.
  */
-function buildIdentifierArtifact({ payloads, manualSource, manualCommitHash, vmEvalTimeoutMs, verbose }) {
+async function buildIdentifierArtifact({ payloads, manualSource, manualCommitHash, vmEvalTimeoutMs, verbose }) {
     const identifierMap = buildIdentifierMapFromManualPayloads({
         payloads,
         vmEvalTimeoutMs,
@@ -606,6 +1097,22 @@ function buildIdentifierArtifact({ payloads, manualSource, manualCommitHash, vmE
         manualTags,
         verbose
     });
+
+    collectObsoleteIdentifierMetadata({
+        identifierMap,
+        payloads,
+        verbose
+    });
+
+    if (verbose.parsing) {
+        console.log("→ Resolving deprecated replacement metadata");
+    }
+    const logReplacementMetadataCompletion = createVerboseDurationLogger({
+        verbose,
+        formatMessage: (duration) => `  Resolving deprecated replacement metadata completed in ${duration}.`
+    });
+    await mergeDeprecatedReplacementMetadataFromManualPages(identifierMap, manualSource.root);
+    logReplacementMetadataCompletion();
 
     return createIdentifierArtifactPayload({
         identifierMap,
@@ -633,22 +1140,40 @@ function sortIdentifierEntries(identifierMap) {
             {
                 type: data.type,
                 sources: data.sources ? [...data.sources].toSorted() : [],
-                manualPath: data.manualPath,
                 tags: data.tags ? [...data.tags].toSorted() : [],
-                deprecated: data.deprecated
+                ...(data.manualPath ? { manualPath: data.manualPath } : {}),
+                deprecated: data.deprecated,
+                ...(data.replacement ? { replacement: data.replacement } : {}),
+                ...(data.replacementKind && data.replacementKind !== "none"
+                    ? { replacementKind: data.replacementKind }
+                    : {}),
+                ...(data.legacyCategory ? { legacyCategory: data.legacyCategory } : {}),
+                ...(data.legacyUsage ? { legacyUsage: data.legacyUsage } : {}),
+                ...(data.diagnosticOwner ? { diagnosticOwner: data.diagnosticOwner } : {})
             }
         ])
         .toSorted(([a], [b]) => a.localeCompare(b));
 }
 
-async function loadManualPayloads({ manualSource, manualGmlPath, manualKeywordsPath, manualTagsPath }) {
-    const [gmlSource, keywords, tags] = await Promise.all([
+async function loadManualPayloads({
+    manualSource,
+    manualGmlPath,
+    manualKeywordsPath,
+    manualTagsPath
+}: {
+    manualSource: { root: string };
+    manualGmlPath: string;
+    manualKeywordsPath: string;
+    manualTagsPath: string;
+}): Promise<ManualPayloads> {
+    const [gmlSource, keywords, tags, obsoleteFunctions] = await Promise.all([
         readManualText(manualSource.root, manualGmlPath),
         readManualText(manualSource.root, manualKeywordsPath),
-        readManualText(manualSource.root, manualTagsPath)
+        readManualText(manualSource.root, manualTagsPath),
+        readManualText(manualSource.root, DEFAULT_OBSOLETE_FUNCTIONS_PATH)
     ]);
 
-    return { gmlSource, keywords, tags };
+    return { gmlSource, keywords, tags, obsoleteFunctions };
 }
 
 /**
@@ -702,7 +1227,7 @@ export async function runGenerateGmlIdentifiers({ command, workflow }: RunGenera
         verbose: verboseState
     });
 
-    const { payload, entryCount } = buildIdentifierArtifact({
+    const { payload, entryCount } = await buildIdentifierArtifact({
         payloads,
         manualSource,
         manualCommitHash,
@@ -723,7 +1248,9 @@ export async function runGenerateGmlIdentifiers({ command, workflow }: RunGenera
 export const __test__ = Object.freeze({
     parseArrayLiteral,
     collectManualArrayIdentifiers,
-    assertManualIdentifierArray
+    assertManualIdentifierArray,
+    extractDeprecatedReplacementFromManualHtml,
+    parseObsoleteIdentifierTableEntries
 });
 
 if (isMainModule(import.meta.url)) {

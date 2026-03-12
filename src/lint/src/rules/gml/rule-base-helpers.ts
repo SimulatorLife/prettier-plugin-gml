@@ -176,6 +176,31 @@ export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOve
 }
 
 /**
+ * Returns `true` when a node sits in a statement slot rather than an
+ * expression-only position such as a `for` header or call argument list.
+ *
+ * @param parentKey Property name linking the node to its parent.
+ * @returns Whether the parent relationship is statement-shaped.
+ */
+export function isStandaloneStatementParentKey(parentKey: string | null): boolean {
+    return parentKey === "body" || parentKey === "consequent" || parentKey === "alternate";
+}
+
+/**
+ * Detects comment tokens inside a source span so fixers can skip rewrites that
+ * would risk deleting authored comments embedded in the replaced text.
+ *
+ * @param sourceText Full file text.
+ * @param start Inclusive start offset.
+ * @param end Exclusive end offset.
+ * @returns Whether the span contains line or block comment markers.
+ */
+export function sourceRangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
+    const rangeText = new Set(sourceText.slice(start, end));
+    return rangeText.has("//") || rangeText.has("/*") || rangeText.has("*/");
+}
+
+/**
  * Reads program text once, applies a deterministic rewrite, and reports the
  * resulting full-text fix when the rewrite changes output.
  */
