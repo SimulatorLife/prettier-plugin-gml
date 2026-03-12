@@ -600,4 +600,33 @@ void describe("formatter boundaries ownership", () => {
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
+
+    void it("is idempotent — format(format(source)) === format(source) (§3.2 source-unaware contract)", async () => {
+        // The formatter must not inspect `source` to patch the formatted output. If it
+        // did, a second formatting pass would see different `source` content and could
+        // produce different output, breaking idempotency. Removing the source-aware
+        // functions `preserveBannerSpacingGaps` and
+        // `preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment` from
+        // `format-entry.ts` enforces this contract (target-state.md §3.2).
+        const source = [
+            "// @description Top of file description comment",
+            "",
+            "////////////////////////////////////////",
+            "// Section banner",
+            "////////////////////////////////////////",
+            "var x = 1;",
+            "var y = 2;",
+            ""
+        ].join("\n");
+
+        const firstPass = await Format.format(source);
+        const secondPass = await Format.format(firstPass);
+
+        assert.strictEqual(
+            secondPass,
+            firstPass,
+            "Formatter must be idempotent: format(format(source)) must equal format(source). " +
+                "Source-aware patches in format() violate this contract (target-state.md §3.2)."
+        );
+    });
 });

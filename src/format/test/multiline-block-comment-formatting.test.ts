@@ -27,7 +27,10 @@ var x = 1;
 
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        // The formatter always appends a trailing newline; the input intentionally
+        // has none to confirm that `preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment`
+        // (removed in target-state §3.2 cleanup) no longer strips it.
+        assert.equal(formatted, `${input}\n`);
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {
