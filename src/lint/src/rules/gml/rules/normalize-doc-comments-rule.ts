@@ -423,16 +423,12 @@ function remapUnmatchedParamDocLinesToFunctionOrder(
         return docLines;
     }
 
-    const rewrittenLines = Array.from(docLines);
-    for (const [missingParamIndex, unmatchedLineIndex] of unmatchedParamLineIndices.entries()) {
-        const replacementName = missingFunctionParamNames[missingParamIndex];
-        if (typeof replacementName !== "string") {
-            break;
-        }
-
-        rewrittenLines[unmatchedLineIndex] = rewriteDocCommentParamLineName(
-            rewrittenLines[unmatchedLineIndex],
-            replacementName
+    const rewrittenLines = [...docLines];
+    const pairCount = Math.min(unmatchedParamLineIndices.length, missingFunctionParamNames.length);
+    for (let i = 0; i < pairCount; i++) {
+        rewrittenLines[unmatchedParamLineIndices[i]] = rewriteDocCommentParamLineName(
+            rewrittenLines[unmatchedParamLineIndices[i]],
+            missingFunctionParamNames[i]
         );
     }
 
