@@ -180,6 +180,11 @@ pnpm --filter @gmloop/lint run build:types
 pnpm --filter @gmloop/lint run test
 ```
 
+Performance-sensitive autofix rules also have dedicated regression coverage under
+[`test/rules/optimized-autofix-performance.test.ts`](./test/rules/optimized-autofix-performance.test.ts).
+Those tests run as part of the normal compiled Node test suite, so CI enforces
+both fix correctness and the current runtime budgets for the measured hot paths.
+
 ## TODO
 
 - When run through the CLI, if no eslint configuration file is detected in the project, the CLI should fall back to a default, recommended ruleset.

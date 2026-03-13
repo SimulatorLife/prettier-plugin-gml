@@ -1235,6 +1235,7 @@ function shouldSkipBinaryExpressionCandidate(parentNode: unknown, parentKey: str
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
     const normalizedExpressionRanges: SourceTextRange[] = [];
     const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
+    const replacementByCandidateText = new Map<string, string | null>();
 
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode, parent, parentKey } = visitContext;
@@ -1302,33 +1303,43 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     return;
                 }
 
-                let replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
-                if (!replacement) {
-                    replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
-                }
-                if (!replacement && shouldAttemptManualNormalization(sourceTextOfNode)) {
-                    replacement = attemptManualNormalization(sourceText, targetNode);
-                }
-                if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
-                    replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
-                } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
-                    const divisionFallbackReplacement = simplifyMathExpression(
-                        sourceText,
-                        targetNode,
-                        sourceTextOfNode
-                    );
-                    if (
-                        divisionFallbackReplacement &&
-                        countDivisionLikeOperators(divisionFallbackReplacement) <
-                            countDivisionLikeOperators(replacement)
-                    ) {
-                        replacement = divisionFallbackReplacement;
+                const replacementCacheKey = `${targetNode.type}:${sourceTextOfNode}`;
+                let replacement = replacementByCandidateText.get(replacementCacheKey);
+                if (replacement === undefined) {
+                    replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                    if (!replacement) {
+                        replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
                     }
+                    if (!replacement && shouldAttemptManualNormalization(sourceTextOfNode)) {
+                        replacement = attemptManualNormalization(sourceText, targetNode);
+                    }
+                    if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                    } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        const divisionFallbackReplacement = simplifyMathExpression(
+                            sourceText,
+                            targetNode,
+                            sourceTextOfNode
+                        );
+                        if (
+                            divisionFallbackReplacement &&
+                            countDivisionLikeOperators(divisionFallbackReplacement) <
+                                countDivisionLikeOperators(replacement)
+                        ) {
+                            replacement = divisionFallbackReplacement;
+                        }
+                    }
+
+                    if (replacement && replacement !== sourceTextOfNode) {
+                        replacement = applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement);
+                    } else {
+                        replacement = null;
+                    }
+
+                    replacementByCandidateText.set(replacementCacheKey, replacement);
                 }
 
                 if (replacement && replacement !== sourceTextOfNode) {
-                    replacement = applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement);
-
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;
                     }

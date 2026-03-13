@@ -4,6 +4,8 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 import { Semantic } from "@gmloop/semantic";
 
+import { ParsedLocalNamingCategoryResolver } from "./parsed-local-naming-categories.js";
+
 type ResourceAssetReferenceRecord = {
     propertyPath: string;
     targetPath: string;
@@ -104,10 +106,12 @@ type BridgeNamingConventionCategory =
     | "sequenceResourceName"
     | "tilesetResourceName"
     | "localVariable"
+    | "staticVariable"
     | "globalVariable"
     | "instanceVariable"
     | "argument"
     | "catchArgument"
+    | "loopIndexVariable"
     | "function"
     | "constructorFunction"
     | "structDeclaration"
@@ -214,12 +218,14 @@ function isResourceMetadataRecord(value: unknown): value is ResourceMetadataReco
  * Semantic bridge that adapts @gmloop/semantic ProjectIndex to the refactor engine.
  */
 export class GmlSemanticBridge {
+    private readonly localNamingCategoryResolver: ParsedLocalNamingCategoryResolver;
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
         this.projectRoot = projectRoot;
+        this.localNamingCategoryResolver = new ParsedLocalNamingCategoryResolver(projectRoot);
     }
 
     /**
@@ -939,7 +945,7 @@ export class GmlSemanticBridge {
                     ? scopeRecord?.kind === "catch"
                         ? "catchArgument"
                         : "argument"
-                    : "localVariable";
+                    : this.resolveLocalNamingConventionCategory(filePath, declaration);
                 const occurrences = this.collectLocalOccurrences(filePath, declaration);
 
                 if (occurrences.length === 0) {
@@ -1243,16 +1249,30 @@ export class GmlSemanticBridge {
         return occurrences.filter((occurrence) => occurrence.path.length > 0);
     }
 
+    private resolveLocalNamingConventionCategory(
+        filePath: string,
+        declaration: Record<string, unknown>
+    ): Extract<BridgeNamingConventionCategory, "localVariable" | "loopIndexVariable" | "staticVariable"> {
+        const declarationStart = Core.isObjectLike(declaration.start)
+            ? (declaration.start as Record<string, unknown>)
+            : null;
+        const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+        if (typeof declaration.name !== "string" || startIndex === null) {
+            return "localVariable";
+        }
+
+        return (
+            this.localNamingCategoryResolver.resolveCategory(filePath, declaration.name, startIndex) ?? "localVariable"
+        );
+    }
+
     private findResourceByName(name: string, caseInsensitive = false): any {
         const resources = this.resources;
         if (!resources) {
-            console.warn("[GmlSemanticBridge] Resources map is missing or undefined.");
             return null;
         }
 
         const keys = Object.keys(resources);
-        console.debug(`[GmlSemanticBridge] Searching for '${name}' in ${keys.length} resources.`);
-
         if (caseInsensitive) {
             const lowerName = name.toLowerCase();
             for (const key of keys) {
@@ -1260,24 +1280,6 @@ export class GmlSemanticBridge {
                 if (res.name?.toLowerCase() === lowerName) return res;
             }
         } else {
-            console.debug(`[DEBUG] Looking for exact name: '${name}'`);
-
-            // Check if any resource name matches roughly
-            const match = keys.find((k) => resources[k]?.name === name);
-            if (match) {
-                console.debug(`[DEBUG] Found match by key iteration: ${match}`);
-            } else {
-                console.debug(
-                    `[DEBUG] No exact match found for '${name}'. Sample keys: ${keys.slice(0, 3).join(", ")}`
-                );
-                // Print one resource to verify structure
-                if (keys.length > 0) {
-                    console.debug(
-                        `[DEBUG] Sample resource at ${keys[0]}: ${JSON.stringify(resources[keys[0]], null, 2)}`
-                    );
-                }
-            }
-
             for (const key of keys) {
                 const res = resources[key];
                 if (res.name === name) return res;

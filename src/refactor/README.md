@@ -423,14 +423,10 @@ type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
     | "constant"
     | "macro";
@@ -498,16 +494,12 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     callable: null,
     function: "callable",
     constructorFunction: "callable",
-    eventHandlerFunction: "callable",
-    structMethod: "callable",
-    staticMethod: "callable",
 
     typeName: null,
     structDeclaration: "typeName",
     enum: "typeName",
 
     member: null,
-    structField: "member",
     enumMember: "member",
 
     constant: null,
@@ -528,7 +520,8 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
 #### Notes
 
-- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, arguments, and catch arguments.
+- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.

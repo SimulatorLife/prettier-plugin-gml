@@ -33,3 +33,12 @@ void test("optimize-math-expressions leaves additive identifier chains unchanged
     assert.equal(result.messages.length, 0);
     assert.equal(result.output, input);
 });
+
+void test("optimize-math-expressions applies the same cached reciprocal rewrite across repeated expressions", () => {
+    const input = ["a = size / 2;", "b = size / 2;", "c = size / 2;", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0]?.messageId, "optimizeMathExpressions");
+    assert.equal(result.output, ["a = size * 0.5;", "b = size * 0.5;", "c = size * 0.5;", ""].join("\n"));
+});

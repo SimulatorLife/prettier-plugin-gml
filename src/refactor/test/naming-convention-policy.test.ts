@@ -112,3 +112,17 @@ void test("evaluateNamingConvention reports reserved affix violations", () => {
     assert.equal(evaluation.suggestedName, "localValue");
     assert.match(evaluation.message ?? "", /reserved prefix/);
 });
+
+void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {
+    assert.throws(
+        () =>
+            Refactor.normalizeNamingConventionPolicy({
+                rules: {
+                    eventHandlerFunction: {
+                        caseStyle: "camel"
+                    }
+                }
+            } as Parameters<typeof Refactor.normalizeNamingConventionPolicy>[0]),
+        /unknown category/
+    );
+});
