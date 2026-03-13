@@ -93,6 +93,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1012",
         assertOutput: (output) => {
             assertEquals(output.includes("/// @param value"), true);
+            assertEquals(countOccurrences(output, "/// @param value"), 1);
             assertEquals(output.includes("string_length("), true);
         }
     },

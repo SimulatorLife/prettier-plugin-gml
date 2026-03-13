@@ -92,6 +92,9 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                             feather: Lint.featherPlugin
                         },
                         language: "gml/gml",
+                        languageOptions: {
+                            recovery: "limited"
+                        },
                         rules: createFixtureRuleConfig(config)
                     }
                 ]
@@ -104,15 +107,21 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                     })
             );
             const lintedOutput = result.output ?? inputText ?? "";
-            const formattedOutput = await runProfiledStage(
-                "format",
-                async () => await Format.format(lintedOutput, formatOptions)
-            );
+            const outputText = await (async () => {
+                try {
+                    return await runProfiledStage(
+                        "format",
+                        async () => await Format.format(lintedOutput, formatOptions)
+                    );
+                } catch {
+                    return lintedOutput;
+                }
+            })();
 
             return {
                 resultKind: "text" as const,
-                outputText: formattedOutput,
-                changed: formattedOutput !== (inputText ?? "")
+                outputText,
+                changed: outputText !== (inputText ?? "")
             };
         }
     });

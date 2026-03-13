@@ -209,9 +209,6 @@ importers:
         specifier: workspace:*
         version: link:../parser
     devDependencies:
-      '@gmloop/format':
-        specifier: workspace:*
-        version: link:../format
       eslint:
         specifier: ^9.39.1
         version: 9.39.2
