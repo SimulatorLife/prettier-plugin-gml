@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import * as LintWorkspace from "@gmloop/lint";
 import { ESLint, type Linter } from "eslint";
 
 const { Lint } = LintWorkspace;
+
+const STILE_OPTIMIZE_MATH_OUTPUT_HASH = "42803788c231317796505783e423d1a02cdae11ac31648925faa6c3c51fa24f7";
 
 type TimedLintRunResult = Readonly<{
     elapsedMilliseconds: number;
@@ -59,6 +63,16 @@ function buildArithmeticChainBatchSource(statementCount: number): string {
     return lines.join("\n");
 }
 
+function buildAdditiveIdentifierBatchSource(statementCount: number): string {
+    const lines: string[] = [];
+    for (let index = 0; index < statementCount; index += 1) {
+        lines.push(`sum_${index} = left_${index} + right_${index} + carry_${index};`);
+    }
+
+    lines.push("");
+    return lines.join("\n");
+}
+
 function buildLoopInvariantStressBatchSource(loopCount: number, invariantTermsPerLoop: number): string {
     const lines: string[] = [];
 
@@ -98,6 +112,10 @@ function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNam
 
     lines.push("");
     return lines.join("\n");
+}
+
+function createOutputHash(outputText: string): string {
+    return createHash("sha256").update(outputText).digest("hex");
 }
 
 async function lintSingleRuleWithTiming(
@@ -225,6 +243,38 @@ void test("optimize-math-expressions keeps dot-product auto-fixes within bounded
     assert.ok(
         timedRun.elapsedMilliseconds < 5000,
         `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("optimize-math-expressions skips additive identifier batches without clone-heavy normalization", async () => {
+    const source = buildAdditiveIdentifierBatchSource(2500);
+    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.equal(timedRun.outputText, source);
+    assert.ok(
+        timedRun.ruleMilliseconds < 400,
+        `expected optimize-math-expressions additive fast-path runtime under 400ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 2500,
+        `expected total lint runtime under 2500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+    );
+});
+
+void test("optimize-math-expressions preserves stile fixes within the real-file runtime budget", async () => {
+    const source = await readFile("src/parser/test/input/stile.gml", "utf8");
+    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source, "stile.gml");
+
+    assert.equal(timedRun.messages.length, 0);
+    assert.equal(createOutputHash(timedRun.outputText), STILE_OPTIMIZE_MATH_OUTPUT_HASH);
+    assert.ok(
+        timedRun.ruleMilliseconds < 450,
+        `expected optimize-math-expressions stile runtime under 450ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+    );
+    assert.ok(
+        timedRun.elapsedMilliseconds < 3200,
+        `expected total lint runtime under 3200ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
     );
 });
 
