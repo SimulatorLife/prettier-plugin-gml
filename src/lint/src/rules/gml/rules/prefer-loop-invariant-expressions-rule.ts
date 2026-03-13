@@ -5,12 +5,15 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
     type AstNodeWithType,
+    type CommentTokenRangeIndex,
+    createCommentTokenRangeIndex,
     createMeta,
     getLineIndentationAtOffset,
     getNodeEndIndex,
     getNodeStartIndex,
     isAstNodeRecord,
     isAstNodeWithType,
+    rangeContainsCommentToken,
     walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
@@ -58,11 +61,6 @@ type ParentVisitContext = Readonly<{
 type LoopReplacementTarget = Readonly<{
     expressionStart: number;
     expressionEnd: number;
-}>;
-
-type CommentTokenRangeIndex = Readonly<{
-    prefixCounts: Uint32Array;
-    sourceLength: number;
 }>;
 
 const LOOP_NODE_TYPES = new Set<LoopNodeType>([
@@ -162,51 +160,6 @@ function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: u
         unwrapParenthesizedExpression(left),
         unwrapParenthesizedExpression(right)
     );
-}
-
-function isCommentTokenBoundary(sourceText: string, index: number): boolean {
-    const character = sourceText[index];
-    const nextCharacter = sourceText[index + 1];
-    if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
-        return true;
-    }
-
-    return character === "*" && nextCharacter === "/";
-}
-
-function createCommentTokenRangeIndex(sourceText: string): CommentTokenRangeIndex {
-    const sourceLength = sourceText.length;
-    const prefixCounts = new Uint32Array(sourceLength + 1);
-
-    for (let index = 0; index < sourceLength; index += 1) {
-        prefixCounts[index + 1] = prefixCounts[index];
-        if (index < sourceLength - 1 && isCommentTokenBoundary(sourceText, index)) {
-            prefixCounts[index + 1] += 1;
-        }
-    }
-
-    return {
-        prefixCounts,
-        sourceLength
-    };
-}
-
-function rangeContainsCommentToken(
-    commentTokenRangeIndex: CommentTokenRangeIndex,
-    start: number,
-    end: number
-): boolean {
-    if (end - start < 2) {
-        return false;
-    }
-
-    const clampedStart = Math.min(Math.max(start, 0), commentTokenRangeIndex.sourceLength);
-    const clampedEndExclusive = Math.min(Math.max(end - 1, 0), commentTokenRangeIndex.sourceLength);
-    if (clampedEndExclusive <= clampedStart) {
-        return false;
-    }
-
-    return commentTokenRangeIndex.prefixCounts[clampedEndExclusive] > commentTokenRangeIndex.prefixCounts[clampedStart];
 }
 
 function isLoopNode(node: unknown): node is LoopNode {
