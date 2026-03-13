@@ -7,7 +7,7 @@ var util = function (val) {
 #region Setup
 #endregion
 #macro BAR 2 // keep comment
-#define 123 not valid
+
 if (ready) {
     do_work();
 } // done
