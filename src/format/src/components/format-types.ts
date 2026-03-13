@@ -1,4 +1,5 @@
 import type { MutableGameMakerAstNode } from "@gmloop/core";
+import type { FixtureAdapter } from "@gmloop/fixture-runner";
 import type { Parser, ParserOptions, Plugin as PrettierPlugin, Printer, SupportOptions } from "prettier";
 
 export type GmlAst = MutableGameMakerAstNode;
@@ -34,6 +35,9 @@ export type GmlFormatDefaultOptions = Record<string, unknown>;
 export type GmlFormat = Omit<PrettierPlugin<GmlAst>, "defaultOptions"> & {
     defaultOptions?: GmlFormatDefaultOptions;
     formatOptions?: SupportOptions;
+    testing: Readonly<{
+        createFixtureAdapter: () => FixtureAdapter;
+    }>;
     format: (source: string, options?: Record<string, unknown>) => Promise<string>;
     extractProjectFormatOptions: (config: Record<string, unknown>) => Record<string, unknown>;
     /**

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { FixtureRunner } from "@gmloop/fixture-runner";
 
-import { createRefactorFixtureAdapter } from "./fixture-adapter.js";
+import { Refactor } from "../src/index.js";
 
 function resolveFixtureRoot(): string {
     const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -14,5 +14,5 @@ function resolveFixtureRoot(): string {
 
 await FixtureRunner.registerNodeFixtureSuite({
     fixtureRoot: resolveFixtureRoot(),
-    adapter: createRefactorFixtureAdapter()
+    adapter: Refactor.testing.createFixtureAdapter()
 });

@@ -1,9 +1,12 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { Refactor } from "../index.js";
+import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
-async function collectGmlFiles(projectRoot: string): Promise<Array<string>> {
+import { normalizeRefactorProjectConfig } from "../project-config.js";
+import { RefactorEngine } from "../refactor-engine.js";
+
+async function collectProjectGmlFiles(projectRoot: string): Promise<Array<string>> {
     const relativePaths: Array<string> = [];
 
     async function walk(currentPath: string): Promise<void> {
@@ -15,9 +18,11 @@ async function collectGmlFiles(projectRoot: string): Promise<Array<string>> {
                     await walk(entryPath);
                     return;
                 }
+
                 if (!entry.isFile() || !entry.name.endsWith(".gml")) {
                     return;
                 }
+
                 relativePaths.push(path.relative(projectRoot, entryPath).split(path.sep).join("/"));
             })
         );
@@ -27,7 +32,13 @@ async function collectGmlFiles(projectRoot: string): Promise<Array<string>> {
     return relativePaths.sort((left, right) => left.localeCompare(right));
 }
 
-export function createRefactorFixtureAdapter() {
+/**
+ * Create the shared refactor-fixture adapter used by workspace and aggregate
+ * fixture suites.
+ *
+ * @returns Refactor fixture adapter backed by the refactor workspace runtime API.
+ */
+export function createRefactorFixtureAdapter(): FixtureAdapter {
     return Object.freeze({
         workspaceName: "refactor",
         suiteName: "refactor fixtures",
@@ -35,10 +46,11 @@ export function createRefactorFixtureAdapter() {
             return kind === "refactor";
         },
         async run({ config, tempProjectDirectoryPath, runProfiledStage }) {
-            const normalizedConfig = Refactor.normalizeRefactorProjectConfig(config.refactor);
+            const normalizedConfig = normalizeRefactorProjectConfig(config.refactor);
             const projectRoot = tempProjectDirectoryPath ?? "";
-            const gmlFilePaths = await collectGmlFiles(projectRoot);
-            const engine = new Refactor.RefactorEngine();
+            const gmlFilePaths = await collectProjectGmlFiles(projectRoot);
+            const engine = new RefactorEngine();
+
             await runProfiledStage("refactor", async () => {
                 await engine.executeConfiguredCodemods({
                     projectRoot,

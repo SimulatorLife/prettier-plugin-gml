@@ -80,10 +80,46 @@ export interface FixtureProfileEntry {
     deepCpuProfileArtifactPath: string | null;
 }
 
+export interface FixtureProfileAggregateSummary {
+    entryCount: number;
+    passedCount: number;
+    failedCount: number;
+    changedCount: number;
+    durationMs: number;
+    heapUsedDeltaBytes: number;
+    cpuUserMicros: number;
+    cpuSystemMicros: number;
+    maxRssDelta: number;
+    voluntaryContextSwitchesDelta: number;
+    involuntaryContextSwitchesDelta: number;
+}
+
+export interface FixtureProfileWorkspaceAggregate {
+    workspace: string;
+    summary: FixtureProfileAggregateSummary;
+}
+
+export interface FixtureProfileStageAggregate {
+    stageName: FixtureStageName;
+    summary: FixtureProfileAggregateSummary;
+}
+
+export interface FixtureProfileBudgetFailureEntry {
+    workspace: string;
+    caseId: string;
+    stageName: FixtureProfileBudgetFailure["stageName"];
+    metricName: FixtureProfileBudgetFailure["metricName"];
+    actual: number;
+    budget: number;
+}
+
 export interface FixtureProfileReport {
     schemaVersion: 1;
     generatedAt: string;
     entries: ReadonlyArray<FixtureProfileEntry>;
+    workspaceAggregates: ReadonlyArray<FixtureProfileWorkspaceAggregate>;
+    stageAggregates: ReadonlyArray<FixtureProfileStageAggregate>;
+    failingBudgets: ReadonlyArray<FixtureProfileBudgetFailureEntry>;
 }
 
 export interface FixtureProfileCollector {

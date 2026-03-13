@@ -1,6 +1,14 @@
-import { Format } from "../index.js";
+import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
-export function createFormatFixtureAdapter() {
+import { Format } from "../format-entry.js";
+
+/**
+ * Create the shared format-fixture adapter used by workspace and aggregate
+ * fixture suites.
+ *
+ * @returns Format fixture adapter backed by the format workspace runtime API.
+ */
+export function createFormatFixtureAdapter(): FixtureAdapter {
     return Object.freeze({
         workspaceName: "format",
         suiteName: "formatter fixtures",

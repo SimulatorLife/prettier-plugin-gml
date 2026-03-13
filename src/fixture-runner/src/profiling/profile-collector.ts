@@ -6,7 +6,9 @@ import { performance } from "node:perf_hooks";
 import { Core } from "@gmloop/core";
 
 import type {
+    FixtureProfileAggregateSummary,
     FixtureProfileBudgetFailure,
+    FixtureProfileBudgetFailureEntry,
     FixtureProfileBudgets,
     FixtureProfileCollector,
     FixtureProfileEntry,
@@ -60,6 +62,151 @@ function readBudgetValue(
     return typeof rawValue === "number" ? rawValue : null;
 }
 
+function createEmptyAggregateSummary(): FixtureProfileAggregateSummary {
+    return {
+        entryCount: 0,
+        passedCount: 0,
+        failedCount: 0,
+        changedCount: 0,
+        durationMs: 0,
+        heapUsedDeltaBytes: 0,
+        cpuUserMicros: 0,
+        cpuSystemMicros: 0,
+        maxRssDelta: 0,
+        voluntaryContextSwitchesDelta: 0,
+        involuntaryContextSwitchesDelta: 0
+    };
+}
+
+function addStageMetricsToSummary(
+    summary: FixtureProfileAggregateSummary,
+    metrics: Readonly<{
+        durationMs: number;
+        heapUsedDeltaBytes: number;
+        cpuUserMicros: number;
+        cpuSystemMicros: number;
+        maxRssDelta: number;
+        voluntaryContextSwitchesDelta: number;
+        involuntaryContextSwitchesDelta: number;
+    }>
+): void {
+    summary.durationMs += metrics.durationMs;
+    summary.heapUsedDeltaBytes += metrics.heapUsedDeltaBytes;
+    summary.cpuUserMicros += metrics.cpuUserMicros;
+    summary.cpuSystemMicros += metrics.cpuSystemMicros;
+    summary.maxRssDelta += metrics.maxRssDelta;
+    summary.voluntaryContextSwitchesDelta += metrics.voluntaryContextSwitchesDelta;
+    summary.involuntaryContextSwitchesDelta += metrics.involuntaryContextSwitchesDelta;
+}
+
+function addEntryToSummary(summary: FixtureProfileAggregateSummary, entry: FixtureProfileEntry): void {
+    summary.entryCount += 1;
+    summary.passedCount += entry.status === "passed" ? 1 : 0;
+    summary.failedCount += entry.status === "failed" ? 1 : 0;
+    summary.changedCount += entry.changed ? 1 : 0;
+
+    const totalStage = entry.stages.find((stage) => stage.stageName === "total");
+    if (totalStage) {
+        addStageMetricsToSummary(summary, totalStage);
+        return;
+    }
+
+    summary.durationMs += entry.totalMs;
+}
+
+function freezeAggregateSummary(summary: FixtureProfileAggregateSummary): FixtureProfileAggregateSummary {
+    return Object.freeze({ ...summary });
+}
+
+function createWorkspaceAggregates(
+    entries: ReadonlyArray<FixtureProfileEntry>
+): FixtureProfileReport["workspaceAggregates"] {
+    const aggregateMap = new Map<string, FixtureProfileAggregateSummary>();
+
+    for (const entry of entries) {
+        const summary = aggregateMap.get(entry.workspace) ?? createEmptyAggregateSummary();
+        addEntryToSummary(summary, entry);
+        aggregateMap.set(entry.workspace, summary);
+    }
+
+    return Object.freeze(
+        [...aggregateMap.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([workspace, summary]) =>
+                Object.freeze({
+                    workspace,
+                    summary: freezeAggregateSummary(summary)
+                })
+            )
+    );
+}
+
+function createStageAggregates(entries: ReadonlyArray<FixtureProfileEntry>): FixtureProfileReport["stageAggregates"] {
+    const aggregateMap = new Map<FixtureStageName, FixtureProfileAggregateSummary>();
+
+    for (const entry of entries) {
+        for (const stage of entry.stages) {
+            const summary = aggregateMap.get(stage.stageName) ?? createEmptyAggregateSummary();
+            summary.entryCount += 1;
+            summary.passedCount += entry.status === "passed" ? 1 : 0;
+            summary.failedCount += entry.status === "failed" ? 1 : 0;
+            summary.changedCount += entry.changed ? 1 : 0;
+            addStageMetricsToSummary(summary, stage);
+            aggregateMap.set(stage.stageName, summary);
+        }
+    }
+
+    return Object.freeze(
+        [...aggregateMap.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([stageName, summary]) =>
+                Object.freeze({
+                    stageName,
+                    summary: freezeAggregateSummary(summary)
+                })
+            )
+    );
+}
+
+function createFailingBudgets(
+    entries: ReadonlyArray<FixtureProfileEntry>
+): ReadonlyArray<FixtureProfileBudgetFailureEntry> {
+    const failures: Array<FixtureProfileBudgetFailureEntry> = [];
+
+    for (const entry of entries) {
+        for (const failure of entry.budgetFailures) {
+            failures.push(
+                Object.freeze({
+                    workspace: entry.workspace,
+                    caseId: entry.caseId,
+                    stageName: failure.stageName,
+                    metricName: failure.metricName,
+                    actual: failure.actual,
+                    budget: failure.budget
+                })
+            );
+        }
+    }
+
+    return Object.freeze(
+        failures.sort((left, right) => {
+            const caseComparison = `${left.workspace}/${left.caseId}`.localeCompare(
+                `${right.workspace}/${right.caseId}`
+            );
+            if (caseComparison !== 0) {
+                return caseComparison;
+            }
+
+            const stageComparison = left.stageName.localeCompare(right.stageName);
+            if (stageComparison !== 0) {
+                return stageComparison;
+            }
+
+            return left.metricName.localeCompare(right.metricName);
+        })
+    );
+}
+
 export function collectBudgetFailures(
     stages: ReadonlyArray<FixtureStageMetrics>,
     budgets: FixtureProfileBudgets | null
@@ -106,10 +253,14 @@ export function createProfileCollector(): FixtureProfileCollector {
             entries.push(entry);
         },
         createReport(): FixtureProfileReport {
+            const reportEntries = Object.freeze([...entries]);
             return Object.freeze({
                 schemaVersion: 1 as const,
                 generatedAt: new Date().toISOString(),
-                entries: Object.freeze([...entries])
+                entries: reportEntries,
+                workspaceAggregates: createWorkspaceAggregates(reportEntries),
+                stageAggregates: createStageAggregates(reportEntries),
+                failingBudgets: createFailingBudgets(reportEntries)
             });
         }
     });

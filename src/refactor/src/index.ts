@@ -9,6 +9,7 @@ import * as RefactorAPI from "./refactor-engine.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
+import { createRefactorFixtureAdapter } from "./testing/index.js";
 import {
     ConflictType,
     isConflictType,
@@ -39,6 +40,9 @@ export const Refactor = Object.freeze({
     ...OccurrenceAnalysisAPI,
     ...RenamePreviewAPI,
     ...ValidationAPI,
+    testing: Object.freeze({
+        createFixtureAdapter: createRefactorFixtureAdapter
+    }),
     ...HotReloadAPI,
     ConflictType,
     isConflictType,
@@ -105,6 +109,7 @@ export type {
 export { RenameValidationCache } from "./rename-validation-cache.js";
 export type { CacheStats, SemanticCacheConfig } from "./semantic-cache.js";
 export { SemanticQueryCache } from "./semantic-cache.js";
+export { createRefactorFixtureAdapter } from "./testing/index.js";
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
