@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@gmloop/core": "workspace:*",
+    "@gmloop/fixture-runner": "workspace:*",
     "@gmloop/parser": "workspace:*"
   },
   "peerDependencies": {

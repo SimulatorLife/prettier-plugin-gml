@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/optimize-logical-flow": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

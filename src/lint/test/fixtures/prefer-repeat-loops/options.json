@@ -1,5 +1,0 @@
-{
-  "lintRules": {
-    "gml/prefer-repeat-loops": "error"
-  }
-}

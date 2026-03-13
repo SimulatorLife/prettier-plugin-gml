@@ -30,6 +30,7 @@ void describe("workspace ownership dependency policy", () => {
 
         assert.strictEqual(getDependencyVersion(formatPackage, "@gmloop/semantic"), null);
         assert.strictEqual(getDependencyVersion(formatPackage, "@gmloop/refactor"), null);
+        assert.strictEqual(getDependencyVersion(formatPackage, "@gmloop/fixture-runner"), "workspace:*");
     });
 
     void it("refactor workspace owns semantic-backed refactor behavior", () => {
@@ -45,5 +46,15 @@ void describe("workspace ownership dependency policy", () => {
             null,
             "Semantic workspace must remain analysis-only and not depend on refactor."
         );
+    });
+
+    void it("fixture-runner depends only on core among local workspaces", () => {
+        const fixtureRunnerPackage = readWorkspacePackage("@gmloop/fixture-runner");
+
+        assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/core"), "workspace:*");
+        assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/format"), null);
+        assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/lint"), null);
+        assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/refactor"), null);
+        assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/semantic"), null);
     });
 });

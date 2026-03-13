@@ -7,9 +7,11 @@
   },
   "references": [
     { "path": "../src/core" },
+    { "path": "../src/fixture-runner" },
     { "path": "../src/parser" },
     { "path": "../src/format" },
     { "path": "../src/lint" },
+    { "path": "../src/refactor" },
     { "path": "../src/semantic" }
   ],
   "include": ["*.ts"],

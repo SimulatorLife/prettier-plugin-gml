@@ -1,0 +1,10 @@
+{
+  "lintRules": {
+    "feather/gm2012": "error"
+  },
+  "printWidth": 200,
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

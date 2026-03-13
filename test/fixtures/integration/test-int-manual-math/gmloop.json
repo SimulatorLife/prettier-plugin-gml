@@ -1,0 +1,10 @@
+{
+  "printWidth": 120,
+  "lintRules": {
+    "gml/optimize-math-expressions": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform"
+  }
+}

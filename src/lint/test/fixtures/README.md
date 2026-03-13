@@ -11,10 +11,14 @@ Treat these as **golden fixtures**:
 
 This directory follows a test-driven workflow: fixtures document what the linter should do, and implementation must conform to that expected result.
 
-Each fixture directory must include an `options.json` file. The file must explicitly enable the rule(s) under test via `lintRules`:
+Each fixture directory must include `gmloop.json`. The file must explicitly enable the rule(s) under test via `lintRules` and identify the fixture kind:
 
 ```json
 {
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  },
   "lintRules": {
     "gml/rule-name-under-test": "error"
   }
@@ -25,8 +29,14 @@ Feather fixtures use the `feather/` namespace:
 
 ```json
 {
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  },
   "lintRules": {
     "feather/gm1000": "error"
   }
 }
 ```
+
+Idempotent fixtures should omit `expected.gml` and use `"assertion": "idempotent"`.

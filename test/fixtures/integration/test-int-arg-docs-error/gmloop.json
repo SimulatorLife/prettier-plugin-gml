@@ -1,0 +1,8 @@
+{
+  "expectParseError": true,
+  "printWidth": 100,
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform"
+  }
+}

@@ -88,7 +88,7 @@ export {
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
 export { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
-export { loadGmloopProjectConfig, normalizeRefactorProjectConfig } from "./project-config.js";
+export { normalizeRefactorProjectConfig } from "./project-config.js";
 export { RefactorEngine } from "./refactor-engine.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
@@ -126,7 +126,6 @@ export type {
     ExecuteRenameResult,
     FileSymbol,
     FileSymbolProvider,
-    GmloopProjectConfig,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
     HotReloadSafetySummary,

@@ -1,0 +1,12 @@
+{
+  "printWidth": 120,
+  "allowInlineControlFlowBlocks": false,
+  "lintRules": {
+    "gml/normalize-doc-comments": "error",
+    "gml/prefer-struct-literal-assignments": "off"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform"
+  }
+}

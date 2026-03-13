@@ -1,5 +1,0 @@
-{
-  "lintRules": {
-    "gml/no-assignment-in-condition": "error"
-  }
-}

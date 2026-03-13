@@ -21,6 +21,7 @@
 import * as AST from "./ast/index.js";
 import * as Comments from "./comments/index.js";
 import * as FS from "./fs/index.js";
+import * as ProjectConfig from "./project-config/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
 import * as Resources from "./resources/index.js";
 import * as Utils from "./utils/index.js";
@@ -29,6 +30,7 @@ import * as Utils from "./utils/index.js";
 type CoreNamespace = typeof AST &
     typeof Utils &
     typeof FS &
+    typeof ProjectConfig &
     typeof Resources &
     typeof IdentifierMetadata &
     typeof Comments;
@@ -40,6 +42,7 @@ export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
     ...Utils,
+    ...ProjectConfig,
     ...Resources,
     ...IdentifierMetadata,
     ...Comments
@@ -60,6 +63,7 @@ export type { StripCommentsTransformOptions } from "./ast/strip-comments-transfo
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { DocCommentNodeMetadata } from "./comments/doc-comment/node-metadata.js";
+export type { GmloopProjectConfig } from "./project-config/gmloop-project-config.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
 export type {
     DeprecatedIdentifierDiagnosticOwner,

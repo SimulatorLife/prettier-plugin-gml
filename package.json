@@ -11,7 +11,8 @@
     "src/semantic",
     "src/transpiler",
     "src/runtime-wrapper",
-    "src/refactor"
+    "src/refactor",
+    "src/fixture-runner"
   ],
   "config": {
     "root_path": ".",
@@ -23,7 +24,8 @@
     "transpiler_path": "src/transpiler",
     "runtime_wrapper_path": "src/runtime-wrapper",
     "refactor_path": "src/refactor",
-    "core_path": "src/core"
+    "core_path": "src/core",
+    "fixture_runner_path": "src/fixture-runner"
   },
   "type": "module",
   "repository": {
@@ -94,8 +96,10 @@
     "test:root": "pnpm run build:ts && node --test test/dist/*.test.js",
     "test:lint": "pnpm --filter @gmloop/lint run build:types && node --test 'src/lint/dist/test/**/*.test.js'",
     "test:root:report": "pnpm run build:ts && node --test --test-reporter=junit --test-reporter-destination=./reports/root.xml test/dist/*.test.js",
-    "test:fixtures:files": "echo src/format/dist/test/formatter-fixtures.test.js && echo src/lint/dist/test/rules/rule-fixtures.test.js",
+    "test:fixtures:files": "echo src/format/dist/test/formatter-fixtures.test.js && echo src/lint/dist/test/rules/rule-fixtures.test.js && echo src/refactor/dist/test/refactor-fixtures.test.js && echo test/dist/cross-module-integration.test.js",
     "test:fixtures": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:fixtures:files); ((${#tests[@]})) || { echo \"No compiled fixture test files found\" >&2; exit 1; }; node --test --test-timeout=120000 \"${tests[@]}\"'",
+    "test:fixtures:profile": "pnpm run build:ts && GMLOOP_FIXTURE_PROFILE=1 node --test test/dist/fixture-profile-report.js",
+    "test:fixtures:profile:deep-cpu": "pnpm run build:ts && GMLOOP_FIXTURE_PROFILE=1 GMLOOP_FIXTURE_DEEP_CPU=1 node --test test/dist/fixture-profile-report.js",
     "format:gml": "pnpm --filter @gmloop/cli run build:types && node ./src/cli/dist/index.js format",
     "format": "pnpm exec -- prettier --cache --ignore-path ./.prettierignore --write \"{src/**/*.ts,*.{ts,js,cjs,mjs}}\"",
     "format:quiet": "pnpm run format > /dev/null",
@@ -163,6 +167,7 @@
     "@gmloop/lint": "workspace:*",
     "@gmloop/parser": "workspace:*",
     "@gmloop/format": "workspace:*",
+    "@gmloop/fixture-runner": "workspace:*",
     "@gmloop/refactor": "workspace:*",
     "@gmloop/runtime-wrapper": "workspace:*",
     "@gmloop/semantic": "workspace:*",

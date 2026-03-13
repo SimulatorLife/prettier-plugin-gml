@@ -27,10 +27,12 @@ const {
     generateRenamePreview,
     listConfiguredCodemods,
     listRegisteredCodemods,
-    loadGmloopProjectConfig
+    normalizeRefactorProjectConfig
 } = Refactor;
 type RegisteredCodemodId = ReturnType<typeof listRegisteredCodemods>[number]["id"];
-type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof loadGmloopProjectConfig>>;
+type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof Core.loadGmloopProjectConfig>> & {
+    refactor?: ReturnType<typeof normalizeRefactorProjectConfig>;
+};
 
 type RefactorCommandOptions = {
     symbolId?: string;
@@ -345,7 +347,11 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         console.log(`Loading gmloop config from: ${configPath}`);
     }
 
-    const config = await loadGmloopProjectConfig(configPath);
+    const rawConfig = await Core.loadGmloopProjectConfig(configPath);
+    const config: LoadedGmloopProjectConfig = Object.freeze({
+        ...rawConfig,
+        refactor: normalizeRefactorProjectConfig(rawConfig.refactor)
+    });
     const selectedCodemodLines = formatCodemodSelectionSummary(config, onlyCodemods);
 
     if (list) {

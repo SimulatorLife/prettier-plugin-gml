@@ -1,3 +1,4 @@
+import type { GameMakerAstNode } from "@gmloop/core";
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
@@ -5,12 +6,16 @@ import type { GmlRuleDefinition } from "../catalog.js";
 
 const {
     clamp,
-    isObjectLike,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getCallExpressionIdentifierName,
-    getCallExpressionArguments
+    isObjectLike
 } = CoreWorkspace.Core;
+
+const getNodeStartIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeStartIndex;
+const getNodeEndIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeEndIndex;
+const getCallExpressionIdentifierName: (callExpression: GameMakerAstNode | null | undefined) => string | null =
+    CoreWorkspace.Core.getCallExpressionIdentifierName;
+const getCallExpressionArguments: (
+    callExpression: GameMakerAstNode | null | undefined
+) => readonly GameMakerAstNode[] = CoreWorkspace.Core.getCallExpressionArguments;
 
 export { getCallExpressionArguments, getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 

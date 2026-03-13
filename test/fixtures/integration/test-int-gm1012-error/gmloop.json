@@ -1,0 +1,7 @@
+{
+  "expectParseError": true,
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform"
+  }
+}

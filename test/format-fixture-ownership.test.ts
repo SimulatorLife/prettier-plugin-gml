@@ -1,13 +1,11 @@
-// TODO: Once lint-formatter integration is complete, expand these tests to cover formatting fixtures more comprehensively and verify that lint does not depend on removed formatter option shapes.
-
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
 const formatTestRoot = path.resolve(process.cwd(), "src", "format", "test");
-const formatFormattingFixtureRoot = path.resolve(formatTestRoot, "fixtures");
-const formatIntegrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "integration");
+const formatFixtureRoot = path.resolve(formatTestRoot, "fixtures");
+const integrationFixtureRoot = path.resolve(process.cwd(), "test", "fixtures", "integration");
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "applyFeatherFixes",
     "preserveGlobalVarStatements",
@@ -21,108 +19,61 @@ const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "normalizeDocComments"
 ]);
 
-function isFixtureFile(fileName: string): boolean {
-    return fileName.endsWith(".gml") || fileName.endsWith(".options.json");
+async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {
+    const entries = await fs.readdir(rootPath, { withFileTypes: true });
+    return entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(rootPath, entry.name))
+        .sort((left, right) => left.localeCompare(right));
 }
 
-void test("format fixture files are not stored directly under src/format/test", async () => {
+void test("format fixture files are stored only inside case directories", async () => {
     const entries = await fs.readdir(formatTestRoot, { withFileTypes: true });
     const misplacedFixtures = entries
-        .filter((entry) => entry.isFile() && isFixtureFile(entry.name))
+        .filter((entry) => entry.isFile() && (entry.name.endsWith(".gml") || entry.name.endsWith(".json")))
         .map((entry) => entry.name);
     assert.deepEqual(misplacedFixtures, []);
 });
 
-void test("formatting fixture directory contains only valid fixture shapes", async () => {
-    const entries = await fs.readdir(formatFormattingFixtureRoot);
-    const fixtureEntries = entries.filter((entry) => entry.endsWith(".gml"));
-    const shapes = new Map<string, { single: boolean; input: boolean; output: boolean }>();
+void test("format fixture cases use directory-per-case layout with gmloop.json", async () => {
+    const caseDirectories = await collectCaseDirectories(formatFixtureRoot);
+    assert.equal(caseDirectories.length > 0, true, "Expected at least one format fixture case.");
 
-    for (const entry of fixtureEntries) {
-        const baseName = entry.endsWith(".input.gml")
-            ? entry.slice(0, -".input.gml".length)
-            : entry.endsWith(".output.gml")
-              ? entry.slice(0, -".output.gml".length)
-              : entry.slice(0, -".gml".length);
-
-        const shape = shapes.get(baseName) ?? { single: false, input: false, output: false };
-        if (entry.endsWith(".input.gml")) {
-            shape.input = true;
-        } else if (entry.endsWith(".output.gml")) {
-            shape.output = true;
-        } else {
-            shape.single = true;
-        }
-
-        shapes.set(baseName, shape);
-    }
-
-    for (const [baseName, shape] of shapes) {
+    for (const caseDirectory of caseDirectories) {
+        const fileNames = new Set(await fs.readdir(caseDirectory));
+        assert.equal(fileNames.has("gmloop.json"), true, `${caseDirectory} is missing gmloop.json.`);
+        assert.equal(fileNames.has("input.gml"), true, `${caseDirectory} is missing input.gml.`);
+        const hasExpected = fileNames.has("expected.gml");
         assert.equal(
-            shape.single && (shape.input || shape.output),
-            false,
-            `Fixture '${baseName}' mixes standalone and paired fixture files.`
+            hasExpected || !fileNames.has("expected.gml"),
+            true,
+            `${caseDirectory} has an invalid expected fixture shape.`
         );
-        assert.equal(
-            !shape.single && (!shape.input || !shape.output),
-            false,
-            `Fixture '${baseName}' must include both input and output files when using paired fixtures.`
-        );
+        assert.equal(fileNames.has("options.json"), false, `${caseDirectory} must not use legacy options.json.`);
     }
 });
 
-void test("integration fixture directory contains the required cross-workspace fixtures", async () => {
-    const expectedFiles = [
-        "test-int-comments-ops.input.gml",
-        "test-int-comments-ops.output.gml",
-        "test-int-comments-ops.options.json",
-        "test-int-doc-tags.input.gml",
-        "test-int-doc-tags.output.gml",
-        "test-int-doc-tags.options.json",
-        "test-int-format-strings.input.gml",
-        "test-int-format-strings.output.gml",
-        "test-int-format-strings.options.json",
-        "test-int-func-rules.input.gml",
-        "test-int-func-rules.output.gml",
-        "test-int-func-rules.options.json",
-        "test-int-gm1012-error.input.gml",
-        "test-int-gm1012-error.output.gml",
-        "test-int-gm1012-error.options.json",
-        "test-int-gm1100-error.input.gml",
-        "test-int-gm1100-error.output.gml",
-        "test-int-gm1100-error.options.json",
-        "test-int-no-globalvar.input.gml",
-        "test-int-no-globalvar.output.gml",
-        "test-int-no-globalvar.options.json",
-        "test-int-newlines.gml",
-        "test-int-newlines.options.json"
-    ];
+void test("integration fixtures use directory-per-case layout with gmloop.json", async () => {
+    const caseDirectories = await collectCaseDirectories(integrationFixtureRoot);
+    assert.equal(caseDirectories.length > 0, true, "Expected at least one integration fixture case.");
 
-    const existing = new Set(await fs.readdir(formatIntegrationFixtureRoot));
-    for (const fileName of expectedFiles) {
-        assert.equal(existing.has(fileName), true, `Missing integration fixture '${fileName}'.`);
+    for (const caseDirectory of caseDirectories) {
+        const fileNames = new Set(await fs.readdir(caseDirectory));
+        assert.equal(fileNames.has("gmloop.json"), true, `${caseDirectory} is missing gmloop.json.`);
+        assert.equal(fileNames.has("input.gml"), true, `${caseDirectory} is missing input.gml.`);
+        assert.equal(fileNames.has("options.json"), false, `${caseDirectory} must not use legacy options.json.`);
     }
 });
 
-void test("integration fixture options do not include removed formatter migration keys", async () => {
-    const entries = await fs.readdir(formatIntegrationFixtureRoot);
-    const optionFiles = entries.filter((entry) => entry.endsWith(".options.json"));
+void test("fixture gmloop.json files do not include removed formatter migration keys", async () => {
+    const fixtureRoots = [formatFixtureRoot, integrationFixtureRoot];
 
-    for (const optionFile of optionFiles) {
-        const optionPath = path.join(formatIntegrationFixtureRoot, optionFile);
-        const raw = await fs.readFile(optionPath, "utf8");
-        const parsed = JSON.parse(raw) as unknown;
-
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            continue;
+    for (const fixtureRoot of fixtureRoots) {
+        for (const caseDirectory of await collectCaseDirectories(fixtureRoot)) {
+            const configPath = path.join(caseDirectory, "gmloop.json");
+            const parsed = JSON.parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
+            const removedKeys = Object.keys(parsed).filter((key) => REMOVED_FORMATTER_OPTION_KEYS.has(key));
+            assert.deepEqual(removedKeys, [], `${configPath} contains removed formatter option(s): ${removedKeys.join(", ")}`);
         }
-
-        const keys = Object.keys(parsed as Record<string, unknown>);
-        const removedKeys = keys.filter((key) => REMOVED_FORMATTER_OPTION_KEYS.has(key));
-        assert.deepEqual(
-            removedKeys,
-            [],
-            `${optionFile} contains removed formatter option(s): ${removedKeys.join(", ")}`
-        );
     }
 });

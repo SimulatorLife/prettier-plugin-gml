@@ -106,16 +106,6 @@ export interface RefactorProjectConfig {
 }
 
 /**
- * Unified project configuration shape loaded from `gmloop.json`.
- *
- * The top-level object is intentionally open-ended so formatter and lint
- * settings can coexist with refactor configuration in the same file.
- */
-export type GmloopProjectConfig = Record<string, unknown> & {
-    refactor?: RefactorProjectConfig;
-};
-
-/**
  * Normalized rule values after inheritance/default resolution for a category.
  */
 export interface ResolvedNamingRule {
