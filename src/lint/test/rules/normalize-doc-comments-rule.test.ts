@@ -430,3 +430,46 @@ void test("normalize-doc-comments removes existing @returns tags for constructor
     assertEquals(output, expected);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
 });
+
+void test("normalize-doc-comments remaps wrong param names to correct function parameter names", () => {
+    // When doc comment has parameter lines whose names don't match the function
+    // signature, they are paired with the missing function params in order.
+    const input = [
+        "/// @param wrong_a First param description.",
+        "/// @param wrong_b Second param description.",
+        "function paired_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+    const expected = [
+        "/// @param correct_a First param description.",
+        "/// @param correct_b Second param description.",
+        "/// @returns {undefined}",
+        "function paired_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+
+    assertEquals(output, expected);
+});
+
+void test("normalize-doc-comments remaps excess unmatched param lines only up to missing params count", () => {
+    // When there are more unmatched doc param lines than missing function params,
+    // only the first N are remapped (N = number of missing params), and excess
+    // lines that cannot be paired are removed by the subsequent prune pass.
+    const input = [
+        "/// @param wrong_a",
+        "/// @param wrong_b",
+        "/// @param wrong_c",
+        "function partial_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /\/\/\/ @param correct_a/);
+    assert.match(output, /\/\/\/ @param correct_b/);
+    // wrong_c had no corresponding function param and must not appear in output
+    assert.doesNotMatch(output, /wrong_c/);
+});
