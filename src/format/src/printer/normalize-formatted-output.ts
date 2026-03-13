@@ -103,11 +103,6 @@ function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undef
     return isNonEmptyTrimmedString(previousLine) && !isTopLevelLineComment(previousLine);
 }
 
-/** Returns `true` when `line` contains a plain `//` (not `///`) comment, optionally indented. */
-function isPlainLineComment(line: string | undefined): boolean {
-    return typeof line === "string" && /^\s*\/\/(?!\/)/.test(line);
-}
-
 function updateBlockCommentState(line: string, isInside: boolean): boolean {
     const startIndex = line.indexOf("/*");
     const endIndex = line.indexOf("*/");
@@ -148,46 +143,6 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
 
     return result.join("\n");
 }
-
-function getNextNonBlankLine(lines: string[], startIndex: number): string | undefined {
-    return lines.slice(startIndex).find((line) => line.trim().length > 0);
-}
-
-function isGuardCommentSequence(lines: string[], commentIndex: number): boolean {
-    const nextLine = getNextNonBlankLine(lines, commentIndex + 1);
-    return typeof nextLine === "string" && /^\s*if\b/.test(nextLine);
-}
-
-function removeBlankLinesBeforeGuardComments(formatted: string): string {
-    const lines = formatted.split(/\r?\n/);
-    const normalized: string[] = [];
-    const length = lines.length;
-    let previousNonBlankTrimmed: string | null = null;
-
-    for (let index = 0; index < length; index += 1) {
-        const line = lines[index];
-        const trimmedLine = line.trim();
-        const isBlankLine = trimmedLine.length === 0;
-
-        if (
-            isBlankLine &&
-            index + 1 < length &&
-            isPlainLineComment(lines[index + 1]) &&
-            isGuardCommentSequence(lines, index + 1) &&
-            previousNonBlankTrimmed?.endsWith("{")
-        ) {
-            continue;
-        }
-
-        normalized.push(line);
-        if (!isBlankLine) {
-            previousNonBlankTrimmed = trimmedLine;
-        }
-    }
-
-    return normalized.join("\n");
-}
-
 function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }
@@ -204,8 +159,7 @@ export function normalizeFormattedOutput(formatted: string): string {
         trimDecorativeCommentBlankLines,
         collapseDuplicateBlankLines,
         collapseWhitespaceOnlyBlankLines,
-        collapseLineCommentToBlockCommentBlankLines,
-        removeBlankLinesBeforeGuardComments
+        collapseLineCommentToBlockCommentBlankLines
     ].reduce<string>((current, step) => step(current), formatted);
 
     return collapseWhitespaceOnlyBlankLines(normalized);
