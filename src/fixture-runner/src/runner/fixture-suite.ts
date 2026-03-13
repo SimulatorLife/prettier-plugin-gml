@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, test } from "node:test";
@@ -44,14 +44,6 @@ async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, stri
 
     await walk(rootPath);
     return files;
-}
-
-function createIntegrationWorkspaceInputPath(tempProjectDirectoryPath: string): string {
-    return path.join(tempProjectDirectoryPath, "input.gml");
-}
-
-function fixtureCaseNeedsTemporaryProjectDirectory(fixtureCase: FixtureCase): boolean {
-    return fixtureCase.kind === "integration" && Object.hasOwn(fixtureCase.config, "refactor");
 }
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;
@@ -128,25 +120,15 @@ async function executeFixtureCase(
     const stageTimer = createStageTimer();
     const budgets = fixtureCase.config.fixture.profile?.budgets ?? null;
     const deepCpuProfileArtifactPath = null;
-    let tempProjectDirectoryPath: string | null = null;
+    let workingProjectDirectoryPath: string | null = null;
     let caseResult: FixtureCaseResult | null = null;
     let changed = false;
 
     try {
         await stageTimer.runStage("load", async () => {
             if (fixtureCase.projectDirectoryPath) {
-                tempProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-runner-"));
-                await cp(fixtureCase.projectDirectoryPath, tempProjectDirectoryPath, { recursive: true });
-                return;
-            }
-
-            if (fixtureCaseNeedsTemporaryProjectDirectory(fixtureCase)) {
-                tempProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-runner-"));
-                await writeFile(
-                    createIntegrationWorkspaceInputPath(tempProjectDirectoryPath),
-                    await readFile(fixtureCase.inputFilePath ?? "", "utf8"),
-                    "utf8"
-                );
+                workingProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-runner-"));
+                await cp(fixtureCase.projectDirectoryPath, workingProjectDirectoryPath, { recursive: true });
             }
         });
 
@@ -157,7 +139,7 @@ async function executeFixtureCase(
                         fixtureCase,
                         config: fixtureCase.config,
                         inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
-                        tempProjectDirectoryPath,
+                        workingProjectDirectoryPath,
                         runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
                     })
                 );
@@ -168,7 +150,7 @@ async function executeFixtureCase(
                 fixtureCase,
                 config: fixtureCase.config,
                 inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
-                tempProjectDirectoryPath,
+                workingProjectDirectoryPath,
                 runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
             });
             changed = caseResult.changed;
@@ -230,8 +212,8 @@ async function executeFixtureCase(
         profileCollector.addEntry(profileEntry);
         throw error;
     } finally {
-        if (tempProjectDirectoryPath !== null) {
-            await rm(tempProjectDirectoryPath, { recursive: true, force: true });
+        if (workingProjectDirectoryPath !== null) {
+            await rm(workingProjectDirectoryPath, { recursive: true, force: true });
         }
     }
 }

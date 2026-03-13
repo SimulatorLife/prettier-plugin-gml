@@ -258,7 +258,7 @@ void test("runner-owned comparison mode strips doc comment annotations and trims
     }
 });
 
-void test("lint fixtures default to whitespace-insensitive comparison", async () => {
+void test("fixture cases default to exact comparison", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-lint-comparison-"));
     await createTextFixtureCase(
         rootPath,
@@ -274,21 +274,46 @@ void test("lint fixtures default to whitespace-insensitive comparison", async ()
 
     try {
         const fixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
-        assert.equal(fixtureCases[0]?.comparison, "ignore-whitespace-and-line-endings");
+        assert.equal(fixtureCases[0]?.comparison, "exact");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
 
+void test("integration fixtures with refactor config do not receive a runner-managed working project directory", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-integration-project-"));
+    await createTextFixtureCase(
+        rootPath,
+        "integration-refactor",
+        {
+            refactor: {
+                codemods: {
+                    loopLengthHoisting: false
+                }
+            },
+            fixture: {
+                kind: "integration"
+            }
+        },
+        "var value = 1;\n",
+        "var value = 1;\n"
+    );
+
+    try {
         const result = await FixtureRunner.runFixtureSuite({
             fixtureRoot: rootPath,
             adapter: {
-                workspaceName: "lint",
-                suiteName: "lint fixtures",
+                workspaceName: "integration",
+                suiteName: "integration fixtures",
                 supports(kind) {
-                    return kind === "lint";
+                    return kind === "integration";
                 },
-                async run({ runProfiledStage }) {
-                    return await runProfiledStage("lint", async () => ({
-                        resultKind: "text",
-                        outputText: "var total=1+2;\n",
-                        changed: true
+                async run({ workingProjectDirectoryPath, runProfiledStage }) {
+                    assert.equal(workingProjectDirectoryPath, null);
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text" as const,
+                        outputText: "var value = 1;\n",
+                        changed: false
                     }));
                 }
             }

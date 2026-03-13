@@ -13,9 +13,11 @@
   ],
   "dependencies": {
     "@gmloop/core": "workspace:*",
-    "@gmloop/fixture-runner": "workspace:*",
     "@gmloop/parser": "workspace:*",
     "@gmloop/semantic": "workspace:*"
+  },
+  "devDependencies": {
+    "@gmloop/fixture-runner": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

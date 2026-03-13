@@ -1,4 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { Format } from "@gmloop/format";
@@ -6,14 +7,18 @@ import { Lint } from "@gmloop/lint";
 import { Refactor } from "@gmloop/refactor";
 import { ESLint } from "eslint";
 
-import { createLintRuleEntriesFromProjectConfig } from "#fixture-test/lint";
-
 function hasConfiguredRefactorStage(config: Record<string, unknown>): boolean {
     return Object.hasOwn(config, "refactor") && config.refactor !== undefined;
 }
 
 function resolveIntegrationWorkspaceFilePath(tempProjectDirectoryPath: string): string {
     return path.join(tempProjectDirectoryPath, "input.gml");
+}
+
+async function createIntegrationRefactorWorkspace(inputText: string): Promise<string> {
+    const temporaryProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-integration-fixture-"));
+    await writeFile(resolveIntegrationWorkspaceFilePath(temporaryProjectDirectoryPath), inputText, "utf8");
+    return temporaryProjectDirectoryPath;
 }
 
 async function runConfiguredIntegrationRefactorStage(
@@ -49,46 +54,55 @@ export function createIntegrationFixtureAdapter() {
         supports(kind: string) {
             return kind === "integration";
         },
-        async run({ fixtureCase, config, inputText, runProfiledStage, tempProjectDirectoryPath }) {
+        async run({ fixtureCase, config, inputText, runProfiledStage }) {
             const formatOptions = Format.extractProjectFormatOptions(config);
-            const lintRuleEntries = createLintRuleEntriesFromProjectConfig(config);
+            const lintRuleEntries = Lint.createLintRuleEntriesFromProjectConfig(config);
+            let temporaryRefactorWorkspacePath: string | null = null;
 
-            const refactoredText =
-                hasConfiguredRefactorStage(config) && tempProjectDirectoryPath
-                    ? await runProfiledStage(
-                          "refactor",
-                          async () => await runConfiguredIntegrationRefactorStage(config, tempProjectDirectoryPath)
-                      )
+            try {
+                const refactoredText = hasConfiguredRefactorStage(config)
+                    ? await runProfiledStage("refactor", async () => {
+                          temporaryRefactorWorkspacePath = await createIntegrationRefactorWorkspace(inputText ?? "");
+                          return await runConfiguredIntegrationRefactorStage(config, temporaryRefactorWorkspacePath);
+                      })
                     : (inputText ?? "");
 
-            const eslint = new ESLint({
-                overrideConfigFile: true,
-                fix: true,
-                overrideConfig: [
-                    {
-                        files: ["**/*.gml"],
-                        plugins: {
-                            gml: Lint.plugin,
-                            feather: Lint.featherPlugin
-                        },
-                        language: "gml/gml",
-                        rules: lintRuleEntries
-                    }
-                ]
-            });
-            const [result] = await runProfiledStage("lint", async () =>
-                await eslint.lintText(refactoredText, {
-                    filePath: `${fixtureCase.caseId}.gml`
-                })
-            );
-            const lintedOutput = result.output ?? refactoredText;
-            const outputText = await runProfiledStage("format", async () => await Format.format(lintedOutput, formatOptions));
+                const eslint = new ESLint({
+                    overrideConfigFile: true,
+                    fix: true,
+                    overrideConfig: [
+                        {
+                            files: ["**/*.gml"],
+                            plugins: {
+                                gml: Lint.plugin,
+                                feather: Lint.featherPlugin
+                            },
+                            language: "gml/gml",
+                            rules: lintRuleEntries
+                        }
+                    ]
+                });
+                const [result] = await runProfiledStage("lint", async () =>
+                    await eslint.lintText(refactoredText, {
+                        filePath: `${fixtureCase.caseId}.gml`
+                    })
+                );
+                const lintedOutput = result.output ?? refactoredText;
+                const outputText = await runProfiledStage(
+                    "format",
+                    async () => await Format.format(lintedOutput, formatOptions)
+                );
 
-            return {
-                resultKind: "text" as const,
-                outputText,
-                changed: outputText !== (inputText ?? "")
-            };
+                return {
+                    resultKind: "text" as const,
+                    outputText,
+                    changed: outputText !== (inputText ?? "")
+                };
+            } finally {
+                if (temporaryRefactorWorkspacePath !== null) {
+                    await rm(temporaryRefactorWorkspacePath, { recursive: true, force: true });
+                }
+            }
         }
     });
 }

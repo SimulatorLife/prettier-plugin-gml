@@ -3,6 +3,7 @@ import { featherManifest } from "../rules/feather/manifest.js";
 import { PERFORMANCE_OVERRIDE_RULE_IDS } from "./performance-rule-ids.js";
 
 export { normalizeLintRulesConfig } from "./project-config.js";
+export { createLintRuleEntriesFromProjectConfig } from "./rule-entries.js";
 
 /**
  * Represents a pinned lint flat-config entry exposed by the lint namespace.

@@ -23,3 +23,40 @@ void test("normalizeLintRulesConfig rejects malformed lintRules", () => {
         message: "gmloop.json lintRules must be an object."
     });
 });
+
+void test("createLintRuleEntriesFromProjectConfig builds enabled rule entries", () => {
+    const ruleEntries = Lint.createLintRuleEntriesFromProjectConfig({
+        lintRules: {
+            "gml/no-globalvar": "error"
+        }
+    });
+
+    assert.deepEqual(ruleEntries, {
+        "gml/no-globalvar": "error"
+    });
+});
+
+void test("createLintRuleEntriesFromProjectConfig passes matching top-level rule options", () => {
+    const ruleEntries = Lint.createLintRuleEntriesFromProjectConfig({
+        lintRules: {
+            "gml/prefer-hoistable-loop-accessors": "warn"
+        },
+        minOccurrences: 3,
+        functionSuffixes: {
+            array_length: "count"
+        },
+        ignoredTopLevelKey: true
+    });
+
+    assert.deepEqual(ruleEntries, {
+        "gml/prefer-hoistable-loop-accessors": [
+            "warn",
+            {
+                minOccurrences: 3,
+                functionSuffixes: {
+                    array_length: "count"
+                }
+            }
+        ]
+    });
+});

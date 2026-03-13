@@ -170,7 +170,7 @@ export interface FixtureAdapter {
         fixtureCase: FixtureCase;
         config: FixtureProjectConfig;
         inputText: string | null;
-        tempProjectDirectoryPath: string | null;
+        workingProjectDirectoryPath: string | null;
         runProfiledStage<T>(
             stageName: Exclude<FixtureStageName, "load" | "compare" | "total">,
             operation: () => Promise<T>

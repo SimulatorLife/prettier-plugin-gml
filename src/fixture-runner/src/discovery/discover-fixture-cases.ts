@@ -42,7 +42,7 @@ function deriveDefaultComparison(config: FixtureProjectConfig): FixtureCompariso
         return config.fixture.comparison;
     }
 
-    return config.fixture.kind === "lint" ? "ignore-whitespace-and-line-endings" : "exact";
+    return "exact";
 }
 
 async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {

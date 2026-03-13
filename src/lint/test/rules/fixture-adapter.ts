@@ -2,10 +2,9 @@ import type { FixtureAdapter } from "@gmloop/fixture-runner";
 import { ESLint } from "eslint";
 
 import { Lint } from "../../src/index.js";
-import { createLintRuleEntriesFromProjectConfig } from "./fixture-rule-entries.js";
 
 function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
-    const ruleEntries = createLintRuleEntriesFromProjectConfig(config);
+    const ruleEntries = Lint.createLintRuleEntriesFromProjectConfig(config);
     const enabledRuleIds = Object.keys(ruleEntries);
     if (enabledRuleIds.length !== 1) {
         throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRuleIds.length}.`);

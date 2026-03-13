@@ -10,8 +10,10 @@ Current verified status:
 Status note:
 - The original full-suite audit found `32` failing fixtures.
 - The lint suite is now fully green. The previously outstanding malformed-code recovery, Feather autofix, doc-comment normalization, directive normalization, logical-flow style, and control-flow-braces fixture failures have been resolved without changing any golden `.gml` files.
-- The lint workspace test suite is also green with raw ESLint autofix output. Lint fixture execution no longer depends on a formatter post-pass, and the shared `pnpm run test:fixtures` run now confirms that the remaining failures are confined to `@gmloop/format` and the root integration suite.
+- The lint workspace test suite is also green with raw ESLint autofix output. Lint fixture execution no longer depends on a formatter post-pass, and the shared `pnpm run test:fixtures` run now confirms that the remaining failures are confined to the root integration suite.
 - The shared fixture runner now executes integration fixtures in the same staged order as the real fix pipeline: `refactor -> lint -> format`.
+- The shared fixture runner no longer creates integration-specific temporary project workspaces; that setup now lives in the root integration adapter, leaving runner-managed working directories for true project-tree fixtures only.
+- `exact` is now the default fixture comparison mode. Any non-exact comparison must be explicitly declared in `gmloop.json`.
 - A fresh `pnpm run test:fixtures` run now reports `14` failing fixtures total, all in the root integration suite.
 - This document reflects the current verified outstanding failures plus the now-resolved lint work and the completed fixture-runner hardening.
 

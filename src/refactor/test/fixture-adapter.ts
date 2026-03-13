@@ -45,9 +45,9 @@ export function createRefactorFixtureAdapter(): FixtureAdapter {
         supports(kind: string) {
             return kind === "refactor";
         },
-        async run({ config, tempProjectDirectoryPath, runProfiledStage }) {
+        async run({ config, workingProjectDirectoryPath, runProfiledStage }) {
             const normalizedConfig = normalizeRefactorProjectConfig(config.refactor);
-            const projectRoot = tempProjectDirectoryPath ?? "";
+            const projectRoot = workingProjectDirectoryPath ?? "";
             const gmlFilePaths = await collectProjectGmlFiles(projectRoot);
             const engine = new RefactorEngine();
 
