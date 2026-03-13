@@ -9,6 +9,7 @@
     { "path": "../src/core" },
     { "path": "../src/parser" },
     { "path": "../src/format" },
+    { "path": "../src/lint" },
     { "path": "../src/semantic" }
   ],
   "include": ["*.ts"],
