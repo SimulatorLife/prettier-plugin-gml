@@ -15,14 +15,7 @@
  * requiring full project-level scope analysis.
  */
 
-import type {
-    CallExpressionNode,
-    CallTargetAnalyzer,
-    IdentifierAnalyzer,
-    IdentifierMetadata,
-    IdentifierNode,
-    SemKind
-} from "./ast.js";
+import type { CallExpressionNode, CallTargetAnalyzer, IdentifierAnalyzer, IdentifierMetadata, SemKind } from "./ast.js";
 
 /**
  * SemKind values that the delegate oracle has definitively classified.
@@ -79,7 +72,7 @@ export class EventContextOracle implements IdentifierAnalyzer, CallTargetAnalyze
      * 2. Names in `localVars` → `local`
      * 3. Everything else → `self_field`
      */
-    kindOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): SemKind {
+    kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind {
         // Let the delegate classify builtins, scripts, globals, and other-refs first.
         const delegateKind = this.delegate.kindOfIdent(node);
         if (DELEGATE_OWNED_KINDS.has(delegateKind)) {
@@ -98,12 +91,12 @@ export class EventContextOracle implements IdentifierAnalyzer, CallTargetAnalyze
     }
 
     /** @inheritdoc */
-    nameOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): string {
+    nameOfIdent(node: IdentifierMetadata | null | undefined): string {
         return this.delegate.nameOfIdent(node);
     }
 
     /** @inheritdoc */
-    qualifiedSymbol(node: IdentifierNode | IdentifierMetadata | null | undefined): string | null {
+    qualifiedSymbol(node: IdentifierMetadata | null | undefined): string | null {
         return this.delegate.qualifiedSymbol(node);
     }
 

@@ -1,44 +1,78 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { Semantic } from "@gmloop/semantic";
+import { type IdentifierMetadata, Semantic, type SemKind } from "@gmloop/semantic";
+
+import { Transpiler } from "../index.js";
+import type { CallExpressionNode, CallTargetAnalyzer, IdentifierAnalyzer } from "../src/emitter/ast.js";
 
 /**
- * Type alignment tests
+ * Type-contract tests for the semantic oracle / transpiler boundary.
  *
- * These tests verify that types duplicated between packages remain in sync.
- * When types are duplicated for architectural reasons (e.g., namespace constraints),
- * these tests catch drift by validating runtime behavior matches expectations.
+ * These tests verify:
+ * 1. `SemKind` and `IdentifierMetadata` are importable as standalone types from
+ *    `@gmloop/semantic` (regression guard for the workspace type-export surface).
+ * 2. `BasicSemanticOracle` satisfies the transpiler's `IdentifierAnalyzer` and
+ *    `CallTargetAnalyzer` contracts so that oracle substitution works correctly.
+ * 3. `createSemanticOracle()` returns an oracle that fulfils both interfaces.
  */
 
-void describe("Type alignment between transpiler and semantic", () => {
-    void test("SemKind values match between packages", () => {
-        // The transpiler duplicates SemKind from semantic due to namespace export constraints.
-        // This test ensures the semantic package's BasicSemanticOracle.kindOfIdent method returns values
-        // that match our expected SemKind type definition.
+void describe("Semantic oracle type contracts", () => {
+    void test("SemKind is exported as a standalone type from @gmloop/semantic", () => {
+        // Compile-time assertion: assigning a SemKind literal must type-check.
+        const kind: SemKind = "local";
+        assert.equal(kind, "local");
+    });
 
-        const oracle = new Semantic.BasicSemanticOracle(null, new Set(), new Set());
+    void test("IdentifierMetadata is exported as a standalone type from @gmloop/semantic", () => {
+        const meta: IdentifierMetadata = { name: "health" };
+        assert.equal(meta.name, "health");
 
-        const expectedKinds: Array<ReturnType<typeof oracle.kindOfIdent>> = [
-            "local",
-            "self_field",
-            "other_field",
-            "global_field",
-            "builtin",
-            "script"
-        ];
+        const globalMeta: IdentifierMetadata = { name: "global_counter", isGlobalIdentifier: true };
+        assert.equal(globalMeta.isGlobalIdentifier, true);
+    });
 
-        // Verify each value is a valid SemKind by checking the function accepts test data
-        for (const kind of expectedKinds) {
-            // If the types drift, this will fail at compile time
-            const testResult: ReturnType<typeof oracle.kindOfIdent> = kind;
-            assert.ok(typeof testResult === "string", `${kind} should be a string`);
+    void test("BasicSemanticOracle satisfies IdentifierAnalyzer and CallTargetAnalyzer", () => {
+        // Assigning to the transpiler's interface types validates structural compatibility
+        // at compile time. If the oracle drifts from the interface contracts this test
+        // will fail during TypeScript compilation.
+        const identifierAnalyzer: IdentifierAnalyzer = new Semantic.BasicSemanticOracle(null, new Set(), new Set());
+        const callTargetAnalyzer: CallTargetAnalyzer = new Semantic.BasicSemanticOracle(null, new Set(), new Set());
+
+        assert.equal(typeof identifierAnalyzer.kindOfIdent, "function");
+        assert.equal(typeof identifierAnalyzer.nameOfIdent, "function");
+        assert.equal(typeof identifierAnalyzer.qualifiedSymbol, "function");
+        assert.equal(typeof callTargetAnalyzer.callTargetKind, "function");
+        assert.equal(typeof callTargetAnalyzer.callTargetSymbol, "function");
+    });
+
+    void test("createSemanticOracle returns an oracle compatible with both interfaces", () => {
+        const oracle = Transpiler.createSemanticOracle();
+
+        const identifierAnalyzer: IdentifierAnalyzer = oracle;
+        const callTargetAnalyzer: CallTargetAnalyzer = oracle;
+
+        // Verify known SemKind values are returned correctly.
+        assert.equal(identifierAnalyzer.kindOfIdent(null), "local");
+        assert.equal(identifierAnalyzer.kindOfIdent(undefined), "local");
+        assert.equal(identifierAnalyzer.kindOfIdent({ name: "test" }), "local");
+        assert.equal(identifierAnalyzer.kindOfIdent({ name: "test", isGlobalIdentifier: true }), "global_field");
+
+        // callTargetKind should return a recognised value for an unknown target.
+        const mockCallNode: CallExpressionNode = {
+            type: "CallExpression",
+            object: { type: "Identifier", name: "unknownFn" },
+            arguments: []
+        };
+        const kind = callTargetAnalyzer.callTargetKind(mockCallNode);
+        assert.ok(["script", "builtin", "unknown"].includes(kind), `Unexpected kind: ${kind}`);
+    });
+
+    void test("SemKind covers all classification categories", () => {
+        const validKinds: SemKind[] = ["local", "self_field", "other_field", "global_field", "builtin", "script"];
+
+        for (const kind of validKinds) {
+            assert.equal(typeof kind, "string");
         }
-
-        // Also verify the method returns expected types for various inputs
-        assert.equal(oracle.kindOfIdent(null), "local");
-        assert.equal(oracle.kindOfIdent(undefined), "local");
-        assert.equal(oracle.kindOfIdent({ name: "test" }), "local");
-        assert.equal(oracle.kindOfIdent({ name: "test", isGlobalIdentifier: true }), "global_field");
     });
 });
