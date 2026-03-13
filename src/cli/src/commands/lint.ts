@@ -215,6 +215,19 @@ type LintResultLike = Readonly<{
     messages?: ReadonlyArray<LintResultMessageLike>;
 }>;
 
+type RetainedLintResult = Pick<
+    ESLint.LintResult,
+    | "filePath"
+    | "messages"
+    | "suppressedMessages"
+    | "errorCount"
+    | "fatalErrorCount"
+    | "warningCount"
+    | "fixableErrorCount"
+    | "fixableWarningCount"
+    | "usedDeprecatedRules"
+>;
+
 type LintFilesExecutor = Readonly<{
     lintFiles(filePatterns: string | Array<string>): Promise<Array<ESLint.LintResult>>;
 }>;
@@ -455,11 +468,25 @@ function lintTargetsWithRuntimeRecovery(parameters: {
                 completedAtNanoseconds: readMonotonicNanoseconds()
             })
         });
-        aggregatedResults.push(...targetResults);
+        aggregatedResults.push(...targetResults.map(createRetainedLintResult));
         return lintTargetAtIndex(index + 1);
     };
 
     return lintTargetAtIndex(0);
+}
+
+function createRetainedLintResult(result: ESLint.LintResult): RetainedLintResult {
+    return {
+        filePath: result.filePath,
+        messages: result.messages,
+        suppressedMessages: result.suppressedMessages,
+        errorCount: result.errorCount,
+        fatalErrorCount: result.fatalErrorCount,
+        warningCount: result.warningCount,
+        fixableErrorCount: result.fixableErrorCount,
+        fixableWarningCount: result.fixableWarningCount,
+        usedDeprecatedRules: result.usedDeprecatedRules
+    };
 }
 
 function normalizeMaxWarnings(rawValue: unknown): number {
@@ -1194,6 +1221,7 @@ export const __lintCommandTest__ = Object.freeze({
     discoverFlatConfig,
     extractLintRuntimeFailureLocation,
     lintTargetsWithRuntimeRecovery,
+    createRetainedLintResult,
     toLintProgressDisplayPath,
     emitLintFixProgressForResults,
     resolveEslintCwd,

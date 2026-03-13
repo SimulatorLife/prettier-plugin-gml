@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
     cloneAstNodeWithoutTraversalLinks,
+    createCommentTokenRangeIndex,
     findFirstAstNodeBy,
+    rangeContainsCommentToken,
     sourceRangeContainsCommentToken,
     walkAstNodes
 } from "../../src/rules/gml/rule-base-helpers.js";
@@ -125,4 +127,25 @@ void test("sourceRangeContainsCommentToken detects line and block comment marker
     assert.equal(sourceRangeContainsCommentToken(sourceText, plainStart, plainEnd), false);
     assert.equal(sourceRangeContainsCommentToken(sourceText, lineStart, lineEnd), true);
     assert.equal(sourceRangeContainsCommentToken(sourceText, blockStart, blockEnd), true);
+});
+
+void test("rangeContainsCommentToken uses the prefix index to detect comment markers without rescanning", () => {
+    const sourceText = [
+        "value = 1;",
+        'message = "not // a comment";',
+        "score = 2; // inline",
+        "/* banner */ total = 3;"
+    ].join("\n");
+    const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
+
+    const plainStart = sourceText.indexOf("value = 1;");
+    const plainEnd = plainStart + "value = 1;".length;
+    const inlineStart = sourceText.indexOf("score = 2;");
+    const inlineEnd = inlineStart + "score = 2; // inline".length;
+    const blockStart = sourceText.indexOf("/* banner */");
+    const blockEnd = blockStart + "/* banner */".length;
+
+    assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, plainStart, plainEnd), false);
+    assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, inlineStart, inlineEnd), true);
+    assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, blockStart, blockEnd), true);
 });

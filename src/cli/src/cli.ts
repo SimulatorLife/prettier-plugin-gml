@@ -25,6 +25,7 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { handleCliError } from "./cli-core/errors.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
+import { createFixCommand, runFixCommand } from "./commands/fix.js";
 import { __formatTest__, createFormatCommand, runFormatCommand } from "./commands/format.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
@@ -331,6 +332,16 @@ cliCommandRegistry.registerCommand({
         handleCliError(error, {
             prefix: "Lint command failed.",
             exitCode: 2
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createFixCommand(),
+    run: ({ command }) => runFixCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run project fix workflow.",
+            exitCode: 1
         })
 });
 

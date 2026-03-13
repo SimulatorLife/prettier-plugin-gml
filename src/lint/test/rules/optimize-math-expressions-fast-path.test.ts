@@ -25,3 +25,11 @@ void test("optimize-math-expressions preserves square-product simplifications wi
     assert.equal(result.output, "result = (sqr(a) + sqr(b)) + sqr(c);\n");
     assert.equal(result.output.includes("dot_product"), false);
 });
+
+void test("optimize-math-expressions leaves additive identifier chains unchanged", () => {
+    const input = ["sum = left + right + carry;", "return sum - previous;", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+
+    assert.equal(result.messages.length, 0);
+    assert.equal(result.output, input);
+});

@@ -34,13 +34,13 @@ This wires:
 
 - `plugins.gml = Lint.plugin`
 - `language = "gml/gml"`
-- The baseline recommended `gml/*` rule levels
+- All recommended `gml/*` rule levels plus the conservative safe Feather subset
 
 ## Config Sets
 
 `Lint.configs` exposes these immutable flat-config sets:
 
-- `recommended`: baseline `gml/*` rules
+- `recommended`: all `gml/*` rules plus a conservative safe `feather/*` subset
 - `feather`: `feather/gm####` overlay rules from the feather manifest
 
 Example:
