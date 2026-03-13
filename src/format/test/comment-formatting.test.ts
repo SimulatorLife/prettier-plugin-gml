@@ -400,7 +400,7 @@ void test("preserves blank lines between adjacent function doc-comment tags", as
     );
 });
 
-void test("preserves source order for mixed function doc-comment prefixes", async () => {
+void test("keeps mixed doc-comment prefixes attached without normalizing content", async () => {
     const source = [
         "/// @function scr_create_fx",
         "// @param sprite_index",
@@ -415,9 +415,9 @@ void test("preserves source order for mixed function doc-comment prefixes", asyn
     assert.equal(
         formatted,
         [
-            "/// @function scr_create_fx",
             "// @param sprite_index",
             "/* @description Create an effect */",
+            "/// @function scr_create_fx",
             "/// @returns {Id.Instance} instance",
             "function scr_create_fx() {}",
             ""
