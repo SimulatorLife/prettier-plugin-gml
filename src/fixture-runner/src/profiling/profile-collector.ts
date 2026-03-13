@@ -21,6 +21,9 @@ type ResourceUsageSnapshot = ReturnType<typeof process.resourceUsage>;
 type MemoryUsageSnapshot = ReturnType<typeof process.memoryUsage>;
 type CpuUsageSnapshot = ReturnType<typeof process.cpuUsage>;
 
+const FIXTURE_STAGE_ORDER = Object.freeze(["load", "refactor", "lint", "format", "compare", "total"] as const);
+const FIXTURE_STAGE_ORDER_INDEX = new Map(FIXTURE_STAGE_ORDER.map((stageName, index) => [stageName, index]));
+
 function captureStageSnapshot() {
     return Object.freeze({
         startedAt: performance.now(),
@@ -268,15 +271,51 @@ export function createProfileCollector(): FixtureProfileCollector {
 
 export function createStageTimer() {
     const stages: Array<FixtureStageMetrics> = [];
+    const completedStages = new Set<FixtureStageName>();
+    let lastCompletedStageIndex = -1;
 
     return Object.freeze({
         async runStage<T>(stageName: FixtureStageName, operation: () => Promise<T>): Promise<T> {
-            const snapshot = captureStageSnapshot();
-            try {
-                return await operation();
-            } finally {
-                stages.push(toStageMetrics(stageName, snapshot));
+            if (completedStages.has(stageName)) {
+                throw new Error(`Fixture stage ${stageName} must not run more than once for a single fixture case.`);
             }
+
+            const stageIndex = FIXTURE_STAGE_ORDER_INDEX.get(stageName);
+            if (stageIndex === undefined) {
+                throw new Error(`Unknown fixture stage ${stageName}.`);
+            }
+
+            const snapshot = captureStageSnapshot();
+            let completed = false;
+            let result!: T;
+            let operationError: unknown = null;
+
+            try {
+                result = await operation();
+                completed = true;
+            } catch (error) {
+                operationError = error;
+            }
+
+            if (stageIndex < lastCompletedStageIndex) {
+                throw new Error(
+                    `Fixture stage ${stageName} ran out of order. Expected canonical order ${FIXTURE_STAGE_ORDER.join(" -> ")}.`
+                );
+            }
+
+            stages.push(toStageMetrics(stageName, snapshot));
+            completedStages.add(stageName);
+            lastCompletedStageIndex = stageIndex;
+
+            if (operationError !== null) {
+                throw operationError;
+            }
+
+            if (!completed) {
+                throw new Error(`Fixture stage ${stageName} did not complete successfully.`);
+            }
+
+            return result;
         },
         getStages(): ReadonlyArray<FixtureStageMetrics> {
             return Object.freeze([...stages]);

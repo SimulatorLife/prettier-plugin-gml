@@ -11,6 +11,7 @@ type DependencyMap = Readonly<Record<string, string>>;
 
 type PackageJson = Readonly<{
     dependencies?: DependencyMap;
+    exports?: Readonly<Record<string, unknown>>;
 }>;
 
 const require = createRequire(import.meta.url);
@@ -56,5 +57,15 @@ void describe("workspace ownership dependency policy", () => {
         assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/lint"), null);
         assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/refactor"), null);
         assert.strictEqual(getDependencyVersion(fixtureRunnerPackage, "@gmloop/semantic"), null);
+    });
+
+    void it("workspace packages do not publish test-support subpath exports", () => {
+        const formatPackage = readWorkspacePackage("@gmloop/format");
+        const lintPackage = readWorkspacePackage("@gmloop/lint");
+        const refactorPackage = readWorkspacePackage("@gmloop/refactor");
+
+        assert.strictEqual(formatPackage.exports?.["./test-support"], undefined);
+        assert.strictEqual(lintPackage.exports?.["./test-support"], undefined);
+        assert.strictEqual(refactorPackage.exports?.["./test-support"], undefined);
     });
 });

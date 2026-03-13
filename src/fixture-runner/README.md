@@ -9,8 +9,16 @@ Responsibilities:
 - discover directory-per-case fixtures
 - reject legacy flat-fixture files such as `options.json`, `fixed.gml`, `*.input.gml`, and `*.output.gml`
 - run workspace-owned adapters
-- compare outputs
+- compare outputs through runner-owned comparison modes configured in `fixture.comparison`
 - collect time, memory, and CPU metrics
+- enforce canonical fixture stage order: `load -> refactor -> lint -> format -> compare -> total`
 - emit human and JSON profile reports, including workspace aggregates, stage aggregates, and budget failures
+- support opt-in isolated deep CPU profiles through the root fixture profile runner, which forks a child process per profiled fixture case
 
-This workspace depends only on `@gmloop/core`. Product workspaces supply their own adapters and retain ownership of their tool-specific config sections.
+Comparison modes:
+
+- `exact`: byte-for-byte expected output
+- `ignore-whitespace-and-line-endings`: semantic text comparisons for selected lint fixtures
+- `trimmed-strip-doc-comment-annotations`: explicit integration-fixture escape hatch for cases that intentionally ignore doc-annotation-only differences
+
+This workspace depends only on `@gmloop/core`. Product workspaces supply their own adapters and retain ownership of their tool-specific config sections. Repo-level tests import workspace test support through root-only `#fixture-test/*` aliases rather than public package exports.

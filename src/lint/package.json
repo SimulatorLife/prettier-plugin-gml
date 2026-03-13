@@ -6,10 +6,6 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./test-support": {
-      "import": "./dist/test/rules/index.js",
-      "types": "./dist/test/rules/index.d.ts"
-    },
     "./package.json": "./package.json"
   },
   "files": [

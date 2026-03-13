@@ -3,32 +3,25 @@
 Snapshot updated on March 13, 2026.
 
 Current verified status:
-- Format fixtures currently outstanding: `1`
-- Integration fixtures currently outstanding: `13`
+- Format fixtures currently outstanding: `0`
+- Integration fixtures currently outstanding: `14`
 - Lint fixtures currently outstanding: `0`
 
 Status note:
 - The original full-suite audit found `32` failing fixtures.
 - The lint suite is now fully green. The previously outstanding malformed-code recovery, Feather autofix, doc-comment normalization, directive normalization, logical-flow style, and control-flow-braces fixture failures have been resolved without changing any golden `.gml` files.
 - The lint workspace test suite is also green with raw ESLint autofix output. Lint fixture execution no longer depends on a formatter post-pass, and the shared `pnpm run test:fixtures` run now confirms that the remaining failures are confined to `@gmloop/format` and the root integration suite.
-- A fresh `pnpm run test:fixtures` run now reports `14` failing fixtures total: `1` in `@gmloop/format` and `13` in the root integration suite.
-- This document reflects the current verified outstanding failures plus the now-resolved lint work.
+- The shared fixture runner now executes integration fixtures in the same staged order as the real fix pipeline: `refactor -> lint -> format`.
+- A fresh `pnpm run test:fixtures` run now reports `14` failing fixtures total, all in the root integration suite.
+- This document reflects the current verified outstanding failures plus the now-resolved lint work and the completed fixture-runner hardening.
 
 Current audit verdict summary for outstanding failures:
 - Likely real behavior regressions: `2`
-- Likely stale, misconfigured, or otherwise incorrect fixture expectations: `12`
+- Likely stale or otherwise incorrect fixture expectations: `12`
 
 ## Format workspace (`@gmloop/format`)
 
-These are formatter golden fixtures under `src/format/test/fixtures/`.
-
-### Remaining outstanding format fixture
-
-| Fixture | Failure | Audit verdict | Relevant files |
-| --- | --- | --- | --- |
-| `test-preserve` | The formatter now inserts a semicolon after the `FAST_SAMPLE_GUARD` macro line inside `lerp_sample`, but the golden expects that macro-guard statement to remain semicolon-free. | Fixture looks correct. This is a formatter preservation regression around macro-guard statements, not a lint issue. | [gmloop.json](../src/format/test/fixtures/test-preserve/gmloop.json), [input.gml](../src/format/test/fixtures/test-preserve/input.gml), [expected.gml](../src/format/test/fixtures/test-preserve/expected.gml) |
-
-Other formatter fixtures that were previously failing, including [`test-operators`](../src/format/test/fixtures/test-operators/gmloop.json) and [`test-structs`](../src/format/test/fixtures/test-structs/gmloop.json), now pass.
+The standalone formatter fixture suite is currently green. Earlier regressions such as [`test-operators`](../src/format/test/fixtures/test-operators/gmloop.json), [`test-structs`](../src/format/test/fixtures/test-structs/gmloop.json), and [`test-preserve`](../src/format/test/fixtures/test-preserve/gmloop.json) now pass in the dedicated format fixture suite.
 
 ## Lint workspace (`@gmloop/lint`)
 
@@ -65,13 +58,13 @@ These fixtures were previously still failing after the malformed-code recovery w
 
 ## Integration workspace (root cross-module integration fixtures)
 
-These are end-to-end fixtures under `test/fixtures/integration/`. They exercise formatting plus selected lint rules together.
+These are end-to-end fixtures under `test/fixtures/integration/`. They now execute the real shared fix pipeline order, `refactor -> lint -> format`, and all current outstanding aggregate failures are in this suite.
 
 | Fixture | Failure | Audit verdict | Relevant files |
 | --- | --- | --- | --- |
 | `test-int-comments-ops` | Actual output aggressively normalizes comments, doc formatting, operator spelling, and decorative comments beyond what the golden expects. | Expected output looks stale relative to the currently enabled rules. | [gmloop.json](../test/fixtures/integration/test-int-comments-ops/gmloop.json), [input.gml](../test/fixtures/integration/test-int-comments-ops/input.gml), [expected.gml](../test/fixtures/integration/test-int-comments-ops/expected.gml), [integration adapter](../test/integration-fixture-adapter.ts) |
 | `test-int-doc-banner` | Actual output rewrites banner comments and math expressions more aggressively than the golden expects. | Expected output looks stale. | [gmloop.json](../test/fixtures/integration/test-int-doc-banner/gmloop.json), [input.gml](../test/fixtures/integration/test-int-doc-banner/input.gml), [expected.gml](../test/fixtures/integration/test-int-doc-banner/expected.gml), [integration adapter](../test/integration-fixture-adapter.ts) |
-| `test-int-flow-hoist` | Fixture fails before execution because `gmloop.json` sets `gml/prefer-hoistable-loop-accessors` to an array instead of `"off"`, `"warn"`, or `"error"`. | Fixture config is incorrect. | [gmloop.json](../test/fixtures/integration/test-int-flow-hoist/gmloop.json), [integration adapter](../test/integration-fixture-adapter.ts) |
+| `test-int-flow-hoist` | The invalid `lintRules` shape has been fixed, so the fixture now executes. It still fails on output mismatch under the real `refactor -> lint -> format` pipeline. | Fixture config issue is resolved; the remaining mismatch now looks like stale expected output or a true pipeline-behavior gap that still needs triage. | [gmloop.json](../test/fixtures/integration/test-int-flow-hoist/gmloop.json), [input.gml](../test/fixtures/integration/test-int-flow-hoist/input.gml), [expected.gml](../test/fixtures/integration/test-int-flow-hoist/expected.gml), [integration adapter](../test/integration-fixture-adapter.ts) |
 | `test-int-format-strings` | Actual output keeps string interpolation and restructures control flow, while expected preserves older string literal and early-return forms. | Expected output looks stale relative to the enabled rules. | [gmloop.json](../test/fixtures/integration/test-int-format-strings/gmloop.json), [input.gml](../test/fixtures/integration/test-int-format-strings/input.gml), [expected.gml](../test/fixtures/integration/test-int-format-strings/expected.gml), [prefer-string-interpolation rule](../src/lint/src/rules/gml/rules/prefer-string-interpolation-rule.ts) |
 | `test-int-func-rules` | Actual output applies many enabled-rule rewrites that the golden does not reflect, including default handling, undefined checks, argument handling, and doc normalization. | Expected output looks stale or under-normalized for the configured rule set. | [gmloop.json](../test/fixtures/integration/test-int-func-rules/gmloop.json), [input.gml](../test/fixtures/integration/test-int-func-rules/input.gml), [expected.gml](../test/fixtures/integration/test-int-func-rules/expected.gml) |
 | `test-int-logic-flow` | Expected output assumes much stronger boolean-algebra simplification than current behavior performs. | Expected output likely stale or too aggressive. | [gmloop.json](../test/fixtures/integration/test-int-logic-flow/gmloop.json), [input.gml](../test/fixtures/integration/test-int-logic-flow/input.gml), [expected.gml](../test/fixtures/integration/test-int-logic-flow/expected.gml), [optimize-logical-flow rule](../src/lint/src/rules/gml/rules/optimize-logical-flow-rule.ts) |
@@ -82,6 +75,7 @@ These are end-to-end fixtures under `test/fixtures/integration/`. They exercise 
 | `test-int-no-globalvar` | Expected output rewrites `globalvar` declarations into `global.*` assignments, but current `gml/no-globalvar` is diagnostic-only and does not fix. | Expected output is stale for the current rule behavior. | [gmloop.json](../test/fixtures/integration/test-int-no-globalvar/gmloop.json), [input.gml](../test/fixtures/integration/test-int-no-globalvar/input.gml), [expected.gml](../test/fixtures/integration/test-int-no-globalvar/expected.gml), [no-globalvar rule](../src/lint/src/rules/gml/rules/no-globalvar-rule.ts) |
 | `test-int-ops-logic` | Expected output assumes constant-folding and algebraic rewrites that the configured rules do not currently perform. | Expected output looks stale or incorrect. | [gmloop.json](../test/fixtures/integration/test-int-ops-logic/gmloop.json), [input.gml](../test/fixtures/integration/test-int-ops-logic/input.gml), [expected.gml](../test/fixtures/integration/test-int-ops-logic/expected.gml), [optimize-logical-flow rule](../src/lint/src/rules/gml/rules/optimize-logical-flow-rule.ts), [optimize-math-expressions rule](../src/lint/src/rules/gml/rules/optimize-math-expressions-rule.ts) |
 | `test-int-strings.input-copy` | Fixture is marked `idempotent`, but the input is plainly not formatter-idempotent. It still contains legacy string layout, extra semicolons, and multiline interpolation formatting that current formatting rewrites. | Fixture setup is incorrect. | [gmloop.json](../test/fixtures/integration/test-int-strings.input-copy/gmloop.json), [input.gml](../test/fixtures/integration/test-int-strings.input-copy/input.gml), [integration adapter](../test/integration-fixture-adapter.ts) |
+| `test-int-struct-literal` | Actual output collapses a blank line before `function keep_separate()`, while the golden preserves that separation. | Likely a real formatter/layout regression exposed through the integration pipeline, not a lint-rule issue. | [gmloop.json](../test/fixtures/integration/test-int-struct-literal/gmloop.json), [input.gml](../test/fixtures/integration/test-int-struct-literal/input.gml), [expected.gml](../test/fixtures/integration/test-int-struct-literal/expected.gml), [integration adapter](../test/integration-fixture-adapter.ts) |
 
 ## Most Important Patterns
 
@@ -91,7 +85,7 @@ These are end-to-end fixtures under `test/fixtures/integration/`. They exercise 
 2. The lint autofix suite is now green.
    The previously non-idempotent cases in `feather/gm1058`, `feather/gm2031`, `feather/gm2044`, and `normalize-doc-comments` have been corrected and locked in with regression coverage.
 
-3. The remaining clearly formatter-facing regressions are `format/test-preserve` and the integration case `test-int-newlines`.
+3. The remaining clearly formatter-facing regressions are the integration cases `test-int-newlines` and `test-int-struct-literal`.
 
 4. A large share of the integration goldens look stale relative to the currently enabled formatter and lint behavior.
    The clearest cases are `test-int-no-globalvar`, `test-int-ops-logic`, `test-int-math-docs`, `test-int-manual-math`, and `test-int-strings.input-copy`.
@@ -102,3 +96,4 @@ These are end-to-end fixtures under `test/fixtures/integration/`. They exercise 
 - [`gml/require-control-flow-braces`](../src/lint/src/rules/gml/rules/require-control-flow-braces-rule.ts) now owns brace insertion directly, including preserving the statement terminator inside the inserted block when needed.
 - The [lint fixture harness](../src/lint/test/rules/fixture-adapter.ts) now compares raw ESLint autofix output and does not run the formatter as part of lint fixture execution.
 - The limited malformed-code recovery path now lives in [recovery.ts](../src/lint/src/language/recovery.ts) and is wired through [gml-language.ts](../src/lint/src/language/gml-language.ts), so parser failures should now be considered resolved only for narrow, range-stable recovery cases rather than as a general invalid-GML autofix capability.
+- The [integration fixture adapter](../test/integration-fixture-adapter.ts) now runs the real staged pipeline order, `refactor -> lint -> format`, and the [profile runner](../test/fixture-profile-report.ts) uses the same root fixture suite registry as normal fixture execution.

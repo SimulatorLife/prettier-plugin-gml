@@ -1,68 +1,17 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
-import { ESLint, type Linter } from "eslint";
+import { ESLint } from "eslint";
 
 import { Lint } from "../../src/index.js";
+import { createLintRuleEntriesFromProjectConfig } from "./fixture-rule-entries.js";
 
-function extractFixtureRuleOptionCandidates(config: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(
-        Object.entries(config).filter(([key]) => key !== "fixture" && key !== "lintRules" && key !== "refactor")
-    );
-}
-
-function resolveFixtureRuleSchemaPropertyNames(ruleId: string): ReadonlySet<string> {
-    const [pluginId, ruleName] = ruleId.split("/", 2);
-    const pluginRules =
-        pluginId === "gml" ? (Lint.plugin.rules ?? {}) : pluginId === "feather" ? (Lint.featherPlugin.rules ?? {}) : {};
-    const ruleDefinition = pluginRules[ruleName];
-    const schema = ruleDefinition?.meta?.schema;
-    if (!Array.isArray(schema) || schema.length === 0) {
-        return new Set();
+function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
+    const ruleEntries = createLintRuleEntriesFromProjectConfig(config);
+    const enabledRuleIds = Object.keys(ruleEntries);
+    if (enabledRuleIds.length !== 1) {
+        throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRuleIds.length}.`);
     }
 
-    const firstSchemaEntry = schema[0];
-    if (
-        !firstSchemaEntry ||
-        typeof firstSchemaEntry !== "object" ||
-        Array.isArray(firstSchemaEntry) ||
-        !("properties" in firstSchemaEntry) ||
-        !firstSchemaEntry.properties ||
-        typeof firstSchemaEntry.properties !== "object" ||
-        Array.isArray(firstSchemaEntry.properties)
-    ) {
-        return new Set();
-    }
-
-    return new Set(Object.keys(firstSchemaEntry.properties as Record<string, unknown>));
-}
-
-function extractFixtureRuleOptions(config: Record<string, unknown>, ruleId: string): Record<string, unknown> {
-    const schemaPropertyNames = resolveFixtureRuleSchemaPropertyNames(ruleId);
-    if (schemaPropertyNames.size === 0) {
-        return {};
-    }
-
-    return Object.fromEntries(
-        Object.entries(extractFixtureRuleOptionCandidates(config)).filter(([key]) => schemaPropertyNames.has(key))
-    );
-}
-
-function createFixtureRuleConfig(config: Record<string, unknown>): Record<string, Linter.RuleEntry> {
-    const normalizedRules = Lint.normalizeLintRulesConfig(config);
-    const enabledRules = Object.entries(normalizedRules).filter(([, level]) => level !== "off");
-
-    if (enabledRules.length !== 1) {
-        throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRules.length}.`);
-    }
-
-    const [ruleId, level] = enabledRules[0] ?? [];
-    if (!ruleId || !level) {
-        throw new Error("Lint fixture config must resolve a single enabled rule.");
-    }
-
-    const ruleOptions = extractFixtureRuleOptions(config, ruleId);
-    return {
-        [ruleId]: Object.keys(ruleOptions).length > 0 ? ([level, ruleOptions] as Linter.RuleEntry) : level
-    };
+    return ruleEntries;
 }
 
 /**
@@ -93,7 +42,7 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                         languageOptions: {
                             recovery: "limited"
                         },
-                        rules: createFixtureRuleConfig(config)
+                        rules: createSingleRuleFixtureConfig(config)
                     }
                 ]
             });

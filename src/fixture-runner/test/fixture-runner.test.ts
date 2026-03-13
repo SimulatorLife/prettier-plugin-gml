@@ -300,3 +300,110 @@ void test("lint fixtures default to whitespace-insensitive comparison", async ()
         await rm(rootPath, { recursive: true, force: true });
     }
 });
+
+void test("runFixtureSuite can target a single case id", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-case-filter-"));
+    await createTextFixtureCase(rootPath, "first", { fixture: { kind: "format" } }, "input\n", "first\n");
+    await createTextFixtureCase(rootPath, "second", { fixture: { kind: "format" } }, "input\n", "second\n");
+
+    try {
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: rootPath,
+            caseIds: ["second"],
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: `${fixtureCase.caseId}\n`,
+                        changed: true
+                    }));
+                }
+            }
+        });
+
+        assert.deepEqual(
+            result.fixtureCases.map((fixtureCase) => fixtureCase.caseId),
+            ["second"]
+        );
+        assert.equal(result.executionResults.length, 1);
+        assert.equal(result.executionResults[0]?.fixtureCase.caseId, "second");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("fixture stage timing rejects duplicate stage names", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-duplicate-stage-"));
+    await createTextFixtureCase(
+        rootPath,
+        "duplicate-stage",
+        { fixture: { kind: "integration" } },
+        "input\n",
+        "input\n"
+    );
+
+    try {
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                adapter: {
+                    workspaceName: "integration",
+                    suiteName: "integration fixtures",
+                    supports(kind) {
+                        return kind === "integration";
+                    },
+                    async run({ runProfiledStage }) {
+                        await runProfiledStage("lint", async () => undefined);
+                        await runProfiledStage("format", async () => undefined);
+                        await runProfiledStage("format", async () => undefined);
+                        return {
+                            resultKind: "text",
+                            outputText: "input\n",
+                            changed: false
+                        };
+                    }
+                }
+            }),
+            /must not run more than once/u
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("fixture stage timing rejects out-of-order stage execution", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-stage-order-"));
+    await createTextFixtureCase(rootPath, "stage-order", { fixture: { kind: "integration" } }, "input\n", "input\n");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                adapter: {
+                    workspaceName: "integration",
+                    suiteName: "integration fixtures",
+                    supports(kind) {
+                        return kind === "integration";
+                    },
+                    async run({ runProfiledStage }) {
+                        await runProfiledStage("format", async () => undefined);
+                        await runProfiledStage("lint", async () => undefined);
+                        return {
+                            resultKind: "text",
+                            outputText: "input\n",
+                            changed: false
+                        };
+                    }
+                }
+            }),
+            /ran out of order/u
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
