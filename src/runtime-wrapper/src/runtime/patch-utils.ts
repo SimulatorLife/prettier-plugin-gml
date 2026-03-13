@@ -223,6 +223,19 @@ function createNamedRuntimeFunction(runtimeId: string, rawFn: RuntimeFunction): 
     return wrapperFactory(rawFn);
 }
 
+function visitNamedFunctionProperties(
+    record: Record<string, unknown>,
+    visitProperty: (propertyName: string, functionValue: RuntimeFunction) => void
+): void {
+    for (const [propertyName, propertyValue] of Object.entries(record)) {
+        if (typeof propertyValue !== "function") {
+            continue;
+        }
+
+        visitProperty(propertyName, propertyValue as RuntimeFunction);
+    }
+}
+
 function updateGMObjects(
     gmObjects: Array<Record<string, unknown>>,
     objectRuntime: { objectName: string; eventName: string } | null,
@@ -246,16 +259,18 @@ function updateGMObjects(
             }
         }
 
-        for (const [key, value] of Object.entries(objectEntry)) {
-            if (typeof value === "function" && value.name === name) {
-                objectEntry[key] = fn;
-                instanceKeysToUpdate.add(key);
-
-                if (!objectName) {
-                    objectName = typeof objectEntry.pName === "string" ? objectEntry.pName : null;
-                }
+        visitNamedFunctionProperties(objectEntry, (propertyName, propertyFunction) => {
+            if (propertyFunction.name !== name) {
+                return;
             }
-        }
+
+            objectEntry[propertyName] = fn;
+            instanceKeysToUpdate.add(propertyName);
+
+            if (!objectName) {
+                objectName = typeof objectEntry.pName === "string" ? objectEntry.pName : null;
+            }
+        });
     }
     return objectName;
 }
@@ -282,11 +297,13 @@ function updateInstance(
         markEventIndexAsEnabled(pObject?.Event, eventIndex);
     }
 
-    for (const [key, value] of Object.entries(instance)) {
-        if (typeof value === "function" && value.name === name) {
-            instance[key] = fn;
+    visitNamedFunctionProperties(instance, (propertyName, propertyFunction) => {
+        if (propertyFunction.name !== name) {
+            return;
         }
-    }
+
+        instance[propertyName] = fn;
+    });
 }
 
 function updateInstances(
@@ -349,15 +366,14 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
     if (fallbackScriptMatch && Array.isArray(gmObjects)) {
         for (const objectEntry of gmObjects) {
-            for (const value of Object.values(objectEntry)) {
+            visitNamedFunctionProperties(objectEntry, (_propertyName, propertyFunction) => {
                 if (
-                    typeof value === "function" &&
-                    value.name.startsWith("gml_Object_") &&
-                    value.name.endsWith(`_${fallbackScriptMatch}`)
+                    propertyFunction.name.startsWith("gml_Object_") &&
+                    propertyFunction.name.endsWith(`_${fallbackScriptMatch}`)
                 ) {
-                    resolvedNames.add(value.name);
+                    resolvedNames.add(propertyFunction.name);
                 }
-            }
+            });
         }
     }
 
