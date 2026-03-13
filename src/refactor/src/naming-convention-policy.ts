@@ -385,47 +385,64 @@ function stripAffix(value: string, affix: string, position: "prefix" | "suffix")
     return position === "prefix" ? value.slice(affix.length) : value.slice(0, Math.max(0, value.length - affix.length));
 }
 
+/**
+ * Strip a single affix direction (prefix or suffix) from `coreName`, using the same
+ * three-priority resolution order for both directions:
+ *   1. The rule's required affix takes precedence.
+ *   2. An exclusive affix that belongs to a different category is stripped next.
+ *   3. The longest matching banned affix is stripped as a last resort.
+ */
+function stripOneAffixDirection(
+    coreName: string,
+    ruleAffix: string,
+    bannedAffixes: ReadonlyArray<string>,
+    exclusiveAffixes: Record<string, NamingCategory> | undefined,
+    position: "prefix" | "suffix",
+    category: NamingCategory
+): string {
+    const hasAffix = (name: string, affix: string) =>
+        position === "prefix" ? name.startsWith(affix) : name.endsWith(affix);
+
+    if (ruleAffix.length > 0 && hasAffix(coreName, ruleAffix)) {
+        return stripAffix(coreName, ruleAffix, position);
+    }
+
+    const exclusive = longestMatchingAffix(coreName, exclusiveAffixes, position);
+    if (exclusive && exclusive[1] !== category) {
+        return stripAffix(coreName, exclusive[0], position);
+    }
+
+    for (const banned of [...bannedAffixes].sort((a, b) => b.length - a.length)) {
+        if (banned.length > 0 && hasAffix(coreName, banned)) {
+            return stripAffix(coreName, banned, position);
+        }
+    }
+
+    return coreName;
+}
+
 function stripKnownAffixes(
     currentName: string,
     rule: RuntimeResolvedNamingRule,
     policy: NamingConventionPolicy,
     category: NamingCategory
 ): string {
-    let coreName = currentName;
-
-    if (rule.prefix.length > 0 && coreName.startsWith(rule.prefix)) {
-        coreName = stripAffix(coreName, rule.prefix, "prefix");
-    } else {
-        const exclusivePrefix = longestMatchingAffix(coreName, policy.exclusivePrefixes, "prefix");
-        if (exclusivePrefix && exclusivePrefix[1] !== category) {
-            coreName = stripAffix(coreName, exclusivePrefix[0], "prefix");
-        } else {
-            for (const prefix of [...rule.bannedPrefixes].sort((left, right) => right.length - left.length)) {
-                if (prefix.length > 0 && coreName.startsWith(prefix)) {
-                    coreName = stripAffix(coreName, prefix, "prefix");
-                    break;
-                }
-            }
-        }
-    }
-
-    if (rule.suffix.length > 0 && coreName.endsWith(rule.suffix)) {
-        coreName = stripAffix(coreName, rule.suffix, "suffix");
-    } else {
-        const exclusiveSuffix = longestMatchingAffix(coreName, policy.exclusiveSuffixes, "suffix");
-        if (exclusiveSuffix && exclusiveSuffix[1] !== category) {
-            coreName = stripAffix(coreName, exclusiveSuffix[0], "suffix");
-        } else {
-            for (const suffix of [...rule.bannedSuffixes].sort((left, right) => right.length - left.length)) {
-                if (suffix.length > 0 && coreName.endsWith(suffix)) {
-                    coreName = stripAffix(coreName, suffix, "suffix");
-                    break;
-                }
-            }
-        }
-    }
-
-    return coreName;
+    const withoutPrefix = stripOneAffixDirection(
+        currentName,
+        rule.prefix,
+        rule.bannedPrefixes,
+        policy.exclusivePrefixes,
+        "prefix",
+        category
+    );
+    return stripOneAffixDirection(
+        withoutPrefix,
+        rule.suffix,
+        rule.bannedSuffixes,
+        policy.exclusiveSuffixes,
+        "suffix",
+        category
+    );
 }
 
 /**
