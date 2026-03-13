@@ -1,5 +1,4 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
-import { Format } from "@gmloop/format";
 import { ESLint, type Linter } from "eslint";
 
 import { Lint } from "../../src/index.js";
@@ -80,7 +79,6 @@ export function createLintFixtureAdapter(): FixtureAdapter {
             return kind === "lint";
         },
         async run({ fixtureCase, config, inputText, runProfiledStage }) {
-            const formatOptions = Format.extractProjectFormatOptions(config);
             const eslint = new ESLint({
                 overrideConfigFile: true,
                 fix: true,
@@ -107,21 +105,11 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                     })
             );
             const lintedOutput = result.output ?? inputText ?? "";
-            const outputText = await (async () => {
-                try {
-                    return await runProfiledStage(
-                        "format",
-                        async () => await Format.format(lintedOutput, formatOptions)
-                    );
-                } catch {
-                    return lintedOutput;
-                }
-            })();
 
             return {
                 resultKind: "text" as const,
-                outputText,
-                changed: outputText !== (inputText ?? "")
+                outputText: lintedOutput,
+                changed: lintedOutput !== (inputText ?? "")
             };
         }
     });
