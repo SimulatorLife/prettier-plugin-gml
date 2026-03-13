@@ -1,45 +1,22 @@
 /**
  * AST type definitions for the transpiler emitter.
  *
- * DUPLICATION WARNING: Many of these type definitions (IdentifierMetadata,
- * BaseNode, ProgramNode, etc.) are duplicated from or overlap with types defined in
- * the Core and Parser packages.
+ * DUPLICATION WARNING: Many of the node types below (BaseNode, ProgramNode,
+ * etc.) are structurally equivalent to types in the Core and Parser packages.
+ * The transpiler evolved independently and maintains its own definitions so that
+ * the code-generation layer is not coupled to parser internals.
  *
- * CURRENT STATE: The transpiler defines its own AST types because it evolved separately
- * from the main parser and Core packages. This duplication creates maintenance burden:
- *   - Changes to AST structure in the parser must be manually propagated here.
- *   - Type mismatches between packages can cause runtime errors that TypeScript doesn't catch.
- *   - It's unclear which definition is the "source of truth" for each node type.
+ * LONG-TERM GOAL: Consolidate shared AST node types into Core, extend them in
+ * domain-specific packages only when necessary, and eliminate the structural
+ * duplication to make cross-package AST manipulation safer.
  *
- * RECOMMENDATION: Audit the types in this file and determine:
- *   1. Which types are identical to Core/Parser and can be imported directly.
- *   2. Which types are transpiler-specific (e.g., have extra metadata for code generation)
- *      and should remain here but extend Core types.
- *   3. Which types represent shared concepts (e.g., IdentifierMetadata) and
- *      should be moved to Core so all packages can use the same definition.
- *
- * LONG-TERM GOAL: Consolidate AST types into Core, extend them in domain-specific packages
- * (Parser, Transpiler) only when necessary, and eliminate the duplication. This will make
- * cross-package AST manipulation safer and reduce the risk of type drift.
+ * `SemKind` and `IdentifierMetadata` previously lived here as documented
+ * duplicates of the canonical definitions in `@gmloop/semantic`. They have been
+ * removed and are now imported directly from that package (enabled by the
+ * type-only exports added to `semantic/index.ts`).
  */
 
-/**
- * Semantic kind classification for identifiers and call targets.
- *
- * SOURCE OF TRUTH: @gmloop/semantic (src/symbols/sem-oracle.ts)
- * This is a re-declaration maintained for transpiler use. The canonical definition
- * lives in the semantic package. Keep this in sync with that definition.
- *
- * NOTE: This duplication exists because the Semantic package exports a const namespace
- * which cannot be referenced in type position. A future architecture improvement would
- * export both the namespace and a separate type-only export to enable direct imports.
- */
-export type SemKind = "local" | "self_field" | "other_field" | "global_field" | "builtin" | "script";
-
-export interface IdentifierMetadata {
-    readonly name: string;
-    readonly isGlobalIdentifier?: boolean;
-}
+import type { IdentifierMetadata, SemKind } from "@gmloop/semantic";
 
 export interface BaseNode {
     readonly type: string;
@@ -410,11 +387,14 @@ export interface EmitOptions {
 /**
  * Analyzes identifiers to determine their semantic kind, name, and qualified
  * symbol. Used by the transpiler to generate correct variable references.
+ *
+ * Callers may pass any value that satisfies {@link IdentifierMetadata}, including
+ * the full {@link IdentifierNode} (which structurally extends IdentifierMetadata).
  */
 export interface IdentifierAnalyzer {
-    kindOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): SemKind;
-    nameOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): string;
-    qualifiedSymbol(node: IdentifierNode | IdentifierMetadata | null | undefined): string | null;
+    kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind;
+    nameOfIdent(node: IdentifierMetadata | null | undefined): string;
+    qualifiedSymbol(node: IdentifierMetadata | null | undefined): string | null;
 }
 
 /**
@@ -425,3 +405,5 @@ export interface CallTargetAnalyzer {
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }
+
+export { type IdentifierMetadata, type SemKind } from "@gmloop/semantic";
