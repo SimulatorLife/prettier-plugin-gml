@@ -195,6 +195,31 @@ void describe("Dependency Validation", () => {
         assert.deepStrictEqual(result.missingDependencies, ["script:helper2"]);
     });
 
+    void test("validatePatchDependencies supports null-prototype registries", () => {
+        const scripts = Object.create(null) as Record<string, () => number>;
+        scripts["script:base"] = () => 7;
+
+        const registry: RuntimeRegistry = {
+            version: 1,
+            scripts,
+            events: Object.create(null),
+            closures: Object.create(null)
+        };
+
+        const patch: Patch = {
+            kind: "script",
+            id: "script:dependent",
+            js_body: "return script_base();",
+            metadata: {
+                dependencies: ["script:base"]
+            }
+        };
+
+        const result = validatePatchDependencies(patch, registry);
+        assert.strictEqual(result.satisfied, true);
+        assert.deepStrictEqual(result.missingDependencies, []);
+    });
+
     void test("validatePatchDependencies ignores non-string dependencies", () => {
         const registry: RuntimeRegistry = {
             version: 0,
