@@ -97,6 +97,31 @@ export class ScopeTracker {
         return path.replaceAll("\\", "/");
     }
 
+    private collectFilePathsForSymbolSummaries(
+        scopeSummaryMap: Map<string, ScopeSummary>,
+        occurrenceKind: "declaration" | "reference"
+    ): Set<string> {
+        const paths = new Set<string>();
+
+        for (const [scopeId, summary] of scopeSummaryMap) {
+            if (occurrenceKind === "declaration" && !summary.hasDeclaration) {
+                continue;
+            }
+
+            if (occurrenceKind === "reference" && !summary.hasReference) {
+                continue;
+            }
+
+            const scope = this.scopesById.get(scopeId);
+            const path = scope?.metadata.path;
+            if (path) {
+                paths.add(this.normalizeTrackedPath(path));
+            }
+        }
+
+        return paths;
+    }
+
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
@@ -1585,19 +1610,41 @@ export class ScopeTracker {
             return new Set();
         }
 
-        const paths = new Set<string>();
-        for (const [scopeId, summary] of scopeSummaryMap) {
-            if (!summary.hasReference) {
+        return this.collectFilePathsForSymbolSummaries(scopeSummaryMap, "reference");
+    }
+
+    /**
+     * Returns referencing file paths for a batch of symbols.
+     *
+     * This method is optimized for hot-reload invalidation workflows where
+     * multiple symbols may be affected by a single edit operation. It avoids
+     * repeated name normalization and duplicate symbol processing.
+     *
+     * Symbols with no references are omitted from the result map.
+     *
+     * @param names - Symbol names to query
+     * @returns Map of symbol name to referenced file paths
+     */
+    public getBatchFilePathsReferencingSymbols(names: Iterable<string>): Map<string, Set<string>> {
+        const results = new Map<string, Set<string>>();
+        if (!this.enabled) {
+            return results;
+        }
+
+        const uniqueNames = this.collectUniqueSymbolNames(names);
+        for (const name of uniqueNames) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
             }
-            const scope = this.scopesById.get(scopeId);
-            const path = scope?.metadata.path;
-            if (path) {
-                paths.add(this.normalizeTrackedPath(path));
+
+            const paths = this.collectFilePathsForSymbolSummaries(scopeSummaryMap, "reference");
+            if (paths.size > 0) {
+                results.set(name, paths);
             }
         }
 
-        return paths;
+        return results;
     }
 
     /**
@@ -1626,19 +1673,40 @@ export class ScopeTracker {
             return new Set();
         }
 
-        const paths = new Set<string>();
-        for (const [scopeId, summary] of scopeSummaryMap) {
-            if (!summary.hasDeclaration) {
+        return this.collectFilePathsForSymbolSummaries(scopeSummaryMap, "declaration");
+    }
+
+    /**
+     * Returns declaration file paths for a batch of symbols.
+     *
+     * This method supports hot-reload pipelines that need to resolve several
+     * changed definitions in one pass before computing downstream invalidation.
+     *
+     * Symbols with no declarations are omitted from the result map.
+     *
+     * @param names - Symbol names to query
+     * @returns Map of symbol name to declaration file paths
+     */
+    public getBatchFilePathsDeclaringSymbols(names: Iterable<string>): Map<string, Set<string>> {
+        const results = new Map<string, Set<string>>();
+        if (!this.enabled) {
+            return results;
+        }
+
+        const uniqueNames = this.collectUniqueSymbolNames(names);
+        for (const name of uniqueNames) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
                 continue;
             }
-            const scope = this.scopesById.get(scopeId);
-            const path = scope?.metadata.path;
-            if (path) {
-                paths.add(this.normalizeTrackedPath(path));
+
+            const paths = this.collectFilePathsForSymbolSummaries(scopeSummaryMap, "declaration");
+            if (paths.size > 0) {
+                results.set(name, paths);
             }
         }
 
-        return paths;
+        return results;
     }
 
     public getScopeModificationMetadata(scopeId: string | null | undefined): ScopeModificationMetadata | null {
