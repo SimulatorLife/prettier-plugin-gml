@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createIntegerEnvConfiguredValue } from "./env-configured-integer.js";
 

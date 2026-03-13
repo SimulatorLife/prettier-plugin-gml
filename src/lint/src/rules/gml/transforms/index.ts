@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
 import { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
 import { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";

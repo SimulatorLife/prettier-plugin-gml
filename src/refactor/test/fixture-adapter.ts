@@ -1,0 +1,79 @@
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import type { FixtureAdapter } from "@gmloop/fixture-runner";
+
+import { normalizeRefactorProjectConfig } from "../src/project-config.js";
+import { RefactorEngine } from "../src/refactor-engine.js";
+
+async function collectProjectGmlFiles(projectRoot: string): Promise<Array<string>> {
+    const relativePaths: Array<string> = [];
+
+    async function walk(currentPath: string): Promise<void> {
+        const entries = await readdir(currentPath, { withFileTypes: true });
+        await Promise.all(
+            entries.map(async (entry) => {
+                const entryPath = path.join(currentPath, entry.name);
+                if (entry.isDirectory()) {
+                    await walk(entryPath);
+                    return;
+                }
+
+                if (!entry.isFile() || !entry.name.endsWith(".gml")) {
+                    return;
+                }
+
+                relativePaths.push(path.relative(projectRoot, entryPath).split(path.sep).join("/"));
+            })
+        );
+    }
+
+    await walk(projectRoot);
+    return relativePaths.sort((left, right) => left.localeCompare(right));
+}
+
+/**
+ * Create the shared refactor-fixture adapter used by workspace and aggregate
+ * fixture suites.
+ *
+ * @returns Refactor fixture adapter backed by the refactor workspace runtime API.
+ */
+export function createRefactorFixtureAdapter(): FixtureAdapter {
+    return Object.freeze({
+        workspaceName: "refactor",
+        suiteName: "refactor fixtures",
+        supports(kind: string) {
+            return kind === "refactor";
+        },
+        async run({ config, tempProjectDirectoryPath, runProfiledStage }) {
+            const normalizedConfig = normalizeRefactorProjectConfig(config.refactor);
+            const projectRoot = tempProjectDirectoryPath ?? "";
+            const gmlFilePaths = await collectProjectGmlFiles(projectRoot);
+            const engine = new RefactorEngine();
+
+            await runProfiledStage("refactor", async () => {
+                await engine.executeConfiguredCodemods({
+                    projectRoot,
+                    targetPaths: [projectRoot],
+                    gmlFilePaths,
+                    config: normalizedConfig,
+                    readFile: async (filePath) =>
+                        await readFile(path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath), "utf8"),
+                    writeFile: async (filePath, content) =>
+                        await writeFile(
+                            path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath),
+                            content,
+                            "utf8"
+                        ),
+                    dryRun: false
+                });
+            });
+
+            return {
+                resultKind: "project-tree" as const,
+                outputDirectoryPath: projectRoot,
+                changed: true
+            };
+        }
+    });
+}

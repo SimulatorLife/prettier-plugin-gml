@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithFeatherRule } from "./rule-test-harness.js";
@@ -93,6 +93,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1012",
         assertOutput: (output) => {
             assertEquals(output.includes("/// @param value"), true);
+            assertEquals(countOccurrences(output, "/// @param value"), 1);
             assertEquals(output.includes("string_length("), true);
         }
     },

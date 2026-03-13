@@ -1,7 +1,7 @@
 import { strictEqual } from "node:assert";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import { Parser } from "@gmloop/parser";
 
 import type { ProgramNode } from "../src/emitter/ast.js";
 import { collectLocalVariables } from "../src/emitter/local-variable-collector.js";

@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { promisify } from "node:util";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 import { ESLint, type Linter } from "eslint";
 
 import { assertEquals } from "../assertions.js";
@@ -117,8 +117,11 @@ async function lintTextWithConfiguredRules(
     ESLintImplementation: typeof ESLint,
     sourceText: string,
     rules: Linter.RulesRecord,
-    fix: boolean
+    fix: boolean,
+    languageOptions?: { recovery: "none" | "limited" }
 ) {
+    const normalizedLanguageOptions = languageOptions ?? { recovery: "none" };
+
     const eslint = new ESLintImplementation({
         overrideConfigFile: true,
         fix,
@@ -129,6 +132,7 @@ async function lintTextWithConfiguredRules(
                     gml: Lint.plugin
                 },
                 language: "gml/gml",
+                languageOptions: normalizedLanguageOptions,
                 rules
             }
         ]
@@ -191,7 +195,7 @@ void test("language object pins ESLint v9 language behavior fields", () => {
     assertEquals(language.lineStart, 1);
     assertEquals(language.columnStart, 0);
     assertEquals(language.nodeTypeKey, "type");
-    assert.deepEqual(language.defaultLanguageOptions, { recovery: "limited" });
+    assert.deepEqual(language.defaultLanguageOptions, { recovery: "none" });
     assert.deepEqual(language.visitorKeys, {});
 });
 
@@ -280,6 +284,110 @@ void test("strict parse fails while limited recovery succeeds for scientific not
 
     // Scientific-notation recovery is parser-local and range-preserving, so no
     // inserted separator metadata should be produced.
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery lowercases uppercase logical aliases only for parsing", () => {
+    const source = "if (ready AND NOT done OR extra XOR flag) {\n    finish();\n}\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery succeeds for compound assignments inside control conditions", () => {
+    const source = "if (counter += 1) keep2();\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery wraps bare string literals before .length member access", () => {
+    const source = 'return "my string".length;\n';
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery comments out orphan assignment statements for malformed-safe rule passes", () => {
+    const source = "origin = new Point(0, 0);\n\n= 10;\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery comments out malformed _this multiplication statements for malformed-safe rule passes", () => {
+    const source = "_this * something;\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery appends missing closing braces at end of file", () => {
+    const source = [
+        "function func_args()",
+        "{",
+        "",
+        "",
+        "var _first_parameter = argument[0];",
+        'show_debug_message($"The first parameter is {_first_parameter}");',
+        "return _first_parameter;"
+    ].join("\n");
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
     assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
 });
 
@@ -410,7 +518,8 @@ void test("require-argument-separators reports precise location and fixes commen
             "gml/no-globalvar": "off",
             "gml/require-argument-separators": "error"
         },
-        false
+        false,
+        { recovery: "limited" }
     );
 
     assertEquals(diagnosticResult.fatalErrorCount, 0);
@@ -425,12 +534,13 @@ void test("require-argument-separators reports precise location and fixes commen
             "gml/no-globalvar": "off",
             "gml/require-argument-separators": "error"
         },
-        true
+        true,
+        { recovery: "limited" }
     );
     assertEquals(fixedResult.output, "show_debug_message_ext(name, /* keep */ payload);\n");
 });
 
-void test("require-control-flow-braces autofix does not break else-if chains into invalid nested blocks", async () => {
+void test("require-control-flow-braces reports else-if chain bodies without autofixing", async () => {
     const source = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
 
     const result = await lintTextWithConfiguredRules(
@@ -444,7 +554,7 @@ void test("require-control-flow-braces autofix does not break else-if chains int
     );
 
     assertEquals(result.fatalErrorCount, 0);
-    assertEquals(result.errorCount, 0);
+    assertEquals(result.errorCount, 1);
     assertEquals(result.output ?? source, source);
 });
 
@@ -474,6 +584,62 @@ void test("optimize-math-expressions fix pipeline converges without parenthesis 
 
     assertEquals(secondPass.fatalErrorCount, 0);
     assertEquals(secondPass.messages.length, 0);
+});
+
+void test("loop-hoist and math optimizations converge without duplicate cached constants", async () => {
+    const source = [
+        "for (var i = 0; i < 3; i++) {",
+        '    var mbuff = load_obj_to_buffer($"Models/Crystal{i + 1}.obj");',
+        "    var bytesPerVert = 9 * 4;",
+        "    var bytesPerTri = 3 * bytesPerVert;",
+        "    var triNum = buffer_get_size(mbuff) / bytesPerTri;",
+        "    buffer_seek(mbuff, buffer_seek_start, 0);",
+        "    repeat (triNum) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 0);",
+        "        buffer_seek(mbuff, buffer_seek_relative, 8 * 4);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var cached_value = 36;",
+        "for (var i = 0; i < 3; i++) {",
+        '    var mbuff = load_obj_to_buffer($"Models/Crystal{i + 1}.obj");',
+        "    var bytesPerVert = cached_value;",
+        "    var bytesPerTri = 3 * bytesPerVert;",
+        "    var triNum = buffer_get_size(mbuff) / bytesPerTri;",
+        "    buffer_seek(mbuff, buffer_seek_start, 0);",
+        "    var cached_value_1 = 32;",
+        "    repeat (triNum) {",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 0);",
+        "        buffer_seek(mbuff, buffer_seek_relative, cached_value_1);",
+        "        buffer_write(mbuff, buffer_u8, 255);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const rules: Linter.RulesRecord = {
+        "gml/no-globalvar": "off",
+        "gml/prefer-loop-invariant-expressions": "error",
+        "gml/optimize-math-expressions": "error"
+    };
+
+    const firstPass = await lintTextWithConfiguredRules(ESLint, source, rules, true);
+    const stabilizedOutput = typeof firstPass.output === "string" ? firstPass.output : source;
+    const secondPass = await lintTextWithConfiguredRules(ESLint, stabilizedOutput, rules, false);
+
+    assertEquals(stabilizedOutput, expected);
+    assertEquals(secondPass.fatalErrorCount, 0);
+    assertEquals(secondPass.messages.length, 0);
+    assertEquals(stabilizedOutput.includes("var cached_value_2 = 32;"), false);
+    assertEquals(stabilizedOutput.includes("var cached_value_3 = 32;"), false);
 });
 
 void test("parser services contract always shapes canonical path, directives, enums, and recovery", () => {

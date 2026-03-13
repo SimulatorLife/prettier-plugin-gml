@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { setIdentifierCaseOption } from "./option-store.js";
 import { applyBootstrappedProjectIndex, bootstrapProjectIndex } from "./project-index-bootstrap.js";

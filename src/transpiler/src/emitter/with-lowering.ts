@@ -7,7 +7,7 @@
  * statement into a JavaScript `for` loop with proper scope management.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Generate JavaScript code that lowers a GML `with` statement.

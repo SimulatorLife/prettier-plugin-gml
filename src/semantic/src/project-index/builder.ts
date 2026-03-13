@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createProjectIndexAbortGuard, PROJECT_INDEX_BUILD_ABORT_MESSAGE } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";

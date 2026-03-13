@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { Semantic } from "@gml-modules/semantic";
+import { Semantic } from "@gmloop/semantic";
 
 /**
  * Type alignment tests

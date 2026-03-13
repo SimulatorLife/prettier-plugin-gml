@@ -16,7 +16,7 @@ Allow legacy/invalid directive:
 
 ---
 
-## Workspace: Parser (`@gml-modules/parser`)
+## Workspace: Parser (`@gmloop/parser`)
 
 **Responsibility:** During AST production, the parser should accept both spellings and emit a single normalized node so downstream tooling never special-cases `#define`.
 
@@ -53,7 +53,7 @@ type MacroDirectiveNode = {
 
 ---
 
-## Workspace: Prettier Formatter (`@gml-modules/format`)
+## Workspace: Prettier Formatter (`@gmloop/format`)
 
 **Responsibility:** Print `MacroDirective` reliably, regardless of whether the source used `#define` or `#macro`.
 
@@ -71,7 +71,7 @@ type MacroDirectiveNode = {
 
 ---
 
-## Workspace: Linter (`@gml-modules/lint`)
+## Workspace: Linter (`@gmloop/lint`)
 
 **Responsibility:** Apply tolerant single-file source rewrites for legacy directive spellings and legacy block keywords before formatter-owned layout work.
 

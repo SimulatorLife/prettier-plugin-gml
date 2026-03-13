@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Inputs required to evaluate the project index cache size policy.

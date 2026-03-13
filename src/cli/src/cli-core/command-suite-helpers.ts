@@ -2,7 +2,7 @@ import process from "node:process";
 
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";

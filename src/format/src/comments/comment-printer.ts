@@ -1,6 +1,6 @@
 // Comment handling helpers relocated to the format workspace so Prettier can format comments directly.
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
@@ -46,19 +46,6 @@ const EMPTY_LITERAL_TARGETS = [
 const LEGACY_LINE_DOC_TAG_PATTERN =
     /^\s*\/\/\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
 const BLOCK_DOC_TAG_PATTERN = /^\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
-
-/**
- * Pre-compiled pattern for identifying decorative slash banner lines inside
- * block comments.  The threshold (`minLeadingSlashes`) is a frozen constant in
- * `Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG`, so the resulting `RegExp` is
- * identical on every call.  Hoisting it to module scope means a single object
- * is shared across all invocations of {@link hasDecorativeSlashBanner} instead
- * of allocating—and immediately discarding—a new `RegExp` for each block
- * comment candidate encountered during a formatting run.
- */
-const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-    String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
-);
 
 function attachDanglingCommentToEmptyNode(
     comment: PrinterComment,
@@ -1635,17 +1622,19 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         return null;
     }
 
-    if (isCanonicalTopLevelDocBlockComment(comment, originalText)) {
-        const docBlockTextLines = normalizeCanonicalDocBlockTextLines(significantLines);
-        if (docBlockTextLines !== null) {
-            return ["/**", ...docBlockTextLines.map(formatCanonicalDocBlockTextLine), " */"].join("\n");
-        }
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+
+    if (isCanonicalTopLevelDocBlockComment(comment, originalText) && sourceSpan !== null) {
+        // Boundary contract: comment-content normalization is lint-owned
+        // (`gml/normalize-doc-comments` / `gml/normalize-banner-comments`).
+        // The formatter must keep top-level doc-block text verbatim and only
+        // control layout around the comment.
+        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
     }
 
     const interiorLines = lines.slice(1, -1);
     const hasInteriorBlankLines = interiorLines.some((line) => line.trim().length === 0);
     if (!hasInteriorBlankLines) {
-        const sourceSpan = resolveCommentSourceSpan(comment, originalText);
         if (sourceSpan !== null) {
             return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
         }
@@ -1664,29 +1653,6 @@ function isCanonicalTopLevelDocBlockComment(comment, originalText): boolean {
 
     const { startIndex } = sourceSpan;
     return originalText.startsWith("/**", startIndex);
-}
-
-function normalizeCanonicalDocBlockTextLines(lines: string[]): string[] | null {
-    const normalizedLines = [];
-
-    for (const line of lines) {
-        const trimmedStartLine = line.trimStart();
-        if (!trimmedStartLine.startsWith("*")) {
-            return null;
-        }
-
-        normalizedLines.push(trimmedStartLine.slice(1).trim());
-    }
-
-    if (normalizedLines.length > 1 && normalizedLines[0] === "") {
-        normalizedLines.shift();
-    }
-
-    return normalizedLines;
-}
-
-function formatCanonicalDocBlockTextLine(line: string): string {
-    return line.length === 0 ? " *" : ` * ${line}`;
 }
 
 function hasAdjacentBlockCommentInSource(comment, originalText): boolean {
@@ -1831,7 +1797,7 @@ function hasDecorativeSlashBanner(commentValue: string): boolean {
             continue;
         }
 
-        if (DECORATIVE_SLASH_LINE_PATTERN.test(trimmedLine)) {
+        if (Core.isDecorativeSlashCommentLine(trimmedLine)) {
             hasDecorativeLine = true;
         }
     }
@@ -1901,6 +1867,3 @@ function whitespaceToDoc(text) {
 }
 
 export { handleComments, printComment, printDanglingComments, printDanglingCommentsAsGroup };
-
-/** @internal Test-only surface. Do not import in production code. */
-export const __test__ = { DECORATIVE_SLASH_LINE_PATTERN };

@@ -2,7 +2,7 @@
  * Collection of helper routines that reshape math-heavy AST fragments into a normalized form.
  * This includes simplifications, constant conversions, and traversal-safe replacements so the printer emits consistent expressions.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
 

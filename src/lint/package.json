@@ -1,11 +1,15 @@
 {
-  "name": "@gml-modules/lint",
+  "name": "@gmloop/lint",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
+    "./test-support": {
+      "import": "./dist/test/rules/index.js",
+      "types": "./dist/test/rules/index.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -17,13 +21,15 @@
     "test": "pnpm run build:types && node --test 'dist/test/**/*.test.js'"
   },
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*)"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/fixture-runner": "workspace:*",
+    "@gmloop/parser": "workspace:*"
   },
   "peerDependencies": {
     "eslint": ">=9.39.0 <10"
   },
   "devDependencies": {
+    "@gmloop/format": "workspace:*",
     "eslint": "^9.39.1",
     "eslint-min": "npm:eslint@9.39.0"
   },

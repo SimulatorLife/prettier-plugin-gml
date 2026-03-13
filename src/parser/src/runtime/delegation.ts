@@ -8,7 +8,7 @@
  * @module parser/runtime/delegation
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Safely converts a value to a delegate function, providing a fallback if needed.

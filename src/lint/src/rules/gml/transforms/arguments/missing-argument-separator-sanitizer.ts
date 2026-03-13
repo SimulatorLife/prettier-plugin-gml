@@ -2,7 +2,7 @@
  * Adds missing commas between numeric arguments when argument separators have been omitted in source text.
  * The sanitizer emits index adjustments for downstream location remapping.
  */
-import { Core, type StringCommentScanState } from "@gml-modules/core";
+import { Core, type StringCommentScanState } from "@gmloop/core";
 
 const FALLBACK_FORBIDDEN_CALLEE = [
     "if",

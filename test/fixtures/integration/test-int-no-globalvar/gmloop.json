@@ -1,0 +1,12 @@
+{
+  "printWidth": 120,
+  "allowInlineControlFlowBlocks": false,
+  "lintRules": {
+    "gml/no-globalvar": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform",
+    "comparison": "trimmed-strip-doc-comment-annotations"
+  }
+}

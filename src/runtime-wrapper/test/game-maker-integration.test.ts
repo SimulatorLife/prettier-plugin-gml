@@ -733,3 +733,118 @@ await test("object event patches correctly resolve DrawGUIEnd key", () => {
         restoreGlobals(snapshot);
     }
 });
+
+await test("script patch updates the correct index in a large script table", () => {
+    // Exercises the scriptName→index cache path with a realistically-sized
+    // ScriptNames array so that any regression (e.g., off-by-one, stale cache)
+    // would be caught by an incorrect index being updated.
+    const snapshot = snapshotGlobals();
+
+    try {
+        const TARGET_INDEX = 150;
+        const TABLE_SIZE = 300;
+
+        // Build a large ScriptNames/Scripts table
+        const scriptNames = Array.from({ length: TABLE_SIZE }, (_, i) => `gml_Script_script_${i}`);
+        const scripts = Array.from({ length: TABLE_SIZE }, (_, i) => () => `original_${i}`);
+
+        // Place the patched script at a specific non-trivial index
+        scriptNames[TARGET_INDEX] = "gml_Script_test";
+        const originalTargetFn = () => "target-original";
+        scripts[TARGET_INDEX] = originalTargetFn;
+
+        const jsonGame: JsonGameSnapshot = {
+            ScriptNames: scriptNames,
+            Scripts: scripts,
+            GMObjects: []
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = jsonGame;
+        globals.gml_Script_test = originalTargetFn;
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/test",
+            runtimeId: "gml_Script_test",
+            js_body: "return 42;"
+        });
+
+        // Only the target index should be updated
+        assert.notEqual(jsonGame.Scripts[TARGET_INDEX], originalTargetFn, "Target script should be replaced");
+        assert.equal(typeof jsonGame.Scripts[TARGET_INDEX], "function", "Replacement must be a function");
+        assert.equal(
+            jsonGame.Scripts[TARGET_INDEX],
+            globals.gml_Script_test,
+            "Global and Scripts table must be in sync"
+        );
+
+        // Neighbouring entries must be untouched
+        assert.equal(jsonGame.Scripts[TARGET_INDEX - 1]?.(), "original_149", "Script before target must be unchanged");
+        assert.equal(jsonGame.Scripts[TARGET_INDEX + 1]?.(), "original_151", "Script after target must be unchanged");
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patch binding reindexes when scriptNames array reference changes", () => {
+    // Validates that the script-name index cache is correctly invalidated and
+    // rebuilt when JSON_game.ScriptNames is replaced with a new array instance.
+    // This simulates a full game reload scenario where the runtime reinitialises
+    // its script table, and a hot-reload patch arrives shortly after.
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+        // ── Round 1: target at index 42 ──────────────────────────────────────
+        const firstScriptNames = Array.from({ length: 100 }, (_, i) => `gml_Script_script_${i}`);
+        const firstScripts = Array.from({ length: 100 }, (_, i) => () => `first_${i}`);
+        firstScriptNames[42] = "gml_Script_test";
+        const firstOriginalFn = () => "first-original";
+        firstScripts[42] = firstOriginalFn;
+
+        globals.JSON_game = { ScriptNames: firstScriptNames, Scripts: firstScripts, GMObjects: [] };
+        globals.gml_Script_test = firstOriginalFn;
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/test",
+            runtimeId: "gml_Script_test",
+            js_body: "return 1;"
+        });
+
+        const afterFirstPatch = globals.gml_Script_test;
+        assert.notEqual(afterFirstPatch, firstOriginalFn, "Round 1: global should be updated");
+        assert.equal(firstScripts[42], afterFirstPatch, "Round 1: Scripts[42] should be updated");
+
+        // ── Round 2: NEW array reference, target at index 77 ─────────────────
+        const secondScriptNames = Array.from({ length: 120 }, (_, i) => `gml_Script_script2_${i}`);
+        const secondScripts = Array.from({ length: 120 }, (_, i) => () => `second_${i}`);
+        secondScriptNames[77] = "gml_Script_test";
+        const secondOriginalFn = () => "second-original";
+        secondScripts[77] = secondOriginalFn;
+
+        // Replace JSON_game entirely — this gives ScriptNames a new array reference
+        globals.JSON_game = { ScriptNames: secondScriptNames, Scripts: secondScripts, GMObjects: [] };
+        globals.gml_Script_test = secondOriginalFn;
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/test",
+            runtimeId: "gml_Script_test",
+            js_body: "return 2;"
+        });
+
+        const afterSecondPatch = globals.gml_Script_test;
+        assert.notEqual(afterSecondPatch, secondOriginalFn, "Round 2: global should be updated");
+        assert.equal(secondScripts[77], afterSecondPatch, "Round 2: Scripts[77] should be updated");
+
+        // The first table must not have been modified in round 2
+        assert.equal(firstScripts[42], afterFirstPatch, "Round 1 table must not be altered by round 2 patch");
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});

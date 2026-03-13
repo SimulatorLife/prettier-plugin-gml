@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
 type AssignmentBranchInfo = {
     type: "assignment";

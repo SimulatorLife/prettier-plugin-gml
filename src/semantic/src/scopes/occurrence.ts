@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode } from "@gmloop/core";
 
 import type { Location, Occurrence, ScopeSymbolMetadata } from "./types.js";
 

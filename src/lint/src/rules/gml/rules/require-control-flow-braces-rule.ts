@@ -1,395 +1,96 @@
-import { Core } from "@gml-modules/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
-import { createMeta, reportFullTextRewrite } from "../rule-base-helpers.js";
+import { createMeta } from "../rule-base-helpers.js";
 
-type BracedSingleClause = Readonly<{
-    indentation: string;
-    header: string;
-    statement: string;
-}>;
+type ControlFlowStatementNode = Readonly<Record<string, unknown> & { type: string }>;
 
-type ControlFlowLineHeader = Readonly<{
-    indentation: string;
-    header: string;
-}>;
-
-type InlineDoUntilClause = Readonly<{
-    indentation: string;
-    statement: string;
-    untilCondition: string;
-}>;
-
-function toBracedSingleClause(indentation: string, header: string, statement: string): Array<string> {
-    return [`${indentation}${header} {`, `    ${indentation}${statement}`, `${indentation}}`];
+function isControlFlowStatementNode(node: unknown): node is ControlFlowStatementNode {
+    return typeof node === "object" && node !== null && typeof Reflect.get(node, "type") === "string";
 }
 
-function parseInlineControlFlowClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)((?:if|while|for|with)\s*\(.*?\))\s*(.+)$/u.exec(line);
-    if (!match || match.length < 4 || match[3]?.trim() === "") {
-        return null;
+function isBlockStatementNode(node: unknown): boolean {
+    return isControlFlowStatementNode(node) && node.type === "BlockStatement";
+}
+
+function isIfStatementNode(node: unknown): boolean {
+    return isControlFlowStatementNode(node) && node.type === "IfStatement";
+}
+
+function reportMissingControlFlowBraces(context: Rule.RuleContext, messageId: string, branchNode: unknown): void {
+    if (!isControlFlowStatementNode(branchNode)) {
+        return;
     }
 
-    const trimmedStatement = (match[3] ?? "").trimStart();
-    if (trimmedStatement.startsWith("{") || trimmedStatement.startsWith(")")) {
-        return null;
-    }
-    if (!(match[3] ?? "").includes(";")) {
-        return null;
-    }
-
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: match[2] ?? "",
-        statement: match[3]?.trim() ?? ""
+    context.report({
+        node: branchNode as never,
+        messageId
     });
 }
 
-function parseInlineRepeatClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(repeat)\s*\(([^)]*)\)\s*(.+)$/u.exec(line);
-    if (!match || match.length < 5 || match[4]?.trim() === "") {
-        return null;
-    }
-    if ((match[4] ?? "").trimStart().startsWith("{")) {
-        return null;
-    }
-    if (!(match[4] ?? "").includes(";")) {
-        return null;
+function reportMissingBlockBody(context: Rule.RuleContext, messageId: string, bodyNode: unknown): void {
+    if (isBlockStatementNode(bodyNode)) {
+        return;
     }
 
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: `${match[2] ?? "repeat"} (${match[3] ?? ""})`,
-        statement: match[4]?.trim() ?? ""
-    });
-}
-
-function parseLineOnlyControlFlowHeader(line: string): ControlFlowLineHeader | null {
-    const elseMatch = /^([\t ]*)else\s*$/u.exec(line);
-    if (elseMatch && elseMatch.length >= 2) {
-        return Object.freeze({
-            indentation: elseMatch[1] ?? "",
-            header: "else"
-        });
-    }
-
-    const repeatMatch = /^([\t ]*)(repeat\s*\([^)]*\))\s*$/u.exec(line);
-    if (repeatMatch && repeatMatch.length >= 3) {
-        return Object.freeze({
-            indentation: repeatMatch[1] ?? "",
-            header: repeatMatch[2] ?? ""
-        });
-    }
-
-    const match = /^([\t ]*)((?:if|while|for|with)\s*\(.*?\))\s*$/u.exec(line);
-    if (!match || match.length < 3) {
-        return null;
-    }
-
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: match[2] ?? ""
-    });
-}
-
-function isSafeSingleLineControlFlowStatement(statement: string): boolean {
-    const trimmed = statement.trim();
-    if (trimmed === "" || trimmed.startsWith("{")) {
-        return false;
-    }
-
-    if (/^(?:if|while|for|with|do|repeat|else)\b/iu.test(trimmed)) {
-        return false;
-    }
-
-    return true;
-}
-
-function parseInlineControlFlowClauseWithLegacyIf(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)if\s+(.+)$/iu.exec(line);
-    if (!match || match.length < 3 || match[2]?.trim() === "") {
-        return null;
-    }
-
-    const clauseBody = match[2]?.trim() ?? "";
-    if (clauseBody.startsWith("(")) {
-        return null;
-    }
-
-    const legacyThenMatch = /^(.+?)\s+then\s+(.+)$/iu.exec(clauseBody);
-    if (legacyThenMatch && legacyThenMatch.length >= 3) {
-        const legacyThenStatement = legacyThenMatch[2]?.trim() ?? "";
-        if (legacyThenStatement.startsWith("{")) {
-            return null;
-        }
-        if (!legacyThenStatement.includes(";")) {
-            return null;
-        }
-
-        return Object.freeze({
-            indentation: match[1] ?? "",
-            header: `if (${legacyThenMatch[1]?.trim() ?? ""})`,
-            statement: legacyThenStatement
-        });
-    }
-
-    const legacyCallMatch = /^([A-Za-z_][A-Za-z0-9_$.]*\([^)]*\))\s+(.+)$/u.exec(clauseBody);
-    if (!legacyCallMatch || legacyCallMatch.length < 3) {
-        return null;
-    }
-
-    const statement = legacyCallMatch[2]?.trim() ?? "";
-    if (statement.startsWith("{")) {
-        return null;
-    }
-    if (!statement.includes(";")) {
-        return null;
-    }
-
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: `if (${legacyCallMatch[1] ?? ""})`,
-        statement
-    });
-}
-
-function parseInlineElseClause(line: string): BracedSingleClause | null {
-    const match = /^([\t ]*)(else)\b\s*(.+)$/u.exec(line);
-    if (!match || match.length < 4 || match[3]?.trim() === "") {
-        return null;
-    }
-
-    const statement = match[3]?.trim() ?? "";
-    if (statement.startsWith("{")) {
-        return null;
-    }
-    if (/^if\b/u.test(statement)) {
-        return null;
-    }
-    if (!statement.includes(";")) {
-        return null;
-    }
-
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        header: "else",
-        statement
-    });
-}
-
-function parseInlineDoUntilClause(line: string): InlineDoUntilClause | null {
-    const match = /^([\t ]*)do\s+(?!\{)(.+?)\s+until\s+(.+)$/u.exec(line);
-    if (!match || match.length < 4) {
-        return null;
-    }
-
-    const statement = match[2]?.trim() ?? "";
-    const untilCondition = match[3]?.trim() ?? "";
-    if (statement === "" || untilCondition === "") {
-        return null;
-    }
-    if (statement.startsWith("{")) {
-        return null;
-    }
-    if (!statement.includes(";")) {
-        return null;
-    }
-
-    return Object.freeze({
-        indentation: match[1] ?? "",
-        statement,
-        untilCondition
-    });
-}
-
-function toBracedDoUntilClause(indentation: string, statement: string, untilCondition: string): Array<string> {
-    return [`${indentation}do {`, `    ${indentation}${statement}`, `${indentation}} until ${untilCondition}`];
-}
-
-function parseLineOnlyDoHeader(line: string): string | null {
-    const match = /^([\t ]*)do\s*$/u.exec(line);
-    return match?.[1] ?? null;
-}
-
-function findLineCommentStartOutsideStringLiterals(line: string): number {
-    let inSingleQuotedString = false;
-    let inDoubleQuotedString = false;
-    let isEscapedCharacter = false;
-
-    for (let index = 0; index < line.length - 1; index += 1) {
-        const character = line[index];
-        const nextCharacter = line[index + 1];
-
-        if (isEscapedCharacter) {
-            isEscapedCharacter = false;
-            continue;
-        }
-
-        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
-            isEscapedCharacter = true;
-            continue;
-        }
-
-        if (!inDoubleQuotedString && character === "'") {
-            inSingleQuotedString = !inSingleQuotedString;
-            continue;
-        }
-
-        if (!inSingleQuotedString && character === '"') {
-            inDoubleQuotedString = !inDoubleQuotedString;
-            continue;
-        }
-
-        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
-            return index;
-        }
-    }
-
-    return -1;
-}
-
-function lineUsesMacroContinuation(line: string): boolean {
-    const lineCommentStart = findLineCommentStartOutsideStringLiterals(line);
-    const contentBeforeComment = lineCommentStart === -1 ? line : line.slice(0, lineCommentStart);
-    return contentBeforeComment.trimEnd().endsWith("\\");
-}
-
-function parseLineOnlyUntilFooter(line: string): string | null {
-    const match = /^([\t ]*)until\s+(.+)$/u.exec(line);
-    return match?.[2]?.trim() ?? null;
+    reportMissingControlFlowBraces(context, messageId, bodyNode);
 }
 
 export function createRequireControlFlowBracesRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
-        meta: createMeta(definition),
+        meta: createMeta(definition, {
+            fixable: null,
+            messageText: "Control-flow statements must use braces. Run the formatter to insert them."
+        }),
         create(context) {
             return Object.freeze({
-                Program() {
-                    const text = context.sourceCode.text;
-                    const lineEnding = Core.dominantLineEnding(text);
-                    const lines = text.split(/\r?\n/u);
-                    const rewrittenLines: Array<string> = [];
-                    let inMacroContinuation = false;
-
-                    for (let index = 0; index < lines.length; index += 1) {
-                        const line = lines[index];
-                        if (/^\s*(if|while|for|with|repeat)\b.*\{\s*\/\//u.test(line)) {
-                            rewrittenLines.push(line);
-                            continue;
-                        }
-
-                        if (inMacroContinuation) {
-                            rewrittenLines.push(line);
-                            inMacroContinuation = lineUsesMacroContinuation(line);
-                            continue;
-                        }
-
-                        if (/^\s*#macro\b/u.test(line)) {
-                            rewrittenLines.push(line);
-                            inMacroContinuation = lineUsesMacroContinuation(line);
-                            continue;
-                        }
-
-                        const bracedConditionedClause = parseInlineControlFlowClause(line);
-                        if (bracedConditionedClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedConditionedClause.indentation,
-                                    bracedConditionedClause.header,
-                                    bracedConditionedClause.statement
-                                )
-                            );
-                            continue;
-                        }
-
-                        const bracedRepeatClause = parseInlineRepeatClause(line);
-                        if (bracedRepeatClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedRepeatClause.indentation,
-                                    bracedRepeatClause.header,
-                                    bracedRepeatClause.statement
-                                )
-                            );
-                            continue;
-                        }
-
-                        const bracedElseClause = parseInlineElseClause(line);
-                        if (bracedElseClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedElseClause.indentation,
-                                    bracedElseClause.header,
-                                    bracedElseClause.statement
-                                )
-                            );
-                            continue;
-                        }
-
-                        const bracedLegacyIfClause = parseInlineControlFlowClauseWithLegacyIf(line);
-                        if (bracedLegacyIfClause) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    bracedLegacyIfClause.indentation,
-                                    bracedLegacyIfClause.header,
-                                    bracedLegacyIfClause.statement
-                                )
-                            );
-                            continue;
-                        }
-
-                        const bracedInlineDoUntilClause = parseInlineDoUntilClause(line);
-                        if (bracedInlineDoUntilClause) {
-                            rewrittenLines.push(
-                                ...toBracedDoUntilClause(
-                                    bracedInlineDoUntilClause.indentation,
-                                    bracedInlineDoUntilClause.statement,
-                                    bracedInlineDoUntilClause.untilCondition
-                                )
-                            );
-                            continue;
-                        }
-
-                        const doHeaderIndentation = parseLineOnlyDoHeader(line);
-                        const nextLine = lines[index + 1] ?? "";
-                        const afterNextLine = lines[index + 2] ?? "";
-                        if (doHeaderIndentation !== null && isSafeSingleLineControlFlowStatement(nextLine)) {
-                            const untilCondition = parseLineOnlyUntilFooter(afterNextLine);
-                            if (untilCondition) {
-                                rewrittenLines.push(
-                                    ...toBracedDoUntilClause(doHeaderIndentation, nextLine.trim(), untilCondition)
-                                );
-                                index += 2;
-                                continue;
-                            }
-                        }
-
-                        const controlFlowHeader = parseLineOnlyControlFlowHeader(line);
-                        const trimmedNextLine = nextLine.trimStart();
-                        const isConditionContinuation =
-                            trimmedNextLine.startsWith("||") || trimmedNextLine.startsWith("&&");
-                        if (
-                            controlFlowHeader &&
-                            !isConditionContinuation &&
-                            isSafeSingleLineControlFlowStatement(nextLine)
-                        ) {
-                            rewrittenLines.push(
-                                ...toBracedSingleClause(
-                                    controlFlowHeader.indentation,
-                                    controlFlowHeader.header,
-                                    nextLine.trim()
-                                )
-                            );
-                            index += 1;
-                            continue;
-                        }
-
-                        rewrittenLines.push(line);
+                IfStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
                     }
 
-                    const rewritten = rewrittenLines.join(lineEnding);
-                    reportFullTextRewrite(context, definition.messageId, text, rewritten);
+                    reportMissingBlockBody(context, definition.messageId, node.consequent);
+
+                    if (node.alternate === null || node.alternate === undefined || isIfStatementNode(node.alternate)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.alternate);
+                },
+                WhileStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.body);
+                },
+                ForStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.body);
+                },
+                RepeatStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.body);
+                },
+                DoUntilStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.body);
+                },
+                WithStatement(node: unknown) {
+                    if (!isControlFlowStatementNode(node)) {
+                        return;
+                    }
+
+                    reportMissingBlockBody(context, definition.messageId, node.body);
                 }
             });
         }

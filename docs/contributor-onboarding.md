@@ -83,9 +83,6 @@ pnpm run format:gml -- path/to/project
   notes.
 * Review the [semantic subsystem reference](../src/semantic/README.md) before
   adjusting identifier-case discovery or project-index caching.
-* Keep the archived [legacy identifier-case plan](legacy-identifier-case-plan.md)
-  available when enabling renames in a project to understand the historical
-  safeguards and rollout steps.
 
 Check back with this document when you swap machines or return from a long break
 to stay aligned with the latest workflow expectations.

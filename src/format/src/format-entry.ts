@@ -10,6 +10,7 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 import { gmlFormatComponents } from "./components/format-components.js";
 import type { GmlFormat, GmlFormatDefaultOptions } from "./components/format-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
+import { extractProjectFormatOptions } from "./options/project-config.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 
@@ -42,50 +43,29 @@ function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, 
     );
 }
 
-function createDefaultOptionsSnapshot(): GmlFormatDefaultOptions {
-    const coreOptionOverrides = resolveCoreOptionOverrides();
-    const formatOptionDefaults = extractOptionDefaults(formatOptions);
+const coreOptionOverrides = resolveCoreOptionOverrides();
+const formatOptionDefaults = extractOptionDefaults(formatOptions);
 
-    return {
-        // Merge order:
-        // GML Prettier defaults -> option defaults -> fixed overrides
-        ...BASE_PRETTIER_DEFAULTS,
-        ...formatOptionDefaults,
-        ...coreOptionOverrides
-    };
-}
-
-export const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
-
-function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
-    source: string,
-    formatted: string
-): boolean {
-    if (source.endsWith("\n") || source.endsWith("\r")) {
-        return false;
-    }
-
-    if (formatted !== `${source}\n`) {
-        return false;
-    }
-
-    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
-        return false;
-    }
-
-    return source.includes("\n*/\n\n");
-}
-
-function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
-    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
-        return formatted;
-    }
-
-    return source;
-}
+export const defaultOptions: GmlFormatDefaultOptions = Object.freeze({
+    // Merge order:
+    // GML Prettier defaults -> option defaults -> fixed overrides
+    ...BASE_PRETTIER_DEFAULTS,
+    ...formatOptionDefaults,
+    ...coreOptionOverrides
+});
 
 /**
  * Utility function and entry point to format GML source code.
+ *
+ * This is a thin, deterministic wrapper around `prettier.format()` using the
+ * GML plugin. It must not inspect `source` to patch the result — doing so
+ * would make formatting non-deterministic (same logical structure, different
+ * source text → different output), violating target-state.md §3.2.
+ *
+ * Post-processing that normalises whitespace-only layout details (blank-line
+ * collapsing, trailing-newline normalisation, etc.) belongs in
+ * `normalizeFormattedOutput`, which operates solely on the already-formatted
+ * string and therefore remains deterministic.
  */
 async function format(source: string, options: SupportOptions = {}) {
     const prettierFormatOptions: Record<string, unknown> = {
@@ -100,7 +80,7 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, formatted);
+    return formatted;
 }
 
 export const Format: GmlFormat = {
@@ -109,6 +89,7 @@ export const Format: GmlFormat = {
     printers,
     options: formatOptions,
     defaultOptions,
+    extractProjectFormatOptions,
     format,
     normalizeFormattedOutput
 };
