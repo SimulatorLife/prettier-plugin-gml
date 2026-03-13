@@ -113,6 +113,32 @@ void test("evaluateNamingConvention reports reserved affix violations", () => {
     assert.match(evaluation.message ?? "", /reserved prefix/);
 });
 
+void test("evaluateNamingConvention strips banned affixes before applying case style", () => {
+    // Exercises the third-priority branch in stripOneAffixDirection: when the identifier
+    // carries a banned prefix or suffix (not the required one, not an exclusive one), it is
+    // stripped before the core name is case-checked and a suggestion is produced.
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            localVariable: {
+                caseStyle: "camel",
+                bannedPrefixes: ["m_", "_"],
+                bannedSuffixes: ["_t"]
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const withBannedPrefix = Refactor.evaluateNamingConvention("m_player_hp", "localVariable", policy, resolved);
+    assert.equal(withBannedPrefix.compliant, false);
+    assert.equal(withBannedPrefix.suggestedName, "playerHp");
+    assert.match(withBannedPrefix.message ?? "", /banned prefix/);
+
+    const withBannedSuffix = Refactor.evaluateNamingConvention("playerHp_t", "localVariable", policy, resolved);
+    assert.equal(withBannedSuffix.compliant, false);
+    assert.equal(withBannedSuffix.suggestedName, "playerHp");
+    assert.match(withBannedSuffix.message ?? "", /banned suffix/);
+});
+
 void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {
     assert.throws(
         () =>
