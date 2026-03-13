@@ -16,6 +16,7 @@ export type {
     FixtureCase,
     FixtureCaseExecutionResult,
     FixtureCaseResult,
+    FixtureComparison,
     FixtureKind,
     FixtureProfileBudgetFailure,
     FixtureProfileBudgets,
@@ -24,6 +25,7 @@ export type {
     FixtureProfileReport,
     FixtureProjectConfig,
     FixtureProjectConfigMetadata,
+    FixtureRunFailure,
     FixtureRunResult,
     FixtureStageMetrics,
     FixtureStageName

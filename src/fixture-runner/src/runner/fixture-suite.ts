@@ -18,7 +18,9 @@ import type {
     FixtureCase,
     FixtureCaseExecutionResult,
     FixtureCaseResult,
+    FixtureComparison,
     FixtureProfileCollector,
+    FixtureRunFailure,
     FixtureRunResult
 } from "../types.js";
 
@@ -60,16 +62,28 @@ function createDeepCpuProfileArtifactPath(adapter: FixtureAdapter, fixtureCase: 
     return path.resolve(process.cwd(), "reports", "fixture-cpu", `${adapter.workspaceName}-${safeCaseId}.cpuprofile`);
 }
 
-async function compareFixtureCaseResult(
-    adapter: FixtureAdapter,
-    fixtureCase: FixtureCase,
-    caseResult: FixtureCaseResult
-): Promise<void> {
-    if (adapter.compare) {
-        await adapter.compare({ fixtureCase, caseResult });
-        return;
+const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;
+
+function removeDocCommentAnnotationLines(text: string): string {
+    return text
+        .split(/\r?\n/u)
+        .filter((line) => !DOC_COMMENT_PATTERN.test(line))
+        .join("\n");
+}
+
+function canonicalizeFixtureText(text: string, comparison: FixtureComparison): string {
+    if (comparison === "trimmed-strip-doc-comment-annotations") {
+        return removeDocCommentAnnotationLines(text).trim();
     }
 
+    if (comparison === "ignore-whitespace-and-line-endings") {
+        return text.replaceAll(/\r\n?/gu, "\n").replaceAll(/\s+/gu, "");
+    }
+
+    return text;
+}
+
+async function compareFixtureCaseResult(fixtureCase: FixtureCase, caseResult: FixtureCaseResult): Promise<void> {
     if (fixtureCase.assertion === "parse-error") {
         throw new Error(`Fixture ${fixtureCase.caseId} expected a parse error but completed successfully.`);
     }
@@ -102,11 +116,15 @@ async function compareFixtureCaseResult(
         fixtureCase.assertion === "idempotent"
             ? await readFile(fixtureCase.inputFilePath ?? "", "utf8")
             : await readFile(fixtureCase.expectedFilePath ?? "", "utf8");
+    const actualOutput = canonicalizeFixtureText(caseResult.outputText, fixtureCase.comparison);
+    const canonicalExpected = canonicalizeFixtureText(expectedText, fixtureCase.comparison);
 
     assert.equal(
-        caseResult.outputText,
-        expectedText,
-        `${fixtureCase.caseId} output must match expected text byte-for-byte.`
+        actualOutput,
+        canonicalExpected,
+        fixtureCase.comparison === "exact"
+            ? `${fixtureCase.caseId} output must match expected text byte-for-byte.`
+            : `${fixtureCase.caseId} output must match expected text for comparison mode ${fixtureCase.comparison}.`
     );
 }
 
@@ -158,7 +176,7 @@ async function executeFixtureCase(
                     });
                     changed = caseResult.changed;
                     await stageTimer.runStage("compare", async () => {
-                        await compareFixtureCaseResult(adapter, fixtureCase, caseResult);
+                        await compareFixtureCaseResult(fixtureCase, caseResult);
                     });
                 })
         );
@@ -232,10 +250,12 @@ export async function runFixtureSuite(parameters: {
     fixtureRoot: string;
     adapter: FixtureAdapter;
     profileCollector?: FixtureProfileCollector;
+    continueOnFailure?: boolean;
 }): Promise<FixtureRunResult> {
     const fixtureCases = await discoverFixtureCases(parameters.fixtureRoot);
     const profileCollector = parameters.profileCollector ?? createProfileCollector();
     const executionResults: Array<FixtureCaseExecutionResult> = [];
+    const failures: Array<FixtureRunFailure> = [];
 
     await Core.runSequentially(fixtureCases, async (fixtureCase) => {
         if (!parameters.adapter.supports(fixtureCase.kind)) {
@@ -244,12 +264,30 @@ export async function runFixtureSuite(parameters: {
             );
         }
 
-        executionResults.push(await executeFixtureCase(parameters.adapter, fixtureCase, profileCollector));
+        try {
+            executionResults.push(await executeFixtureCase(parameters.adapter, fixtureCase, profileCollector));
+        } catch (error) {
+            if (!parameters.continueOnFailure) {
+                throw error;
+            }
+
+            failures.push(
+                Object.freeze({
+                    fixtureCase,
+                    error
+                })
+            );
+        }
     });
+
+    if (failures.length > 0 && !parameters.continueOnFailure) {
+        throw failures[0]?.error;
+    }
 
     return Object.freeze({
         fixtureCases,
-        executionResults: Object.freeze(executionResults)
+        executionResults: Object.freeze(executionResults),
+        failures: Object.freeze(failures)
     });
 }
 

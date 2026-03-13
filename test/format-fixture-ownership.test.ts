@@ -3,29 +3,19 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
+import { createFixtureSuiteRegistry } from "./fixture-suite-registry.js";
+
 type FixtureRootDefinition = Readonly<{
     kind: "format" | "lint" | "refactor" | "integration";
     rootPath: string;
 }>;
 
-const fixtureRoots: ReadonlyArray<FixtureRootDefinition> = Object.freeze([
-    {
-        kind: "format",
-        rootPath: path.resolve(process.cwd(), "src", "format", "test", "fixtures")
-    },
-    {
-        kind: "lint",
-        rootPath: path.resolve(process.cwd(), "src", "lint", "test", "fixtures")
-    },
-    {
-        kind: "refactor",
-        rootPath: path.resolve(process.cwd(), "src", "refactor", "test", "fixtures")
-    },
-    {
-        kind: "integration",
-        rootPath: path.resolve(process.cwd(), "test", "fixtures", "integration")
-    }
-]);
+const fixtureRoots: ReadonlyArray<FixtureRootDefinition> = Object.freeze(
+    createFixtureSuiteRegistry().map((fixtureSuite) => ({
+        kind: fixtureSuite.workspaceName as FixtureRootDefinition["kind"],
+        rootPath: fixtureSuite.fixtureRoot
+    }))
+);
 
 const LEGACY_FILE_PATTERNS = [/^options\.json$/u, /^fixed\.gml$/u, /^input\.fixed\.gml$/u, /^.+\.input\.gml$/u, /^.+\.output\.gml$/u];
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
@@ -40,6 +30,7 @@ const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "sanitizeMissingArgumentSeparators",
     "normalizeDocComments"
 ]);
+const REMOVED_FIXTURE_CONFIG_KEYS = new Set(["expectParseError"]);
 
 async function collectFixtureCaseDirectories(rootPath: string): Promise<Array<string>> {
     const caseDirectories: Array<string> = [];
@@ -68,6 +59,11 @@ function assertNoLegacyFiles(caseDirectory: string, fileNames: ReadonlySet<strin
 function assertRemovedFormatterKeysAreAbsent(configPath: string, parsed: Record<string, unknown>): void {
     const removedKeys = Object.keys(parsed).filter((key) => REMOVED_FORMATTER_OPTION_KEYS.has(key));
     assert.deepEqual(removedKeys, [], `${configPath} contains removed formatter option(s): ${removedKeys.join(", ")}`);
+}
+
+function assertRemovedFixtureKeysAreAbsent(configPath: string, parsed: Record<string, unknown>): void {
+    const removedKeys = Object.keys(parsed).filter((key) => REMOVED_FIXTURE_CONFIG_KEYS.has(key));
+    assert.deepEqual(removedKeys, [], `${configPath} contains removed fixture config key(s): ${removedKeys.join(", ")}`);
 }
 
 function assertFixtureCaseLayout(
@@ -113,6 +109,7 @@ void test("all fixture roots use directory-per-case layout with gmloop.json and 
             const configPath = path.join(caseDirectory, "gmloop.json");
             const parsed = JSON.parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
             assertRemovedFormatterKeysAreAbsent(configPath, parsed);
+            assertRemovedFixtureKeysAreAbsent(configPath, parsed);
         }
     }
 });

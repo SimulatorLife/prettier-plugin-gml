@@ -27,13 +27,14 @@ void test("loadFixtureProjectConfig validates fixture metadata", async () => {
     const configPath = path.join(rootPath, "gmloop.json");
     await writeFile(
         configPath,
-        `${JSON.stringify({ fixture: { kind: "format", profile: { budgets: { durationMs: { total: 100 } } } } }, null, 2)}\n`,
+        `${JSON.stringify({ fixture: { kind: "format", comparison: "exact", profile: { budgets: { durationMs: { total: 100 } } } } }, null, 2)}\n`,
         "utf8"
     );
 
     try {
         const config = await FixtureRunner.loadFixtureProjectConfig(configPath);
         assert.equal(config.fixture.kind, "format");
+        assert.equal(config.fixture.comparison, "exact");
         assert.deepEqual(config.fixture.profile?.budgets?.durationMs, { total: 100 });
     } finally {
         await rm(rootPath, { recursive: true, force: true });
@@ -59,6 +60,7 @@ void test("discoverFixtureCases normalizes directory-per-case fixtures", async (
         assert.equal(fixtureCases.length, 1);
         assert.equal(fixtureCases[0]?.caseId, "example");
         assert.equal(fixtureCases[0]?.assertion, "transform");
+        assert.equal(fixtureCases[0]?.comparison, "exact");
     } finally {
         await rm(rootPath, { recursive: true, force: true });
     }
@@ -149,6 +151,151 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
         assert.match(FixtureRunner.renderHumanProfileReport(report), /Workspace totals:/u);
         assert.match(FixtureRunner.renderHumanProfileReport(report), /Stage totals:/u);
         assert.match(FixtureRunner.renderHumanProfileReport(report), /Highest CPU user time:/u);
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runFixtureSuite continues collecting failures for profiling mode", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-continue-on-failure-"));
+    await createTextFixtureCase(
+        rootPath,
+        "failing",
+        {
+            fixture: {
+                kind: "format"
+            }
+        },
+        "input\n",
+        "expected\n"
+    );
+    await createTextFixtureCase(
+        rootPath,
+        "passing",
+        {
+            fixture: {
+                kind: "format"
+            }
+        },
+        "input\n",
+        "output\n"
+    );
+
+    try {
+        const collector = FixtureRunner.createProfileCollector();
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: rootPath,
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: fixtureCase.caseId === "failing" ? "actual\n" : "output\n",
+                        changed: true
+                    }));
+                }
+            },
+            profileCollector: collector,
+            continueOnFailure: true
+        });
+
+        assert.equal(result.executionResults.length, 1);
+        assert.equal(result.failures.length, 1);
+        assert.equal(result.failures[0]?.fixtureCase.caseId, "failing");
+        const report = collector.createReport();
+        assert.equal(report.entries.length, 2);
+        assert.equal(
+            report.entries.some((entry) => entry.status === "failed"),
+            true
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runner-owned comparison mode strips doc comment annotations and trims text", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-comparison-"));
+    await createTextFixtureCase(
+        rootPath,
+        "integration-like",
+        {
+            fixture: {
+                kind: "integration",
+                comparison: "trimmed-strip-doc-comment-annotations"
+            }
+        },
+        "input\n",
+        "/// @desc ignored\nexpected\n"
+    );
+
+    try {
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: rootPath,
+            adapter: {
+                workspaceName: "integration",
+                suiteName: "integration fixtures",
+                supports(kind) {
+                    return kind === "integration";
+                },
+                async run({ runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: "expected\n",
+                        changed: true
+                    }));
+                }
+            }
+        });
+
+        assert.equal(result.executionResults.length, 1);
+        assert.deepEqual(result.failures, []);
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("lint fixtures default to whitespace-insensitive comparison", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-lint-comparison-"));
+    await createTextFixtureCase(
+        rootPath,
+        "lint-like",
+        {
+            fixture: {
+                kind: "lint"
+            }
+        },
+        "input\n",
+        "var total = 1 + 2;\n"
+    );
+
+    try {
+        const fixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        assert.equal(fixtureCases[0]?.comparison, "ignore-whitespace-and-line-endings");
+
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: rootPath,
+            adapter: {
+                workspaceName: "lint",
+                suiteName: "lint fixtures",
+                supports(kind) {
+                    return kind === "lint";
+                },
+                async run({ runProfiledStage }) {
+                    return await runProfiledStage("lint", async () => ({
+                        resultKind: "text",
+                        outputText: "var total=1+2;\n",
+                        changed: true
+                    }));
+                }
+            }
+        });
+
+        assert.equal(result.executionResults.length, 1);
+        assert.deepEqual(result.failures, []);
     } finally {
         await rm(rootPath, { recursive: true, force: true });
     }

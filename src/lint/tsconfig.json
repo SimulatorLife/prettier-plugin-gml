@@ -18,7 +18,12 @@
       "@gmloop/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../fixture-runner" }, { "path": "../parser" }],
+  "references": [
+    { "path": "../core" },
+    { "path": "../fixture-runner" },
+    { "path": "../parser" },
+    { "path": "../format" }
+  ],
   "include": ["index.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

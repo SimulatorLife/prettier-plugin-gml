@@ -1,6 +1,6 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
-import { Format } from "../format-entry.js";
+import { Format } from "../src/format-entry.js";
 
 /**
  * Create the shared format-fixture adapter used by workspace and aggregate

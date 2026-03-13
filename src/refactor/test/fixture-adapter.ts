@@ -3,8 +3,8 @@ import path from "node:path";
 
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
-import { normalizeRefactorProjectConfig } from "../project-config.js";
-import { RefactorEngine } from "../refactor-engine.js";
+import { normalizeRefactorProjectConfig } from "../src/project-config.js";
+import { RefactorEngine } from "../src/refactor-engine.js";
 
 async function collectProjectGmlFiles(projectRoot: string): Promise<Array<string>> {
     const relativePaths: Array<string> = [];

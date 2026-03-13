@@ -2,6 +2,7 @@ import { Core } from "@gmloop/core";
 
 import type {
     FixtureAssertion,
+    FixtureComparison,
     FixtureKind,
     FixtureProfileBudgets,
     FixtureProjectConfig,
@@ -11,7 +12,12 @@ import type {
 
 const FIXTURE_KIND_VALUES = new Set<FixtureKind>(["format", "lint", "refactor", "integration"]);
 const FIXTURE_ASSERTION_VALUES = new Set<FixtureAssertion>(["transform", "idempotent", "project-tree", "parse-error"]);
-const FIXTURE_SECTION_KEYS = new Set(["kind", "assertion", "profile"]);
+const FIXTURE_COMPARISON_VALUES = new Set<FixtureComparison>([
+    "exact",
+    "ignore-whitespace-and-line-endings",
+    "trimmed-strip-doc-comment-annotations"
+]);
+const FIXTURE_SECTION_KEYS = new Set(["kind", "assertion", "comparison", "profile"]);
 const FIXTURE_PROFILE_KEYS = new Set(["budgets", "deepCpuProfile"]);
 const FIXTURE_PROFILE_BUDGET_KEYS = new Set(["durationMs", "heapUsedDeltaBytes", "cpuUserMicros", "cpuSystemMicros"]);
 
@@ -73,6 +79,16 @@ function validateFixtureMetadata(value: unknown, context: string): FixtureProjec
             throw new TypeError(`${context}.assertion must be one of ${[...FIXTURE_ASSERTION_VALUES].join(", ")}.`);
         }
         metadata.assertion = object.assertion as FixtureAssertion;
+    }
+
+    if (object.comparison !== undefined) {
+        if (
+            typeof object.comparison !== "string" ||
+            !FIXTURE_COMPARISON_VALUES.has(object.comparison as FixtureComparison)
+        ) {
+            throw new TypeError(`${context}.comparison must be one of ${[...FIXTURE_COMPARISON_VALUES].join(", ")}.`);
+        }
+        metadata.comparison = object.comparison as FixtureComparison;
     }
 
     if (object.profile !== undefined) {

@@ -1,7 +1,7 @@
 {
-  "expectParseError": true,
   "fixture": {
     "kind": "integration",
-    "assertion": "transform"
+    "assertion": "parse-error",
+    "comparison": "trimmed-strip-doc-comment-annotations"
   }
 }

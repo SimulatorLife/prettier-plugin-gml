@@ -2,6 +2,7 @@
   "allowInlineControlFlowBlocks": true,
   "fixture": {
     "kind": "integration",
-    "assertion": "idempotent"
+    "assertion": "idempotent",
+    "comparison": "trimmed-strip-doc-comment-annotations"
   }
 }

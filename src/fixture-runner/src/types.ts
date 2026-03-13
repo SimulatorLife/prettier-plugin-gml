@@ -2,6 +2,10 @@ import type { GmloopProjectConfig } from "@gmloop/core";
 
 export type FixtureKind = "format" | "lint" | "refactor" | "integration";
 export type FixtureAssertion = "transform" | "idempotent" | "project-tree" | "parse-error";
+export type FixtureComparison =
+    | "exact"
+    | "ignore-whitespace-and-line-endings"
+    | "trimmed-strip-doc-comment-annotations";
 export type FixtureStageName = "load" | "format" | "lint" | "refactor" | "compare" | "total";
 
 type FixtureBudgetMap = Readonly<Partial<Record<FixtureStageName, number>>>;
@@ -22,6 +26,7 @@ export interface FixtureProfileBudgets {
 export interface FixtureProjectConfigMetadata {
     kind: FixtureKind;
     assertion?: FixtureAssertion;
+    comparison?: FixtureComparison;
     profile?: {
         budgets?: FixtureProfileBudgets;
         deepCpuProfile?: boolean;
@@ -42,6 +47,7 @@ export interface FixtureCase {
     config: FixtureProjectConfig;
     kind: FixtureKind;
     assertion: FixtureAssertion;
+    comparison: FixtureComparison;
     inputFilePath: string | null;
     expectedFilePath: string | null;
     projectDirectoryPath: string | null;
@@ -148,13 +154,18 @@ export interface FixtureCaseExecutionResult {
 export interface FixtureRunResult {
     fixtureCases: ReadonlyArray<FixtureCase>;
     executionResults: ReadonlyArray<FixtureCaseExecutionResult>;
+    failures: ReadonlyArray<FixtureRunFailure>;
+}
+
+export interface FixtureRunFailure {
+    fixtureCase: FixtureCase;
+    error: unknown;
 }
 
 export interface FixtureAdapter {
     workspaceName: string;
     suiteName: string;
     supports(kind: FixtureKind): boolean;
-    compare?(parameters: { fixtureCase: FixtureCase; caseResult: FixtureCaseResult }): Promise<void>;
     run(parameters: {
         fixtureCase: FixtureCase;
         config: FixtureProjectConfig;

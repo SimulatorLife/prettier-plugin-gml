@@ -1,8 +1,8 @@
 {
-  "expectParseError": true,
   "printWidth": 100,
   "fixture": {
     "kind": "integration",
-    "assertion": "transform"
+    "assertion": "parse-error",
+    "comparison": "trimmed-strip-doc-comment-annotations"
   }
 }

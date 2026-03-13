@@ -1,11 +1,49 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
+import { Format } from "@gmloop/format";
 import { ESLint, type Linter } from "eslint";
 
-import { Lint } from "../index.js";
+import { Lint } from "../../src/index.js";
 
-function extractFixtureRuleOptions(config: Record<string, unknown>): Record<string, unknown> {
+function extractFixtureRuleOptionCandidates(config: Record<string, unknown>): Record<string, unknown> {
     return Object.fromEntries(
         Object.entries(config).filter(([key]) => key !== "fixture" && key !== "lintRules" && key !== "refactor")
+    );
+}
+
+function resolveFixtureRuleSchemaPropertyNames(ruleId: string): ReadonlySet<string> {
+    const [pluginId, ruleName] = ruleId.split("/", 2);
+    const pluginRules =
+        pluginId === "gml" ? (Lint.plugin.rules ?? {}) : pluginId === "feather" ? (Lint.featherPlugin.rules ?? {}) : {};
+    const ruleDefinition = pluginRules[ruleName];
+    const schema = ruleDefinition?.meta?.schema;
+    if (!Array.isArray(schema) || schema.length === 0) {
+        return new Set();
+    }
+
+    const firstSchemaEntry = schema[0];
+    if (
+        !firstSchemaEntry ||
+        typeof firstSchemaEntry !== "object" ||
+        Array.isArray(firstSchemaEntry) ||
+        !("properties" in firstSchemaEntry) ||
+        !firstSchemaEntry.properties ||
+        typeof firstSchemaEntry.properties !== "object" ||
+        Array.isArray(firstSchemaEntry.properties)
+    ) {
+        return new Set();
+    }
+
+    return new Set(Object.keys(firstSchemaEntry.properties as Record<string, unknown>));
+}
+
+function extractFixtureRuleOptions(config: Record<string, unknown>, ruleId: string): Record<string, unknown> {
+    const schemaPropertyNames = resolveFixtureRuleSchemaPropertyNames(ruleId);
+    if (schemaPropertyNames.size === 0) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(extractFixtureRuleOptionCandidates(config)).filter(([key]) => schemaPropertyNames.has(key))
     );
 }
 
@@ -22,7 +60,7 @@ function createFixtureRuleConfig(config: Record<string, unknown>): Record<string
         throw new Error("Lint fixture config must resolve a single enabled rule.");
     }
 
-    const ruleOptions = extractFixtureRuleOptions(config);
+    const ruleOptions = extractFixtureRuleOptions(config, ruleId);
     return {
         [ruleId]: Object.keys(ruleOptions).length > 0 ? ([level, ruleOptions] as Linter.RuleEntry) : level
     };
@@ -42,6 +80,7 @@ export function createLintFixtureAdapter(): FixtureAdapter {
             return kind === "lint";
         },
         async run({ fixtureCase, config, inputText, runProfiledStage }) {
+            const formatOptions = Format.extractProjectFormatOptions(config);
             const eslint = new ESLint({
                 overrideConfigFile: true,
                 fix: true,
@@ -64,11 +103,16 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                         filePath: `${fixtureCase.caseId}.gml`
                     })
             );
+            const lintedOutput = result.output ?? inputText ?? "";
+            const formattedOutput = await runProfiledStage(
+                "format",
+                async () => await Format.format(lintedOutput, formatOptions)
+            );
 
             return {
                 resultKind: "text" as const,
-                outputText: result.output ?? inputText ?? "",
-                changed: typeof result.output === "string" && result.output !== (inputText ?? "")
+                outputText: formattedOutput,
+                changed: formattedOutput !== (inputText ?? "")
             };
         }
     });

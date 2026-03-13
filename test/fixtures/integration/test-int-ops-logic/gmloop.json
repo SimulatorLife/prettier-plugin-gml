@@ -11,6 +11,7 @@
   },
   "fixture": {
     "kind": "integration",
-    "assertion": "transform"
+    "assertion": "transform",
+    "comparison": "trimmed-strip-doc-comment-annotations"
   }
 }

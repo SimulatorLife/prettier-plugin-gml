@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 
 import { loadFixtureProjectConfig } from "../config/index.js";
-import type { FixtureAssertion, FixtureCase, FixtureProjectConfig } from "../types.js";
+import type { FixtureAssertion, FixtureCase, FixtureComparison, FixtureProjectConfig } from "../types.js";
 
 const GMLOOP_CONFIG_FILE_NAME = "gmloop.json";
 const INPUT_FILE_NAME = "input.gml";
@@ -35,6 +35,14 @@ function deriveDefaultAssertion(config: FixtureProjectConfig, fileNames: Readonl
     }
 
     return "idempotent";
+}
+
+function deriveDefaultComparison(config: FixtureProjectConfig): FixtureComparison {
+    if (config.fixture.comparison) {
+        return config.fixture.comparison;
+    }
+
+    return config.fixture.kind === "lint" ? "ignore-whitespace-and-line-endings" : "exact";
 }
 
 async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {
@@ -70,7 +78,7 @@ function validateTextFixtureCaseLayout(
     const validationErrors: Array<string> = [];
     const allowedFiles = new Set([GMLOOP_CONFIG_FILE_NAME, INPUT_FILE_NAME]);
 
-    if (assertion === "transform") {
+    if (assertion === "transform" || assertion === "parse-error") {
         allowedFiles.add(EXPECTED_FILE_NAME);
     }
 
@@ -82,7 +90,7 @@ function validateTextFixtureCaseLayout(
         validationErrors.push(`missing ${EXPECTED_FILE_NAME}`);
     }
 
-    if ((assertion === "idempotent" || assertion === "parse-error") && fileNames.has(EXPECTED_FILE_NAME)) {
+    if (assertion === "idempotent" && fileNames.has(EXPECTED_FILE_NAME)) {
         validationErrors.push(`${EXPECTED_FILE_NAME} is not allowed for ${assertion} fixtures`);
     }
 
@@ -141,6 +149,7 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
     const fileNames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
     const directoryNames = new Set(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
     const assertion = deriveDefaultAssertion(config, fileNames);
+    const comparison = deriveDefaultComparison(config);
     const validationErrors =
         config.fixture.kind === "refactor"
             ? validateRefactorFixtureCaseLayout(assertion, fileNames, directoryNames)
@@ -166,6 +175,7 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
         config,
         kind: config.fixture.kind,
         assertion,
+        comparison,
         inputFilePath: config.fixture.kind === "refactor" ? null : path.join(fixturePath, INPUT_FILE_NAME),
         expectedFilePath:
             config.fixture.kind === "refactor" || !fileNames.has(EXPECTED_FILE_NAME)

@@ -13,7 +13,6 @@ import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 import { extractProjectFormatOptions } from "./options/project-config.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
-import { createFormatFixtureAdapter } from "./testing/index.js";
 
 export const parsers = gmlFormatComponents.parsers;
 export const printers = gmlFormatComponents.printers;
@@ -90,9 +89,6 @@ export const Format: GmlFormat = {
     printers,
     options: formatOptions,
     defaultOptions,
-    testing: Object.freeze({
-        createFixtureAdapter: createFormatFixtureAdapter
-    }),
     extractProjectFormatOptions,
     format,
     normalizeFormattedOutput

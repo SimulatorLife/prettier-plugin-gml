@@ -2,7 +2,6 @@ import { normalizeLintRulesConfig } from "./configs/index.js";
 import { configs, featherPlugin, plugin } from "./plugin.js";
 import { ruleIds } from "./rules/catalog.js";
 import { services } from "./services/index.js";
-import { createLintFixtureAdapter } from "./testing/index.js";
 
 export const Lint = Object.freeze({
     plugin,
@@ -10,8 +9,5 @@ export const Lint = Object.freeze({
     configs,
     normalizeLintRulesConfig,
     ruleIds,
-    services,
-    testing: Object.freeze({
-        createFixtureAdapter: createLintFixtureAdapter
-    })
+    services
 });
