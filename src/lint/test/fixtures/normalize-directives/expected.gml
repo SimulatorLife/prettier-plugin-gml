@@ -11,6 +11,5 @@ var util = function (val) {
 if (ready) {
     do_work();
 } // done
-{
+
     nested += 1;
-}

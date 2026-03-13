@@ -105,6 +105,22 @@ function hasParamDocImmediatelyAbove(sourceText: string, functionStartIndex: num
     return false;
 }
 
+function collapseAdjacentDuplicateParamDocs(sourceText: string): string {
+    const lines = sourceText.split("\n");
+    const dedupedLines: Array<string> = [];
+
+    for (const line of lines) {
+        const previousLine = dedupedLines.at(-1);
+        if (/^\s*\/\/\/\s*@param\b/u.test(line) && previousLine === line) {
+            continue;
+        }
+
+        dedupedLines.push(line);
+    }
+
+    return dedupedLines.join("\n");
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let depth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -527,7 +543,7 @@ function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return `${docs}\n${fullMatch}`;
             }
         );
-        return rewritten;
+        return collapseAdjacentDuplicateParamDocs(rewritten);
     });
 }
 
@@ -1265,7 +1281,7 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
         rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*(?:;[ \t]*)?(?:\r?\n|$))/gm,
             (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
                 suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );
