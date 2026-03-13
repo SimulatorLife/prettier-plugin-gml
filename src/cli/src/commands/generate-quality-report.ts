@@ -701,7 +701,7 @@ function documentContainsTestElements(document) {
 
     processTraversalQueue(queue, (current, queueRef) => {
         if (Array.isArray(current)) {
-            queueRef.push(...current);
+            enqueueTraversalValues(queueRef, current);
             return;
         }
 
@@ -718,12 +718,24 @@ function documentContainsTestElements(document) {
             return true; // Terminate early
         }
 
-        for (const value of Object.values(current)) {
-            queueRef.push(value);
-        }
+        enqueueObjectChildValues(queueRef, current);
     });
 
     return found;
+}
+
+/**
+ * Appends traversal candidates to the queue.
+ */
+function enqueueTraversalValues(queue, values) {
+    queue.push(...values);
+}
+
+/**
+ * Appends all object child values to the traversal queue.
+ */
+function enqueueObjectChildValues(queue, object) {
+    enqueueTraversalValues(queue, Object.values(object));
 }
 
 function recordTestCases(aggregates, testCases) {
