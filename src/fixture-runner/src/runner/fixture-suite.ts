@@ -7,8 +7,20 @@ import { describe, it, test } from "node:test";
 import { Core } from "@gmloop/core";
 
 import { discoverFixtureCases } from "../discovery/index.js";
-import { collectBudgetFailures, createProfileCollector, createStageTimer, withDeepCpuProfile } from "../profiling/index.js";
-import type { FixtureAdapter, FixtureCase, FixtureCaseExecutionResult, FixtureCaseResult, FixtureProfileCollector, FixtureRunResult } from "../types.js";
+import {
+    collectBudgetFailures,
+    createProfileCollector,
+    createStageTimer,
+    withDeepCpuProfile
+} from "../profiling/index.js";
+import type {
+    FixtureAdapter,
+    FixtureCase,
+    FixtureCaseExecutionResult,
+    FixtureCaseResult,
+    FixtureProfileCollector,
+    FixtureRunResult
+} from "../types.js";
 
 async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, string>> {
     const files = new Map<string, string>();
@@ -63,13 +75,25 @@ async function compareFixtureCaseResult(
     }
 
     if (fixtureCase.assertion === "project-tree") {
-        assert.equal(caseResult.resultKind, "project-tree", `Fixture ${fixtureCase.caseId} must return a project-tree result.`);
-        assert.notEqual(fixtureCase.expectedDirectoryPath, null, `Fixture ${fixtureCase.caseId} is missing expected/ directory.`);
+        assert.equal(
+            caseResult.resultKind,
+            "project-tree",
+            `Fixture ${fixtureCase.caseId} must return a project-tree result.`
+        );
+        assert.notEqual(
+            fixtureCase.expectedDirectoryPath,
+            null,
+            `Fixture ${fixtureCase.caseId} is missing expected/ directory.`
+        );
         const [actualFiles, expectedFiles] = await Promise.all([
             snapshotDirectoryTree(caseResult.outputDirectoryPath),
             snapshotDirectoryTree(fixtureCase.expectedDirectoryPath)
         ]);
-        assert.deepEqual([...actualFiles.entries()], [...expectedFiles.entries()], `${fixtureCase.caseId} project tree output must match expected tree byte-for-byte.`);
+        assert.deepEqual(
+            [...actualFiles.entries()],
+            [...expectedFiles.entries()],
+            `${fixtureCase.caseId} project tree output must match expected tree byte-for-byte.`
+        );
         return;
     }
 
@@ -79,7 +103,11 @@ async function compareFixtureCaseResult(
             ? await readFile(fixtureCase.inputFilePath ?? "", "utf8")
             : await readFile(fixtureCase.expectedFilePath ?? "", "utf8");
 
-    assert.equal(caseResult.outputText, expectedText, `${fixtureCase.caseId} output must match expected text byte-for-byte.`);
+    assert.equal(
+        caseResult.outputText,
+        expectedText,
+        `${fixtureCase.caseId} output must match expected text byte-for-byte.`
+    );
 }
 
 async function executeFixtureCase(
@@ -111,7 +139,9 @@ async function executeFixtureCase(
                             adapter.run({
                                 fixtureCase,
                                 config: fixtureCase.config,
-                                inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
+                                inputText: fixtureCase.inputFilePath
+                                    ? await readFile(fixtureCase.inputFilePath, "utf8")
+                                    : null,
                                 tempProjectDirectoryPath,
                                 runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
                             })
@@ -152,7 +182,10 @@ async function executeFixtureCase(
         if (budgetFailures.length > 0) {
             throw new Error(
                 `Fixture ${fixtureCase.caseId} exceeded profiling budgets:\n${budgetFailures
-                    .map((failure) => `- ${failure.metricName} on ${failure.stageName}: ${failure.actual} > ${failure.budget}`)
+                    .map(
+                        (failure) =>
+                            `- ${failure.metricName} on ${failure.stageName}: ${failure.actual} > ${failure.budget}`
+                    )
                     .join("\n")}`
             );
         }
@@ -206,7 +239,9 @@ export async function runFixtureSuite(parameters: {
 
     await Core.runSequentially(fixtureCases, async (fixtureCase) => {
         if (!parameters.adapter.supports(fixtureCase.kind)) {
-            throw new Error(`${parameters.adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`);
+            throw new Error(
+                `${parameters.adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`
+            );
         }
 
         executionResults.push(await executeFixtureCase(parameters.adapter, fixtureCase, profileCollector));
@@ -230,7 +265,11 @@ export async function registerNodeFixtureSuite(parameters: {
     const fixtureCases = await discoverFixtureCases(parameters.fixtureRoot);
 
     void test(`${parameters.adapter.suiteName} discovers fixture cases`, () => {
-        assert.equal(fixtureCases.length > 0, true, `Expected at least one fixture for ${parameters.adapter.suiteName}.`);
+        assert.equal(
+            fixtureCases.length > 0,
+            true,
+            `Expected at least one fixture for ${parameters.adapter.suiteName}.`
+        );
     });
 
     void describe(parameters.adapter.suiteName, () => {

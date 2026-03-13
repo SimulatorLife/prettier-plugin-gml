@@ -9,9 +9,7 @@ const NON_FORMAT_CONFIG_KEYS = new Set(["fixture", "lintRules", "refactor"]);
  * @returns Formatter option bag without non-formatter sections.
  */
 export function extractProjectFormatOptions(config: GmloopProjectConfig): Record<string, unknown> {
-    const options = Object.fromEntries(
-        Object.entries(config).filter(([key]) => !NON_FORMAT_CONFIG_KEYS.has(key))
-    );
+    const options = Object.fromEntries(Object.entries(config).filter(([key]) => !NON_FORMAT_CONFIG_KEYS.has(key)));
 
     return Object.freeze(options);
 }

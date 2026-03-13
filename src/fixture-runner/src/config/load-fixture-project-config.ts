@@ -66,7 +66,10 @@ function validateFixtureMetadata(value: unknown, context: string): FixtureProjec
     };
 
     if (object.assertion !== undefined) {
-        if (typeof object.assertion !== "string" || !FIXTURE_ASSERTION_VALUES.has(object.assertion as FixtureAssertion)) {
+        if (
+            typeof object.assertion !== "string" ||
+            !FIXTURE_ASSERTION_VALUES.has(object.assertion as FixtureAssertion)
+        ) {
             throw new TypeError(`${context}.assertion must be one of ${[...FIXTURE_ASSERTION_VALUES].join(", ")}.`);
         }
         metadata.assertion = object.assertion as FixtureAssertion;
@@ -94,7 +97,9 @@ function validateFixtureMetadata(value: unknown, context: string): FixtureProjec
 
             for (const [metricName, rawMetricBudgets] of Object.entries(budgetsObject)) {
                 if (!FIXTURE_PROFILE_BUDGET_KEYS.has(metricName)) {
-                    throw new TypeError(`${context}.profile.budgets contains unknown metric ${JSON.stringify(metricName)}.`);
+                    throw new TypeError(
+                        `${context}.profile.budgets contains unknown metric ${JSON.stringify(metricName)}.`
+                    );
                 }
 
                 budgets[metricName as keyof FixtureProfileBudgets] = validateStageBudgetMap(

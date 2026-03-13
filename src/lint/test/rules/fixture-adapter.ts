@@ -104,15 +104,17 @@ export function createLintFixtureAdapter() {
                     }
                 ]
             });
-            const [result] = await runProfiledStage("lint", async () =>
-                await eslint.lintText(inputText ?? "", {
-                    filePath: `${fixtureCase.caseId}.gml`
-                })
+            const [result] = await runProfiledStage(
+                "lint",
+                async () =>
+                    await eslint.lintText(inputText ?? "", {
+                        filePath: `${fixtureCase.caseId}.gml`
+                    })
             );
 
             return {
                 resultKind: "text" as const,
-                outputText: result.output ?? (inputText ?? ""),
+                outputText: result.output ?? inputText ?? "",
                 changed: typeof result.output === "string" && result.output !== (inputText ?? "")
             };
         }

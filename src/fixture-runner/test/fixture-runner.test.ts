@@ -6,7 +6,13 @@ import test from "node:test";
 
 import { FixtureRunner } from "@gmloop/fixture-runner";
 
-async function createTextFixtureCase(rootPath: string, caseId: string, config: Record<string, unknown>, input: string, expected?: string) {
+async function createTextFixtureCase(
+    rootPath: string,
+    caseId: string,
+    config: Record<string, unknown>,
+    input: string,
+    expected?: string
+) {
     const casePath = path.join(rootPath, caseId);
     await mkdir(casePath, { recursive: true });
     await writeFile(path.join(casePath, "gmloop.json"), `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -97,7 +103,10 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
         assert.equal(result.executionResults.length, 1);
         const report = collector.createReport();
         assert.equal(report.entries.length, 1);
-        assert.equal(report.entries[0]?.stages.some((stage) => stage.stageName === "format"), true);
+        assert.equal(
+            report.entries[0]?.stages.some((stage) => stage.stageName === "format"),
+            true
+        );
         await FixtureRunner.writeJsonProfileReport(report, reportPath);
         const persisted = JSON.parse(await readFile(reportPath, "utf8")) as { entries: Array<unknown> };
         assert.equal(persisted.entries.length, 1);

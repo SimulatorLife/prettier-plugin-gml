@@ -40,9 +40,7 @@ async function collectCaseDirectories(rootPath: string): Promise<Array<string>> 
         }
 
         await Promise.all(
-            entries
-                .filter((entry) => entry.isDirectory())
-                .map((entry) => walk(path.join(currentPath, entry.name)))
+            entries.filter((entry) => entry.isDirectory()).map((entry) => walk(path.join(currentPath, entry.name)))
         );
     }
 
@@ -77,7 +75,9 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
     }
 
     if (validationErrors.length > 0) {
-        throw new Error(`Invalid fixture case ${normalizeCaseId(rootPath, fixturePath)}: ${validationErrors.join(", ")}`);
+        throw new Error(
+            `Invalid fixture case ${normalizeCaseId(rootPath, fixturePath)}: ${validationErrors.join(", ")}`
+        );
     }
 
     return Object.freeze({
@@ -105,6 +105,8 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
  */
 export async function discoverFixtureCases(fixtureRoot: string): Promise<ReadonlyArray<FixtureCase>> {
     const caseDirectories = await collectCaseDirectories(fixtureRoot);
-    const fixtureCases = await Promise.all(caseDirectories.map((fixturePath) => createFixtureCase(fixtureRoot, fixturePath)));
+    const fixtureCases = await Promise.all(
+        caseDirectories.map((fixturePath) => createFixtureCase(fixtureRoot, fixturePath))
+    );
     return Object.freeze(fixtureCases);
 }

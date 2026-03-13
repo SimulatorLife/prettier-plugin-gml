@@ -48,7 +48,11 @@ export function createRefactorFixtureAdapter() {
                     readFile: async (filePath) =>
                         await readFile(path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath), "utf8"),
                     writeFile: async (filePath, content) =>
-                        await writeFile(path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath), content, "utf8"),
+                        await writeFile(
+                            path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath),
+                            content,
+                            "utf8"
+                        ),
                     dryRun: false
                 });
             });

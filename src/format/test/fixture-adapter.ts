@@ -9,7 +9,10 @@ export function createFormatFixtureAdapter() {
         },
         async run({ config, inputText, runProfiledStage }) {
             const formatOptions = Format.extractProjectFormatOptions(config);
-            const formatted = await runProfiledStage("format", async () => await Format.format(inputText ?? "", formatOptions));
+            const formatted = await runProfiledStage(
+                "format",
+                async () => await Format.format(inputText ?? "", formatOptions)
+            );
             return {
                 resultKind: "text" as const,
                 outputText: formatted,

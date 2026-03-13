@@ -28,7 +28,10 @@ function captureStageSnapshot() {
     });
 }
 
-function toStageMetrics(stageName: FixtureStageName, snapshot: ReturnType<typeof captureStageSnapshot>): FixtureStageMetrics {
+function toStageMetrics(
+    stageName: FixtureStageName,
+    snapshot: ReturnType<typeof captureStageSnapshot>
+): FixtureStageMetrics {
     const memoryAfter: MemoryUsageSnapshot = process.memoryUsage();
     const cpuAfter: CpuUsageSnapshot = process.cpuUsage();
     const resourceAfter: ResourceUsageSnapshot = process.resourceUsage();

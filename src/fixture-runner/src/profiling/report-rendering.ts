@@ -16,9 +16,7 @@ function formatMetric(value: number): string {
  * @returns Human-readable summary text.
  */
 export function renderHumanProfileReport(report: FixtureProfileReport): string {
-    const slowestEntries = [...report.entries]
-        .sort((left, right) => right.totalMs - left.totalMs)
-        .slice(0, 10);
+    const slowestEntries = [...report.entries].sort((left, right) => right.totalMs - left.totalMs).slice(0, 10);
     const largestHeapEntries = [...report.entries]
         .sort((left, right) => {
             const leftHeap = left.stages.find((stage) => stage.stageName === "total")?.heapUsedDeltaBytes ?? 0;
@@ -27,7 +25,10 @@ export function renderHumanProfileReport(report: FixtureProfileReport): string {
         })
         .slice(0, 10);
     const budgetFailures = report.entries.flatMap((entry) =>
-        entry.budgetFailures.map((failure) => `${entry.workspace}/${entry.caseId} ${failure.metricName} ${formatMetric(failure.actual)} > ${formatMetric(failure.budget)} on ${failure.stageName}`)
+        entry.budgetFailures.map(
+            (failure) =>
+                `${entry.workspace}/${entry.caseId} ${failure.metricName} ${formatMetric(failure.actual)} > ${formatMetric(failure.budget)} on ${failure.stageName}`
+        )
     );
 
     return [

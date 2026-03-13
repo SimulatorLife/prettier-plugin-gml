@@ -124,6 +124,9 @@ export interface FixtureAdapter {
         config: FixtureProjectConfig;
         inputText: string | null;
         tempProjectDirectoryPath: string | null;
-        runProfiledStage<T>(stageName: Exclude<FixtureStageName, "load" | "compare" | "total">, operation: () => Promise<T>): Promise<T>;
+        runProfiledStage<T>(
+            stageName: Exclude<FixtureStageName, "load" | "compare" | "total">,
+            operation: () => Promise<T>
+        ): Promise<T>;
     }): Promise<FixtureCaseResult>;
 }

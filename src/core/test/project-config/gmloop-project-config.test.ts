@@ -52,7 +52,7 @@ void test("assertGmloopProjectConfigObject rejects non-object payloads", () => {
 });
 
 void test("loadGmloopProjectConfig surfaces source-aware parse errors", async () => {
-    const configPath = await writeConfigFile("{\n  \"printWidth\": 100,\n");
+    const configPath = await writeConfigFile('{\n  "printWidth": 100,\n');
 
     try {
         await assert.rejects(() => Core.loadGmloopProjectConfig(configPath), {
