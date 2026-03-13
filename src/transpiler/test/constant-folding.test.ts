@@ -370,6 +370,28 @@ void test("constant folding: does not fold modulo by zero", () => {
     assert.strictEqual(result, null, "Should not fold modulo by zero");
 });
 
+void test("constant folding: treats near-zero divisor as zero", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: 10 },
+        right: { type: "Literal" as const, value: Number.EPSILON * 2 },
+        operator: "/"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, null, "Should not fold division by a near-zero divisor");
+});
+
+void test("constant folding: still folds with safely non-zero tiny divisor", () => {
+    const ast = {
+        type: "BinaryExpression" as const,
+        left: { type: "Literal" as const, value: 10 },
+        right: { type: "Literal" as const, value: 1e-12 },
+        operator: "/"
+    };
+    const result = tryFoldConstantExpression(ast);
+    assert.strictEqual(result, 1e13, "Should fold when divisor is tiny but not effectively zero");
+});
+
 void test("constant folding: does not fold variable expressions", () => {
     const ast = {
         type: "BinaryExpression" as const,
