@@ -57,6 +57,30 @@ const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
     ["DrawGUIEnd", { standard: "EVENT_DRAW_GUI_END", minified: "_7G2" }]
 ]);
 
+// Cached reverse-lookup from script name → index in JSON_game.ScriptNames.
+// The GameMaker HTML5 runtime populates ScriptNames exactly once at startup and
+// never mutates it after that, so caching on the array reference is safe.
+// This avoids two O(n) linear scans (Array#includes + Array#indexOf) per
+// hot-reload cycle, which can be significant for games with hundreds of scripts.
+let _scriptNamesRef: Array<string> | null = null;
+let _scriptNameIndex: Map<string, number> | null = null;
+
+/**
+ * Returns (or builds) a name→index Map for the given scriptNames array.
+ * The result is memoised by the array reference: if the caller passes the same
+ * array on repeated calls (the normal case) the Map is reused without allocation.
+ * A new Map is built only when the reference changes (e.g. after a full reload).
+ */
+function resolveScriptNameIndex(scriptNames: Array<string>): ReadonlyMap<string, number> {
+    if (_scriptNamesRef === scriptNames && _scriptNameIndex !== null) {
+        return _scriptNameIndex;
+    }
+
+    _scriptNamesRef = scriptNames;
+    _scriptNameIndex = new Map(scriptNames.map((name, index) => [name, index]));
+    return _scriptNameIndex;
+}
+
 function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string, unknown> | undefined {
     if (globalScope._cx?._dx) {
         return globalScope._cx._dx;
@@ -377,16 +401,19 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
         }
     }
 
+    // Build the reverse-lookup map once per patch application so that all
+    // names in resolvedNames are looked up in O(1) rather than O(n).
+    const scriptNameIndex = Array.isArray(scriptNames) ? resolveScriptNameIndex(scriptNames) : null;
+
     for (const name of resolvedNames) {
-        if (typeof globalScope[name] === "function" || (Array.isArray(scriptNames) && scriptNames.includes(name))) {
+        const scriptIdx = scriptNameIndex?.get(name) ?? -1;
+
+        if (typeof globalScope[name] === "function" || scriptIdx !== -1) {
             globalScope[name] = fn;
         }
 
-        if (Array.isArray(scriptNames) && Array.isArray(scripts)) {
-            const scriptIndex = scriptNames.indexOf(name);
-            if (scriptIndex !== -1 && scriptIndex < scripts.length) {
-                scripts[scriptIndex] = fn;
-            }
+        if (scriptIdx !== -1 && Array.isArray(scripts) && scriptIdx < scripts.length) {
+            scripts[scriptIdx] = fn;
         }
 
         if (Array.isArray(gmObjects)) {
