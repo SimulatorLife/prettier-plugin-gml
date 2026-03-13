@@ -1,0 +1,10 @@
+{
+  "lintRules": {
+    "feather/gm1059": "error",
+    "gml/normalize-doc-comments": "off"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

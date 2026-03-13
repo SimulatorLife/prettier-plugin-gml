@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";

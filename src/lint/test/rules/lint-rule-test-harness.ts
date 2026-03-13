@@ -1,4 +1,4 @@
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import {
     applyFixOperations,

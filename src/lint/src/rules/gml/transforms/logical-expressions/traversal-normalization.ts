@@ -1,4 +1,4 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 const { isObjectLike, isNode } = Core;
 
@@ -98,6 +98,53 @@ function isLogicalBinaryNode(node: any): boolean {
     }
 
     return isLogicalOperator(node.operator);
+}
+
+function unwrapParenthesizedExpressionNode(node: any): any {
+    let currentNode = node;
+    while (currentNode && currentNode.type === "ParenthesizedExpression") {
+        currentNode = currentNode.expression;
+    }
+
+    return currentNode;
+}
+
+function isNegatedExpression(node: any): boolean {
+    return Boolean(node && node.type === "UnaryExpression" && node.operator === "!");
+}
+
+function readExclusiveOrOperands(
+    leftTerm: any,
+    rightTerm: any
+): Readonly<{ leftOperand: any; rightOperand: any }> | null {
+    const leftOperands = [leftTerm.left, leftTerm.right];
+    const rightOperands = [rightTerm.left, rightTerm.right];
+
+    for (const leftNegatedCandidate of leftOperands) {
+        if (!isNegatedExpression(leftNegatedCandidate)) {
+            continue;
+        }
+
+        const leftPositiveCandidate = leftTerm.left === leftNegatedCandidate ? leftTerm.right : leftTerm.left;
+        for (const rightNegatedCandidate of rightOperands) {
+            if (!isNegatedExpression(rightNegatedCandidate)) {
+                continue;
+            }
+
+            const rightPositiveCandidate = rightTerm.left === rightNegatedCandidate ? rightTerm.right : rightTerm.left;
+            if (
+                nodesAreEqual(leftPositiveCandidate, rightNegatedCandidate.argument) &&
+                nodesAreEqual(rightPositiveCandidate, leftNegatedCandidate.argument)
+            ) {
+                return Object.freeze({
+                    leftOperand: leftPositiveCandidate,
+                    rightOperand: rightPositiveCandidate
+                });
+            }
+        }
+    }
+
+    return null;
 }
 
 function simplifyStatementList(body: any[]): boolean {
@@ -462,10 +509,15 @@ function simplifyLogical(node: any): boolean {
     // Simplify: false || A -> A
 
     // We assume short-circuiting behavior.
+    const leftNode = unwrapParenthesizedExpressionNode(node.left);
+    const rightNode = unwrapParenthesizedExpressionNode(node.right);
+    if (!leftNode || !rightNode) {
+        return false;
+    }
 
     // Check for boolean literals
-    const leftBool = getBooleanValue(node.left);
-    const rightBool = getBooleanValue(node.right);
+    const leftBool = getBooleanValue(leftNode);
+    const rightBool = getBooleanValue(rightNode);
 
     if (node.operator === "&&") {
         // true && A -> A
@@ -510,55 +562,50 @@ function simplifyLogical(node: any): boolean {
     // Absorption: A && (A || B) -> A
 
     // Check if right is parenthesized, unwrap for inspection
-    let right = node.right;
-    while (right.type === "ParenthesizedExpression") right = right.expression;
-    let left = node.left;
-    while (left.type === "ParenthesizedExpression") left = left.expression;
-
     if (
         node.operator === "||" &&
-        isLogicalBinaryNode(right) &&
-        right.operator === "&&" &&
-        nodesAreEqual(left, right.left)
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "&&" &&
+        nodesAreEqual(leftNode, rightNode.left)
     ) {
         // A || (A && B) -> A
-        replaceNode(node, left);
+        replaceNode(node, leftNode);
         return true;
     }
 
     if (
         node.operator === "&&" &&
-        isLogicalBinaryNode(right) &&
-        right.operator === "||" &&
-        nodesAreEqual(left, right.left)
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "||" &&
+        nodesAreEqual(leftNode, rightNode.left)
     ) {
         // A && (A || B) -> A
-        replaceNode(node, left);
+        replaceNode(node, leftNode);
         return true;
     }
 
     // Distributive / Shared Term: (A && B) || (A && C) -> A && (B || C)
     if (
         node.operator === "||" &&
-        isLogicalBinaryNode(left) &&
-        left.operator === "&&" &&
-        isLogicalBinaryNode(right) &&
-        right.operator === "&&"
+        isLogicalBinaryNode(leftNode) &&
+        leftNode.operator === "&&" &&
+        isLogicalBinaryNode(rightNode) &&
+        rightNode.operator === "&&"
     ) {
         // (A && B) || (A && C) -> A && (B || C)
-        if (nodesAreEqual(left.left, right.left)) {
+        if (nodesAreEqual(leftNode.left, rightNode.left)) {
             const newRight = {
                 type: node.type,
                 operator: "||",
-                left: left.right,
-                right: right.right,
-                start: right.start, // Approx
-                end: right.end
+                left: leftNode.right,
+                right: rightNode.right,
+                start: rightNode.start, // Approx
+                end: rightNode.end
             };
             const newRoot = {
                 type: node.type,
                 operator: "&&",
-                left: left.left,
+                left: leftNode.left,
                 right: newRight,
                 start: node.start,
                 end: node.end
@@ -568,20 +615,20 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (B && A) || (C && A) -> (B || C) && A
-        if (nodesAreEqual(left.right, right.right)) {
+        if (nodesAreEqual(leftNode.right, rightNode.right)) {
             const newLeft = {
                 type: node.type,
                 operator: "||",
-                left: left.left,
-                right: right.left,
-                start: left.start,
-                end: left.end
+                left: leftNode.left,
+                right: rightNode.left,
+                start: leftNode.start,
+                end: leftNode.end
             };
             const newRoot = {
                 type: node.type,
                 operator: "&&",
                 left: newLeft,
-                right: left.right,
+                right: leftNode.right,
                 start: node.start,
                 end: node.end
             };
@@ -590,57 +637,34 @@ function simplifyLogical(node: any): boolean {
         }
 
         // (A && B) || (A && !B) -> A (Complement/Redundancy)
-        if (nodesAreEqual(left.left, right.left) && areNegations(left.right, right.right)) {
-            replaceNode(node, left.left);
+        if (nodesAreEqual(leftNode.left, rightNode.left) && areNegations(leftNode.right, rightNode.right)) {
+            replaceNode(node, leftNode.left);
             return true;
         }
 
         // (B && A) || (!B && A) -> A
-        if (nodesAreEqual(left.right, right.right) && areNegations(left.left, right.left)) {
-            replaceNode(node, left.right);
+        if (nodesAreEqual(leftNode.right, rightNode.right) && areNegations(leftNode.left, rightNode.left)) {
+            replaceNode(node, leftNode.right);
             return true;
         }
 
         // XOR Pattern: (A && !B) || (!A && B) -> (A || B) && !(A && B)
-        // Checks that match (A && !B) || (!A && B)
-        const term1 = node.left;
-        const term2 = node.right;
-
-        let A, B, notA, notB;
-
-        // Extract from Left: (A && !B) or (!A && B)
-        if (term1.left.type === "UnaryExpression" && term1.left.operator === "!") {
-            notA = term1.left;
-            B = term1.right;
-            // Expect Right to be (A && !B)
-            if (term2.right.type === "UnaryExpression" && term2.right.operator === "!") {
-                notB = term2.right;
-                A = term2.left;
-            }
-        } else if (term1.right.type === "UnaryExpression" && term1.right.operator === "!") {
-            notB = term1.right;
-            A = term1.left;
-            // Expect Right to be (!A && B)
-            if (term2.left.type === "UnaryExpression" && term2.left.operator === "!") {
-                notA = term2.left;
-                B = term2.right;
-            }
-        }
-
-        if (A && B && notA && notB && nodesAreEqual(A, notA.argument) && nodesAreEqual(B, notB.argument)) {
+        const exclusiveOrOperands = readExclusiveOrOperands(leftNode, rightNode);
+        if (exclusiveOrOperands) {
+            const { leftOperand, rightOperand } = exclusiveOrOperands;
             // Construct (A || B) && !(A && B)
             const orPart = {
                 type: node.type,
                 operator: "||",
-                left: A,
-                right: B
+                left: leftOperand,
+                right: rightOperand
             };
 
             const andPart = {
                 type: node.type,
                 operator: "&&",
-                left: A,
-                right: B
+                left: leftOperand,
+                right: rightOperand
             };
 
             const notAndPart = {
@@ -681,20 +705,21 @@ function areNegations(node1: any, node2: any): boolean {
 }
 
 function getBooleanValue(node: any): boolean | undefined {
-    if (node.type !== "Literal") {
+    const currentNode = unwrapParenthesizedExpressionNode(node);
+    if (!currentNode || currentNode.type !== "Literal") {
         return undefined;
     }
 
-    if (typeof node.value === "boolean") {
-        return node.value;
+    if (typeof currentNode.value === "boolean") {
+        return currentNode.value;
     }
 
-    if (typeof node.value === "string") {
-        if (node.value === "true") {
+    if (typeof currentNode.value === "string") {
+        if (currentNode.value === "true") {
             return true;
         }
 
-        if (node.value === "false") {
+        if (currentNode.value === "false") {
             return false;
         }
     }

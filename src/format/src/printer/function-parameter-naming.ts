@@ -9,7 +9,7 @@
  *
  * All semantic/content rewrites (parameter renaming from `@function` tags,
  * filtering redundant `argument0`-style alias declarations) belong in
- * `@gml-modules/lint`, not in the formatter. See target-state.md §2.2 and §3.2.
+ * `@gmloop/lint`, not in the formatter. See target-state.md §2.2 and §3.2.
  *
  * ## Enforced Boundary — `filterMisattachedFunctionDocComments` was removed
  *
@@ -18,7 +18,7 @@
  * misattached `@function`/`@func` doc-comment attachments directly inside the
  * formatter. Normalizing comment-to-node attachment is the parser's
  * responsibility (see `normalize-function-doc-comment-attachments.ts` in
- * `@gml-modules/parser`). The formatter must never attempt to repair AST
+ * `@gmloop/parser`). The formatter must never attempt to repair AST
  * comment attachment—if the parser delivers misattached comments, the
  * parser pass must fix them upstream. (target-state.md §2.2, §3.2)
  *

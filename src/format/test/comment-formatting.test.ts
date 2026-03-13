@@ -374,11 +374,11 @@ void test("formats top-level doc block comments without duplicating leading star
         formatted,
         [
             "/**",
-            " * SnowState | v3.1.4",
-            " * Documentation: https://github.com/sohomsahaun/SnowState/wiki",
-            " *",
-            " * Author: Sohom Sahaun | @sohomsahaun",
-            " */",
+            "*\tSnowState | v3.1.4",
+            "*\tDocumentation: https://github.com/sohomsahaun/SnowState/wiki",
+            "*",
+            "*\tAuthor: Sohom Sahaun | @sohomsahaun",
+            "*/",
             "function demo() {}",
             ""
         ].join("\n")

@@ -1,5 +1,0 @@
-{
-  "lintRules": {
-    "gml/require-control-flow-braces": "error"
-  }
-}

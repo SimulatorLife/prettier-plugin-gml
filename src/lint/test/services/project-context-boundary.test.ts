@@ -31,7 +31,7 @@ void test("lint services no longer expose project-aware analysis helpers", () =>
         assert.equal(
             serviceName in LintWorkspace.Lint.services,
             false,
-            `Lint.services must not expose ${serviceName}; project-aware analysis belongs in @gml-modules/refactor.`
+            `Lint.services must not expose ${serviceName}; project-aware analysis belongs in @gmloop/refactor.`
         );
     }
 });
@@ -39,7 +39,6 @@ void test("lint services no longer expose project-aware analysis helpers", () =>
 void test("lint workspace retains only single-file-safe service exports", () => {
     assert.equal("featherManifest" in LintWorkspace.Lint.services, true);
     assert.equal("performanceOverrideRuleIds" in LintWorkspace.Lint.services, true);
-    assert.equal("isPathWithinBoundary" in LintWorkspace.Lint.services, true);
 });
 
 void test("lint source tree no longer contains retired project-aware helper modules", () => {

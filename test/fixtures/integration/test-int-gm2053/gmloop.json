@@ -1,0 +1,11 @@
+{
+  "printWidth": 120,
+  "lintRules": {
+    "feather/gm2053": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform",
+    "comparison": "trimmed-strip-doc-comment-annotations"
+  }
+}

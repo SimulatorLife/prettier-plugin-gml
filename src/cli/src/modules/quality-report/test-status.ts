@@ -6,7 +6,7 @@
  * This provides compile-time safety, IDE autocomplete, and validation helpers.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { createEnumeratedOptionHelpers } = Core;
 

@@ -7,7 +7,7 @@
  * are safe to apply even when parsing fails.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Result of a comment fix operation, including the transformed text and a

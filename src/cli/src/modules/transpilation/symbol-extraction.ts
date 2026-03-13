@@ -7,7 +7,7 @@
  *
  * Example usage:
  * ```ts
- * import { Parser } from "@gml-modules/parser";
+ * import { Parser } from "@gmloop/parser";
  * import { extractSymbolsFromAst } from "./symbol-extraction.js";
  *
  * const parser = new Parser.GMLParser(sourceText, {});
@@ -17,7 +17,7 @@
  * ```
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { getRuntimePathSegments, resolveObjectRuntimeIdFromSegments } from "./runtime-identifiers.js";
 

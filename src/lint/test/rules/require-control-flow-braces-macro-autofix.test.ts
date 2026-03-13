@@ -64,7 +64,7 @@ function collectContinuationLineIndexes(source: string): Array<number> {
     return source.split("\n").flatMap((line, index) => (line.trimEnd().endsWith("\\") ? [index] : []));
 }
 
-void test("require-control-flow-braces autofix preserves long capsule macro output and continuation slashes", () => {
+void test("require-control-flow-braces ignores long capsule macro output and continuation slashes", () => {
     const result = lintWithRule("require-control-flow-braces", capsuleMacroSource, {});
 
     assertEquals(result.messages.length, 0);
@@ -82,7 +82,7 @@ void test("require-control-flow-braces autofix preserves long capsule macro outp
     }
 });
 
-void test("require-control-flow-braces keeps macro continuation when slash is followed by inline comment", () => {
+void test("require-control-flow-braces ignores macro continuation when slash is followed by inline comment", () => {
     const input = [
         "#macro INLINE_COMMENT_MACRO if (enabled)\\",
         String.raw`                           {\ // keep continuation while documenting behavior`,

@@ -7,7 +7,7 @@
  * arguments, collapsing them down to a single missing placeholder and therefore
  * reducing noise during the printer stage.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 type CollapseRedundantMissingCallArgumentsTransformOptions = Record<string, never>;
 

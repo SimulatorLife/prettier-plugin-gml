@@ -4,7 +4,7 @@
  * and hot reload update preparation.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import * as SymbolQueries from "./symbol-queries.js";
 import {
@@ -26,6 +26,20 @@ import {
 import { detectRenameConflicts } from "./validation.js";
 import { assertValidIdentifierName, extractSymbolName, parseSymbolIdParts } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
+
+const SCRIPT_RESOURCE_SYMBOL_KINDS = new Set(["scripts"]);
+const NON_SCRIPT_RESOURCE_SYMBOL_KINDS = new Set([
+    "objects",
+    "sprites",
+    "sounds",
+    "rooms",
+    "paths",
+    "shaders",
+    "fonts",
+    "timelines",
+    "tilesets",
+    "sequences"
+]);
 
 /**
  * Prepare hot reload updates from a workspace edit.
@@ -449,8 +463,38 @@ export async function checkHotReloadSafety(
     }
 
     const rawSymbolKind = symbolParts.symbolKind;
-    const symbolKind = parseSymbolKind(rawSymbolKind);
+    let symbolKind = parseSymbolKind(rawSymbolKind);
     const symbolName = symbolParts.symbolName;
+
+    if (symbolKind === null && SCRIPT_RESOURCE_SYMBOL_KINDS.has(rawSymbolKind)) {
+        symbolKind = SymbolKind.SCRIPT;
+    }
+
+    if (symbolKind === null && NON_SCRIPT_RESOURCE_SYMBOL_KINDS.has(rawSymbolKind)) {
+        return {
+            safe: false,
+            reason: `Resource renames for '${rawSymbolKind}' require metadata and file updates outside hot reload`,
+            requiresRestart: true,
+            canAutoFix: false,
+            suggestions: [
+                "Apply the rename as a full refactor transaction instead of relying on hot reload",
+                "Restart the running game after renaming non-script resources"
+            ]
+        };
+    }
+
+    if (symbolKind === null && rawSymbolKind === "enum-member") {
+        return {
+            safe: false,
+            reason: "Enum member renames require dependent script recompilation",
+            requiresRestart: false,
+            canAutoFix: true,
+            suggestions: [
+                "Apply the rename together with all dependent references",
+                "Reload dependent scripts after the enum member rename completes"
+            ]
+        };
+    }
 
     // Validate symbol kind
     if (symbolKind === null) {

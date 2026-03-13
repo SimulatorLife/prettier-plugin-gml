@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/semantic",
+  "name": "@gmloop/semantic",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,8 +13,8 @@
   ],
   "dependencies": {
     "@bscotch/yy": "^2.7.0",
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/parser": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

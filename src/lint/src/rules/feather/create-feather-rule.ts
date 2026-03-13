@@ -1,6 +1,7 @@
 /* eslint-disable no-control-regex -- disabled to intentionally match control characters in feather comments */
 import type { Rule } from "eslint";
 
+import { getDeprecatedIdentifierCatalogEntry } from "../../services/deprecated-identifiers/index.js";
 import type { FeatherManifestEntry } from "./manifest.js";
 
 type EnumBlockMatch = {
@@ -104,6 +105,22 @@ function hasParamDocImmediatelyAbove(sourceText: string, functionStartIndex: num
     return false;
 }
 
+function collapseAdjacentDuplicateParamDocs(sourceText: string): string {
+    const lines = sourceText.split("\n");
+    const dedupedLines: Array<string> = [];
+
+    for (const line of lines) {
+        const previousLine = dedupedLines.at(-1);
+        if (/^\s*\/\/\/\s*@param\b/u.test(line) && previousLine === line) {
+            continue;
+        }
+
+        dedupedLines.push(line);
+    }
+
+    return dedupedLines.join("\n");
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let depth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -154,6 +171,15 @@ function resolveReportLoc(context: Rule.RuleContext, index: number): { line: num
         line,
         column: clampedIndex - lastLineStart
     };
+}
+
+function getDirectDeprecatedReplacement(identifierName: string): string | null {
+    const entry = getDeprecatedIdentifierCatalogEntry(identifierName);
+    if (!entry || entry.replacementKind !== "direct-rename" || entry.replacement === null) {
+        return null;
+    }
+
+    return entry.replacement;
 }
 
 function createFullTextRewriteRule(
@@ -517,7 +543,7 @@ function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return `${docs}\n${fullMatch}`;
             }
         );
-        return rewritten;
+        return collapseAdjacentDuplicateParamDocs(rewritten);
     });
 }
 
@@ -644,6 +670,11 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
+                    const replacement = getDirectDeprecatedReplacement("os_win32");
+                    if (!replacement) {
+                        return;
+                    }
+
                     const legacyOsSymbolPattern = /\bos_win32\b/g;
                     for (const match of sourceText.matchAll(legacyOsSymbolPattern)) {
                         const start = match.index ?? 0;
@@ -651,7 +682,7 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         context.report({
                             loc: resolveReportLoc(context, start),
                             messageId: "diagnostic",
-                            fix: (fixer) => fixer.replaceTextRange([start, end], "os_windows")
+                            fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                         });
                     }
                 }
@@ -891,9 +922,15 @@ function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
+        const arrayLengthReplacement = getDirectDeprecatedReplacement("array_length_1d");
+        const arrayHeightReplacement = getDirectDeprecatedReplacement("array_height_2d");
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, "array_length(");
-        rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, "array_height(");
+        if (arrayLengthReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, `${arrayLengthReplacement}(`);
+        }
+        if (arrayHeightReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, `${arrayHeightReplacement}(`);
+        }
         return rewritten;
     });
 }
@@ -1244,7 +1281,7 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
         rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*(?:;[ \t]*)?(?:\r?\n|$))/gm,
             (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
                 suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );

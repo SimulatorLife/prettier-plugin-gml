@@ -4,18 +4,18 @@ This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) t
 
 ## Ownership Boundaries
 
-`@gml-modules/semantic` is analysis-only.
+`@gmloop/semantic` is analysis-only.
 
 - Owns project indexing, scope/symbol metadata, identifier occurrence discovery, and semantic classification.
 - Does **not** own refactor edit planning or rename application.
-- Does **not** depend on `@gml-modules/refactor`.
+- Does **not** depend on `@gmloop/refactor`.
 
 Downstream tools consume semantic data:
 
-- `@gml-modules/refactor` uses semantic data to validate and plan workspace edits.
-- `@gml-modules/lint` uses semantic-backed/project-aware analysis services for lint rules.
-- `@gml-modules/cli` composes semantic consumers for lint/refactor command execution and formatter identifier-case runtime integration.
-- `@gml-modules/format` consumes only formatter runtime contracts, not semantic internals.
+- `@gmloop/refactor` uses semantic data to validate and plan workspace edits.
+- `@gmloop/lint` uses semantic-backed/project-aware analysis services for lint rules.
+- `@gmloop/cli` composes semantic consumers for lint/refactor command execution and formatter identifier-case runtime integration.
+- `@gmloop/format` consumes only formatter runtime contracts, not semantic internals.
 
 ## Semantic Oracle
 
@@ -24,7 +24,7 @@ The `BasicSemanticOracle` class bridges the scope tracker and transpiler, provid
 ### Usage
 
 ```typescript
-import { Semantic } from "@gml-modules/semantic";
+import { Semantic } from "@gmloop/semantic";
 
 const tracker = new Semantic.ScopeTracker({ enabled: true });
 const builtins = new Set(["show_debug_message", "array_length"]);

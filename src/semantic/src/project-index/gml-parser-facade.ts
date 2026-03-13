@@ -1,5 +1,5 @@
-import { Core } from "@gml-modules/core";
-import * as Parser from "@gml-modules/parser";
+import { Core } from "@gmloop/core";
+import * as Parser from "@gmloop/parser";
 
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
@@ -19,7 +19,7 @@ import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
  * LONG-TERM PLAN: Once the parser is fully rebuilt and scope tracking is moved
  * entirely to the 'semantic' layer (or made optional in the parser), this facade
  * can be removed. At that point:
- *   1. 'Semantic' will import '@gml-modules/parser' directly.
+ *   1. 'Semantic' will import '@gmloop/parser' directly.
  *   2. The parser will not depend on 'semantic' at all.
  *   3. Scope analysis will happen as a post-parse step in 'semantic'.
  *

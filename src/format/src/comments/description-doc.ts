@@ -1,5 +1,5 @@
 // TODO: Is this duplicating lint's logic?
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { type Doc } from "prettier";
 
 import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";

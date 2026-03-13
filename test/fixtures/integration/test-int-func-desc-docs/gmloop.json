@@ -1,0 +1,11 @@
+{
+  "printWidth": 120,
+  "lintRules": {
+    "gml/normalize-doc-comments": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform",
+    "comparison": "trimmed-strip-doc-comment-annotations"
+  }
+}

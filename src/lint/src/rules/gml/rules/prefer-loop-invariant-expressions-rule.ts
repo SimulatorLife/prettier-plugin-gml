@@ -1,16 +1,19 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
     type AstNodeWithType,
+    type CommentTokenRangeIndex,
+    createCommentTokenRangeIndex,
     createMeta,
     getLineIndentationAtOffset,
     getNodeEndIndex,
     getNodeStartIndex,
     isAstNodeRecord,
     isAstNodeWithType,
+    rangeContainsCommentToken,
     walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
@@ -41,12 +44,16 @@ type ExpressionAssessment = Readonly<{
 }>;
 
 type LoopCandidate = Readonly<{
-    loopContext: LoopContainerContext;
     expressionNode: AstNodeWithType;
     expressionStart: number;
     expressionEnd: number;
     preferredHoistName: string;
     score: number;
+}>;
+
+type LoopCandidateAnalysis = Readonly<{
+    bestCandidate: LoopCandidate | null;
+    replacementCandidates: ReadonlyArray<LoopCandidate>;
 }>;
 
 type ParentVisitContext = Readonly<{
@@ -55,9 +62,9 @@ type ParentVisitContext = Readonly<{
     parentKey: string | null;
 }>;
 
-type CommentTokenRangeIndex = Readonly<{
-    prefixCounts: Uint32Array;
-    sourceLength: number;
+type LoopReplacementTarget = Readonly<{
+    expressionStart: number;
+    expressionEnd: number;
 }>;
 
 const LOOP_NODE_TYPES = new Set<LoopNodeType>([
@@ -84,54 +91,79 @@ const NON_DETERMINISTIC_IDENTIFIER_NAMES = new Set<string>([
 ]);
 
 const SAFE_INDEX_ACCESSORS = new Set<string>(["[", "[@"]);
+const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
+const GENERATED_HOIST_IDENTIFIER_PATTERN = /^cached_(?:value|condition|text)(?:_\d+)?$/u;
 
 function normalizeIdentifierName(identifierName: string): string {
     return Core.toNormalizedLowerCaseString(identifierName);
 }
 
-function isCommentTokenBoundary(sourceText: string, index: number): boolean {
-    const character = sourceText[index];
-    const nextCharacter = sourceText[index + 1];
-    if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
+function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    if (left === right) {
         return true;
     }
 
-    return character === "*" && nextCharacter === "/";
-}
+    if (left === null || right === null) {
+        return false;
+    }
 
-function createCommentTokenRangeIndex(sourceText: string): CommentTokenRangeIndex {
-    const sourceLength = sourceText.length;
-    const prefixCounts = new Uint32Array(sourceLength + 1);
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
 
-    for (let index = 0; index < sourceLength; index += 1) {
-        prefixCounts[index + 1] = prefixCounts[index];
-        if (index < sourceLength - 1 && isCommentTokenBoundary(sourceText, index)) {
-            prefixCounts[index + 1] += 1;
+        for (const [index, element] of left.entries()) {
+            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    if (typeof left !== typeof right) {
+        return false;
+    }
+
+    if (typeof left !== "object" || typeof right !== "object") {
+        return false;
+    }
+
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+
+    for (const [leftKey, leftValue] of Object.entries(leftRecord)) {
+        if (IGNORED_AST_METADATA_KEYS.has(leftKey)) {
+            continue;
+        }
+
+        if (!(leftKey in rightRecord)) {
+            return false;
+        }
+
+        if (!areExpressionNodesEquivalentIgnoringParentheses(leftValue, rightRecord[leftKey])) {
+            return false;
         }
     }
 
-    return {
-        prefixCounts,
-        sourceLength
-    };
+    for (const rightKey of Object.keys(rightRecord)) {
+        if (IGNORED_AST_METADATA_KEYS.has(rightKey)) {
+            continue;
+        }
+
+        if (!(rightKey in leftRecord)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-function rangeContainsCommentToken(
-    commentTokenRangeIndex: CommentTokenRangeIndex,
-    start: number,
-    end: number
-): boolean {
-    if (end - start < 2) {
-        return false;
-    }
-
-    const clampedStart = Math.min(Math.max(start, 0), commentTokenRangeIndex.sourceLength);
-    const clampedEndExclusive = Math.min(Math.max(end - 1, 0), commentTokenRangeIndex.sourceLength);
-    if (clampedEndExclusive <= clampedStart) {
-        return false;
-    }
-
-    return commentTokenRangeIndex.prefixCounts[clampedEndExclusive] > commentTokenRangeIndex.prefixCounts[clampedStart];
+function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
+    return areAstValuesEquivalentIgnoringParentheses(
+        unwrapParenthesizedExpression(left),
+        unwrapParenthesizedExpression(right)
+    );
 }
 
 function isLoopNode(node: unknown): node is LoopNode {
@@ -140,6 +172,10 @@ function isLoopNode(node: unknown): node is LoopNode {
 
 function isIdentifierNode(node: unknown): node is AstNodeRecord & Readonly<{ type: "Identifier"; name: string }> {
     return isAstNodeRecord(node) && node.type === "Identifier" && typeof node.name === "string";
+}
+
+function isGeneratedHoistIdentifierName(identifierName: string): boolean {
+    return GENERATED_HOIST_IDENTIFIER_PATTERN.test(identifierName);
 }
 
 function readIdentifierName(node: unknown): string | null {
@@ -201,67 +237,6 @@ function collectLoopContainerContexts(programNode: unknown): ReadonlyArray<LoopC
     });
 
     return contexts;
-}
-
-function walkNodeWithParentSkippingNestedLoops(rootNode: unknown, visit: (context: ParentVisitContext) => void): void {
-    if (!isAstNodeWithType(rootNode)) {
-        return;
-    }
-
-    const stack: Array<ParentVisitContext> = [{ node: rootNode, parent: null, parentKey: null }];
-    const seen = new WeakSet<object>();
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-        if (!current) {
-            continue;
-        }
-
-        const currentObject = current.node as object;
-        if (seen.has(currentObject)) {
-            continue;
-        }
-
-        seen.add(currentObject);
-        visit(current);
-
-        if (current.node !== rootNode && isLoopNode(current.node)) {
-            continue;
-        }
-
-        for (const key of Object.keys(current.node)) {
-            if (key === "parent") {
-                continue;
-            }
-
-            const value = current.node[key];
-            if (Array.isArray(value)) {
-                for (let index = value.length - 1; index >= 0; index -= 1) {
-                    const child = value[index];
-                    if (!isAstNodeWithType(child)) {
-                        continue;
-                    }
-
-                    stack.push({
-                        node: child,
-                        parent: current.node,
-                        parentKey: key
-                    });
-                }
-                continue;
-            }
-
-            if (!isAstNodeWithType(value)) {
-                continue;
-            }
-
-            stack.push({
-                node: value,
-                parent: current.node,
-                parentKey: key
-            });
-        }
-    }
 }
 
 function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
@@ -427,6 +402,15 @@ function isDisallowedContextForReplacement(parent: AstNodeWithType | null, paren
     }
 
     return false;
+}
+
+function shouldSkipGeneratedHoistInitializer(parent: AstNodeWithType | null, parentKey: string | null): boolean {
+    if (parentKey !== "init" || parent?.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    const identifierName = readIdentifierName(parent.id);
+    return identifierName ? isGeneratedHoistIdentifierName(identifierName) : false;
 }
 
 function evaluateTemplateStringExpressionHoistability(
@@ -672,23 +656,52 @@ function choosePreferredHoistName(
     return "cached_value";
 }
 
-function findBestLoopCandidate(parameters: {
+function collectLoopCandidateAnalysis(parameters: {
     commentTokenRangeIndex: CommentTokenRangeIndex;
     loopContext: LoopContainerContext;
     mutationSummary: LoopMutationSummary;
-}): LoopCandidate | null {
+    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>;
+}): LoopCandidateAnalysis {
     let bestCandidate: LoopCandidate | null = null;
-    const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
+    const replacementCandidates: LoopCandidate[] = [];
+    const rootNode = parameters.loopContext.loopNode.body;
+    if (!isAstNodeWithType(rootNode)) {
+        return Object.freeze({
+            bestCandidate,
+            replacementCandidates: Object.freeze(replacementCandidates)
+        });
+    }
 
-    walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
+    const stack: ParentVisitContext[] = [{ node: rootNode, parent: null, parentKey: null }];
+    const seen = new WeakSet<object>();
+
+    while (stack.length > 0) {
+        const visitContext = stack.pop();
+        if (!visitContext) {
+            continue;
+        }
+
         const { node, parent, parentKey } = visitContext;
+        const nodeObject = node as object;
+        if (seen.has(nodeObject)) {
+            continue;
+        }
+
+        seen.add(nodeObject);
 
         if (node.type === "ParenthesizedExpression") {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (isDisallowedContextForReplacement(parent, parentKey)) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
+        }
+
+        if (shouldSkipGeneratedHoistInitializer(parent, parentKey)) {
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const expressionStart = getNodeStartIndex(node);
@@ -698,37 +711,44 @@ function findBestLoopCandidate(parameters: {
             typeof expressionEnd !== "number" ||
             expressionEnd <= expressionStart
         ) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
-        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, assessmentCache);
+        const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, parameters.assessmentCache);
         if (!assessment) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const minimumComplexity = node.type === "TemplateStringExpression" ? 2 : 3;
         if (assessment.complexity < minimumComplexity) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (parameters.mutationSummary.hasImpureCall && assessment.readsMemberAccess) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (rangeContainsCommentToken(parameters.commentTokenRangeIndex, expressionStart, expressionEnd)) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const preferredHoistName = choosePreferredHoistName(parent, parentKey, node);
         const score = assessment.complexity * 1000 + (expressionEnd - expressionStart);
         const candidate: LoopCandidate = {
-            loopContext: parameters.loopContext,
             expressionNode: node,
             expressionStart,
             expressionEnd,
             preferredHoistName,
             score
         };
+
+        replacementCandidates.push(candidate);
+
         if (
             bestCandidate === null ||
             candidate.score > bestCandidate.score ||
@@ -736,14 +756,78 @@ function findBestLoopCandidate(parameters: {
         ) {
             bestCandidate = candidate;
         }
-    });
+    }
 
-    return bestCandidate;
+    return Object.freeze({
+        bestCandidate,
+        replacementCandidates: Object.freeze(replacementCandidates)
+    });
+}
+
+function pushChildNodesForLoopCandidateTraversal(stack: ParentVisitContext[], node: AstNodeWithType): void {
+    if (isLoopNode(node)) {
+        return;
+    }
+
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        const value = node[key];
+        if (Array.isArray(value)) {
+            for (let index = value.length - 1; index >= 0; index -= 1) {
+                const child = value[index];
+                if (!isAstNodeWithType(child)) {
+                    continue;
+                }
+
+                stack.push({
+                    node: child,
+                    parent: node,
+                    parentKey: key
+                });
+            }
+
+            continue;
+        }
+
+        if (!isAstNodeWithType(value)) {
+            continue;
+        }
+
+        stack.push({
+            node: value,
+            parent: node,
+            parentKey: key
+        });
+    }
+}
+
+function collectEquivalentLoopReplacementTargets(
+    replacementCandidates: ReadonlyArray<LoopCandidate>,
+    targetExpressionNode: AstNodeWithType
+): ReadonlyArray<LoopReplacementTarget> {
+    const replacementTargets: LoopReplacementTarget[] = [];
+
+    for (const candidate of replacementCandidates) {
+        if (!areExpressionNodesEquivalentIgnoringParentheses(candidate.expressionNode, targetExpressionNode)) {
+            continue;
+        }
+
+        replacementTargets.push(
+            Object.freeze({
+                expressionStart: candidate.expressionStart,
+                expressionEnd: candidate.expressionEnd
+            })
+        );
+    }
+
+    return replacementTargets;
 }
 
 function resolveUniqueHoistIdentifierName(parameters: {
     preferredName: string;
-    localIdentifierNames: ReadonlySet<string>;
     normalizedLocalIdentifierNames: ReadonlySet<string>;
 }): string | null {
     const baseName = parameters.preferredName.length > 0 ? parameters.preferredName : "cached_value";
@@ -778,18 +862,20 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
 
                     for (const loopContext of loopContexts) {
                         const mutationSummary = collectLoopMutationSummary(loopContext.loopNode);
-                        const bestCandidate = findBestLoopCandidate({
+                        const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
+                        const candidateAnalysis = collectLoopCandidateAnalysis({
                             commentTokenRangeIndex,
                             loopContext,
-                            mutationSummary
+                            mutationSummary,
+                            assessmentCache
                         });
+                        const { bestCandidate } = candidateAnalysis;
                         if (!bestCandidate) {
                             continue;
                         }
 
                         const hoistIdentifierName = resolveUniqueHoistIdentifierName({
                             preferredName: bestCandidate.preferredHoistName,
-                            localIdentifierNames,
                             normalizedLocalIdentifierNames
                         });
                         if (!hoistIdentifierName) {
@@ -805,9 +891,14 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                         }
 
                         const indentation = getLineIndentationAtOffset(sourceText, loopStart);
+                        const declarationInsertionStart = loopStart - indentation.length;
                         const expressionText = sourceText.slice(
                             bestCandidate.expressionStart,
                             bestCandidate.expressionEnd
+                        );
+                        const replacementTargets = collectEquivalentLoopReplacementTargets(
+                            candidateAnalysis.replacementCandidates,
+                            bestCandidate.expressionNode
                         );
                         const declarationText =
                             `${indentation}var ${hoistIdentifierName} = ${expressionText};` + `${lineEnding}`;
@@ -816,10 +907,15 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                             node: bestCandidate.expressionNode,
                             messageId: definition.messageId,
                             fix: (fixer) => [
-                                fixer.replaceTextRange([loopStart, loopStart], declarationText),
                                 fixer.replaceTextRange(
-                                    [bestCandidate.expressionStart, bestCandidate.expressionEnd],
-                                    hoistIdentifierName
+                                    [declarationInsertionStart, declarationInsertionStart],
+                                    declarationText
+                                ),
+                                ...replacementTargets.map((replacementTarget) =>
+                                    fixer.replaceTextRange(
+                                        [replacementTarget.expressionStart, replacementTarget.expressionEnd],
+                                        hoistIdentifierName
+                                    )
                                 )
                             ]
                         });

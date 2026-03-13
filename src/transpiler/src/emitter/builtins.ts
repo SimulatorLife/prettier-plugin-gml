@@ -1,4 +1,4 @@
-import * as Core from "@gml-modules/core";
+import * as Core from "@gmloop/core";
 
 /**
  * Lazy-loaded set of builtin function names.

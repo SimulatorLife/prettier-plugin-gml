@@ -1,7 +1,7 @@
 /**
  * Helpers that build boolean truth tables for branches and rewrite redundant logical nesting to concise expressions.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const {
     cloneAstNode,
@@ -1769,7 +1769,7 @@ function transformXorPattern(expression) {
         return expression;
     }
 
-    const baseClone = structuredClone(base);
+    const baseClone = cloneAstNode(base);
     const andTerm = createBooleanAnd(
         baseVarIndices.map((index) =>
             createBooleanVariable({
@@ -1815,7 +1815,7 @@ function transformMixedReductionPattern(expression) {
                     )
                 );
                 const notBase = createBooleanNot(baseAnd);
-                return createBooleanOr([structuredClone(positiveVarTerm), notBase]);
+                return createBooleanOr([cloneAstNode(positiveVarTerm), notBase]);
             }
         }
     }

@@ -4,14 +4,15 @@
     "noEmit": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
-      "@gml-modules/core": ["src/core/index.ts"],
-      "@gml-modules/parser": ["src/parser/index.ts"],
-      "@gml-modules/format": ["src/format/index.ts"],
-      "@gml-modules/semantic": ["src/semantic/index.ts"],
-      "@gml-modules/transpiler": ["src/transpiler/index.ts"],
-      "@gml-modules/refactor": ["src/refactor/index.ts"],
-      "@gml-modules/runtime-wrapper": ["src/runtime-wrapper/index.ts"],
-      "@gml-modules/cli": ["src/cli/index.ts"]
+      "@gmloop/core": ["src/core/index.ts"],
+      "@gmloop/parser": ["src/parser/index.ts"],
+      "@gmloop/format": ["src/format/index.ts"],
+      "@gmloop/lint": ["src/lint/index.ts"],
+      "@gmloop/semantic": ["src/semantic/index.ts"],
+      "@gmloop/transpiler": ["src/transpiler/index.ts"],
+      "@gmloop/refactor": ["src/refactor/index.ts"],
+      "@gmloop/runtime-wrapper": ["src/runtime-wrapper/index.ts"],
+      "@gmloop/cli": ["src/cli/index.ts"]
     }
   },
   "include": [

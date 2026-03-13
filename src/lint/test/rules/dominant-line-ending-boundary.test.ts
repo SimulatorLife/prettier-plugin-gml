@@ -2,7 +2,7 @@
  * Enforces the lint/core boundary for `dominantLineEnding` (target-state.md §2.1):
  *
  * `dominantLineEnding` is a shared text utility — it must be defined once in
- * `@gml-modules/core` and consumed from there by both the `lint` and `refactor`
+ * `@gmloop/core` and consumed from there by both the `lint` and `refactor`
  * workspaces. It must NOT be redefined locally inside `rule-helpers.ts` or any
  * individual lint rule file.
  *
@@ -15,7 +15,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { assertEquals } from "../assertions.js";
 
@@ -33,13 +33,13 @@ void test("dominantLineEnding is exported from Core (target-state.md §2.1)", ()
     );
 });
 
-void test("dominantLineEnding is not redefined in lint rule-helpers (belongs exclusively in @gml-modules/core)", () => {
+void test("dominantLineEnding is not redefined in lint rule-helpers (belongs exclusively in @gmloop/core)", () => {
     const ruleHelpersSource = readFileSync(RULE_HELPERS_PATH, "utf8");
 
     assertEquals(
         ruleHelpersSource.includes("function dominantLineEnding"),
         false,
-        "rule-helpers.ts must not define its own dominantLineEnding — the canonical implementation lives in @gml-modules/core (target-state.md §2.1). Remove the local copy and use Core.dominantLineEnding instead."
+        "rule-helpers.ts must not define its own dominantLineEnding — the canonical implementation lives in @gmloop/core (target-state.md §2.1). Remove the local copy and use Core.dominantLineEnding instead."
     );
 });
 

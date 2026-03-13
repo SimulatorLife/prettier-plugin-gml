@@ -1,20 +1,25 @@
 {
-  "name": "@gml-modules/refactor",
+  "name": "@gmloop/refactor",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
+    "./test-support": {
+      "import": "./dist/test/index.js",
+      "types": "./dist/test/index.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*",
-    "@gml-modules/semantic": "workspace:*"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/fixture-runner": "workspace:*",
+    "@gmloop/parser": "workspace:*",
+    "@gmloop/semantic": "workspace:*"
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",

@@ -1,11 +1,12 @@
-# Prettier Plugin GML - CLI Package
+# GMLoop CLI Package
 
-Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
+Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
 ## Formatter/Linter contract
 
 - Run `format` for layout-only formatting.
 - Run `lint` for semantic/content rewrites and syntax repairs.
+- Run `fix` to execute project codemods, lint autofixes, and formatting in one pass.
 - Recommended migration flow for existing formatter-heavy usage: `lint --fix` first, then `format`.
 
 Contract migration mapping:
@@ -20,14 +21,14 @@ Contract migration mapping:
 The CLI wires formatter-only runtime integration and lint execution.
 
 - `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
+- `lint` applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`.
 - Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
 
 Ownership summary:
 
-- `@gml-modules/format`: formatter-only AST normalization + printing
-- `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
+- `@gmloop/format`: formatter-only AST normalization + printing
+- `@gmloop/lint`: diagnostics + semantic/content rewrites + language plugin
+- `@gmloop/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
 - Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
 
 ## Commands
@@ -58,7 +59,7 @@ inconsistent multi-extension formatting behavior.
 
 ### `lint` - Lint and Auto-Fix GML Files
 
-Runs `@gml-modules/lint` over one or more paths, with optional ESLint autofix support.
+Runs `@gmloop/lint` over one or more paths, with optional ESLint autofix support.
 
 ```bash
 pnpm run cli -- lint path/to/project
@@ -78,7 +79,29 @@ pnpm run cli -- lint --fix path/to/project
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
-`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gml-modules/refactor`.
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
+
+### `fix` - Project-Wide Fix Workflow
+
+Runs the project-wide write workflow in one command:
+
+1. `refactor codemod --write`
+2. `lint --fix`
+3. `format`
+
+```bash
+pnpm run cli -- fix path/to/project
+pnpm run cli -- fix --only namingConvention
+```
+
+**Options:**
+- `[projectPath]` - Project directory or `.yyp` path (default: current project)
+- `--project-root <path>` - Explicit GameMaker project root directory or `.yyp` path
+- `--config <path>` - Explicit `gmloop.json` path for the refactor stage
+- `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
+- `--verbose` - Enable verbose diagnostics for all three stages
+
+`fix` is intentionally project-scoped and write-only. It runs the configured codemod set first so cross-file/project-aware edits happen before single-file lint fixes and final formatting normalization.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -545,6 +568,18 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-ho
 
 # Verbose output with diagnostics
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
+
+# List configured gmloop.json codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods
+pnpm run cli -- refactor codemod
+
+# Apply configured codemods to selected paths only
+pnpm run cli -- refactor codemod scripts/player --write
+
+# Apply only one configured codemod
+pnpm run cli -- refactor codemod --only namingConvention --write
 ```
 
 **Options:**
@@ -555,6 +590,40 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - `--dry-run` - Show what would be changed without modifying files
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
+
+**Codemod options (`refactor codemod`):**
+- `--config <path>` - Explicit path to `gmloop.json`
+- `--write` - Apply configured codemods (default is dry-run)
+- `--only <ids>` - Comma-separated list of configured codemod ids to run
+- `--list` - Print discovered codemods and their effective normalized config
+
+**`gmloop.json` refactor config:**
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "localVariable": {
+                    "caseStyle": "camel"
+                }
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
 
 **Ownership note:** `refactor` is a separate domain from lint.
 - Use `lint --fix` for lint-owned diagnostics/content rewrites.
@@ -569,6 +638,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 
 **Current scope:**
 - Safe rename planning/execution
+- Configured codemod execution via `gmloop.json`
 - Dry-run preview support
 - Hot-reload validation integration
 - Verbose diagnostics for conflict/impact review
@@ -726,7 +796,7 @@ The transpilation coordinator module (`src/modules/transpilation/coordinator.ts`
 **API:**
 
 ```typescript
-import { transpileFile, displayTranspilationStatistics } from "@gml-modules/cli/modules/transpilation";
+import { transpileFile, displayTranspilationStatistics } from "/cli/modules/transpilation";
 
 // Transpile a single file with lifecycle management
 const result = transpileFile(

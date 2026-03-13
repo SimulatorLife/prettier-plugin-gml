@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 

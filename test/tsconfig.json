@@ -3,12 +3,21 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@gmloop/format/test-support": ["../src/format/test/index.ts"],
+      "@gmloop/lint/test-support": ["../src/lint/test/rules/index.ts"],
+      "@gmloop/refactor/test-support": ["../src/refactor/test/index.ts"]
+    }
   },
   "references": [
     { "path": "../src/core" },
+    { "path": "../src/fixture-runner" },
     { "path": "../src/parser" },
     { "path": "../src/format" },
+    { "path": "../src/lint" },
+    { "path": "../src/refactor" },
     { "path": "../src/semantic" }
   ],
   "include": ["*.ts"],

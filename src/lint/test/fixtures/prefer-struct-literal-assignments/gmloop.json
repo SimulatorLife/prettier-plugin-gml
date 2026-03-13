@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/prefer-struct-literal-assignments": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

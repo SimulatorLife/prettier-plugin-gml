@@ -1,4 +1,4 @@
-# @gml-modules/format
+# @gmloop/format
 
 This directory contains the source code for the [gml-modules/format](https://github.com/gml-modules/format) package.
 
@@ -41,10 +41,10 @@ These constants are used throughout the format workspace to ensure consistent be
 
 The format workspace owns formatting and parser-to-printer orchestration _only_ (semicolons, whitespaces, line breaks, indentation, etc.).
 
-- `@gml-modules/format` is formatter-only.
-- Any file-scoped semantic/content rewrites belongs to `@gml-modules/lint` rules and is applied via `lint --fix`. project-aware transformations and rewrites (e.g. function doc-comment generation/fixing, legacy annotation normalization, `globalvar` rewrite) are the responsibility of the `@gml-modules/refactor` module, which is a 'codemod' module.
-- This Prettier formatter workspace **must not** depend directly on `@gml-modules/semantic`, `@gml-modules/refactor`, or `@gml-modules/lint`.
-- Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gml-modules/lint`.
+- `@gmloop/format` is formatter-only.
+- Any file-scoped semantic/content rewrites belongs to `@gmloop/lint` rules and is applied via `lint --fix`. project-aware transformations and rewrites (e.g. function doc-comment generation/fixing, legacy annotation normalization, `globalvar` rewrite) are the responsibility of the `@gmloop/refactor` module, which is a 'codemod' module.
+- This Prettier formatter workspace **must not** depend directly on `@gmloop/semantic`, `@gmloop/refactor`, or `@gmloop/lint`.
+- Semantic/content rewrites, project-aware transformations, and 'fixes' (fixing/generating function doc-comments, transforming legacy `globalvar` declarations to use the `global` keyword, etc.) are lint auto-fix responsibilities in `@gmloop/lint`.
 
 Formatter doc-comment boundary guarantees:
 

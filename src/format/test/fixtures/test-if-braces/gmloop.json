@@ -1,0 +1,7 @@
+{
+  "allowInlineControlFlowBlocks": false,
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

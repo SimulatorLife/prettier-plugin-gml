@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import * as Cli from "@gml-modules/cli";
+import * as Cli from "@gmloop/cli";
 
 import { withTemporaryProperty } from "./temporary-property.js";
 import { createMockWatchFactory } from "./watch-fixtures.js";

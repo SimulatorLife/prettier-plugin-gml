@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { matchDegreesToRadians, replaceNodeWith } from "./traversal-normalization.js";
 

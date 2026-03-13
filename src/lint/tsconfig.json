@@ -6,18 +6,24 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/cli": ["../cli/index.ts"],
-      "@gml-modules/core": ["../core/index.ts"],
-      "@gml-modules/lint": ["./index.ts"],
-      "@gml-modules/parser": ["../parser/index.ts"],
-      "@gml-modules/format": ["../format/index.ts"],
-      "@gml-modules/refactor": ["../refactor/index.ts"],
-      "@gml-modules/runtime-wrapper": ["../runtime-wrapper/index.ts"],
-      "@gml-modules/semantic": ["../semantic/index.ts"],
-      "@gml-modules/transpiler": ["../transpiler/index.ts"]
+      "@gmloop/cli": ["../cli/index.ts"],
+      "@gmloop/core": ["../core/index.ts"],
+      "@gmloop/fixture-runner": ["../fixture-runner/index.ts"],
+      "@gmloop/lint": ["./index.ts"],
+      "@gmloop/parser": ["../parser/index.ts"],
+      "@gmloop/format": ["../format/index.ts"],
+      "@gmloop/refactor": ["../refactor/index.ts"],
+      "@gmloop/runtime-wrapper": ["../runtime-wrapper/index.ts"],
+      "@gmloop/semantic": ["../semantic/index.ts"],
+      "@gmloop/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../parser" }],
+  "references": [
+    { "path": "../core" },
+    { "path": "../fixture-runner" },
+    { "path": "../parser" },
+    { "path": "../format" }
+  ],
   "include": ["index.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

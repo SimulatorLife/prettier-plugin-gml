@@ -7,9 +7,11 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
+import { executeRegisteredCodemods } from "./codemod-registry.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
+import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
 import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -19,6 +21,8 @@ import {
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
+    type ConfiguredCodemodRunRequest,
+    type ConfiguredCodemodRunResult,
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
@@ -30,6 +34,7 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    type NamingConventionCodemodPlan,
     OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
@@ -48,13 +53,15 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import {
-    assertRenameRequest,
-    assertValidIdentifierName,
-    extractSymbolName,
-    tryNormalizeIdentifierName
-} from "./validation-utils.js";
+    detectCircularRenames,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSourceSymbolIds,
+    detectDuplicateTargetNames,
+    detectRenameConflicts,
+    validateCrossFileConsistency
+} from "./validation.js";
+import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
 import {
     getWorkspaceArrays,
     type GroupedTextEdits,
@@ -62,6 +69,21 @@ import {
     type TextEdit,
     WorkspaceEdit
 } from "./workspace-edit.js";
+
+function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    const deduplicatedByStart = new Map<string, SymbolOccurrence>();
+
+    for (const occurrence of occurrences) {
+        const key = [occurrence.path ?? "", occurrence.start].join(":");
+        const existing = deduplicatedByStart.get(key);
+
+        if (!existing || occurrence.end > existing.end) {
+            deduplicatedByStart.set(key, occurrence);
+        }
+    }
+
+    return [...deduplicatedByStart.values()];
+}
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -109,7 +131,9 @@ export class RefactorEngine {
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache.getSymbolOccurrences(symbolName);
+        return this.semanticCache
+            .getSymbolOccurrences(symbolName)
+            .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
     }
 
     /**
@@ -138,7 +162,7 @@ export class RefactorEngine {
 
     /**
      * Check if an identifier name is already occupied in the project.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a proposed variable name or identifier is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
@@ -150,7 +174,7 @@ export class RefactorEngine {
 
     /**
      * List all files where an identifier occurs.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a rename or refactor would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
@@ -420,67 +444,18 @@ export class RefactorEngine {
 
         // Detect duplicate symbol IDs in the batch. Renaming the same symbol more
         // than once creates ambiguous intent and would generate conflicting edits.
-        const symbolIdCounts = new Map<string, number>();
-        for (const rename of renames) {
-            if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
-                const count = (symbolIdCounts.get(rename.symbolId) ?? 0) + 1;
-                symbolIdCounts.set(rename.symbolId, count);
-            }
+        for (const { symbolId, count } of detectDuplicateSourceSymbolIds(renames)) {
+            errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
+            conflictingSets.push(Array.from({ length: count }, () => symbolId));
         }
 
-        for (const [symbolId, count] of symbolIdCounts.entries()) {
-            if (count > 1) {
-                errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
-                conflictingSets.push(Array.from({ length: count }, () => symbolId));
-            }
-        }
-
-        // Check for duplicate target names across the batch. If multiple renames
-        // attempt to use the same new name (e.g., renaming both `foo` and `bar` to
-        // `baz`), we'd create ambiguous references where calls to `baz()` can't be
-        // resolved to a single definition. This validation ensures each new name is
-        // unique within the batch, preventing symbol-table corruption and runtime
-        // errors from duplicate definitions. The check runs before applying any
-        // edits so we can reject the entire batch early rather than leaving the
-        // codebase in a partially-renamed, broken state.
-        const newNameToSymbols = new Map<string, Array<string>>();
-        for (const rename of renames) {
-            if (
-                !rename ||
-                typeof rename !== "object" ||
-                !rename.newName ||
-                typeof rename.newName !== "string" ||
-                !rename.symbolId ||
-                typeof rename.symbolId !== "string"
-            ) {
-                // Skip structural validation failures that were already flagged in the
-                // first pass. Continuing here prevents the duplicate-name detection logic
-                // from crashing on malformed entries while still letting the overall
-                // validation summary report the original structural errors.
-                continue;
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (!normalizedNewName) {
-                // Skip invalid identifier names (e.g., reserved keywords, names with
-                // illegal characters) because they will be reported by the per-rename
-                // validation pass below. Continuing here allows the batch validator
-                // to collect duplicate-name conflicts for the valid subset without
-                // cascading failures from syntactically invalid targets.
-                continue;
-            }
-            if (!newNameToSymbols.has(normalizedNewName)) {
-                newNameToSymbols.set(normalizedNewName, []);
-            }
-            newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
-        }
-
-        // Detect conflicting renames (multiple symbols renamed to the same name)
-        for (const [newName, symbolIds] of newNameToSymbols.entries()) {
-            if (symbolIds.length > 1) {
-                errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
-                conflictingSets.push(symbolIds);
-            }
+        // Detect duplicate target names across the batch. If multiple renames attempt
+        // to use the same new name (e.g., renaming both `foo` and `bar` to `baz`),
+        // we'd create ambiguous references. The check runs before applying any edits
+        // so we can reject the entire batch early.
+        for (const { newName, symbolIds } of detectDuplicateTargetNames(renames)) {
+            errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
+            conflictingSets.push([...symbolIds]);
         }
 
         // Detect circular rename chains - filter out invalid renames first
@@ -501,53 +476,13 @@ export class RefactorEngine {
             conflictingSets.push(circularChain);
         }
 
-        // Check for cross-rename conflicts where one rename's new name matches another's old name
-        // (but not in a circular way - that's already handled above). This catches cases like
-        // renaming `foo→bar` and `bar→baz` in the same batch, which creates a temporal ordering
-        // problem: we can't apply both renames simultaneously because the intermediate state
-        // would have duplicate symbols or references to non-existent names. These conflicts
-        // require the user to either sequence the renames across multiple operations or choose
-        // different target names that don't collide with existing symbols in the batch.
-        const oldNames = new Set<string>();
-        const newNames = new Set<string>();
-
-        // First pass: collect all old and new names
-        for (const rename of validRenames) {
-            const oldName = extractSymbolName(rename.symbolId);
-            if (oldName) {
-                oldNames.add(oldName);
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (normalizedNewName) {
-                newNames.add(normalizedNewName);
-            }
-        }
-
-        // Second pass: detect confusion where new name was an old name
-        for (const rename of validRenames) {
-            const oldName = extractSymbolName(rename.symbolId);
-            if (!oldName) {
-                continue;
-            }
-
-            const normalizedNewName = tryNormalizeIdentifierName(rename.newName);
-            if (!normalizedNewName) {
-                // Skip invalid identifier names during the confusion-detection pass.
-                // Errors for these names will be surfaced in the main validation
-                // results, so continuing here prevents duplicate error reporting while
-                // still allowing the logic to warn about valid renames that might shadow
-                // original symbol names.
-                continue;
-            }
-
-            // Warn if this new name matches any old name in the batch (potential confusion)
-            // but exclude the case where it's the same symbol (already caught as same-name rename)
-            if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
-                warnings.push(
-                    `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
-                );
-            }
+        // Detect cross-rename name confusion: cases like renaming `foo→bar` and
+        // `bar→baz` together, where the intermediate state would have two symbols
+        // named `bar`. Not a cycle but still a temporal naming conflict.
+        for (const { symbolId, newName } of detectCrossRenameNameConfusion(validRenames)) {
+            warnings.push(
+                `Rename introduces potential confusion: '${symbolId}' renamed to '${newName}' which was an original symbol name in this batch`
+            );
         }
 
         return {
@@ -1050,12 +985,6 @@ export class RefactorEngine {
         Core.assertFunction(readFile, "readFile", {
             errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
         });
-        if (!dryRun) {
-            Core.assertFunction(writeFile, "writeFile", {
-                errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
-            });
-        }
-
         const uniqueFilePaths = [...new Set(filePaths)];
 
         const workspace = new WorkspaceEdit();
@@ -1089,6 +1018,20 @@ export class RefactorEngine {
             });
         }
 
+        if (workspace.edits.length === 0) {
+            return {
+                workspace,
+                applied: new Map(),
+                changedFiles
+            };
+        }
+
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeLoopLengthHoistingCodemod requires a writeFile function"
+            });
+        }
+
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
@@ -1096,6 +1039,84 @@ export class RefactorEngine {
         });
 
         return { workspace, applied, changedFiles };
+    }
+
+    /**
+     * Plan naming-policy-driven edits for the selected project paths.
+     */
+    async planNamingConventionCodemod(parameters: {
+        projectRoot: string;
+        config: ConfiguredCodemodRunRequest["config"];
+        targetPaths: Array<string>;
+    }): Promise<NamingConventionCodemodPlan> {
+        return await planNamingConventionCodemod(this, parameters);
+    }
+
+    /**
+     * Execute codemods selected from normalized project configuration.
+     *
+     * Codemods run in a stable order and share an in-memory overlay so later
+     * codemods observe edits produced by earlier ones during the same run.
+     */
+    async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
+        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [] } = request;
+
+        Core.assertNonEmptyString(projectRoot, {
+            errorMessage: "executeConfiguredCodemods requires a projectRoot"
+        });
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeConfiguredCodemods requires a readFile function"
+        });
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeConfiguredCodemods requires a writeFile function when dryRun is false"
+            });
+        }
+
+        const requestedCodemods = new Set(onlyCodemods);
+        const configuredCodemods = config.codemods ?? {};
+        const overlay = new Map<string, string>();
+        const appliedFiles = new Map<string, string>();
+
+        const readThroughOverlay = async (filePath: string): Promise<string> => {
+            if (overlay.has(filePath)) {
+                return overlay.get(filePath) ?? "";
+            }
+
+            return await readFile(filePath);
+        };
+
+        const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
+
+            if (!dryRun && writeFile) {
+                await writeFile(filePath, content);
+            }
+        };
+
+        const result = await executeRegisteredCodemods(this, {
+            ...request,
+            config: {
+                ...request.config,
+                codemods: configuredCodemods
+            },
+            readFile: readThroughOverlay,
+            writeFile: dryRun ? undefined : writeWithOverlay,
+            dryRun,
+            onlyCodemods: [...requestedCodemods]
+        });
+
+        for (const [filePath, content] of result.appliedFiles.entries()) {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
+        }
+
+        return {
+            dryRun,
+            summaries: result.summaries,
+            appliedFiles
+        };
     }
 
     /**
