@@ -397,6 +397,75 @@ void test("runFixtureSuite can reuse discovered fixture cases", async () => {
     }
 });
 
+void test("runDiscoveredFixtureCase executes a specific pre-discovered case", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-single-case-"));
+    await createTextFixtureCase(rootPath, "target", { fixture: { kind: "format" } }, "input\n", "target\n");
+
+    try {
+        const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const targetFixtureCase = discoveredFixtureCases[0];
+
+        assert.notEqual(targetFixtureCase, undefined);
+
+        const executionResult = await FixtureRunner.runDiscoveredFixtureCase({
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: `${fixtureCase.caseId}\n`,
+                        changed: true
+                    }));
+                }
+            },
+            fixtureCase: targetFixtureCase
+        });
+
+        assert.equal(executionResult.fixtureCase.caseId, "target");
+        assert.equal(executionResult.caseResult?.resultKind, "text");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runDiscoveredFixtureCase rejects unsupported fixture kinds", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-single-case-kind-"));
+    await createTextFixtureCase(rootPath, "target", { fixture: { kind: "format" } }, "input\n", "target\n");
+
+    try {
+        const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const targetFixtureCase = discoveredFixtureCases[0];
+        assert.notEqual(targetFixtureCase, undefined);
+
+        await assert.rejects(
+            FixtureRunner.runDiscoveredFixtureCase({
+                adapter: {
+                    workspaceName: "lint",
+                    suiteName: "lint fixtures",
+                    supports(kind) {
+                        return kind === "lint";
+                    },
+                    async run({ runProfiledStage }) {
+                        return await runProfiledStage("lint", async () => ({
+                            resultKind: "text",
+                            outputText: "target\n",
+                            changed: false
+                        }));
+                    }
+                },
+                fixtureCase: targetFixtureCase
+            }),
+            /does not support fixture kind/u
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
 void test("fixture stage timing rejects duplicate stage names", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-duplicate-stage-"));
     await createTextFixtureCase(

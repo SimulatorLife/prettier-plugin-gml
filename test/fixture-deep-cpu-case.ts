@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { FixtureRunner } from "@gmloop/fixture-runner";
+import { type FixtureCase, FixtureRunner } from "@gmloop/fixture-runner";
 
 import { createFixtureSuiteRegistry } from "./fixture-suite-registry.js";
 
@@ -14,6 +14,15 @@ interface DeepCpuCaseRequest {
 interface DeepCpuCaseFailure {
     caseId: string;
     message: string;
+}
+
+function createFixtureCaseByIdMap(fixtureCases: ReadonlyArray<FixtureCase>): ReadonlyMap<string, FixtureCase> {
+    const fixtureCaseById = new Map<string, FixtureCase>();
+    for (const fixtureCase of fixtureCases) {
+        fixtureCaseById.set(fixtureCase.caseId, fixtureCase);
+    }
+
+    return fixtureCaseById;
 }
 
 function readRequiredEnvironmentVariable(name: string): string {
@@ -86,26 +95,21 @@ void test("fixture deep cpu profile case", async () => {
     }
 
     const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(fixtureSuite.fixtureRoot);
+    const fixtureCaseById = createFixtureCaseByIdMap(discoveredFixtureCases);
     const failures: Array<DeepCpuCaseFailure> = [];
 
     for (const request of requests) {
         try {
+            const fixtureCase = fixtureCaseById.get(request.caseId);
+            if (!fixtureCase) {
+                throw new Error(`Expected exactly one fixture case for ${workspaceName}/${request.caseId}.`);
+            }
+
             await FixtureRunner.withDeepCpuProfile(request.outputPath, async () => {
-                const result = await FixtureRunner.runFixtureSuite({
-                    fixtureRoot: fixtureSuite.fixtureRoot,
+                await FixtureRunner.runDiscoveredFixtureCase({
                     adapter: fixtureSuite.adapter,
-                    caseIds: [request.caseId],
-                    continueOnFailure: true,
-                    discoveredFixtureCases
+                    fixtureCase
                 });
-
-                if (result.fixtureCases.length !== 1) {
-                    throw new Error(`Expected exactly one fixture case for ${workspaceName}/${request.caseId}.`);
-                }
-
-                if (result.failures.length > 0) {
-                    throw result.failures[0]?.error;
-                }
             });
         } catch (error) {
             failures.push({

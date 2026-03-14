@@ -61,6 +61,9 @@ pnpm run test:fixtures:profile
 pnpm run test:fixtures:profile:deep-cpu
 ```
 
+Both profiling commands use incremental TypeScript builds (`tsc -b`) so repeated
+profiling iterations avoid full clean rebuilds.
+
 The deep CPU command now profiles batched fixture cases in a single pass and
 writes per-case failures to a JSON report consumed by the profile harness,
 avoiding an expensive fallback rerun of every case after the first batch error.

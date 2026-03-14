@@ -218,6 +218,28 @@ async function executeFixtureCase(
     }
 }
 
+function ensureAdapterSupportsFixtureCase(adapter: FixtureAdapter, fixtureCase: FixtureCase): void {
+    if (!adapter.supports(fixtureCase.kind)) {
+        throw new Error(`${adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`);
+    }
+}
+
+/**
+ * Run one already-discovered fixture case through the shared execution pipeline.
+ *
+ * @param parameters Fixture case, adapter, and optional collector.
+ * @returns Execution details for the requested fixture case.
+ */
+export async function runDiscoveredFixtureCase(parameters: {
+    adapter: FixtureAdapter;
+    fixtureCase: FixtureCase;
+    profileCollector?: FixtureProfileCollector;
+}): Promise<FixtureCaseExecutionResult> {
+    const profileCollector = parameters.profileCollector ?? createProfileCollector();
+    ensureAdapterSupportsFixtureCase(parameters.adapter, parameters.fixtureCase);
+    return await executeFixtureCase(parameters.adapter, parameters.fixtureCase, profileCollector);
+}
+
 /**
  * Run all fixture cases for a given adapter without registering Node test cases.
  *
@@ -243,14 +265,14 @@ export async function runFixtureSuite(parameters: {
     const failures: Array<FixtureRunFailure> = [];
 
     await Core.runSequentially(fixtureCases, async (fixtureCase) => {
-        if (!parameters.adapter.supports(fixtureCase.kind)) {
-            throw new Error(
-                `${parameters.adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`
-            );
-        }
-
         try {
-            executionResults.push(await executeFixtureCase(parameters.adapter, fixtureCase, profileCollector));
+            executionResults.push(
+                await runDiscoveredFixtureCase({
+                    adapter: parameters.adapter,
+                    fixtureCase,
+                    profileCollector
+                })
+            );
         } catch (error) {
             if (!parameters.continueOnFailure) {
                 throw error;
