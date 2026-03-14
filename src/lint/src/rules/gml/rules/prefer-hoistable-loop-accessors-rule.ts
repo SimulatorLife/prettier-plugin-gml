@@ -7,6 +7,7 @@ import {
     createMeta,
     getNodeStartIndex,
     isAstNodeWithType,
+    resolveLocFromIndex,
     walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
@@ -20,44 +21,6 @@ type ForStatementContainerContext = Readonly<{
     forNode: AstNodeWithType;
     canInsertHoistBeforeLoop: boolean;
 }>;
-
-function resolveSafeLocFromIndex(
-    context: Rule.RuleContext,
-    sourceText: string,
-    index: number
-): { line: number; column: number } {
-    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
-    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (offset: number) => { line: number; column: number } | undefined;
-    };
-    const located =
-        typeof sourceCodeWithLocator.getLocFromIndex === "function"
-            ? sourceCodeWithLocator.getLocFromIndex(clampedIndex)
-            : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
-    }
-
-    let line = 1;
-    let lastLineStart = 0;
-    for (let cursor = 0; cursor < clampedIndex; cursor += 1) {
-        if (sourceText[cursor] === "\n") {
-            line += 1;
-            lastLineStart = cursor + 1;
-        }
-    }
-
-    return {
-        line,
-        column: clampedIndex - lastLineStart
-    };
-}
 
 function collectLoopLengthAccessorCallsFromTestExpression(parameters: {
     sourceText: string;
@@ -212,14 +175,14 @@ export function createPreferHoistableLoopAccessorsRule(definition: GmlRuleDefini
 
                     if (firstReportOffset !== null) {
                         context.report({
-                            loc: resolveSafeLocFromIndex(context, sourceText, firstReportOffset),
+                            loc: resolveLocFromIndex(context, sourceText, firstReportOffset),
                             messageId: definition.messageId
                         });
                     }
 
                     if (firstUnsafeOffset !== null && shouldReportUnsafeFixes) {
                         context.report({
-                            loc: resolveSafeLocFromIndex(context, sourceText, firstUnsafeOffset),
+                            loc: resolveLocFromIndex(context, sourceText, firstUnsafeOffset),
                             messageId: "unsafeFix"
                         });
                     }

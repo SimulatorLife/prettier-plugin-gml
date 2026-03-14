@@ -6,6 +6,7 @@ import {
     createCommentTokenRangeIndex,
     findFirstAstNodeBy,
     rangeContainsCommentToken,
+    resolveLocFromIndex,
     sourceRangeContainsCommentToken,
     walkAstNodes
 } from "../../src/rules/gml/rule-base-helpers.js";
@@ -148,4 +149,76 @@ void test("rangeContainsCommentToken uses the prefix index to detect comment mar
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, plainStart, plainEnd), false);
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, inlineStart, inlineEnd), true);
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, blockStart, blockEnd), true);
+});
+
+// Helper that produces a minimal Rule.RuleContext stub for resolveLocFromIndex tests.
+// The stub can optionally expose a getLocFromIndex implementation on sourceCode.
+function createStubRuleContext(
+    sourceText: string,
+    getLocFromIndex?: (index: number) => { line: number; column: number } | undefined
+): import("eslint").Rule.RuleContext {
+    return {
+        sourceCode: {
+            text: sourceText,
+            ...(getLocFromIndex === undefined ? {} : { getLocFromIndex })
+        }
+    } as unknown as import("eslint").Rule.RuleContext;
+}
+
+void test("resolveLocFromIndex returns line 1 column 0 for index 0 in a single-line source", () => {
+    const context = createStubRuleContext("var x = 1;");
+    const loc = resolveLocFromIndex(context, "var x = 1;", 0);
+    assert.deepEqual(loc, { line: 1, column: 0 });
+});
+
+void test("resolveLocFromIndex advances to the correct column within line 1", () => {
+    const context = createStubRuleContext("var x = 1;");
+    // index 4 is the 'x' character on the first (and only) line
+    const loc = resolveLocFromIndex(context, "var x = 1;", 4);
+    assert.deepEqual(loc, { line: 1, column: 4 });
+});
+
+void test("resolveLocFromIndex increments line number after each newline", () => {
+    const source = "line1\nline2\nline3";
+    const context = createStubRuleContext(source);
+    // index of the 'l' in 'line3' is 12
+    const indexOfLine3 = source.indexOf("line3");
+    const loc = resolveLocFromIndex(context, source, indexOfLine3);
+    assert.deepEqual(loc, { line: 3, column: 0 });
+});
+
+void test("resolveLocFromIndex clamps a negative index to line 1 column 0", () => {
+    const context = createStubRuleContext("abc");
+    const loc = resolveLocFromIndex(context, "abc", -5);
+    assert.deepEqual(loc, { line: 1, column: 0 });
+});
+
+void test("resolveLocFromIndex clamps an index beyond source length to the end", () => {
+    const source = "abc";
+    const context = createStubRuleContext(source);
+    const loc = resolveLocFromIndex(context, source, 9999);
+    assert.deepEqual(loc, { line: 1, column: source.length });
+});
+
+void test("resolveLocFromIndex prefers getLocFromIndex when it returns a valid location", () => {
+    const source = "foo\nbar";
+    const stubbedLoc = { line: 99, column: 42 };
+    const context = createStubRuleContext(source, () => stubbedLoc);
+    const loc = resolveLocFromIndex(context, source, 0);
+    assert.deepEqual(loc, stubbedLoc);
+});
+
+void test("resolveLocFromIndex falls back to manual scan when getLocFromIndex returns undefined", () => {
+    const source = "hello\nworld";
+    const context = createStubRuleContext(source, () => undefined);
+    // index of 'w' in 'world' is 6
+    const loc = resolveLocFromIndex(context, source, 6);
+    assert.deepEqual(loc, { line: 2, column: 0 });
+});
+
+void test("resolveLocFromIndex falls back to manual scan when getLocFromIndex returns non-finite coords", () => {
+    const source = "hello\nworld";
+    const context = createStubRuleContext(source, () => ({ line: Number.NaN, column: 0 }));
+    const loc = resolveLocFromIndex(context, source, 6);
+    assert.deepEqual(loc, { line: 2, column: 0 });
 });
