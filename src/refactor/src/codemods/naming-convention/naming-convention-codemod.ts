@@ -51,6 +51,7 @@ export async function planNamingConventionCodemod(
         config: RefactorProjectConfig;
         targetPaths: Array<string>;
         gmlFilePaths?: Array<string>;
+        includeTopLevelPlan?: boolean;
     }
 ): Promise<NamingConventionCodemodPlan> {
     const policy = parameters.config.namingConventionPolicy;
@@ -63,6 +64,7 @@ export async function planNamingConventionCodemod(
             ],
             errors: [],
             topLevelRenamePlan: null,
+            topLevelRenameRequests: [],
             localRenameCount: 0
         };
     }
@@ -75,10 +77,12 @@ export async function planNamingConventionCodemod(
             warnings: [],
             errors: ["Naming convention codemod requires semantic.listNamingConventionTargets support."],
             topLevelRenamePlan: null,
+            topLevelRenameRequests: [],
             localRenameCount: 0
         };
     }
 
+    const includeTopLevelPlan = parameters.includeTopLevelPlan !== false;
     const resolvedRules = resolveNamingConventionRules(policy);
     let workspace = new WorkspaceEditClass();
     const warnings: Array<string> = [];
@@ -187,7 +191,7 @@ export async function planNamingConventionCodemod(
     });
 
     let topLevelRenamePlan: NamingConventionCodemodPlan["topLevelRenamePlan"] = null;
-    if (topLevelRenames.length > 0) {
+    if (includeTopLevelPlan && topLevelRenames.length > 0) {
         topLevelRenamePlan = await engine.prepareBatchRenamePlan(topLevelRenames, {
             includeImpactAnalyses: false
         });
@@ -212,8 +216,22 @@ export async function planNamingConventionCodemod(
         warnings,
         errors,
         topLevelRenamePlan,
+        topLevelRenameRequests: topLevelRenames,
         localRenameCount
     };
+}
+
+function splitIntoRenameChunks(
+    renames: Array<{ symbolId: string; newName: string }>,
+    chunkSize: number
+): Array<Array<{ symbolId: string; newName: string }>> {
+    const chunks: Array<Array<{ symbolId: string; newName: string }>> = [];
+
+    for (let index = 0; index < renames.length; index += chunkSize) {
+        chunks.push(renames.slice(index, index + chunkSize));
+    }
+
+    return chunks;
 }
 
 /**
@@ -232,6 +250,76 @@ export async function executeNamingConventionCodemod(
     plan: NamingConventionCodemodPlan;
     applied: Map<string, string>;
 }> {
+    const isDryRun = parameters.applyOptions.dryRun === true;
+
+    if (!isDryRun) {
+        const writeFile = parameters.applyOptions.writeFile;
+        if (typeof writeFile !== "function") {
+            throw new TypeError("Naming convention codemod write mode requires applyOptions.writeFile");
+        }
+
+        const plan = await planNamingConventionCodemod(engine, {
+            projectRoot: parameters.projectRoot,
+            config: parameters.config,
+            targetPaths: parameters.targetPaths,
+            gmlFilePaths: parameters.gmlFilePaths,
+            includeTopLevelPlan: false
+        });
+
+        if (plan.errors.length > 0) {
+            return {
+                plan,
+                applied: new Map()
+            };
+        }
+
+        const applied = new Map<string, string>();
+
+        if (
+            plan.workspace.edits.length > 0 ||
+            plan.workspace.metadataEdits.length > 0 ||
+            plan.workspace.fileRenames.length > 0
+        ) {
+            const localApplied = await engine.applyWorkspaceEdit(plan.workspace, {
+                ...parameters.applyOptions,
+                includeResultContent: false,
+                dryRun: false
+            });
+
+            for (const filePath of localApplied.keys()) {
+                applied.set(filePath, "");
+            }
+        }
+
+        const renameChunks = splitIntoRenameChunks(plan.topLevelRenameRequests, 64);
+        await Core.runSequentially(renameChunks, async (chunk) => {
+            const batchResult = await engine.executeBatchRename({
+                renames: chunk,
+                readFile: parameters.applyOptions.readFile,
+                writeFile,
+                includeResultContent: false,
+                renameFile: parameters.applyOptions.renameFile,
+                deleteFile: parameters.applyOptions.deleteFile
+            });
+
+            for (const filePath of batchResult.applied.keys()) {
+                applied.set(filePath, "");
+            }
+
+            for (const rename of batchResult.fileRenames) {
+                applied.set(rename.oldPath, "");
+                applied.set(rename.newPath, "");
+            }
+
+            engine.clearQueryCaches();
+        });
+
+        return {
+            plan,
+            applied
+        };
+    }
+
     const plan = await planNamingConventionCodemod(engine, {
         projectRoot: parameters.projectRoot,
         config: parameters.config,

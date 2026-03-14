@@ -273,6 +273,75 @@ void test("executeConfiguredCodemods uses lightweight batch planning for namingC
     assert.equal(calls[0]?.validateHotReload, undefined);
 });
 
+void test("executeConfiguredCodemods streams namingConvention top-level renames in write mode", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "bad_one",
+                category: "function",
+                path: "scripts/a.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_one",
+                occurrences: []
+            },
+            {
+                name: "bad_two",
+                category: "function",
+                path: "scripts/b.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_two",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const executeBatchCalls: Array<number> = [];
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(): Promise<BatchRenamePlanSummary> {
+            throw new Error("write mode should not call prepareBatchRenamePlan for top-level naming renames");
+        },
+        async executeBatchRename(request: { renames: Array<{ symbolId: string; newName: string }> }) {
+            executeBatchCalls.push(request.renames.length);
+            return {
+                workspace: new Refactor.WorkspaceEdit(),
+                applied: new Map<string, string>([
+                    ["scripts/a.gml", ""],
+                    ["scripts/b.gml", ""]
+                ]),
+                hotReloadUpdates: [],
+                fileRenames: []
+            };
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/a.gml", "scripts/b.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "",
+        writeFile: async () => {},
+        dryRun: false
+    });
+
+    assert.equal(executeBatchCalls.length, 1);
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
+});
+
 void test("executeConfiguredCodemods requests naming targets by selected GML file paths", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");

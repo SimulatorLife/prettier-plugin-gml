@@ -560,6 +560,7 @@ export interface RenameRequest {
 export interface ExecuteRenameRequest extends RenameRequest {
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -569,6 +570,7 @@ export interface ExecuteBatchRenameRequest {
     renames: Array<RenameRequest>;
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -636,6 +638,7 @@ export interface NamingConventionCodemodPlan {
     warnings: Array<string>;
     errors: Array<string>;
     topLevelRenamePlan: BatchRenamePlanSummary | null;
+    topLevelRenameRequests: Array<RenameRequest>;
     localRenameCount: number;
 }
 

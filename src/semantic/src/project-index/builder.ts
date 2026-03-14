@@ -967,8 +967,7 @@ function handleIdentifierNode({
     if (isBuiltIn) {
         metrics?.counters?.increment("identifiers.builtInSkipped");
         identifierRecord.reason = "built-in";
-        fileRecord.ignoredIdentifiers.push(identifierRecord);
-        scopeRecord.ignoredIdentifiers.push(identifierRecord);
+        recordIgnoredIdentifier(fileRecord, identifierRecord);
         return true;
     }
     const isDeclaration = identifierRecord.classifications.includes("declaration");
@@ -1252,6 +1251,29 @@ function registerFilePathWithScope(scopeRecord, filePath) {
     }
     Core.pushUnique(scopeRecord.filePaths, filePath);
 }
+
+const MAX_IGNORED_IDENTIFIERS_PER_FILE = 256;
+
+function recordIgnoredIdentifier(fileRecord, identifierRecord) {
+    if (!fileRecord || !Array.isArray(fileRecord.ignoredIdentifiers) || !identifierRecord) {
+        return;
+    }
+
+    const exists = fileRecord.ignoredIdentifiers.some((entry) => {
+        if (!entry || entry.name !== identifierRecord.name) {
+            return false;
+        }
+
+        return entry.start?.index === identifierRecord.start?.index;
+    });
+
+    if (exists || fileRecord.ignoredIdentifiers.length >= MAX_IGNORED_IDENTIFIERS_PER_FILE) {
+        return;
+    }
+
+    fileRecord.ignoredIdentifiers.push(identifierRecord);
+}
+
 function prepareProjectIndexRecords({ file, resourceAnalysis, scopeMap, filesMap, identifierCollections }) {
     const scopeDescriptor =
         resourceAnalysis.gmlScopeMap.get(file.relativePath) ?? createFileScopeDescriptor(file.relativePath);

@@ -46,6 +46,13 @@ export interface SemanticCacheConfig {
      * Default: true
      */
     enabled?: boolean;
+
+    /**
+     * Maximum number of occurrences that can be retained in-cache for a single
+     * symbol query result. Results exceeding this size are returned but not cached.
+     * Default: 10_000
+     */
+    maxOccurrenceCacheEntries?: number;
 }
 
 /**
@@ -99,7 +106,8 @@ export class SemanticQueryCache {
         this.config = {
             maxSize: config.maxSize ?? 100,
             ttlMs: config.ttlMs ?? 60_000,
-            enabled: config.enabled ?? true
+            enabled: config.enabled ?? true,
+            maxOccurrenceCacheEntries: config.maxOccurrenceCacheEntries ?? 10_000
         };
     }
 
@@ -275,8 +283,19 @@ export class SemanticQueryCache {
 
         this.stats.misses++;
         const result = await fetcher();
+        if (cache === this.occurrenceCache && this.shouldSkipOccurrenceCacheStore(result)) {
+            return result;
+        }
         this.setCached(cache, key, result);
         return result;
+    }
+
+    private shouldSkipOccurrenceCacheStore(value: unknown): boolean {
+        if (!Array.isArray(value)) {
+            return false;
+        }
+
+        return value.length > this.config.maxOccurrenceCacheEntries;
     }
 
     /**

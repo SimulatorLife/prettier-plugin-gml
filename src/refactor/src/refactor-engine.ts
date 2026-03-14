@@ -110,7 +110,16 @@ export class RefactorEngine {
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
         this.renameValidationCache = new RenameValidationCache();
-        this.semanticCache = new SemanticQueryCache(semantic);
+        this.semanticCache = new SemanticQueryCache(semantic, {
+            maxSize: 24,
+            ttlMs: 20_000,
+            maxOccurrenceCacheEntries: 4000
+        });
+    }
+
+    clearQueryCaches(): void {
+        this.renameValidationCache.invalidateAll();
+        this.semanticCache.invalidateAll();
     }
 
     /**
@@ -840,6 +849,9 @@ export class RefactorEngine {
             for (const fileRename of fileRenames) {
                 merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
+
+            // Keep batch processing memory bounded for large cross-project runs.
+            this.semanticCache.invalidateAll();
         });
 
         // Validate the merged result for overlapping edits
@@ -866,6 +878,7 @@ export class RefactorEngine {
             newName,
             readFile,
             writeFile,
+            includeResultContent = true,
             prepareHotReload = false
         } = request ?? ({} as ExecuteRenameRequest);
 
@@ -890,6 +903,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
@@ -920,7 +934,13 @@ export class RefactorEngine {
      * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
      */
     async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
-        const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
+        const {
+            renames,
+            readFile,
+            writeFile,
+            includeResultContent = true,
+            prepareHotReload = false
+        } = request ?? ({} as ExecuteBatchRenameRequest);
 
         Core.assertArray(renames, {
             errorMessage: "executeBatchRename requires renames array"
@@ -939,6 +959,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
