@@ -3,6 +3,12 @@ import { ESLint } from "eslint";
 
 import { Lint } from "../../src/index.js";
 
+function createRuleEntriesCacheKey(ruleEntries: Record<string, unknown>): string {
+    const sortedRuleIds = Object.keys(ruleEntries).sort((left, right) => left.localeCompare(right));
+    const serializedEntries = sortedRuleIds.map((ruleId) => [ruleId, ruleEntries[ruleId]]);
+    return JSON.stringify(serializedEntries);
+}
+
 function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
     const ruleEntries = Lint.createLintRuleEntriesFromProjectConfig(config);
     const enabledRuleIds = Object.keys(ruleEntries);
@@ -20,6 +26,8 @@ function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
  * @returns Lint fixture adapter backed by the lint workspace runtime API.
  */
 export function createLintFixtureAdapter(): FixtureAdapter {
+    const eslintByRuleConfigKey = new Map<string, ESLint>();
+
     return Object.freeze({
         workspaceName: "lint",
         suiteName: "lint rule fixtures",
@@ -27,24 +35,34 @@ export function createLintFixtureAdapter(): FixtureAdapter {
             return kind === "lint";
         },
         async run({ fixtureCase, config, inputText, runProfiledStage }) {
-            const eslint = new ESLint({
-                overrideConfigFile: true,
-                fix: true,
-                overrideConfig: [
-                    {
-                        files: ["**/*.gml"],
-                        plugins: {
-                            gml: Lint.plugin,
-                            feather: Lint.featherPlugin
-                        },
-                        language: "gml/gml",
-                        languageOptions: {
-                            recovery: "limited"
-                        },
-                        rules: createSingleRuleFixtureConfig(config)
-                    }
-                ]
-            });
+            const ruleEntries = createSingleRuleFixtureConfig(config);
+            const cacheKey = createRuleEntriesCacheKey(ruleEntries);
+            const cachedEslint = eslintByRuleConfigKey.get(cacheKey);
+            const eslint =
+                cachedEslint ??
+                new ESLint({
+                    overrideConfigFile: true,
+                    fix: true,
+                    overrideConfig: [
+                        {
+                            files: ["**/*.gml"],
+                            plugins: {
+                                gml: Lint.plugin,
+                                feather: Lint.featherPlugin
+                            },
+                            language: "gml/gml",
+                            languageOptions: {
+                                recovery: "limited"
+                            },
+                            rules: ruleEntries
+                        }
+                    ]
+                });
+
+            if (!cachedEslint) {
+                eslintByRuleConfigKey.set(cacheKey, eslint);
+            }
+
             const [result] = await runProfiledStage(
                 "lint",
                 async () =>

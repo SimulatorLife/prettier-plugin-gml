@@ -7,6 +7,12 @@ import { Lint } from "@gmloop/lint";
 import { Refactor } from "@gmloop/refactor";
 import { ESLint } from "eslint";
 
+function createRuleEntriesCacheKey(ruleEntries: Record<string, unknown>): string {
+    const sortedRuleIds = Object.keys(ruleEntries).sort((left, right) => left.localeCompare(right));
+    const serializedEntries = sortedRuleIds.map((ruleId) => [ruleId, ruleEntries[ruleId]]);
+    return JSON.stringify(serializedEntries);
+}
+
 function hasConfiguredRefactorStage(config: Record<string, unknown>): boolean {
     return Object.hasOwn(config, "refactor") && config.refactor !== undefined;
 }
@@ -48,6 +54,8 @@ async function runConfiguredIntegrationRefactorStage(
 }
 
 export function createIntegrationFixtureAdapter() {
+    const eslintByRuleConfigKey = new Map<string, ESLint>();
+
     return Object.freeze({
         workspaceName: "integration",
         suiteName: "cross-module integration fixtures",
@@ -67,21 +75,30 @@ export function createIntegrationFixtureAdapter() {
                       })
                     : (inputText ?? "");
 
-                const eslint = new ESLint({
-                    overrideConfigFile: true,
-                    fix: true,
-                    overrideConfig: [
-                        {
-                            files: ["**/*.gml"],
-                            plugins: {
-                                gml: Lint.plugin,
-                                feather: Lint.featherPlugin
-                            },
-                            language: "gml/gml",
-                            rules: lintRuleEntries
-                        }
-                    ]
-                });
+                const cacheKey = createRuleEntriesCacheKey(lintRuleEntries);
+                const cachedEslint = eslintByRuleConfigKey.get(cacheKey);
+                const eslint =
+                    cachedEslint ??
+                    new ESLint({
+                        overrideConfigFile: true,
+                        fix: true,
+                        overrideConfig: [
+                            {
+                                files: ["**/*.gml"],
+                                plugins: {
+                                    gml: Lint.plugin,
+                                    feather: Lint.featherPlugin
+                                },
+                                language: "gml/gml",
+                                rules: lintRuleEntries
+                            }
+                        ]
+                    });
+
+                if (!cachedEslint) {
+                    eslintByRuleConfigKey.set(cacheKey, eslint);
+                }
+
                 const [result] = await runProfiledStage("lint", async () =>
                     await eslint.lintText(refactoredText, {
                         filePath: `${fixtureCase.caseId}.gml`
