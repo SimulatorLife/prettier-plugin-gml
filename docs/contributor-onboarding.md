@@ -61,6 +61,10 @@ pnpm run test:fixtures:profile
 pnpm run test:fixtures:profile:deep-cpu
 ```
 
+Fixture profiling owns memory diagnostics. The generated `reports/fixture-profile.json`
+now includes per-fixture memory summaries alongside stage-level metrics, so there is
+no separate CLI memory benchmark command.
+
 Both profiling commands use incremental TypeScript builds (`tsc -b`) so repeated
 profiling iterations avoid full clean rebuilds.
 

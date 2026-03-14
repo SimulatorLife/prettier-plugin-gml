@@ -620,6 +620,24 @@ void describe("GameMaker parser fixtures", () => {
         );
     });
 
+    void it("parses for-loop update clauses with postfix increment", () => {
+        const source = "for (var i = 0; i < 3; i++) { }\n";
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected postfix increment in for-loop update clause to parse."
+        );
+    });
+
+    void it("parses for-loop update clauses with assignment expressions", () => {
+        const source = "for (var i = 0; i < 3; i = i + 1) { }\n";
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected assignment expression in for-loop update clause to parse."
+        );
+    });
+
     void it("retains 'globalvar' declarations in the AST", () => {
         const source = "globalvar foo, bar;\nfoo = 1;\n";
         const ast = parseFixture(source, { options: { getLocations: true } });

@@ -138,6 +138,9 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
             report.entries[0]?.stages.some((stage) => stage.stageName === "format"),
             true
         );
+        assert.equal(typeof report.entries[0]?.memorySummary.totalHeapUsedDeltaBytes, "number");
+        assert.equal(typeof report.entries[0]?.memorySummary.totalMaxRssDeltaBytes, "number");
+        assert.equal(typeof report.entries[0]?.memorySummary.peakStageHeapUsedDeltaBytes, "number");
         await FixtureRunner.writeJsonProfileReport(report, reportPath);
         const persisted = JSON.parse(await readFile(reportPath, "utf8")) as {
             entries: Array<unknown>;
@@ -145,6 +148,16 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
             stageAggregates: Array<unknown>;
         };
         assert.equal(persisted.entries.length, 1);
+        const persistedEntry = persisted.entries[0] as {
+            memorySummary?: {
+                totalHeapUsedDeltaBytes?: unknown;
+                totalMaxRssDeltaBytes?: unknown;
+                peakStageHeapUsedDeltaBytes?: unknown;
+            };
+        };
+        assert.equal(typeof persistedEntry.memorySummary?.totalHeapUsedDeltaBytes, "number");
+        assert.equal(typeof persistedEntry.memorySummary?.totalMaxRssDeltaBytes, "number");
+        assert.equal(typeof persistedEntry.memorySummary?.peakStageHeapUsedDeltaBytes, "number");
         assert.equal(persisted.workspaceAggregates.length, 1);
         assert.equal(persisted.stageAggregates.length > 0, true);
         assert.match(FixtureRunner.renderHumanProfileReport(report), /Slowest cases:/u);

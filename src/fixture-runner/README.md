@@ -11,6 +11,7 @@ Responsibilities:
 - run workspace-owned adapters
 - compare outputs through runner-owned comparison modes configured in `fixture.comparison`
 - collect time, memory, and CPU metrics
+- emit per-fixture memory summaries (`totalHeapUsedDeltaBytes`, `totalMaxRssDeltaBytes`, `peakStageHeapUsedDeltaBytes`)
 - enforce canonical fixture stage order: `load -> refactor -> lint -> format -> compare -> total`
 - emit human and JSON profile reports, including workspace aggregates, stage aggregates, and budget failures
 - support opt-in isolated deep CPU profiles through the root fixture profile runner, which forks a child process per profiled fixture case

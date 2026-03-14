@@ -7,7 +7,12 @@ import { describe, it, test } from "node:test";
 import { Core } from "@gmloop/core";
 
 import { discoverFixtureCases } from "../discovery/index.js";
-import { collectBudgetFailures, createProfileCollector, createStageTimer } from "../profiling/index.js";
+import {
+    collectBudgetFailures,
+    createFixtureMemorySummary,
+    createProfileCollector,
+    createStageTimer
+} from "../profiling/index.js";
 import type {
     FixtureAdapter,
     FixtureCase,
@@ -172,7 +177,8 @@ async function executeFixtureCase(
             stages,
             budgets,
             budgetFailures,
-            deepCpuProfileArtifactPath
+            deepCpuProfileArtifactPath,
+            memorySummary: createFixtureMemorySummary(stages)
         });
 
         if (budgetFailures.length > 0) {
@@ -207,7 +213,8 @@ async function executeFixtureCase(
             stages,
             budgets,
             budgetFailures,
-            deepCpuProfileArtifactPath
+            deepCpuProfileArtifactPath,
+            memorySummary: createFixtureMemorySummary(stages)
         });
         profileCollector.addEntry(profileEntry);
         throw error;

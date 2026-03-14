@@ -117,7 +117,6 @@
     "build:feather-metadata": "pnpm --filter @gmloop/cli run build:types && node ./src/cli/dist/index.js generate-feather-metadata --quiet",
     "build:ts": "pnpm run clean:ts && tsc -b",
     "build:ts:incremental": "tsc -b",
-    "memory": "pnpm --filter @gmloop/cli run build:types && node --expose-gc ./src/cli/dist/index.js memory --format human",
     "example:format": "cd src/format && pnpm run example",
     "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider || echo \"Skipping vendor submodules\" && patch-package",
     "prepare": "husky",

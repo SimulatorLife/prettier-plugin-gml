@@ -12,6 +12,7 @@ import type {
     FixtureProfileBudgets,
     FixtureProfileCollector,
     FixtureProfileEntry,
+    FixtureProfileEntryMemorySummary,
     FixtureProfileReport,
     FixtureStageMetrics,
     FixtureStageName
@@ -241,6 +242,26 @@ export function collectBudgetFailures(
     }
 
     return Object.freeze(failures);
+}
+
+/**
+ * Derive stable per-fixture memory summary metrics from stage measurements.
+ *
+ * @param stages Ordered stage metrics captured for one fixture case.
+ * @returns Memory summary for the fixture profile entry.
+ */
+export function createFixtureMemorySummary(
+    stages: ReadonlyArray<FixtureStageMetrics>
+): FixtureProfileEntryMemorySummary {
+    const totalStage = stages.find((stage) => stage.stageName === "total") ?? null;
+    const peakStageHeapUsedDeltaBytes =
+        stages.length === 0 ? 0 : Math.max(...stages.map((stage) => stage.heapUsedDeltaBytes));
+
+    return Object.freeze({
+        totalHeapUsedDeltaBytes: totalStage?.heapUsedDeltaBytes ?? 0,
+        totalMaxRssDeltaBytes: totalStage?.maxRssDelta ?? 0,
+        peakStageHeapUsedDeltaBytes
+    });
 }
 
 /**

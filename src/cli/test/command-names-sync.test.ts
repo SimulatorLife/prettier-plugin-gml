@@ -17,7 +17,6 @@ void test("CLI_COMMAND_NAMES includes all expected commands", () => {
         "fix",
         "lint",
         "performance",
-        "memory",
         "generate-gml-identifiers",
         "generate-quality-report",
         "collect-stats",

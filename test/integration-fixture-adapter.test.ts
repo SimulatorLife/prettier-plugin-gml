@@ -59,6 +59,8 @@ void test("integration fixture adapter runs the real refactor -> lint -> format 
         const report = collector.createReport();
         const stageNames = report.entries[0]?.stages.map((stage) => stage.stageName);
         assert.deepEqual(stageNames, ["load", "refactor", "lint", "format", "compare", "total"]);
+        assert.equal(typeof report.entries[0]?.memorySummary.totalHeapUsedDeltaBytes, "number");
+        assert.equal(typeof report.entries[0]?.memorySummary.peakStageHeapUsedDeltaBytes, "number");
         assert.deepEqual(
             report.stageAggregates.map((aggregate) => aggregate.stageName).sort(),
             ["compare", "format", "lint", "load", "refactor", "total"]
