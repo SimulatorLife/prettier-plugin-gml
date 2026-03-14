@@ -85,3 +85,53 @@ void test("fixture deep cpu worker supports batched case requests", async () => 
         await rm(tempRoot, { recursive: true, force: true });
     }
 });
+
+void test("fixture deep cpu worker reports batched failures without aborting remaining cases", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-deep-cpu-failures-"));
+    const successfulOutputPath = path.join(tempRoot, "format-test-draw-event-success.cpuprofile");
+    const failureReportPath = path.join(tempRoot, "deep-cpu-failures.json");
+
+    try {
+        const batchCases = JSON.stringify([
+            {
+                caseId: "missing-case-id",
+                outputPath: path.join(tempRoot, "missing-case.cpuprofile")
+            },
+            {
+                caseId: "test-draw-event",
+                outputPath: successfulOutputPath
+            }
+        ]);
+
+        await assert.rejects(async () => {
+            await execFileAsync(process.execPath, [path.resolve(process.cwd(), "test/dist/fixture-deep-cpu-case.js")], {
+                cwd: process.cwd(),
+                env: {
+                    ...process.env,
+                    GMLOOP_FIXTURE_DEEP_CPU: "0",
+                    GMLOOP_FIXTURE_DEEP_CPU_WORKSPACE: "format",
+                    GMLOOP_FIXTURE_DEEP_CPU_CASES_JSON: batchCases,
+                    GMLOOP_FIXTURE_DEEP_CPU_FAILURES_JSON_OUTPUT: failureReportPath
+                },
+                maxBuffer: 1024 * 1024 * 10
+            });
+        });
+
+        const failures = JSON.parse(await readFile(failureReportPath, "utf8")) as ReadonlyArray<{
+            caseId: string;
+            message: string;
+        }>;
+        assert.equal(failures.length > 0, true);
+        assert.equal(failures.some((failure) => failure.caseId === "missing-case-id"), true);
+
+        const successfulCpuProfile = JSON.parse(await readFile(successfulOutputPath, "utf8")) as {
+            nodes?: ReadonlyArray<unknown>;
+            samples?: ReadonlyArray<number>;
+        };
+        assert.equal(Array.isArray(successfulCpuProfile.nodes), true);
+        assert.equal((successfulCpuProfile.nodes?.length ?? 0) > 0, true);
+        assert.equal(Array.isArray(successfulCpuProfile.samples), true);
+    } finally {
+        await rm(tempRoot, { recursive: true, force: true });
+    }
+});

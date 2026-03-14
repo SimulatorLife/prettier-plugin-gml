@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
@@ -8,6 +9,11 @@ import { FixtureRunner } from "@gmloop/fixture-runner";
 import { createFixtureSuiteRegistry } from "./fixture-suite-registry.js";
 
 const execFileAsync = promisify(execFile);
+
+interface DeepCpuProfileFailureEntry {
+    caseId: string;
+    message: string;
+}
 
 function profilingEnabled(): boolean {
     return process.env.GMLOOP_FIXTURE_PROFILE === "1";
@@ -30,22 +36,40 @@ function createDeepCpuArtifactPath(workspaceName: string, caseId: string): strin
     return path.resolve(process.cwd(), "reports", "fixture-cpu", `${workspaceName}-${safeCaseId}.cpuprofile`);
 }
 
-async function collectDeepCpuProfileArtifact(parameters: {
-    workspaceName: string;
-    caseId: string;
-    outputPath: string;
-}): Promise<void> {
-    await execFileAsync(process.execPath, [path.resolve(process.cwd(), "test/dist/fixture-deep-cpu-case.js")], {
-        cwd: process.cwd(),
-        env: {
-            ...process.env,
-            GMLOOP_FIXTURE_DEEP_CPU: "0",
-            GMLOOP_FIXTURE_DEEP_CPU_WORKSPACE: parameters.workspaceName,
-            GMLOOP_FIXTURE_DEEP_CPU_CASE_ID: parameters.caseId,
-            GMLOOP_FIXTURE_DEEP_CPU_OUTPUT: parameters.outputPath
-        },
-        maxBuffer: 1024 * 1024 * 10
-    });
+function createDeepCpuFailureReportPath(workspaceName: string): string {
+    return path.resolve(process.cwd(), "reports", "fixture-cpu", `${workspaceName}-failures.json`);
+}
+
+async function readDeepCpuFailureEntries(workspaceName: string): Promise<ReadonlyArray<DeepCpuProfileFailureEntry>> {
+    const reportPath = createDeepCpuFailureReportPath(workspaceName);
+
+    try {
+        const content = await readFile(reportPath, "utf8");
+        const parsed = JSON.parse(content) as unknown;
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+
+        return parsed.flatMap((entry) => {
+            if (
+                typeof entry === "object" &&
+                entry !== null &&
+                typeof (entry as { caseId?: unknown }).caseId === "string" &&
+                typeof (entry as { message?: unknown }).message === "string"
+            ) {
+                return [
+                    {
+                        caseId: (entry as { caseId: string }).caseId,
+                        message: (entry as { message: string }).message
+                    }
+                ];
+            }
+
+            return [];
+        });
+    } catch {
+        return [];
+    }
 }
 
 async function collectDeepCpuProfileArtifacts(parameters: {
@@ -65,7 +89,8 @@ async function collectDeepCpuProfileArtifacts(parameters: {
             ...process.env,
             GMLOOP_FIXTURE_DEEP_CPU: "0",
             GMLOOP_FIXTURE_DEEP_CPU_WORKSPACE: parameters.workspaceName,
-            GMLOOP_FIXTURE_DEEP_CPU_CASES_JSON: JSON.stringify(parameters.cases)
+            GMLOOP_FIXTURE_DEEP_CPU_CASES_JSON: JSON.stringify(parameters.cases),
+            GMLOOP_FIXTURE_DEEP_CPU_FAILURES_JSON_OUTPUT: createDeepCpuFailureReportPath(parameters.workspaceName)
         },
         maxBuffer: 1024 * 1024 * 10
     });
@@ -120,21 +145,15 @@ async function runProfileCollection(): Promise<void> {
                 cases: deepCpuCases
             });
         } catch (error) {
-            deepCpuFailures.push(`[${fixtureSuite.workspaceName}]: ${formatFixtureFailureMessage(error)}`);
-
-            // Fall back to per-case execution to preserve failure granularity if batch invocation fails.
-            for (const deepCpuCase of deepCpuCases) {
-                try {
-                    await collectDeepCpuProfileArtifact({
-                        workspaceName: fixtureSuite.workspaceName,
-                        caseId: deepCpuCase.caseId,
-                        outputPath: deepCpuCase.outputPath
-                    });
-                } catch (fallbackError) {
-                    deepCpuFailures.push(
-                        `[${fixtureSuite.workspaceName}] ${deepCpuCase.caseId}: ${formatFixtureFailureMessage(fallbackError)}`
-                    );
-                }
+            const reportedFailures = await readDeepCpuFailureEntries(fixtureSuite.workspaceName);
+            if (reportedFailures.length > 0) {
+                deepCpuFailures.push(
+                    ...reportedFailures.map(
+                        (failure) => `[${fixtureSuite.workspaceName}] ${failure.caseId}: ${failure.message}`
+                    )
+                );
+            } else {
+                deepCpuFailures.push(`[${fixtureSuite.workspaceName}]: ${formatFixtureFailureMessage(error)}`);
             }
         }
     }

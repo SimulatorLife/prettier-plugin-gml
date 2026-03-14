@@ -53,6 +53,18 @@ integration coverage and run only through `pnpm run test`.
 Fixtures under `src/format/test/` and `src/parser/test/input/` are golden—do not
 edit them unless you are intentionally changing formatter or parser output.
 
+Use the fixture profiling commands when performance work touches fixture runners
+or adapters:
+
+```bash
+pnpm run test:fixtures:profile
+pnpm run test:fixtures:profile:deep-cpu
+```
+
+The deep CPU command now profiles batched fixture cases in a single pass and
+writes per-case failures to a JSON report consumed by the profile harness,
+avoiding an expensive fallback rerun of every case after the first batch error.
+
 ## 4. Sanity-check the formatter
 
 Use these commands to verify the formatter wiring before experimenting on a
