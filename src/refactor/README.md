@@ -428,7 +428,6 @@ type NamingCategory =
     | "enum"
     | "member"
     | "enumMember"
-    | "constant"
     | "macro";
 
 type NamingRuleConfig = {
@@ -502,8 +501,7 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     member: null,
     enumMember: "member",
 
-    constant: null,
-    macro: "constant"
+    macro: null
 };
 ```
 

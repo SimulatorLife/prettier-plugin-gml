@@ -11,6 +11,9 @@
     },
     "namingConventionPolicy": {
       "rules": {
+        "structDeclaration": {
+            "caseStyle": "pascal"
+        },
         "resource": {
           "caseStyle": "lower_snake"
         },
@@ -56,6 +59,9 @@
         },
         "macro": {
           "caseStyle": "upper_snake"
+        },
+        "variable": {
+            "caseStyle": "lower_snake"
         }
       },
       "exclusivePrefixes": {
