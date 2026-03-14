@@ -134,6 +134,10 @@ pnpm run cli -- refactor --old-name old_name --new-name newName
 
 # hot-reload watch pipeline
 pnpm run cli -- watch /path/to/project --verbose
+
+# query the watch status server (--status-port and --status-host mirror watch's flags)
+pnpm run cli -- watch-status
+pnpm run cli -- watch-status --status-port 18000 --endpoint health
 ```
 
 ## CLI wrapper environment knobs
@@ -149,7 +153,7 @@ These are the most commonly used CLI environment overrides.
 | `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` | Cap ignored-file samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` | Cap skipped-directory samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` | Cap unsupported-extension samples in formatter summary output. |
-| `WATCH_STATUS_HOST` / `WATCH_STATUS_PORT` | Defaults for `watch-status` endpoint queries. |
+| `WATCH_STATUS_HOST` / `WATCH_STATUS_PORT` | Defaults for `watch-status --status-host` / `watch-status --status-port` (mirrors `watch --status-host` / `watch --status-port`). |
 
 Use `pnpm run cli -- <command> --help` for full option details.
 
@@ -169,7 +173,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
         "printWidth": 120,
         "tabWidth": 4,
         "semi": true,
-        "allowSingleLineIfStatements": false,
+        "allowInlineControlFlowBlocks": false,
         "logicalOperatorsStyle": "keywords"
       }
     }
@@ -177,8 +181,8 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
 }
 ```
 
-Current formatter-specific options exposed by `@gmloop/format`:
-- `allowSingleLineIfStatements`
+Current formatter-specific options exposed by `@gml-modules/format`:
+- `allowInlineControlFlowBlocks` — allow short, comment-free braced control-flow blocks (`if`, `while`, `repeat`, `with`) to stay on one line when the complete statement fits within `printWidth`; defaults to `false`
 - `logicalOperatorsStyle` (`"keywords"` or `"symbols"`)
 
 ### Lint configuration

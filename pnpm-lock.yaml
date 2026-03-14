@@ -17,6 +17,9 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:src/core
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:src/fixture-runner
       '@gmloop/format':
         specifier: workspace:*
         version: link:src/format
@@ -173,11 +176,20 @@ importers:
 
   src/core: {}
 
+  src/fixture-runner:
+    dependencies:
+      '@gmloop/core':
+        specifier: workspace:*
+        version: link:../core
+
   src/format:
     dependencies:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
@@ -190,6 +202,9 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
@@ -215,6 +230,9 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser

@@ -1,0 +1,9 @@
+{
+  "logicalOperatorsStyle": "symbols",
+  "printWidth": 150,
+  "allowInlineControlFlowBlocks": false,
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

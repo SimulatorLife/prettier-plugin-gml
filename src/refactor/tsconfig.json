@@ -8,6 +8,7 @@
     "paths": {
       "@gmloop/cli": ["../cli/index.ts"],
       "@gmloop/core": ["../core/index.ts"],
+      "@gmloop/fixture-runner": ["../fixture-runner/index.ts"],
       "@gmloop/parser": ["../parser/index.ts"],
       "@gmloop/format": ["../format/index.ts"],
       "@gmloop/refactor": ["./index.ts"],
@@ -16,7 +17,13 @@
       "@gmloop/transpiler": ["../transpiler/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../parser" }, { "path": "../semantic" }, { "path": "../format" }],
+  "references": [
+    { "path": "../core" },
+    { "path": "../fixture-runner" },
+    { "path": "../parser" },
+    { "path": "../semantic" },
+    { "path": "../format" }
+  ],
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

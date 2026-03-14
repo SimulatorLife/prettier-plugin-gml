@@ -9,11 +9,12 @@
     "paths": {
       "@gmloop/cli": ["../cli/index.ts"],
       "@gmloop/core": ["../core/index.ts"],
+      "@gmloop/fixture-runner": ["../fixture-runner/index.ts"],
       "@gmloop/parser": ["../parser/index.ts"],
       "@gmloop/format": ["./index.ts"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../parser" }],
+  "references": [{ "path": "../core" }, { "path": "../fixture-runner" }, { "path": "../parser" }],
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

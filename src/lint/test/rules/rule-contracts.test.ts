@@ -58,8 +58,18 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-array-push",
+        messageId: "preferArrayPush",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-compound-assignments",
         messageId: "preferCompoundAssignments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "prefer-increment-decrement-operators",
+        messageId: "preferIncrementDecrementOperators",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
@@ -86,6 +96,11 @@ const expectedRules = Object.freeze([
     {
         shortName: "no-empty-regions",
         messageId: "noEmptyRegions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "no-legacy-api",
+        messageId: "noLegacyApi",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
@@ -210,9 +225,7 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 
         assertEquals(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
-        if (ruleDefinition.shortName === "require-control-flow-braces") {
-            assertEquals(rule.meta?.fixable, undefined);
-        } else if (ruleDefinition.shortName !== "no-globalvar") {
+        if (ruleDefinition.shortName !== "no-globalvar") {
             assertEquals(rule.meta?.fixable, "code");
         }
     }

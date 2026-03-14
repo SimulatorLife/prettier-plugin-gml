@@ -2017,7 +2017,7 @@ function logFormattingErrorSummary() {
  * }} summary
  * @returns {string[]}
  */
-function formatSampleSuffix(formattedSamples, totalCount) {
+function formatExampleSuffix(formattedSamples, totalCount) {
     if (formattedSamples.length === 0) {
         return "";
     }
@@ -2052,7 +2052,7 @@ function formatIgnoredDetail({ ignored, ignoredSamples }) {
     }
 
     const formattedSamples = compactArray((ignoredSamples ?? []).map((sample) => formatIgnoredFileSample(sample)));
-    const suffix = formatSampleSuffix(formattedSamples, ignored);
+    const suffix = formatExampleSuffix(formattedSamples, ignored);
 
     return `ignored by .prettierignore (${ignored})${suffix}`;
 }
@@ -2073,7 +2073,7 @@ function formatUnsupportedExtensionDetail({ unsupportedExtension, unsupportedExt
     const formattedSamples = compactArray(
         (unsupportedExtensionSamples ?? []).map((sample) => formatUnsupportedExtensionSample(sample))
     );
-    const suffix = formatSampleSuffix(formattedSamples, unsupportedExtension);
+    const suffix = formatExampleSuffix(formattedSamples, unsupportedExtension);
 
     return `unsupported extensions (${unsupportedExtension})${suffix}`;
 }
@@ -2160,9 +2160,8 @@ function buildSkippedDirectorySummaryMessage() {
         return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
     }
 
-    const sampleList = formattedSamples.join(", ");
-    const suffix = ignored > formattedSamples.length ? ", ..." : "";
-    return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
+    const exampleSuffix = formatExampleSuffix(formattedSamples, ignored);
+    return `Skipped ${ignored} ${label} ignored by .prettierignore${exampleSuffix}.`;
 }
 
 function areIgnoredFileSamplesEqual(existing, candidate) {

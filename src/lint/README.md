@@ -34,13 +34,13 @@ This wires:
 
 - `plugins.gml = Lint.plugin`
 - `language = "gml/gml"`
-- The baseline recommended `gml/*` rule levels
+- All recommended `gml/*` rule levels plus the conservative safe Feather subset
 
 ## Config Sets
 
 `Lint.configs` exposes these immutable flat-config sets:
 
-- `recommended`: baseline `gml/*` rules
+- `recommended`: all `gml/*` rules plus a conservative safe `feather/*` subset
 - `feather`: `feather/gm####` overlay rules from the feather manifest
 
 Example:
@@ -98,11 +98,14 @@ Built-in `gml/*` rule short names:
 - `prefer-loop-invariant-expressions`
 - `prefer-repeat-loops`
 - `prefer-struct-literal-assignments`
+- `prefer-array-push`
 - `prefer-compound-assignments`
+- `prefer-increment-decrement-operators`
 - `prefer-direct-return`
 - `optimize-logical-flow`
 - `no-globalvar`
 - `no-empty-regions`
+- `no-legacy-api`
 - `no-scientific-notation`
 - `no-unnecessary-string-interpolation`
 - `remove-default-comments`
@@ -124,17 +127,33 @@ Built-in `gml/*` rule short names:
 `prefer-compound-assignments` rewrites safe self-assignment forms
 `x = x <op> y` to `x <op>= y` for `-`, `*`, `/`, and `??`.
 
+`prefer-array-push` rewrites direct append assignments of the form
+`array[array_length(array)] = value;` to `array_push(array, value);` when the
+array receiver is side-effect-free and the replacement would stay within a
+single standalone statement.
+
+`prefer-increment-decrement-operators` rewrites standalone `+= 1` / `-= 1`
+statements to `++` / `--` when the increment amount is a numeric literal equal
+to one. It intentionally skips `for` header update expressions and
+comment-bearing statement spans.
+
 `prefer-direct-return` rewrites adjacent local-return boilerplate from
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
-`require-control-flow-braces` reports unbraced control-flow statements but does not autofix them. Brace insertion is formatter-owned, so the normal remediation path is to run the formatter and let it print the control-flow body as a block.
+`require-control-flow-braces` reports and autofixes unbraced control-flow statements by inserting structural `{ ... }` blocks. It does not depend on the formatter for that rewrite; the formatter remains responsible only for subsequent layout/canonical rendering.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
 `prefer-loop-invariant-expressions` hoists a single side-effect-free, loop-invariant expression into a cached `var` declared immediately before the loop. Equivalent occurrences inside the same loop reuse that single cache declaration, and later lint passes skip re-hoisting the synthetic `cached_*` initializers into ancestor loops. The rule is intentionally conservative: it skips unknown calls, non-deterministic reads (for example `current_time`), dynamic DS/map accessors, and member/index reads that could be invalidated by loop-local mutations or impure calls.
 
 `remove-default-comments` removes default GameMaker placeholder and migration-banner comments.
+
+`no-legacy-api` reports deprecated built-ins and auto-fixes safe local direct
+renames, including deprecated replacements that were historically surfaced
+through Feather parity rules. Structural or project-aware migrations remain
+report-only and continue to belong in lint diagnostics or explicit refactor
+commands rather than unsafe autofixes.
 
 `normalize-banner-comments` canonicalizes decorative banner comments (line and block forms) and rewrites method-list `///` banner lines to plain `//` comments.
 
@@ -161,8 +180,12 @@ pnpm --filter @gmloop/lint run build:types
 pnpm --filter @gmloop/lint run test
 ```
 
+Performance-sensitive autofix rules also have dedicated regression coverage under
+[`test/rules/optimized-autofix-performance.test.ts`](./test/rules/optimized-autofix-performance.test.ts).
+Those tests run as part of the normal compiled Node test suite, so CI enforces
+both fix correctness and the current runtime budgets for the measured hot paths.
+
 ## TODO
 
 - When run through the CLI, if no eslint configuration file is detected in the project, the CLI should fall back to a default, recommended ruleset.
-- Add a lint rule for legacy functions/variables. See https://manual.gamemaker.io/monthly/en/#t=Additional_Information%2FObsolete_Functions.htm. This could be a `@gml/no-legacy-api` rule that flags usage of any deprecated functions or variables, with an optional auto-fix to replace them with their modern equivalents.
 - The structure/files of `src/lint/src/doc-comment` is confusing and disorganized. Would a flat structure be better where we move files in 'src/lint/src/doc-comment/service' up one level?

@@ -1,6 +1,0 @@
-{
-  "lintRules": {
-    "feather/gm1059": "error",
-    "gml/normalize-doc-comments": "off"
-  }
-}

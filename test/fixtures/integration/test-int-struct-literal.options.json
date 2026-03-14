@@ -1,9 +1,0 @@
-{
-  "printWidth": 120,
-  "allowInlineControlFlowBlocks": false,
-  "lintRules": {
-    "gml/normalize-doc-comments": "error",
-    "gml/prefer-struct-literal-assignments": "error",
-    "gml/prefer-direct-return": "error"
-  }
-}

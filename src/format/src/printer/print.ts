@@ -2234,6 +2234,25 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
     return /\r?\n[ \t]*\r?\n/u.test(betweenText);
 }
 
+function hasTrailingCommentOnStatementLine(node, originalText: string): boolean {
+    const nodeEndIndex = Core.getNodeEndIndex(node);
+    if (typeof nodeEndIndex !== NUMBER_TYPE || nodeEndIndex < 0 || nodeEndIndex >= originalText.length) {
+        return false;
+    }
+
+    let lineEndIndex = nodeEndIndex;
+    while (lineEndIndex < originalText.length) {
+        const character = originalText[lineEndIndex];
+        if (character === "\n" || character === "\r") {
+            break;
+        }
+
+        lineEndIndex += 1;
+    }
+
+    return /\/\/|\/\*/u.test(originalText.slice(nodeEndIndex, lineEndIndex));
+}
+
 function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
     const nodeStartIndex = Core.getNodeStartIndex(node);
     if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
@@ -2338,11 +2357,14 @@ function handleIntermediateTrailingSpacing({
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
     const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const currentStatementIsDelete = Core.isDeleteStatementNode(node);
     const hasSourceBlankLineBeforeNextNode =
         !suppressFollowingEmptyLine &&
         originalText !== null &&
         nextNode != null &&
         hasBlankLineBetweenStatements(node, nextNode, originalText);
+    const currentStatementHasTrailingComment =
+        originalText !== null && hasTrailingCommentOnStatementLine(node, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
@@ -2436,19 +2458,28 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
-        const nextNodePrintsDocCommentBlock =
-            Core.isNonEmptyArray(nextNode?.docComments) || Core.isNonEmptyArray(nextNode?._syntheticDocLines);
+        const nextNodePrintsDocCommentBlock = Core.isNonEmptyArray(nextNode?.docComments);
 
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
+        const shouldPreserveSourceGapAfterTrailingComment =
+            currentStatementHasTrailingComment &&
+            hasSourceBlankLineBeforeNextNode &&
+            (currentStatementIsDelete || !isTopLevel);
+        const shouldCollapseTopLevelTrailingCommentGap =
+            isTopLevel && currentStatementHasTrailingComment && !currentStatementIsDelete;
 
         const shouldApplyGenericSourceBlankLineSpacing =
-            !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
+            !shouldCollapseTopLevelTrailingCommentGap &&
+            !nextNodePrintsDocCommentBlock &&
+            !nextNodeHasLeadingComment &&
+            !nextNodeHasCommentGap;
 
         if (
             shouldApplyGenericSourceBlankLineSpacing ||
             nextNodeHasBlockCommentImmediatelyBefore ||
-            shouldPreserveSourceGapBeforeDocCommentedNode
+            shouldPreserveSourceGapBeforeDocCommentedNode ||
+            shouldPreserveSourceGapAfterTrailingComment
         ) {
             parts.push(hardlineDoc);
         }
@@ -2482,10 +2513,7 @@ function handleTerminalTrailingSpacing({
     const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
-    const hasAttachedDocComment =
-        node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        Core.isNonEmptyArray(node?.docComments) ||
-        Core.isNonEmptyArray(node?._syntheticDocLines);
+    const hasAttachedDocComment = node?.[DOC_COMMENT_OUTPUT_FLAG] === true || Core.isNonEmptyArray(node?.docComments);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&

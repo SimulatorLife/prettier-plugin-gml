@@ -144,3 +144,40 @@ void describe("ScopeTracker.getFilePathsDeclaringSymbol", () => {
         assert.ok(!referencingPaths.has("/src/scripts/scr_util.gml"));
     });
 });
+
+void describe("ScopeTracker.getBatchFilePathsDeclaringSymbols", () => {
+    void it("returns declaration paths for multiple symbols and omits missing declarations", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("file", { path: "/project/scripts/a.gml" });
+        tracker.declare("alpha", { name: "alpha" });
+        tracker.declare("beta", { name: "beta" });
+        tracker.exitScope();
+
+        tracker.enterScope("file", { path: "/project/scripts/b.gml" });
+        tracker.declare("alpha", { name: "alpha" });
+        tracker.reference("beta", { name: "beta" });
+        tracker.exitScope();
+
+        const results = tracker.getBatchFilePathsDeclaringSymbols(["alpha", "beta", "unknown"]);
+
+        assert.deepEqual([...(results.get("alpha") ?? [])], ["/project/scripts/a.gml", "/project/scripts/b.gml"]);
+        assert.deepEqual([...(results.get("beta") ?? [])], ["/project/scripts/a.gml"]);
+        assert.equal(results.has("unknown"), false);
+    });
+
+    void it("deduplicates repeated names, normalizes paths, and returns empty map when disabled", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("file", { path: String.raw`C:\project\scripts\util.gml` });
+        tracker.declare("util", { name: "util" });
+        tracker.exitScope();
+
+        const enabledResults = tracker.getBatchFilePathsDeclaringSymbols(["util", "util", ""]);
+        assert.deepEqual([...(enabledResults.get("util") ?? [])], ["C:/project/scripts/util.gml"]);
+
+        const disabledTracker = new ScopeTracker({ enabled: false });
+        const disabledResults = disabledTracker.getBatchFilePathsDeclaringSymbols(["util"]);
+        assert.equal(disabledResults.size, 0);
+    });
+});
