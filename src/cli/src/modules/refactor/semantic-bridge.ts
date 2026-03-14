@@ -103,8 +103,12 @@ type BridgeNamingConventionCategory =
     | "shaderResourceName"
     | "fontResourceName"
     | "pathResourceName"
+    | "animationCurveResourceName"
     | "sequenceResourceName"
     | "tilesetResourceName"
+    | "particleSystemResourceName"
+    | "noteResourceName"
+    | "extensionResourceName"
     | "localVariable"
     | "staticVariable"
     | "globalVariable"
@@ -1025,11 +1029,16 @@ export class GmlSemanticBridge {
                     "sounds",
                     "rooms",
                     "paths",
+                    "curves",
+                    "sequences",
                     "scripts",
                     "shaders",
                     "fonts",
                     "timelines",
-                    "tilesets"
+                    "tilesets",
+                    "particlesystems",
+                    "notes",
+                    "extensions"
                 ].includes(kind)
             ) {
                 const resource = this.findResourceByName(name);
@@ -1121,6 +1130,9 @@ export class GmlSemanticBridge {
             case "GMAudio": {
                 return "audioResourceName";
             }
+            case "GMSound": {
+                return "audioResourceName";
+            }
             case "GMTimeline": {
                 return "timelineResourceName";
             }
@@ -1133,11 +1145,25 @@ export class GmlSemanticBridge {
             case "GMPath": {
                 return "pathResourceName";
             }
+            case "GMAnimCurve":
+            case "GMAnimationCurve": {
+                return "animationCurveResourceName";
+            }
             case "GMSequence": {
                 return "sequenceResourceName";
             }
             case "GMTileSet": {
                 return "tilesetResourceName";
+            }
+            case "GMParticleSystem": {
+                return "particleSystemResourceName";
+            }
+            case "GMNote":
+            case "GMNotes": {
+                return "noteResourceName";
+            }
+            case "GMExtension": {
+                return "extensionResourceName";
             }
             default: {
                 return null;
@@ -1313,6 +1339,52 @@ export class GmlSemanticBridge {
                     kind = "sounds";
                     // No default
                 }
+                break;
+            }
+            case "GMSound": {
+                kind = "sounds";
+                break;
+            }
+            case "GMPath": {
+                kind = "paths";
+                break;
+            }
+            case "GMAnimCurve":
+            case "GMAnimationCurve": {
+                kind = "curves";
+                break;
+            }
+            case "GMShader": {
+                kind = "shaders";
+                break;
+            }
+            case "GMFont": {
+                kind = "fonts";
+                break;
+            }
+            case "GMTimeline": {
+                kind = "timelines";
+                break;
+            }
+            case "GMTileSet": {
+                kind = "tilesets";
+                break;
+            }
+            case "GMSequence": {
+                kind = "sequences";
+                break;
+            }
+            case "GMParticleSystem": {
+                kind = "particlesystems";
+                break;
+            }
+            case "GMNote":
+            case "GMNotes": {
+                kind = "notes";
+                break;
+            }
+            case "GMExtension": {
+                kind = "extensions";
                 break;
             }
         }
