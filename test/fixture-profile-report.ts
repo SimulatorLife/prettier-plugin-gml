@@ -48,6 +48,29 @@ async function collectDeepCpuProfileArtifact(parameters: {
     });
 }
 
+async function collectDeepCpuProfileArtifacts(parameters: {
+    workspaceName: string;
+    cases: ReadonlyArray<{
+        caseId: string;
+        outputPath: string;
+    }>;
+}): Promise<void> {
+    if (parameters.cases.length === 0) {
+        return;
+    }
+
+    await execFileAsync(process.execPath, [path.resolve(process.cwd(), "test/dist/fixture-deep-cpu-case.js")], {
+        cwd: process.cwd(),
+        env: {
+            ...process.env,
+            GMLOOP_FIXTURE_DEEP_CPU: "0",
+            GMLOOP_FIXTURE_DEEP_CPU_WORKSPACE: parameters.workspaceName,
+            GMLOOP_FIXTURE_DEEP_CPU_CASES_JSON: JSON.stringify(parameters.cases)
+        },
+        maxBuffer: 1024 * 1024 * 10
+    });
+}
+
 async function runProfileCollection(): Promise<void> {
     const collector = FixtureRunner.createProfileCollector();
     const fixtureSuites = createFixtureSuiteRegistry();
@@ -73,23 +96,45 @@ async function runProfileCollection(): Promise<void> {
             continue;
         }
 
+        const deepCpuCases: Array<{
+            caseId: string;
+            outputPath: string;
+        }> = [];
+
         for (const fixtureCase of result.fixtureCases) {
             if (fixtureCase.config.fixture.profile?.deepCpuProfile !== true && process.env.GMLOOP_FIXTURE_DEEP_CPU !== "1") {
                 continue;
             }
 
             const outputPath = createDeepCpuArtifactPath(fixtureSuite.workspaceName, fixtureCase.caseId);
-            try {
-                await collectDeepCpuProfileArtifact({
-                    workspaceName: fixtureSuite.workspaceName,
-                    caseId: fixtureCase.caseId,
-                    outputPath
-                });
-                deepCpuArtifactPathByFixtureId.set(`${fixtureSuite.workspaceName}/${fixtureCase.caseId}`, outputPath);
-            } catch (error) {
-                deepCpuFailures.push(
-                    `[${fixtureSuite.workspaceName}] ${fixtureCase.caseId}: ${formatFixtureFailureMessage(error)}`
-                );
+            deepCpuCases.push({
+                caseId: fixtureCase.caseId,
+                outputPath
+            });
+            deepCpuArtifactPathByFixtureId.set(`${fixtureSuite.workspaceName}/${fixtureCase.caseId}`, outputPath);
+        }
+
+        try {
+            await collectDeepCpuProfileArtifacts({
+                workspaceName: fixtureSuite.workspaceName,
+                cases: deepCpuCases
+            });
+        } catch (error) {
+            deepCpuFailures.push(`[${fixtureSuite.workspaceName}]: ${formatFixtureFailureMessage(error)}`);
+
+            // Fall back to per-case execution to preserve failure granularity if batch invocation fails.
+            for (const deepCpuCase of deepCpuCases) {
+                try {
+                    await collectDeepCpuProfileArtifact({
+                        workspaceName: fixtureSuite.workspaceName,
+                        caseId: deepCpuCase.caseId,
+                        outputPath: deepCpuCase.outputPath
+                    });
+                } catch (fallbackError) {
+                    deepCpuFailures.push(
+                        `[${fixtureSuite.workspaceName}] ${deepCpuCase.caseId}: ${formatFixtureFailureMessage(fallbackError)}`
+                    );
+                }
             }
         }
     }

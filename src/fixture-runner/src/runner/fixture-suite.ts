@@ -230,8 +230,10 @@ export async function runFixtureSuite(parameters: {
     profileCollector?: FixtureProfileCollector;
     continueOnFailure?: boolean;
     caseIds?: ReadonlyArray<string>;
+    discoveredFixtureCases?: ReadonlyArray<FixtureCase>;
 }): Promise<FixtureRunResult> {
-    const discoveredFixtureCases = await discoverFixtureCases(parameters.fixtureRoot);
+    const discoveredFixtureCases =
+        parameters.discoveredFixtureCases ?? (await discoverFixtureCases(parameters.fixtureRoot));
     const caseIdFilter = parameters.caseIds ? new Set(parameters.caseIds) : null;
     const fixtureCases = caseIdFilter
         ? discoveredFixtureCases.filter((fixtureCase) => caseIdFilter.has(fixtureCase.caseId))
