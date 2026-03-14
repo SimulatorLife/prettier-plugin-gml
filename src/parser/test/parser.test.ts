@@ -606,6 +606,22 @@ void describe("GameMaker parser fixtures", () => {
         );
     });
 
+    void it("parses nested assignments when the RHS targets member access on a call result", () => {
+        const source = '_mapping = set_mapping(gp_axislv, 0, __INPUT_MAPPING.AXIS, "lefty").limited_range = true;\n';
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const assignments = collectNodesByType(ast, "AssignmentExpression");
+        assert.ok(assignments.length >= 2, "Expected both outer and nested assignment expressions.");
+
+        const nestedAssignment = assignments.find(
+            (assignment) => assignment.left && assignment.left.type === "MemberDotExpression"
+        );
+
+        assert.ok(nestedAssignment, "Expected nested assignment to target a member-dot expression.");
+    });
+
     void it("parses chained calls that continue on the next line", () => {
         const source = ["fsm", '    .add("editor", {})', '    .add("follow", {});', ""].join("\n");
 
