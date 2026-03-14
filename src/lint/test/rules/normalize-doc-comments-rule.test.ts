@@ -4,45 +4,14 @@ import { test } from "node:test";
 import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
+import { runGmlRule } from "./rule-test-harness.js";
 
 function runNormalizeDocCommentsRule(code: string): string {
-    const rule = LintWorkspace.Lint.plugin.rules["normalize-doc-comments"];
-    const fixes: Array<ReplaceTextRangeFixOperation> = [];
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            if (!payload.fix) {
-                return;
-            }
-
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-
-            const fix = payload.fix(fixer);
-            if (fix) {
-                fixes.push(fix);
-            }
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.({ type: "Program" } as never);
-
-    return applyFixOperations(code, fixes);
+    return runGmlRule({
+        rule: LintWorkspace.Lint.plugin.rules["normalize-doc-comments"],
+        code,
+        programNode: { type: "Program" }
+    }).output;
 }
 
 void test("normalize-doc-comments promotes leading summary lines into @description", () => {

@@ -1,6 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 
 import { recoverParseSourceFromMissingBrace } from "../malformed/source-preprocessing.js";
+import { forEachScientificNotationToken } from "./scientific-notation-scan.js";
 
 export type RecoveryMode = "none" | "limited";
 
@@ -25,7 +26,6 @@ export type RecoveryProjection = {
     textInsertions: ReadonlyArray<RecoveryTextInsertion>;
 };
 
-const SCIENTIFIC_NOTATION_PATTERN = /(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+/y;
 const UPPERCASE_LOGICAL_ALIAS_PATTERN = /\b(?:AND|OR|XOR|NOT)\b/gy;
 const STRING_LENGTH_PROPERTY = ".length";
 const ORPHAN_ASSIGNMENT_STATEMENT_PATTERN = /^\s*=\s*(?:\S.*)?;\s*$/u;
@@ -237,52 +237,14 @@ function isLikelyCallArgumentGap(sourceText: string, leftIndex: number): boolean
     return false;
 }
 
-function isScientificNotationBoundary(sourceText: string, startIndex: number, endIndex: number): boolean {
-    return (
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[startIndex - 1]) &&
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[endIndex])
-    );
-}
-
 function projectScientificNotationForRecovery(sourceText: string): string {
     const chunks: Array<string> = [];
-    const scanState = CoreWorkspace.Core.createStringCommentScanState();
-    const sourceLength = sourceText.length;
-
     let copiedThrough = 0;
-    let index = 0;
-    while (index < sourceLength) {
-        const scannedIndex = CoreWorkspace.Core.advanceStringCommentScan(
-            sourceText,
-            sourceLength,
-            index,
-            scanState,
-            true
-        );
-        if (scannedIndex !== index) {
-            index = scannedIndex;
-            continue;
-        }
 
-        SCIENTIFIC_NOTATION_PATTERN.lastIndex = index;
-        const match = SCIENTIFIC_NOTATION_PATTERN.exec(sourceText);
-        if (!match) {
-            index += 1;
-            continue;
-        }
-
-        const scientificText = match[0] ?? "";
-        const start = index;
-        const end = start + scientificText.length;
-        if (!isScientificNotationBoundary(sourceText, start, end)) {
-            index += 1;
-            continue;
-        }
-
+    forEachScientificNotationToken(sourceText, (start, end, scientificText) => {
         chunks.push(sourceText.slice(copiedThrough, start), "0".repeat(scientificText.length));
         copiedThrough = end;
-        index = end;
-    }
+    });
 
     if (copiedThrough === 0) {
         return sourceText;
