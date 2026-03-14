@@ -560,6 +560,7 @@ export interface RenameRequest {
 export interface ExecuteRenameRequest extends RenameRequest {
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -569,6 +570,7 @@ export interface ExecuteBatchRenameRequest {
     renames: Array<RenameRequest>;
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -636,6 +638,7 @@ export interface NamingConventionCodemodPlan {
     warnings: Array<string>;
     errors: Array<string>;
     topLevelRenamePlan: BatchRenamePlanSummary | null;
+    topLevelRenameRequests: Array<RenameRequest>;
     localRenameCount: number;
 }
 
@@ -697,6 +700,10 @@ export interface RegisteredCodemodSelection {
 export interface PrepareRenamePlanOptions {
     validateHotReload?: boolean;
     hotReloadOptions?: HotReloadValidationOptions;
+}
+
+export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
+    includeImpactAnalyses?: boolean;
 }
 
 export interface HotReloadValidationOptions {
@@ -882,6 +889,7 @@ export interface RefactorEngineDependencies {
 
 export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
+    includeResultContent?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;

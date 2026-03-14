@@ -146,6 +146,7 @@ export type {
     OccurrenceTracker,
     ParserBridge,
     PartialSemanticAnalyzer,
+    PrepareBatchRenamePlanOptions,
     PrepareRenamePlanOptions,
     Range,
     RefactorCodemodConfigEntry,

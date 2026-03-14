@@ -578,6 +578,28 @@ void test("applyWorkspaceEdit applies metadata edits as full-document replacemen
     assert.equal(writes["objects/o_player/o_player.yy"], '{"name":"o_hero"}');
 });
 
+void test("applyWorkspaceEdit can omit result content in write mode", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("test.gml", 0, 3, "new");
+
+    const readFile: WorkspaceReadFile = async () => "old text here";
+    const writes: Record<string, string> = {};
+    const writeFile: WorkspaceWriteFile = async (targetPath, content) => {
+        writes[targetPath] = content;
+    };
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        writeFile,
+        dryRun: false,
+        includeResultContent: false
+    });
+
+    assert.equal(results.get("test.gml"), "");
+    assert.equal(writes["test.gml"], "new text here");
+});
+
 void test("applyWorkspaceEdit rejects invalid edits", async () => {
     const engine = new RefactorEngineClass();
     const ws = new WorkspaceEditFactory();

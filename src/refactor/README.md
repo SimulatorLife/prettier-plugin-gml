@@ -1192,9 +1192,9 @@ new RefactorEngine({ parser, semantic, formatter });
 
 #### Workspace Operations
 
-- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files (`includeResultContent: false` avoids retaining full post-edit text in memory during write flows)
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
-- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, optional impact analysis (`includeImpactAnalyses`), and optional hot reload metadata
 
 #### Hot Reload Integration
 

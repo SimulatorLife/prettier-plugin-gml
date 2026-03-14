@@ -212,10 +212,13 @@ export function normalizeNamingConventionPolicy(
             rawRule === false ? false : normalizeNamingRuleConfig(rawRule, `${context}.rules.${category}`);
     }
 
+    const exclusivePrefixes = normalizeExclusiveAffixMap(object.exclusivePrefixes, `${context}.exclusivePrefixes`);
+    const exclusiveSuffixes = normalizeExclusiveAffixMap(object.exclusiveSuffixes, `${context}.exclusiveSuffixes`);
+
     return {
         rules,
-        exclusivePrefixes: normalizeExclusiveAffixMap(object.exclusivePrefixes, `${context}.exclusivePrefixes`),
-        exclusiveSuffixes: normalizeExclusiveAffixMap(object.exclusiveSuffixes, `${context}.exclusiveSuffixes`)
+        ...(exclusivePrefixes ? { exclusivePrefixes } : {}),
+        ...(exclusiveSuffixes ? { exclusiveSuffixes } : {})
     };
 }
 

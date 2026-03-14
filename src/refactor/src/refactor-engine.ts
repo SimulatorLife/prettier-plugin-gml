@@ -38,6 +38,7 @@ import {
     OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
+    type PrepareBatchRenamePlanOptions,
     type PrepareRenamePlanOptions,
     type RefactorEngineDependencies,
     type RefactorProjectAnalysisProvider,
@@ -109,7 +110,16 @@ export class RefactorEngine {
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
         this.renameValidationCache = new RenameValidationCache();
-        this.semanticCache = new SemanticQueryCache(semantic);
+        this.semanticCache = new SemanticQueryCache(semantic, {
+            maxSize: 24,
+            ttlMs: 20_000,
+            maxOccurrenceCacheEntries: 4000
+        });
+    }
+
+    clearQueryCaches(): void {
+        this.renameValidationCache.invalidateAll();
+        this.semanticCache.invalidateAll();
     }
 
     /**
@@ -693,7 +703,7 @@ export class RefactorEngine {
         options?: ApplyWorkspaceEditOptions
     ): Promise<Map<string, string>> {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
-        const { dryRun = false, readFile, writeFile } = opts;
+        const { dryRun = false, includeResultContent = true, readFile, writeFile } = opts;
 
         if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
@@ -735,7 +745,7 @@ export class RefactorEngine {
                 newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
             }
 
-            results.set(filePath, newContent);
+            results.set(filePath, includeResultContent ? newContent : "");
 
             // Write the modified content to disk unless we're in dry-run mode, which
             // lets callers preview changes before committing them.
@@ -746,7 +756,7 @@ export class RefactorEngine {
 
         const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         await Core.runSequentially(metadataEdits, async (metadataEdit) => {
-            results.set(metadataEdit.path, metadataEdit.content);
+            results.set(metadataEdit.path, includeResultContent ? metadataEdit.content : "");
 
             if (!dryRun) {
                 await writeFile(metadataEdit.path, metadataEdit.content);
@@ -824,20 +834,11 @@ export class RefactorEngine {
             );
         }
 
-        // Plan each rename independently, collecting the resulting workspace edits.
-        // We defer merging until all renames are validated so that a single invalid
-        // rename doesn't invalidate the entire batch.
-        const workspaces: Array<WorkspaceEdit> = [];
+        // Plan each rename independently and merge immediately to avoid retaining
+        // every intermediate workspace in memory for large rename batches.
+        const merged = new WorkspaceEdit();
         await Core.runSequentially(renames, async (rename) => {
             const workspace = await this.planRename(rename);
-            workspaces.push(workspace);
-        });
-
-        // Combine all workspace edits into a single merged edit that can be applied
-        // atomically. This ensures either all renames succeed together or none are
-        // applied, maintaining consistency.
-        const merged = new WorkspaceEdit();
-        for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
             }
@@ -848,7 +849,10 @@ export class RefactorEngine {
             for (const fileRename of fileRenames) {
                 merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
-        }
+
+            // Keep batch processing memory bounded for large cross-project runs.
+            this.semanticCache.invalidateAll();
+        });
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
@@ -874,6 +878,7 @@ export class RefactorEngine {
             newName,
             readFile,
             writeFile,
+            includeResultContent = true,
             prepareHotReload = false
         } = request ?? ({} as ExecuteRenameRequest);
 
@@ -898,6 +903,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
@@ -928,7 +934,13 @@ export class RefactorEngine {
      * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
      */
     async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
-        const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
+        const {
+            renames,
+            readFile,
+            writeFile,
+            includeResultContent = true,
+            prepareHotReload = false
+        } = request ?? ({} as ExecuteBatchRenameRequest);
 
         Core.assertArray(renames, {
             errorMessage: "executeBatchRename requires renames array"
@@ -947,6 +959,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
@@ -990,24 +1003,16 @@ export class RefactorEngine {
         const workspace = new WorkspaceEdit();
         const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
 
-        const codemodResults = await Promise.all(
-            uniqueFilePaths.map(async (filePath) => {
-                Core.assertNonEmptyString(filePath, {
-                    errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
-                });
+        await Core.runSequentially(uniqueFilePaths, async (filePath) => {
+            Core.assertNonEmptyString(filePath, {
+                errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
+            });
 
-                const sourceText = await readFile(filePath);
-                return {
-                    filePath,
-                    sourceText,
-                    result: applyLoopLengthHoistingCodemod(sourceText, options)
-                };
-            })
-        );
+            const sourceText = await readFile(filePath);
+            const result = applyLoopLengthHoistingCodemod(sourceText, options);
 
-        for (const { filePath, sourceText, result } of codemodResults) {
             if (!result.changed) {
-                continue;
+                return;
             }
 
             workspace.addEdit(filePath, 0, sourceText.length, result.outputText);
@@ -1016,7 +1021,7 @@ export class RefactorEngine {
                 appliedEditCount: result.appliedEdits.length,
                 diagnosticOffsets: [...result.diagnosticOffsets]
             });
-        }
+        });
 
         if (workspace.edits.length === 0) {
             return {
@@ -1035,6 +1040,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent: dryRun,
             dryRun
         });
 
@@ -1075,11 +1081,12 @@ export class RefactorEngine {
 
         const requestedCodemods = new Set(onlyCodemods);
         const configuredCodemods = config.codemods ?? {};
+        const useInMemoryOverlay = dryRun;
         const overlay = new Map<string, string>();
         const appliedFiles = new Map<string, string>();
 
         const readThroughOverlay = async (filePath: string): Promise<string> => {
-            if (overlay.has(filePath)) {
+            if (useInMemoryOverlay && overlay.has(filePath)) {
                 return overlay.get(filePath) ?? "";
             }
 
@@ -1087,8 +1094,12 @@ export class RefactorEngine {
         };
 
         const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
-            overlay.set(filePath, content);
-            appliedFiles.set(filePath, content);
+            if (useInMemoryOverlay) {
+                overlay.set(filePath, content);
+                appliedFiles.set(filePath, content);
+            } else {
+                appliedFiles.set(filePath, "");
+            }
 
             if (!dryRun && writeFile) {
                 await writeFile(filePath, content);
@@ -1108,8 +1119,12 @@ export class RefactorEngine {
         });
 
         for (const [filePath, content] of result.appliedFiles.entries()) {
-            overlay.set(filePath, content);
-            appliedFiles.set(filePath, content);
+            if (useInMemoryOverlay) {
+                overlay.set(filePath, content);
+                appliedFiles.set(filePath, content);
+            } else {
+                appliedFiles.set(filePath, "");
+            }
         }
 
         return {
@@ -1251,10 +1266,10 @@ export class RefactorEngine {
      */
     async prepareBatchRenamePlan(
         renames: Array<RenameRequest>,
-        options?: PrepareRenamePlanOptions
+        options?: PrepareBatchRenamePlanOptions
     ): Promise<BatchRenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions } = opts;
+        const { validateHotReload = false, hotReloadOptions: rawHotOptions, includeImpactAnalyses = true } = opts;
         const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Validate the batch structure and individual renames up front, detecting
@@ -1309,36 +1324,38 @@ export class RefactorEngine {
         // Analyze the impact of each individual rename so callers can show
         // per-symbol statistics (files affected, occurrence counts, conflicts).
         const impactAnalyses = new Map<string, RenameImpactAnalysis>();
-        await Core.runSequentially(renames, async (rename) => {
-            try {
-                const analysis = await this.analyzeRenameImpact(rename);
-                impactAnalyses.set(rename.symbolId, analysis);
-            } catch (error) {
-                // If analysis fails for one rename, record a minimal error result
-                // so the caller still receives feedback about what went wrong.
-                impactAnalyses.set(rename.symbolId, {
-                    valid: false,
-                    summary: {
-                        symbolId: rename.symbolId,
-                        oldName: extractSymbolName(rename.symbolId),
-                        newName: rename.newName,
-                        affectedFiles: [],
-                        totalOccurrences: 0,
-                        definitionCount: 0,
-                        referenceCount: 0,
-                        hotReloadRequired: false,
-                        dependentSymbols: []
-                    },
-                    conflicts: [
-                        {
-                            type: ConflictType.ANALYSIS_ERROR,
-                            message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
-                        }
-                    ],
-                    warnings: []
-                });
-            }
-        });
+        if (includeImpactAnalyses) {
+            await Core.runSequentially(renames, async (rename) => {
+                try {
+                    const analysis = await this.analyzeRenameImpact(rename);
+                    impactAnalyses.set(rename.symbolId, analysis);
+                } catch (error) {
+                    // If analysis fails for one rename, record a minimal error result
+                    // so the caller still receives feedback about what went wrong.
+                    impactAnalyses.set(rename.symbolId, {
+                        valid: false,
+                        summary: {
+                            symbolId: rename.symbolId,
+                            oldName: extractSymbolName(rename.symbolId),
+                            newName: rename.newName,
+                            affectedFiles: [],
+                            totalOccurrences: 0,
+                            definitionCount: 0,
+                            referenceCount: 0,
+                            hotReloadRequired: false,
+                            dependentSymbols: []
+                        },
+                        conflicts: [
+                            {
+                                type: ConflictType.ANALYSIS_ERROR,
+                                message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
+                            }
+                        ],
+                        warnings: []
+                    });
+                }
+            });
+        }
 
         // Compute the full hot reload dependency cascade for all changed symbols
         // to determine which other symbols need reloading and in what order.

@@ -84,6 +84,32 @@ void test("executeConfiguredCodemods defaults to dry-run for loop-length hoistin
     assert.match(result.appliedFiles.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
 });
 
+void test("executeConfiguredCodemods avoids retaining full file content in write mode", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const writes = new Map<string, string>();
+    const engine = new Refactor.RefactorEngine();
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        writeFile: async (filePath, content) => {
+            writes.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.dryRun, false);
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "");
+    assert.match(writes.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
 void test("executeConfiguredCodemods applies namingConvention local renames without a batch rename plan", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");
@@ -192,6 +218,196 @@ void test("executeConfiguredCodemods reports namingConvention batch rename confl
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, false);
     assert.match(result.summaries[0]?.errors[0] ?? "", /collides/);
+});
+
+void test("executeConfiguredCodemods uses lightweight batch planning for namingConvention top-level renames", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "bad_name",
+                category: "function",
+                path: "scripts/example.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_name",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const calls: Array<{ includeImpactAnalyses: boolean | undefined; validateHotReload: boolean | undefined }> = [];
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(
+            _renames: Array<{ symbolId: string; newName: string }>,
+            options?: { includeImpactAnalyses?: boolean; validateHotReload?: boolean }
+        ): Promise<BatchRenamePlanSummary> {
+            calls.push({
+                includeImpactAnalyses: options?.includeImpactAnalyses,
+                validateHotReload: options?.validateHotReload
+            });
+            return createBatchRenamePlanSummary([]);
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: [],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "function bad_name() {}\n"
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.includeImpactAnalyses, false);
+    assert.equal(calls[0]?.validateHotReload, undefined);
+});
+
+void test("executeConfiguredCodemods streams namingConvention top-level renames in write mode", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "bad_one",
+                category: "function",
+                path: "scripts/a.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_one",
+                occurrences: []
+            },
+            {
+                name: "bad_two",
+                category: "function",
+                path: "scripts/b.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_two",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const executeBatchCalls: Array<number> = [];
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(): Promise<BatchRenamePlanSummary> {
+            throw new Error("write mode should not call prepareBatchRenamePlan for top-level naming renames");
+        },
+        async executeBatchRename(request: { renames: Array<{ symbolId: string; newName: string }> }) {
+            executeBatchCalls.push(request.renames.length);
+            return {
+                workspace: new Refactor.WorkspaceEdit(),
+                applied: new Map<string, string>([
+                    ["scripts/a.gml", ""],
+                    ["scripts/b.gml", ""]
+                ]),
+                hotReloadUpdates: [],
+                fileRenames: []
+            };
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/a.gml", "scripts/b.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "",
+        writeFile: async () => {},
+        dryRun: false
+    });
+
+    assert.equal(executeBatchCalls.length, 1);
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
+});
+
+void test("executeConfiguredCodemods requests naming targets by selected GML file paths", async () => {
+    const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
+    const firstOccurrence = sourceText.indexOf("bad_name");
+    const secondOccurrence = sourceText.lastIndexOf("bad_name");
+    const listCalls: Array<Array<string> | undefined> = [];
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async (filePaths?: Array<string>) => {
+            listCalls.push(filePaths);
+
+            if (filePaths && !filePaths.includes("scripts/example.gml")) {
+                return [];
+            }
+
+            return [
+                {
+                    name: "bad_name",
+                    category: "localVariable",
+                    path: "scripts/example.gml",
+                    scopeId: "scope:local",
+                    symbolId: null,
+                    occurrences: [
+                        {
+                            path: "scripts/example.gml",
+                            start: firstOccurrence,
+                            end: firstOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.DEFINITION,
+                            scopeId: "scope:local"
+                        },
+                        {
+                            path: "scripts/example.gml",
+                            start: secondOccurrence,
+                            end: secondOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.REFERENCE,
+                            scopeId: "scope:local"
+                        }
+                    ]
+                }
+            ];
+        }
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => sourceText
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
+    assert.ok(listCalls.every((paths) => Array.isArray(paths) && paths.length === 4));
+    assert.ok(listCalls.every((paths) => paths?.includes("scripts/example.gml")));
+    assert.ok(listCalls.every((paths) => paths?.includes("scripts/example.yy")));
 });
 
 void test("executeConfiguredCodemods surfaces namingConvention hot reload warnings from top-level plans", async () => {
