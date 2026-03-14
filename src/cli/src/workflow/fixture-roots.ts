@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { createWorkflowPathFilter, type WorkflowPathFilterOptions } from "./path-filter.js";

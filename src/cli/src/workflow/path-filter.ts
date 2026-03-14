@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqueArray, compactArray } = Core;
 

@@ -7,7 +7,7 @@
  * every block-comment candidate encountered during a formatting pass. It
  * delegates the per-line test to `Core.isDecorativeSlashCommentLine`, which
  * uses a module-scoped `RegExp` compiled once at module-evaluation time in
- * `@gml-modules/core`.  This guarantees that no new `RegExp` is allocated per
+ * `@gmloop/core`.  This guarantees that no new `RegExp` is allocated per
  * call—even though `hasDecorativeSlashBanner` may run hundreds of times per
  * formatting pass.
  *
@@ -15,8 +15,8 @@
  * constant.  That pattern was migrated to Core (as `isDecorativeSlashCommentLine`)
  * to enforce the workspace ownership boundary: Core owns shared banner-comment
  * primitives (target-state.md §2.1), not the formatter.  The migration also
- * eliminates a duplicate definition that existed independently in
- * `printer/type-guards.ts`.
+ * eliminates a duplicate definition that previously lived in the formatter
+ * printer utilities.
  *
  * Reproducible measurement (allocation counter)
  * ----------------------------------------------
@@ -40,7 +40,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getHeapStatistics } from "node:v8";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { Format } from "../src/index.js";
 

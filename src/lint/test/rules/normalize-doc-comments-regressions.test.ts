@@ -95,3 +95,57 @@ void test("normalize-doc-comments synthesizes @returns for inherited constructor
     const result = lintWithRule("normalize-doc-comments", input, {});
     assertEquals(result.output, expected);
 });
+
+void test("normalize-doc-comments keeps function-typed optional defaults without embedding the full default body", () => {
+    const input = [
+        "/// @param x",
+        "var func_default_callback = function (x = function () {",
+        "    return 1;",
+        "}) {",
+        "    return x();",
+        "};",
+        ""
+    ].join("\n");
+
+    const expected = [
+        "/// @param {function} [x]",
+        "/// @returns {any}",
+        "var func_default_callback = function (x = function () {",
+        "    return 1;",
+        "}) {",
+        "    return x();",
+        "};",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-doc-comments only materializes one deferred documented assignment copy across repeated passes", () => {
+    const input = [
+        "var assigned_local_with_params = function (left, right = 10) {",
+        "    var total = left + right;",
+        "};",
+        ""
+    ].join("\n");
+
+    const firstPass = lintWithRule("normalize-doc-comments", input, {}).output;
+    const secondPass = lintWithRule("normalize-doc-comments", firstPass, {}).output;
+    const expected = [
+        "var assigned_local_with_params = function (left, right = 10) {",
+        "    var total = left + right;",
+        "};",
+        "",
+        "/// @param left",
+        "/// @param [right=10]",
+        "/// @returns {undefined}",
+        "var assigned_local_with_params = function (left, right = 10) {",
+        "    var total = left + right;",
+        "};",
+        ""
+    ].join("\n");
+
+    assertEquals(firstPass, expected);
+    assertEquals(secondPass, expected);
+});

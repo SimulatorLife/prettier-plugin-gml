@@ -1,7 +1,7 @@
 /**
  * Ensures optional function parameters with implicit `undefined` defaults are materialized before downstream transforms run.
  */
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
 import {
     getArgumentIndexFromIdentifier,
@@ -20,6 +20,26 @@ type TernaryExpressionNode = GameMakerAstNode & {
     alternate: GameMakerAstNode | null;
 };
 
+function isExplicitLeftDefaultParameter(parameter: GameMakerAstNode | null): boolean {
+    if (!parameter) {
+        return false;
+    }
+
+    if (parameter.type === "AssignmentPattern") {
+        return true;
+    }
+
+    if (parameter.type !== "DefaultParameter" || parameter.right == null) {
+        return false;
+    }
+
+    if (parameter._featherMaterializedTrailingUndefined === true) {
+        return false;
+    }
+
+    return !Core.isUndefinedSentinel(parameter.right);
+}
+
 function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parameter: GameMakerAstNode | null): boolean {
     if (!Core.isObjectLike(node) || !Array.isArray(node.params)) {
         return false;
@@ -33,24 +53,7 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
         }
 
         for (let offset = 0; offset < idx; offset += 1) {
-            const leftParam = paramsList[offset];
-            if (!leftParam) {
-                continue;
-            }
-
-            if (leftParam.type === "DefaultParameter" && leftParam.right != null) {
-                if (leftParam._featherMaterializedTrailingUndefined === true) {
-                    continue;
-                }
-
-                if (!Core.isUndefinedSentinel(leftParam.right)) {
-                    return true;
-                }
-
-                continue;
-            }
-
-            if (leftParam.type === "AssignmentPattern") {
+            if (isExplicitLeftDefaultParameter(paramsList[offset])) {
                 return true;
             }
         }
@@ -668,8 +671,9 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
         const paramDocMap = new Map<string, boolean>();
         if (Core.isNonEmptyArray(comments)) {
             for (const comment of comments) {
-                if (!comment || typeof comment.value !== "string") continue;
-                const m = comment.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
+                const commentRecord = comment as Record<string, unknown>;
+                if (typeof commentRecord.value !== "string") continue;
+                const m = commentRecord.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
                 if (!m) continue;
                 const raw = m[1];
                 const name = raw ? raw.replaceAll(/^\[|\]$/g, "").trim() : null;

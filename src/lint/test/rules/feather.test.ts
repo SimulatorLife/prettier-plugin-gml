@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithFeatherRule } from "./rule-test-harness.js";
@@ -93,6 +93,7 @@ const migrationCases: ReadonlyArray<MigrationCase> = Object.freeze([
         ruleName: "gm1012",
         assertOutput: (output) => {
             assertEquals(output.includes("/// @param value"), true);
+            assertEquals(countOccurrences(output, "/// @param value"), 1);
             assertEquals(output.includes("string_length("), true);
         }
     },
@@ -663,4 +664,70 @@ var total = 1;;
     assertEquals(output.includes("for (;;) {"), true);
     assertEquals(output.includes("var total = 1;;"), false);
     assertEquals(output.includes("\n;;\n"), false);
+});
+
+void test("gm1003 removes numeric string enum initializers without leaving a trailing comma on the final member", () => {
+    const input = [
+        "enum eTransitionType {",
+        "    in = eTransitionState.in, // zoom in",
+        "    out = eTransitionState.out, // zoom out",
+        "    partway_in = eTransitionState.partway_in, // zoom part way in",
+        "    partway_out = eTransitionState.partway_out, // zoom part way in",
+        "}",
+        ""
+    ].join("\n");
+
+    const { output } = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1003", input);
+
+    assertEquals(/partway_out\s*=\s*eTransitionState\.partway_out,\s*\/\/ zoom part way in/u.test(output), false);
+    assertEquals(/partway_out\s*=\s*eTransitionState\.partway_out\s*\/\/ zoom part way in/u.test(output), true);
+});
+
+void test("gm1058 is idempotent when constructor has already been inserted", () => {
+    const input = ["function item()", "{", "    self.value = 1;", "}", "", "var sword = new item();", ""].join("\n");
+
+    const firstPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1058", input).output;
+    const secondPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm1058", firstPass).output;
+
+    assertEquals(firstPass, secondPass);
+    assertEquals(countOccurrences(secondPass, "constructor"), 1);
+});
+
+void test("gm2031 inserts file_find_close only once before the nested file_find_first call", () => {
+    const input = [
+        'var _file = file_find_first("/game_data/*.bin", fa_none);',
+        "",
+        "if (_look_for_description)",
+        "{",
+        '    _file2 = file_find_first("/game_data/*.json", fa_none);',
+        "}",
+        ""
+    ].join("\n");
+
+    const firstPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2031", input).output;
+    const secondPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2031", firstPass).output;
+
+    assertEquals(countOccurrences(firstPass, "file_find_close();"), 1);
+    assertEquals(firstPass, secondPass);
+});
+
+void test("gm2043 swaps declaration order exactly once across repeated fixer passes", () => {
+    const input = ["i = 0;", "", "var i = 34;", ""].join("\n");
+
+    const firstPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2043", input).output;
+    const secondPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2043", firstPass).output;
+
+    assertEquals(firstPass, secondPass);
+    assertEquals(countOccurrences(secondPass, "var i = 0;"), 1);
+    assertEquals(countOccurrences(secondPass, "var var"), 0);
+});
+
+void test("gm2044 inserts a single returns doc even across repeated fixer passes", () => {
+    const input = ["function demo() {", "    return;", "}", ""].join("\n");
+
+    const firstPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2044", input).output;
+    const secondPass = lintWithFeatherRule(LintWorkspace.Lint.featherPlugin, "gm2044", firstPass).output;
+
+    assertEquals(countOccurrences(firstPass, "/// @returns {undefined}"), 1);
+    assertEquals(firstPass, secondPass);
 });

@@ -7,7 +7,7 @@ import {
     statSync as nodeStatSync
 } from "node:fs";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 

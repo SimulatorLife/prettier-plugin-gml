@@ -47,7 +47,7 @@ void test("golden fixture guard blocks only protected fixture modifications/remo
             previous_filename: "test/fixtures/plugin-integration/suite/old-name.gml"
         },
         {
-            filename: "src/format/test/fixtures/test-argument-docs.output.gml",
+            filename: "src/format/test/fixtures/test-argument-docs/expected.gml",
             status: "modified"
         },
         {

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { __lintCommandTest__, runLintCommand } from "../src/commands/lint.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";

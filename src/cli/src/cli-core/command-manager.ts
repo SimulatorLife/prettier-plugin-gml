@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
 import { resolveCommandUsage } from "./command-usage.js";

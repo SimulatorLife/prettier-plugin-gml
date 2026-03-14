@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 function isVirtualLintPath(filename: string): boolean {
     return filename.startsWith("<") && filename.endsWith(">") && filename.length > 1;

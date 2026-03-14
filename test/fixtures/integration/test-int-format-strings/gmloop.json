@@ -1,0 +1,13 @@
+{
+  "allowInlineControlFlowBlocks": false,
+  "printWidth": 120,
+  "lintRules": {
+    "gml/normalize-doc-comments": "error",
+    "gml/prefer-string-interpolation": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform",
+    "comparison": "exact"
+  }
+}

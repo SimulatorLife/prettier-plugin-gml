@@ -4,7 +4,7 @@
  * from the semantic analyzer and parser.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import {
     type AstNode,

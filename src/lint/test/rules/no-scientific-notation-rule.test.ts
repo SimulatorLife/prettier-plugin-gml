@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";

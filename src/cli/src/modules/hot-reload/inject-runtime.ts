@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 

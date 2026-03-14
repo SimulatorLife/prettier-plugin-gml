@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/no-unnecessary-string-interpolation": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

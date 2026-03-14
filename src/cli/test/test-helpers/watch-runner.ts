@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
-import * as Cli from "@gml-modules/cli";
+import * as Cli from "@gmloop/cli";
 
 import { findAvailablePort } from "./free-port.js";
 

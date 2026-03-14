@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gmloop/core";
 import type { Token } from "antlr4";
 
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
@@ -7,8 +7,7 @@ import type {
     ParserContextWithMethods,
     ParserOptions,
     ParserToken,
-    ScopeTracker,
-    ScopeTrackerOptions
+    ScopeTracker
 } from "../types/index.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 
@@ -37,23 +36,6 @@ type ParsedDefineMacroDirective = {
 };
 
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
-
-/**
- * @param {{
- *     createScopeTracker?: (context: { enabled: boolean }) => unknown,
- *     getIdentifierMetadata?: boolean
- * }} [options]
- */
-function createScopeTrackerFromOptions(options: ScopeTrackerOptions): ParserScopeTracker {
-    const { createScopeTracker, enabled } = options;
-    if (!enabled) {
-        return null;
-    }
-    if (typeof createScopeTracker !== "function") {
-        throw new TypeError("Invalid createScopeTracker function.");
-    }
-    return createScopeTracker();
-}
 
 /**
  * Create a parser visitor instance whose generated `visit*` methods proxy to
@@ -124,7 +106,17 @@ export default class GameMakerASTBuilder {
         this.options = options;
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
-        this.scopeTracker = createScopeTrackerFromOptions(options.scopeTrackerOptions);
+        const { enabled, createScopeTracker } = options.scopeTrackerOptions;
+
+        if (enabled) {
+            if (typeof createScopeTracker !== "function") {
+                throw new TypeError("Invalid createScopeTracker function.");
+            }
+
+            this.scopeTracker = createScopeTracker();
+        } else {
+            this.scopeTracker = null;
+        }
 
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: Core.BINARY_OPERATORS

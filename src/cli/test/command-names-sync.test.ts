@@ -14,6 +14,7 @@ import { CLI_COMMAND_NAMES } from "../src/shared/command-names.js";
 void test("CLI_COMMAND_NAMES includes all expected commands", () => {
     const expectedCommands = [
         "format",
+        "fix",
         "lint",
         "performance",
         "memory",

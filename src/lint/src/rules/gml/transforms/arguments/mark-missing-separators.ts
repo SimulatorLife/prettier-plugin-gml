@@ -1,7 +1,7 @@
 /**
  * Detects call expressions written without commas between arguments and flags them so downstream formatters preserve the raw text.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 type MarkCallsMissingArgumentSeparatorsTransformOptions = {
     originalText?: string;

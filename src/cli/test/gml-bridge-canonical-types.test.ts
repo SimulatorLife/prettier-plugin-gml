@@ -1,6 +1,6 @@
 /**
  * Verifies that GmlParserBridge and GmlTranspilerBridge implement the canonical
- * interfaces from @gml-modules/refactor rather than local type duplicates.
+ * interfaces from @gmloop/refactor rather than local type duplicates.
  *
  * This is a compile-time/structural test: if the bridge classes ever diverge from
  * the canonical Refactor.ParserBridge or Refactor.TranspilerBridge interfaces, the
@@ -8,7 +8,7 @@
  */
 import { describe, it } from "node:test";
 
-import type * as Refactor from "@gml-modules/refactor";
+import type * as Refactor from "@gmloop/refactor";
 
 import { GmlParserBridge } from "../src/modules/refactor/parser-bridge.js";
 import { GmlTranspilerBridge } from "../src/modules/refactor/transpiler-bridge.js";

@@ -1,4 +1,4 @@
-import type { GameMakerAstNode } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gmloop/core";
 
 import { defaultGmlFormatComponentImplementations } from "./default-component-instances.js";
 import type { GmlFormatComponentBundle } from "./format-types.js";
@@ -25,13 +25,13 @@ export function createDefaultGmlFormatComponents(): GmlFormatComponentBundle {
             }
         },
         options: {
-            allowSingleLineIfStatements: {
+            allowInlineControlFlowBlocks: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: false,
                 description:
-                    "Collapse single-statement 'if' bodies to a single line when the complete statement fits within printWidth (for example, 'if (condition) { return; }'). When disabled, only guard-style single-line 'if' statements that already appear on one line stay collapsed; other bodies expand across multiple lines."
+                    "Allow short, comment-free braced control-flow blocks to stay on one line when the complete statement fits within printWidth (for example, 'if (condition) { return; }'). When disabled, control-flow blocks always expand across multiple lines."
             },
             logicalOperatorsStyle: {
                 since: "0.0.0",

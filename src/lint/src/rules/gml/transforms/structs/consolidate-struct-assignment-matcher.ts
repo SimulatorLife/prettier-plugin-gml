@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gmloop/core";
 
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";

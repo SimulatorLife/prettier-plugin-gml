@@ -1,4 +1,4 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../../catalog.js";
@@ -153,7 +153,7 @@ export function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleM
                             loc: context.sourceCode.getLocFromIndex(statement.start),
                             messageId: definition.messageId,
                             fix(fixer) {
-                                return fixer.removeRange([statement.start, removeEnd]);
+                                return fixer.replaceTextRange([statement.start, removeEnd], "");
                             }
                         });
                     }

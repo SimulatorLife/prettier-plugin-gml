@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 import { XMLParser } from "fast-xml-parser";
 

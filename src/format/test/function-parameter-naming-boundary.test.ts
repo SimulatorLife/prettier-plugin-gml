@@ -4,11 +4,11 @@
  * The format printer's `function-parameter-naming` module must expose only
  * layout helpers — path traversal and declarator joining.
  * Semantic content rewrites (parameter renaming, alias removal, argument
- * initializer inference) belong in `@gml-modules/lint`, not the formatter.
+ * initializer inference) belong in `@gmloop/lint`, not the formatter.
  *
  * `filterMisattachedFunctionDocComments` was a parser-workaround that lived
  * in this module but has since been correctly migrated to the parser workspace
- * (`@gml-modules/parser` → `normalize-function-doc-comment-attachments.ts`).
+ * (`@gmloop/parser` → `normalize-function-doc-comment-attachments.ts`).
  * It must NOT be re-introduced here; the parser now handles function-tag
  * comment pre-attachment before the formatter ever runs.
  *
@@ -30,7 +30,7 @@ void test("function-parameter-naming module only exposes layout helpers", () => 
     assert.deepStrictEqual(
         exports,
         ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
-        "function-parameter-naming must only export layout helpers — semantic rewrites belong in @gml-modules/lint"
+        "function-parameter-naming must only export layout helpers — semantic rewrites belong in @gmloop/lint"
     );
 });
 
@@ -65,7 +65,7 @@ void test("function-parameter-naming does not export preferred-name resolver (re
 void test("function-parameter-naming does not export parser-workaround (filterMisattachedFunctionDocComments)", () => {
     // This function was a formatter-side workaround for comments that Prettier
     // attached to the wrong AST node. It has been correctly migrated to the
-    // parser workspace: `@gml-modules/parser` →
+    // parser workspace: `@gmloop/parser` →
     // `normalize-function-doc-comment-attachments.ts`. The parser's
     // `normalizeFunctionDocCommentAttachments` pass now pre-attaches
     // `@function`-tag comments to their target function node before the

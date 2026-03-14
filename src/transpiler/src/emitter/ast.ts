@@ -26,7 +26,7 @@
 /**
  * Semantic kind classification for identifiers and call targets.
  *
- * SOURCE OF TRUTH: @gml-modules/semantic (src/symbols/sem-oracle.ts)
+ * SOURCE OF TRUTH: @gmloop/semantic (src/symbols/sem-oracle.ts)
  * This is a re-declaration maintained for transpiler use. The canonical definition
  * lives in the semantic package. Keep this in sync with that definition.
  *

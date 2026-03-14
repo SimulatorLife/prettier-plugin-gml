@@ -3,12 +3,21 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "#fixture-test/format": ["../src/format/test/index.ts"],
+      "#fixture-test/lint": ["../src/lint/test/rules/index.ts"],
+      "#fixture-test/refactor": ["../src/refactor/test/index.ts"]
+    }
   },
   "references": [
     { "path": "../src/core" },
+    { "path": "../src/fixture-runner" },
     { "path": "../src/parser" },
     { "path": "../src/format" },
+    { "path": "../src/lint" },
+    { "path": "../src/refactor" },
     { "path": "../src/semantic" }
   ],
   "include": ["*.ts"],

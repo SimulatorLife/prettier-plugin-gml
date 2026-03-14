@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 
@@ -58,8 +58,18 @@ const expectedRules = Object.freeze([
         ]
     },
     {
+        shortName: "prefer-array-push",
+        messageId: "preferArrayPush",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "prefer-compound-assignments",
         messageId: "preferCompoundAssignments",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "prefer-increment-decrement-operators",
+        messageId: "preferIncrementDecrementOperators",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
@@ -86,6 +96,11 @@ const expectedRules = Object.freeze([
     {
         shortName: "no-empty-regions",
         messageId: "noEmptyRegions",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "no-legacy-api",
+        messageId: "noLegacyApi",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
