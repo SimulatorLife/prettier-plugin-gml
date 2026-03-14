@@ -3,7 +3,7 @@
  * This module provides identifier validation and reserved keyword checking.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Validate and normalize an identifier name.

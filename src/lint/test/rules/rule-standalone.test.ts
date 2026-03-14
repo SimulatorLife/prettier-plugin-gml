@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
@@ -963,11 +963,6 @@ void test("full-file rewrite rules report the first changed source location", ()
             expectedLoc: { line: 2, column: 0 }
         },
         {
-            ruleName: "require-control-flow-braces",
-            input: ["var keep = 1;", "if (ready) step();", ""].join("\n"),
-            expectedLoc: { line: 2, column: 11 }
-        },
-        {
             ruleName: "no-assignment-in-condition",
             input: ["var keep = 1;", "if (left = right) value = 1;", ""].join("\n"),
             expectedLoc: { line: 2, column: 10 }
@@ -1058,81 +1053,75 @@ void test("require-control-flow-braces keeps else-if chains intact when the bran
     const input = ["if (x) {", "    a();", "}", "else if (_prev_char == 0x093C) ", "    b();", ""].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.messages.length, 0);
+    assertEquals(result.messages.length, 1);
     assertEquals(result.output, input);
+    assert.deepEqual(result.messages[0]?.loc, { line: 5, column: 4 });
 });
 
-void test("require-control-flow-braces wraps inline statements with nested call parentheses safely", () => {
+void test("require-control-flow-braces reports inline statements with nested call parentheses safely", () => {
     const input = String.raw`if (_starting_font == undefined) __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");
 `;
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output.includes("if (_starting_font == undefined) {"), true);
+    assertEquals(result.messages.length, 1);
     assertEquals(
-        result.output.includes(
-            String.raw`__scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)");`
-        ),
-        true
+        result.output,
+        String.raw`if (_starting_font == undefined) { __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)"); }
+`
     );
-    assertEquals(result.output.trimEnd().endsWith("}"), true);
+    assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 33 });
 });
 
-void test("require-control-flow-braces rewrites legacy then inline if clauses", () => {
-    const input = ["if my_var == your_var++ then their_var;", "if my_var == your_var THEN ++their_var;", ""].join("\n");
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output.includes("if (my_var == your_var++) {"), true);
-    assertEquals(result.output.includes("their_var;"), true);
-    assertEquals(result.output.includes("if (my_var == your_var) {"), true);
-    assertEquals(result.output.includes("++their_var;"), true);
-    assertEquals(result.output.split("}").length - 1, 2);
-});
-
-void test("require-control-flow-braces rewrites legacy call-style if clauses without then", () => {
-    const input = ["if should_exit() return;", ""].join("\n");
-    const expected = ["if (should_exit()) {", "    return;", "}", ""].join("\n");
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.output, expected);
-});
-
-void test("require-control-flow-braces wraps inline while/for/with statements", () => {
+void test("require-control-flow-braces reports inline while/for/with statements", () => {
     const input = ["while (alive) tick();", "for (var i = 0; i < 10; i++) sum += i;", "with (other) hp -= 1;", ""].join(
         "\n"
     );
-    const expected = [
-        "while (alive) {",
-        "    tick();",
-        "}",
-        "for (var i = 0; i < 10; i++) {",
-        "    sum += i;",
-        "}",
-        "with (other) {",
-        "    hp -= 1;",
-        "}",
-        ""
-    ].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.output, expected);
-});
-
-void test("require-control-flow-braces wraps line-only else branches without rewriting else-if chains", () => {
-    const input = ["if (a > b)", '    draw_text(x, y, "ok");', "else", "    do_other();", ""].join("\n");
-    const expected = ["if (a > b) {", '    draw_text(x, y, "ok");', "}", "else {", "    do_other();", "}", ""].join(
-        "\n"
+    assertEquals(result.messages.length, 3);
+    assertEquals(
+        result.output,
+        [
+            "while (alive) { tick(); }",
+            "for (var i = 0; i < 10; i++) { sum += i; }",
+            "with (other) { hp -= 1; }",
+            ""
+        ].join("\n")
     );
-
-    const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.output, expected);
+    assert.deepEqual(
+        result.messages.map((message) => message.loc),
+        [
+            { line: 1, column: 14 },
+            { line: 2, column: 29 },
+            { line: 3, column: 13 }
+        ]
+    );
 });
 
-void test("require-control-flow-braces wraps inline do-until clauses", () => {
-    const input = ["do step(); until (done);", ""].join("\n");
-    const expected = ["do {", "    step();", "} until (done);", ""].join("\n");
+void test("require-control-flow-braces reports line-only else branches without rewriting else-if chains", () => {
+    const input = ["if (a > b)", '    draw_text(x, y, "ok");', "else", "    do_other();", ""].join("\n");
 
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.output, expected);
+    assertEquals(result.messages.length, 2);
+    assertEquals(
+        result.output,
+        ["if (a > b)", '    { draw_text(x, y, "ok"); }', "else", "    { do_other(); }", ""].join("\n")
+    );
+    assert.deepEqual(
+        result.messages.map((message) => message.loc),
+        [
+            { line: 2, column: 4 },
+            { line: 4, column: 4 }
+        ]
+    );
+});
+
+void test("require-control-flow-braces reports inline do-until clauses", () => {
+    const input = ["do step(); until (done);", ""].join("\n");
+
+    const result = lintWithRule("require-control-flow-braces", input, {});
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, ["do { step(); } until (done);", ""].join("\n"));
+    assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 3 });
 });
 
 void test("require-control-flow-braces preserves already braced inline conditions with nested call parentheses", () => {
@@ -1147,13 +1136,15 @@ void test("require-control-flow-braces preserves already braced inline condition
     assertEquals(result.output, input);
 });
 
-void test("require-control-flow-braces wraps repeat statements with nested index expressions safely", () => {
+void test("require-control-flow-braces reports repeat statements with nested index expressions safely", () => {
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
-    assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output.includes("repeat (_tag_parameter_count-1) {"), true);
-    assertEquals(result.output.includes('_command_string += "," + string(_tag_parameters[_j++]);'), true);
-    assertEquals(result.output.trimEnd().endsWith("}"), true);
+    assertEquals(result.messages.length, 1);
+    assertEquals(
+        result.output,
+        'repeat(_tag_parameter_count-1) { _command_string += "," + string(_tag_parameters[_j++]); }\n'
+    );
+    assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 31 });
 });
 
 void test("optimize-math-expressions skips formatting-only rewrites for decimal literals that already start with zero", () => {
@@ -1164,7 +1155,7 @@ void test("optimize-math-expressions skips formatting-only rewrites for decimal 
 });
 
 void test("optimize-math-expressions does not rewrite decimal literals with missing leading/trailing zeros", () => {
-    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gml-modules/format')
+    // Adding leading/trailing zeros to these literals is strictly a formatting change, and owned exclusively by the formatter ('@gmloop/format')
     // However, when a math-optimization condenses an expression containing two or more of these literals into a single literal, the resulting literal
     // is expected to be a normalized form that the formatter would produce, to avoid unnecessary churn from subsequent formatter rewrites
     const input = ["var a = .5;", "var b = 1. - .5;", "var c = 5.;", ""].join("\n");
@@ -1383,6 +1374,13 @@ void test("normalize-operator-aliases replaces invalid logical keyword 'not' wit
     assertEquals(result.output, expected);
 });
 
+void test("normalize-operator-aliases leaves uppercase binary aliases unchanged while fixing uppercase NOT", () => {
+    const input = ["if (ready AND NOT done OR extra XOR flag) {", "    finish();", "}", ""].join("\n");
+    const expected = ["if (ready AND ! done OR extra XOR flag) {", "    finish();", "}", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-operator-aliases does not rewrite identifier usage of 'not'", () => {
     const input = ["var not = 1;", "value = not + 2;", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
@@ -1583,6 +1581,15 @@ void test("optimize-logical-flow does not rewrite unchanged struct accessor cond
     const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
 
     const result = lintWithRule("optimize-logical-flow", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("optimize-logical-flow handles parenthesized logical operands without crashing", () => {
+    const input = ["function compare_ranges(a, b, c, d) {", "    return (a > b) || (c < d);", "}", ""].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+
     assertEquals(result.messages.length, 0);
     assertEquals(result.output, input);
 });

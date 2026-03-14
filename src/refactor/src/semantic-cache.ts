@@ -10,7 +10,7 @@
  * when the underlying source files change.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "./types.js";
 

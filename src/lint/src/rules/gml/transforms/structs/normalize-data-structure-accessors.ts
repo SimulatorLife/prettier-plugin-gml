@@ -7,7 +7,7 @@
  * `[#` because that arity proves grid access.
  */
 
-import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gmloop/core";
 
 const { isObjectLike } = Core;
 

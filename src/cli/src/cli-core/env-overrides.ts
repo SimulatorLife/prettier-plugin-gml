@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { asErrorLike } from "../shared/error-guards.js";
 import type { CommanderOptionSetter } from "./commander-types.js";

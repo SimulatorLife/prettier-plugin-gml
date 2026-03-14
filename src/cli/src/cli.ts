@@ -17,7 +17,7 @@
 
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 
 import { createCliCommandManager } from "./cli-core/command-manager.js";
@@ -25,6 +25,7 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { handleCliError } from "./cli-core/errors.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
+import { createFixCommand, runFixCommand } from "./commands/fix.js";
 import { __formatTest__, createFormatCommand, runFormatCommand } from "./commands/format.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
@@ -118,7 +119,7 @@ const program = applyStandardCommandOptions(new Command())
     .usage("[command] [options]")
     .description(
         [
-            "Utilities for working with the prettier-plugin-gml project.",
+            "Utilities for working with the GMLoop toolchain.",
             "Provides formatting, benchmarking, and manual data generation commands.",
             resolveDefaultAction() === FORMAT_ACTION
                 ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
@@ -131,7 +132,7 @@ export const { registry: cliCommandRegistry, runner: cliCommandRunner } = create
     program,
     onUnhandledError: (error) =>
         handleCliError(error, {
-            prefix: "Failed to run prettier-plugin-gml CLI.",
+            prefix: "Failed to run GMLoop CLI.",
             exitCode: 1
         })
 });
@@ -335,6 +336,16 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
+    command: createFixCommand(),
+    run: ({ command }) => runFixCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run project fix workflow.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
     command: createMemoryCommand(),
     run: ({ command }) => runMemoryCommand({ command }),
     onError: (error) =>
@@ -396,7 +407,7 @@ cliCommandRegistry.registerCommand({
 
 cliCommandRegistry.registerCommand({
     command: createRefactorCommand(),
-    run: ({ command }) => runRefactorCommand(command.opts()),
+    run: ({ command }) => runRefactorCommand(command),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to perform refactor operation.",
@@ -431,7 +442,7 @@ if (!isCliRunSkipped()) {
         await cliCommandRunner.run(normalizedArguments);
     } catch (error) {
         handleCliError(error, {
-            prefix: "Failed to run prettier-plugin-gml CLI.",
+            prefix: "Failed to run GMLoop CLI.",
             exitCode: 1
         });
     }

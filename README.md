@@ -1,14 +1,13 @@
-# GameMaker Language Toolchain Monorepo
+# GMLoop
 
-This repository is the source monorepo for various GameMaker Language tools.
+This repository is the source monorepo for various GameMaker Language tools, including:
 
-It contains:
-- a Prettier formatter plugin (`@gml-modules/format`)
-- an ESLint language plugin + rules (`@gml-modules/lint`)
-- a refactor engine (`@gml-modules/refactor`)
-- a **gml** to **js** transpiler (`@gml-modules/transpiler`)
-- HTML5-runtime live reloading (`@gml-modules/runtime-wrapper`)
-- parser, semantic analysis, and CLI workspaces
+- a Prettier formatter plugin ([`@gmloop/format`](./src/format/))
+- an ESLint language plugin + rules ([`@gmloop/lint`](./src/lint/))
+- a codemod/refactor engine ([`@gmloop/refactor`](./src/refactor/))
+- a **gml** to **js** transpiler ([`@gmloop/transpiler`](./src/transpiler/))
+- HTML5-runtime live reloading ([`@gmloop/runtime-wrapper`](./src/runtime-wrapper/))
+- [parser](./src/parser/), [semantic analysis](./src/semantic/), and [CLI](./src/cli/) workspaces
 
 ## Table of contents
 
@@ -23,34 +22,23 @@ It contains:
 
 ## Formatter at a glance
 
-Formatter (`format`) does layout/canonical rendering only (whitespace, semicolons, etc). It does not rewrite code or change semantics.
+Formatter ([`@gmloop/format`](./src/format/)) does layout/canonical rendering only (whitespace, semicolons, etc). It does not rewrite code or change semantics.
 
 ```gml
 // input
-function demo(){var stats={}; stats.hp=100; stats.mp=50; return stats;}
+function demo(){var stats={}
+stats.hp=100; stats.mp=50; return stats;}
 
-// formatted output
+// output
 function demo() {
-    var stats = {
-        hp: 100,
-        mp: 50
-    };
+    var stats = {};
+    stats.hp = 100;
+    stats.mp = 50;
     return stats;
 }
 ```
 
-Lint (`lint --fix`) does semantic/content rewrites (rule-owned), for example `gml/no-globalvar`.
-
-```gml
-// input
-globalvar score;
-score = 0;
-
-// fixed output
-global.score = 0;
-```
-
-Project-aware rule inventory: [`docs/generated/project-aware-rules.md`](docs/generated/project-aware-rules.md)
+Lint (`lint --fix`) does single-file-scoped semantic/content rewrites (rule-owned).
 
 ## Quick start
 
@@ -62,8 +50,8 @@ Project-aware rule inventory: [`docs/generated/project-aware-rules.md`](docs/gen
 ### 2) Clone and install
 
 ```bash
-git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
-cd prettier-plugin-gml
+git clone https://github.com/SimulatorLife/GMLoop.git
+cd GMLoop
 nvm use
 pnpm install
 ```
@@ -111,15 +99,15 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 | Workspace | Path | Responsibility |
 | --- | --- | --- |
-| `@gml-modules/format` | `src/format/` | Formatter-only Prettier plugin surface |
-| `@gml-modules/lint` | `src/lint/` | ESLint v9 language plugin + lint rules |
-| `@gml-modules/refactor` | `src/refactor/` | Cross-file refactor planning/application |
-| `@gml-modules/parser` | `src/parser/` | GML parsing (ANTLR + AST construction) |
-| `@gml-modules/semantic` | `src/semantic/` | Project indexing and semantic analysis |
-| `@gml-modules/transpiler` | `src/transpiler/` | GML -> JavaScript emission |
-| `@gml-modules/runtime-wrapper` | `src/runtime-wrapper/` | HTML5 runtime hot-reload bridge |
-| `@gml-modules/core` | `src/core/` | Shared AST/types/helpers |
-| `@gml-modules/cli` | `src/cli/` | Unified command-line entrypoints |
+| `@gmloop/format` | `src/format/` | Formatter-only Prettier plugin surface |
+| `@gmloop/lint` | `src/lint/` | ESLint v9 language plugin + lint rules |
+| `@gmloop/refactor` | `src/refactor/` | Cross-file refactor planning/application |
+| `@gmloop/parser` | `src/parser/` | GML parsing (ANTLR + AST construction) |
+| `@gmloop/semantic` | `src/semantic/` | Project indexing and semantic analysis |
+| `@gmloop/transpiler` | `src/transpiler/` | GML -> JavaScript emission |
+| `@gmloop/runtime-wrapper` | `src/runtime-wrapper/` | HTML5 runtime hot-reload bridge |
+| `@gmloop/core` | `src/core/` | Shared AST/types/helpers |
+| `@gmloop/cli` | `src/cli/` | Unified command-line entrypoints |
 
 ## Everyday commands
 
@@ -146,6 +134,10 @@ pnpm run cli -- refactor --old-name old_name --new-name newName
 
 # hot-reload watch pipeline
 pnpm run cli -- watch /path/to/project --verbose
+
+# query the watch status server (--status-port and --status-host mirror watch's flags)
+pnpm run cli -- watch-status
+pnpm run cli -- watch-status --status-port 18000 --endpoint health
 ```
 
 ## CLI wrapper environment knobs
@@ -161,7 +153,7 @@ These are the most commonly used CLI environment overrides.
 | `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` | Cap ignored-file samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` | Cap skipped-directory samples in formatter summary output. |
 | `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` | Cap unsupported-extension samples in formatter summary output. |
-| `WATCH_STATUS_HOST` / `WATCH_STATUS_PORT` | Defaults for `watch-status` endpoint queries. |
+| `WATCH_STATUS_HOST` / `WATCH_STATUS_PORT` | Defaults for `watch-status --status-host` / `watch-status --status-port` (mirrors `watch --status-host` / `watch --status-port`). |
 
 Use `pnpm run cli -- <command> --help` for full option details.
 
@@ -181,7 +173,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
         "printWidth": 120,
         "tabWidth": 4,
         "semi": true,
-        "allowSingleLineIfStatements": false,
+        "allowInlineControlFlowBlocks": false,
         "logicalOperatorsStyle": "keywords"
       }
     }
@@ -190,7 +182,7 @@ The formatter is Prettier-based. Scope formatter config to `.gml` files.
 ```
 
 Current formatter-specific options exposed by `@gml-modules/format`:
-- `allowSingleLineIfStatements`
+- `allowInlineControlFlowBlocks` — allow short, comment-free braced control-flow blocks (`if`, `while`, `repeat`, `with`) to stay on one line when the complete statement fits within `printWidth`; defaults to `false`
 - `logicalOperatorsStyle` (`"keywords"` or `"symbols"`)
 
 ### Lint configuration
@@ -198,7 +190,7 @@ Current formatter-specific options exposed by `@gml-modules/format`:
 Use the lint workspace presets in flat ESLint config:
 
 ```ts
-import { Lint } from "@gml-modules/lint";
+import { Lint } from "@gmloop/lint";
 
 export default [...Lint.configs.recommended];
 ```
@@ -206,7 +198,7 @@ export default [...Lint.configs.recommended];
 Common composition:
 
 ```ts
-import { Lint } from "@gml-modules/lint";
+import { Lint } from "@gmloop/lint";
 
 export default [
     ...Lint.configs.recommended,

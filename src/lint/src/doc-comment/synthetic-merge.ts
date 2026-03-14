@@ -1,4 +1,4 @@
-import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type DocCommentLines, type MutableDocCommentLines } from "@gmloop/core";
 
 import {
     convertLegacyReturnsDescriptionLinesToMetadata,
@@ -520,51 +520,7 @@ function integrateReturnAndFunctionLines({
     docTagHelpers: DocTagHelpers;
     originalHasDeprecatedTag: boolean;
 }) {
-    if (isNonEmptyArray(returnsLines)) {
-        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
-            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
-        });
-
-        if (dedupedReturns.length > 0) {
-            const filteredResult = [];
-            let removedExistingReturns = false;
-
-            for (const line of result) {
-                if (typeof line === STRING_TYPE && /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))) {
-                    removedExistingReturns = true;
-                    continue;
-                }
-
-                filteredResult.push(line);
-            }
-
-            let appendIndex = filteredResult.length;
-
-            while (
-                appendIndex > 0 &&
-                typeof filteredResult[appendIndex - 1] === STRING_TYPE &&
-                filteredResult[appendIndex - 1].trim() === ""
-            ) {
-                appendIndex -= 1;
-            }
-
-            const finalResultArray = [
-                ...filteredResult.slice(0, appendIndex),
-                ...dedupedReturns,
-                ...filteredResult.slice(appendIndex)
-            ] as any;
-
-            if ((result as any)._preserveDescriptionBreaks === true) {
-                finalResultArray._preserveDescriptionBreaks = true;
-            }
-
-            result = finalResultArray;
-
-            if (removedExistingReturns) {
-                removedAnyLine = true;
-            }
-        }
-    }
+    ({ result, removedAnyLine } = mergeReturnLinesIntoResult({ result, returnsLines, removedAnyLine }));
 
     const finalDedupedResult = dedupeReturnDocLines(result);
     result = toMutableArray(finalDedupedResult.lines) as MutableDocCommentLines;
@@ -572,56 +528,135 @@ function integrateReturnAndFunctionLines({
         removedAnyLine = true;
     }
 
-    const functionIndex = result.findIndex(docTagHelpers.isFunctionLine);
-    if (functionIndex > 0) {
-        const [functionLine] = result.splice(functionIndex, 1);
-
-        const ignoreIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i));
-        const overrideIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i));
-
-        if (ignoreIndex === 0) {
-            result.splice(1, 0, functionLine);
-        } else if (overrideIndex === -1) {
-            result.unshift(functionLine);
-        } else {
-            result.splice(overrideIndex + 1, 0, functionLine);
-        }
-    }
+    result = repositionFunctionLineNearIgnoreOrOverride(result, docTagHelpers);
 
     if (originalHasDeprecatedTag) {
-        const functionLines: MutableDocCommentLines = [];
-        const remainingLines: MutableDocCommentLines = [];
-
-        for (const line of result) {
-            if (docTagHelpers.isFunctionLine(line)) {
-                functionLines.push(line);
-            } else {
-                remainingLines.push(line);
-            }
-        }
-
-        if (functionLines.length > 0) {
-            const isDeprecatedLine = (line: unknown) =>
-                typeof line === STRING_TYPE && /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
-            const deprecatedIndex = findLastIndex(remainingLines, isDeprecatedLine);
-            if (deprecatedIndex !== -1) {
-                const insertIndex = deprecatedIndex + 1;
-                while (insertIndex < remainingLines.length && remainingLines[insertIndex] === "") {
-                    remainingLines.splice(insertIndex, 1);
-                }
-
-                remainingLines.splice(insertIndex, 0, ...functionLines);
-
-                const suppressLeadingBlank = result._suppressLeadingBlank;
-                result = remainingLines;
-                if (suppressLeadingBlank) {
-                    result._suppressLeadingBlank = true;
-                }
-            }
-        }
+        result = repositionFunctionLinesAfterDeprecatedTag(result, docTagHelpers);
     }
 
     return { result, removedAnyLine };
+}
+
+function mergeReturnLinesIntoResult({
+    result,
+    returnsLines,
+    removedAnyLine
+}: {
+    result: MutableDocCommentLines;
+    returnsLines: DocCommentLines;
+    removedAnyLine: boolean;
+}): { result: MutableDocCommentLines; removedAnyLine: boolean } {
+    if (!isNonEmptyArray(returnsLines)) {
+        return { result, removedAnyLine };
+    }
+
+    const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
+        includeNonReturnLine: (_line, trimmed) => trimmed.length > 0
+    });
+
+    if (dedupedReturns.length === 0) {
+        return { result, removedAnyLine };
+    }
+
+    const filteredResult = [];
+    let removedExistingReturns = false;
+
+    for (const line of result) {
+        if (typeof line === STRING_TYPE && /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))) {
+            removedExistingReturns = true;
+            continue;
+        }
+
+        filteredResult.push(line);
+    }
+
+    let appendIndex = filteredResult.length;
+    while (
+        appendIndex > 0 &&
+        typeof filteredResult[appendIndex - 1] === STRING_TYPE &&
+        filteredResult[appendIndex - 1].trim() === ""
+    ) {
+        appendIndex -= 1;
+    }
+
+    const mergedResult = [
+        ...filteredResult.slice(0, appendIndex),
+        ...dedupedReturns,
+        ...filteredResult.slice(appendIndex)
+    ] as any;
+    if ((result as any)._preserveDescriptionBreaks === true) {
+        mergedResult._preserveDescriptionBreaks = true;
+    }
+
+    return { result: mergedResult, removedAnyLine: removedAnyLine || removedExistingReturns };
+}
+
+function repositionFunctionLineNearIgnoreOrOverride(
+    result: MutableDocCommentLines,
+    docTagHelpers: DocTagHelpers
+): MutableDocCommentLines {
+    const functionIndex = result.findIndex(docTagHelpers.isFunctionLine);
+    if (functionIndex <= 0) {
+        return result;
+    }
+
+    const [functionLine] = result.splice(functionIndex, 1);
+    const ignoreIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i));
+    const overrideIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i));
+
+    if (ignoreIndex === 0) {
+        result.splice(1, 0, functionLine);
+    } else if (overrideIndex === -1) {
+        result.unshift(functionLine);
+    } else {
+        result.splice(overrideIndex + 1, 0, functionLine);
+    }
+
+    return result;
+}
+
+function isDeprecatedDocTagLine(line: unknown): boolean {
+    return typeof line === STRING_TYPE && /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
+}
+
+function repositionFunctionLinesAfterDeprecatedTag(
+    result: MutableDocCommentLines,
+    docTagHelpers: DocTagHelpers
+): MutableDocCommentLines {
+    const functionLines: MutableDocCommentLines = [];
+    const remainingLines: MutableDocCommentLines = [];
+
+    for (const line of result) {
+        if (docTagHelpers.isFunctionLine(line)) {
+            functionLines.push(line);
+        } else {
+            remainingLines.push(line);
+        }
+    }
+
+    if (functionLines.length === 0) {
+        return result;
+    }
+
+    const deprecatedIndex = findLastIndex(remainingLines, isDeprecatedDocTagLine);
+    if (deprecatedIndex === -1) {
+        return result;
+    }
+
+    const insertIndex = deprecatedIndex + 1;
+    while (insertIndex < remainingLines.length && remainingLines[insertIndex] === "") {
+        remainingLines.splice(insertIndex, 1);
+    }
+
+    remainingLines.splice(insertIndex, 0, ...functionLines);
+
+    const suppressLeadingBlank = result._suppressLeadingBlank;
+    const reorderedResult = remainingLines;
+    if (suppressLeadingBlank) {
+        reorderedResult._suppressLeadingBlank = true;
+    }
+
+    return reorderedResult;
 }
 
 type ReorderParamDocLinesParams = {

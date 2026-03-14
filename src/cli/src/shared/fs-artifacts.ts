@@ -2,7 +2,7 @@ import type { Stats } from "node:fs";
 import { stat, writeFile as writeFileAsync } from "node:fs/promises";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
 import { ensureDir } from "./ensure-dir.js";

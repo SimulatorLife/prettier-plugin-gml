@@ -8,7 +8,7 @@
  * @module printer/type-guards
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { safeGetParentNode } from "./path-utils.js";
 
@@ -346,78 +346,6 @@ export function isValidIdentifierName(name: any): boolean {
 }
 
 // ============================================================================
-// Logical Expression Type Guards
-// ============================================================================
-
-/**
- * Determines if a node is a logical comparison clause pattern.
- */
-export function isLogicalComparisonClause(node: any): boolean {
-    const clauseExpression = unwrapLogicalClause(node);
-    if (clauseExpression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!Core.isLogicalOrOperator(clauseExpression.operator)) {
-        return false;
-    }
-
-    return isComparisonAndConjunction(clauseExpression.left) && isComparisonAndConjunction(clauseExpression.right);
-}
-
-/**
- * Determines if a node is a comparison-and-conjunction pattern.
- */
-export function isComparisonAndConjunction(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    if (expression?.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (!Core.isLogicalAndOperator(expression.operator)) {
-        return false;
-    }
-
-    if (!isComparisonExpression(expression.left)) {
-        return false;
-    }
-
-    return isSimpleLogicalOperand(expression.right);
-}
-
-/**
- * Determines if a node is a comparison expression.
- */
-export function isComparisonExpression(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    return expression?.type === "BinaryExpression" && Core.isComparisonBinaryOperator(expression.operator);
-}
-
-/**
- * Determines if a node is a simple logical operand.
- */
-export function isSimpleLogicalOperand(node: any): boolean {
-    const expression = unwrapLogicalClause(node);
-    if (!expression) {
-        return false;
-    }
-
-    if (expression.type === "Identifier") {
-        return true;
-    }
-
-    if (expression.type === "Literal") {
-        return true;
-    }
-
-    if (expression.type === "UnaryExpression") {
-        return isSimpleLogicalOperand(expression.argument);
-    }
-
-    return isComparisonExpression(expression);
-}
-
-// ============================================================================
 // Helper Functions (Internal)
 // ============================================================================
 
@@ -445,19 +373,6 @@ function checkSyntheticParenFlattening(path: any): boolean {
 
         depth += 1;
     }
-}
-
-/**
- * Unwraps a logical clause by removing surrounding parenthesized expressions.
- *
- * @internal
- */
-function unwrapLogicalClause(node: any): any {
-    let current = node;
-    while (current?.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-    return current ?? null;
 }
 
 /**

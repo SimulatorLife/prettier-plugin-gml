@@ -1,5 +1,11 @@
 import type { BinaryExpressionNode, UnaryExpressionNode } from "./ast.js";
 
+const ZERO_COMPARISON_EPSILON = Number.EPSILON * 4;
+
+function isApproximatelyZero(value: number): boolean {
+    return Math.abs(value) <= ZERO_COMPARISON_EPSILON;
+}
+
 function toNumericLiteral(value: string | number | boolean): number | null {
     if (typeof value === "number") {
         return value;
@@ -107,18 +113,18 @@ export function tryFoldConstantExpression(ast: BinaryExpressionNode): number | s
             }
             case "/": {
                 // Avoid division by zero
-                return rightNumber === 0 ? null : leftNumber / rightNumber;
+                return isApproximatelyZero(rightNumber) ? null : leftNumber / rightNumber;
             }
             case "div": {
                 // GML's div performs integer division truncating toward zero (like C int/int).
                 // Math.trunc is correct here; Math.floor would give wrong results for
                 // negative operands (e.g. -7 div 2 should be -3, not -4).
-                return rightNumber === 0 ? null : Math.trunc(leftNumber / rightNumber);
+                return isApproximatelyZero(rightNumber) ? null : Math.trunc(leftNumber / rightNumber);
             }
             case "%":
             case "mod": {
                 // Avoid modulo by zero
-                return rightNumber === 0 ? null : leftNumber % rightNumber;
+                return isApproximatelyZero(rightNumber) ? null : leftNumber % rightNumber;
             }
             case "**": {
                 return leftNumber ** rightNumber;

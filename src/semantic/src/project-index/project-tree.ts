@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { type ProjectIndexFsFacade } from "./fs-facade.js";

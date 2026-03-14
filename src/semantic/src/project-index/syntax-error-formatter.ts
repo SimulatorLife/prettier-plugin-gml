@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 

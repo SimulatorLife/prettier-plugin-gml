@@ -1,8 +1,8 @@
-import type * as Refactor from "@gml-modules/refactor";
-import { Transpiler } from "@gml-modules/transpiler";
+import type * as Refactor from "@gmloop/refactor";
+import { Transpiler } from "@gmloop/transpiler";
 
 /**
- * Transpiler bridge that adapts @gml-modules/transpiler to the refactor engine.
+ * Transpiler bridge that adapts @gmloop/transpiler to the refactor engine.
  */
 export class GmlTranspilerBridge implements Refactor.TranspilerBridge {
     /**

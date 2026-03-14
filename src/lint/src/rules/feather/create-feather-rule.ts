@@ -1,6 +1,7 @@
 /* eslint-disable no-control-regex -- disabled to intentionally match control characters in feather comments */
 import type { Rule } from "eslint";
 
+import { getDeprecatedIdentifierCatalogEntry } from "../../services/deprecated-identifiers/index.js";
 import type { FeatherManifestEntry } from "./manifest.js";
 
 type EnumBlockMatch = {
@@ -104,6 +105,45 @@ function hasParamDocImmediatelyAbove(sourceText: string, functionStartIndex: num
     return false;
 }
 
+function collectContiguousLeadingDocLinesAboveIndex(sourceText: string, offset: number): ReadonlyArray<string> {
+    const priorLines = sourceText.slice(0, offset).split(/\r?\n/u);
+    while (priorLines.length > 0 && priorLines.at(-1)?.trim().length === 0) {
+        priorLines.pop();
+    }
+
+    const contiguousDocLines: Array<string> = [];
+    for (let index = priorLines.length - 1; index >= 0; index -= 1) {
+        const trimmed = priorLines[index].trim();
+        if (trimmed.length === 0) {
+            break;
+        }
+
+        if (!trimmed.startsWith("///")) {
+            break;
+        }
+
+        contiguousDocLines.unshift(priorLines[index]);
+    }
+
+    return contiguousDocLines;
+}
+
+function collapseAdjacentDuplicateParamDocs(sourceText: string): string {
+    const lines = sourceText.split("\n");
+    const dedupedLines: Array<string> = [];
+
+    for (const line of lines) {
+        const previousLine = dedupedLines.at(-1);
+        if (/^\s*\/\/\/\s*@param\b/u.test(line) && previousLine === line) {
+            continue;
+        }
+
+        dedupedLines.push(line);
+    }
+
+    return dedupedLines.join("\n");
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let depth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -154,6 +194,15 @@ function resolveReportLoc(context: Rule.RuleContext, index: number): { line: num
         line,
         column: clampedIndex - lastLineStart
     };
+}
+
+function getDirectDeprecatedReplacement(identifierName: string): string | null {
+    const entry = getDeprecatedIdentifierCatalogEntry(identifierName);
+    if (!entry || entry.replacementKind !== "direct-rename" || entry.replacement === null) {
+        return null;
+    }
+
+    return entry.replacement;
 }
 
 function createFullTextRewriteRule(
@@ -281,9 +330,13 @@ function createGm1003Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     const sourceText = context.sourceCode.text;
                     const enumBlocks = findEnumBlocks(sourceText);
                     for (const block of enumBlocks) {
-                        const rewritten = block.text.replaceAll(
+                        const rewrittenWithoutNumericStrings = block.text.replaceAll(
                             /=\s*"(?<integer>-?\d+)"(?<suffix>\s*(?:,|\/\/|$))/gm,
                             (_full, integer, suffix) => `= ${integer}${suffix as string}`
+                        );
+                        const rewritten = rewrittenWithoutNumericStrings.replaceAll(
+                            /,(?=\s*(?:\/\/[^\n\r]*)?\r?\n\s*\})/gu,
+                            ""
                         );
                         if (rewritten === block.text) {
                             continue;
@@ -517,7 +570,7 @@ function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return `${docs}\n${fullMatch}`;
             }
         );
-        return rewritten;
+        return collapseAdjacentDuplicateParamDocs(rewritten);
     });
 }
 
@@ -644,6 +697,11 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
+                    const replacement = getDirectDeprecatedReplacement("os_win32");
+                    if (!replacement) {
+                        return;
+                    }
+
                     const legacyOsSymbolPattern = /\bos_win32\b/g;
                     for (const match of sourceText.matchAll(legacyOsSymbolPattern)) {
                         const start = match.index ?? 0;
@@ -651,7 +709,7 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         context.report({
                             loc: resolveReportLoc(context, start),
                             messageId: "diagnostic",
-                            fix: (fixer) => fixer.replaceTextRange([start, end], "os_windows")
+                            fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                         });
                     }
                 }
@@ -891,9 +949,15 @@ function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
+        const arrayLengthReplacement = getDirectDeprecatedReplacement("array_length_1d");
+        const arrayHeightReplacement = getDirectDeprecatedReplacement("array_height_2d");
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, "array_length(");
-        rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, "array_height(");
+        if (arrayLengthReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, `${arrayLengthReplacement}(`);
+        }
+        if (arrayHeightReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, `${arrayHeightReplacement}(`);
+        }
         return rewritten;
     });
 }
@@ -912,10 +976,21 @@ function createGm1058Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         for (const functionName of constructorCalls) {
             const declarationPattern = new RegExp(
-                String.raw`\bfunction\s+${functionName}\s*\([^)]*\)\s*(?!constructor\b)`,
+                String.raw`(\bfunction\s+${functionName}\s*\([^)]*\))(\s*constructor\b)?(\s*\{)`,
                 "g"
             );
-            rewritten = rewritten.replaceAll(declarationPattern, (declaration) => `${declaration} constructor`);
+            rewritten = rewritten.replaceAll(
+                declarationPattern,
+                (
+                    _match,
+                    functionHeader: string,
+                    existingConstructorKeyword: string | undefined,
+                    bracePrefix: string
+                ) =>
+                    existingConstructorKeyword
+                        ? `${functionHeader}${existingConstructorKeyword}${bracePrefix}`
+                        : `${functionHeader} constructor${bracePrefix}`
+            );
         }
 
         return rewritten;
@@ -1244,7 +1319,7 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
         rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*(?:;[ \t]*)?(?:\r?\n|$))/gm,
             (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
                 suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );
@@ -1781,10 +1856,27 @@ function createGm2030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm2031Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
-        rewritten = rewritten.replace(
-            /(\s*)_file2 = file_find_first\(/,
-            "$1file_find_close();\n$1_file2 = file_find_first("
-        );
+        const lines = rewritten.split(/\r?\n/u);
+        for (const [index, line] of lines.entries()) {
+            if (!/^\s*_file2\s*=\s*file_find_first\(/u.test(line)) {
+                continue;
+            }
+
+            let previousNonEmptyLineIndex = index - 1;
+            while (previousNonEmptyLineIndex >= 0 && lines[previousNonEmptyLineIndex].trim().length === 0) {
+                previousNonEmptyLineIndex -= 1;
+            }
+
+            if (previousNonEmptyLineIndex >= 0 && lines[previousNonEmptyLineIndex].trim() === "file_find_close();") {
+                break;
+            }
+
+            const indentation = /^(\s*)/u.exec(line)?.[1] ?? "";
+            lines.splice(index, 0, `${indentation}file_find_close();`);
+            break;
+        }
+
+        rewritten = lines.join("\n");
         return rewritten;
     });
 }
@@ -1821,8 +1913,8 @@ function createGm2042Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm2043Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replace("i = 0;", "var i = 0;");
-        rewritten = rewritten.replace("var i = 34;", "i = 34;");
+        rewritten = rewritten.replace(/(^|\n)([ \t]*)i\s*=\s*0\s*;/u, "$1$2var i = 0;");
+        rewritten = rewritten.replace(/(^|\n)([ \t]*)var\s+i\s*=\s*34\s*;/u, "$1$2i = 34;");
         rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
         rewritten = rewritten.replaceAll(
             /(^[ \t]*)if\s*\(([^)]+)\)\s*\{\r?\n([ \t]*)var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;\r\n]+);\r?\n\1\}\r?\n/gm,
@@ -1868,20 +1960,9 @@ function createGm2044Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 offset: number,
                 fullText: string
             ) => {
-                const priorLines = fullText.slice(0, offset).split(/\r?\n/u);
-                for (let index = priorLines.length - 1; index >= 0; index -= 1) {
-                    const trimmed = priorLines[index].trim();
-                    if (trimmed.length === 0) {
-                        break;
-                    }
-
-                    if (!trimmed.startsWith("///")) {
-                        break;
-                    }
-
-                    if (/^\/\/\/\s*@returns\b/u.test(trimmed)) {
-                        return fullMatch;
-                    }
+                const leadingDocLines = collectContiguousLeadingDocLinesAboveIndex(fullText, offset);
+                if (leadingDocLines.some((line) => /^\/\/\/\s*@returns\b/u.test(line.trim()))) {
+                    return fullMatch;
                 }
 
                 return `${indentation}/// @returns {undefined}\n${fullMatch}`;

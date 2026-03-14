@@ -15,6 +15,9 @@ coverage/
 .DS_Store
 *.yarn-integrity
 *.eslintcache
+**/*.d.ts
+**/*.d.ts.map
+**/*.js.map
 *.gml
 *.json
 *.g4

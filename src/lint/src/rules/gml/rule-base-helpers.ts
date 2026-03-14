@@ -1,16 +1,17 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gmloop/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../catalog.js";
 
-const {
-    clamp,
-    isObjectLike,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getCallExpressionIdentifierName,
-    getCallExpressionArguments
-} = CoreWorkspace.Core;
+const { clamp, isObjectLike } = CoreWorkspace.Core;
+
+const getNodeStartIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeStartIndex;
+const getNodeEndIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeEndIndex;
+const getCallExpressionIdentifierName: (callExpression: GameMakerAstNode | null | undefined) => string | null =
+    CoreWorkspace.Core.getCallExpressionIdentifierName;
+const getCallExpressionArguments: (callExpression: GameMakerAstNode | null | undefined) => readonly GameMakerAstNode[] =
+    CoreWorkspace.Core.getCallExpressionArguments;
 
 export { getCallExpressionArguments, getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 
@@ -65,84 +66,16 @@ export interface SourceTextEdit {
     readonly text: string;
 }
 
-const CLONE_SKIPPED_NODE_KEYS = new Set(["parent", "enclosingNode", "precedingNode", "followingNode"]);
-
-function cloneNodeValueWithoutTraversalLinks(nodeValue: unknown, seenNodes: WeakMap<object, unknown>): unknown {
-    if (!isObjectLike(nodeValue)) {
-        return nodeValue;
-    }
-
-    const objectNodeValue = nodeValue as object;
-    const existingClone = seenNodes.get(objectNodeValue);
-    if (existingClone) {
-        return existingClone;
-    }
-
-    if (Array.isArray(nodeValue)) {
-        const clonedArray: unknown[] = [];
-        seenNodes.set(objectNodeValue, clonedArray);
-        for (const entry of nodeValue) {
-            clonedArray.push(cloneNodeValueWithoutTraversalLinks(entry, seenNodes));
-        }
-        return clonedArray;
-    }
-
-    const clonedRecord: Record<string, unknown> = {};
-    seenNodes.set(objectNodeValue, clonedRecord);
-    for (const [key, value] of Object.entries(nodeValue)) {
-        if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
-            continue;
-        }
-        clonedRecord[key] = cloneNodeValueWithoutTraversalLinks(value, seenNodes);
-    }
-
-    return clonedRecord;
-}
-
-function restoreLocalParentLinks(clonedNode: unknown): void {
-    const visitedNodes = new WeakSet<object>();
-
-    const visit = (currentValue: unknown, parentNode: Record<string, unknown> | null): void => {
-        if (!isObjectLike(currentValue)) {
-            return;
-        }
-
-        const objectValue = currentValue as object;
-        if (visitedNodes.has(objectValue)) {
-            return;
-        }
-        visitedNodes.add(objectValue);
-
-        if (Array.isArray(currentValue)) {
-            for (const entry of currentValue) {
-                visit(entry, parentNode);
-            }
-            return;
-        }
-
-        const currentRecord = currentValue as Record<string, unknown>;
-        if (parentNode) {
-            currentRecord.parent = parentNode;
-        }
-
-        for (const [key, value] of Object.entries(currentRecord)) {
-            if (CLONE_SKIPPED_NODE_KEYS.has(key)) {
-                continue;
-            }
-            visit(value, currentRecord);
-        }
-    };
-
-    visit(clonedNode, null);
-}
-
 export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
-    const clonedNode = cloneNodeValueWithoutTraversalLinks(node, new WeakMap<object, unknown>());
-    restoreLocalParentLinks(clonedNode);
-    return clonedNode as T;
+    return CoreWorkspace.Core.cloneAstNode(node) as T;
 }
 
-export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
+type RuleMetaOverrides = Readonly<{
+    fixable?: "code" | "whitespace" | null;
+    messageText?: string;
+}>;
+
+export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOverrides = {}): Rule.RuleMetaData {
     const docs = {
         description: `Rule for ${definition.messageId}.`,
         recommended: false,
@@ -150,17 +83,115 @@ export function createMeta(definition: GmlRuleDefinition): Rule.RuleMetaData {
     };
 
     const messages: Record<string, string> = {
-        [definition.messageId]: `${definition.messageId} diagnostic.`,
+        [definition.messageId]: overrides.messageText ?? `${definition.messageId} diagnostic.`,
         unsafeFix: "[unsafe-fix:SEMANTIC_AMBIGUITY] Unsafe fix omitted."
     };
 
-    return Object.freeze({
+    const meta: Rule.RuleMetaData = {
         type: "suggestion",
-        fixable: "code",
         docs: Object.freeze(docs),
         schema: definition.schema,
         messages: Object.freeze(messages)
-    });
+    };
+
+    if (overrides.fixable === undefined) {
+        meta.fixable = "code";
+    } else if (overrides.fixable !== null) {
+        meta.fixable = overrides.fixable;
+    }
+
+    return Object.freeze(meta);
+}
+
+/**
+ * Returns `true` when a node sits in a statement slot rather than an
+ * expression-only position such as a `for` header or call argument list.
+ *
+ * @param parentKey Property name linking the node to its parent.
+ * @returns Whether the parent relationship is statement-shaped.
+ */
+export function isStandaloneStatementParentKey(parentKey: string | null): boolean {
+    return parentKey === "body" || parentKey === "consequent" || parentKey === "alternate";
+}
+
+/**
+ * Detects comment tokens inside a source span so fixers can skip rewrites that
+ * would risk deleting authored comments embedded in the replaced text.
+ *
+ * @param sourceText Full file text.
+ * @param start Inclusive start offset.
+ * @param end Exclusive end offset.
+ * @returns Whether the span contains line or block comment markers.
+ */
+export function sourceRangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
+    const rangeText = sourceText.slice(start, end);
+    return /\/\/|\/\*|\*\//u.test(rangeText);
+}
+
+export type CommentTokenRangeIndex = Readonly<{
+    prefixCounts: Uint32Array;
+    sourceLength: number;
+}>;
+
+function isCommentTokenBoundary(sourceText: string, index: number): boolean {
+    const character = sourceText[index];
+    const nextCharacter = sourceText[index + 1];
+    if (character === "/" && (nextCharacter === "/" || nextCharacter === "*")) {
+        return true;
+    }
+
+    return character === "*" && nextCharacter === "/";
+}
+
+/**
+ * Builds a prefix index for comment-token boundaries so repeated span checks
+ * can avoid rescanning or slicing the original source text.
+ *
+ * @param sourceText Full file text.
+ * @returns A compact prefix-count index for line-comment, block-open, and block-close markers.
+ */
+export function createCommentTokenRangeIndex(sourceText: string): CommentTokenRangeIndex {
+    const sourceLength = sourceText.length;
+    const prefixCounts = new Uint32Array(sourceLength + 1);
+
+    for (let index = 0; index < sourceLength; index += 1) {
+        prefixCounts[index + 1] = prefixCounts[index];
+        if (index < sourceLength - 1 && isCommentTokenBoundary(sourceText, index)) {
+            prefixCounts[index + 1] += 1;
+        }
+    }
+
+    return {
+        prefixCounts,
+        sourceLength
+    };
+}
+
+/**
+ * Checks whether a source span contains any raw comment-token markers using a
+ * precomputed prefix index.
+ *
+ * @param commentTokenRangeIndex Prefix-count index created from the file text.
+ * @param start Inclusive start offset.
+ * @param end Exclusive end offset.
+ * @returns Whether the span includes line-comment or block-comment markers.
+ */
+export function rangeContainsCommentToken(
+    commentTokenRangeIndex: CommentTokenRangeIndex,
+    start: number,
+    end: number
+): boolean {
+    if (end - start < 2) {
+        return false;
+    }
+
+    const clampedStart = clamp(start, 0, commentTokenRangeIndex.sourceLength);
+    const clampedEndExclusive = clamp(end - 1, 0, commentTokenRangeIndex.sourceLength);
+    if (clampedEndExclusive <= clampedStart) {
+        return false;
+    }
+
+    return commentTokenRangeIndex.prefixCounts[clampedEndExclusive] > commentTokenRangeIndex.prefixCounts[clampedStart];
 }
 
 /**

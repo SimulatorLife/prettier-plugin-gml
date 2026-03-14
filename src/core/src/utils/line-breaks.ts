@@ -124,7 +124,7 @@ export function splitLines(text) {
  * must emit new text using the same line ending already present in the source
  * file, rather than each workspace duplicating the logic independently.
  *
- * Architecture note: this utility belongs in `@gml-modules/core` because it is
+ * Architecture note: this utility belongs in `@gmloop/core` because it is
  * a pure text utility shared across the `lint` and `refactor` workspaces.
  * (target-state.md §2.1)
  *

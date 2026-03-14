@@ -4,7 +4,7 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";

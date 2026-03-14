@@ -7,9 +7,11 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
+import { executeRegisteredCodemods } from "./codemod-registry.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
+import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
 import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
@@ -19,6 +21,8 @@ import {
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
+    type ConfiguredCodemodRunRequest,
+    type ConfiguredCodemodRunResult,
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
@@ -30,6 +34,7 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    type NamingConventionCodemodPlan,
     OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
@@ -64,6 +69,21 @@ import {
     type TextEdit,
     WorkspaceEdit
 } from "./workspace-edit.js";
+
+function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    const deduplicatedByStart = new Map<string, SymbolOccurrence>();
+
+    for (const occurrence of occurrences) {
+        const key = [occurrence.path ?? "", occurrence.start].join(":");
+        const existing = deduplicatedByStart.get(key);
+
+        if (!existing || occurrence.end > existing.end) {
+            deduplicatedByStart.set(key, occurrence);
+        }
+    }
+
+    return [...deduplicatedByStart.values()];
+}
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -111,7 +131,9 @@ export class RefactorEngine {
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache.getSymbolOccurrences(symbolName);
+        return this.semanticCache
+            .getSymbolOccurrences(symbolName)
+            .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
     }
 
     /**
@@ -140,7 +162,7 @@ export class RefactorEngine {
 
     /**
      * Check if an identifier name is already occupied in the project.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a proposed variable name or identifier is safe to use.
      */
     async isIdentifierOccupied(identifierName: string): Promise<boolean> {
@@ -152,7 +174,7 @@ export class RefactorEngine {
 
     /**
      * List all files where an identifier occurs.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a rename or refactor would affect multiple files.
      */
     async listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
@@ -1017,6 +1039,84 @@ export class RefactorEngine {
         });
 
         return { workspace, applied, changedFiles };
+    }
+
+    /**
+     * Plan naming-policy-driven edits for the selected project paths.
+     */
+    async planNamingConventionCodemod(parameters: {
+        projectRoot: string;
+        config: ConfiguredCodemodRunRequest["config"];
+        targetPaths: Array<string>;
+    }): Promise<NamingConventionCodemodPlan> {
+        return await planNamingConventionCodemod(this, parameters);
+    }
+
+    /**
+     * Execute codemods selected from normalized project configuration.
+     *
+     * Codemods run in a stable order and share an in-memory overlay so later
+     * codemods observe edits produced by earlier ones during the same run.
+     */
+    async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
+        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [] } = request;
+
+        Core.assertNonEmptyString(projectRoot, {
+            errorMessage: "executeConfiguredCodemods requires a projectRoot"
+        });
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeConfiguredCodemods requires a readFile function"
+        });
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeConfiguredCodemods requires a writeFile function when dryRun is false"
+            });
+        }
+
+        const requestedCodemods = new Set(onlyCodemods);
+        const configuredCodemods = config.codemods ?? {};
+        const overlay = new Map<string, string>();
+        const appliedFiles = new Map<string, string>();
+
+        const readThroughOverlay = async (filePath: string): Promise<string> => {
+            if (overlay.has(filePath)) {
+                return overlay.get(filePath) ?? "";
+            }
+
+            return await readFile(filePath);
+        };
+
+        const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
+
+            if (!dryRun && writeFile) {
+                await writeFile(filePath, content);
+            }
+        };
+
+        const result = await executeRegisteredCodemods(this, {
+            ...request,
+            config: {
+                ...request.config,
+                codemods: configuredCodemods
+            },
+            readFile: readThroughOverlay,
+            writeFile: dryRun ? undefined : writeWithOverlay,
+            dryRun,
+            onlyCodemods: [...requestedCodemods]
+        });
+
+        for (const [filePath, content] of result.appliedFiles.entries()) {
+            overlay.set(filePath, content);
+            appliedFiles.set(filePath, content);
+        }
+
+        return {
+            dryRun,
+            summaries: result.summaries,
+            appliedFiles
+        };
     }
 
     /**

@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { ListenerDelegate, ListenerOptions, ParserContext } from "../types/index.js";
 import { toDelegate } from "./delegation.js";
