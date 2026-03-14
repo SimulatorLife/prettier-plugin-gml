@@ -583,6 +583,7 @@ export default class GameMakerASTBuilder {
             "block",
             "ifStatement",
             "variableDeclarationList",
+            "implicitCallStatement",
             "assignmentExpression",
             "callStatement",
             "iterationStatement",
@@ -1003,6 +1004,17 @@ export default class GameMakerASTBuilder {
         return this.visit(ctx.newExpression());
     }
 
+    // Visit a parse tree produced by GameMakerLanguageParser#ImplicitMemberDotLValue.
+    visitImplicitMemberDotLValue(ctx: ParserContext): any {
+        return this.astNode(ctx, {
+            type: "MemberDotExpression",
+            object: null,
+            property: this.withIdentifierRole({ type: "reference", kind: "property" }, () =>
+                this.visit(ctx.identifier())
+            )
+        });
+    }
+
     // Visit a parse tree produced by GameMakerLanguageParser#MemberIndexLValue.
     visitMemberIndexLValue(ctx: ParserContext): any {
         return this.astNode(ctx, {
@@ -1268,6 +1280,28 @@ export default class GameMakerASTBuilder {
         if (ctx.callStatement() != null) {
             object = this.visit(ctx.callStatement());
         }
+        return this.astNode(ctx, {
+            type: "CallExpression",
+            object,
+            arguments: this.visit(ctx.arguments())
+        });
+    }
+
+    // Visit a parse tree produced by GameMakerLanguageParser#implicitCallStatement.
+    visitImplicitCallStatement(ctx: ParserContext): any {
+        let object: any = null;
+        if (ctx.implicitCallStatement() == null) {
+            object = this.astNode(ctx, {
+                type: "MemberDotExpression",
+                object: null,
+                property: this.withIdentifierRole({ type: "reference", kind: "property" }, () =>
+                    this.visit(ctx.identifier())
+                )
+            });
+        } else {
+            object = this.visit(ctx.implicitCallStatement());
+        }
+
         return this.astNode(ctx, {
             type: "CallExpression",
             object,

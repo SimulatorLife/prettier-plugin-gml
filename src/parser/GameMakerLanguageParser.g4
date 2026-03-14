@@ -29,6 +29,7 @@ statement
     | regionStatement
     | enumeratorDeclaration
     | globalVarStatement
+    | implicitCallStatement
     | assignmentExpression
     | incDecStatement
     | callStatement
@@ -154,6 +155,7 @@ newExpression
 lValueStartExpression
     : identifier # IdentifierLValue
     | newExpression # NewLValue
+    | Dot identifier # ImplicitMemberDotLValue
     | OpenParen expression CloseParen # ParenthesizedLValue
     ;
 
@@ -210,6 +212,11 @@ callStatement
     : callableExpression arguments
     | callStatement arguments
     ;
+
+    implicitCallStatement
+        : Dot identifier arguments
+        | implicitCallStatement arguments
+        ;
 
 callableExpression
     : lValueExpression
@@ -380,7 +387,7 @@ regionStatement
 
 // handles macros used as statements
 identifierStatement
-    : identifier
+    : identifier {this._input.LA(1) !== GameMakerLanguageParser.Dot}?
     ;
 
 softKeyword
