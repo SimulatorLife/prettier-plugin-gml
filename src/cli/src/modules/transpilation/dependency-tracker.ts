@@ -140,6 +140,42 @@ export class DependencyTracker {
     }
 
     /**
+     * Get files that reference any symbol in the provided set.
+     *
+     * This targeted lookup lets the watch pipeline retranspile only files that
+     * can be affected by a concrete symbol-delta, instead of all dependents for
+     * a definition file.
+     *
+     * @param symbols - Symbols whose referencing files should be returned
+     * @param excludeFilePath - Optional file path to omit from the returned set
+     * @returns Array of file paths that reference at least one provided symbol
+     */
+    getFilesReferencingSymbols(symbols: ReadonlyArray<string>, excludeFilePath?: string): Array<string> {
+        if (symbols.length === 0) {
+            return [];
+        }
+
+        const dependents = new Set<string>();
+
+        for (const symbol of symbols) {
+            const refFiles = this.symbolToRefFiles.get(symbol);
+            if (!refFiles) {
+                continue;
+            }
+
+            for (const refFile of refFiles) {
+                if (excludeFilePath !== undefined && refFile === excludeFilePath) {
+                    continue;
+                }
+
+                dependents.add(refFile);
+            }
+        }
+
+        return Array.from(dependents);
+    }
+
+    /**
      * Get symbols defined by a file.
      * @param filePath - Path to the file
      * @returns Array of symbols defined in the file

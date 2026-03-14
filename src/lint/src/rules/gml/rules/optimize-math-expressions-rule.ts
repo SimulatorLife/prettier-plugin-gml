@@ -6,8 +6,10 @@ import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     cloneAstNodeWithoutTraversalLinks,
+    createCommentTokenRangeIndex,
     createMeta,
     isAstNodeRecord,
+    rangeContainsCommentToken,
     reportFullTextRewrite,
     type SourceTextEdit,
     walkAstNodesWithParent
@@ -49,6 +51,10 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "CallExpression"
 ]);
 const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
+const COMMENT_SEQUENCE_PATTERN = /\/\/|\/\*|\*\//u;
+const MANUAL_MATH_CALL_SIGNAL_PATTERN =
+    /\b(?:arccos|arcsin|arctan|arctan2|cos|darccos|darcsin|darctan|darctan2|dcos|degtorad|dsin|dtan|exp|lengthdir_[xy]|ln|log2|mean|point_direction|point_distance(?:_3d)?|power|radtodeg|sin|sqr|sqrt|tan)\s*\(/u;
+const NUMERIC_LITERAL_SIGNAL_PATTERN = /(?<![\w.])(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?(?![\w.])/iu;
 
 function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
     if (left === right) {
@@ -438,6 +444,10 @@ function countDivisionLikeOperators(sourceText: string): number {
 }
 
 function containsCommentSyntax(text: string): boolean {
+    if (!COMMENT_SEQUENCE_PATTERN.test(text)) {
+        return false;
+    }
+
     const scanState = createStringCommentScanState();
     const length = text.length;
     for (let index = 0; index < length; ) {
@@ -557,6 +567,16 @@ function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: Readonly
 
 function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): boolean {
     return MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode);
+}
+
+function shouldAttemptManualNormalization(sourceTextOfNode: string): boolean {
+    return (
+        DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode) ||
+        sourceTextOfNode.includes("*") ||
+        MANUAL_MATH_CALL_SIGNAL_PATTERN.test(sourceTextOfNode) ||
+        ((sourceTextOfNode.includes("+") || sourceTextOfNode.includes("-")) &&
+            NUMERIC_LITERAL_SIGNAL_PATTERN.test(sourceTextOfNode))
+    );
 }
 
 function areNumbersApproximatelyEqual(left: number, right: number): boolean {
@@ -1214,6 +1234,8 @@ function shouldSkipBinaryExpressionCandidate(parentNode: unknown, parentKey: str
 
 function performGeneralExpressionSimplification(node: any, sourceText: string, edits: SourceTextEdit[]) {
     const normalizedExpressionRanges: SourceTextRange[] = [];
+    const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
+    const replacementByCandidateText = new Map<string, string | null>();
 
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode, parent, parentKey } = visitContext;
@@ -1266,7 +1288,14 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
 
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
-                if (hasComment(targetNode) || containsCommentSyntax(sourceTextOfNode)) {
+                if (hasComment(targetNode)) {
+                    return;
+                }
+
+                if (
+                    rangeContainsCommentToken(commentTokenRangeIndex, start, end) &&
+                    containsCommentSyntax(sourceTextOfNode)
+                ) {
                     return;
                 }
 
@@ -1274,33 +1303,42 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     return;
                 }
 
-                let replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
-                if (!replacement) {
-                    replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
-                }
-                if (!replacement) {
-                    replacement = attemptManualNormalization(sourceText, targetNode);
-                }
-                if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
-                    replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
-                } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
-                    const divisionFallbackReplacement = simplifyMathExpression(
-                        sourceText,
-                        targetNode,
-                        sourceTextOfNode
-                    );
-                    if (
-                        divisionFallbackReplacement &&
-                        countDivisionLikeOperators(divisionFallbackReplacement) <
-                            countDivisionLikeOperators(replacement)
-                    ) {
-                        replacement = divisionFallbackReplacement;
+                const replacementCacheKey = `${targetNode.type}:${sourceTextOfNode}`;
+                let replacement = replacementByCandidateText.get(replacementCacheKey);
+                if (replacement === undefined) {
+                    replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                    if (!replacement) {
+                        replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
                     }
+                    if (!replacement && shouldAttemptManualNormalization(sourceTextOfNode)) {
+                        replacement = attemptManualNormalization(sourceText, targetNode);
+                    }
+                    if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                    } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        const divisionFallbackReplacement = simplifyMathExpression(
+                            sourceText,
+                            targetNode,
+                            sourceTextOfNode
+                        );
+                        if (
+                            divisionFallbackReplacement &&
+                            countDivisionLikeOperators(divisionFallbackReplacement) <
+                                countDivisionLikeOperators(replacement)
+                        ) {
+                            replacement = divisionFallbackReplacement;
+                        }
+                    }
+
+                    replacement =
+                        replacement && replacement !== sourceTextOfNode
+                            ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                            : null;
+
+                    replacementByCandidateText.set(replacementCacheKey, replacement);
                 }
 
                 if (replacement && replacement !== sourceTextOfNode) {
-                    replacement = applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement);
-
                     if (isIfTest && !replacement.startsWith("(")) {
                         replacement = `(${replacement})`;
                     }

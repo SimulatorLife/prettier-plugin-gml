@@ -26,6 +26,9 @@
     "@gmloop/core": "workspace:*",
     "@gmloop/parser": "workspace:*"
   },
+  "devDependencies": {
+    "@gmloop/fixture-runner": "workspace:*"
+  },
   "engines": {
     "node": ">=22.0.0"
   },

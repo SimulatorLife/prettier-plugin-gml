@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/normalize-directives": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

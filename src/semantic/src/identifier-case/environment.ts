@@ -49,8 +49,7 @@ function sanitizeBootstrapResult(bootstrap) {
     if (typeof bootstrap.dispose === "function") {
         // Replace the dispose method with a no-op to support idempotent teardown.
         // The sanitized bootstrap object remains attached to Prettier's options
-        // bag so downstream diagnostics can report cache hit/rebuild status (see
-        // docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching).
+        // bag so downstream diagnostics can report cache hit/rebuild status.
         // Callers probe this metadata and still invoke `dispose()` in their
         // finally blocks—mirroring rollout guidance—but by this point we have
         // already released file watchers and caches. Making dispose() a no-op

@@ -35,7 +35,7 @@
 - Our CLI wrapper sits in `src/cli/` and exposes commands through `src/cli/src/commands/`, so we expose all tooling through a single, discoverable entry point (per `AGENTS.md`). We do not currently maintain a full `.yyp` project model or asset rename helpers within the formatter workspace; that logic lives externally in Stitch.
 
 ## Side-by-side comparison
-| Concern | Stitch (`@bscotch/gml-parser`) | Our workspace (`prettier-plugin-gml` + `/parser`) |
+| Concern | Stitch (`@bscotch/gml-parser`) | Our workspace (`GMLoop` + `/parser`) |
 | --- | --- | --- |
 | Parser generator | Chevrotain with hand-written lexer, parser, and visitor layers (`packages/parser/src/lexer.ts`, `parser.ts`, `visitor/`). | ANTLR 4 grammars (`GameMakerLanguage*.g4`) with generated runtime under `src/parser/generated`. |
 | AST/CST | Produces a typed CST (`gml-cst.d.ts`) plus visitors; comments are attached at the project/asset level. | Produces formatted AST nodes for Prettier/Transpiler via `src/parser/src/ast/`; comment/whitespace attachment is built into `gml-parser.ts`. |

@@ -1,6 +1,6 @@
 # GML Transpiler Module
 
-This package implements the GML → JavaScript transpiler for the prettier-plugin-gml project. The transpiler converts GML source code into JavaScript that can be executed in the runtime wrapper for hot-reload functionality.
+This package implements the GML → JavaScript transpiler for the GMLoop toolchain. The transpiler converts GML source code into JavaScript that can be executed in the runtime wrapper for hot-reload functionality.
 
 ## Ownership Boundaries
 

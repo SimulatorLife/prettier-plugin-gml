@@ -1,7 +1,7 @@
 # Documentation index
 
 Use this index to jump to the planning notes and references that shape
-prettier-plugin-gml. The summaries below highlight what each guide covers so you
+GMLoop. The summaries below highlight what each guide covers so you
 can pick the right level of detail for your task. Need installation or
 onboarding steps? Start with the [repository README](../README.md) for the quick
 start workflows, configuration reference, and contributor command reference,

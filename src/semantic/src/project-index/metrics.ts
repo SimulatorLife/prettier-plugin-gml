@@ -119,8 +119,7 @@ function createMetricsSnapshot(extra: Record<string, unknown> | undefined = {}):
 
 // The project-index builder, rename planner, and CLI performance harness all
 // assume that a metrics tracker exposes timing helpers returning cleanup
-// handles plus structured snapshot/finalize data (see
-// docs/legacy-identifier-case-plan.md#metrics-driven-tuning-and-operational-heuristics).
+// handles plus structured snapshot/finalize data.
 // Those flows treat the tracker as an interchangeable dependency injection
 // seam: external hosts can provide their own metric recorder, but every caller
 // still `await`s the timer cleanup callbacks and persists the final snapshot to

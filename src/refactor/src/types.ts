@@ -6,7 +6,7 @@
 
 import { Core } from "@gmloop/core";
 
-import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -47,14 +47,10 @@ export type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
     | "constant"
     | "macro";
@@ -79,6 +75,34 @@ export interface NamingConventionPolicy {
     rules: Partial<Record<NamingCategory, NamingRuleConfig | false>>;
     exclusivePrefixes?: Record<string, NamingCategory>;
     exclusiveSuffixes?: Record<string, NamingCategory>;
+}
+
+/**
+ * Stable identifiers for codemods exposed through project configuration and the CLI.
+ */
+export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
+
+/**
+ * Normalized config payloads keyed by registered codemod id.
+ */
+export interface RefactorCodemodConfigMap {
+    loopLengthHoisting: LoopLengthHoistingCodemodOptions;
+    namingConvention: Record<string, never>;
+}
+
+/**
+ * Config payload for a single registered codemod.
+ */
+export type RefactorCodemodConfigEntry<T extends RefactorCodemodId = RefactorCodemodId> =
+    | RefactorCodemodConfigMap[T]
+    | false;
+
+/**
+ * Refactor-specific configuration loaded from the `refactor` section of `gmloop.json`.
+ */
+export interface RefactorProjectConfig {
+    namingConventionPolicy?: NamingConventionPolicy;
+    codemods?: Partial<{ [K in RefactorCodemodId]: RefactorCodemodConfigEntry<K> }>;
 }
 
 /**
@@ -463,6 +487,14 @@ export interface KeywordProvider {
 }
 
 /**
+ * Semantic adapter surface used by naming-convention codemods to enumerate
+ * renameable identifiers and resources.
+ */
+export interface NamingConventionTargetProvider {
+    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<NamingConventionTarget>>;
+}
+
+/**
  * Workspace edit validation.
  *
  * Provides semantic validation of workspace edits to detect conflicts
@@ -509,7 +541,8 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<FileSymbolProvider> &
     Partial<DependencyAnalyzer> &
     Partial<KeywordProvider> &
-    Partial<EditValidator>;
+    Partial<EditValidator> &
+    Partial<NamingConventionTargetProvider>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
@@ -564,6 +597,97 @@ export interface ExecuteLoopLengthHoistingCodemodResult {
     workspace: WorkspaceEdit;
     applied: Map<string, string>;
     changedFiles: Array<LoopLengthHoistingFileSummary>;
+}
+
+/**
+ * Normalized naming-convention target emitted by semantic adapters.
+ */
+export interface NamingConventionTarget {
+    name: string;
+    category: NamingCategory;
+    path: string;
+    scopeId: string | null;
+    symbolId: string | null;
+    occurrences: Array<SymbolOccurrence>;
+}
+
+/**
+ * A single naming-policy violation detected during codemod planning.
+ */
+export interface NamingConventionViolation {
+    category: NamingCategory;
+    currentName: string;
+    suggestedName: string | null;
+    path: string;
+    symbolId: string | null;
+    message: string;
+}
+
+/**
+ * Naming-convention planning result, including collected edits and any blocking errors.
+ */
+export interface NamingConventionCodemodPlan {
+    workspace: WorkspaceEdit;
+    violations: Array<NamingConventionViolation>;
+    warnings: Array<string>;
+    errors: Array<string>;
+    topLevelRenamePlan: BatchRenamePlanSummary | null;
+    localRenameCount: number;
+}
+
+/**
+ * Summary emitted for each configured codemod run.
+ */
+export interface ConfiguredCodemodSummary {
+    id: RefactorCodemodId;
+    changed: boolean;
+    changedFiles: Array<string>;
+    warnings: Array<string>;
+    errors: Array<string>;
+}
+
+/**
+ * Aggregate result for a configured codemod execution request.
+ */
+export interface ConfiguredCodemodRunResult {
+    dryRun: boolean;
+    summaries: Array<ConfiguredCodemodSummary>;
+    appliedFiles: Map<string, string>;
+}
+
+/**
+ * Parameters for executing codemods selected from `gmloop.json`.
+ */
+export interface ConfiguredCodemodRunRequest {
+    projectRoot: string;
+    targetPaths: Array<string>;
+    gmlFilePaths: Array<string>;
+    config: RefactorProjectConfig;
+    readFile: WorkspaceReadFile;
+    writeFile?: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
+    dryRun?: boolean;
+    onlyCodemods?: Array<RefactorCodemodId>;
+}
+
+/**
+ * Public metadata describing a codemod registered with the refactor workspace.
+ */
+export interface RegisteredCodemod {
+    id: RefactorCodemodId;
+    description: string;
+}
+
+/**
+ * Effective registration state for a codemod after config normalization and CLI filtering.
+ */
+export interface RegisteredCodemodSelection {
+    id: RefactorCodemodId;
+    description: string;
+    configured: boolean;
+    selected: boolean;
+    effectiveConfig: RefactorCodemodConfigMap[RefactorCodemodId] | null;
 }
 
 export interface PrepareRenamePlanOptions {

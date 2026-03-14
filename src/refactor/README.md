@@ -314,15 +314,79 @@ Benefits:
 
 ### Naming Convention Enforcement (Policy Config)
 
-The refactor module should support a single naming-policy config that defines
-how each symbol scope/type must be named, then use that policy during validation
-and rename planning.
+Naming policy lives under `refactor.namingConventionPolicy` inside the unified
+project-root `gmloop.json`. The `namingConvention` codemod reads that policy,
+plans top-level renames through the batch rename engine, applies local
+single-file renames directly, and runs hot-reload validation before apply.
 
 #### Contract
 
-- `namingConventionPolicy` is user-authored project config.
+- `gmloop.json` is the project config file.
+- `refactor.namingConventionPolicy` is user-authored project config.
+- `refactor.codemods.namingConvention` enables the codemod.
 - `rule exists => enabled` is the contract.
 - There is no `enabled` property on naming rules. If a rule is present for a category, that category is enabled. If a category is set to `false`, it is disabled even if a parent has a rule.
+
+#### Project Config Shape
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "resource": {
+                    "caseStyle": "lower"
+                },
+                "roomResourceName": {
+                    "prefix": "rm_"
+                },
+                "variable": {
+                    "caseStyle": "camel"
+                },
+                "globalVariable": {
+                    "prefix": "g_",
+                    "caseStyle": "lower_snake"
+                },
+                "loopIndexVariable": false,
+                "callable": {
+                    "caseStyle": "camel"
+                },
+                "macro": {
+                    "caseStyle": "upper_snake"
+                }
+            },
+            "exclusivePrefixes": {
+                "rm_": "roomResourceName"
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
+
+#### CLI Usage
+
+```bash
+# Preview configured codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods for the whole project
+pnpm run cli -- refactor codemod
+
+# Apply only namingConvention to a subset of paths
+pnpm run cli -- refactor codemod scripts/player --only namingConvention --write
+```
 
 #### Policy Shape
 
@@ -359,14 +423,10 @@ type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
     | "constant"
     | "macro";
@@ -427,7 +487,6 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     globalVariable: "variable",
     instanceVariable: "variable",
     staticVariable: "variable",
-    structVariable: "variable",
     argument: "variable",
     catchArgument: "variable",
     loopIndexVariable: "localVariable",
@@ -435,62 +494,17 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     callable: null,
     function: "callable",
     constructorFunction: "callable",
-    eventHandlerFunction: "callable",
-    structMethod: "callable",
-    staticMethod: "callable",
 
-    structDeclaration: null,
-    enum: null,
-    enumMember: null,
-    macro: null
+    typeName: null,
+    structDeclaration: "typeName",
+    enum: "typeName",
+
+    member: null,
+    enumMember: "member",
+
+    constant: null,
+    macro: "constant"
 };
-```
-
-#### Example User-Authored Config
-
-```json
-{
-    "namingConventionPolicy": {
-        "rules": {
-            "resource": {
-                "caseStyle": "lower"
-            },
-            "roomResourceName": {
-                "prefix": "rm_"
-            },
-            "audioResourceName": {
-                "prefix": "snd_"
-            },
-            "variable": {
-                "caseStyle": "camel",
-                "minChars": 2,
-                "maxChars": 32,
-                "bannedPrefixes": ["_"],
-                "bannedSuffixes": ["_"]
-            },
-            "globalVariable": {
-                "prefix": "g_",
-                "caseStyle": "lower_snake"
-            },
-            "loopIndexVariable": false,
-            "callable": {
-                "caseStyle": "camel"
-            },
-            "function": {
-                "prefix": "scr_"
-            },
-            "macro": {
-                "caseStyle": "upper_snake"
-            },
-            "objectResourceName": {
-                "prefix": "obj_"
-            }
-        },
-        "exclusivePrefixes": {
-            "rm_": "roomResourceName"
-        }
-    }
-}
 ```
 
 #### Enforcement Model
@@ -506,6 +520,8 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
 #### Notes
 
+- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.

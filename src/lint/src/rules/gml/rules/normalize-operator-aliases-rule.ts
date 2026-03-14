@@ -166,6 +166,15 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
 
                             const operatorStart = start + operatorIndex;
                             const operatorEnd = operatorStart + operator.length;
+                            const originalOperatorText = context.sourceCode.text.slice(operatorStart, operatorEnd);
+                            if (
+                                originalOperatorText.length === operator.length &&
+                                originalOperatorText.toLowerCase() === operator &&
+                                originalOperatorText !== operator
+                            ) {
+                                return;
+                            }
+
                             context.report({
                                 loc: resolveReportLocation(context, operatorStart),
                                 messageId: definition.messageId,

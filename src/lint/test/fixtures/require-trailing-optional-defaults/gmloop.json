@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/require-trailing-optional-defaults": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

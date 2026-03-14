@@ -45,7 +45,7 @@ _Migration Rules:_ Do not add new doc-comment content mutation logic in format p
 - **Purpose**: Project-wide, sometimes project-aware rewrites that are not “formatting” and not small local lint fixes.
 - **Scope**: Multi-file changes, API migrations, mechanical refactors, structural rewrites, workspace-wide rename/update operations. All project-aware functionality currently in the `lint` workspace should become part of the refactor workspace.
 - **Behavior**: Explicit, opt-in, typically run as a one-off or scripted step; may use project index/symbol info; can be destructive by design but controlled.
-- **Order in pipeline**: codemod → formatter → lint/typecheck/tests.
+- **Order in pipeline**: project-wide write workflows run codemod → lint `--fix` → formatter, followed by typecheck/tests as separate validation steps.
 
 ### 2.5 Non-Goals
 

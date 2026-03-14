@@ -1,8 +1,16 @@
 import * as CoreWorkspace from "@gmloop/core";
 
+import { recoverParseSourceFromMissingBrace } from "../malformed/source-preprocessing.js";
+
 export type RecoveryMode = "none" | "limited";
 
 export const INSERTED_ARGUMENT_SEPARATOR_KIND = "inserted-argument-separator" as const;
+
+export type RecoveryTextInsertion = {
+    recoveredOffset: number;
+    originalOffset: number;
+    insertedText: string;
+};
 
 export type InsertedArgumentSeparatorRecovery = {
     kind: typeof INSERTED_ARGUMENT_SEPARATOR_KIND;
@@ -14,9 +22,17 @@ export type InsertedArgumentSeparatorRecovery = {
 export type RecoveryProjection = {
     parseSource: string;
     insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>;
+    textInsertions: ReadonlyArray<RecoveryTextInsertion>;
 };
 
 const SCIENTIFIC_NOTATION_PATTERN = /(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+/y;
+const UPPERCASE_LOGICAL_ALIAS_PATTERN = /\b(?:AND|OR|XOR|NOT)\b/gy;
+const STRING_LENGTH_PROPERTY = ".length";
+const ORPHAN_ASSIGNMENT_STATEMENT_PATTERN = /^\s*=\s*(?:\S.*)?;\s*$/u;
+const NUMERIC_ASSIGNMENT_STATEMENT_PATTERN = /^\s*\d+(?:\.\d+)?\s*=\s*/u;
+const THIS_MULTIPLICATION_STATEMENT_PATTERN = /^\s*_this\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*;\s*$/u;
+const CONTROL_CONDITION_PATTERN = /(if|while|do\s+until)\s*\(([^)]*)\)/giu;
+const COMPOUND_ASSIGNMENT_PATTERN = /\?\?=|<<=|>>=|\+=|-=|\*=|\/=|%=|&=|\^=|\|=/gu;
 
 function isIdentifierCharacter(character: string): boolean {
     return /[A-Za-z0-9_]/u.test(character);
@@ -276,24 +292,293 @@ function projectScientificNotationForRecovery(sourceText: string): string {
     return chunks.join("");
 }
 
-/**
- * Produces a parser-recovery source variant by:
- * 1) neutralizing unsupported scientific notation literals into parse-safe tokens, and
- * 2) inserting commas in clearly ambiguous call argument positions where users omitted separators.
- */
-export function createLimitedRecoveryProjection(sourceText: string): RecoveryProjection {
-    if (sourceText.length === 0) {
-        return Object.freeze({ parseSource: sourceText, insertions: Object.freeze([]) });
+function projectUppercaseLogicalAliasesForRecovery(sourceText: string): string {
+    const chunks: Array<string> = [];
+    const scanState = CoreWorkspace.Core.createStringCommentScanState();
+    const sourceLength = sourceText.length;
+
+    let copiedThrough = 0;
+    let index = 0;
+    while (index < sourceLength) {
+        const scannedIndex = CoreWorkspace.Core.advanceStringCommentScan(
+            sourceText,
+            sourceLength,
+            index,
+            scanState,
+            true
+        );
+        if (scannedIndex !== index) {
+            index = scannedIndex;
+            continue;
+        }
+
+        UPPERCASE_LOGICAL_ALIAS_PATTERN.lastIndex = index;
+        const match = UPPERCASE_LOGICAL_ALIAS_PATTERN.exec(sourceText);
+        if (!match) {
+            index += 1;
+            continue;
+        }
+
+        const alias = match[0] ?? "";
+        const start = match.index;
+        const end = start + alias.length;
+        if (
+            !CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[start - 1]) ||
+            !CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[end])
+        ) {
+            index += 1;
+            continue;
+        }
+
+        chunks.push(sourceText.slice(copiedThrough, start), alias.toLowerCase());
+        copiedThrough = end;
+        index = end;
     }
 
-    const projectedSourceText = projectScientificNotationForRecovery(sourceText);
+    if (copiedThrough === 0) {
+        return sourceText;
+    }
+
+    chunks.push(sourceText.slice(copiedThrough));
+    return chunks.join("");
+}
+
+function buildCommentedLineOfSameLength(lineContent: string): string {
+    if (lineContent.length === 0) {
+        return lineContent;
+    }
+
+    const firstNonWhitespaceIndex = lineContent.search(/\S/u);
+    const commentStartIndex = firstNonWhitespaceIndex === -1 ? 0 : firstNonWhitespaceIndex;
+    const suffixLength = Math.max(0, lineContent.length - commentStartIndex - 2);
+    return `${lineContent.slice(0, commentStartIndex)}//${" ".repeat(suffixLength)}`;
+}
+
+function buildNoOpStatementLineOfSameLength(lineContent: string): string {
+    if (lineContent.length <= 2) {
+        return "0;".slice(0, lineContent.length);
+    }
+
+    const firstNonWhitespaceIndex = lineContent.search(/\S/u);
+    const statementStartIndex = firstNonWhitespaceIndex === -1 ? 0 : firstNonWhitespaceIndex;
+    const availableLength = lineContent.length - statementStartIndex;
+    if (availableLength <= 2) {
+        return `${lineContent.slice(0, statementStartIndex)}0;`;
+    }
+
+    return `${lineContent.slice(0, statementStartIndex)}0;${" ".repeat(availableLength - 2)}`;
+}
+
+function projectInvalidStandaloneLinesForRecovery(sourceText: string): string {
+    const segments = sourceText.match(/[^\r\n]*(?:\r\n|\r|\n|$)/gu) ?? [];
+    let changed = false;
+
+    const projectedSegments = segments.map((segment) => {
+        const lineEndingMatch = /(?:\r\n|\r|\n)$/u.exec(segment);
+        const lineEnding = lineEndingMatch?.[0] ?? "";
+        const lineContent = lineEnding.length === 0 ? segment : segment.slice(0, -lineEnding.length);
+
+        if (
+            !ORPHAN_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) &&
+            !NUMERIC_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) &&
+            !THIS_MULTIPLICATION_STATEMENT_PATTERN.test(lineContent)
+        ) {
+            return segment;
+        }
+
+        changed = true;
+        if (
+            ORPHAN_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) ||
+            NUMERIC_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent)
+        ) {
+            return `${buildNoOpStatementLineOfSameLength(lineContent)}${lineEnding}`;
+        }
+
+        return `${buildCommentedLineOfSameLength(lineContent)}${lineEnding}`;
+    });
+
+    return changed ? projectedSegments.join("") : sourceText;
+}
+
+function createParseSafeCompoundAssignment(operatorText: string): string {
+    return operatorText.length === 3 ? "== " : "==";
+}
+
+function projectCompoundAssignmentsInControlConditionsForRecovery(sourceText: string): string {
+    return sourceText.replaceAll(
+        CONTROL_CONDITION_PATTERN,
+        (fullMatch: string, keyword: string, conditionText: string): string => {
+            const rewrittenConditionText = conditionText.replaceAll(COMPOUND_ASSIGNMENT_PATTERN, (operatorText) =>
+                createParseSafeCompoundAssignment(operatorText)
+            );
+            if (rewrittenConditionText === conditionText) {
+                return fullMatch;
+            }
+
+            return `${keyword} (${rewrittenConditionText})`;
+        }
+    );
+}
+
+type PendingRecoveryInsertion = Readonly<{
+    offset: number;
+    text: string;
+}>;
+
+function applyRecoveryTextInsertions(
+    sourceText: string,
+    pendingInsertions: ReadonlyArray<PendingRecoveryInsertion>,
+    priorInsertions: ReadonlyArray<RecoveryTextInsertion>
+): Readonly<{
+    parseSource: string;
+    textInsertions: ReadonlyArray<RecoveryTextInsertion>;
+}> {
+    if (pendingInsertions.length === 0) {
+        return Object.freeze({
+            parseSource: sourceText,
+            textInsertions: Object.freeze([])
+        });
+    }
+
+    const orderedInsertions = [...pendingInsertions].toSorted((left, right) => {
+        if (left.offset !== right.offset) {
+            return left.offset - right.offset;
+        }
+
+        return left.text.localeCompare(right.text);
+    });
+
+    const chunks: Array<string> = [];
+    const textInsertions: Array<RecoveryTextInsertion> = [];
+    let copiedThrough = 0;
+    let accumulatedShift = 0;
+
+    for (const insertion of orderedInsertions) {
+        if (insertion.offset < copiedThrough || insertion.offset > sourceText.length) {
+            continue;
+        }
+
+        chunks.push(sourceText.slice(copiedThrough, insertion.offset), insertion.text);
+        copiedThrough = insertion.offset;
+
+        textInsertions.push({
+            originalOffset: mapRecoveredIndexToOriginal(insertion.offset, priorInsertions),
+            recoveredOffset: insertion.offset + accumulatedShift,
+            insertedText: insertion.text
+        });
+        accumulatedShift += insertion.text.length;
+    }
+
+    if (textInsertions.length === 0) {
+        return Object.freeze({
+            parseSource: sourceText,
+            textInsertions: Object.freeze([])
+        });
+    }
+
+    chunks.push(sourceText.slice(copiedThrough));
+
+    return Object.freeze({
+        parseSource: chunks.join(""),
+        textInsertions: Object.freeze(textInsertions.map((entry) => Object.freeze({ ...entry })))
+    });
+}
+
+function collectStringLiteralLengthWrapInsertions(sourceText: string): ReadonlyArray<PendingRecoveryInsertion> {
+    const pendingInsertions: Array<PendingRecoveryInsertion> = [];
+    let index = 0;
+
+    while (index < sourceText.length) {
+        const character = sourceText[index] ?? "";
+        const nextCharacter = sourceText[index + 1] ?? "";
+
+        if (character === "/" && nextCharacter === "/") {
+            index += 2;
+            while (index < sourceText.length) {
+                const lineCharacter = sourceText[index] ?? "";
+                if (lineCharacter === "\n" || lineCharacter === "\r") {
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character === "/" && nextCharacter === "*") {
+            index += 2;
+            while (index < sourceText.length) {
+                const blockCharacter = sourceText[index] ?? "";
+                const blockNext = sourceText[index + 1] ?? "";
+                if (blockCharacter === "*" && blockNext === "/") {
+                    index += 2;
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        if (character !== '"' && character !== "'") {
+            index += 1;
+            continue;
+        }
+
+        const literalStartIndex = index;
+        const quoteCharacter = character;
+        index += 1;
+
+        while (index < sourceText.length) {
+            const stringCharacter = sourceText[index] ?? "";
+            if (stringCharacter === "\\") {
+                index += 2;
+                continue;
+            }
+
+            if (stringCharacter === quoteCharacter) {
+                break;
+            }
+
+            index += 1;
+        }
+
+        if (index >= sourceText.length) {
+            break;
+        }
+
+        const literalEndIndex = index;
+        let memberAccessIndex = literalEndIndex + 1;
+        while (memberAccessIndex < sourceText.length && /\s/u.test(sourceText[memberAccessIndex] ?? "")) {
+            memberAccessIndex += 1;
+        }
+
+        if (!sourceText.startsWith(STRING_LENGTH_PROPERTY, memberAccessIndex)) {
+            index = literalEndIndex + 1;
+            continue;
+        }
+
+        pendingInsertions.push(
+            Object.freeze({ offset: literalStartIndex, text: "(" }),
+            Object.freeze({ offset: literalEndIndex + 1, text: ")" })
+        );
+
+        index = literalEndIndex + 1;
+    }
+
+    return Object.freeze(pendingInsertions);
+}
+
+function createArgumentSeparatorProjection(sourceText: string): Readonly<{
+    parseSource: string;
+    insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>;
+    textInsertions: ReadonlyArray<RecoveryTextInsertion>;
+}> {
     const chunks: Array<string> = [];
     const insertions: Array<InsertedArgumentSeparatorRecovery> = [];
     let copiedThrough = 0;
 
-    const recoveryScanSource = maskCommentsAndStringsForRecovery(projectedSourceText);
+    const recoveryScanSource = maskCommentsAndStringsForRecovery(sourceText);
     let index = 0;
-    while (index < projectedSourceText.length) {
+    while (index < sourceText.length) {
         const character = recoveryScanSource[index] ?? "";
         if (!/\s/u.test(character)) {
             index += 1;
@@ -301,7 +586,7 @@ export function createLimitedRecoveryProjection(sourceText: string): RecoveryPro
         }
 
         const whitespaceRunStart = index;
-        while (index < projectedSourceText.length && /\s/u.test(recoveryScanSource[index] ?? "")) {
+        while (index < sourceText.length && /\s/u.test(recoveryScanSource[index] ?? "")) {
             index += 1;
         }
         const whitespaceRunEnd = index - 1;
@@ -320,7 +605,7 @@ export function createLimitedRecoveryProjection(sourceText: string): RecoveryPro
             continue;
         }
 
-        chunks.push(projectedSourceText.slice(copiedThrough, whitespaceRunStart), ",");
+        chunks.push(sourceText.slice(copiedThrough, whitespaceRunStart), ",");
         copiedThrough = whitespaceRunStart;
 
         const recoveredOffset = whitespaceRunStart + insertions.length;
@@ -333,20 +618,82 @@ export function createLimitedRecoveryProjection(sourceText: string): RecoveryPro
     }
 
     if (insertions.length === 0) {
-        return Object.freeze({ parseSource: projectedSourceText, insertions: Object.freeze([]) });
+        return Object.freeze({
+            parseSource: sourceText,
+            insertions: Object.freeze([]),
+            textInsertions: Object.freeze([])
+        });
     }
 
-    chunks.push(projectedSourceText.slice(copiedThrough));
+    chunks.push(sourceText.slice(copiedThrough));
 
+    const frozenInsertions = Object.freeze(insertions.map((entry) => Object.freeze({ ...entry })));
     return Object.freeze({
         parseSource: chunks.join(""),
-        insertions: Object.freeze(insertions.map((entry) => Object.freeze({ ...entry })))
+        insertions: frozenInsertions,
+        textInsertions: frozenInsertions
+    });
+}
+
+/**
+ * Produces a parser-recovery source variant by:
+ * 1) neutralizing unsupported scientific notation literals into parse-safe tokens, and
+ * 2) normalizing a narrow set of malformed tokens into parse-safe equivalents, and
+ * 3) inserting commas in clearly ambiguous call argument positions where users omitted separators.
+ */
+export function createLimitedRecoveryProjection(sourceText: string, parseError?: unknown): RecoveryProjection {
+    if (sourceText.length === 0) {
+        return Object.freeze({
+            parseSource: sourceText,
+            insertions: Object.freeze([]),
+            textInsertions: Object.freeze([])
+        });
+    }
+
+    let projectedSourceText = projectScientificNotationForRecovery(sourceText);
+    projectedSourceText = projectUppercaseLogicalAliasesForRecovery(projectedSourceText);
+    projectedSourceText = projectInvalidStandaloneLinesForRecovery(projectedSourceText);
+    projectedSourceText = projectCompoundAssignmentsInControlConditionsForRecovery(projectedSourceText);
+
+    const argumentSeparatorProjection = createArgumentSeparatorProjection(projectedSourceText);
+    projectedSourceText = argumentSeparatorProjection.parseSource;
+
+    const stringLengthProjection = applyRecoveryTextInsertions(
+        projectedSourceText,
+        collectStringLiteralLengthWrapInsertions(projectedSourceText),
+        argumentSeparatorProjection.textInsertions
+    );
+    projectedSourceText = stringLengthProjection.parseSource;
+
+    const allTextInsertions = [...argumentSeparatorProjection.textInsertions, ...stringLengthProjection.textInsertions];
+    const appendedClosingBraceText = recoverParseSourceFromMissingBrace(projectedSourceText, parseError);
+    if (appendedClosingBraceText === null) {
+        return Object.freeze({
+            parseSource: projectedSourceText,
+            insertions: argumentSeparatorProjection.insertions,
+            textInsertions: Object.freeze(allTextInsertions)
+        });
+    }
+
+    const appendedText = appendedClosingBraceText.slice(projectedSourceText.length);
+    const missingBraceProjection = applyRecoveryTextInsertions(
+        projectedSourceText,
+        appendedText.length === 0
+            ? Object.freeze([])
+            : Object.freeze([{ offset: projectedSourceText.length, text: appendedText }]),
+        allTextInsertions
+    );
+
+    return Object.freeze({
+        parseSource: missingBraceProjection.parseSource,
+        insertions: argumentSeparatorProjection.insertions,
+        textInsertions: Object.freeze([...allTextInsertions, ...missingBraceProjection.textInsertions])
     });
 }
 
 export function mapRecoveredIndexToOriginal(
     recoveredIndex: number,
-    insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>
+    insertions: ReadonlyArray<RecoveryTextInsertion>
 ): number {
     if (!Number.isFinite(recoveredIndex) || insertions.length === 0) {
         return recoveredIndex;
