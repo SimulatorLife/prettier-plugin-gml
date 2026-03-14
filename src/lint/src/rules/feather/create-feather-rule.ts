@@ -2,6 +2,7 @@
 import type { Rule } from "eslint";
 
 import { getDeprecatedIdentifierCatalogEntry } from "../../services/deprecated-identifiers/index.js";
+import { resolveLocFromIndex } from "../gml/rule-base-helpers.js";
 import type { FeatherManifestEntry } from "./manifest.js";
 
 type EnumBlockMatch = {
@@ -164,38 +165,6 @@ function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): 
     return -1;
 }
 
-function resolveReportLoc(context: Rule.RuleContext, index: number): { line: number; column: number } {
-    const sourceText = context.sourceCode.text;
-    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
-    const locator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (offset: number) => { line: number; column: number } | undefined;
-    };
-    const located = typeof locator.getLocFromIndex === "function" ? locator.getLocFromIndex(clampedIndex) : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
-    }
-
-    let line = 1;
-    let lastLineStart = 0;
-    for (let offset = 0; offset < clampedIndex; offset += 1) {
-        if (sourceText[offset] === "\n") {
-            line += 1;
-            lastLineStart = offset + 1;
-        }
-    }
-
-    return {
-        line,
-        column: clampedIndex - lastLineStart
-    };
-}
-
 function getDirectDeprecatedReplacement(identifierName: string): string | null {
     const entry = getDeprecatedIdentifierCatalogEntry(identifierName);
     if (!entry || entry.replacementKind !== "direct-rename" || entry.replacement === null) {
@@ -221,7 +190,7 @@ function createFullTextRewriteRule(
                     }
 
                     context.report({
-                        loc: resolveReportLoc(context, 0),
+                        loc: resolveLocFromIndex(context, context.sourceCode.text, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
                     });
@@ -343,7 +312,7 @@ function createGm1003Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         }
 
                         context.report({
-                            loc: resolveReportLoc(context, block.start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, block.start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([block.start, block.end], rewritten)
                         });
@@ -437,7 +406,7 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const rewrittenLines = lines.filter((_, index) => !removeLineIndexes.has(index));
                         const rewritten = rewrittenLines.join("\n");
                         context.report({
-                            loc: resolveReportLoc(context, block.start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, block.start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([block.start, block.end], rewritten)
                         });
@@ -460,7 +429,7 @@ function createGm1005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const start = match.index ?? 0;
                         const end = start + match[0].length;
                         context.report({
-                            loc: resolveReportLoc(context, start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([start, end], "draw_set_color(c_black)")
                         });
@@ -613,7 +582,7 @@ function createGm1014Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const absoluteInsertIndex = declaration.start + blockRelativeInsertIndex;
 
                         context.report({
-                            loc: resolveReportLoc(context, absoluteInsertIndex),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, absoluteInsertIndex),
                             messageId: "diagnostic",
                             fix: (fixer) =>
                                 fixer.replaceTextRange(
@@ -642,7 +611,7 @@ function createGm1016Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     }
 
                     context.report({
-                        loc: resolveReportLoc(context, 0),
+                        loc: resolveLocFromIndex(context, context.sourceCode.text, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
                     });
@@ -707,7 +676,7 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const start = match.index ?? 0;
                         const end = start + match[0].length;
                         context.report({
-                            loc: resolveReportLoc(context, start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                         });
@@ -1319,7 +1288,7 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
         rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*(?:;[ \t]*)?(?:\r?\n|$))/gm,
             (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
                 suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );
