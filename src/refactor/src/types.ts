@@ -886,6 +886,7 @@ export interface RefactorEngineDependencies {
 
 export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
+    includeResultContent?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;

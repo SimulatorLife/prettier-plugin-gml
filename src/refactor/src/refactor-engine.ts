@@ -694,7 +694,7 @@ export class RefactorEngine {
         options?: ApplyWorkspaceEditOptions
     ): Promise<Map<string, string>> {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
-        const { dryRun = false, readFile, writeFile } = opts;
+        const { dryRun = false, includeResultContent = true, readFile, writeFile } = opts;
 
         if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
@@ -736,7 +736,7 @@ export class RefactorEngine {
                 newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
             }
 
-            results.set(filePath, newContent);
+            results.set(filePath, includeResultContent ? newContent : "");
 
             // Write the modified content to disk unless we're in dry-run mode, which
             // lets callers preview changes before committing them.
@@ -747,7 +747,7 @@ export class RefactorEngine {
 
         const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         await Core.runSequentially(metadataEdits, async (metadataEdit) => {
-            results.set(metadataEdit.path, metadataEdit.content);
+            results.set(metadataEdit.path, includeResultContent ? metadataEdit.content : "");
 
             if (!dryRun) {
                 await writeFile(metadataEdit.path, metadataEdit.content);
@@ -825,20 +825,11 @@ export class RefactorEngine {
             );
         }
 
-        // Plan each rename independently, collecting the resulting workspace edits.
-        // We defer merging until all renames are validated so that a single invalid
-        // rename doesn't invalidate the entire batch.
-        const workspaces: Array<WorkspaceEdit> = [];
+        // Plan each rename independently and merge immediately to avoid retaining
+        // every intermediate workspace in memory for large rename batches.
+        const merged = new WorkspaceEdit();
         await Core.runSequentially(renames, async (rename) => {
             const workspace = await this.planRename(rename);
-            workspaces.push(workspace);
-        });
-
-        // Combine all workspace edits into a single merged edit that can be applied
-        // atomically. This ensures either all renames succeed together or none are
-        // applied, maintaining consistency.
-        const merged = new WorkspaceEdit();
-        for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
             }
@@ -849,7 +840,7 @@ export class RefactorEngine {
             for (const fileRename of fileRenames) {
                 merged.addFileRename(fileRename.oldPath, fileRename.newPath);
             }
-        }
+        });
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
@@ -1028,6 +1019,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent: dryRun,
             dryRun
         });
 
@@ -1068,11 +1060,12 @@ export class RefactorEngine {
 
         const requestedCodemods = new Set(onlyCodemods);
         const configuredCodemods = config.codemods ?? {};
+        const useInMemoryOverlay = dryRun;
         const overlay = new Map<string, string>();
         const appliedFiles = new Map<string, string>();
 
         const readThroughOverlay = async (filePath: string): Promise<string> => {
-            if (overlay.has(filePath)) {
+            if (useInMemoryOverlay && overlay.has(filePath)) {
                 return overlay.get(filePath) ?? "";
             }
 
@@ -1080,8 +1073,12 @@ export class RefactorEngine {
         };
 
         const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
-            overlay.set(filePath, content);
-            appliedFiles.set(filePath, content);
+            if (useInMemoryOverlay) {
+                overlay.set(filePath, content);
+                appliedFiles.set(filePath, content);
+            } else {
+                appliedFiles.set(filePath, "");
+            }
 
             if (!dryRun && writeFile) {
                 await writeFile(filePath, content);
@@ -1101,8 +1098,12 @@ export class RefactorEngine {
         });
 
         for (const [filePath, content] of result.appliedFiles.entries()) {
-            overlay.set(filePath, content);
-            appliedFiles.set(filePath, content);
+            if (useInMemoryOverlay) {
+                overlay.set(filePath, content);
+                appliedFiles.set(filePath, content);
+            } else {
+                appliedFiles.set(filePath, "");
+            }
         }
 
         return {

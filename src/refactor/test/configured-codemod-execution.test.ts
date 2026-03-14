@@ -84,6 +84,32 @@ void test("executeConfiguredCodemods defaults to dry-run for loop-length hoistin
     assert.match(result.appliedFiles.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
 });
 
+void test("executeConfiguredCodemods avoids retaining full file content in write mode", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const writes = new Map<string, string>();
+    const engine = new Refactor.RefactorEngine();
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        writeFile: async (filePath, content) => {
+            writes.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.dryRun, false);
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "");
+    assert.match(writes.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
 void test("executeConfiguredCodemods applies namingConvention local renames without a batch rename plan", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");

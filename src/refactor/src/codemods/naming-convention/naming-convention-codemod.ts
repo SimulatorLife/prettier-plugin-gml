@@ -80,7 +80,7 @@ export async function planNamingConventionCodemod(
     }
 
     const resolvedRules = resolveNamingConventionRules(policy);
-    const workspace = new WorkspaceEditClass();
+    let workspace = new WorkspaceEditClass();
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
     const violations: Array<NamingConventionViolation> = [];
@@ -191,7 +191,9 @@ export async function planNamingConventionCodemod(
         topLevelRenamePlan = await engine.prepareBatchRenamePlan(topLevelRenames, {
             includeImpactAnalyses: false
         });
-        appendWorkspaceEdits(workspace, topLevelRenamePlan.workspace);
+        const mergedWorkspace = topLevelRenamePlan.workspace;
+        appendWorkspaceEdits(mergedWorkspace, workspace);
+        workspace = mergedWorkspace;
         warnings.push(
             ...topLevelRenamePlan.batchValidation.warnings,
             ...topLevelRenamePlan.validation.warnings,
@@ -255,7 +257,10 @@ export async function executeNamingConventionCodemod(
         };
     }
 
-    const applied = await engine.applyWorkspaceEdit(plan.workspace, parameters.applyOptions);
+    const applied = await engine.applyWorkspaceEdit(plan.workspace, {
+        ...parameters.applyOptions,
+        includeResultContent: parameters.applyOptions.dryRun === true
+    });
     return {
         plan,
         applied

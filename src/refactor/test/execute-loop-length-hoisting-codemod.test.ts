@@ -23,7 +23,7 @@ void test("executeLoopLengthHoistingCodemod applies codemod across provided file
     assert.equal(result.changedFiles[0]?.path, "/project/changed.gml");
     assert.equal(result.changedFiles[0]?.appliedEditCount > 0, true);
     assert.equal(writes.size, 1);
-    assert.equal(result.applied.get("/project/changed.gml")?.includes("var len = array_length(items);"), true);
+    assert.equal(result.applied.get("/project/changed.gml"), "");
     assert.equal(result.applied.has("/project/unchanged.gml"), false);
 });
 
