@@ -1,7 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { printExpression, readNodeText } from "../../../language/print-expression.js";
+import { printExpression, readNodeText } from "../../../language/index.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
@@ -1330,11 +1330,7 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                         }
                     }
 
-                    if (replacement && replacement !== sourceTextOfNode) {
-                        replacement = applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement);
-                    } else {
-                        replacement = null;
-                    }
+                    replacement = replacement && replacement !== sourceTextOfNode ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement) : null;
 
                     replacementByCandidateText.set(replacementCacheKey, replacement);
                 }
