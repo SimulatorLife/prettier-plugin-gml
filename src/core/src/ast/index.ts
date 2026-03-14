@@ -3,6 +3,7 @@ export * from "./index-adjustments.js";
 export * from "./location-keys.js";
 export * from "./location-manipulation.js";
 export * from "./locations.js";
+export * from "./loop-length-accessor.js";
 export * from "./node-classification.js";
 export * from "./node-helpers.js";
 export * from "./node-types.js";
