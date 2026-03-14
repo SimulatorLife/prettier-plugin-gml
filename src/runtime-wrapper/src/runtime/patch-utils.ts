@@ -475,6 +475,14 @@ export interface DependencyValidationResult {
 
 type DependencyLookup = ReadonlySet<string>;
 
+function hasRegistryDependency(registry: RuntimeRegistry, dependencyId: string): boolean {
+    return (
+        Object.hasOwn(registry.scripts, dependencyId) ||
+        Object.hasOwn(registry.events, dependencyId) ||
+        Object.hasOwn(registry.closures, dependencyId)
+    );
+}
+
 function createDependencyLookup(registry: RuntimeRegistry): DependencyLookup {
     return new Set([
         ...Object.keys(registry.scripts),
@@ -515,8 +523,23 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
         return { satisfied: true, missingDependencies: [] };
     }
 
-    const dependencyLookup = createDependencyLookup(registry);
-    const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
+    const missingDependencies: Array<string> = [];
+    const checkedDependencies = new Set<string>();
+
+    for (const dependencyCandidate of dependencies) {
+        if (typeof dependencyCandidate !== "string" || dependencyCandidate.length === 0) {
+            continue;
+        }
+
+        if (checkedDependencies.has(dependencyCandidate)) {
+            continue;
+        }
+        checkedDependencies.add(dependencyCandidate);
+
+        if (!hasRegistryDependency(registry, dependencyCandidate)) {
+            missingDependencies.push(dependencyCandidate);
+        }
+    }
 
     return {
         satisfied: missingDependencies.length === 0,
