@@ -36,3 +36,52 @@ void test("fixture deep cpu worker writes an isolated cpuprofile artifact", asyn
         await rm(tempRoot, { recursive: true, force: true });
     }
 });
+
+void test("fixture deep cpu worker supports batched case requests", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-deep-cpu-batch-"));
+    const firstOutputPath = path.join(tempRoot, "format-test-draw-event-first.cpuprofile");
+    const secondOutputPath = path.join(tempRoot, "format-test-draw-event-second.cpuprofile");
+
+    try {
+        const batchCases = JSON.stringify([
+            {
+                caseId: "test-draw-event",
+                outputPath: firstOutputPath
+            },
+            {
+                caseId: "test-draw-event",
+                outputPath: secondOutputPath
+            }
+        ]);
+
+        await execFileAsync(process.execPath, [path.resolve(process.cwd(), "test/dist/fixture-deep-cpu-case.js")], {
+            cwd: process.cwd(),
+            env: {
+                ...process.env,
+                GMLOOP_FIXTURE_DEEP_CPU: "0",
+                GMLOOP_FIXTURE_DEEP_CPU_WORKSPACE: "format",
+                GMLOOP_FIXTURE_DEEP_CPU_CASES_JSON: batchCases
+            },
+            maxBuffer: 1024 * 1024 * 10
+        });
+
+        const firstCpuProfile = JSON.parse(await readFile(firstOutputPath, "utf8")) as {
+            nodes?: ReadonlyArray<unknown>;
+            samples?: ReadonlyArray<number>;
+        };
+        const secondCpuProfile = JSON.parse(await readFile(secondOutputPath, "utf8")) as {
+            nodes?: ReadonlyArray<unknown>;
+            samples?: ReadonlyArray<number>;
+        };
+
+        assert.equal(Array.isArray(firstCpuProfile.nodes), true);
+        assert.equal((firstCpuProfile.nodes?.length ?? 0) > 0, true);
+        assert.equal(Array.isArray(firstCpuProfile.samples), true);
+
+        assert.equal(Array.isArray(secondCpuProfile.nodes), true);
+        assert.equal((secondCpuProfile.nodes?.length ?? 0) > 0, true);
+        assert.equal(Array.isArray(secondCpuProfile.samples), true);
+    } finally {
+        await rm(tempRoot, { recursive: true, force: true });
+    }
+});
