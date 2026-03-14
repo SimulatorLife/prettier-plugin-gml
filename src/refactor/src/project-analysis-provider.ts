@@ -36,7 +36,7 @@ function enumerateRenameCandidates(preferredName: string): ReadonlyArray<string>
     return candidates;
 }
 
-async function resolveReplacementName(parameters: {
+function resolveReplacementName(parameters: {
     candidateNames: ReadonlyArray<string>;
     normalizedFilePath: string | null;
     projectRoot: string;
@@ -89,11 +89,11 @@ async function resolveReplacementName(parameters: {
 
             return { replacementName: candidateName };
         } catch (error) {
-            return await tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
+            return tryCandidateAtIndex(index + 1, Core.getErrorMessage(error));
         }
     };
 
-    return await tryCandidateAtIndex(0);
+    return tryCandidateAtIndex(0);
 }
 
 async function planSingleFeatherRename(parameters: {

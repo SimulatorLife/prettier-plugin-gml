@@ -105,12 +105,9 @@ function findNodeAtOffset(node: AstNode | null, offset: number): SymbolLocation 
 /**
  * Validate symbol exists in the semantic index.
  */
-export async function validateSymbolExists(
-    symbolId: string,
-    semantic: PartialSemanticAnalyzer | null
-): Promise<boolean> {
+export function validateSymbolExists(symbolId: string, semantic: PartialSemanticAnalyzer | null): Promise<boolean> {
     if (!semantic) {
-        throw new Error("RefactorEngine requires a semantic analyzer to validate symbols");
+        return Promise.reject(new Error("RefactorEngine requires a semantic analyzer to validate symbols"));
     }
 
     // Query the semantic analyzer's symbol table to determine whether the given
@@ -118,24 +115,24 @@ export async function validateSymbolExists(
     // non-existent symbols, which would otherwise silently succeed but produce
     // no edits, confusing users who expect feedback when they mistype a name.
     if (Core.hasMethods(semantic, "hasSymbol")) {
-        return await semantic.hasSymbol(symbolId);
+        return Promise.resolve(semantic.hasSymbol(symbolId));
     }
 
     // If the semantic analyzer doesn't expose a validation method, assume the
     // symbol exists. This fallback permits refactorings to proceed in
     // environments where the semantic layer is minimal or still initializing.
-    return true;
+    return Promise.resolve(true);
 }
 
 /**
  * Gather all occurrences of a symbol from the semantic analyzer.
  */
-export async function gatherSymbolOccurrences(
+export function gatherSymbolOccurrences(
     symbolName: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<Array<SymbolOccurrence>> {
     if (!semantic) {
-        return [];
+        return Promise.resolve<Array<SymbolOccurrence>>([]);
     }
 
     // Request all occurrences (definitions and references) of the symbol from
@@ -144,12 +141,12 @@ export async function gatherSymbolOccurrences(
     // both the location (path, offset) and the kind (definition vs. reference)
     // of each occurrence, which later phases use to construct text edits.
     if (Core.hasMethods(semantic, "getSymbolOccurrences")) {
-        return await semantic.getSymbolOccurrences(symbolName);
+        return Promise.resolve(semantic.getSymbolOccurrences(symbolName));
     }
 
     // If occurrence tracking isn't available, return an empty array so the
     // rename operation can proceed without edits, avoiding a hard error.
-    return [];
+    return Promise.resolve<Array<SymbolOccurrence>>([]);
 }
 
 /**
@@ -207,17 +204,17 @@ export async function getSymbolDependents(
 /**
  * Resolve a symbol ID from an identifier name.
  */
-export async function resolveSymbolId(
+export function resolveSymbolId(
     identifierName: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<string | null> {
     if (!semantic) {
-        return null;
+        return Promise.resolve(null);
     }
 
     if (Core.hasMethods(semantic, "resolveSymbolId")) {
-        return await semantic.resolveSymbolId(identifierName);
+        return Promise.resolve(semantic.resolveSymbolId(identifierName));
     }
 
-    return null;
+    return Promise.resolve(null);
 }
