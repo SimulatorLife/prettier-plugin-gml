@@ -1194,7 +1194,7 @@ new RefactorEngine({ parser, semantic, formatter });
 
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
-- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, optional impact analysis (`includeImpactAnalyses`), and optional hot reload metadata
 
 #### Hot Reload Integration
 

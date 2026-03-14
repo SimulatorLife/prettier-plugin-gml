@@ -162,6 +162,7 @@ const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.free
                     }
                 },
                 targetPaths: request.targetPaths,
+                gmlFilePaths: request.gmlFilePaths,
                 applyOptions: {
                     dryRun: request.dryRun,
                     readFile: request.readFile,

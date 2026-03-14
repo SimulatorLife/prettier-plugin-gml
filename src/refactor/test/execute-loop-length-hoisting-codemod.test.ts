@@ -105,3 +105,26 @@ void test("executeLoopLengthHoistingCodemod validates required file paths", asyn
         }
     );
 });
+
+void test("executeLoopLengthHoistingCodemod reads files sequentially", async () => {
+    const engine = new Refactor.RefactorEngine();
+    let activeReads = 0;
+    let maxConcurrentReads = 0;
+
+    await engine.executeLoopLengthHoistingCodemod({
+        filePaths: ["/project/one.gml", "/project/two.gml", "/project/three.gml"],
+        readFile: async () => {
+            activeReads += 1;
+            maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, 5);
+            });
+            activeReads -= 1;
+
+            return "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+        },
+        writeFile: async () => {}
+    });
+
+    assert.equal(maxConcurrentReads, 1);
+});

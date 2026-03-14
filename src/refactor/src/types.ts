@@ -699,6 +699,10 @@ export interface PrepareRenamePlanOptions {
     hotReloadOptions?: HotReloadValidationOptions;
 }
 
+export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
+    includeImpactAnalyses?: boolean;
+}
+
 export interface HotReloadValidationOptions {
     checkTranspiler?: boolean;
     readFile?: WorkspaceReadFile;
