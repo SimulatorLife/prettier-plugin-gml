@@ -1330,7 +1330,10 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                         }
                     }
 
-                    replacement = replacement && replacement !== sourceTextOfNode ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement) : null;
+                    replacement =
+                        replacement && replacement !== sourceTextOfNode
+                            ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                            : null;
 
                     replacementByCandidateText.set(replacementCacheKey, replacement);
                 }

@@ -26,6 +26,38 @@ export interface MetadataEdit {
 
 export type GroupedTextEdits = Map<string, Array<Pick<TextEdit, "start" | "end" | "newText">>>;
 
+export type WorkspaceEditTelemetry = {
+    textEditCount: number;
+    fileRenameCount: number;
+    metadataEditCount: number;
+    touchedFileCount: number;
+    totalTextBytes: number;
+    highWaterTextBytes: number;
+};
+
+type WorkspaceEditTelemetryState = {
+    totalTextBytes: number;
+    highWaterTextBytes: number;
+    touchedFiles: Set<string>;
+};
+
+const workspaceEditTelemetryState = new WeakMap<WorkspaceEdit, WorkspaceEditTelemetryState>();
+
+function getTelemetryState(workspace: WorkspaceEdit): WorkspaceEditTelemetryState {
+    const existing = workspaceEditTelemetryState.get(workspace);
+    if (existing) {
+        return existing;
+    }
+
+    const created: WorkspaceEditTelemetryState = {
+        totalTextBytes: 0,
+        highWaterTextBytes: 0,
+        touchedFiles: new Set<string>()
+    };
+    workspaceEditTelemetryState.set(workspace, created);
+    return created;
+}
+
 export class WorkspaceEdit {
     readonly edits: Array<TextEdit>;
     readonly fileRenames: Array<FileRename> = [];
@@ -41,18 +73,29 @@ export class WorkspaceEdit {
     }
 
     addEdit(path: string, start: number, end: number, newText: string): void {
+        const telemetryState = getTelemetryState(this);
         this.edits.push({ path, start, end, newText });
+        telemetryState.touchedFiles.add(path);
+        telemetryState.totalTextBytes += Buffer.byteLength(newText, "utf8");
+        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
     }
 
     addFileRename(oldPath: string, newPath: string): void {
+        const telemetryState = getTelemetryState(this);
         this.fileRenames.push({ oldPath, newPath });
+        telemetryState.touchedFiles.add(oldPath);
+        telemetryState.touchedFiles.add(newPath);
     }
 
     /**
      * Queue a full-document metadata rewrite.
      */
     addMetadataEdit(path: string, content: string): void {
+        const telemetryState = getTelemetryState(this);
         this.metadataEdits.push({ path, content });
+        telemetryState.touchedFiles.add(path);
+        telemetryState.totalTextBytes += Buffer.byteLength(content, "utf8");
+        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
     }
 
     groupByFile(): GroupedTextEdits {
@@ -81,6 +124,18 @@ export class WorkspaceEdit {
 
         return grouped;
     }
+}
+
+export function getWorkspaceEditTelemetry(workspace: WorkspaceEdit): WorkspaceEditTelemetry {
+    const telemetryState = getTelemetryState(workspace);
+    return {
+        textEditCount: workspace.edits.length,
+        fileRenameCount: workspace.fileRenames.length,
+        metadataEditCount: workspace.metadataEdits.length,
+        touchedFileCount: telemetryState.touchedFiles.size,
+        totalTextBytes: telemetryState.totalTextBytes,
+        highWaterTextBytes: telemetryState.highWaterTextBytes
+    };
 }
 
 /**

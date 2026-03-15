@@ -21,6 +21,7 @@ import {
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
+    type CodemodExecutionTelemetry,
     type ConfiguredCodemodRunRequest,
     type ConfiguredCodemodRunResult,
     type ConflictEntry,
@@ -1065,7 +1066,7 @@ export class RefactorEngine {
      * codemods observe edits produced by earlier ones during the same run.
      */
     async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
-        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [] } = request;
+        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [], onTelemetry } = request;
 
         Core.assertNonEmptyString(projectRoot, {
             errorMessage: "executeConfiguredCodemods requires a projectRoot"
@@ -1084,6 +1085,20 @@ export class RefactorEngine {
         const useInMemoryOverlay = dryRun;
         const overlay = new Map<string, string>();
         const appliedFiles = new Map<string, string>();
+        let overlayBytes = 0;
+        let overlayHighWaterBytes = 0;
+        const startTime = process.hrtime.bigint();
+
+        const recordOverlayValue = (filePath: string, content: string): void => {
+            const previousContent = overlay.get(filePath);
+            if (previousContent !== undefined) {
+                overlayBytes -= Buffer.byteLength(previousContent, "utf8");
+            }
+
+            overlay.set(filePath, content);
+            overlayBytes += Buffer.byteLength(content, "utf8");
+            overlayHighWaterBytes = Math.max(overlayHighWaterBytes, overlayBytes);
+        };
 
         const readThroughOverlay = async (filePath: string): Promise<string> => {
             if (useInMemoryOverlay && overlay.has(filePath)) {
@@ -1095,7 +1110,7 @@ export class RefactorEngine {
 
         const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
             if (useInMemoryOverlay) {
-                overlay.set(filePath, content);
+                recordOverlayValue(filePath, content);
                 appliedFiles.set(filePath, content);
             } else {
                 appliedFiles.set(filePath, "");
@@ -1120,17 +1135,29 @@ export class RefactorEngine {
 
         for (const [filePath, content] of result.appliedFiles.entries()) {
             if (useInMemoryOverlay) {
-                overlay.set(filePath, content);
+                recordOverlayValue(filePath, content);
                 appliedFiles.set(filePath, content);
             } else {
                 appliedFiles.set(filePath, "");
             }
         }
 
+        const telemetry: CodemodExecutionTelemetry = {
+            queueCount: result.summaries.length,
+            requestedCodemodCount: requestedCodemods.size,
+            durationMs: Number(process.hrtime.bigint() - startTime) / 1_000_000,
+            overlayEntryCount: overlay.size,
+            overlayBytes,
+            overlayHighWaterBytes,
+            appliedFileCount: appliedFiles.size
+        };
+        onTelemetry?.(telemetry);
+
         return {
             dryRun,
             summaries: result.summaries,
-            appliedFiles
+            appliedFiles,
+            telemetry
         };
     }
 

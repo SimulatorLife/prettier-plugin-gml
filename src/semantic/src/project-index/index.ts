@@ -8,6 +8,7 @@ export * from "./constants.js";
 export * from "./coordinator.js";
 export * from "./gml-parser-facade.js";
 export * from "./identifier-roles.js";
+export * from "./identifier-sink.js";
 export * from "./metrics.js";
 export * from "./path-info.js";
 export * from "./path-normalization.js";

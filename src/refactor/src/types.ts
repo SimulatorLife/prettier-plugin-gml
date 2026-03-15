@@ -653,6 +653,24 @@ export interface ConfiguredCodemodSummary {
     errors: Array<string>;
 }
 
+export interface CodemodExecutionTelemetry {
+    queueCount: number;
+    requestedCodemodCount: number;
+    durationMs: number;
+    overlayEntryCount: number;
+    overlayBytes: number;
+    overlayHighWaterBytes: number;
+    appliedFileCount: number;
+    workspaceEdit?: {
+        textEditCount: number;
+        fileRenameCount: number;
+        metadataEditCount: number;
+        touchedFileCount: number;
+        totalTextBytes: number;
+        highWaterTextBytes: number;
+    };
+}
+
 /**
  * Aggregate result for a configured codemod execution request.
  */
@@ -660,6 +678,7 @@ export interface ConfiguredCodemodRunResult {
     dryRun: boolean;
     summaries: Array<ConfiguredCodemodSummary>;
     appliedFiles: Map<string, string>;
+    telemetry?: CodemodExecutionTelemetry;
 }
 
 /**
@@ -676,6 +695,7 @@ export interface ConfiguredCodemodRunRequest {
     deleteFile?: (path: string) => MaybePromise<void>;
     dryRun?: boolean;
     onlyCodemods?: Array<RefactorCodemodId>;
+    onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
 }
 
 /**

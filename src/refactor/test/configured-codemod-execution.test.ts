@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { type BatchRenamePlanSummary, type PartialSemanticAnalyzer, Refactor } from "../index.js";
+import type { CodemodExecutionTelemetry } from "../src/types.js";
 
 /**
  * Create a minimal batch rename plan summary for codemod tests.
@@ -108,6 +109,34 @@ void test("executeConfiguredCodemods avoids retaining full file content in write
     assert.equal(result.dryRun, false);
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "");
     assert.match(writes.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
+void test("executeConfiguredCodemods reports overlay telemetry and emits callback", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const engine = new Refactor.RefactorEngine();
+    const telemetrySnapshots: Array<CodemodExecutionTelemetry> = [];
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        onTelemetry: (telemetry) => {
+            telemetrySnapshots.push(telemetry);
+        }
+    });
+
+    assert.ok(result.telemetry);
+    assert.equal(result.telemetry?.queueCount, 1);
+    assert.ok((result.telemetry?.overlayEntryCount ?? 0) >= 1);
+    assert.ok((result.telemetry?.overlayHighWaterBytes ?? 0) > 0);
+    assert.equal(telemetrySnapshots.length, 1);
+    assert.equal(telemetrySnapshots[0]?.queueCount, 1);
 });
 
 void test("executeConfiguredCodemods applies namingConvention local renames without a batch rename plan", async () => {

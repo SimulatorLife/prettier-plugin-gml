@@ -285,3 +285,33 @@ Recommended path:
 4. Add SQLite only if benchmark gate is met.
 
 This path directly targets memory and runtime bottlenecks for large project codemod runs while preserving correctness and maintainability.
+
+## 12. Implementation Status (Current)
+
+Implemented in this repository:
+1. Semantic index now supports an optional hybrid spill path through `identifierSink` in `buildProjectIndex`.
+2. The default spill implementation is temp-file JSONL chunking with bounded in-memory tails.
+3. Snapshot materialization reads identifier declaration/reference payloads through the sink when enabled, preserving output shape.
+4. Sink telemetry now reports appended/spilled record counters and read-cache hit/miss metrics.
+5. Semantic index build now captures high-water memory snapshots (`maxRss`, `maxHeapUsed`) in metrics metadata.
+6. Scope-tracker caches now use bounded eviction for lookup and identifier-resolution caches.
+7. `fix` command now emits per-stage duration plus RSS/heap high-water telemetry.
+8. Refactor codemod execution now emits queue/overlay telemetry and supports a telemetry callback hook.
+9. `WorkspaceEdit` now tracks size/counter telemetry (`text bytes`, high-water bytes, touched file count).
+
+Current configuration entry point:
+
+```ts
+await buildProjectIndex(projectRoot, undefined, {
+	identifierSink: {
+		enabled: true,
+		flushThreshold: 256,
+		retainedEntriesPerKey: 32,
+		readCacheMaxEntries: 32
+	}
+});
+```
+
+Notes:
+1. Temp-file spill remains the default backend for the hybrid path.
+2. SQLite remains optional and deferred behind benchmark gates.

@@ -32,6 +32,43 @@ type StubCommandParameters = {
     helpText: string;
 };
 
+type MemorySnapshot = {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+};
+
+function takeMemorySnapshot(): MemorySnapshot {
+    const usage = process.memoryUsage();
+    return {
+        rss: usage.rss,
+        heapUsed: usage.heapUsed,
+        heapTotal: usage.heapTotal
+    };
+}
+
+function formatMegabytes(bytes: number): string {
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function logStageTelemetry(parameters: {
+    label: string;
+    durationMs: number;
+    startMemory: MemorySnapshot;
+    endMemory: MemorySnapshot;
+    highWaterMemory: MemorySnapshot;
+}): void {
+    const { label, durationMs, startMemory, endMemory, highWaterMemory } = parameters;
+    console.log(
+        [
+            `[telemetry] ${label}`,
+            `duration=${durationMs.toFixed(1)}ms`,
+            `rss(start/end/max)=${formatMegabytes(startMemory.rss)}/${formatMegabytes(endMemory.rss)}/${formatMegabytes(highWaterMemory.rss)}`,
+            `heapUsed(start/end/max)=${formatMegabytes(startMemory.heapUsed)}/${formatMegabytes(endMemory.heapUsed)}/${formatMegabytes(highWaterMemory.heapUsed)}`
+        ].join(" ")
+    );
+}
+
 /**
  * Build the narrow command shape consumed by the existing command runners.
  */
@@ -75,9 +112,40 @@ async function runWorkflowStage(parameters: {
     failureMessage: string;
 }): Promise<void> {
     console.log(`\n[${parameters.label}]`);
+    const startTime = process.hrtime.bigint();
+    const startMemory = takeMemorySnapshot();
+    let highWaterMemory = startMemory;
+    const intervalHandle = setInterval(() => {
+        const sample = takeMemorySnapshot();
+        highWaterMemory = {
+            rss: Math.max(highWaterMemory.rss, sample.rss),
+            heapUsed: Math.max(highWaterMemory.heapUsed, sample.heapUsed),
+            heapTotal: Math.max(highWaterMemory.heapTotal, sample.heapTotal)
+        };
+    }, 250);
+    intervalHandle.unref();
+
     process.exitCode = 0;
 
-    await parameters.execute();
+    try {
+        await parameters.execute();
+    } finally {
+        clearInterval(intervalHandle);
+        const endMemory = takeMemorySnapshot();
+        highWaterMemory = {
+            rss: Math.max(highWaterMemory.rss, endMemory.rss),
+            heapUsed: Math.max(highWaterMemory.heapUsed, endMemory.heapUsed),
+            heapTotal: Math.max(highWaterMemory.heapTotal, endMemory.heapTotal)
+        };
+        const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+        logStageTelemetry({
+            label: parameters.label,
+            durationMs,
+            startMemory,
+            endMemory,
+            highWaterMemory
+        });
+    }
 
     const stageExitCode = typeof process.exitCode === "number" ? process.exitCode : 0;
     process.exitCode = 0;
