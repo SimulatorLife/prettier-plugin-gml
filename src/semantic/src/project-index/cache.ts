@@ -426,7 +426,12 @@ export async function deriveCacheKey(
 
     if (resolvedRoot) {
         const entries = await Core.listDirectory(fsFacade, resolvedRoot);
-        // Sort alphabetically so the hash is stable regardless of directory read order.
+        // Use Array.sort to produce a stable lexicographic ordering of manifest
+        // names. The previous insertion-sort-via-reduce created at least one new
+        // array object per entry (and up to three for mid-array insertions),
+        // resulting in O(n) heap allocations that were immediately discarded.
+        // Array.sort operates in-place on the filtered result, eliminating all
+        // intermediate arrays and reducing complexity from O(n²) to O(n log n).
         const manifestNames = entries.filter(isProjectManifestPath).sort((a, b) => a.localeCompare(b));
 
         await Core.runSequentially(manifestNames, async (manifestName) => {
