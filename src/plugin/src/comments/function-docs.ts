@@ -1,9 +1,7 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
-import { formatDocLikeLineComment } from "./index.js";
-import { removeFunctionDocCommentLines, resolveDocCommentPrinterOptions } from "./index.js";
-import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
 import { safeGetParentNode } from "../printer/path-utils.js";
+import { formatDocLikeLineComment, removeFunctionDocCommentLines } from "./index.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
@@ -720,7 +718,7 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     if (nodeComments.some((comment) => comment?._docCommentBlockConverted === true)) {
         (docCommentDocs as any)._blockCommentDocs = true;
     }
-    DescriptionUtils.ensureDescriptionContinuations(docCommentDocs);
+    Core.ensureDescriptionContinuations(docCommentDocs);
 
     return {
         docCommentDocs,
@@ -740,11 +738,11 @@ export function normalizeFunctionDocCommentDocs({
     docCommentDocs,
     needsLeadingBlankLine,
     node,
-    options,
+    options: _options,
     path,
     overrides
 }: any) {
-    const normalizedMetadata = NormalizationUtils.getDocCommentNormalization(node);
+    const normalizedMetadata = Core.getDocCommentNormalization(node);
 
     if (normalizedMetadata) {
         const docs = normalizedMetadata.docCommentDocs;
@@ -767,15 +765,13 @@ export function normalizeFunctionDocCommentDocs({
         };
     }
 
-    const docCommentOptions = resolveDocCommentPrinterOptions(options);
-    const descriptionContinuations = DescriptionUtils.collectDescriptionContinuations(docCommentDocs);
+    const descriptionContinuations = Core.collectDescriptionContinuations(docCommentDocs);
     const preserveDescriptionBreaks =
         Array.isArray(docCommentDocs) && (docCommentDocs as any)._preserveDescriptionBreaks === true;
     void node;
-    void docCommentOptions;
     void path;
     void overrides;
-    docCommentDocs = DescriptionUtils.applyDescriptionContinuations(docCommentDocs, descriptionContinuations);
+    docCommentDocs = Core.applyDescriptionContinuations(docCommentDocs, descriptionContinuations);
 
     if (Array.isArray(docCommentDocs) && (docCommentDocs as any)._blockCommentDocs === true) {
         docCommentDocs = docCommentDocs.map((line) => {
