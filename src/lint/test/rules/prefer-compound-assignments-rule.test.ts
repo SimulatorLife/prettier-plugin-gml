@@ -138,3 +138,67 @@ void test("prefer-compound-assignments is included in the recommended config", (
 
     assertEquals(allRules.includes("gml/prefer-compound-assignments"), true);
 });
+
+// Commutative right-first patterns: `x = y + x` and `x = y * x` are
+// semantically identical to their left-first counterparts and must be
+// rewritten to the same compound form.
+
+void test("prefer-compound-assignments rewrites x = y + x to x += y", () => {
+    const input = "score = points + score;\n";
+    const expected = "score += points;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = y * x to x *= y", () => {
+    const input = "speed = friction * speed;\n";
+    const expected = "speed *= friction;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = literal + x to x += literal", () => {
+    const input = "count = 1 + count;\n";
+    const expected = "count += 1;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = (complex_expr) * x to x *= (complex_expr)", () => {
+    const input = "value = (base * factor) * value;\n";
+    const expected = "value *= (base * factor);\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y - x (non-commutative)", () => {
+    const input = "x = y - x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y / x (non-commutative)", () => {
+    const input = "x = y / x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y ?? x (non-commutative)", () => {
+    const input = "x = y ?? x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
+});

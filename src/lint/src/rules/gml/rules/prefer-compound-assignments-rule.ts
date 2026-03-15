@@ -107,11 +107,36 @@ function tryGetCompoundAssignmentCandidate(node: unknown): CompoundAssignmentCan
     const rightLeftNode = CoreWorkspace.Core.unwrapParenthesizedExpression(
         rightExpressionNode.left as UnwrapParenthesizedExpressionInput
     );
-    if (!isIdentifierNode(rightLeftNode) || rightLeftNode.name !== node.left.name) {
+
+    // Left-first pattern: x = x OP y → x OP= y
+    if (isIdentifierNode(rightLeftNode) && rightLeftNode.name === node.left.name) {
+        if (!isAstNodeRecord(rightExpressionNode.right)) {
+            return null;
+        }
+        return Object.freeze({
+            assignmentExpression: node,
+            leftIdentifier: node.left,
+            rightBinaryExpression: rightExpressionNode,
+            rightOperand: rightExpressionNode.right,
+            compoundOperator: COMPOUND_OPERATOR_BY_BINARY_OPERATOR[rightExpressionNode.operator]
+        });
+    }
+
+    // Right-first pattern for commutative operators: x = y + x → x += y, x = y * x → x *= y.
+    // Only `+` and `*` are commutative; `-`, `/`, and `??` are not.
+    const isCommutativeOperator = rightExpressionNode.operator === "+" || rightExpressionNode.operator === "*";
+    if (!isCommutativeOperator) {
         return null;
     }
 
-    if (!isAstNodeRecord(rightExpressionNode.right)) {
+    const rightRightNode = CoreWorkspace.Core.unwrapParenthesizedExpression(
+        rightExpressionNode.right as UnwrapParenthesizedExpressionInput
+    );
+    if (!isIdentifierNode(rightRightNode) || rightRightNode.name !== node.left.name) {
+        return null;
+    }
+
+    if (!isAstNodeRecord(rightExpressionNode.left)) {
         return null;
     }
 
@@ -119,7 +144,8 @@ function tryGetCompoundAssignmentCandidate(node: unknown): CompoundAssignmentCan
         assignmentExpression: node,
         leftIdentifier: node.left,
         rightBinaryExpression: rightExpressionNode,
-        rightOperand: rightExpressionNode.right,
+        // The variable appears on the right; use the left operand as the compound right-hand side.
+        rightOperand: rightExpressionNode.left,
         compoundOperator: COMPOUND_OPERATOR_BY_BINARY_OPERATOR[rightExpressionNode.operator]
     });
 }
