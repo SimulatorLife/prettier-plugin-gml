@@ -1,8 +1,8 @@
 import type { Rule } from "eslint";
 
-import { forEachScientificNotationToken } from "../../../language/scientific-notation-scan.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
+import { forEachScientificNotationToken } from "../scientific-notation-scan.js";
 
 const EXPONENT_DIGIT_PATTERN = /^[+-]?\d+$/u;
 const MAX_FIXED_LITERAL_LENGTH = 4096;

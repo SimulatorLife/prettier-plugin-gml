@@ -1,4 +1,4 @@
-import * as CoreWorkspace from "@gmloop/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Matches scientific-notation numeric literals (sticky, must be reset via `lastIndex`).
@@ -12,8 +12,8 @@ export const SCIENTIFIC_NOTATION_PATTERN = /(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+/
  */
 export function isScientificNotationBoundary(sourceText: string, startIndex: number, endIndex: number): boolean {
     return (
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[startIndex - 1]) &&
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[endIndex])
+        Core.isIdentifierBoundaryCharacter(sourceText[startIndex - 1]) &&
+        Core.isIdentifierBoundaryCharacter(sourceText[endIndex])
     );
 }
 
@@ -28,18 +28,12 @@ export function forEachScientificNotationToken(
     sourceText: string,
     onMatch: (start: number, end: number, text: string) => void
 ): void {
-    const scanState = CoreWorkspace.Core.createStringCommentScanState();
+    const scanState = Core.createStringCommentScanState();
     const sourceLength = sourceText.length;
 
     let index = 0;
     while (index < sourceLength) {
-        const scannedIndex = CoreWorkspace.Core.advanceStringCommentScan(
-            sourceText,
-            sourceLength,
-            index,
-            scanState,
-            true
-        );
+        const scannedIndex = Core.advanceStringCommentScan(sourceText, sourceLength, index, scanState, true);
         if (scannedIndex !== index) {
             index = scannedIndex;
             continue;
