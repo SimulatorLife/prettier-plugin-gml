@@ -2,6 +2,159 @@ parser grammar GameMakerLanguageParser;
 
 options {tokenVocab=GameMakerLanguageLexer;}
 
+@parser::members {
+    this.isAssignmentOperatorToken = function (tokenType) {
+        return tokenType === GameMakerLanguageParser.MultiplyAssign
+            || tokenType === GameMakerLanguageParser.DivideAssign
+            || tokenType === GameMakerLanguageParser.ModulusAssign
+            || tokenType === GameMakerLanguageParser.PlusAssign
+            || tokenType === GameMakerLanguageParser.MinusAssign
+            || tokenType === GameMakerLanguageParser.LeftShiftArithmeticAssign
+            || tokenType === GameMakerLanguageParser.RightShiftArithmeticAssign
+            || tokenType === GameMakerLanguageParser.BitAndAssign
+            || tokenType === GameMakerLanguageParser.BitXorAssign
+            || tokenType === GameMakerLanguageParser.BitOrAssign
+            || tokenType === GameMakerLanguageParser.NullCoalescingAssign
+            || tokenType === GameMakerLanguageParser.Assign;
+    };
+
+    this.isLikelyAssignmentStatement = function () {
+        let lookahead = 1;
+        let parenDepth = 0;
+        let bracketDepth = 0;
+        let braceDepth = 0;
+
+        while (lookahead < 2048) {
+            const token = this._input.LT(lookahead);
+            if (!token) {
+                return false;
+            }
+
+            const tokenType = token.type;
+
+            if (
+                tokenType === GameMakerLanguageParser.EOF
+                || tokenType === GameMakerLanguageParser.SemiColon
+                || (tokenType === GameMakerLanguageParser.CloseParen
+                    && parenDepth === 0
+                    && bracketDepth === 0
+                    && braceDepth === 0)
+            ) {
+                return false;
+            }
+
+            if (tokenType === GameMakerLanguageParser.OpenParen) {
+                parenDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseParen) {
+                parenDepth = Math.max(0, parenDepth - 1);
+            } else if (
+                tokenType === GameMakerLanguageParser.OpenBracket
+                || tokenType === GameMakerLanguageParser.ListAccessor
+                || tokenType === GameMakerLanguageParser.MapAccessor
+                || tokenType === GameMakerLanguageParser.GridAccessor
+                || tokenType === GameMakerLanguageParser.ArrayAccessor
+                || tokenType === GameMakerLanguageParser.StructAccessor
+            ) {
+                bracketDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseBracket) {
+                bracketDepth = Math.max(0, bracketDepth - 1);
+            } else if (tokenType === GameMakerLanguageParser.OpenBrace || tokenType === GameMakerLanguageParser.Begin) {
+                braceDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseBrace || tokenType === GameMakerLanguageParser.End) {
+                braceDepth = Math.max(0, braceDepth - 1);
+            }
+
+            if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0 && this.isAssignmentOperatorToken(tokenType)) {
+                return true;
+            }
+
+            lookahead += 1;
+        }
+
+        return false;
+    };
+
+    this.isLikelyIncDecStatement = function () {
+        if (
+            this._input.LA(1) === GameMakerLanguageParser.PlusPlus
+            || this._input.LA(1) === GameMakerLanguageParser.MinusMinus
+        ) {
+            return true;
+        }
+
+        let lookahead = 1;
+        let parenDepth = 0;
+        let bracketDepth = 0;
+        let braceDepth = 0;
+        let lastTopLevelTokenType = null;
+
+        while (lookahead < 2048) {
+            const token = this._input.LT(lookahead);
+            if (!token) {
+                return false;
+            }
+
+            const tokenType = token.type;
+
+            if (
+                tokenType === GameMakerLanguageParser.EOF
+                || tokenType === GameMakerLanguageParser.SemiColon
+                || (tokenType === GameMakerLanguageParser.CloseParen
+                    && parenDepth === 0
+                    && bracketDepth === 0
+                    && braceDepth === 0)
+            ) {
+                return (
+                    lastTopLevelTokenType === GameMakerLanguageParser.PlusPlus
+                    || lastTopLevelTokenType === GameMakerLanguageParser.MinusMinus
+                );
+            }
+
+            if (tokenType === GameMakerLanguageParser.OpenParen) {
+                parenDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseParen) {
+                parenDepth = Math.max(0, parenDepth - 1);
+            } else if (
+                tokenType === GameMakerLanguageParser.OpenBracket
+                || tokenType === GameMakerLanguageParser.ListAccessor
+                || tokenType === GameMakerLanguageParser.MapAccessor
+                || tokenType === GameMakerLanguageParser.GridAccessor
+                || tokenType === GameMakerLanguageParser.ArrayAccessor
+                || tokenType === GameMakerLanguageParser.StructAccessor
+            ) {
+                bracketDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseBracket) {
+                bracketDepth = Math.max(0, bracketDepth - 1);
+            } else if (tokenType === GameMakerLanguageParser.OpenBrace || tokenType === GameMakerLanguageParser.Begin) {
+                braceDepth += 1;
+            } else if (tokenType === GameMakerLanguageParser.CloseBrace || tokenType === GameMakerLanguageParser.End) {
+                braceDepth = Math.max(0, braceDepth - 1);
+            }
+
+            if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+                if (
+                    tokenType === GameMakerLanguageParser.PlusPlus
+                    || tokenType === GameMakerLanguageParser.MinusMinus
+                ) {
+                    // Treat the first top-level postfix ++/-- as the end of an
+                    // inc/dec statement candidate. Without this guard, optional
+                    // semicolon parsing can scan into subsequent statements and
+                    // incorrectly reject lines like:
+                    //   myCount--
+                    //   myCount++
+                    return true;
+                }
+
+                lastTopLevelTokenType = tokenType;
+            }
+
+            lookahead += 1;
+        }
+
+        return false;
+    };
+}
+
 program
     : statementList? EOF
     ;
@@ -29,8 +182,9 @@ statement
     | regionStatement
     | enumeratorDeclaration
     | globalVarStatement
-    | assignmentExpression
-    | incDecStatement
+    | implicitCallStatement
+    | {this.isLikelyAssignmentStatement()}? assignmentExpression
+    | {this.isLikelyIncDecStatement()}? incDecStatement
     | callStatement
     | functionDeclaration
     | deleteStatement
@@ -154,6 +308,7 @@ newExpression
 lValueStartExpression
     : identifier # IdentifierLValue
     | newExpression # NewLValue
+    | Dot identifier # ImplicitMemberDotLValue
     | OpenParen expression CloseParen # ParenthesizedLValue
     ;
 
@@ -210,6 +365,11 @@ callStatement
     : callableExpression arguments
     | callStatement arguments
     ;
+
+    implicitCallStatement
+        : Dot identifier arguments
+        | implicitCallStatement arguments
+        ;
 
 callableExpression
     : lValueExpression
@@ -380,7 +540,7 @@ regionStatement
 
 // handles macros used as statements
 identifierStatement
-    : identifier
+    : identifier {this._input.LA(1) !== GameMakerLanguageParser.Dot}?
     ;
 
 softKeyword

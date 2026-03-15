@@ -1,9 +1,7 @@
-import { Core } from "@gmloop/core";
-
 import { listRegisteredCodemods, normalizeRegisteredCodemodConfig } from "./codemod-registry.js";
 import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
 import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
-import type { GmloopProjectConfig, NamingConventionPolicy, RefactorCodemodId, RefactorProjectConfig } from "./types.js";
+import type { NamingConventionPolicy, RefactorCodemodId, RefactorProjectConfig } from "./types.js";
 
 const REFACTOR_CONFIG_KEYS = new Set(["namingConventionPolicy", "codemods"]);
 const REFACTOR_CODEMOD_IDS = new Set<RefactorCodemodId>(listRegisteredCodemods().map((codemod) => codemod.id));
@@ -62,20 +60,4 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
     }
 
     return normalized;
-}
-
-/**
- * Load a project-level `gmloop.json` file and normalize its refactor settings.
- */
-export async function loadGmloopProjectConfig(configPath: string): Promise<GmloopProjectConfig> {
-    const rawConfig = await Core.readTextFile(configPath);
-    const parsed = Core.parseJsonObjectWithContext(rawConfig, {
-        source: configPath,
-        description: "gmloop.json"
-    }) as GmloopProjectConfig;
-
-    return Object.freeze({
-        ...parsed,
-        refactor: normalizeRefactorProjectConfig(parsed.refactor)
-    });
 }

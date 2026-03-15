@@ -34,13 +34,13 @@ This wires:
 
 - `plugins.gml = Lint.plugin`
 - `language = "gml/gml"`
-- The baseline recommended `gml/*` rule levels
+- All recommended `gml/*` rule levels plus the conservative safe Feather subset
 
 ## Config Sets
 
 `Lint.configs` exposes these immutable flat-config sets:
 
-- `recommended`: baseline `gml/*` rules
+- `recommended`: all `gml/*` rules plus a conservative safe `feather/*` subset
 - `feather`: `feather/gm####` overlay rules from the feather manifest
 
 Example:
@@ -141,7 +141,7 @@ comment-bearing statement spans.
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
-`require-control-flow-braces` reports unbraced control-flow statements but does not autofix them. Brace insertion is formatter-owned, so the normal remediation path is to run the formatter and let it print the control-flow body as a block.
+`require-control-flow-braces` reports and autofixes unbraced control-flow statements by inserting structural `{ ... }` blocks. It does not depend on the formatter for that rewrite; the formatter remains responsible only for subsequent layout/canonical rendering.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 
@@ -179,6 +179,11 @@ Feather rules are exposed as `feather/gm####` and sourced from `Lint.services.fe
 pnpm --filter @gmloop/lint run build:types
 pnpm --filter @gmloop/lint run test
 ```
+
+Performance-sensitive autofix rules also have dedicated regression coverage under
+[`test/rules/optimized-autofix-performance.test.ts`](./test/rules/optimized-autofix-performance.test.ts).
+Those tests run as part of the normal compiled Node test suite, so CI enforces
+both fix correctness and the current runtime budgets for the measured hot paths.
 
 ## TODO
 

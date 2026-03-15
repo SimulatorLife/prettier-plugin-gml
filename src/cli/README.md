@@ -6,6 +6,7 @@ Command-line interface for the GMLoop toolchain. Provides utilities for formatti
 
 - Run `format` for layout-only formatting.
 - Run `lint` for semantic/content rewrites and syntax repairs.
+- Run `fix` to execute project codemods, lint autofixes, and formatting in one pass.
 - Recommended migration flow for existing formatter-heavy usage: `lint --fix` first, then `format`.
 
 Contract migration mapping:
@@ -79,6 +80,28 @@ pnpm run cli -- lint --fix path/to/project
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
 `lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
+
+### `fix` - Project-Wide Fix Workflow
+
+Runs the project-wide write workflow in one command:
+
+1. `refactor codemod --write`
+2. `lint --fix`
+3. `format`
+
+```bash
+pnpm run cli -- fix path/to/project
+pnpm run cli -- fix --only namingConvention
+```
+
+**Options:**
+- `[projectPath]` - Project directory or `.yyp` path (default: current project)
+- `--project-root <path>` - Explicit GameMaker project root directory or `.yyp` path
+- `--config <path>` - Explicit `gmloop.json` path for the refactor stage
+- `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
+- `--verbose` - Enable verbose diagnostics for all three stages
+
+`fix` is intentionally project-scoped and write-only. It runs the configured codemod set first so cross-file/project-aware edits happen before single-file lint fixes and final formatting normalization.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -636,14 +659,6 @@ Generates Feather metadata for GameMaker's static analysis.
 pnpm run cli -- generate-feather-metadata
 ```
 
-### `memory` - Run Memory Benchmarks
-
-Measures memory usage across various operations.
-
-```bash
-pnpm run cli -- memory
-```
-
 ## Architecture
 
 The CLI package serves as the orchestration layer for the hot-reload development pipeline:
@@ -702,7 +717,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
 - `generate-feather-metadata.ts` - Feather metadata generation
-- `memory.ts` - Memory profiling
 
 **Modules** (`src/modules/`)
 - `transpilation/` - Transpilation coordination and metrics tracking
@@ -711,7 +725,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `runtime/` - HTML5 runtime integration
 - `manual/` - GameMaker manual processing
 - `feather/` - Feather metadata handling
-- `memory/` - Memory profiling utilities
 
 ## Development
 

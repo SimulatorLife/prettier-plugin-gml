@@ -126,6 +126,12 @@ interface GameMakerLexerErrorListenerOptions {
     formatter?: SyntaxErrorFormatter;
 }
 
+function reportAmbiguity() {}
+
+function reportAttemptingFullContext() {}
+
+function reportContextSensitivity() {}
+
 class ParserContextAnalyzer {
     resolveOpenBlockStartToken(parser) {
         const currentContext = parser?._ctx;
@@ -243,6 +249,9 @@ function createGameMakerParseErrorListener({
 
     return {
         syntaxError,
+        reportAmbiguity,
+        reportAttemptingFullContext,
+        reportContextSensitivity,
         formatter,
         contextAnalyzer
     };

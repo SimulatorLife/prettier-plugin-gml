@@ -1,0 +1,11 @@
+{
+  "lintRules": {
+    "feather/gm1034": "error",
+    "gml/normalize-doc-comments": "off"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform",
+    "comparison": "ignore-whitespace-and-line-endings"
+  }
+}

@@ -1459,7 +1459,7 @@ async function readFileStats(filePath: string): Promise<Stats | null> {
 async function retranspileDependentFiles(
     runtimeContext: RuntimeContext,
     filePath: string,
-    dependentFiles: Array<string>,
+    dependentFiles: ReadonlyArray<string>,
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
@@ -1517,13 +1517,13 @@ async function processTranspileResult(
     }
 
     if (!dependencyUpdate.definitionsChanged) {
-        if (verbose && !quiet && dependencyUpdate.previousDependents.length > 0) {
+        if (verbose && !quiet && dependencyUpdate.affectedDependents.length > 0) {
             console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
         }
         return;
     }
 
-    const dependentFiles = mergeDependentFiles(dependencyUpdate.previousDependents, dependencyUpdate.updatedDependents);
+    const dependentFiles = dependencyUpdate.affectedDependents;
     if (dependentFiles.length === 0) {
         return;
     }
@@ -1537,8 +1537,7 @@ async function processTranspileResult(
 
 interface DependencyUpdateSummary {
     definitionsChanged: boolean;
-    previousDependents: ReadonlyArray<string>;
-    updatedDependents: ReadonlyArray<string>;
+    affectedDependents: ReadonlyArray<string>;
 }
 
 /**
@@ -1554,16 +1553,47 @@ function updateDependencyTrackerForTranspileResult(
     const nextDefinitions = result.symbols ?? [];
     const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
 
+    if (!definitionsChanged) {
+        runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+        runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+
+        return {
+            definitionsChanged,
+            affectedDependents: []
+        };
+    }
+
+    const addedDefinitions = subtractSymbolSets(nextDefinitions, previousDefinitions);
+
     runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
     runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
+    const newlyDependentFiles = runtimeContext.dependencyTracker.getFilesReferencingSymbols(addedDefinitions, filePath);
+
     return {
         definitionsChanged,
-        previousDependents,
-        updatedDependents: definitionsChanged
-            ? runtimeContext.dependencyTracker.getDependentFiles(filePath)
-            : previousDependents
+        affectedDependents: mergeDependentFiles(previousDependents, newlyDependentFiles)
     };
+}
+
+/**
+ * Returns symbols present in `left` that are absent from `right`.
+ */
+function subtractSymbolSets(left: ReadonlyArray<string>, right: ReadonlyArray<string>): Array<string> {
+    if (left.length === 0) {
+        return [];
+    }
+
+    const rightSet = new Set(right);
+    const difference: Array<string> = [];
+
+    for (const symbol of left) {
+        if (!rightSet.has(symbol)) {
+            difference.push(symbol);
+        }
+    }
+
+    return difference;
 }
 
 /**

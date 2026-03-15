@@ -6,7 +6,6 @@
  *   way to format GameMaker Language files.
  * - Watch mode for monitoring GML source files and coordinating the
  *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
- * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
  * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
  *
@@ -25,12 +24,12 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { handleCliError } from "./cli-core/errors.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
+import { createFixCommand, runFixCommand } from "./commands/fix.js";
 import { __formatTest__, createFormatCommand, runFormatCommand } from "./commands/format.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
-import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
@@ -335,11 +334,11 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
-    command: createMemoryCommand(),
-    run: ({ command }) => runMemoryCommand({ command }),
+    command: createFixCommand(),
+    run: ({ command }) => runFixCommand(command),
     onError: (error) =>
         handleCliError(error, {
-            prefix: "Failed to run memory diagnostics.",
+            prefix: "Failed to run project fix workflow.",
             exitCode: 1
         })
 });

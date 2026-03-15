@@ -11,23 +11,6 @@ const STRING_TYPE = "string";
 // Only reached when charCode >= 128, which is uncommon in GML source text.
 const UNICODE_WHITESPACE_REGEX = /\s/;
 
-// Using a Set avoids re-allocating the list for every membership check when
-// these helpers run inside tight printer loops.
-const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
-    "CallExpression",
-    "AssignmentExpression",
-    "ExpressionStatement",
-    "GlobalVarStatement",
-    "ReturnStatement",
-    "BreakStatement",
-    "ContinueStatement",
-    "ExitStatement",
-    "ThrowStatement",
-    "IncDecStatement",
-    "VariableDeclaration",
-    "DeleteStatement"
-]);
-
 /**
  * Identify whitespace characters that the printer treats as skippable when
  * trimming semicolons. Uses a fast-path integer comparison for ASCII characters
@@ -71,15 +54,37 @@ function isWhitespaceCharacterCode(charCode: number): boolean {
 /**
  * Guard helper for {@link optionalSemicolon} to keep the membership logic
  * centralized. The printer ends up consulting this list in several hot paths,
- * so caching the lookup in a `Set` keeps call sites tidy without introducing
- * repeated allocations.
+ * so using a static `switch` keeps this hot check monomorphic and avoids the
+ * extra indirection/allocation overhead of container membership lookups.
  *
  * @param {string | undefined} type Node `type` value to evaluate.
  * @returns {boolean} `true` when the node type must be terminated with a
  *                    semicolon.
  */
 function nodeTypeNeedsSemicolon(type?: string) {
-    return type ? NODE_TYPES_REQUIRING_SEMICOLON.has(type) : false;
+    if (!type) {
+        return false;
+    }
+
+    switch (type) {
+        case "CallExpression":
+        case "AssignmentExpression":
+        case "ExpressionStatement":
+        case "GlobalVarStatement":
+        case "ReturnStatement":
+        case "BreakStatement":
+        case "ContinueStatement":
+        case "ExitStatement":
+        case "ThrowStatement":
+        case "IncDecStatement":
+        case "VariableDeclaration":
+        case "DeleteStatement": {
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 /**

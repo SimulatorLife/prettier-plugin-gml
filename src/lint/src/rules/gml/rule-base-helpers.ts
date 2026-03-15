@@ -1,16 +1,17 @@
+import type { GameMakerAstNode } from "@gmloop/core";
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "../catalog.js";
 
-const {
-    clamp,
-    isObjectLike,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getCallExpressionIdentifierName,
-    getCallExpressionArguments
-} = CoreWorkspace.Core;
+const { clamp, isObjectLike } = CoreWorkspace.Core;
+
+const getNodeStartIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeStartIndex;
+const getNodeEndIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeEndIndex;
+const getCallExpressionIdentifierName: (callExpression: GameMakerAstNode | null | undefined) => string | null =
+    CoreWorkspace.Core.getCallExpressionIdentifierName;
+const getCallExpressionArguments: (callExpression: GameMakerAstNode | null | undefined) => readonly GameMakerAstNode[] =
+    CoreWorkspace.Core.getCallExpressionArguments;
 
 export { getCallExpressionArguments, getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 
@@ -123,8 +124,8 @@ export function isStandaloneStatementParentKey(parentKey: string | null): boolea
  * @returns Whether the span contains line or block comment markers.
  */
 export function sourceRangeContainsCommentToken(sourceText: string, start: number, end: number): boolean {
-    const rangeText = new Set(sourceText.slice(start, end));
-    return rangeText.has("//") || rangeText.has("/*") || rangeText.has("*/");
+    const rangeText = sourceText.slice(start, end);
+    return /\/\/|\/\*|\*\//u.test(rangeText);
 }
 
 export type CommentTokenRangeIndex = Readonly<{
@@ -184,8 +185,8 @@ export function rangeContainsCommentToken(
         return false;
     }
 
-    const clampedStart = Math.min(Math.max(start, 0), commentTokenRangeIndex.sourceLength);
-    const clampedEndExclusive = Math.min(Math.max(end - 1, 0), commentTokenRangeIndex.sourceLength);
+    const clampedStart = clamp(start, 0, commentTokenRangeIndex.sourceLength);
+    const clampedEndExclusive = clamp(end - 1, 0, commentTokenRangeIndex.sourceLength);
     if (clampedEndExclusive <= clampedStart) {
         return false;
     }
@@ -383,22 +384,7 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
-    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number };
-    };
-    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
-    const locatedPoint =
-        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
-            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
-            : null;
-    const loc =
-        locatedPoint &&
-        typeof locatedPoint.line === "number" &&
-        typeof locatedPoint.column === "number" &&
-        Number.isFinite(locatedPoint.line) &&
-        Number.isFinite(locatedPoint.column)
-            ? locatedPoint
-            : fallbackLineColumn;
+    const loc = resolveLocFromIndex(context, originalText, firstChangedOffset);
 
     context.report({
         loc,
@@ -422,6 +408,48 @@ function resolveLineColumnFromOffset(sourceText: string, offset: number): { line
         line,
         column: clampedOffset - lastLineStart
     };
+}
+
+type SourceCodeWithOptionalLocator = Rule.RuleContext["sourceCode"] & {
+    getLocFromIndex?: (offset: number) => { line: number; column: number } | undefined;
+};
+
+/**
+ * Resolve a source-text offset to a `{ line, column }` location, preferring
+ * the ESLint source-code `getLocFromIndex` API when available and falling back
+ * to a manual line-scan when it is absent. The index is clamped to `[0,
+ * sourceText.length]` before any look-up so out-of-bounds offsets never crash.
+ *
+ * This consolidates the identical patterns that previously existed in
+ * `resolveReportLoc` (feather rules) and `resolveSafeLocFromIndex` (GML rules)
+ * into a single authoritative helper.
+ *
+ * @param {Rule.RuleContext} context ESLint rule context whose `sourceCode` may
+ *     expose `getLocFromIndex`.
+ * @param {string} sourceText Full source text corresponding to `index`.
+ * @param {number} index Character offset to resolve.
+ * @returns {{ line: number; column: number }} 1-based line and 0-based column.
+ */
+export function resolveLocFromIndex(
+    context: Rule.RuleContext,
+    sourceText: string,
+    index: number
+): { line: number; column: number } {
+    const clampedIndex = clamp(index, 0, sourceText.length);
+    const locator = context.sourceCode as SourceCodeWithOptionalLocator;
+    const located = typeof locator.getLocFromIndex === "function" ? locator.getLocFromIndex(clampedIndex) : undefined;
+
+    if (
+        located &&
+        typeof located.line === "number" &&
+        typeof located.column === "number" &&
+        Number.isFinite(located.line) &&
+        Number.isFinite(located.column)
+    ) {
+        return located;
+    }
+
+    return resolveLineColumnFromOffset(sourceText, clampedIndex);
 }
 
 export function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {

@@ -184,6 +184,46 @@ void describe("DependencyTracker", () => {
         });
     });
 
+    void describe("getFilesReferencingSymbols", () => {
+        void it("returns files that reference any requested symbol", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move"]);
+            tracker.registerFileReferences("scripts/boss.gml", ["gml_Script_player_jump"]);
+
+            const dependents = tracker.getFilesReferencingSymbols(["gml_Script_player_move", "gml_Script_player_jump"]);
+
+            assert.equal(dependents.length, 2);
+            assert.ok(dependents.includes("scripts/enemy.gml"));
+            assert.ok(dependents.includes("scripts/boss.gml"));
+        });
+
+        void it("deduplicates files that reference multiple requested symbols", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move", "gml_Script_player_jump"]);
+
+            const dependents = tracker.getFilesReferencingSymbols(["gml_Script_player_move", "gml_Script_player_jump"]);
+
+            assert.deepEqual(dependents, ["scripts/enemy.gml"]);
+        });
+
+        void it("supports excluding a specific file from the result", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileReferences("scripts/player.gml", ["gml_Script_player_move"]);
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move"]);
+
+            const dependents = tracker.getFilesReferencingSymbols(["gml_Script_player_move"], "scripts/player.gml");
+
+            assert.deepEqual(dependents, ["scripts/enemy.gml"]);
+        });
+
+        void it("returns empty array for empty symbol input", () => {
+            const tracker = new DependencyTracker();
+
+            const dependents = tracker.getFilesReferencingSymbols([]);
+            assert.deepEqual(dependents, []);
+        });
+    });
+
     void describe("removeFile", () => {
         void it("should remove file definitions", () => {
             const tracker = new DependencyTracker();

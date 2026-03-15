@@ -1,3 +1,4 @@
+import * as BackendsAPI from "./backends/index.js";
 import * as CodemodRegistryAPI from "./codemod-registry.js";
 import * as CodemodsAPI from "./codemods/index.js";
 import * as HotReloadAPI from "./hot-reload.js";
@@ -33,6 +34,7 @@ export const Refactor = Object.freeze({
     ...NamingConventionPolicyAPI,
     ...CodemodRegistryAPI,
     ...CodemodsAPI,
+    ...BackendsAPI,
     WorkspaceEdit,
     SemanticQueryCache,
     RenameValidationCache,
@@ -54,6 +56,7 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
+export * as Backends from "./backends/index.js";
 export { executeRegisteredCodemods, listConfiguredCodemods, listRegisteredCodemods } from "./codemod-registry.js";
 export * as Codemods from "./codemods/index.js";
 export type {
@@ -88,7 +91,7 @@ export {
     groupOccurrencesByFile
 } from "./occurrence-analysis.js";
 export { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
-export { loadGmloopProjectConfig, normalizeRefactorProjectConfig } from "./project-config.js";
+export { normalizeRefactorProjectConfig } from "./project-config.js";
 export { RefactorEngine } from "./refactor-engine.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 export {
@@ -111,6 +114,7 @@ export type {
     BatchRenamePlanSummary,
     BatchRenameValidation,
     CascadeEntry,
+    CodemodExecutionTelemetry,
     ConfiguredCodemodRunRequest,
     ConfiguredCodemodRunResult,
     ConfiguredCodemodSummary,
@@ -126,7 +130,6 @@ export type {
     ExecuteRenameResult,
     FileSymbol,
     FileSymbolProvider,
-    GmloopProjectConfig,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
     HotReloadSafetySummary,
@@ -147,6 +150,7 @@ export type {
     OccurrenceTracker,
     ParserBridge,
     PartialSemanticAnalyzer,
+    PrepareBatchRenamePlanOptions,
     PrepareRenamePlanOptions,
     Range,
     RefactorCodemodConfigEntry,

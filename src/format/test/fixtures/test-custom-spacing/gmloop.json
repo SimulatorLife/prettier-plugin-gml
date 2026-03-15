@@ -1,0 +1,7 @@
+{
+  "tabWidth": 3,
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

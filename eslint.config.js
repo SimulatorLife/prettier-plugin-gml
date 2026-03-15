@@ -151,6 +151,7 @@ const tsConfig = defineConfig({
             { type: "semantic", pattern: "src/semantic/**" },
             { type: "plugin", pattern: "src/format/**" },
             { type: "lint", pattern: "src/lint/**" },
+            { type: "fixture-runner", pattern: "src/fixture-runner/**" },
             { type: "refactor", pattern: "src/refactor/**" },
             { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
             { type: "cli", pattern: "src/cli/**" }
@@ -427,6 +428,7 @@ const tsConfig = defineConfig({
                             "semantic",
                             "plugin",
                             "lint",
+                            "fixture-runner",
                             "refactor",
                             "runtime-wrapper"
                         ],
@@ -457,10 +459,17 @@ const tsConfig = defineConfig({
                         from: "semantic",
                         allow: ["core", "parser", "transpiler", "semantic"]
                     },
-                    { from: "plugin", allow: ["core", "parser", "plugin"] },
+                    {
+                        from: "plugin",
+                        allow: ["core", "parser", "plugin", "fixture-runner"]
+                    },
                     {
                         from: "lint",
-                        allow: ["core", "parser", "lint"]
+                        allow: ["core", "parser", "lint", "fixture-runner"]
+                    },
+                    {
+                        from: "fixture-runner",
+                        allow: ["core", "fixture-runner"]
                     },
                     {
                         from: "refactor",
@@ -469,7 +478,8 @@ const tsConfig = defineConfig({
                             "parser",
                             "transpiler",
                             "semantic",
-                            "refactor"
+                            "refactor",
+                            "fixture-runner"
                         ]
                     },
                     {

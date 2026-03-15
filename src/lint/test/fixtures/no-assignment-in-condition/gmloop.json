@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/no-assignment-in-condition": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

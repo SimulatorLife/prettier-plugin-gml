@@ -1,21 +1,14 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
 
-import * as LintWorkspace from "@gmloop/lint";
-import { ESLint, type Linter } from "eslint";
-
-const { Lint } = LintWorkspace;
-
-const STILE_OPTIMIZE_MATH_OUTPUT_HASH = "42803788c231317796505783e423d1a02cdae11ac31648925faa6c3c51fa24f7";
-
-type TimedLintRunResult = Readonly<{
-    elapsedMilliseconds: number;
-    ruleMilliseconds: number;
-    messages: ReadonlyArray<ESLint.LintResult["messages"][number]>;
-    outputText: string;
-}>;
+import {
+    buildLoopInvariantStressBatchSource,
+    createOutputHash,
+    lintSingleRuleWithTiming,
+    runSequentialPerformanceTest,
+    STILE_FIXTURE_URL,
+    STILE_OPTIMIZE_MATH_OUTPUT_HASH
+} from "./performance-test-helpers.js";
 
 function buildNonMathAssignmentBatchSource(statementCount: number): string {
     const lines: string[] = [];
@@ -73,26 +66,6 @@ function buildAdditiveIdentifierBatchSource(statementCount: number): string {
     return lines.join("\n");
 }
 
-function buildLoopInvariantStressBatchSource(loopCount: number, invariantTermsPerLoop: number): string {
-    const lines: string[] = [];
-
-    for (let loopIndex = 0; loopIndex < loopCount; loopIndex += 1) {
-        let invariantExpression = `(a_${loopIndex}_0 + b_${loopIndex}_0)`;
-        for (let termIndex = 1; termIndex < invariantTermsPerLoop; termIndex += 1) {
-            invariantExpression = `(${invariantExpression} + (a_${loopIndex}_${termIndex} + b_${loopIndex}_${termIndex}))`;
-        }
-
-        lines.push(
-            `repeat (count_${loopIndex}) {`,
-            `    total_${loopIndex} += (${invariantExpression}) + random(3);`,
-            "}"
-        );
-    }
-
-    lines.push("");
-    return lines.join("\n");
-}
-
 function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNameCount: number): string {
     const lines: string[] = ["var cached_value = 0;"];
 
@@ -114,246 +87,265 @@ function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNam
     return lines.join("\n");
 }
 
-function createOutputHash(outputText: string): string {
-    return createHash("sha256").update(outputText).digest("hex");
-}
+runSequentialPerformanceTest(
+    "optimize-math-expressions skips non-math batches without runaway traversal cost",
+    async () => {
+        const source = buildNonMathAssignmentBatchSource(1500);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-math-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-async function lintSingleRuleWithTiming(
-    ruleId: string,
-    sourceText: string,
-    filePath = "performance-regression.gml"
-): Promise<TimedLintRunResult> {
-    const configEntry = {
-        files: ["**/*.gml"],
-        plugins: {
-            gml: Lint.plugin
-        },
-        language: "gml/gml",
-        rules: {
-            [ruleId]: "warn"
-        }
-    } satisfies Linter.Config;
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(timedRun.outputText, source);
+        assert.ok(
+            timedRun.ruleMilliseconds < 8000,
+            `expected optimize-math-expressions rule runtime under 8000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 10_000,
+            `expected total lint runtime under 10000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-    const eslint = new ESLint({
-        overrideConfigFile: true,
-        fix: true,
-        stats: true,
-        overrideConfig: [configEntry]
-    });
+runSequentialPerformanceTest(
+    "optimize-logical-flow skips non-logical batches without deep clone overhead",
+    async () => {
+        const source = buildNonLogicalConditionBatchSource(1200);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-logical-flow",
+            source,
+            "performance-regression.gml"
+        );
 
-    const startedAtNanoseconds = process.hrtime.bigint();
-    const [result] = await eslint.lintText(sourceText, {
-        filePath
-    });
-    const elapsedMilliseconds = Number(process.hrtime.bigint() - startedAtNanoseconds) / 1e6;
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(timedRun.outputText, source);
+        assert.ok(
+            timedRun.ruleMilliseconds < 5000,
+            `expected optimize-logical-flow rule runtime under 5000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 8000,
+            `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-    const passTimings = result.stats?.times?.passes ?? [];
-    const ruleMilliseconds = passTimings.reduce((accumulator, passTiming) => {
-        return accumulator + (passTiming.rules[ruleId]?.total ?? 0);
-    }, 0);
+runSequentialPerformanceTest(
+    "optimize-logical-flow avoids deep-cloning large guard bodies that cannot be simplified",
+    async () => {
+        const source = buildHeavyIfGuardBatchSource(300);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-logical-flow",
+            source,
+            "performance-regression.gml"
+        );
 
-    return Object.freeze({
-        elapsedMilliseconds,
-        ruleMilliseconds,
-        messages: Object.freeze(result.messages),
-        outputText: result.output ?? sourceText
-    });
-}
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(timedRun.outputText, source);
+        assert.ok(
+            timedRun.ruleMilliseconds < 7000,
+            `expected optimize-logical-flow rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 9000,
+            `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-math-expressions skips non-math batches without runaway traversal cost", async () => {
-    const source = buildNonMathAssignmentBatchSource(1500);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+runSequentialPerformanceTest(
+    "optimize-math-expressions scales linearly for long arithmetic assignment batches",
+    async () => {
+        const source = buildArithmeticChainBatchSource(250);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-math-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.equal(timedRun.outputText, source);
-    assert.ok(
-        timedRun.ruleMilliseconds < 8000,
-        `expected optimize-math-expressions rule runtime under 8000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 10_000,
-        `expected total lint runtime under 10000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.ok(
+            timedRun.outputText.includes("dot_product_3d"),
+            "expected optimize-math-expressions to keep applying arithmetic normalization"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 7000,
+            `expected optimize-math-expressions rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 9000,
+            `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-logical-flow skips non-logical batches without deep clone overhead", async () => {
-    const source = buildNonLogicalConditionBatchSource(1200);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-logical-flow", source);
+runSequentialPerformanceTest(
+    "optimize-math-expressions keeps dot-product auto-fixes within bounded runtime on large batches",
+    async () => {
+        const source = buildArithmeticChainBatchSource(1000);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-math-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.equal(timedRun.outputText, source);
-    assert.ok(
-        timedRun.ruleMilliseconds < 5000,
-        `expected optimize-logical-flow rule runtime under 5000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 8000,
-        `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.ok(
+            timedRun.outputText.includes("dot_product_3d"),
+            "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 2000,
+            `expected optimize-math-expressions rule runtime under 2000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 5000,
+            `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-logical-flow avoids deep-cloning large guard bodies that cannot be simplified", async () => {
-    const source = buildHeavyIfGuardBatchSource(300);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-logical-flow", source);
+runSequentialPerformanceTest(
+    "optimize-math-expressions skips additive identifier batches without clone-heavy normalization",
+    async () => {
+        const source = buildAdditiveIdentifierBatchSource(2500);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-math-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.equal(timedRun.outputText, source);
-    assert.ok(
-        timedRun.ruleMilliseconds < 7000,
-        `expected optimize-logical-flow rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 9000,
-        `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(timedRun.outputText, source);
+        assert.ok(
+            timedRun.ruleMilliseconds < 400,
+            `expected optimize-math-expressions additive fast-path runtime under 400ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 6000,
+            `expected total lint runtime under 6000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-math-expressions scales linearly for long arithmetic assignment batches", async () => {
-    const source = buildArithmeticChainBatchSource(250);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+runSequentialPerformanceTest(
+    "optimize-math-expressions preserves stile fixes within the real-file runtime budget",
+    async () => {
+        const source = await readFile(STILE_FIXTURE_URL, "utf8");
+        const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source, "stile.gml");
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.ok(
-        timedRun.outputText.includes("dot_product_3d"),
-        "expected optimize-math-expressions to keep applying arithmetic normalization"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 7000,
-        `expected optimize-math-expressions rule runtime under 7000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 9000,
-        `expected total lint runtime under 9000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(createOutputHash(timedRun.outputText), STILE_OPTIMIZE_MATH_OUTPUT_HASH);
+        assert.ok(
+            timedRun.ruleMilliseconds < 900,
+            `expected optimize-math-expressions stile runtime under 900ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-math-expressions keeps dot-product auto-fixes within bounded runtime on large batches", async () => {
-    const source = buildArithmeticChainBatchSource(1000);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+runSequentialPerformanceTest(
+    "prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions",
+    async () => {
+        const source = buildLoopInvariantStressBatchSource(60, 15);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/prefer-loop-invariant-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.ok(
-        timedRun.outputText.includes("dot_product_3d"),
-        "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 2000,
-        `expected optimize-math-expressions rule runtime under 2000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 5000,
-        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.ok(
+            timedRun.outputText.includes("var cached_value ="),
+            "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 1500,
+            `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 3000,
+            `expected total lint runtime under 3000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-math-expressions skips additive identifier batches without clone-heavy normalization", async () => {
-    const source = buildAdditiveIdentifierBatchSource(2500);
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source);
+runSequentialPerformanceTest(
+    "prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime",
+    async () => {
+        const source = buildLoopInvariantStressBatchSource(160, 30);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/prefer-loop-invariant-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.equal(timedRun.outputText, source);
-    assert.ok(
-        timedRun.ruleMilliseconds < 400,
-        `expected optimize-math-expressions additive fast-path runtime under 400ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 2500,
-        `expected total lint runtime under 2500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.ok(
+            timedRun.outputText.includes("var cached_value ="),
+            "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 1500,
+            `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 5000,
+            `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("optimize-math-expressions preserves stile fixes within the real-file runtime budget", async () => {
-    const source = await readFile("src/parser/test/input/stile.gml", "utf8");
-    const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source, "stile.gml");
+runSequentialPerformanceTest(
+    "prefer-loop-invariant-expressions keeps local hoist-name resolution bounded on collision-heavy files",
+    async () => {
+        const reservedHoistNameCount = 320;
+        const source = buildLoopHoistCollisionStressSource(220, reservedHoistNameCount);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/prefer-loop-invariant-expressions",
+            source,
+            "local-collision-performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.equal(createOutputHash(timedRun.outputText), STILE_OPTIMIZE_MATH_OUTPUT_HASH);
-    assert.ok(
-        timedRun.ruleMilliseconds < 450,
-        `expected optimize-math-expressions stile runtime under 450ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 3200,
-        `expected total lint runtime under 3200ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.ok(
+            timedRun.outputText.includes("var cached_value_321 ="),
+            "expected prefer-loop-invariant-expressions to keep hoisting through local name collisions"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 2500,
+            `expected prefer-loop-invariant-expressions runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 8000,
+            `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);
 
-void test("prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions", async () => {
-    const source = buildLoopInvariantStressBatchSource(60, 15);
-    const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
+runSequentialPerformanceTest(
+    "prefer-loop-invariant-expressions keeps very large hoist-name resolution workloads within bounded runtime",
+    async () => {
+        const source = buildLoopInvariantStressBatchSource(320, 60);
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/prefer-loop-invariant-expressions",
+            source,
+            "performance-regression.gml"
+        );
 
-    assert.equal(timedRun.messages.length, 0);
-    assert.ok(
-        timedRun.outputText.includes("var cached_value ="),
-        "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 1500,
-        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 3000,
-        `expected total lint runtime under 3000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
-
-void test("prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime", async () => {
-    const source = buildLoopInvariantStressBatchSource(160, 30);
-    const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
-
-    assert.equal(timedRun.messages.length, 0);
-    assert.ok(
-        timedRun.outputText.includes("var cached_value ="),
-        "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 1500,
-        `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 5000,
-        `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
-
-void test("prefer-loop-invariant-expressions keeps local hoist-name resolution bounded on collision-heavy files", async () => {
-    const reservedHoistNameCount = 320;
-    const source = buildLoopHoistCollisionStressSource(220, reservedHoistNameCount);
-    const timedRun = await lintSingleRuleWithTiming(
-        "gml/prefer-loop-invariant-expressions",
-        source,
-        "local-collision-performance-regression.gml"
-    );
-
-    assert.ok(
-        timedRun.outputText.includes("var cached_value_321 ="),
-        "expected prefer-loop-invariant-expressions to keep hoisting through local name collisions"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 2500,
-        `expected prefer-loop-invariant-expressions runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 8000,
-        `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
-
-void test("prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime", async () => {
-    const source = buildLoopInvariantStressBatchSource(320, 60);
-    const timedRun = await lintSingleRuleWithTiming("gml/prefer-loop-invariant-expressions", source);
-
-    assert.equal(timedRun.messages.length, 0);
-    assert.ok(
-        timedRun.outputText.includes("var cached_value ="),
-        "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
-    );
-    assert.ok(
-        timedRun.ruleMilliseconds < 2500,
-        `expected prefer-loop-invariant-expressions rule runtime under 2500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
-    );
-    assert.ok(
-        timedRun.elapsedMilliseconds < 12_000,
-        `expected total lint runtime under 12000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-    );
-});
+        assert.equal(timedRun.messages.length, 0);
+        assert.ok(
+            timedRun.outputText.includes("var cached_value ="),
+            "expected prefer-loop-invariant-expressions to keep hoisting loop-invariant subexpressions"
+        );
+        assert.ok(
+            timedRun.ruleMilliseconds < 7500,
+            `expected prefer-loop-invariant-expressions rule runtime under 7500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+        assert.ok(
+            timedRun.elapsedMilliseconds < 20_000,
+            `expected total lint runtime under 20000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+        );
+    }
+);

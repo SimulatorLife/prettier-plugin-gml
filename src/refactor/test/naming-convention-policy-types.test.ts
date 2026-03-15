@@ -28,6 +28,7 @@ void test("NamingCategory includes variable naming categories from the policy pl
 
     assert.ok(categories.has("globalVariable"));
     assert.ok(categories.has("loopIndexVariable"));
+    assert.equal(categories.has("eventHandlerFunction" as NamingCategory), false);
 });
 
 void test("NamingConventionPolicy supports category rules and explicit disablement", () => {

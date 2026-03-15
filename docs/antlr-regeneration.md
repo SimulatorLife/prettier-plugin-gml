@@ -70,6 +70,12 @@ The following grammar fixes accompany the extracted extensions:
   expression rather than a bare identifier token. This aligns the grammar with
   GameMaker’s syntax, where calls such as
   `: AbstractInputButton(button, eInputType.keyboard)` are valid.
+* Statement parsing now uses lightweight lookahead predicates to distinguish
+  assignment/inc-dec statements from chained call statements. This prevents
+  multiline chains such as
+  `fsm\n  .add(...)\n  .add(...);`
+  from being misclassified as assignment or inc-dec statements while still
+  preserving `for (...)` update-clause parsing.
 
 When additional grammar updates are required, modify the `.g4` sources first
 and rerun `pnpm run build:antlr` to refresh the generated JavaScript output.

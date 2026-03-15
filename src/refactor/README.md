@@ -423,16 +423,11 @@ type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
-    | "constant"
     | "macro";
 
 type NamingRuleConfig = {
@@ -498,20 +493,15 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     callable: null,
     function: "callable",
     constructorFunction: "callable",
-    eventHandlerFunction: "callable",
-    structMethod: "callable",
-    staticMethod: "callable",
 
     typeName: null,
     structDeclaration: "typeName",
     enum: "typeName",
 
     member: null,
-    structField: "member",
     enumMember: "member",
 
-    constant: null,
-    macro: "constant"
+    macro: null
 };
 ```
 
@@ -528,7 +518,8 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
 #### Notes
 
-- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, arguments, and catch arguments.
+- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.
@@ -1201,9 +1192,9 @@ new RefactorEngine({ parser, semantic, formatter });
 
 #### Workspace Operations
 
-- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files (`includeResultContent: false` avoids retaining full post-edit text in memory during write flows)
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
-- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, optional impact analysis (`includeImpactAnalyses`), and optional hot reload metadata
 
 #### Hot Reload Integration
 
