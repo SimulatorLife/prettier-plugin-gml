@@ -8,6 +8,7 @@ import {
     cloneAstNodeWithoutTraversalLinks,
     createCommentTokenRangeIndex,
     createMeta,
+    getVariableDeclarator,
     isAstNodeRecord,
     rangeContainsCommentToken,
     reportFullTextRewrite,
@@ -535,17 +536,6 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     rewritten = rewritten.replaceAll(/if\s*\(\s*([A-Za-z0-9_.]+)\s*!=\s*0\s*\)/g, "if (abs($1) > math_get_epsilon())");
 
     return rewritten;
-}
-
-function getVariableDeclarator(statement: unknown): any {
-    if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
-        return null;
-    }
-    const declarations = statement.declarations;
-    if (Array.isArray(declarations) && declarations.length === 1) {
-        return declarations[0];
-    }
-    return null;
 }
 
 function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<SourceTextEdit>): boolean {
