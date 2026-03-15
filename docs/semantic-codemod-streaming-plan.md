@@ -285,3 +285,97 @@ Recommended path:
 4. Add SQLite only if benchmark gate is met.
 
 This path directly targets memory and runtime bottlenecks for large project codemod runs while preserving correctness and maintainability.
+
+## 12. Implementation Status (Current)
+
+Implemented in this repository:
+1. Semantic index now supports an optional hybrid spill path through `identifierSink` in `buildProjectIndex`.
+2. The default spill implementation is temp-file JSONL chunking with bounded in-memory tails.
+3. Snapshot materialization reads identifier declaration/reference payloads through the sink when enabled, preserving output shape.
+4. Sink telemetry now reports appended/spilled record counters and read-cache hit/miss metrics.
+5. Semantic index build now captures high-water memory snapshots (`maxRss`, `maxHeapUsed`) in metrics metadata.
+6. Scope-tracker caches now use bounded eviction for lookup and identifier-resolution caches.
+7. `fix` command now emits per-stage duration plus RSS/heap high-water telemetry.
+8. Refactor codemod execution now emits queue/overlay telemetry and supports a telemetry callback hook.
+9. `WorkspaceEdit` now tracks size/counter telemetry (`text bytes`, high-water bytes, touched file count).
+10. Refactor dry-run overlay now supports temp-file spill via a storage backend when in-memory overlay bytes exceed a configured threshold.
+11. Spill backends now use collision-safe, digest-suffixed filenames to prevent key aliasing when sanitized path segments collide.
+12. Codemod overlay spill-limit enforcement now uses iterative draining (instead of recursion) to keep large-run behavior stack-safe.
+13. Refactor spill backend now handles lifecycle/failure paths explicitly: writes after dispose are rejected, reads after dispose return null, and externally removed spill files are treated as cache misses.
+14. Semantic identifier sink now handles lifecycle/failure paths explicitly: appends become no-ops after dispose, reads after dispose return empty results, and corrupted/missing spill files are treated as safe cache misses while retaining in-memory tails.
+15. Overlay spill accounting now caches per-file byte sizes to avoid repeated `Buffer.byteLength(...)` recomputation during threshold enforcement, and semantic sink spill-path cleanup now uses direct path-to-record-key mappings to avoid O(n) scans.
+16. Refactor codemod dry-run overlay spilling is now backend-agnostic via `StorageBackend`, allowing callers to inject a backend while keeping temp-file spill as the default.
+17. Codemod overlay telemetry now reports total overlay entry count across both in-memory and spilled entries so high-water summaries remain accurate under heavy spill.
+
+Current codemod overlay spill controls:
+
+```ts
+await engine.executeConfiguredCodemods({
+	// ...existing request fields,
+	dryRun: true,
+	dryRunOverlaySpillThresholdBytes: 4 * 1024 * 1024,
+	dryRunOverlayReadCacheMaxEntries: 32
+});
+```
+
+Current configuration entry point:
+
+```ts
+await buildProjectIndex(projectRoot, undefined, {
+	identifierSink: {
+		enabled: true,
+		flushThreshold: 256,
+		retainedEntriesPerKey: 32,
+		readCacheMaxEntries: 32
+	}
+});
+```
+
+Notes:
+1. Temp-file spill remains the default backend for the hybrid path.
+2. SQLite remains optional and deferred behind benchmark gates.
+
+## 13. Benchmark Runbook (Current)
+
+Use this runbook for Option C acceptance checks and regression tracking.
+
+Pre-flight:
+1. Ensure workspace is type-clean and lint-clean:
+	1. `pnpm run build:ts`
+	2. `pnpm run lint:quiet`
+2. Ensure semantic/refactor correctness is green:
+	1. `pnpm run test:semantic`
+	2. `pnpm run test:refactor`
+
+Profiling suites:
+1. Standard fixture profile:
+	1. `pnpm run test:fixtures:profile`
+2. Deep CPU fixture profile:
+	1. `pnpm run test:fixtures:profile:deep-cpu`
+
+Real-project workload:
+1. Run fix workflow against target project:
+	1. `pnpm run cli -- fix --project-root /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
+2. Capture telemetry emitted by:
+	1. `src/cli/src/commands/fix.ts` stage telemetry (duration + RSS/heap high-water)
+	2. semantic project-index metrics metadata (`maxRss`, `maxHeapUsed`)
+	3. refactor codemod overlay telemetry (queue/overlay/spill/cache counters)
+
+Pass gate:
+1. No semantic/output regressions in fixtures and integration suites.
+2. Memory reduction and/or throughput improvements satisfy thresholds:
+	1. >= 20% wall-clock improvement, or
+	2. >= 25% max-RSS reduction.
+
+Current blocker status (as of 2026-03-15):
+1. `pnpm run test:semantic` passes.
+2. `pnpm run test:refactor` passes.
+3. `pnpm run test:fixtures:profile` currently fails due fixture correctness regressions (not budget failures), including:
+	1. `[format] test-operators` parse error (`unexpected symbol 'myCount'`).
+	2. `[integration] test-int-comments-ops` output mismatch.
+	3. `[integration] test-int-logic-flow` output mismatch.
+4. `pnpm run test:fixtures:profile:deep-cpu` fails for the same fixture correctness regressions.
+
+Interpretation:
+1. Option C memory/streaming plumbing is benchmark-ready.
+2. Final benchmark sign-off remains blocked until existing fixture correctness regressions are resolved.

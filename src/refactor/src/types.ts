@@ -6,6 +6,7 @@
 
 import { Core } from "@gmloop/core";
 
+import type { StorageBackend } from "./backends/storage-backend.js";
 import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
@@ -653,6 +654,28 @@ export interface ConfiguredCodemodSummary {
     errors: Array<string>;
 }
 
+export interface CodemodExecutionTelemetry {
+    queueCount: number;
+    requestedCodemodCount: number;
+    durationMs: number;
+    overlayEntryCount: number;
+    overlayBytes: number;
+    overlayHighWaterBytes: number;
+    overlaySpillWrites: number;
+    overlaySpilledEntries: number;
+    overlayCacheHits: number;
+    overlayCacheMisses: number;
+    appliedFileCount: number;
+    workspaceEdit?: {
+        textEditCount: number;
+        fileRenameCount: number;
+        metadataEditCount: number;
+        touchedFileCount: number;
+        totalTextBytes: number;
+        highWaterTextBytes: number;
+    };
+}
+
 /**
  * Aggregate result for a configured codemod execution request.
  */
@@ -660,6 +683,7 @@ export interface ConfiguredCodemodRunResult {
     dryRun: boolean;
     summaries: Array<ConfiguredCodemodSummary>;
     appliedFiles: Map<string, string>;
+    telemetry?: CodemodExecutionTelemetry;
 }
 
 /**
@@ -676,6 +700,24 @@ export interface ConfiguredCodemodRunRequest {
     deleteFile?: (path: string) => MaybePromise<void>;
     dryRun?: boolean;
     onlyCodemods?: Array<RefactorCodemodId>;
+    /**
+     * Upper bound for in-memory dry-run overlay bytes before entries spill.
+     *
+     * A value of 0 disables spill and retains all overlay content in memory.
+     */
+    dryRunOverlaySpillThresholdBytes?: number;
+    /**
+     * Maximum read-through cache entries for the default temp-file overlay backend.
+     */
+    dryRunOverlayReadCacheMaxEntries?: number;
+    /**
+     * Optional backend used for dry-run overlay spilling.
+     *
+     * When omitted, the engine uses the default temp-file backend. This hook
+     * keeps codemod execution backend-agnostic while preserving current defaults.
+     */
+    dryRunOverlayStorageBackend?: StorageBackend;
+    onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
 }
 
 /**

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { type BatchRenamePlanSummary, type PartialSemanticAnalyzer, Refactor } from "../index.js";
+import type { StorageBackend, StorageBackendStats } from "../src/backends/index.js";
+import type { CodemodExecutionTelemetry } from "../src/types.js";
 
 /**
  * Create a minimal batch rename plan summary for codemod tests.
@@ -25,6 +27,59 @@ function createBatchRenamePlanSummary(errors: Array<string>): BatchRenamePlanSum
         impactAnalyses: new Map(),
         cascadeResult: null
     };
+}
+
+class InMemoryOverlayStorageBackend implements StorageBackend {
+    private readonly valuesByKey = new Map<string, string>();
+    private disposed = false;
+    public disposeCallCount = 0;
+    public readonly stats: StorageBackendStats = {
+        writes: 0,
+        reads: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        spilledEntries: 0
+    };
+
+    async writeEntry(key: string, content: string): Promise<void> {
+        if (this.disposed) {
+            throw new Error("InMemoryOverlayStorageBackend cannot write after dispose");
+        }
+
+        this.valuesByKey.set(key, content);
+        this.stats.writes += 1;
+        this.stats.spilledEntries = this.valuesByKey.size;
+    }
+
+    async readEntry(key: string): Promise<string | null> {
+        this.stats.reads += 1;
+        if (!this.valuesByKey.has(key)) {
+            this.stats.cacheMisses += 1;
+            return null;
+        }
+
+        this.stats.cacheHits += 1;
+        return this.valuesByKey.get(key) ?? null;
+    }
+
+    async deleteEntry(key: string): Promise<void> {
+        this.valuesByKey.delete(key);
+        this.stats.spilledEntries = this.valuesByKey.size;
+    }
+
+    async dispose(): Promise<void> {
+        this.disposed = true;
+        this.valuesByKey.clear();
+        this.stats.spilledEntries = 0;
+        this.disposeCallCount += 1;
+    }
+
+    getStats(): StorageBackendStats {
+        return {
+            ...this.stats,
+            spilledEntries: this.valuesByKey.size
+        };
+    }
 }
 
 void test("listRegisteredCodemods returns the v1 configured codemod set", () => {
@@ -108,6 +163,84 @@ void test("executeConfiguredCodemods avoids retaining full file content in write
     assert.equal(result.dryRun, false);
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "");
     assert.match(writes.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
+void test("executeConfiguredCodemods reports overlay telemetry and emits callback", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const engine = new Refactor.RefactorEngine();
+    const telemetrySnapshots: Array<CodemodExecutionTelemetry> = [];
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        onTelemetry: (telemetry) => {
+            telemetrySnapshots.push(telemetry);
+        }
+    });
+
+    assert.ok(result.telemetry);
+    assert.equal(result.telemetry?.queueCount, 1);
+    assert.ok((result.telemetry?.overlayEntryCount ?? 0) >= 1);
+    assert.ok((result.telemetry?.overlayHighWaterBytes ?? 0) > 0);
+    assert.equal(telemetrySnapshots.length, 1);
+    assert.equal(telemetrySnapshots[0]?.queueCount, 1);
+});
+
+void test("executeConfiguredCodemods spills dry-run overlay when threshold is exceeded", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const engine = new Refactor.RefactorEngine();
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        dryRunOverlaySpillThresholdBytes: 1,
+        dryRunOverlayReadCacheMaxEntries: 1
+    });
+
+    assert.ok(result.telemetry);
+    assert.ok((result.telemetry?.overlaySpillWrites ?? 0) > 0);
+    assert.ok((result.telemetry?.overlayEntryCount ?? 0) >= (result.telemetry?.overlaySpilledEntries ?? 0));
+    assert.match(result.appliedFiles.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
+void test("executeConfiguredCodemods uses injected dry-run overlay backend and disposes it", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const engine = new Refactor.RefactorEngine();
+    const backend = new InMemoryOverlayStorageBackend();
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async () => sourceText,
+        dryRunOverlaySpillThresholdBytes: 1,
+        dryRunOverlayStorageBackend: backend
+    });
+
+    assert.ok(result.telemetry);
+    assert.equal(result.telemetry?.overlaySpillWrites, 1);
+    assert.equal(result.telemetry?.overlaySpilledEntries, 1);
+    assert.equal(result.telemetry?.overlayEntryCount, 1);
+    assert.equal(backend.disposeCallCount, 1);
 });
 
 void test("executeConfiguredCodemods applies namingConvention local renames without a batch rename plan", async () => {
