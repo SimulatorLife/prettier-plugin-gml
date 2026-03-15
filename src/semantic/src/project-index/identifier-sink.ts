@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -28,7 +29,6 @@ export interface IdentifierSink {
 }
 
 type LruCacheEntry = {
-    key: string;
     records: Array<unknown>;
 };
 
@@ -58,6 +58,16 @@ function normalizeCount(value: unknown, fallback: number): number {
 
 function escapeKeySegment(value: string): string {
     return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
+}
+
+function createStableKeyDigest(value: string): string {
+    return createHash("sha1").update(value).digest("hex").slice(0, 16);
+}
+
+function createSpillFileName(recordKey: string): string {
+    const sanitizedPrefix = escapeKeySegment(recordKey).slice(0, 48);
+    const digest = createStableKeyDigest(recordKey);
+    return `${sanitizedPrefix}-${digest}.jsonl`;
 }
 
 function parseJsonLines(rawContents: string): Array<unknown> {
@@ -90,12 +100,14 @@ export class TempFileIdentifierSink implements IdentifierSink {
     private readonly tempRootPath: string | null;
     private readonly inMemoryTailByKey = new Map<string, Array<unknown>>();
     private readonly filePathByKey = new Map<string, string>();
+    private readonly recordKeyByFilePath = new Map<string, string>();
     private readonly parsedReadCacheByPath = new Map<string, LruCacheEntry>();
     private recordsAppended = 0;
     private recordsSpilled = 0;
     private spillFiles = 0;
     private cacheHits = 0;
     private cacheMisses = 0;
+    private disposed = false;
 
     constructor(options: TempFileIdentifierSinkOptions = {}) {
         this.enabled = options.enabled ?? false;
@@ -113,7 +125,7 @@ export class TempFileIdentifierSink implements IdentifierSink {
     }
 
     append(record: IdentifierSinkRecord): void {
-        if (!this.enabled) {
+        if (!this.enabled || this.disposed) {
             return;
         }
 
@@ -136,6 +148,10 @@ export class TempFileIdentifierSink implements IdentifierSink {
     }
 
     readAll(collection: string, key: string, role: IdentifierSinkRole): Array<unknown> {
+        if (this.disposed) {
+            return [];
+        }
+
         const recordKey = createRecordKey(collection, key, role);
         const tailRecords = this.inMemoryTailByKey.get(recordKey) ?? [];
 
@@ -167,8 +183,10 @@ export class TempFileIdentifierSink implements IdentifierSink {
     }
 
     dispose(): void {
+        this.disposed = true;
         this.inMemoryTailByKey.clear();
         this.filePathByKey.clear();
+        this.recordKeyByFilePath.clear();
         this.parsedReadCacheByPath.clear();
 
         if (!this.enabled || !this.tempRootPath) {
@@ -179,14 +197,15 @@ export class TempFileIdentifierSink implements IdentifierSink {
     }
 
     private appendRecordsToFile(recordKey: string, records: Array<unknown>): void {
-        if (!this.enabled || records.length === 0 || !this.tempRootPath) {
+        if (!this.enabled || this.disposed || records.length === 0 || !this.tempRootPath) {
             return;
         }
 
         let filePath = this.filePathByKey.get(recordKey);
         if (!filePath) {
-            filePath = path.join(this.tempRootPath, `${escapeKeySegment(recordKey)}.jsonl`);
+            filePath = path.join(this.tempRootPath, createSpillFileName(recordKey));
             this.filePathByKey.set(recordKey, filePath);
+            this.recordKeyByFilePath.set(filePath, recordKey);
             this.spillFiles += 1;
         }
 
@@ -207,14 +226,26 @@ export class TempFileIdentifierSink implements IdentifierSink {
         }
 
         this.cacheMisses += 1;
-        const rawContents = readFileSync(filePath, "utf8");
-        const records = parseJsonLines(rawContents);
-        this.promoteReadCacheEntry(filePath, {
-            key: filePath,
-            records
-        });
+        try {
+            const rawContents = readFileSync(filePath, "utf8");
+            const records = parseJsonLines(rawContents);
+            this.promoteReadCacheEntry(filePath, { records });
+            return records;
+        } catch {
+            this.clearSpillPathMappings(filePath);
+            return [];
+        }
+    }
 
-        return records;
+    private clearSpillPathMappings(filePath: string): void {
+        this.parsedReadCacheByPath.delete(filePath);
+        const recordKey = this.recordKeyByFilePath.get(filePath);
+        if (!recordKey) {
+            return;
+        }
+
+        this.recordKeyByFilePath.delete(filePath);
+        this.filePathByKey.delete(recordKey);
     }
 
     private promoteReadCacheEntry(cacheKey: string, entry: LruCacheEntry): void {

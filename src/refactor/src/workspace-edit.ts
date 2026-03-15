@@ -126,6 +126,9 @@ export class WorkspaceEdit {
     }
 }
 
+/**
+ * Return size/counter telemetry collected while building a workspace edit.
+ */
 export function getWorkspaceEditTelemetry(workspace: WorkspaceEdit): WorkspaceEditTelemetry {
     const telemetryState = getTelemetryState(workspace);
     return {

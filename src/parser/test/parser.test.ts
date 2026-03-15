@@ -645,6 +645,15 @@ void describe("GameMaker parser fixtures", () => {
         );
     });
 
+    void it("parses standalone postfix inc/dec statements separated by newlines without semicolons", () => {
+        const source = ["var myCount = 10;", "++myCount", "--myCount", "myCount++", "myCount--", ""].join("\n");
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected postfix and prefix inc/dec statements without trailing semicolons to parse across line breaks."
+        );
+    });
+
     void it("parses for-loop update clauses with assignment expressions", () => {
         const source = "for (var i = 0; i < 3; i = i + 1) { }\n";
 

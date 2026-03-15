@@ -9,6 +9,7 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
+import { createTempFileStorageBackend, type StorageBackend } from "./backends/index.js";
 import { executeRegisteredCodemods } from "./codemod-registry.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
@@ -1066,7 +1067,18 @@ export class RefactorEngine {
      * codemods observe edits produced by earlier ones during the same run.
      */
     async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
-        const { projectRoot, config, readFile, writeFile, dryRun = true, onlyCodemods = [], onTelemetry } = request;
+        const {
+            projectRoot,
+            config,
+            readFile,
+            writeFile,
+            dryRun = true,
+            onlyCodemods = [],
+            onTelemetry,
+            dryRunOverlaySpillThresholdBytes = 4 * 1024 * 1024,
+            dryRunOverlayReadCacheMaxEntries = 32,
+            dryRunOverlayStorageBackend
+        } = request;
 
         Core.assertNonEmptyString(projectRoot, {
             errorMessage: "executeConfiguredCodemods requires a projectRoot"
@@ -1084,20 +1096,83 @@ export class RefactorEngine {
         const configuredCodemods = config.codemods ?? {};
         const useInMemoryOverlay = dryRun;
         const overlay = new Map<string, string>();
+        const overlayByteSizeByPath = new Map<string, number>();
+        const overlaySpillIndex = new Set<string>();
         const appliedFiles = new Map<string, string>();
         let overlayBytes = 0;
         let overlayHighWaterBytes = 0;
         const startTime = process.hrtime.bigint();
+        const spillThresholdBytes =
+            typeof dryRunOverlaySpillThresholdBytes === "number" && Number.isFinite(dryRunOverlaySpillThresholdBytes)
+                ? Math.max(0, Math.floor(dryRunOverlaySpillThresholdBytes))
+                : 4 * 1024 * 1024;
+        const spillBackend: StorageBackend | null =
+            useInMemoryOverlay && spillThresholdBytes > 0
+                ? (dryRunOverlayStorageBackend ??
+                  createTempFileStorageBackend({ readCacheMaxEntries: dryRunOverlayReadCacheMaxEntries }))
+                : null;
 
-        const recordOverlayValue = (filePath: string, content: string): void => {
+        const spillEntryToBackend = async (filePath: string): Promise<void> => {
+            if (!spillBackend) {
+                return;
+            }
+
+            const inMemoryContent = overlay.get(filePath);
+            if (inMemoryContent === undefined) {
+                return;
+            }
+
+            await spillBackend.writeEntry(filePath, inMemoryContent);
+            overlaySpillIndex.add(filePath);
+            overlay.delete(filePath);
+            const contentSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(inMemoryContent, "utf8");
+            overlayByteSizeByPath.delete(filePath);
+            overlayBytes -= contentSize;
+        };
+
+        const enforceOverlayLimit = async (): Promise<void> => {
+            if (!spillBackend || spillThresholdBytes <= 0) {
+                return;
+            }
+
+            if (overlayBytes <= spillThresholdBytes) {
+                return;
+            }
+
+            const pathsToSpill: Array<string> = [];
+            let projectedBytes = overlayBytes;
+
+            for (const [filePath, inMemoryContent] of overlay.entries()) {
+                if (projectedBytes <= spillThresholdBytes) {
+                    break;
+                }
+
+                pathsToSpill.push(filePath);
+                const contentSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(inMemoryContent, "utf8");
+                projectedBytes -= contentSize;
+            }
+
+            await Core.runSequentially(pathsToSpill, spillEntryToBackend);
+        };
+
+        const recordOverlayValue = async (filePath: string, content: string): Promise<void> => {
             const previousContent = overlay.get(filePath);
             if (previousContent !== undefined) {
-                overlayBytes -= Buffer.byteLength(previousContent, "utf8");
+                const previousSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(previousContent, "utf8");
+                overlayByteSizeByPath.delete(filePath);
+                overlayBytes -= previousSize;
+            } else if (overlaySpillIndex.has(filePath) && spillBackend) {
+                overlaySpillIndex.delete(filePath);
+                await spillBackend.deleteEntry(filePath);
             }
 
             overlay.set(filePath, content);
-            overlayBytes += Buffer.byteLength(content, "utf8");
+            const contentSize = Buffer.byteLength(content, "utf8");
+            overlayByteSizeByPath.set(filePath, contentSize);
+            overlayBytes += contentSize;
             overlayHighWaterBytes = Math.max(overlayHighWaterBytes, overlayBytes);
+
+            await enforceOverlayLimit();
         };
 
         const readThroughOverlay = async (filePath: string): Promise<string> => {
@@ -1105,12 +1180,21 @@ export class RefactorEngine {
                 return overlay.get(filePath) ?? "";
             }
 
+            if (useInMemoryOverlay && overlaySpillIndex.has(filePath) && spillBackend) {
+                const spilledContent = await spillBackend.readEntry(filePath);
+                if (typeof spilledContent === "string") {
+                    return spilledContent;
+                }
+
+                overlaySpillIndex.delete(filePath);
+            }
+
             return await readFile(filePath);
         };
 
         const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
             if (useInMemoryOverlay) {
-                recordOverlayValue(filePath, content);
+                await recordOverlayValue(filePath, content);
                 appliedFiles.set(filePath, content);
             } else {
                 appliedFiles.set(filePath, "");
@@ -1121,44 +1205,60 @@ export class RefactorEngine {
             }
         };
 
-        const result = await executeRegisteredCodemods(this, {
-            ...request,
-            config: {
-                ...request.config,
-                codemods: configuredCodemods
-            },
-            readFile: readThroughOverlay,
-            writeFile: dryRun ? undefined : writeWithOverlay,
-            dryRun,
-            onlyCodemods: [...requestedCodemods]
-        });
+        try {
+            const result = await executeRegisteredCodemods(this, {
+                ...request,
+                config: {
+                    ...request.config,
+                    codemods: configuredCodemods
+                },
+                readFile: readThroughOverlay,
+                writeFile: dryRun ? undefined : writeWithOverlay,
+                dryRun,
+                onlyCodemods: [...requestedCodemods]
+            });
 
-        for (const [filePath, content] of result.appliedFiles.entries()) {
-            if (useInMemoryOverlay) {
-                recordOverlayValue(filePath, content);
-                appliedFiles.set(filePath, content);
-            } else {
-                appliedFiles.set(filePath, "");
-            }
+            await Core.runSequentially(result.appliedFiles.entries(), async ([filePath, content]) => {
+                if (useInMemoryOverlay) {
+                    await recordOverlayValue(filePath, content);
+                    appliedFiles.set(filePath, content);
+                } else {
+                    appliedFiles.set(filePath, "");
+                }
+            });
+
+            const backendStats = spillBackend?.getStats() ?? {
+                writes: 0,
+                reads: 0,
+                cacheHits: 0,
+                cacheMisses: 0,
+                spilledEntries: 0
+            };
+
+            const telemetry: CodemodExecutionTelemetry = {
+                queueCount: result.summaries.length,
+                requestedCodemodCount: requestedCodemods.size,
+                durationMs: Number(process.hrtime.bigint() - startTime) / 1_000_000,
+                overlayEntryCount: overlay.size + overlaySpillIndex.size,
+                overlayBytes,
+                overlayHighWaterBytes,
+                overlaySpillWrites: backendStats.writes,
+                overlaySpilledEntries: backendStats.spilledEntries,
+                overlayCacheHits: backendStats.cacheHits,
+                overlayCacheMisses: backendStats.cacheMisses,
+                appliedFileCount: appliedFiles.size
+            };
+            onTelemetry?.(telemetry);
+
+            return {
+                dryRun,
+                summaries: result.summaries,
+                appliedFiles,
+                telemetry
+            };
+        } finally {
+            await spillBackend?.dispose();
         }
-
-        const telemetry: CodemodExecutionTelemetry = {
-            queueCount: result.summaries.length,
-            requestedCodemodCount: requestedCodemods.size,
-            durationMs: Number(process.hrtime.bigint() - startTime) / 1_000_000,
-            overlayEntryCount: overlay.size,
-            overlayBytes,
-            overlayHighWaterBytes,
-            appliedFileCount: appliedFiles.size
-        };
-        onTelemetry?.(telemetry);
-
-        return {
-            dryRun,
-            summaries: result.summaries,
-            appliedFiles,
-            telemetry
-        };
     }
 
     /**
