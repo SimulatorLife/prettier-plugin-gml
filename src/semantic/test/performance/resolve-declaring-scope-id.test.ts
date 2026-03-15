@@ -131,100 +131,98 @@ void describe("resolveDeclaringScopeId: allocation-free scope ID lookup in hot-r
             assert.ok(idxMath < idxObj, "math must come before obj_player");
         });
     });
+});
 
-    void describe("hot-reload invalidation performance", () => {
-        /**
-         * Builds a larger nested graph:
-         *   program (root util scope) declares N*M symbols
-         *     └─ K object scopes each referencing R of those symbols
-         *
-         * All object scopes are children of the root, so identifier resolution
-         * correctly finds the declared symbols via the parent chain.
-         */
-        function buildLargeGraph(
-            utilSymbols: number,
-            objectFiles: number,
-            refsPerObject: number
-        ): { tracker: ScopeTracker; utilPath: string; objectPaths: string[] } {
-            const tracker = new ScopeTracker({ enabled: true });
-            const objectPaths: string[] = [];
-            const utilPath = "util_root.gml";
+/**
+ * Builds a larger nested graph for performance tests:
+ *   program (root util scope) declares `utilSymbols` symbols
+ *     └─ `objectFiles` object scopes each referencing `refsPerObject` of those symbols
+ *
+ * All object scopes are children of the root, so identifier resolution
+ * correctly finds the declared symbols via the parent chain.
+ */
+function buildLargeGraph(
+    utilSymbols: number,
+    objectFiles: number,
+    refsPerObject: number
+): { tracker: ScopeTracker; utilPath: string; objectPaths: string[] } {
+    const tracker = new ScopeTracker({ enabled: true });
+    const objectPaths: string[] = [];
+    const utilPath = "util_root.gml";
 
-            // Root scope declares all utility symbols
-            tracker.enterScope("program", { path: utilPath, name: "util_root" });
-            for (let sym = 0; sym < utilSymbols; sym++) {
-                tracker.declare(`util_sym_${sym}`, { name: `util_sym_${sym}` });
-            }
+    tracker.enterScope("program", { path: utilPath, name: "util_root" });
+    for (let sym = 0; sym < utilSymbols; sym++) {
+        tracker.declare(`util_sym_${sym}`, { name: `util_sym_${sym}` });
+    }
 
-            // Child scopes (objects) reference util symbols
-            for (let o = 0; o < objectFiles; o++) {
-                const path = `obj_${o}.gml`;
-                objectPaths.push(path);
-                tracker.enterScope("object_event", { path, name: `obj_${o}_step` });
-                for (let r = 0; r < refsPerObject; r++) {
-                    const sym = r % utilSymbols;
-                    tracker.reference(`util_sym_${sym}`, { name: `util_sym_${sym}` });
-                }
-                tracker.exitScope();
-            }
-
-            tracker.exitScope(); // util_root.gml
-
-            return { tracker, utilPath, objectPaths };
+    for (let o = 0; o < objectFiles; o++) {
+        const path = `obj_${o}.gml`;
+        objectPaths.push(path);
+        tracker.enterScope("object_event", { path, name: `obj_${o}_step` });
+        for (let r = 0; r < refsPerObject; r++) {
+            const sym = r % utilSymbols;
+            tracker.reference(`util_sym_${sym}`, { name: `util_sym_${sym}` });
         }
+        tracker.exitScope();
+    }
 
-        void it("getImpactedFilePaths completes quickly for a large cross-file graph", () => {
-            // 200 util symbols, 30 object files × 8 refs each = 240 references
-            const { tracker, utilPath } = buildLargeGraph(200, 30, 8);
+    tracker.exitScope(); // util_root.gml
 
-            const start = performance.now();
-            const impacted = tracker.getImpactedFilePaths([utilPath]);
-            const elapsed = performance.now() - start;
+    return { tracker, utilPath, objectPaths };
+}
 
-            assert.ok(elapsed < 100, `getImpactedFilePaths took ${elapsed.toFixed(2)}ms, expected < 100ms`);
-            // All object files should be in the impacted set (they reference util symbols)
-            assert.ok(impacted.size > 0, "Must include at least the changed util path");
-        });
+void describe("hot-reload invalidation performance", () => {
+    void it("getImpactedFilePaths completes quickly for a large cross-file graph", () => {
+        // 200 util symbols, 30 object files × 8 refs each = 240 references
+        const { tracker, utilPath } = buildLargeGraph(200, 30, 8);
 
-        void it("sortPathsForReanalysis completes quickly for a large cross-file graph", () => {
-            const { tracker, utilPath, objectPaths } = buildLargeGraph(200, 30, 8);
-            const allPaths = [utilPath, ...objectPaths];
+        const start = performance.now();
+        const impacted = tracker.getImpactedFilePaths([utilPath]);
+        const elapsed = performance.now() - start;
 
-            const start = performance.now();
-            const sorted = tracker.sortPathsForReanalysis(allPaths);
-            const elapsed = performance.now() - start;
+        assert.ok(elapsed < 100, `getImpactedFilePaths took ${elapsed.toFixed(2)}ms, expected < 100ms`);
+        // All object files should be in the impacted set (they reference util symbols)
+        assert.ok(impacted.size > 0, "Must include at least the changed util path");
+    });
 
-            assert.ok(elapsed < 100, `sortPathsForReanalysis took ${elapsed.toFixed(2)}ms, expected < 100ms`);
-            assert.equal(sorted.length, allPaths.length, "All paths must be returned");
+    void it("sortPathsForReanalysis completes quickly for a large cross-file graph", () => {
+        const { tracker, utilPath, objectPaths } = buildLargeGraph(200, 30, 8);
+        const allPaths = [utilPath, ...objectPaths];
 
-            // util_root must come before all object files
-            const utilIdx = sorted.indexOf(utilPath);
-            assert.ok(utilIdx !== -1, "util_root.gml must be in the result");
-            for (const objPath of objectPaths) {
-                const objIdx = sorted.indexOf(objPath);
-                assert.ok(utilIdx < objIdx, `util_root must precede ${objPath}`);
-            }
-        });
+        const start = performance.now();
+        const sorted = tracker.sortPathsForReanalysis(allPaths);
+        const elapsed = performance.now() - start;
 
-        void it("second call benefits from cache warm-up (no slower than cold)", () => {
-            const { tracker, utilPath } = buildLargeGraph(200, 30, 8);
+        assert.ok(elapsed < 100, `sortPathsForReanalysis took ${elapsed.toFixed(2)}ms, expected < 100ms`);
+        assert.equal(sorted.length, allPaths.length, "All paths must be returned");
 
-            // Cold call — populates identifier cache
-            const coldStart = performance.now();
-            tracker.getImpactedFilePaths([utilPath]);
-            const coldElapsed = performance.now() - coldStart;
+        // util_root must come before all object files
+        const utilIdx = sorted.indexOf(utilPath);
+        assert.ok(utilIdx !== -1, "util_root.gml must be in the result");
+        for (const objPath of objectPaths) {
+            const objIdx = sorted.indexOf(objPath);
+            assert.ok(utilIdx < objIdx, `util_root must precede ${objPath}`);
+        }
+    });
 
-            // Warm call — identifier cache already populated for these lookups
-            const warmStart = performance.now();
-            tracker.getImpactedFilePaths([utilPath]);
-            const warmElapsed = performance.now() - warmStart;
+    void it("second call benefits from cache warm-up (no slower than cold)", () => {
+        const { tracker, utilPath } = buildLargeGraph(200, 30, 8);
 
-            // Warm must be no slower than cold (allow 50% overshoot for CI jitter).
-            const tolerance = Math.max(10, coldElapsed * 0.5);
-            assert.ok(
-                warmElapsed <= coldElapsed + tolerance,
-                `Warm call (${warmElapsed.toFixed(2)}ms) should not be significantly slower than cold (${coldElapsed.toFixed(2)}ms)`
-            );
-        });
+        // Cold call — populates identifier cache
+        const coldStart = performance.now();
+        tracker.getImpactedFilePaths([utilPath]);
+        const coldElapsed = performance.now() - coldStart;
+
+        // Warm call — identifier cache already populated for these lookups
+        const warmStart = performance.now();
+        tracker.getImpactedFilePaths([utilPath]);
+        const warmElapsed = performance.now() - warmStart;
+
+        // Warm must be no slower than cold (allow 50% overshoot for CI jitter).
+        const tolerance = Math.max(10, coldElapsed * 0.5);
+        assert.ok(
+            warmElapsed <= coldElapsed + tolerance,
+            `Warm call (${warmElapsed.toFixed(2)}ms) should not be significantly slower than cold (${coldElapsed.toFixed(2)}ms)`
+        );
     });
 });
