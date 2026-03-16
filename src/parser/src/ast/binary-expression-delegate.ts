@@ -69,10 +69,12 @@ export default class BinaryExpressionDelegate {
             const [leftCtx, rightCtx] = childExpressions;
             const leftIsBinary = Object.hasOwn(leftCtx, "expression") && typeof leftCtx.expression === "function";
             const rightIsBinary = Object.hasOwn(rightCtx, "expression") && typeof rightCtx.expression === "function";
+            const leftShouldRecurse = leftIsBinary && leftCtx !== ctx;
+            const rightShouldRecurse = rightIsBinary && rightCtx !== ctx;
 
-            leftNode = leftIsBinary ? this.handle(leftCtx, { visit, astNode }, true) : visit(leftCtx);
+            leftNode = leftShouldRecurse ? this.handle(leftCtx, { visit, astNode }, true) : visit(leftCtx);
 
-            rightNode = rightIsBinary ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
+            rightNode = rightShouldRecurse ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
         }
 
         if (!ctx.children || ctx.children.length < 2 || !ctx.children[1]) {
