@@ -611,6 +611,12 @@ function tryPrintVariableNode(node, path, options, print) {
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
+            // Preserve inline chains for assignment/member expressions
+            // If the right side is a MemberDotExpression or another AssignmentExpression, print inline
+            const rightNode = path.get("right");
+            if (rightNode && (rightNode.type === "MemberDotExpression" || rightNode.type === "AssignmentExpression")) {
+                return concat([print("left"), " ", node.operator, " ", print("right")]);
+            }
             return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {

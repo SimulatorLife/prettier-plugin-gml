@@ -712,3 +712,61 @@ void test("runLintCommand maps semantic provider prebuild failures to exit code 
         );
     });
 });
+
+void test("runLintCommand handles large additive-call-chain sources without parser OOM", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-large-source-"));
+    const sourceFilePath = path.join(tempRoot, "large-chain.gml");
+    const configFilePath = path.join(tempRoot, "eslint.config.mjs");
+    const lintWorkspaceModulePath = path.resolve(process.cwd(), "src/lint/dist/index.js").replaceAll("\\", "\\\\");
+
+    const additiveCallChain = Array.from({ length: 520 }, (_, index) => `string_format(value_${index}, 1, 10)`).join(
+        " + "
+    );
+    const sourceText = ["function stress_trace() {", `    return ${additiveCallChain};`, "}", ""].join("\n");
+    await fs.writeFile(sourceFilePath, sourceText, "utf8");
+
+    const configText = [
+        `import * as LintWorkspace from "${lintWorkspaceModulePath}";`,
+        "",
+        "export default [",
+        "    {",
+        '        files: ["**/*.gml"],',
+        "        plugins: {",
+        "            gml: LintWorkspace.Lint.plugin",
+        "        },",
+        '        language: "gml/gml",',
+        "        rules: {}",
+        "    }",
+        "];",
+        ""
+    ].join("\n");
+    await fs.writeFile(configFilePath, configText, "utf8");
+
+    const previousCwd = process.cwd();
+    await withTemporaryProperty(process, "exitCode", undefined, async () => {
+        process.chdir(tempRoot);
+
+        try {
+            await runLintCommand({
+                args: [sourceFilePath],
+                opts() {
+                    return {
+                        fix: false,
+                        formatter: "stylish",
+                        maxWarnings: "-1",
+                        quiet: true,
+                        config: configFilePath,
+                        noDefaultConfig: false,
+                        verbose: false,
+                        project: null,
+                        projectStrict: false
+                    };
+                }
+            });
+
+            assert.equal(process.exitCode ?? 0, 0);
+        } finally {
+            process.chdir(previousCwd);
+        }
+    });
+});
