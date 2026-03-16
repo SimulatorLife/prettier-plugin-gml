@@ -1,6 +1,27 @@
 import { Core } from "@gmloop/core";
 
 /**
+ * Source text scanning utilities for scientific-notation numeric literals.
+ *
+ * This module is consumed by two layers of the `@gmloop/lint` workspace:
+ *
+ *  1. **`language/recovery.ts`** (pre-parse, Phase A) — replaces every
+ *     scientific-notation token with an equal-length placeholder so that the
+ *     ANTLR parser does not choke on exponent syntax during malformed-source
+ *     recovery.
+ *
+ *  2. **`rules/gml/rules/no-scientific-notation-rule.ts`** (AST phase) — walks
+ *     the already-parsed source to report and auto-fix scientific-notation
+ *     literals.
+ *
+ * Because this utility is needed by the `language/` layer (which runs *before*
+ * rules), placing it here in `malformed/` — alongside `source-preprocessing.ts`
+ * — keeps the dependency direction correct: the lower `language/` layer must
+ * never import from the higher `rules/gml/` layer.  Moving the file here fixes
+ * that architectural inversion.  (See target-state.md §2.1 and §3.1.)
+ */
+
+/**
  * Matches scientific-notation numeric literals (sticky, must be reset via `lastIndex`).
  * Pattern: optional-integer optional-fraction exponent  e.g. `1e5`, `1.5e-3`, `.25E+2`
  */
