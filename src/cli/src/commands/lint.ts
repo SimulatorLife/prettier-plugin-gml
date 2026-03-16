@@ -228,6 +228,18 @@ type RetainedLintResult = Pick<
     | "usedDeprecatedRules"
 >;
 
+type LintMessageWithOptionalAutofixPayload = ESLint.LintResult["messages"][number] & {
+    fix?: unknown;
+    suggestions?: unknown;
+};
+
+function sanitizeLintMessageForRetention<TMessage extends LintMessageWithOptionalAutofixPayload>(
+    message: TMessage
+): TMessage {
+    const { fix, suggestions, ...retainedMessage } = message;
+    return retainedMessage as TMessage;
+}
+
 type LintFilesExecutor = Readonly<{
     lintFiles(filePatterns: string | Array<string>): Promise<Array<ESLint.LintResult>>;
 }>;
@@ -426,6 +438,7 @@ function lintTargetsWithRuntimeRecovery(parameters: {
     cwd: string;
     targets: ReadonlyArray<string>;
     onTargetCompleted: LintTargetCompletionHandler;
+    createExecutorForTarget?: () => LintFilesExecutor;
 }): Promise<Array<ESLint.LintResult>> {
     const expandedTargets = expandLintTargetsForRecovery({
         cwd: parameters.cwd,
@@ -448,38 +461,39 @@ function lintTargetsWithRuntimeRecovery(parameters: {
 
     const aggregatedResults: Array<ESLint.LintResult> = [];
 
-    const lintTargetAtIndex = async (index: number): Promise<Array<ESLint.LintResult>> => {
-        if (index >= orderedTargets.length) {
-            return aggregatedResults;
+    const runLintTargetsSequentially = async (): Promise<Array<ESLint.LintResult>> => {
+        for (const lintTarget of orderedTargets) {
+            const targetStartedAtNanoseconds = readMonotonicNanoseconds();
+            const executorForTarget = parameters.createExecutorForTarget
+                ? parameters.createExecutorForTarget()
+                : parameters.eslint;
+            const targetResults = await lintTargetWithRuntimeRecovery({
+                eslint: executorForTarget,
+                target: lintTarget.target,
+                fallbackFilePath: lintTarget.fallbackFilePath
+            });
+            await parameters.onTargetCompleted({
+                target: lintTarget.target,
+                targetResults,
+                elapsedNanoseconds: calculateElapsedNanoseconds({
+                    startedAtNanoseconds: targetStartedAtNanoseconds,
+                    completedAtNanoseconds: readMonotonicNanoseconds()
+                })
+            });
+            aggregatedResults.push(...targetResults.map(createRetainedLintResult));
         }
 
-        const lintTarget = orderedTargets[index];
-        const targetStartedAtNanoseconds = readMonotonicNanoseconds();
-        const targetResults = await lintTargetWithRuntimeRecovery({
-            eslint: parameters.eslint,
-            target: lintTarget.target,
-            fallbackFilePath: lintTarget.fallbackFilePath
-        });
-        await parameters.onTargetCompleted({
-            target: lintTarget.target,
-            targetResults,
-            elapsedNanoseconds: calculateElapsedNanoseconds({
-                startedAtNanoseconds: targetStartedAtNanoseconds,
-                completedAtNanoseconds: readMonotonicNanoseconds()
-            })
-        });
-        aggregatedResults.push(...targetResults.map(createRetainedLintResult));
-        return lintTargetAtIndex(index + 1);
+        return aggregatedResults;
     };
 
-    return lintTargetAtIndex(0);
+    return runLintTargetsSequentially();
 }
 
 function createRetainedLintResult(result: ESLint.LintResult): RetainedLintResult {
     return {
         filePath: result.filePath,
-        messages: result.messages,
-        suppressedMessages: result.suppressedMessages,
+        messages: result.messages.map(sanitizeLintMessageForRetention),
+        suppressedMessages: result.suppressedMessages.map(sanitizeLintMessageForRetention),
         errorCount: result.errorCount,
         fatalErrorCount: result.fatalErrorCount,
         warningCount: result.warningCount,
@@ -789,22 +803,24 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
     eslint: Pick<ESLint, "calculateConfigForFile">;
     results: ReadonlyArray<{ filePath: string }>;
 }): Promise<Array<string>> {
-    const resolvedPaths = await Promise.all(
-        parameters.results.map(async (result) => {
-            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
-            if (!isResolvedConfigLike(resolvedConfig)) {
-                return null;
-            }
+    const resolvedPaths: Array<string> = [];
 
-            if (!hasOverlayRuleApplied(resolvedConfig)) {
-                return null;
-            }
+    for (const result of parameters.results) {
+        const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+        if (!isResolvedConfigLike(resolvedConfig)) {
+            continue;
+        }
 
-            return isCanonicalGmlWiring(resolvedConfig) ? null : result.filePath;
-        })
-    );
+        if (!hasOverlayRuleApplied(resolvedConfig)) {
+            continue;
+        }
 
-    return resolvedPaths.filter((filePath): filePath is string => filePath !== null);
+        if (!isCanonicalGmlWiring(resolvedConfig)) {
+            resolvedPaths.push(result.filePath);
+        }
+    }
+
+    return resolvedPaths;
 }
 
 async function warnOverlayWithoutLanguageWiringIfNeeded(parameters: {
@@ -846,25 +862,21 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
     results: ReadonlyArray<{ filePath: string }>;
     verbose: boolean;
 }): Promise<Readonly<{ exitCode: number; message: string | null; warning: string | null }>> {
-    const evaluations = await Promise.all(
-        parameters.results.map(async (result) => {
-            const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
-            if (!isResolvedConfigLike(resolvedConfig)) {
-                return Object.freeze({ observed: false, unsupportedPath: null as string | null });
-            }
+    let observedConfig = false;
+    const unsupportedProcessorPaths: Array<string> = [];
 
-            const processorIdentity = normalizeProcessorIdentityForEnforcement(resolvedConfig.processor);
-            return Object.freeze({
-                observed: true,
-                unsupportedPath: processorIdentity === null ? null : result.filePath
-            });
-        })
-    );
+    for (const result of parameters.results) {
+        const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
+        if (!isResolvedConfigLike(resolvedConfig)) {
+            continue;
+        }
 
-    const observedConfig = evaluations.some((evaluation) => evaluation.observed);
-    const unsupportedProcessorPaths = evaluations
-        .map((evaluation) => evaluation.unsupportedPath)
-        .filter((filePath): filePath is string => filePath !== null);
+        observedConfig = true;
+        const processorIdentity = normalizeProcessorIdentityForEnforcement(resolvedConfig.processor);
+        if (processorIdentity !== null) {
+            unsupportedProcessorPaths.push(result.filePath);
+        }
+    }
 
     if (unsupportedProcessorPaths.length > 0) {
         return Object.freeze({
@@ -1101,6 +1113,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             eslint,
             cwd: commandCwd,
             targets,
+            createExecutorForTarget: () => new ESLint(eslintConstructorOptions),
             onTargetCompleted: async ({ target, targetResults, elapsedNanoseconds }) => {
                 lintedFileCount += targetResults.length;
 

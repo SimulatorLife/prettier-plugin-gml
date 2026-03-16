@@ -46,3 +46,24 @@ runSequentialPerformanceTest(
         );
     }
 );
+
+runSequentialPerformanceTest(
+    "optimize-math-expressions skips pathological giant candidates to stay within memory budget",
+    async () => {
+        const additiveTerms = Array.from({ length: 1200 }, (_, index) => `value_${index}`).join(" + ");
+        const source = ["function stress_math() {", `    return (${additiveTerms}) / 3;`, "}", ""].join("\n");
+
+        const timedRun = await lintSingleRuleWithTiming(
+            "gml/optimize-math-expressions",
+            source,
+            "optimized-autofix-giant-expression.gml"
+        );
+
+        assert.equal(timedRun.messages.length, 0);
+        assert.equal(timedRun.outputText, source);
+        assert.ok(
+            timedRun.ruleMilliseconds < 1000,
+            `expected optimize-math-expressions runtime under 1000ms for giant candidates, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+        );
+    }
+);

@@ -548,6 +548,8 @@ const MATH_OPTIMIZATION_SIGNAL_PATTERN =
     /[*/%+-]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
 const DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN = /[/%]|\b(?:div|mod)\b/u;
 const NUMERIC_COMPARISON_TOLERANCE = 1e-9;
+const MAX_MATH_OPTIMIZATION_CANDIDATE_TEXT_LENGTH = 2000;
+const MAX_MANUAL_NORMALIZATION_CANDIDATE_TEXT_LENGTH = 600;
 
 function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: ReadonlyArray<SourceTextRange>): boolean {
     return containerRanges.some((containerRange) => {
@@ -560,6 +562,10 @@ function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): bool
 }
 
 function shouldAttemptManualNormalization(sourceTextOfNode: string): boolean {
+    if (sourceTextOfNode.length > MAX_MANUAL_NORMALIZATION_CANDIDATE_TEXT_LENGTH) {
+        return false;
+    }
+
     return (
         DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode) ||
         sourceTextOfNode.includes("*") ||
@@ -1290,6 +1296,13 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 }
 
                 if (!containsPotentialMathOptimizationSyntax(sourceTextOfNode)) {
+                    return;
+                }
+
+                // Large expressions can trigger prohibitively expensive normalization
+                // paths and unbounded allocation spikes without providing practical
+                // autofix value in a single lint pass.
+                if (sourceTextOfNode.length > MAX_MATH_OPTIMIZATION_CANDIDATE_TEXT_LENGTH) {
                     return;
                 }
 

@@ -61,8 +61,44 @@ void test("aggregateLintTotals handles mixed errors, fatal errors, and warnings"
 void test("createRetainedLintResult drops heavyweight source payloads while preserving reporting fields", () => {
     const retained = createRetainedLintResult({
         filePath: "/tmp/example.gml",
-        messages: [],
-        suppressedMessages: [],
+        messages: [
+            {
+                ruleId: "gml/example",
+                severity: 1,
+                message: "example",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier",
+                fix: {
+                    range: [0, 1],
+                    text: "x".repeat(10_000)
+                },
+                suggestions: [
+                    {
+                        desc: "replace",
+                        fix: {
+                            range: [0, 1],
+                            text: "y".repeat(10_000)
+                        }
+                    }
+                ]
+            }
+        ],
+        suppressedMessages: [
+            {
+                ruleId: "gml/example-suppressed",
+                severity: 1,
+                message: "suppressed",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier",
+                fix: {
+                    range: [0, 1],
+                    text: "z".repeat(10_000)
+                },
+                suggestions: []
+            }
+        ],
         errorCount: 1,
         fatalErrorCount: 0,
         warningCount: 2,
@@ -75,8 +111,26 @@ void test("createRetainedLintResult drops heavyweight source payloads while pres
 
     assert.deepEqual(retained, {
         filePath: "/tmp/example.gml",
-        messages: [],
-        suppressedMessages: [],
+        messages: [
+            {
+                ruleId: "gml/example",
+                severity: 1,
+                message: "example",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier"
+            }
+        ],
+        suppressedMessages: [
+            {
+                ruleId: "gml/example-suppressed",
+                severity: 1,
+                message: "suppressed",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier"
+            }
+        ],
         errorCount: 1,
         fatalErrorCount: 0,
         warningCount: 2,
@@ -86,6 +140,10 @@ void test("createRetainedLintResult drops heavyweight source payloads while pres
     });
     assert.equal("source" in retained, false);
     assert.equal("output" in retained, false);
+    assert.equal("fix" in retained.messages[0], false);
+    assert.equal("suggestions" in retained.messages[0], false);
+    assert.equal("fix" in retained.suppressedMessages[0], false);
+    assert.equal("suggestions" in retained.suppressedMessages[0], false);
 });
 
 // ---------------------------------------------------------------------------

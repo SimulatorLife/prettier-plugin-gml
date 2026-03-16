@@ -375,6 +375,66 @@ void test("lintTargetsWithRuntimeRecovery runs targets sequentially", async () =
     assert.ok(elapsedTimings.every((value) => value >= 0n));
 });
 
+void test("lintTargetsWithRuntimeRecovery can create a fresh executor per target", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-recovery-fresh-executor-"));
+    const targetA = path.join(tempRoot, "first.gml");
+    const targetB = path.join(tempRoot, "second.gml");
+
+    let defaultExecutorCalls = 0;
+    let createdExecutors = 0;
+    const lintedByFreshExecutors: Array<string> = [];
+
+    const defaultExecutor = {
+        async lintFiles() {
+            defaultExecutorCalls += 1;
+            return [];
+        }
+    };
+
+    const results = await __lintCommandTest__.lintTargetsWithRuntimeRecovery({
+        eslint: defaultExecutor,
+        cwd: tempRoot,
+        targets: [targetA, targetB],
+        createExecutorForTarget: () => {
+            createdExecutors += 1;
+            return {
+                async lintFiles(filePatterns: string | Array<string>) {
+                    if (typeof filePatterns === "string") {
+                        return [];
+                    }
+
+                    const [filePath] = filePatterns;
+                    if (typeof filePath !== "string") {
+                        return [];
+                    }
+
+                    lintedByFreshExecutors.push(filePath);
+
+                    return [
+                        {
+                            filePath,
+                            messages: [],
+                            suppressedMessages: [],
+                            errorCount: 0,
+                            fatalErrorCount: 0,
+                            warningCount: 0,
+                            fixableErrorCount: 0,
+                            fixableWarningCount: 0,
+                            usedDeprecatedRules: []
+                        }
+                    ];
+                }
+            };
+        },
+        onTargetCompleted: async () => {}
+    });
+
+    assert.equal(defaultExecutorCalls, 0);
+    assert.equal(createdExecutors, 2);
+    assert.equal(results.length, 2);
+    assert.deepEqual(lintedByFreshExecutors.sort(), [targetA, targetB].sort());
+});
+
 void test("emitLintFixProgressForResults logs de-duplicated display paths", () => {
     const cwd = "/tmp/workspace";
     const writtenLines: Array<string> = [];
@@ -501,6 +561,51 @@ void test("overlay guardrail ignores non-object resolved configs", async () => {
     assert.deepEqual(offendingPaths, []);
 });
 
+void test("overlay guardrail resolves file configs sequentially for large result sets", async () => {
+    const resultPaths = Array.from({ length: 200 }, (_, index) => `/tmp/overlay-${index}.gml`);
+    let activeCalls = 0;
+    let maxConcurrentCalls = 0;
+
+    const eslint = {
+        async calculateConfigForFile(filePath: string): Promise<unknown> {
+            activeCalls += 1;
+            maxConcurrentCalls = Math.max(maxConcurrentCalls, activeCalls);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 1);
+            });
+            activeCalls -= 1;
+
+            const numericSuffix = Number.parseInt(filePath.match(/(\d+)\.gml$/u)?.[1] ?? "0", 10);
+            if (numericSuffix % 2 === 0) {
+                return {
+                    plugins: { gml: {} },
+                    language: "js/js",
+                    rules: {
+                        [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                    }
+                };
+            }
+
+            return {
+                plugins: { gml: Lint.plugin },
+                language: "gml/gml",
+                rules: {
+                    [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                }
+            };
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: resultPaths.map((filePath) => ({ filePath }))
+    });
+
+    assert.equal(maxConcurrentCalls, 1);
+    assert.equal(offendingPaths.length, 100);
+    assert.ok(offendingPaths.every((filePath) => filePath.includes("overlay-")));
+});
+
 void test("processor normalization treats default/none sentinels as equivalent", () => {
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);
@@ -523,6 +628,36 @@ void test("processor enforcement fails when active processor is observable and n
     assert.equal(evaluation.exitCode, 2);
     assert.match(evaluation.message ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_UNSUPPORTED_ERROR_CODE}:`));
     assert.equal(evaluation.warning, null);
+});
+
+void test("processor enforcement evaluates resolved configs sequentially", async () => {
+    const resultPaths = Array.from({ length: 200 }, (_, index) => `/tmp/processor-${index}.gml`);
+    let activeCalls = 0;
+    let maxConcurrentCalls = 0;
+
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile(filePath: string): Promise<unknown> {
+                activeCalls += 1;
+                maxConcurrentCalls = Math.max(maxConcurrentCalls, activeCalls);
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 1);
+                });
+                activeCalls -= 1;
+
+                const numericSuffix = Number.parseInt(filePath.match(/(\d+)\.gml$/u)?.[1] ?? "0", 10);
+                return {
+                    processor: numericSuffix % 2 === 0 ? "markdown/markdown" : undefined
+                };
+            }
+        },
+        results: resultPaths.map((filePath) => ({ filePath })),
+        verbose: false
+    });
+
+    assert.equal(maxConcurrentCalls, 1);
+    assert.equal(evaluation.exitCode, 2);
+    assert.match(evaluation.message ?? "", /^GML_PROCESSOR_UNSUPPORTED:/u);
 });
 
 void test("processor enforcement emits verbose observability warning when processor cannot be observed", async () => {
