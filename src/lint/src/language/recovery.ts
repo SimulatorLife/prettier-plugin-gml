@@ -1,7 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 
+import { forEachScientificNotationToken } from "../malformed/scientific-notation-scan.js";
 import { recoverParseSourceFromMissingBrace } from "../malformed/source-preprocessing.js";
-import { forEachScientificNotationToken } from "../rules/gml/scientific-notation-scan.js";
 
 export type RecoveryMode = "none" | "limited";
 
