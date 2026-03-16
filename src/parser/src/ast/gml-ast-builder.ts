@@ -1078,7 +1078,15 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionOrFunction.
     visitExpressionOrFunction(ctx: ParserContext): any {
-        return this.visitFirstChild(ctx, ["expression", "functionDeclaration", "expressionOrFunction"]);
+        // expressionOrFunction can now represent either a standard expression, a
+        // function declaration, or a nested assignment expression (due to chained
+        // assignment support).
+        return this.visitFirstChild(ctx, [
+            "assignmentExpression",
+            "expression",
+            "functionDeclaration",
+            "expressionOrFunction"
+        ]);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#TernaryExpression.

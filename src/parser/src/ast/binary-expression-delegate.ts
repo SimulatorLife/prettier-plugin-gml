@@ -90,7 +90,10 @@ export default class BinaryExpressionDelegate {
 
         // Normalize single-equals equality check to double-equals in the AST.
         // In GML, '=' can be used as a comparison in expression context, which
-        // is semantically equivalent to '=='.
+        // is semantically equivalent to '=='. This normalization allows the
+        // formatter to consistently output '==' for comparisons, while preserving
+        // '=' for true assignment expressions (which are represented as
+        // AssignmentExpression nodes).
         if (operator === "=" || operator === ":=") {
             operator = "==";
         }
