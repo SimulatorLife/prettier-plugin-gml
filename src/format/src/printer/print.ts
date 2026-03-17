@@ -824,7 +824,11 @@ function printCallExpressionNode(node, path, options, print) {
             forceBreak: shouldForceBreakArguments,
             maxElementsPerLine: effectiveElementsPerLineLimit,
             includeInlineVariant: shouldIncludeInlineVariant,
-            hasCallbackArguments
+            hasCallbackArguments,
+            // Keep call expressions in l-value chains on one line to avoid
+            // breaking the chain into multiple visual lines (e.g. `foo().bar`).
+            // This preserves readability for chained property access after calls.
+            forceInline: isInLValueChain(path)
         });
 
         if (shouldUseCallbackLayout) {
@@ -1421,7 +1425,8 @@ function buildCallArgumentsDocs(
         forceBreak = false,
         maxElementsPerLine = Infinity,
         includeInlineVariant = false,
-        hasCallbackArguments = false
+        hasCallbackArguments = false,
+        forceInline = false
     } = {}
 ) {
     const node = path.getValue();
@@ -1466,6 +1471,7 @@ function buildCallArgumentsDocs(
 
     const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
         forceBreak,
+        forceInline,
         maxElementsPerLine
     });
 

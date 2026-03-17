@@ -780,6 +780,22 @@ void describe("GameMaker parser fixtures", () => {
         assert.doesNotThrow(() => GMLParser.parse(source));
     });
 
+    void it("parses chained assignments as nested assignment expressions", () => {
+        const source = "var a=2,b=2,c=2;\na = b = c = 1;";
+        const ast = parseFixture(source);
+
+        const assignments = collectNodesByType(ast, "AssignmentExpression");
+        assert.strictEqual(assignments.length, 3, "Expected a nested assignment chain (a, b, c).");
+
+        const [outer, middle, inner] = assignments;
+        assert.strictEqual(outer.left.name, "a");
+        assert.strictEqual(middle.left.name, "b");
+        assert.strictEqual(inner.left.name, "c");
+
+        assert.strictEqual(inner.right.type, "Literal");
+        assert.strictEqual(inner.right.value, "1");
+    });
+
     void it("allows #region inside switch cases", () => {
         const source = `
 switch (x) {
