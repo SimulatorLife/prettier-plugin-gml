@@ -26,7 +26,7 @@ void test("extractProjectFormatOptions removes non-formatter config sections", (
     });
 });
 
-void test("extractProjectFormatOptions defaults logicalOperatorsStyle to symbols when normalize-operator-aliases is enabled", () => {
+void test("extractProjectFormatOptions does not infer formatter options from lint rules", () => {
     const options = Format.extractProjectFormatOptions({
         printWidth: 100,
         lintRules: {
@@ -35,12 +35,11 @@ void test("extractProjectFormatOptions defaults logicalOperatorsStyle to symbols
     });
 
     assert.deepEqual(options, {
-        printWidth: 100,
-        logicalOperatorsStyle: "symbols"
+        printWidth: 100
     });
 });
 
-void test("extractProjectFormatOptions preserves explicit logicalOperatorsStyle even when normalize-operator-aliases is enabled", () => {
+void test("extractProjectFormatOptions preserves explicit logicalOperatorsStyle alongside lint config", () => {
     const options = Format.extractProjectFormatOptions({
         printWidth: 100,
         logicalOperatorsStyle: "keywords",
