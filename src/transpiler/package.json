@@ -17,7 +17,7 @@
     "@gmloop/semantic": "workspace:*"
   },
   "scripts": {
-    "build:types": "tsc -p tsconfig.json",
+    "build:types": "tsc -b tsconfig.json",
     "clean:types": "rm -rf dist",
     "test": "pnpm run build:types && node --test dist/test/*.test.js dist/test/performance/*.test.js"
   },

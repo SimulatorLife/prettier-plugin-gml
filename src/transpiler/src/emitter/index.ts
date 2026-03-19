@@ -12,5 +12,6 @@ export { collectLocalVariables } from "./local-variable-collector.js";
 export { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 export type { SemanticOracleOptions } from "./semantic-factory.js";
 export { createSemanticOracle } from "./semantic-factory.js";
+export { ensureStatementTerminated, isStatementTerminated } from "./statement-termination-policy.js";
 export { StringBuilder } from "./string-builder.js";
 export { lowerWithStatement } from "./with-lowering.js";
