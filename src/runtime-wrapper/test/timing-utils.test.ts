@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getHighResolutionTime, getWallClockTime, measureDuration } from "../src/timing-utils.js";
+import { getHighResolutionTime, getWallClockTime, measureDuration } from "../src/timing/index.js";
 
 await describe("timing utilities", async () => {
     await it("getWallClockTime returns a number", () => {

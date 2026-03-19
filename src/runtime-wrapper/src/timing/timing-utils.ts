@@ -7,8 +7,8 @@
  * making it ideal for measuring patch application durations in hot-reload scenarios.
  *
  * These helpers are cross-cutting within the workspace and are used by both the runtime
- * and websocket layers, so they live at the workspace src root rather than inside either
- * sublayer.
+ * and websocket layers, so they live in a dedicated timing domain rather than being
+ * co-located with either sublayer's runtime or websocket implementation files.
  */
 
 /**
