@@ -11,7 +11,7 @@ export * from "./plan-service.js";
 // public APIs that 'plan-service' already exposes.
 export * from "./asset-rename-executor.js";
 export * from "./asset-renames.js";
-export * from "./asset-renames/index.js";
+export * from "./asset-renames/policy.js";
 export * from "./common.js";
 export * from "./fs-facade.js";
 export * from "./project-index-bootstrap.js";
