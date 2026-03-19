@@ -3,78 +3,15 @@ import { test } from "node:test";
 import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
-
-function parseProgramNode(code: string): Record<string, unknown> {
-    const language = LintWorkspace.Lint.plugin.languages.gml as {
-        parse: (
-            file: { body: string; path: string; physicalPath: string; bom: boolean },
-            context: { languageOptions: { recovery: "none" | "limited" } }
-        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
-    };
-
-    const parseResult = language.parse(
-        {
-            body: code,
-            path: "test.gml",
-            physicalPath: "test.gml",
-            bom: false
-        },
-        {
-            languageOptions: { recovery: "limited" }
-        }
-    );
-
-    if (parseResult.ok) {
-        return parseResult.ast;
-    }
-
-    return { type: "Program", body: [] };
-}
+import { parseProgramNode } from "./lint-rule-test-harness.js";
+import { runGmlRule } from "./rule-test-harness.js";
 
 function runPreferCompoundAssignmentsRule(code: string): { messageCount: number; output: string } {
-    const rule = LintWorkspace.Lint.plugin.rules["prefer-compound-assignments"];
-    const fixes: Array<ReplaceTextRangeFixOperation> = [];
-    let messageCount = 0;
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            messageCount += 1;
-
-            if (!payload.fix) {
-                return;
-            }
-
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-
-            const fix = payload.fix(fixer);
-            if (fix) {
-                fixes.push(fix);
-            }
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.(parseProgramNode(code) as never);
-
-    return {
-        messageCount,
-        output: applyFixOperations(code, fixes)
-    };
+    return runGmlRule({
+        rule: LintWorkspace.Lint.plugin.rules["prefer-compound-assignments"],
+        code,
+        programNode: parseProgramNode(code)
+    });
 }
 
 void test("prefer-compound-assignments rewrites addition, subtraction, multiplication, and division self-assignments", () => {
@@ -200,4 +137,68 @@ void test("prefer-compound-assignments is included in the recommended config", (
     const allRules = recommended.flatMap((config) => Object.keys(config.rules ?? {}));
 
     assertEquals(allRules.includes("gml/prefer-compound-assignments"), true);
+});
+
+// Commutative right-first patterns: `x = y + x` and `x = y * x` are
+// semantically identical to their left-first counterparts and must be
+// rewritten to the same compound form.
+
+void test("prefer-compound-assignments rewrites x = y + x to x += y", () => {
+    const input = "score = points + score;\n";
+    const expected = "score += points;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = y * x to x *= y", () => {
+    const input = "speed = friction * speed;\n";
+    const expected = "speed *= friction;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = literal + x to x += literal", () => {
+    const input = "count = 1 + count;\n";
+    const expected = "count += 1;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments rewrites x = (complex_expr) * x to x *= (complex_expr)", () => {
+    const input = "value = (base * factor) * value;\n";
+    const expected = "value *= (base * factor);\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y - x (non-commutative)", () => {
+    const input = "x = y - x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y / x (non-commutative)", () => {
+    const input = "x = y / x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
+});
+
+void test("prefer-compound-assignments does not rewrite x = y ?? x (non-commutative)", () => {
+    const input = "x = y ?? x;\n";
+    const result = runPreferCompoundAssignmentsRule(input);
+
+    assertEquals(result.messageCount, 0);
+    assertEquals(result.output, input);
 });

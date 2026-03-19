@@ -1,10 +1,13 @@
 /**
  * Enforces the formatter/linter boundary contract (target-state.md §2.2, §3.2):
  *
- * The `function-parameter-naming` module must only export layout-helper functions
- * that are safe for the formatter to own. Semantic/content rewrites — such as
+ * The `function-parameter-naming` module must only export the doc-layout helper
+ * that is safe for the formatter to own. Semantic/content rewrites — such as
  * renaming `argumentN`-style parameters from `@function` doc tags or filtering
  * redundant argument-alias declarations — belong exclusively in `@gmloop/lint`.
+ *
+ * Path traversal helpers (e.g. `findEnclosingFunctionDeclaration`) belong in
+ * `path-utils.ts`, the canonical home for AstPath utilities.
  *
  * The format workspace must not depend on `@gmloop/lint`. Any import of
  * `Lint` inside `@gmloop/format` is a boundary violation.
@@ -14,14 +17,15 @@ import { test } from "node:test";
 
 import * as ParameterNaming from "../src/printer/function-parameter-naming.js";
 
-void test("function-parameter-naming exports only layout-helper functions (boundary contract)", () => {
+void test("function-parameter-naming exports only doc-layout helper functions (boundary contract)", () => {
     const exportedNames = Object.keys(ParameterNaming).toSorted();
 
     assert.deepStrictEqual(
         exportedNames,
-        ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
+        ["joinDeclaratorPartsWithCommas"],
         [
-            "function-parameter-naming must only export formatter-owned layout helpers.",
+            "function-parameter-naming must only export the declarator-joining doc-layout helper.",
+            "Path traversal belongs in path-utils.ts.",
             "Semantic rewrites (parameter renaming, alias filtering) belong in @gmloop/lint.",
             "target-state.md §2.2, §3.2: format workspace must not import @gmloop/lint."
         ].join(" ")
@@ -52,5 +56,9 @@ void test("function-parameter-naming does not export semantic-rewrite functions"
     assert.ok(
         !("filterMisattachedFunctionDocComments" in ParameterNaming),
         "filterMisattachedFunctionDocComments was a parser-workaround and must not remain in the format workspace"
+    );
+    assert.ok(
+        !("findEnclosingFunctionDeclaration" in ParameterNaming),
+        "findEnclosingFunctionDeclaration is a path-traversal helper and has been moved to path-utils.ts; it must not be re-introduced here"
     );
 });

@@ -159,6 +159,51 @@ void describe("ScopeTracker: getFilePathsReferencingSymbol", () => {
     });
 });
 
+void describe("ScopeTracker: getBatchFilePathsReferencingSymbols", () => {
+    void it("returns referencing paths for multiple symbols and omits non-referenced symbols", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/lib.gml" });
+        tracker.declare("alpha", { name: "alpha" });
+        tracker.declare("beta", { name: "beta" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: "/project/a.gml" });
+        tracker.reference("alpha", { name: "alpha" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: "/project/b.gml" });
+        tracker.reference("alpha", { name: "alpha" });
+        tracker.reference("beta", { name: "beta" });
+        tracker.exitScope();
+
+        const results = tracker.getBatchFilePathsReferencingSymbols(["alpha", "beta", "gamma"]);
+
+        assert.deepEqual([...(results.get("alpha") ?? [])], ["/project/a.gml", "/project/b.gml"]);
+        assert.deepEqual([...(results.get("beta") ?? [])], ["/project/b.gml"]);
+        assert.equal(results.has("gamma"), false);
+    });
+
+    void it("deduplicates repeated symbol names and respects disabled trackers", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/lib.gml" });
+        tracker.declare("shared", { name: "shared" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: String.raw`project\consumer.gml` });
+        tracker.reference("shared", { name: "shared" });
+        tracker.exitScope();
+
+        const enabledResults = tracker.getBatchFilePathsReferencingSymbols(["shared", "shared", ""]);
+        assert.deepEqual([...(enabledResults.get("shared") ?? [])], ["project/consumer.gml"]);
+
+        const disabledTracker = new ScopeTracker({ enabled: false });
+        const disabledResults = disabledTracker.getBatchFilePathsReferencingSymbols(["shared"]);
+        assert.equal(disabledResults.size, 0);
+    });
+});
+
 void describe("ScopeTracker: getChangedFilePaths", () => {
     void it("returns empty set when tracker is disabled", () => {
         const tracker = new ScopeTracker({ enabled: false });

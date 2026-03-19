@@ -210,6 +210,12 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
+	// Visit a parse tree produced by GameMakerLanguageParser#ImplicitMemberDotLValue.
+	visitImplicitMemberDotLValue(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
 	// Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedLValue.
 	visitParenthesizedLValue(ctx) {
 	  return this.visitChildren(ctx);
@@ -332,6 +338,12 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 
 	// Visit a parse tree produced by GameMakerLanguageParser#callStatement.
 	visitCallStatement(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#implicitCallStatement.
+	visitImplicitCallStatement(ctx) {
 	  return this.visitChildren(ctx);
 	}
 

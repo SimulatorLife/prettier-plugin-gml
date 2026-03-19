@@ -5,7 +5,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { getWorkspaceArrays, isWorkspaceEditLike, WorkspaceEdit } from "../src/workspace-edit.js";
+import {
+    getWorkspaceArrays,
+    getWorkspaceEditTelemetry,
+    isWorkspaceEditLike,
+    WorkspaceEdit
+} from "../src/workspace-edit.js";
 
 void test("getWorkspaceArrays extracts valid arrays from workspace", () => {
     const workspace = new WorkspaceEdit();
@@ -123,4 +128,21 @@ void test("isWorkspaceEditLike rejects non-conforming objects", () => {
         }),
         false
     );
+});
+
+void test("WorkspaceEdit telemetry tracks edit counts and byte high-water marks", () => {
+    const workspace = new WorkspaceEdit();
+    workspace.addEdit("scripts/a.gml", 0, 1, "hello");
+    workspace.addEdit("scripts/b.gml", 0, 1, "world!");
+    workspace.addMetadataEdit("objects/o.yy", '{"resource":"o"}');
+    workspace.addFileRename("old/path.gml", "new/path.gml");
+
+    const telemetry = getWorkspaceEditTelemetry(workspace);
+
+    assert.equal(telemetry.textEditCount, 2);
+    assert.equal(telemetry.metadataEditCount, 1);
+    assert.equal(telemetry.fileRenameCount, 1);
+    assert.ok(telemetry.touchedFileCount >= 4);
+    assert.ok(telemetry.totalTextBytes > 0);
+    assert.ok(telemetry.highWaterTextBytes >= telemetry.totalTextBytes);
 });

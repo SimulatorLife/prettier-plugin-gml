@@ -1,5 +1,6 @@
 export {
     collectBudgetFailures,
+    createFixtureMemorySummary,
     createProfileCollector,
     createStageTimer,
     withDeepCpuProfile

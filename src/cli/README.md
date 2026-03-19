@@ -79,6 +79,8 @@ pnpm run cli -- lint --fix path/to/project
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
+Post-lint config inspections (overlay wiring and processor policy enforcement) also run sequentially per file to bound peak memory usage on very large project scans.
+
 `lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
 ### `fix` - Project-Wide Fix Workflow
@@ -659,14 +661,6 @@ Generates Feather metadata for GameMaker's static analysis.
 pnpm run cli -- generate-feather-metadata
 ```
 
-### `memory` - Run Memory Benchmarks
-
-Measures memory usage across various operations.
-
-```bash
-pnpm run cli -- memory
-```
-
 ## Architecture
 
 The CLI package serves as the orchestration layer for the hot-reload development pipeline:
@@ -725,7 +719,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
 - `generate-feather-metadata.ts` - Feather metadata generation
-- `memory.ts` - Memory profiling
 
 **Modules** (`src/modules/`)
 - `transpilation/` - Transpilation coordination and metrics tracking
@@ -734,7 +727,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `runtime/` - HTML5 runtime integration
 - `manual/` - GameMaker manual processing
 - `feather/` - Feather metadata handling
-- `memory/` - Memory profiling utilities
 
 ## Development
 

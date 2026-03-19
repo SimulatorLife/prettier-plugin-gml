@@ -10,6 +10,7 @@ const EXPECTED_FILE_NAME = "expected.gml";
 const PROJECT_DIRECTORY_NAME = "project";
 const EXPECTED_DIRECTORY_NAME = "expected";
 const LEGACY_FILE_PATTERNS = [
+    // TODO: We should not support legacy fixture file names and should remove this and migrate any remaining legacy fixtures
     /^options\.json$/u,
     /^fixed\.gml$/u,
     /^input\.fixed\.gml$/u,
@@ -42,7 +43,7 @@ function deriveDefaultComparison(config: FixtureProjectConfig): FixtureCompariso
         return config.fixture.comparison;
     }
 
-    return config.fixture.kind === "lint" ? "ignore-whitespace-and-line-endings" : "exact";
+    return "exact";
 }
 
 async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {

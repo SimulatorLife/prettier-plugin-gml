@@ -84,6 +84,13 @@ export interface FixtureProfileEntry {
     budgets: FixtureProfileBudgets | null;
     budgetFailures: ReadonlyArray<FixtureProfileBudgetFailure>;
     deepCpuProfileArtifactPath: string | null;
+    memorySummary: FixtureProfileEntryMemorySummary;
+}
+
+export interface FixtureProfileEntryMemorySummary {
+    totalHeapUsedDeltaBytes: number;
+    totalMaxRssDeltaBytes: number;
+    peakStageHeapUsedDeltaBytes: number;
 }
 
 export interface FixtureProfileAggregateSummary {
@@ -170,7 +177,7 @@ export interface FixtureAdapter {
         fixtureCase: FixtureCase;
         config: FixtureProjectConfig;
         inputText: string | null;
-        tempProjectDirectoryPath: string | null;
+        workingProjectDirectoryPath: string | null;
         runProfiledStage<T>(
             stageName: Exclude<FixtureStageName, "load" | "compare" | "total">,
             operation: () => Promise<T>

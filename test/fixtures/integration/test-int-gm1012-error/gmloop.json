@@ -1,7 +1,6 @@
 {
   "fixture": {
     "kind": "integration",
-    "assertion": "parse-error",
-    "comparison": "trimmed-strip-doc-comment-annotations"
+    "assertion": "parse-error"
   }
 }

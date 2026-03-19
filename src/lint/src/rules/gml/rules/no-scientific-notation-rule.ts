@@ -1,10 +1,9 @@
-import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
+import { forEachScientificNotationToken } from "../../../malformed/scientific-notation-scan.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta } from "../rule-base-helpers.js";
 
-const SCIENTIFIC_NOTATION_PATTERN = /(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+/y;
 const EXPONENT_DIGIT_PATTERN = /^[+-]?\d+$/u;
 const MAX_FIXED_LITERAL_LENGTH = 4096;
 
@@ -13,13 +12,6 @@ type ScientificNotationFix = Readonly<{
     end: number;
     replacement: string;
 }>;
-
-function isScientificNotationBoundary(sourceText: string, startIndex: number, endIndex: number): boolean {
-    return (
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[startIndex - 1]) &&
-        CoreWorkspace.Core.isIdentifierBoundaryCharacter(sourceText[endIndex])
-    );
-}
 
 function trimInsignificantFractionalZeros(decimalText: string): string {
     const decimalPointIndex = decimalText.indexOf(".");
@@ -99,51 +91,13 @@ function toPlainDecimalFromScientificLiteral(scientificText: string): string | n
 
 function collectScientificNotationFixes(sourceText: string): ReadonlyArray<ScientificNotationFix> {
     const fixes: ScientificNotationFix[] = [];
-    const scanState = CoreWorkspace.Core.createStringCommentScanState();
-    const sourceLength = sourceText.length;
 
-    let index = 0;
-    while (index < sourceLength) {
-        const scannedIndex = CoreWorkspace.Core.advanceStringCommentScan(
-            sourceText,
-            sourceLength,
-            index,
-            scanState,
-            true
-        );
-        if (scannedIndex !== index) {
-            index = scannedIndex;
-            continue;
-        }
-
-        SCIENTIFIC_NOTATION_PATTERN.lastIndex = index;
-        const match = SCIENTIFIC_NOTATION_PATTERN.exec(sourceText);
-        if (!match) {
-            index += 1;
-            continue;
-        }
-
-        const scientificText = match[0] ?? "";
-        const start = index;
-        const end = start + scientificText.length;
-        if (!isScientificNotationBoundary(sourceText, start, end)) {
-            index += 1;
-            continue;
-        }
-
+    forEachScientificNotationToken(sourceText, (start, end, scientificText) => {
         const replacement = toPlainDecimalFromScientificLiteral(scientificText);
         if (replacement && replacement !== scientificText) {
-            fixes.push(
-                Object.freeze({
-                    start,
-                    end,
-                    replacement
-                })
-            );
+            fixes.push(Object.freeze({ start, end, replacement }));
         }
-
-        index = end;
-    }
+    });
 
     return fixes;
 }
