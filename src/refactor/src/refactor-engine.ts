@@ -70,6 +70,7 @@ import {
     type GroupedTextEdits,
     isWorkspaceEditLike,
     type TextEdit,
+    validateFileRenameOperations,
     WorkspaceEdit
 } from "./workspace-edit.js";
 
@@ -672,6 +673,8 @@ export class RefactorEngine {
                 errors.push(`Cannot combine text and metadata edits for ${metadataPath}`);
             }
         }
+
+        errors.push(...validateFileRenameOperations(fileRenames));
 
         // If semantic analyzer is available, perform deeper validation
         const semantic = this.semantic;

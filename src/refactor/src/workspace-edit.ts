@@ -181,3 +181,61 @@ export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRen
         fileRenames: Array.isArray(workspace.fileRenames) ? (workspace.fileRenames as Array<FileRename>) : []
     };
 }
+
+/**
+ * Validate file rename operations queued on a workspace edit.
+ * Rejects ambiguous rename graphs up front so callers cannot apply a workspace
+ * that would depend on execution order or overwrite another pending rename.
+ *
+ * @param fileRenames - File rename operations to validate.
+ * @returns Validation errors describing every invalid rename entry.
+ */
+export function validateFileRenameOperations(fileRenames: ReadonlyArray<FileRename>): Array<string> {
+    const errors: Array<string> = [];
+    const seenSourcePaths = new Set<string>();
+    const seenDestinationPaths = new Set<string>();
+    const sourcePathSet = new Set<string>();
+
+    for (const rename of fileRenames) {
+        sourcePathSet.add(rename.oldPath);
+    }
+
+    for (const rename of fileRenames) {
+        if (typeof rename.oldPath !== "string" || rename.oldPath.length === 0) {
+            errors.push("File rename source path must be a non-empty string");
+        }
+
+        if (typeof rename.newPath !== "string" || rename.newPath.length === 0) {
+            errors.push("File rename destination path must be a non-empty string");
+        }
+
+        if (
+            typeof rename.oldPath === "string" &&
+            typeof rename.newPath === "string" &&
+            rename.oldPath.length > 0 &&
+            rename.newPath.length > 0 &&
+            rename.oldPath === rename.newPath
+        ) {
+            errors.push(`File rename for ${rename.oldPath} must change the path`);
+        }
+
+        if (seenSourcePaths.has(rename.oldPath)) {
+            errors.push(`Duplicate file rename source detected for ${rename.oldPath}`);
+        }
+
+        if (seenDestinationPaths.has(rename.newPath)) {
+            errors.push(`Duplicate file rename destination detected for ${rename.newPath}`);
+        }
+
+        if (sourcePathSet.has(rename.newPath)) {
+            errors.push(
+                `File rename destination ${rename.newPath} is also scheduled as a rename source; rename chains are not supported`
+            );
+        }
+
+        seenSourcePaths.add(rename.oldPath);
+        seenDestinationPaths.add(rename.newPath);
+    }
+
+    return errors;
+}
