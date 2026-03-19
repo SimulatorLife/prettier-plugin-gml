@@ -4,6 +4,12 @@ import test from "node:test";
 import { RuntimeWrapper } from "../index.js";
 import type { PatchHistoryReader, PatchUndoController } from "../src/runtime/types.js";
 
+void test("runtime wrapper exposes timing helpers through the dedicated timing namespace", () => {
+    assert.strictEqual(RuntimeWrapper.Timing.getWallClockTime, RuntimeWrapper.getWallClockTime);
+    assert.strictEqual(RuntimeWrapper.Timing.getHighResolutionTime, RuntimeWrapper.getHighResolutionTime);
+    assert.strictEqual(RuntimeWrapper.Timing.measureDuration, RuntimeWrapper.measureDuration);
+});
+
 void test("createRuntimeWrapper returns hot wrapper state", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.ok(wrapper.state);

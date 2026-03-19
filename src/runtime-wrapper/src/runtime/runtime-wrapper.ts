@@ -1,6 +1,6 @@
 import { Core } from "@gmloop/core";
 
-import { getHighResolutionTime, getWallClockTime } from "../timing-utils.js";
+import { getHighResolutionTime, getWallClockTime } from "../timing/index.js";
 import {
     applyPatchInternal,
     calculateTimingMetrics,
