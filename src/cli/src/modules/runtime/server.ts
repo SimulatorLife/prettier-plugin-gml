@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
-import type { ServerEndpoint, ServerLifecycle } from "../server/shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../server/index.js";
 
 const { isFsErrorCode, getErrorMessage } = Core;
 
