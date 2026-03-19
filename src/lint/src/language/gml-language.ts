@@ -284,7 +284,7 @@ function mapIndexToLoc(
     lineStartMap: LineStartIndexMap,
     index: number
 ): { line: number; column: number } {
-    const boundedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const boundedIndex = Core.clamp(index, 0, sourceText.length);
     const lineStartIndex = resolveLineStartIndexForOffset(lineStartMap, boundedIndex);
     const lineStart = lineStartMap.lineStarts[lineStartIndex] ?? 0;
 

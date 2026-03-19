@@ -2,8 +2,8 @@ import { Core } from "@gmloop/core";
 
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
-import { getHighResolutionTime, getWallClockTime } from "../runtime/timing-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
+import { getHighResolutionTime, getWallClockTime } from "../timing-utils.js";
 import type {
     MessageEventLike,
     PatchQueueMetrics,

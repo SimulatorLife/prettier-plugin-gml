@@ -1,11 +1,13 @@
 /**
- * Printer utilities for function-parameter layout in the GML formatter.
+ * Printer utilities for variable declarator layout in the GML formatter.
  *
- * This module is responsible for formatter-owned layout operations:
+ * This module is responsible for formatter-owned doc-layout operations:
  *
- * - Finding the nearest enclosing `FunctionDeclaration` ancestor via path
- *   traversal (layout-only structural query).
- * - Joining an array of declarator doc fragments with ", " separators.
+ * - Joining an array of declarator doc fragments with ", " separators
+ *   for `VariableDeclaration` nodes in the printer.
+ *
+ * Path traversal helpers (e.g. `findEnclosingFunctionDeclaration`) have been
+ * moved to `path-utils.ts`, which is the canonical home for AstPath utilities.
  *
  * All semantic/content rewrites (parameter renaming from `@function` tags,
  * filtering redundant `argument0`-style alias declarations) belong in
@@ -25,26 +27,6 @@
  * Exported symbols are consumed by the printer (`print.ts`). All other symbols
  * in this file are module-private helpers.
  */
-
-import type { AstPath } from "prettier";
-
-import { findAncestorNode } from "./path-utils.js";
-
-// ---------------------------------------------------------------------------
-// Path traversal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
- * Prettier path. This is a layout-only traversal helper for printer context
- * lookups and must not be used for semantic/content rewrites.
- *
- * @param path - The Prettier AstPath to traverse upward
- * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`
- */
-export function findEnclosingFunctionDeclaration(path: AstPath<any>): unknown {
-    return findAncestorNode(path, (node: unknown) => (node as { type?: string }).type === "FunctionDeclaration");
-}
 
 /**
  * Joins an array of declarator doc fragments with comma separators.

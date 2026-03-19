@@ -84,6 +84,30 @@ void describe("SemanticQueryCache", () => {
 
             assert.equal(callCount, 2, "Expired entry should trigger new query");
         });
+
+        void it("does not retain oversized occurrence arrays in cache", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async () => {
+                    callCount++;
+                    return Array.from({ length: 4 }, (_, index) => ({
+                        path: `file-${index}.gml`,
+                        start: index,
+                        end: index + 1,
+                        kind: "reference"
+                    })) as Array<SymbolOccurrence>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, {
+                maxOccurrenceCacheEntries: 3
+            });
+
+            await cache.getSymbolOccurrences("oversized_symbol");
+            await cache.getSymbolOccurrences("oversized_symbol");
+
+            assert.equal(callCount, 2, "Oversized occurrence sets should be fetched each time");
+        });
     });
 
     void describe("getFileSymbols", () => {

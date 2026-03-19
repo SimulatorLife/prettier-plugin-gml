@@ -16,23 +16,12 @@ type ForStatementContainerContext = Readonly<{
     canInsertHoistBeforeLoop: boolean;
 }>;
 
-type LoopLengthAccessorCall = Readonly<{
-    functionName: string;
-    callStart: number;
-    callEnd: number;
-    callText: string;
-}>;
-
 type LoopLengthHoistRewrite = Readonly<{
     insertionOffset: number;
     insertionText: string;
     callRewrites: ReadonlyArray<LoopLengthHoistingEdit>;
     reportOffset: number;
 }>;
-
-function isIdentifier(value: string): boolean {
-    return Core.GML_IDENTIFIER_NAME_PATTERN.test(value);
-}
 
 function getLineStartOffset(sourceText: string, offset: number): number {
     return sourceText.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
@@ -46,34 +35,6 @@ function getLineIndentationAtOffset(sourceText: string, offset: number): string 
     }
 
     return sourceText.slice(lineStart, cursor);
-}
-
-function resolveLoopLengthHoistSuffixMap(
-    functionSuffixOverrides: Readonly<Record<string, string | null>> | undefined
-): ReadonlyMap<string, string> {
-    const suffixMap = new Map<string, string>(Object.entries(DEFAULT_HOIST_ACCESSORS));
-    if (!functionSuffixOverrides) {
-        return suffixMap;
-    }
-
-    for (const [functionName, suffix] of Object.entries(functionSuffixOverrides)) {
-        if (!isIdentifier(functionName)) {
-            continue;
-        }
-
-        if (suffix === null) {
-            suffixMap.delete(functionName);
-            continue;
-        }
-
-        if (typeof suffix !== "string" || suffix.length === 0) {
-            continue;
-        }
-
-        suffixMap.set(functionName, suffix);
-    }
-
-    return suffixMap;
 }
 
 function collectIdentifierNamesInSubtree(rootNode: unknown): ReadonlySet<string> {
@@ -136,52 +97,11 @@ function collectForStatementContainerContexts(programNode: unknown): ReadonlyArr
     return contexts;
 }
 
-function collectLoopLengthAccessorCallsFromTestExpression(parameters: {
-    sourceText: string;
-    testNode: unknown;
-    enabledFunctionNames: ReadonlySet<string>;
-}): ReadonlyArray<LoopLengthAccessorCall> {
-    const collectedCalls: Array<LoopLengthAccessorCall> = [];
-
-    Core.walkAst(parameters.testNode, (node) => {
-        if (node?.type !== "CallExpression") {
-            return;
-        }
-
-        const callTarget = node.object;
-        if (
-            !callTarget ||
-            callTarget.type !== "Identifier" ||
-            typeof callTarget.name !== "string" ||
-            !parameters.enabledFunctionNames.has(callTarget.name)
-        ) {
-            return;
-        }
-
-        const start = Core.getNodeStartIndex(node);
-        const end = Core.getNodeEndIndex(node);
-        if (typeof start !== "number" || typeof end !== "number") {
-            return;
-        }
-
-        collectedCalls.push(
-            Object.freeze({
-                functionName: callTarget.name,
-                callStart: start,
-                callEnd: end,
-                callText: parameters.sourceText.slice(start, end)
-            })
-        );
-    });
-
-    return collectedCalls;
-}
-
 function resolveLoopLengthHoistIdentifierName(
     preferredName: string,
     inScopeIdentifierNames: ReadonlySet<string>
 ): string | null {
-    if (!isIdentifier(preferredName)) {
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(preferredName)) {
         return null;
     }
 
@@ -214,9 +134,9 @@ function createLoopLengthHoistRewrite(parameters: {
         return null;
     }
 
-    const accessorCalls = collectLoopLengthAccessorCallsFromTestExpression({
+    const accessorCalls = Core.collectLoopLengthAccessorCallsFromAstNode({
         sourceText: parameters.sourceText,
-        testNode: forNode.test,
+        rootNode: forNode.test,
         enabledFunctionNames: new Set(parameters.suffixMap.keys())
     });
 
@@ -290,7 +210,7 @@ export function applyLoopLengthHoistingCodemod(
         });
     }
 
-    const suffixMap = resolveLoopLengthHoistSuffixMap(options.functionSuffixes);
+    const suffixMap = Core.resolveIdentifierKeyedSuffixMap(DEFAULT_HOIST_ACCESSORS, options.functionSuffixes);
     if (suffixMap.size === 0) {
         return Object.freeze({
             changed: false,

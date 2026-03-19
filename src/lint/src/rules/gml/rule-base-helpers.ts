@@ -384,22 +384,7 @@ export function reportFullTextRewrite(
     }
 
     const firstChangedOffset = findFirstChangedCharacterOffset(originalText, rewrittenText);
-    const sourceCodeWithOptionalLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number };
-    };
-    const fallbackLineColumn = resolveLineColumnFromOffset(originalText, firstChangedOffset);
-    const locatedPoint =
-        typeof sourceCodeWithOptionalLocator.getLocFromIndex === "function"
-            ? sourceCodeWithOptionalLocator.getLocFromIndex(firstChangedOffset)
-            : null;
-    const loc =
-        locatedPoint &&
-        typeof locatedPoint.line === "number" &&
-        typeof locatedPoint.column === "number" &&
-        Number.isFinite(locatedPoint.line) &&
-        Number.isFinite(locatedPoint.column)
-            ? locatedPoint
-            : fallbackLineColumn;
+    const loc = resolveLocFromIndex(context, originalText, firstChangedOffset);
 
     context.report({
         loc,
@@ -423,6 +408,48 @@ function resolveLineColumnFromOffset(sourceText: string, offset: number): { line
         line,
         column: clampedOffset - lastLineStart
     };
+}
+
+type SourceCodeWithOptionalLocator = Rule.RuleContext["sourceCode"] & {
+    getLocFromIndex?: (offset: number) => { line: number; column: number } | undefined;
+};
+
+/**
+ * Resolve a source-text offset to a `{ line, column }` location, preferring
+ * the ESLint source-code `getLocFromIndex` API when available and falling back
+ * to a manual line-scan when it is absent. The index is clamped to `[0,
+ * sourceText.length]` before any look-up so out-of-bounds offsets never crash.
+ *
+ * This consolidates the identical patterns that previously existed in
+ * `resolveReportLoc` (feather rules) and `resolveSafeLocFromIndex` (GML rules)
+ * into a single authoritative helper.
+ *
+ * @param {Rule.RuleContext} context ESLint rule context whose `sourceCode` may
+ *     expose `getLocFromIndex`.
+ * @param {string} sourceText Full source text corresponding to `index`.
+ * @param {number} index Character offset to resolve.
+ * @returns {{ line: number; column: number }} 1-based line and 0-based column.
+ */
+export function resolveLocFromIndex(
+    context: Rule.RuleContext,
+    sourceText: string,
+    index: number
+): { line: number; column: number } {
+    const clampedIndex = clamp(index, 0, sourceText.length);
+    const locator = context.sourceCode as SourceCodeWithOptionalLocator;
+    const located = typeof locator.getLocFromIndex === "function" ? locator.getLocFromIndex(clampedIndex) : undefined;
+
+    if (
+        located &&
+        typeof located.line === "number" &&
+        typeof located.column === "number" &&
+        Number.isFinite(located.line) &&
+        Number.isFinite(located.column)
+    ) {
+        return located;
+    }
+
+    return resolveLineColumnFromOffset(sourceText, clampedIndex);
 }
 
 export function applySourceTextEdits(sourceText: string, edits: ReadonlyArray<SourceTextEdit>): string {

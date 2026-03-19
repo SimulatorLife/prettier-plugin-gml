@@ -611,7 +611,10 @@ function tryPrintVariableNode(node, path, options, print) {
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
-            return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
+            // Keep chained assignments together in a single group.
+            // Calling `print("left")`/`print("right")` allows nested assignment chains
+            // to format consistently via the same print logic without manually recursing.
+            return group(concat([print("left"), " ", node.operator, " ", print("right")]));
         }
         case "GlobalVarStatement": {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
@@ -627,21 +630,6 @@ function tryPrintVariableNode(node, path, options, print) {
 
             if (node.kind === "static") {
                 // WORKAROUND: Bypass printCommaSeparatedList for static declarations.
-                //
-                // PROBLEM: printCommaSeparatedList introduces unwanted blank lines or produces
-                // empty output when formatting static variable declarations with multiple declarators.
-                // The exact root cause is unclear (likely a state-tracking issue in the helper),
-                // but static declarations are nearly always single-line or short lists in GML.
-                //
-                // SOLUTION: Manually map each declarator and join them with ", " to avoid the
-                // broken helper entirely. This ensures static declarations format correctly.
-                //
-                // WHAT WOULD BREAK: Removing this workaround would cause static declarations
-                // to either disappear from the output or gain spurious blank lines, breaking
-                // both correctness and readability.
-                //
-                // LONG-TERM FIX: Investigate and fix the underlying issue in printCommaSeparatedList
-                // so it correctly handles static declarations, then remove this manual join logic.
                 const parts = path.map(print, "declarations");
                 const joined = joinDeclaratorPartsWithCommas(parts);
 
@@ -836,7 +824,11 @@ function printCallExpressionNode(node, path, options, print) {
             forceBreak: shouldForceBreakArguments,
             maxElementsPerLine: effectiveElementsPerLineLimit,
             includeInlineVariant: shouldIncludeInlineVariant,
-            hasCallbackArguments
+            hasCallbackArguments,
+            // Keep call expressions in l-value chains on one line to avoid
+            // breaking the chain into multiple visual lines (e.g. `foo().bar`).
+            // This preserves readability for chained property access after calls.
+            forceInline: isInLValueChain(path)
         });
 
         if (shouldUseCallbackLayout) {
@@ -1433,7 +1425,8 @@ function buildCallArgumentsDocs(
         forceBreak = false,
         maxElementsPerLine = Infinity,
         includeInlineVariant = false,
-        hasCallbackArguments = false
+        hasCallbackArguments = false,
+        forceInline = false
     } = {}
 ) {
     const node = path.getValue();
@@ -1478,6 +1471,7 @@ function buildCallArgumentsDocs(
 
     const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
         forceBreak,
+        forceInline,
         maxElementsPerLine
     });
 

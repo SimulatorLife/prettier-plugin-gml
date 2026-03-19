@@ -2,26 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function declareAt(tracker: ScopeTracker, name: string, line: number = 1): void {
-    tracker.declare(name, {
-        name,
-        start: { line, column: 0, index: 0 },
-        end: { line, column: name.length, index: name.length }
-    });
-}
-
-function referenceAt(tracker: ScopeTracker, name: string, line: number = 2): void {
-    tracker.reference(name, {
-        name,
-        start: { line, column: 0, index: 0 },
-        end: { line, column: name.length, index: name.length }
-    });
-}
+import { declareAt, referenceAt } from "./scope-tracker-helpers.js";
 
 // ---------------------------------------------------------------------------
 // clearScopesForPath

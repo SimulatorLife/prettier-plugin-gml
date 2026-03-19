@@ -6,6 +6,7 @@ import {
     applySourceTextEdits,
     type AstNodeRecord,
     createMeta,
+    getVariableDeclarator,
     isAstNodeRecord,
     reportFullTextRewrite,
     type SourceTextEdit,
@@ -21,13 +22,6 @@ type LeadingArgumentFallback = Readonly<{
     statement: any;
 }>;
 
-type VariableDeclaratorNode = AstNodeRecord &
-    Readonly<{
-        type: "VariableDeclarator";
-        id: unknown;
-        init: unknown;
-    }>;
-
 type AssignmentExpressionNode = AstNodeRecord &
     Readonly<{
         type: "AssignmentExpression";
@@ -35,10 +29,6 @@ type AssignmentExpressionNode = AstNodeRecord &
         left: unknown;
         right: unknown;
     }>;
-
-function isVariableDeclaratorNode(node: unknown): node is VariableDeclaratorNode {
-    return isAstNodeRecord(node) && node.type === "VariableDeclarator" && "id" in node && "init" in node;
-}
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
     return (
@@ -64,18 +54,6 @@ function isUndefinedValueNode(node: any): boolean {
     }
 
     return node.value.toLowerCase() === "undefined";
-}
-
-function getVariableDeclarator(statement: unknown): VariableDeclaratorNode | null {
-    if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
-        return null;
-    }
-    const declarations = statement.declarations;
-    if (!Array.isArray(declarations) || declarations.length !== 1) {
-        return null;
-    }
-
-    return isVariableDeclaratorNode(declarations[0]) ? declarations[0] : null;
 }
 
 function getMemberArgumentIndex(node: any): number | null {

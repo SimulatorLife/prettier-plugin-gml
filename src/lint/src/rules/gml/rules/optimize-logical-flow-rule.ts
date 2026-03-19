@@ -1,7 +1,7 @@
 import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { printNodeForAutofix } from "../../../language/print-expression.js";
+import { printNodeForAutofix } from "../../../language/index.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
@@ -14,6 +14,7 @@ function normalizeWhitespaceForComparison(value: string): string {
 }
 
 type SourceTextRange = Readonly<{ start: number; end: number }>;
+type BooleanLiteralInput = Parameters<typeof Core.getBooleanLiteralValue>[0];
 
 const LOGICAL_NORMALIZATION_SIGNAL_PATTERN = /&&|\|\||!|\b(?:and|or|not|true|false)\b/u;
 const COMMENT_SEQUENCE_PATTERN = /\/\/|\/\*/u;
@@ -74,23 +75,6 @@ function unwrapSingleStatement(node: unknown): AstRecord | null {
     }
 
     return firstStatementRecord;
-}
-
-function readBooleanLiteral(node: unknown): boolean | null {
-    const nodeRecord = asAstRecord(node);
-    if (!nodeRecord || nodeRecord.type !== "Literal") {
-        return null;
-    }
-
-    const value = nodeRecord.value;
-    if (value === true || value === "true") {
-        return true;
-    }
-    if (value === false || value === "false") {
-        return false;
-    }
-
-    return null;
 }
 
 function areComparableAssignmentTargetsEquivalent(left: unknown, right: unknown): boolean {
@@ -203,11 +187,15 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
 
     if (consequentStatement && alternateStatement) {
         if (consequentStatement.type === "ReturnStatement" && alternateStatement.type === "ReturnStatement") {
-            const consequentValue = readBooleanLiteral(consequentStatement.argument);
-            const alternateValue = readBooleanLiteral(alternateStatement.argument);
+            const consequentValue = Core.getBooleanLiteralValue(consequentStatement.argument as BooleanLiteralInput, {
+                acceptBooleanPrimitives: true
+            });
+            const alternateValue = Core.getBooleanLiteralValue(alternateStatement.argument as BooleanLiteralInput, {
+                acceptBooleanPrimitives: true
+            });
             return (
-                (consequentValue === true && alternateValue === false) ||
-                (consequentValue === false && alternateValue === true)
+                (consequentValue === "true" && alternateValue === "false") ||
+                (consequentValue === "false" && alternateValue === "true")
             );
         }
 
@@ -263,10 +251,6 @@ function canUnaryExpressionBenefitFromNormalization(node: unknown): boolean {
     );
 }
 
-function isBooleanLiteralNode(node: unknown): boolean {
-    return readBooleanLiteral(node) !== null;
-}
-
 function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
     const logicalExpression = asAstRecord(node);
     if (
@@ -283,7 +267,10 @@ function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
         return false;
     }
 
-    if (isBooleanLiteralNode(left) || isBooleanLiteralNode(right)) {
+    if (
+        Core.isBooleanLiteral(left as BooleanLiteralInput, { acceptBooleanPrimitives: true }) ||
+        Core.isBooleanLiteral(right as BooleanLiteralInput, { acceptBooleanPrimitives: true })
+    ) {
         return true;
     }
 

@@ -1,13 +1,14 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { printExpression, readNodeText } from "../../../language/print-expression.js";
+import { printExpression, readNodeText } from "../../../language/index.js";
 import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     cloneAstNodeWithoutTraversalLinks,
     createCommentTokenRangeIndex,
     createMeta,
+    getVariableDeclarator,
     isAstNodeRecord,
     rangeContainsCommentToken,
     reportFullTextRewrite,
@@ -537,17 +538,6 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
     return rewritten;
 }
 
-function getVariableDeclarator(statement: unknown): any {
-    if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
-        return null;
-    }
-    const declarations = statement.declarations;
-    if (Array.isArray(declarations) && declarations.length === 1) {
-        return declarations[0];
-    }
-    return null;
-}
-
 function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<SourceTextEdit>): boolean {
     return edits.some((edit) => start < edit.end && end > edit.start);
 }
@@ -556,8 +546,12 @@ type SourceTextRange = Readonly<{ start: number; end: number }>;
 
 const MATH_OPTIMIZATION_SIGNAL_PATTERN =
     /[*/%+-]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
+const MATH_STRONG_SIGNAL_PATTERN =
+    /[*/%]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
 const DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN = /[/%]|\b(?:div|mod)\b/u;
 const NUMERIC_COMPARISON_TOLERANCE = 1e-9;
+const MAX_MATH_OPTIMIZATION_CANDIDATE_TEXT_LENGTH = 2000;
+const MAX_MANUAL_NORMALIZATION_CANDIDATE_TEXT_LENGTH = 600;
 
 function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: ReadonlyArray<SourceTextRange>): boolean {
     return containerRanges.some((containerRange) => {
@@ -566,10 +560,34 @@ function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: Readonly
 }
 
 function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): boolean {
-    return MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode);
+    if (!MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+        return false;
+    }
+
+    if (MATH_STRONG_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+        return true;
+    }
+
+    // Avoid treating long string-concatenation chains as math candidates.
+    if (sourceTextOfNode.includes('"') || sourceTextOfNode.includes("'")) {
+        return false;
+    }
+
+    // Additive chains of function calls (for example string-building traces)
+    // can look math-like due embedded numeric literals but are not safe/valuable
+    // optimize-math candidates.
+    if (/\b[A-Za-z_]\w*\s*\(/u.test(sourceTextOfNode)) {
+        return false;
+    }
+
+    return NUMERIC_LITERAL_SIGNAL_PATTERN.test(sourceTextOfNode);
 }
 
 function shouldAttemptManualNormalization(sourceTextOfNode: string): boolean {
+    if (sourceTextOfNode.length > MAX_MANUAL_NORMALIZATION_CANDIDATE_TEXT_LENGTH) {
+        return false;
+    }
+
     return (
         DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode) ||
         sourceTextOfNode.includes("*") ||
@@ -1303,6 +1321,13 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     return;
                 }
 
+                // Large expressions can trigger prohibitively expensive normalization
+                // paths and unbounded allocation spikes without providing practical
+                // autofix value in a single lint pass.
+                if (sourceTextOfNode.length > MAX_MATH_OPTIMIZATION_CANDIDATE_TEXT_LENGTH) {
+                    return;
+                }
+
                 const replacementCacheKey = `${targetNode.type}:${sourceTextOfNode}`;
                 let replacement = replacementByCandidateText.get(replacementCacheKey);
                 if (replacement === undefined) {
@@ -1330,11 +1355,10 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                         }
                     }
 
-                    if (replacement && replacement !== sourceTextOfNode) {
-                        replacement = applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement);
-                    } else {
-                        replacement = null;
-                    }
+                    replacement =
+                        replacement && replacement !== sourceTextOfNode
+                            ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                            : null;
 
                     replacementByCandidateText.set(replacementCacheKey, replacement);
                 }

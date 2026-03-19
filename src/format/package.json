@@ -6,10 +6,6 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./test-support": {
-      "import": "./dist/test/index.js",
-      "types": "./dist/test/index.d.ts"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -28,8 +24,10 @@
   },
   "dependencies": {
     "@gmloop/core": "workspace:*",
-    "@gmloop/fixture-runner": "workspace:*",
     "@gmloop/parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@gmloop/fixture-runner": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"

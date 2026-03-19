@@ -194,3 +194,59 @@ export function lintWithFeatherRule(
         output
     };
 }
+
+/**
+ * Runs a GML lint rule against source text and returns a message count plus the
+ * auto-fixed output. The rule's `Program` visitor is called with the provided
+ * `programNode`.
+ *
+ * This is the canonical helper for the simple `run<Rule>(code)` pattern used
+ * across single-rule test files and eliminates per-file context boilerplate.
+ */
+export function runGmlRule(parameters: {
+    rule: { create: (context: never) => { Program?: (node: never) => void } };
+    code: string;
+    programNode: Record<string, unknown>;
+}): { messageCount: number; output: string } {
+    const fixes: Array<ReplaceTextRangeFixOperation> = [];
+    let messageCount = 0;
+    const getLocFromIndex = createLocResolver(parameters.code);
+
+    const context = {
+        options: [{}],
+        sourceCode: {
+            text: parameters.code,
+            getLocFromIndex
+        },
+        report(payload: {
+            fix?: (fixer: {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
+            }) => ReplaceTextRangeFixOperation | null;
+        }) {
+            messageCount += 1;
+
+            if (!payload.fix) {
+                return;
+            }
+
+            const fixer = {
+                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
+                    return { kind: "replace", range, text };
+                }
+            };
+
+            const fix = payload.fix(fixer);
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+    } as never;
+
+    const listeners = parameters.rule.create(context);
+    listeners.Program?.(parameters.programNode as never);
+
+    return {
+        messageCount,
+        output: applyFixOperations(parameters.code, fixes)
+    };
+}

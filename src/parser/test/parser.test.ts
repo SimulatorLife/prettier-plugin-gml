@@ -528,6 +528,141 @@ void describe("GameMaker parser fixtures", () => {
         );
     });
 
+    void it("parses leading-dot member access expressions", () => {
+        const source = "function demo() {\n  return .destination;\n}\n";
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const [memberExpression] = collectNodesByType(ast, "MemberDotExpression");
+        assert.ok(memberExpression, "Expected a MemberDotExpression node for leading-dot access.");
+
+        const expectedStart = source.indexOf(".destination");
+        assert.ok(expectedStart !== -1, "Unable to locate leading-dot member expression in source.");
+        assert.strictEqual(
+            Core.getNodeStartIndex(memberExpression),
+            expectedStart,
+            "Leading-dot member expression should start at the dot token."
+        );
+    });
+
+    void it("parses template interpolation that contains leading-dot member access", () => {
+        const source = 'var _destination = __ChatterboxParseExpression($"({.destination})", false);\n';
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const [templateExpression] = collectNodesByType(ast, "TemplateStringExpression");
+        assert.ok(templateExpression, "Expected a template string expression.");
+
+        const interpolatedMember = Array.isArray(templateExpression.atoms)
+            ? templateExpression.atoms.find((atom: { type?: unknown }) => atom?.type === "MemberDotExpression")
+            : null;
+
+        assert.ok(interpolatedMember, "Expected template interpolation to produce a MemberDotExpression atom.");
+
+        const expectedStart = source.indexOf(".destination");
+        assert.ok(expectedStart !== -1, "Unable to locate interpolated leading-dot member access.");
+        assert.strictEqual(
+            Core.getNodeStartIndex(interpolatedMember),
+            expectedStart,
+            "Interpolated leading-dot member access should retain its source start index."
+        );
+    });
+
+    void it("parses implicit leading-dot call statements", () => {
+        const source = '.add("follow", { id: 1 });\n';
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const [callExpression] = collectNodesByType(ast, "CallExpression");
+        assert.ok(callExpression, "Expected a CallExpression node for leading-dot call syntax.");
+        assert.ok(
+            callExpression.object && callExpression.object.type === "MemberDotExpression",
+            "Expected leading-dot call expression object to be a MemberDotExpression."
+        );
+
+        const expectedStart = source.indexOf(".add");
+        assert.ok(expectedStart !== -1, "Unable to locate leading-dot call start in source.");
+        assert.strictEqual(
+            Core.getNodeStartIndex(callExpression),
+            expectedStart,
+            "Leading-dot call statement should start at the dot token."
+        );
+    });
+
+    void it("parses assignments that target member access on call results", () => {
+        const source = 'set_mapping(gp_shoulderrb, 4, __INPUT_MAPPING.AXIS, "righttrigger").extended_range = true;\n';
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const [assignment] = collectNodesByType(ast, "AssignmentExpression");
+        assert.ok(assignment, "Expected an assignment expression.");
+        assert.ok(
+            assignment.left && assignment.left.type === "MemberDotExpression",
+            "Expected assignment target to remain a member-dot expression."
+        );
+    });
+
+    void it("parses nested assignments when the RHS targets member access on a call result", () => {
+        const source = '_mapping = set_mapping(gp_axislv, 0, __INPUT_MAPPING.AXIS, "lefty").limited_range = true;\n';
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const assignments = collectNodesByType(ast, "AssignmentExpression");
+        assert.ok(assignments.length >= 2, "Expected both outer and nested assignment expressions.");
+
+        const nestedAssignment = assignments.find(
+            (assignment) => assignment.left && assignment.left.type === "MemberDotExpression"
+        );
+
+        assert.ok(nestedAssignment, "Expected nested assignment to target a member-dot expression.");
+    });
+
+    void it("parses chained calls that continue on the next line", () => {
+        const source = ["fsm", '    .add("editor", {})', '    .add("follow", {});', ""].join("\n");
+
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        const callExpressions = collectNodesByType(ast, "CallExpression");
+        assert.ok(
+            callExpressions.length >= 2,
+            "Expected chained line-continuation calls to parse as call expressions."
+        );
+    });
+
+    void it("parses for-loop update clauses with postfix increment", () => {
+        const source = "for (var i = 0; i < 3; i++) { }\n";
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected postfix increment in for-loop update clause to parse."
+        );
+    });
+
+    void it("parses standalone postfix inc/dec statements separated by newlines without semicolons", () => {
+        const source = ["var myCount = 10;", "++myCount", "--myCount", "myCount++", "myCount--", ""].join("\n");
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected postfix and prefix inc/dec statements without trailing semicolons to parse across line breaks."
+        );
+    });
+
+    void it("parses for-loop update clauses with assignment expressions", () => {
+        const source = "for (var i = 0; i < 3; i = i + 1) { }\n";
+
+        assert.doesNotThrow(
+            () => parseFixture(source),
+            "Expected assignment expression in for-loop update clause to parse."
+        );
+    });
+
     void it("retains 'globalvar' declarations in the AST", () => {
         const source = "globalvar foo, bar;\nfoo = 1;\n";
         const ast = parseFixture(source, { options: { getLocations: true } });
@@ -643,6 +778,22 @@ void describe("GameMaker parser fixtures", () => {
     void it("correctly handles equals as expression and assignment in the same scope", () => {
         const source = "var a = 1; if (a = 2) { a = 3; }";
         assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("parses chained assignments as nested assignment expressions", () => {
+        const source = "var a=2,b=2,c=2;\na = b = c = 1;";
+        const ast = parseFixture(source);
+
+        const assignments = collectNodesByType(ast, "AssignmentExpression");
+        assert.strictEqual(assignments.length, 3, "Expected a nested assignment chain (a, b, c).");
+
+        const [outer, middle, inner] = assignments;
+        assert.strictEqual(outer.left.name, "a");
+        assert.strictEqual(middle.left.name, "b");
+        assert.strictEqual(inner.left.name, "c");
+
+        assert.strictEqual(inner.right.type, "Literal");
+        assert.strictEqual(inner.right.value, "1");
     });
 
     void it("allows #region inside switch cases", () => {

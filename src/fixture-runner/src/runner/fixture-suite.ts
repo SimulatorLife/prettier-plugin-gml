@@ -9,9 +9,9 @@ import { Core } from "@gmloop/core";
 import { discoverFixtureCases } from "../discovery/index.js";
 import {
     collectBudgetFailures,
+    createFixtureMemorySummary,
     createProfileCollector,
-    createStageTimer,
-    withDeepCpuProfile
+    createStageTimer
 } from "../profiling/index.js";
 import type {
     FixtureAdapter,
@@ -28,9 +28,11 @@ async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, stri
     const files = new Map<string, string>();
 
     async function walk(currentPath: string): Promise<void> {
-        const entries = await readdir(currentPath, { withFileTypes: true });
+        const directoryEntries = await readdir(currentPath, { withFileTypes: true });
+        const sortedEntries = directoryEntries.toSorted((left, right) => left.name.localeCompare(right.name));
+
         await Promise.all(
-            entries.map(async (entry) => {
+            sortedEntries.map(async (entry) => {
                 const entryPath = path.join(currentPath, entry.name);
                 if (entry.isDirectory()) {
                     await walk(entryPath);
@@ -48,18 +50,8 @@ async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, stri
     }
 
     await walk(rootPath);
-    return files;
-}
 
-function createDeepCpuProfileArtifactPath(adapter: FixtureAdapter, fixtureCase: FixtureCase): string | null {
-    const envEnabled = process.env.GMLOOP_FIXTURE_DEEP_CPU === "1";
-    const caseEnabled = fixtureCase.config.fixture.profile?.deepCpuProfile === true;
-    if (!envEnabled && !caseEnabled) {
-        return null;
-    }
-
-    const safeCaseId = fixtureCase.caseId.replaceAll(/[^a-zA-Z0-9._-]+/gu, "-");
-    return path.resolve(process.cwd(), "reports", "fixture-cpu", `${adapter.workspaceName}-${safeCaseId}.cpuprofile`);
+    return new Map([...files.entries()].toSorted(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath)));
 }
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;
@@ -135,51 +127,45 @@ async function executeFixtureCase(
 ): Promise<FixtureCaseExecutionResult> {
     const stageTimer = createStageTimer();
     const budgets = fixtureCase.config.fixture.profile?.budgets ?? null;
-    const deepCpuProfileArtifactPath = createDeepCpuProfileArtifactPath(adapter, fixtureCase);
-    let tempProjectDirectoryPath: string | null = null;
+    const deepCpuProfileArtifactPath = null;
+    let workingProjectDirectoryPath: string | null = null;
     let caseResult: FixtureCaseResult | null = null;
     let changed = false;
 
     try {
         await stageTimer.runStage("load", async () => {
             if (fixtureCase.projectDirectoryPath) {
-                tempProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-runner-"));
-                await cp(fixtureCase.projectDirectoryPath, tempProjectDirectoryPath, { recursive: true });
+                workingProjectDirectoryPath = await mkdtemp(path.join(os.tmpdir(), "gmloop-fixture-runner-"));
+                await cp(fixtureCase.projectDirectoryPath, workingProjectDirectoryPath, { recursive: true });
             }
         });
 
-        await withDeepCpuProfile(
-            deepCpuProfileArtifactPath,
-            async () =>
-                await stageTimer.runStage("total", async () => {
-                    if (fixtureCase.assertion === "parse-error") {
-                        await assert.rejects(
-                            adapter.run({
-                                fixtureCase,
-                                config: fixtureCase.config,
-                                inputText: fixtureCase.inputFilePath
-                                    ? await readFile(fixtureCase.inputFilePath, "utf8")
-                                    : null,
-                                tempProjectDirectoryPath,
-                                runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
-                            })
-                        );
-                        return;
-                    }
-
-                    caseResult = await adapter.run({
+        await stageTimer.runStage("total", async () => {
+            if (fixtureCase.assertion === "parse-error") {
+                await assert.rejects(
+                    adapter.run({
                         fixtureCase,
                         config: fixtureCase.config,
                         inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
-                        tempProjectDirectoryPath,
+                        workingProjectDirectoryPath,
                         runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
-                    });
-                    changed = caseResult.changed;
-                    await stageTimer.runStage("compare", async () => {
-                        await compareFixtureCaseResult(fixtureCase, caseResult);
-                    });
-                })
-        );
+                    })
+                );
+                return;
+            }
+
+            caseResult = await adapter.run({
+                fixtureCase,
+                config: fixtureCase.config,
+                inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
+                workingProjectDirectoryPath,
+                runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
+            });
+            changed = caseResult.changed;
+            await stageTimer.runStage("compare", async () => {
+                await compareFixtureCaseResult(fixtureCase, caseResult);
+            });
+        });
 
         const stages = stageTimer.getStages();
         const budgetFailures = collectBudgetFailures(stages, budgets);
@@ -194,7 +180,8 @@ async function executeFixtureCase(
             stages,
             budgets,
             budgetFailures,
-            deepCpuProfileArtifactPath
+            deepCpuProfileArtifactPath,
+            memorySummary: createFixtureMemorySummary(stages)
         });
 
         if (budgetFailures.length > 0) {
@@ -229,15 +216,38 @@ async function executeFixtureCase(
             stages,
             budgets,
             budgetFailures,
-            deepCpuProfileArtifactPath
+            deepCpuProfileArtifactPath,
+            memorySummary: createFixtureMemorySummary(stages)
         });
         profileCollector.addEntry(profileEntry);
         throw error;
     } finally {
-        if (tempProjectDirectoryPath !== null) {
-            await rm(tempProjectDirectoryPath, { recursive: true, force: true });
+        if (workingProjectDirectoryPath !== null) {
+            await rm(workingProjectDirectoryPath, { recursive: true, force: true });
         }
     }
+}
+
+function ensureAdapterSupportsFixtureCase(adapter: FixtureAdapter, fixtureCase: FixtureCase): void {
+    if (!adapter.supports(fixtureCase.kind)) {
+        throw new Error(`${adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`);
+    }
+}
+
+/**
+ * Run one already-discovered fixture case through the shared execution pipeline.
+ *
+ * @param parameters Fixture case, adapter, and optional collector.
+ * @returns Execution details for the requested fixture case.
+ */
+export async function runDiscoveredFixtureCase(parameters: {
+    adapter: FixtureAdapter;
+    fixtureCase: FixtureCase;
+    profileCollector?: FixtureProfileCollector;
+}): Promise<FixtureCaseExecutionResult> {
+    const profileCollector = parameters.profileCollector ?? createProfileCollector();
+    ensureAdapterSupportsFixtureCase(parameters.adapter, parameters.fixtureCase);
+    return await executeFixtureCase(parameters.adapter, parameters.fixtureCase, profileCollector);
 }
 
 /**
@@ -251,21 +261,28 @@ export async function runFixtureSuite(parameters: {
     adapter: FixtureAdapter;
     profileCollector?: FixtureProfileCollector;
     continueOnFailure?: boolean;
+    caseIds?: ReadonlyArray<string>;
+    discoveredFixtureCases?: ReadonlyArray<FixtureCase>;
 }): Promise<FixtureRunResult> {
-    const fixtureCases = await discoverFixtureCases(parameters.fixtureRoot);
+    const discoveredFixtureCases =
+        parameters.discoveredFixtureCases ?? (await discoverFixtureCases(parameters.fixtureRoot));
+    const caseIdFilter = parameters.caseIds ? new Set(parameters.caseIds) : null;
+    const fixtureCases = caseIdFilter
+        ? discoveredFixtureCases.filter((fixtureCase) => caseIdFilter.has(fixtureCase.caseId))
+        : discoveredFixtureCases;
     const profileCollector = parameters.profileCollector ?? createProfileCollector();
     const executionResults: Array<FixtureCaseExecutionResult> = [];
     const failures: Array<FixtureRunFailure> = [];
 
     await Core.runSequentially(fixtureCases, async (fixtureCase) => {
-        if (!parameters.adapter.supports(fixtureCase.kind)) {
-            throw new Error(
-                `${parameters.adapter.workspaceName} adapter does not support fixture kind ${fixtureCase.kind}.`
-            );
-        }
-
         try {
-            executionResults.push(await executeFixtureCase(parameters.adapter, fixtureCase, profileCollector));
+            executionResults.push(
+                await runDiscoveredFixtureCase({
+                    adapter: parameters.adapter,
+                    fixtureCase,
+                    profileCollector
+                })
+            );
         } catch (error) {
             if (!parameters.continueOnFailure) {
                 throw error;

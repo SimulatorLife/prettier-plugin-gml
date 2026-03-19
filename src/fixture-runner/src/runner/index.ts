@@ -1,1 +1,1 @@
-export { registerNodeFixtureSuite, runFixtureSuite } from "./fixture-suite.js";
+export { registerNodeFixtureSuite, runDiscoveredFixtureCase, runFixtureSuite } from "./fixture-suite.js";

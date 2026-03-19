@@ -1,3 +1,4 @@
+import * as BackendsAPI from "./backends/index.js";
 import * as CodemodRegistryAPI from "./codemod-registry.js";
 import * as CodemodsAPI from "./codemods/index.js";
 import * as HotReloadAPI from "./hot-reload.js";
@@ -33,6 +34,7 @@ export const Refactor = Object.freeze({
     ...NamingConventionPolicyAPI,
     ...CodemodRegistryAPI,
     ...CodemodsAPI,
+    ...BackendsAPI,
     WorkspaceEdit,
     SemanticQueryCache,
     RenameValidationCache,
@@ -54,6 +56,7 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
+export * as Backends from "./backends/index.js";
 export { executeRegisteredCodemods, listConfiguredCodemods, listRegisteredCodemods } from "./codemod-registry.js";
 export * as Codemods from "./codemods/index.js";
 export type {
@@ -111,6 +114,7 @@ export type {
     BatchRenamePlanSummary,
     BatchRenameValidation,
     CascadeEntry,
+    CodemodExecutionTelemetry,
     ConfiguredCodemodRunRequest,
     ConfiguredCodemodRunResult,
     ConfiguredCodemodSummary,
@@ -146,6 +150,7 @@ export type {
     OccurrenceTracker,
     ParserBridge,
     PartialSemanticAnalyzer,
+    PrepareBatchRenamePlanOptions,
     PrepareRenamePlanOptions,
     Range,
     RefactorCodemodConfigEntry,

@@ -1,7 +1,8 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
-import { createFormatFixtureSuiteDefinition } from "@gmloop/format/test-support";
-import { createLintFixtureSuiteDefinition } from "@gmloop/lint/test-support";
-import { createRefactorFixtureSuiteDefinition } from "@gmloop/refactor/test-support";
+
+import { createFormatFixtureSuiteDefinition } from "#fixture-test/format";
+import { createLintFixtureSuiteDefinition } from "#fixture-test/lint";
+import { createRefactorFixtureSuiteDefinition } from "#fixture-test/refactor";
 
 import { createIntegrationFixtureSuiteDefinition } from "./integration-fixture-suite-definition.js";
 

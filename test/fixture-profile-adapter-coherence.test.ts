@@ -35,9 +35,9 @@ void test("fixture profile report uses the same workspace adapter factories as t
     ]);
 
     assert.match(profileReportSource, /createFixtureSuiteRegistry\(\)/u);
-    assert.match(registrySource, /createFormatFixtureSuiteDefinition/u);
-    assert.match(registrySource, /createLintFixtureSuiteDefinition/u);
-    assert.match(registrySource, /createRefactorFixtureSuiteDefinition/u);
+    assert.match(registrySource, /#fixture-test\/format/u);
+    assert.match(registrySource, /#fixture-test\/lint/u);
+    assert.match(registrySource, /#fixture-test\/refactor/u);
 
     assert.match(formatSuiteSource, /createFormatFixtureSuiteDefinition\(\)/u);
     assert.match(formatDefinitionSource, /createFormatFixtureAdapter\(\)/u);
@@ -48,4 +48,5 @@ void test("fixture profile report uses the same workspace adapter factories as t
     assert.doesNotMatch(formatRuntimeSource, /\btesting\b/u);
     assert.doesNotMatch(lintRuntimeSource, /\btesting\b/u);
     assert.doesNotMatch(refactorRuntimeSource, /\btesting\b/u);
+    assert.doesNotMatch(registrySource, /@gmloop\/(?:format|lint|refactor)\/test-support/u);
 });
