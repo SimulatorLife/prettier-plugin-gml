@@ -1,8 +1,9 @@
 import { Core } from "@gmloop/core";
 
 // The asset rename mechanism (filesystem mutations, logging, metrics) depends
-// on this policy object to decide if it should run. Keeping the rules here lets
-// us exercise and extend the heuristics without touching the operational code.
+// on this policy object to decide if it should run. Keeping the rules beside
+// the asset rename workflow makes the dependency obvious and keeps the broader
+// identifier-case root focused on cross-cutting orchestration concerns.
 
 type AssetRenamePolicyContext = {
     options?: Record<string, unknown>;

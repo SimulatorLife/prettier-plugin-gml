@@ -10,8 +10,8 @@ export * from "./plan-service.js";
 // Local plan exports are intentionally not re-exported to avoid duplicating
 // public APIs that 'plan-service' already exposes.
 export * from "./asset-rename-executor.js";
-export * from "./asset-rename-policy.js";
 export * from "./asset-renames.js";
+export * from "./asset-renames/index.js";
 export * from "./common.js";
 export * from "./fs-facade.js";
 export * from "./project-index-bootstrap.js";
