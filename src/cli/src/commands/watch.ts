@@ -24,6 +24,7 @@ import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -399,10 +400,7 @@ async function runAutoInjectHotReload(
  * logging while providing a case-insensitive predicate for incoming filenames.
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
-    const normalized = extensions.map((ext) => {
-        const withDot = ext.startsWith(".") ? ext : `.${ext}`;
-        return withDot.toLowerCase();
-    });
+    const normalized = normalizeExtensions(extensions);
 
     const normalizedSet = new Set(normalized);
 
