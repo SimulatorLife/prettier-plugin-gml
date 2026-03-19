@@ -60,6 +60,7 @@ function resolveStringScopeOverride(
 
 const DEFAULT_DECLARATION_ROLE: ScopeRole = Object.freeze({ type: "declaration" });
 const DEFAULT_REFERENCE_ROLE: ScopeRole = Object.freeze({ type: "reference" });
+const DEFAULT_LOOKUP_CACHE_MAX_ENTRIES = 2048;
 
 /**
  * Manages lexical and structural scopes, symbol declarations, and references.
@@ -78,6 +79,7 @@ export class ScopeTracker {
     private identifierCache: IdentifierCacheManager;
     private lookupCache: Map<string, ScopeSymbolMetadata | null>;
     private lookupCacheDepth: number;
+    private lookupCacheMaxEntries: number;
 
     private collectUniqueSymbolNames(names: Iterable<string>): string[] {
         const uniqueNames = new Set<string>();
@@ -122,7 +124,12 @@ export class ScopeTracker {
         return paths;
     }
 
-    constructor({ enabled = true } = {}) {
+    constructor({
+        enabled = true,
+        lookupCacheMaxEntries = DEFAULT_LOOKUP_CACHE_MAX_ENTRIES,
+        identifierCacheMaxTrackedNames = 4000,
+        identifierCacheMaxScopesPerName = 64
+    } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
@@ -132,9 +139,42 @@ export class ScopeTracker {
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
-        this.identifierCache = new IdentifierCacheManager();
+        this.identifierCache = new IdentifierCacheManager({
+            maxTrackedNames: identifierCacheMaxTrackedNames,
+            maxScopesPerName: identifierCacheMaxScopesPerName
+        });
         this.lookupCache = new Map();
         this.lookupCacheDepth = -1;
+        this.lookupCacheMaxEntries =
+            typeof lookupCacheMaxEntries === "number" && Number.isFinite(lookupCacheMaxEntries)
+                ? Math.max(1, Math.floor(lookupCacheMaxEntries))
+                : DEFAULT_LOOKUP_CACHE_MAX_ENTRIES;
+    }
+
+    private readLookupCache(name: string): ScopeSymbolMetadata | null | undefined {
+        const cached = this.lookupCache.get(name);
+        if (cached === undefined) {
+            return undefined;
+        }
+
+        // Move cache entry to the end to keep a simple insertion-order LRU.
+        this.lookupCache.delete(name);
+        this.lookupCache.set(name, cached);
+        return cached;
+    }
+
+    private writeLookupCache(name: string, metadata: ScopeSymbolMetadata | null): void {
+        this.lookupCache.delete(name);
+        this.lookupCache.set(name, metadata);
+
+        while (this.lookupCache.size > this.lookupCacheMaxEntries) {
+            const oldestName = this.lookupCache.keys().next().value;
+            if (!oldestName) {
+                break;
+            }
+
+            this.lookupCache.delete(oldestName);
+        }
     }
 
     /**
@@ -387,7 +427,7 @@ export class ScopeTracker {
         }
 
         // Check cache first (cache is invalidated on scope depth changes)
-        const cached = this.lookupCache.get(name);
+        const cached = this.readLookupCache(name);
         if (cached !== undefined) {
             return cached;
         }
@@ -397,13 +437,13 @@ export class ScopeTracker {
             const scope = this.scopeStack[i];
             const metadata = scope.symbolMetadata.get(name);
             if (metadata) {
-                this.lookupCache.set(name, metadata);
+                this.writeLookupCache(name, metadata);
                 return metadata;
             }
         }
 
         // Cache miss result
-        this.lookupCache.set(name, null);
+        this.writeLookupCache(name, null);
         return null;
     }
 
@@ -935,6 +975,71 @@ export class ScopeTracker {
         return [...scope.occurrences.keys()];
     }
 
+    /**
+     * Resolves the declaring scope ID for a symbol starting from the given scope,
+     * walking the scope chain upwards.
+     *
+     * This is a lean alternative to {@link resolveIdentifier} for callers that
+     * only need to know *which* scope declares a symbol — not the full declaration
+     * metadata. It avoids the `cloneDeclarationMetadata` allocation overhead while
+     * still populating the identifier cache for subsequent lookups.
+     *
+     * This method is used in the hot-reload invalidation critical path
+     * (`collectScopeDependents`, `recordCrossPathDependencyEdge`) where
+     * `resolveIdentifier` would otherwise clone metadata on every call.
+     *
+     * @param name       - Symbol name to resolve.
+     * @param refScopeId - Starting scope ID for the chain walk.
+     * @returns The `scopeId` of the declaring scope, or `null` if not found.
+     */
+    private resolveDeclaringScopeId(name: string, refScopeId: string): string | null {
+        const startScope = this.scopesById.get(refScopeId);
+        if (!startScope) {
+            return null;
+        }
+
+        // Check the identifier cache first — avoids a scope chain walk entirely.
+        const cached = this.identifierCache.read(name, refScopeId);
+        if (cached !== undefined) {
+            return cached?.scopeId ?? null;
+        }
+
+        const storedIndex = startScope.stackIndex;
+        const startIndex: number | undefined =
+            typeof storedIndex === "number" &&
+            storedIndex >= 0 &&
+            storedIndex < this.scopeStack.length &&
+            this.scopeStack[storedIndex] === startScope
+                ? storedIndex
+                : undefined;
+
+        if (startIndex === undefined) {
+            let current: Scope | null = startScope;
+            while (current) {
+                const declaration = current.symbolMetadata.get(name);
+                if (declaration) {
+                    this.identifierCache.write(name, refScopeId, declaration);
+                    return declaration.scopeId;
+                }
+                current = current.parent;
+            }
+            this.identifierCache.write(name, refScopeId, null);
+            return null;
+        }
+
+        for (let i = startIndex; i >= 0; i -= 1) {
+            const scope = this.scopeStack[i];
+            const declaration = scope.symbolMetadata.get(name);
+            if (declaration) {
+                this.identifierCache.write(name, refScopeId, declaration);
+                return declaration.scopeId;
+            }
+        }
+
+        this.identifierCache.write(name, refScopeId, null);
+        return null;
+    }
+
     public resolveIdentifier(name: string | null | undefined, scopeId?: string | null): ScopeSymbolMetadata | null {
         if (!name) {
             return null;
@@ -1186,8 +1291,8 @@ export class ScopeTracker {
                     continue;
                 }
 
-                const resolved = this.resolveIdentifier(symbol, refScopeId);
-                if (resolved?.scopeId !== scopeId) {
+                const declaringScopeId = this.resolveDeclaringScopeId(symbol, refScopeId);
+                if (declaringScopeId !== scopeId) {
                     continue;
                 }
 
@@ -2735,12 +2840,12 @@ export class ScopeTracker {
             return;
         }
 
-        const resolved = this.resolveIdentifier(name, scopeId);
-        if (!resolved?.scopeId || resolved.scopeId === scopeId) {
+        const declaringId = this.resolveDeclaringScopeId(name, scopeId);
+        if (!declaringId || declaringId === scopeId) {
             return;
         }
 
-        const declaringPath = this.scopesById.get(resolved.scopeId)?.metadata.path;
+        const declaringPath = this.scopesById.get(declaringId)?.metadata.path;
         if (!declaringPath) {
             return;
         }

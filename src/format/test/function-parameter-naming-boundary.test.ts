@@ -2,9 +2,10 @@
  * Enforces the formatter/linter boundary (target-state.md §2.1, §3.2):
  *
  * The format printer's `function-parameter-naming` module must expose only
- * layout helpers — path traversal and declarator joining.
- * Semantic content rewrites (parameter renaming, alias removal, argument
- * initializer inference) belong in `@gmloop/lint`, not the formatter.
+ * doc-layout helpers — declarator joining for `VariableDeclaration` nodes.
+ * Path traversal helpers (e.g. `findEnclosingFunctionDeclaration`) belong in
+ * `path-utils.ts`; semantic content rewrites (parameter renaming, alias
+ * removal, argument initializer inference) belong in `@gmloop/lint`.
  *
  * `filterMisattachedFunctionDocComments` was a parser-workaround that lived
  * in this module but has since been correctly migrated to the parser workspace
@@ -12,25 +13,31 @@
  * It must NOT be re-introduced here; the parser now handles function-tag
  * comment pre-attachment before the formatter ever runs.
  *
+ * `findEnclosingFunctionDeclaration` was a path-traversal helper that lived
+ * here but has been moved to `path-utils.ts`, the canonical module for
+ * AstPath utilities, to keep concerns properly separated.
+ *
  * These tests guard against the silent re-introduction of dormant semantic
- * transform functions into the format workspace.
+ * transform functions or misplaced path-traversal helpers into this module.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as FunctionParameterNaming from "../src/printer/function-parameter-naming.js";
 
-void test("function-parameter-naming module only exposes layout helpers", () => {
+void test("function-parameter-naming module only exposes doc-layout helpers", () => {
     const exports = Object.keys(FunctionParameterNaming).toSorted();
 
-    // Only pure layout helpers are permitted in this module.
+    // Only the declarator-joining doc-layout helper is permitted in this module.
+    // `findEnclosingFunctionDeclaration` was moved to `path-utils.ts` where it
+    // belongs alongside other AstPath traversal utilities.
     // `filterMisattachedFunctionDocComments` was removed because it was a
     // parser-workaround; the parser's normalizeFunctionDocCommentAttachments
     // pass now pre-attaches @function-tag comments before the formatter runs.
     assert.deepStrictEqual(
         exports,
-        ["findEnclosingFunctionDeclaration", "joinDeclaratorPartsWithCommas"],
-        "function-parameter-naming must only export layout helpers — semantic rewrites belong in @gmloop/lint"
+        ["joinDeclaratorPartsWithCommas"],
+        "function-parameter-naming must only export doc-layout helpers — path traversal belongs in path-utils.ts, semantic rewrites in @gmloop/lint"
     );
 });
 
@@ -75,5 +82,16 @@ void test("function-parameter-naming does not export parser-workaround (filterMi
     assert.ok(
         !("filterMisattachedFunctionDocComments" in FunctionParameterNaming),
         "filterMisattachedFunctionDocComments was a parser-workaround and must not be re-introduced to the format workspace (target-state.md §3.5)"
+    );
+});
+
+void test("function-parameter-naming does not export path-traversal helper (findEnclosingFunctionDeclaration)", () => {
+    // `findEnclosingFunctionDeclaration` is a path traversal utility and has
+    // been moved to `path-utils.ts`, the canonical home for AstPath helpers.
+    // It must not be re-introduced here to avoid mixing doc-layout and
+    // path-traversal concerns in the same module.
+    assert.ok(
+        !("findEnclosingFunctionDeclaration" in FunctionParameterNaming),
+        "findEnclosingFunctionDeclaration is a path-traversal helper and belongs in path-utils.ts, not function-parameter-naming"
     );
 });

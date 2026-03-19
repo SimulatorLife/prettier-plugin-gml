@@ -132,6 +132,19 @@ options {tokenVocab=GameMakerLanguageLexer;}
             }
 
             if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+                if (
+                    tokenType === GameMakerLanguageParser.PlusPlus
+                    || tokenType === GameMakerLanguageParser.MinusMinus
+                ) {
+                    // Treat the first top-level postfix ++/-- as the end of an
+                    // inc/dec statement candidate. Without this guard, optional
+                    // semicolon parsing can scan into subsequent statements and
+                    // incorrectly reject lines like:
+                    //   myCount--
+                    //   myCount++
+                    return true;
+                }
+
                 lastTopLevelTokenType = tokenType;
             }
 
@@ -319,7 +332,8 @@ expressionSequence
     ;
 
 expressionOrFunction
-    : expression
+    : assignmentExpression
+    | expression
     | functionDeclaration
     ;
 
@@ -342,8 +356,8 @@ expression
     | expression Or expression # BinaryExpression
     | expression Xor expression # BinaryExpression
     | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
-    | lValueExpression # VariableExpression
     | <assoc=right> expression QuestionMark expression Colon expression # TernaryExpression
+    | lValueExpression # VariableExpression
     | functionDeclaration # FunctionExpression
     | literal # LiteralExpression
     ;

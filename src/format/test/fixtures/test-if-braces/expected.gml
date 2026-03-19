@@ -2,6 +2,6 @@ if (should_exit()) {
     return;
 }
 
-if (doExit == global.exitState) {
+if (doExit = global.exitState) {
     exit;
 }

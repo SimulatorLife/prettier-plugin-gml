@@ -233,7 +233,10 @@ async function performRename(options: ValidatedRenameOptions): Promise<void> {
 
     try {
         const projectIndex = await buildProjectIndex(projectRoot, undefined, {
-            logger: verbose ? console : undefined
+            logger: verbose ? console : undefined,
+            concurrency: {
+                gml: 1
+            }
         });
         const engine = createRefactorEngineForProject(projectIndex, projectRoot);
         const semantic = engine.semantic as GmlSemanticBridge;
@@ -364,7 +367,10 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     }
 
     const projectIndex = await buildProjectIndex(projectRoot, undefined, {
-        logger: verbose ? console : undefined
+        logger: verbose ? console : undefined,
+        concurrency: {
+            gml: 1
+        }
     });
     const engine = createRefactorEngineForProject(projectIndex, projectRoot);
     const gmlFilePaths = await collectTargetGmlFiles(projectRoot, targetPaths);

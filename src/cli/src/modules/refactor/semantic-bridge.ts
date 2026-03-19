@@ -362,12 +362,23 @@ export class GmlSemanticBridge {
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
         this.collectOccurrencesFromRelationships(symbolName, occurrences);
 
-        // 4. Search all GML files for the name as an identifier
-        // This handles references in code that might not have been picked up or classified
-        // correctly by the semantic indexer (common for resource constants).
-        this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
+        // Fallback to file-system scanning only when indexed structures produced
+        // no hits and the symbol is a known resource. This avoids repeated full
+        // project scans during large rename batches while preserving support for
+        // resource-name references that may not be fully indexed.
+        if (occurrences.length === 0 && this.shouldCollectDiskOccurrences(symbolName)) {
+            this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
+        }
 
         return this.deduplicateOccurrences(occurrences);
+    }
+
+    private shouldCollectDiskOccurrences(symbolName: string): boolean {
+        if (!Core.isNonEmptyString(symbolName)) {
+            return false;
+        }
+
+        return this.findResourceByName(symbolName, true) !== null;
     }
 
     /**

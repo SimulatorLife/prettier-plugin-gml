@@ -28,9 +28,11 @@ async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, stri
     const files = new Map<string, string>();
 
     async function walk(currentPath: string): Promise<void> {
-        const entries = await readdir(currentPath, { withFileTypes: true });
+        const directoryEntries = await readdir(currentPath, { withFileTypes: true });
+        const sortedEntries = directoryEntries.toSorted((left, right) => left.name.localeCompare(right.name));
+
         await Promise.all(
-            entries.map(async (entry) => {
+            sortedEntries.map(async (entry) => {
                 const entryPath = path.join(currentPath, entry.name);
                 if (entry.isDirectory()) {
                     await walk(entryPath);
@@ -48,7 +50,8 @@ async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, stri
     }
 
     await walk(rootPath);
-    return files;
+
+    return new Map([...files.entries()].toSorted(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath)));
 }
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;

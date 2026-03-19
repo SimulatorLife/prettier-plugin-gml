@@ -1192,9 +1192,9 @@ new RefactorEngine({ parser, semantic, formatter });
 
 #### Workspace Operations
 
-- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files (`includeResultContent: false` avoids retaining full post-edit text in memory during write flows)
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
-- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, optional impact analysis (`includeImpactAnalyses`), and optional hot reload metadata
 
 #### Hot Reload Integration
 
@@ -1447,3 +1447,7 @@ The query cache layer optimizes repeated semantic queries during batch operation
 validation cache layer speeds up interactive rename workflows by caching validation results as
 users type new names, significantly improving performance for complex refactoring workflows and
 providing instant feedback in IDE rename dialogs.
+
+## TODO
+* For the renaming fix, we should support an allow/deny list of prefixes, suffixes, and names that are exempt from renaming. For example, if a project's `gmploop.json` specifies that sprites must use the `spr_` prefix, the rename configuration should also allow exceptions such as sprites with the tex_ prefix so they are not flagged for renaming.
+* Alternatively, instead of requiring a specific prefix or suffix, we could support a denylist of disallowed names, prefixes, or suffixes. So, resources would only be flagged for renaming if they match an entry in the denylist. For example, if a resource is named `__apple` and the denylist includes the prefix `__`, it would be flagged for renaming, since it matches a disallowed naming pattern. In this mode, renaming would follow a default or separately defined naming rule (e.g., a standard prefix/suffix or pattern), applied only when a name violates the denylist. In this mode, a resource that matches the denylist would first check its inheritance tree and try to inherit a valid naming prefix from its parent chain. If no applicable prefix is found, it should attempt to remove the disallowed prefix, provided the result passes all safety checks. If that still fails, it should fall back to the default naming convention.

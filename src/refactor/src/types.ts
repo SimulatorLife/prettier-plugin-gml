@@ -6,6 +6,7 @@
 
 import { Core } from "@gmloop/core";
 
+import type { StorageBackend } from "./backends/storage-backend.js";
 import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
@@ -560,6 +561,7 @@ export interface RenameRequest {
 export interface ExecuteRenameRequest extends RenameRequest {
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -569,6 +571,7 @@ export interface ExecuteBatchRenameRequest {
     renames: Array<RenameRequest>;
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -636,6 +639,7 @@ export interface NamingConventionCodemodPlan {
     warnings: Array<string>;
     errors: Array<string>;
     topLevelRenamePlan: BatchRenamePlanSummary | null;
+    topLevelRenameRequests: Array<RenameRequest>;
     localRenameCount: number;
 }
 
@@ -650,6 +654,28 @@ export interface ConfiguredCodemodSummary {
     errors: Array<string>;
 }
 
+export interface CodemodExecutionTelemetry {
+    queueCount: number;
+    requestedCodemodCount: number;
+    durationMs: number;
+    overlayEntryCount: number;
+    overlayBytes: number;
+    overlayHighWaterBytes: number;
+    overlaySpillWrites: number;
+    overlaySpilledEntries: number;
+    overlayCacheHits: number;
+    overlayCacheMisses: number;
+    appliedFileCount: number;
+    workspaceEdit?: {
+        textEditCount: number;
+        fileRenameCount: number;
+        metadataEditCount: number;
+        touchedFileCount: number;
+        totalTextBytes: number;
+        highWaterTextBytes: number;
+    };
+}
+
 /**
  * Aggregate result for a configured codemod execution request.
  */
@@ -657,6 +683,7 @@ export interface ConfiguredCodemodRunResult {
     dryRun: boolean;
     summaries: Array<ConfiguredCodemodSummary>;
     appliedFiles: Map<string, string>;
+    telemetry?: CodemodExecutionTelemetry;
 }
 
 /**
@@ -673,6 +700,24 @@ export interface ConfiguredCodemodRunRequest {
     deleteFile?: (path: string) => MaybePromise<void>;
     dryRun?: boolean;
     onlyCodemods?: Array<RefactorCodemodId>;
+    /**
+     * Upper bound for in-memory dry-run overlay bytes before entries spill.
+     *
+     * A value of 0 disables spill and retains all overlay content in memory.
+     */
+    dryRunOverlaySpillThresholdBytes?: number;
+    /**
+     * Maximum read-through cache entries for the default temp-file overlay backend.
+     */
+    dryRunOverlayReadCacheMaxEntries?: number;
+    /**
+     * Optional backend used for dry-run overlay spilling.
+     *
+     * When omitted, the engine uses the default temp-file backend. This hook
+     * keeps codemod execution backend-agnostic while preserving current defaults.
+     */
+    dryRunOverlayStorageBackend?: StorageBackend;
+    onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
 }
 
 /**
@@ -697,6 +742,10 @@ export interface RegisteredCodemodSelection {
 export interface PrepareRenamePlanOptions {
     validateHotReload?: boolean;
     hotReloadOptions?: HotReloadValidationOptions;
+}
+
+export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
+    includeImpactAnalyses?: boolean;
 }
 
 export interface HotReloadValidationOptions {
@@ -882,6 +931,7 @@ export interface RefactorEngineDependencies {
 
 export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
+    includeResultContent?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;

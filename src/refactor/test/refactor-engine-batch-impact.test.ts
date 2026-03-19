@@ -329,6 +329,30 @@ void test("executeBatchRename prepares hot reload when requested", async () => {
     assert.equal(result.hotReloadUpdates[0].action, "recompile");
 });
 
+void test("executeBatchRename can omit result content in write mode", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const files = { "test.gml": "scr_a" };
+    const readFile: WorkspaceReadFile = async (path) => files[path];
+    const writeFile: WorkspaceWriteFile = async (path, content) => {
+        files[path] = content;
+    };
+
+    const result = await engine.executeBatchRename({
+        renames: [{ symbolId: "gml/script/scr_a", newName: "scr_b" }],
+        readFile,
+        writeFile,
+        includeResultContent: false
+    });
+
+    assert.equal(result.applied.get("test.gml"), "");
+    assert.equal(files["test.gml"], "scr_b");
+});
+
 // Impact analysis tests.
 void test("analyzeRenameImpact requires symbolId and newName", async () => {
     const engine = new RefactorEngineClass();
