@@ -132,7 +132,28 @@ export function splitLines(text) {
  * @returns {"\r\n" | "\n"} The dominant line ending sequence.
  */
 export function dominantLineEnding(text: string): "\r\n" | "\n" {
-    const crlfCount = (text.match(/\r\n/g) ?? []).length;
-    const lfCount = (text.match(/(?<!\r)\n/g) ?? []).length;
+    let crlfCount = 0;
+    let lfCount = 0;
+    const length = text.length;
+
+    // Single-pass scan keeps this helper on the fast path for lint/refactor
+    // fixers that repeatedly inspect source text. The previous implementation
+    // ran two regex passes and allocated match arrays for every invocation.
+    // This loop preserves the original semantics: CRLF counts as one CRLF line
+    // ending, bare LF counts as LF, and everything else falls back to the LF
+    // tie-break default.
+    for (let index = 0; index < length; index += 1) {
+        if (text.charCodeAt(index) !== CHAR_CODE_LINE_FEED) {
+            continue;
+        }
+
+        if (index > 0 && text.charCodeAt(index - 1) === CHAR_CODE_CARRIAGE_RETURN) {
+            crlfCount += 1;
+            continue;
+        }
+
+        lfCount += 1;
+    }
+
     return crlfCount > lfCount ? "\r\n" : "\n";
 }
