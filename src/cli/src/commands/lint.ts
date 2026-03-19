@@ -236,7 +236,7 @@ type LintMessageWithOptionalAutofixPayload = ESLint.LintResult["messages"][numbe
 function sanitizeLintMessageForRetention<TMessage extends LintMessageWithOptionalAutofixPayload>(
     message: TMessage
 ): TMessage {
-    const { fix, suggestions, ...retainedMessage } = message;
+    const { fix: _fix, suggestions: _suggestions, ...retainedMessage } = message;
     return retainedMessage as TMessage;
 }
 
@@ -462,7 +462,9 @@ function lintTargetsWithRuntimeRecovery(parameters: {
     const aggregatedResults: Array<ESLint.LintResult> = [];
 
     const runLintTargetsSequentially = async (): Promise<Array<ESLint.LintResult>> => {
-        for (const lintTarget of orderedTargets) {
+        await orderedTargets.reduce<Promise<void>>(async (previousTargetPromise, lintTarget) => {
+            await previousTargetPromise;
+
             const targetStartedAtNanoseconds = readMonotonicNanoseconds();
             const executorForTarget = parameters.createExecutorForTarget
                 ? parameters.createExecutorForTarget()
@@ -472,6 +474,7 @@ function lintTargetsWithRuntimeRecovery(parameters: {
                 target: lintTarget.target,
                 fallbackFilePath: lintTarget.fallbackFilePath
             });
+
             await parameters.onTargetCompleted({
                 target: lintTarget.target,
                 targetResults,
@@ -480,8 +483,9 @@ function lintTargetsWithRuntimeRecovery(parameters: {
                     completedAtNanoseconds: readMonotonicNanoseconds()
                 })
             });
+
             aggregatedResults.push(...targetResults.map(createRetainedLintResult));
-        }
+        }, Promise.resolve());
 
         return aggregatedResults;
     };
@@ -805,20 +809,22 @@ async function collectOverlayWithoutLanguageWiringPaths(parameters: {
 }): Promise<Array<string>> {
     const resolvedPaths: Array<string> = [];
 
-    for (const result of parameters.results) {
+    await parameters.results.reduce<Promise<void>>(async (previousResultPromise, result) => {
+        await previousResultPromise;
+
         const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
         if (!isResolvedConfigLike(resolvedConfig)) {
-            continue;
+            return;
         }
 
         if (!hasOverlayRuleApplied(resolvedConfig)) {
-            continue;
+            return;
         }
 
         if (!isCanonicalGmlWiring(resolvedConfig)) {
             resolvedPaths.push(result.filePath);
         }
-    }
+    }, Promise.resolve());
 
     return resolvedPaths;
 }
@@ -865,10 +871,12 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
     let observedConfig = false;
     const unsupportedProcessorPaths: Array<string> = [];
 
-    for (const result of parameters.results) {
+    await parameters.results.reduce<Promise<void>>(async (previousResultPromise, result) => {
+        await previousResultPromise;
+
         const resolvedConfig = await parameters.eslint.calculateConfigForFile(result.filePath);
         if (!isResolvedConfigLike(resolvedConfig)) {
-            continue;
+            return;
         }
 
         observedConfig = true;
@@ -876,7 +884,7 @@ async function enforceProcessorPolicyForGmlFiles(parameters: {
         if (processorIdentity !== null) {
             unsupportedProcessorPaths.push(result.filePath);
         }
-    }
+    }, Promise.resolve());
 
     if (unsupportedProcessorPaths.length > 0) {
         return Object.freeze({

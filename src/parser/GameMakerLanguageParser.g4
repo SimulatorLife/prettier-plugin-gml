@@ -332,7 +332,8 @@ expressionSequence
     ;
 
 expressionOrFunction
-    : expression
+    : assignmentExpression
+    | expression
     | functionDeclaration
     ;
 
@@ -355,8 +356,8 @@ expression
     | expression Or expression # BinaryExpression
     | expression Xor expression # BinaryExpression
     | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
-    | lValueExpression # VariableExpression
     | <assoc=right> expression QuestionMark expression Colon expression # TernaryExpression
+    | lValueExpression # VariableExpression
     | functionDeclaration # FunctionExpression
     | literal # LiteralExpression
     ;

@@ -546,6 +546,8 @@ type SourceTextRange = Readonly<{ start: number; end: number }>;
 
 const MATH_OPTIMIZATION_SIGNAL_PATTERN =
     /[*/%+-]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
+const MATH_STRONG_SIGNAL_PATTERN =
+    /[*/%]|\b(?:div|mod|power|sqrt|sqr|sin|cos|tan|dsin|dcos|dtan|degtorad|radtodeg|arctan2|darctan2|ln|exp|log2|point_distance(?:_3d)?|point_direction|lengthdir_[xy]|dot_product(?:_3d)?|mean)\b/u;
 const DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN = /[/%]|\b(?:div|mod)\b/u;
 const NUMERIC_COMPARISON_TOLERANCE = 1e-9;
 const MAX_MATH_OPTIMIZATION_CANDIDATE_TEXT_LENGTH = 2000;
@@ -558,7 +560,27 @@ function isRangeInsideAnyRange(range: SourceTextRange, containerRanges: Readonly
 }
 
 function containsPotentialMathOptimizationSyntax(sourceTextOfNode: string): boolean {
-    return MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode);
+    if (!MATH_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+        return false;
+    }
+
+    if (MATH_STRONG_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+        return true;
+    }
+
+    // Avoid treating long string-concatenation chains as math candidates.
+    if (sourceTextOfNode.includes('"') || sourceTextOfNode.includes("'")) {
+        return false;
+    }
+
+    // Additive chains of function calls (for example string-building traces)
+    // can look math-like due embedded numeric literals but are not safe/valuable
+    // optimize-math candidates.
+    if (/\b[A-Za-z_]\w*\s*\(/u.test(sourceTextOfNode)) {
+        return false;
+    }
+
+    return NUMERIC_LITERAL_SIGNAL_PATTERN.test(sourceTextOfNode);
 }
 
 function shouldAttemptManualNormalization(sourceTextOfNode: string): boolean {

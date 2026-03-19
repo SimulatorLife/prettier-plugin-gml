@@ -2,12 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
+import { restoreGlobalProperties, snapshotGlobalProperties } from "./runtime-global-state.js";
 
 type JsonGameSnapshot = {
     ScriptNames: Array<string>;
     Scripts: Array<(...args: Array<unknown>) => unknown>;
     GMObjects: Array<Record<string, unknown>>;
 };
+
+const runtimeIntegrationPropertyNames = [
+    "JSON_game",
+    "gml_Script_test",
+    "gml_Object_oSpider_Step_0",
+    "g_pBuiltIn",
+    "make_colour_rgb",
+    "vk_anykey",
+    "_uB2",
+    "EVENT_STEP_NORMAL",
+    "_cx"
+] as const;
 
 type GlobalSnapshot = {
     JSON_game?: JsonGameSnapshot;
@@ -21,81 +34,8 @@ type GlobalSnapshot = {
     _cx?: { _dx?: Record<string, unknown> };
 };
 
-function snapshotGlobals(): GlobalSnapshot {
-    const globals = globalThis as GlobalSnapshot;
-    return {
-        JSON_game: globals.JSON_game,
-        gml_Script_test: globals.gml_Script_test,
-        gml_Object_oSpider_Step_0: globals.gml_Object_oSpider_Step_0,
-        g_pBuiltIn: globals.g_pBuiltIn,
-        make_colour_rgb: globals.make_colour_rgb,
-        vk_anykey: globals.vk_anykey,
-        _uB2: globals._uB2,
-        EVENT_STEP_NORMAL: globals.EVENT_STEP_NORMAL,
-        _cx: globals._cx
-    };
-}
-
-function restoreGlobals(snapshot: GlobalSnapshot): void {
-    const globals = globalThis as GlobalSnapshot;
-
-    if (snapshot.JSON_game === undefined) {
-        delete globals.JSON_game;
-    } else {
-        globals.JSON_game = snapshot.JSON_game;
-    }
-
-    if (snapshot.gml_Script_test === undefined) {
-        delete globals.gml_Script_test;
-    } else {
-        globals.gml_Script_test = snapshot.gml_Script_test;
-    }
-
-    if (snapshot.gml_Object_oSpider_Step_0 === undefined) {
-        delete globals.gml_Object_oSpider_Step_0;
-    } else {
-        globals.gml_Object_oSpider_Step_0 = snapshot.gml_Object_oSpider_Step_0;
-    }
-
-    if (snapshot.g_pBuiltIn === undefined) {
-        delete globals.g_pBuiltIn;
-    } else {
-        globals.g_pBuiltIn = snapshot.g_pBuiltIn;
-    }
-
-    if (snapshot.make_colour_rgb === undefined) {
-        delete globals.make_colour_rgb;
-    } else {
-        globals.make_colour_rgb = snapshot.make_colour_rgb;
-    }
-
-    if (snapshot.vk_anykey === undefined) {
-        delete globals.vk_anykey;
-    } else {
-        globals.vk_anykey = snapshot.vk_anykey;
-    }
-
-    if (snapshot._uB2 === undefined) {
-        delete globals._uB2;
-    } else {
-        globals._uB2 = snapshot._uB2;
-    }
-
-    if (snapshot.EVENT_STEP_NORMAL === undefined) {
-        delete globals.EVENT_STEP_NORMAL;
-    } else {
-        globals.EVENT_STEP_NORMAL = snapshot.EVENT_STEP_NORMAL;
-    }
-
-    if (snapshot._cx === undefined) {
-        delete globals._cx;
-    } else {
-        globals._cx = snapshot._cx;
-    }
-}
-
 await test("applies script patches to GameMaker script registry", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         function gml_Script_test() {
@@ -124,12 +64,12 @@ await test("applies script patches to GameMaker script registry", () => {
         assert.notEqual(updatedFn, gml_Script_test, "Global script reference should be replaced");
         assert.equal(jsonGame.Scripts[0], updatedFn, "JSON_game script table should be updated");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("applies object event patches to GameMaker object tables", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         function gml_Object_oSpider_Step_0() {
@@ -174,12 +114,12 @@ await test("applies object event patches to GameMaker object tables", () => {
         assert.ok("StepNormalEvent" in instanceEntry, "Instance event handler should be assigned");
         assert.equal(instanceEntry.StepNormalEvent, updatedFn, "Instance event handler should be updated");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object patches update entries when previous handler is anonymous", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const objectEntry = {
@@ -223,12 +163,12 @@ await test("object patches update entries when previous handler is anonymous", (
         assert.ok(Array.isArray(eventArray), "Instance event array should exist");
         assert.equal(eventArray?.[globals._uB2 ?? -1], true, "Instance event flag should be enabled");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object patches enable instance event flags with standard event indices", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         function gml_Object_oSpider_Step_0() {
@@ -273,12 +213,12 @@ await test("object patches enable instance event flags with standard event indic
         assert.ok(Array.isArray(eventArray), "Instance event array should exist");
         assert.equal(eventArray?.[globals.EVENT_STEP_NORMAL ?? -1], true, "Instance event flag should be enabled");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("script patches resolve builtin constants and getters", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -302,12 +242,12 @@ await test("script patches resolve builtin constants and getters", () => {
         const expected = 42 + 10 + 20 + 16_711_680 + Math.PI;
         assert.ok(Math.abs(result - expected) < 1e-9);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("script patches map GML variables to instance storage", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -328,12 +268,12 @@ await test("script patches map GML variables to instance storage", () => {
         assert.equal(result, 6);
         assert.equal(instance.gmlarmNum, 6);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("updates pObject definition on active instances", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -394,7 +334,7 @@ await test("updates pObject definition on active instances", () => {
         assert.equal(instance.Event[5], true);
         assert.equal(pObject.Event[5], true);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
@@ -442,7 +382,7 @@ function applyEventPatchAndGetEntries(
 }
 
 await test("object event patches correctly resolve PreCreateEvent key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_PreCreate_0;
 
@@ -470,12 +410,12 @@ await test("object event patches correctly resolve PreCreateEvent key", () => {
         } else {
             globals.gml_Object_oEnemy_PreCreate_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve CleanUpEvent key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_CleanUp_0;
 
@@ -502,12 +442,12 @@ await test("object event patches correctly resolve CleanUpEvent key", () => {
         } else {
             globals.gml_Object_oEnemy_CleanUp_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve StepBeginEvent key (not StepNormalEvent)", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_StepBegin_0;
 
@@ -535,12 +475,12 @@ await test("object event patches correctly resolve StepBeginEvent key (not StepN
         } else {
             globals.gml_Object_oEnemy_StepBegin_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve StepEndEvent key (not StepNormalEvent)", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_StepEnd_0;
 
@@ -567,12 +507,12 @@ await test("object event patches correctly resolve StepEndEvent key (not StepNor
         } else {
             globals.gml_Object_oEnemy_StepEnd_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve DrawGUI key (not DrawEvent)", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_DrawGUI_0;
 
@@ -600,12 +540,12 @@ await test("object event patches correctly resolve DrawGUI key (not DrawEvent)",
         } else {
             globals.gml_Object_oEnemy_DrawGUI_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve DrawEventBegin key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_DrawBegin_0;
 
@@ -632,12 +572,12 @@ await test("object event patches correctly resolve DrawEventBegin key", () => {
         } else {
             globals.gml_Object_oEnemy_DrawBegin_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve DrawEventEnd key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_DrawEnd_0;
 
@@ -664,12 +604,12 @@ await test("object event patches correctly resolve DrawEventEnd key", () => {
         } else {
             globals.gml_Object_oEnemy_DrawEnd_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve DrawGUIBegin key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_DrawGUIBegin_0;
 
@@ -697,12 +637,12 @@ await test("object event patches correctly resolve DrawGUIBegin key", () => {
         } else {
             globals.gml_Object_oEnemy_DrawGUIBegin_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("object event patches correctly resolve DrawGUIEnd key", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;
     const savedGlobal = globals.gml_Object_oEnemy_DrawGUIEnd_0;
 
@@ -730,7 +670,7 @@ await test("object event patches correctly resolve DrawGUIEnd key", () => {
         } else {
             globals.gml_Object_oEnemy_DrawGUIEnd_0 = savedGlobal;
         }
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
@@ -738,7 +678,7 @@ await test("script patch updates the correct index in a large script table", () 
     // Exercises the scriptName→index cache path with a realistically-sized
     // ScriptNames array so that any regression (e.g., off-by-one, stale cache)
     // would be caught by an incorrect index being updated.
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const TARGET_INDEX = 150;
@@ -784,7 +724,7 @@ await test("script patch updates the correct index in a large script table", () 
         assert.equal(jsonGame.Scripts[TARGET_INDEX - 1]?.(), "original_149", "Script before target must be unchanged");
         assert.equal(jsonGame.Scripts[TARGET_INDEX + 1]?.(), "original_151", "Script after target must be unchanged");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
@@ -793,7 +733,7 @@ await test("script patch binding reindexes when scriptNames array reference chan
     // rebuilt when JSON_game.ScriptNames is replaced with a new array instance.
     // This simulates a full game reload scenario where the runtime reinitialises
     // its script table, and a hot-reload patch arrives shortly after.
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -845,6 +785,6 @@ await test("script patch binding reindexes when scriptNames array reference chan
         // The first table must not have been modified in round 2
         assert.equal(firstScripts[42], afterFirstPatch, "Round 1 table must not be altered by round 2 patch");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });

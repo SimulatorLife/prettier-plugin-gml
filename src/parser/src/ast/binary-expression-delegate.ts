@@ -69,10 +69,12 @@ export default class BinaryExpressionDelegate {
             const [leftCtx, rightCtx] = childExpressions;
             const leftIsBinary = Object.hasOwn(leftCtx, "expression") && typeof leftCtx.expression === "function";
             const rightIsBinary = Object.hasOwn(rightCtx, "expression") && typeof rightCtx.expression === "function";
+            const leftShouldRecurse = leftIsBinary && leftCtx !== ctx;
+            const rightShouldRecurse = rightIsBinary && rightCtx !== ctx;
 
-            leftNode = leftIsBinary ? this.handle(leftCtx, { visit, astNode }, true) : visit(leftCtx);
+            leftNode = leftShouldRecurse ? this.handle(leftCtx, { visit, astNode }, true) : visit(leftCtx);
 
-            rightNode = rightIsBinary ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
+            rightNode = rightShouldRecurse ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
         }
 
         if (!ctx.children || ctx.children.length < 2 || !ctx.children[1]) {
@@ -84,17 +86,18 @@ export default class BinaryExpressionDelegate {
             return visit(ctx);
         }
 
-        let operator = operatorToken.getText();
+        const operator = operatorToken.getText();
 
-        // Normalize single-equals equality check to double-equals in the AST.
-        // In GML, '=' can be used as a comparison in expression context, which
-        // is semantically equivalent to '=='.
-        if (operator === "=" || operator === ":=") {
-            operator = "==";
-        }
+        // In GML, the single-equals token can represent assignment semantics.
+        // Parsing it as a BinaryExpression would incorrectly treat chained
+        // assignments as boolean comparisons. Represent `=` and `:=` as
+        // AssignmentExpression nodes to preserve the intent of nested assignment
+        // chains (e.g. `a = b = c`).
+        const isAssignmentOperator = operator === "=" || operator === ":=";
+        const isAssignmentNode = isAssignmentOperator;
 
         let node = astNode(ctx, {
-            type: "BinaryExpression",
+            type: isAssignmentNode ? "AssignmentExpression" : "BinaryExpression",
             operator,
             left: leftNode,
             right: rightNode
