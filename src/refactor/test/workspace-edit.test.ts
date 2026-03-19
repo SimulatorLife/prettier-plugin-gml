@@ -9,6 +9,7 @@ import {
     getWorkspaceArrays,
     getWorkspaceEditTelemetry,
     isWorkspaceEditLike,
+    validateFileRenameOperations,
     WorkspaceEdit
 } from "../src/workspace-edit.js";
 
@@ -145,4 +146,33 @@ void test("WorkspaceEdit telemetry tracks edit counts and byte high-water marks"
     assert.ok(telemetry.touchedFileCount >= 4);
     assert.ok(telemetry.totalTextBytes > 0);
     assert.ok(telemetry.highWaterTextBytes >= telemetry.totalTextBytes);
+});
+
+void test("validateFileRenameOperations rejects duplicate sources, duplicate destinations, and rename chains", () => {
+    const errors = validateFileRenameOperations([
+        { oldPath: "scripts/a.gml", newPath: "scripts/b.gml" },
+        { oldPath: "scripts/a.gml", newPath: "scripts/c.gml" },
+        { oldPath: "scripts/d.gml", newPath: "scripts/c.gml" },
+        { oldPath: "scripts/b.gml", newPath: "scripts/e.gml" }
+    ]);
+
+    assert.ok(errors.some((error) => error.includes("Duplicate file rename source detected for scripts/a.gml")));
+    assert.ok(errors.some((error) => error.includes("Duplicate file rename destination detected for scripts/c.gml")));
+    assert.ok(
+        errors.some((error) =>
+            error.includes("File rename destination scripts/b.gml is also scheduled as a rename source")
+        )
+    );
+});
+
+void test("validateFileRenameOperations rejects empty and unchanged paths", () => {
+    const errors = validateFileRenameOperations([
+        { oldPath: "", newPath: "scripts/b.gml" },
+        { oldPath: "scripts/c.gml", newPath: "" },
+        { oldPath: "scripts/d.gml", newPath: "scripts/d.gml" }
+    ]);
+
+    assert.ok(errors.some((error) => error.includes("source path must be a non-empty string")));
+    assert.ok(errors.some((error) => error.includes("destination path must be a non-empty string")));
+    assert.ok(errors.some((error) => error.includes("must change the path")));
 });
