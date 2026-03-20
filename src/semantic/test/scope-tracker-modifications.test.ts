@@ -4,6 +4,31 @@ import test from "node:test";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 import { createRange } from "./scope-tracker-helpers.js";
 
+/**
+ * Replaces wall-clock sleeps with a deterministic timestamp sequence so the
+ * modification-cutoff assertions do not depend on scheduler delays or clock
+ * granularity.
+ */
+function withDeterministicDateNow(
+    callback: (advanceTimestamp: () => number) => void | Promise<void>
+): Promise<void> | void {
+    const originalDateNow = Date.now;
+    let currentTimestamp = 1000;
+
+    Date.now = () => currentTimestamp;
+
+    const advanceTimestamp = (): number => {
+        currentTimestamp += 1;
+        return currentTimestamp;
+    };
+
+    try {
+        return callback(advanceTimestamp);
+    } finally {
+        Date.now = originalDateNow;
+    }
+}
+
 void test("getScopeModificationMetadata returns modification info for a scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
@@ -44,130 +69,134 @@ void test("getScopeModificationMetadata returns null for non-existent scope", ()
     assert.strictEqual(metadata, null);
 });
 
-void test("getModifiedScopes returns all scopes modified after timestamp", async () => {
-    const tracker = new ScopeTracker({ enabled: true });
+void test("getModifiedScopes returns all scopes modified after timestamp", () =>
+    withDeterministicDateNow((advanceTimestamp) => {
+        const tracker = new ScopeTracker({ enabled: true });
 
-    const scope1 = tracker.enterScope("program");
-    const scope2 = tracker.enterScope("function");
+        const scope1 = tracker.enterScope("program");
+        const scope2 = tracker.enterScope("function");
 
-    const beforeModifications = Date.now();
+        const beforeModifications = Date.now();
+        advanceTimestamp();
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+        tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
-    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
+        tracker.exitScope();
+        advanceTimestamp();
 
-    tracker.exitScope();
+        tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
 
-    tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
+        tracker.exitScope();
 
-    tracker.exitScope();
+        const modifiedScopes = tracker.getModifiedScopes(beforeModifications);
 
-    const modifiedScopes = tracker.getModifiedScopes(beforeModifications);
+        assert.strictEqual(modifiedScopes.length, 2);
 
-    assert.strictEqual(modifiedScopes.length, 2);
+        const scope1Metadata = modifiedScopes.find((s) => s.scopeId === scope1.id);
+        const scope2Metadata = modifiedScopes.find((s) => s.scopeId === scope2.id);
 
-    const scope1Metadata = modifiedScopes.find((s) => s.scopeId === scope1.id);
-    const scope2Metadata = modifiedScopes.find((s) => s.scopeId === scope2.id);
+        assert.ok(scope1Metadata);
+        assert.strictEqual(scope1Metadata.scopeKind, "program");
+        assert.strictEqual(scope1Metadata.modificationCount, 1);
 
-    assert.ok(scope1Metadata);
-    assert.strictEqual(scope1Metadata.scopeKind, "program");
-    assert.strictEqual(scope1Metadata.modificationCount, 1);
+        assert.ok(scope2Metadata);
+        assert.strictEqual(scope2Metadata.scopeKind, "function");
+        assert.strictEqual(scope2Metadata.modificationCount, 1);
+    }));
 
-    assert.ok(scope2Metadata);
-    assert.strictEqual(scope2Metadata.scopeKind, "function");
-    assert.strictEqual(scope2Metadata.modificationCount, 1);
-});
+void test("getModifiedScopes filters scopes by timestamp", () =>
+    withDeterministicDateNow((advanceTimestamp) => {
+        const tracker = new ScopeTracker({ enabled: true });
 
-void test("getModifiedScopes filters scopes by timestamp", async () => {
-    const tracker = new ScopeTracker({ enabled: true });
+        tracker.enterScope("program");
+        const scope2 = tracker.enterScope("function");
 
-    tracker.enterScope("program");
-    const scope2 = tracker.enterScope("function");
+        tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
-    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
+        advanceTimestamp();
+        const cutoffTimestamp = Date.now();
+        advanceTimestamp();
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    const cutoffTimestamp = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+        tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
 
-    tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
+        tracker.exitScope();
+        tracker.exitScope();
 
-    tracker.exitScope();
-    tracker.exitScope();
+        const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
 
-    const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
+        assert.strictEqual(modifiedScopes.length, 1);
+        assert.strictEqual(modifiedScopes[0].scopeId, scope2.id);
+    }));
 
-    assert.strictEqual(modifiedScopes.length, 1);
-    assert.strictEqual(modifiedScopes[0].scopeId, scope2.id);
-});
+void test("updateScopeMetadata marks scope as modified when metadata changes", () =>
+    withDeterministicDateNow((advanceTimestamp) => {
+        const tracker = new ScopeTracker({ enabled: true });
+        const scope = tracker.enterScope("program", {
+            name: "oldName",
+            path: "scripts/old_path.gml",
+            start: { line: 1, column: 0, index: 0 }
+        });
 
-void test("updateScopeMetadata marks scope as modified when metadata changes", async () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const scope = tracker.enterScope("program", {
-        name: "oldName",
-        path: "scripts/old_path.gml",
-        start: { line: 1, column: 0, index: 0 }
-    });
+        tracker.exitScope();
 
-    tracker.exitScope();
+        const baseline = tracker.getScopeModificationMetadata(scope.id);
+        assert.ok(baseline);
+        const baselineCount = baseline.modificationCount;
 
-    const baseline = tracker.getScopeModificationMetadata(scope.id);
-    assert.ok(baseline);
-    const baselineCount = baseline.modificationCount;
+        advanceTimestamp();
+        const cutoffTimestamp = Date.now();
+        advanceTimestamp();
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    const cutoffTimestamp = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+        tracker.updateScopeMetadata(scope.id, {
+            name: "newName",
+            path: "scripts/new_path.gml",
+            start: { line: 5, column: 2, index: 42 }
+        });
 
-    tracker.updateScopeMetadata(scope.id, {
-        name: "newName",
-        path: "scripts/new_path.gml",
-        start: { line: 5, column: 2, index: 42 }
-    });
+        const afterUpdate = tracker.getScopeModificationMetadata(scope.id);
+        assert.ok(afterUpdate);
+        assert.strictEqual(afterUpdate.modificationCount, baselineCount + 1);
+        assert.ok(afterUpdate.lastModified > cutoffTimestamp);
 
-    const afterUpdate = tracker.getScopeModificationMetadata(scope.id);
-    assert.ok(afterUpdate);
-    assert.strictEqual(afterUpdate.modificationCount, baselineCount + 1);
-    assert.ok(afterUpdate.lastModified > cutoffTimestamp);
+        const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
+        assert.strictEqual(modifiedScopes.length, 1);
+        assert.strictEqual(modifiedScopes[0].scopeId, scope.id);
+    }));
 
-    const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
-    assert.strictEqual(modifiedScopes.length, 1);
-    assert.strictEqual(modifiedScopes[0].scopeId, scope.id);
-});
+void test("updateScopeMetadata does not mark scope as modified when metadata is unchanged", () =>
+    withDeterministicDateNow((advanceTimestamp) => {
+        const tracker = new ScopeTracker({ enabled: true });
+        const scope = tracker.enterScope("program", {
+            name: "stableName",
+            path: "scripts/stable_path.gml",
+            start: { line: 2, column: 0, index: 10 },
+            end: { line: 3, column: 1, index: 25 }
+        });
 
-void test("updateScopeMetadata does not mark scope as modified when metadata is unchanged", async () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const scope = tracker.enterScope("program", {
-        name: "stableName",
-        path: "scripts/stable_path.gml",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 3, column: 1, index: 25 }
-    });
+        tracker.exitScope();
 
-    tracker.exitScope();
+        const baseline = tracker.getScopeModificationMetadata(scope.id);
+        assert.ok(baseline);
 
-    const baseline = tracker.getScopeModificationMetadata(scope.id);
-    assert.ok(baseline);
+        advanceTimestamp();
+        const cutoffTimestamp = Date.now();
+        advanceTimestamp();
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    const cutoffTimestamp = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+        tracker.updateScopeMetadata(scope.id, {
+            name: "stableName",
+            path: "scripts/stable_path.gml",
+            start: { line: 2, column: 0, index: 10 },
+            end: { line: 3, column: 1, index: 25 }
+        });
 
-    tracker.updateScopeMetadata(scope.id, {
-        name: "stableName",
-        path: "scripts/stable_path.gml",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 3, column: 1, index: 25 }
-    });
+        const afterNoopUpdate = tracker.getScopeModificationMetadata(scope.id);
+        assert.ok(afterNoopUpdate);
+        assert.strictEqual(afterNoopUpdate.modificationCount, baseline.modificationCount);
+        assert.strictEqual(afterNoopUpdate.lastModified, baseline.lastModified);
 
-    const afterNoopUpdate = tracker.getScopeModificationMetadata(scope.id);
-    assert.ok(afterNoopUpdate);
-    assert.strictEqual(afterNoopUpdate.modificationCount, baseline.modificationCount);
-    assert.strictEqual(afterNoopUpdate.lastModified, baseline.lastModified);
-
-    const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
-    assert.deepStrictEqual(modifiedScopes, []);
-});
+        const modifiedScopes = tracker.getModifiedScopes(cutoffTimestamp);
+        assert.deepStrictEqual(modifiedScopes, []);
+    }));
 
 void test("getMostRecentlyModifiedScope returns the latest modified scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
