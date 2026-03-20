@@ -147,7 +147,7 @@ void describe("findAncestorNode", () => {
 // findEnclosingFunctionDeclaration
 // ---------------------------------------------------------------------------
 // `findEnclosingFunctionDeclaration` was relocated from
-// `function-parameter-naming.ts` to `path-utils.ts` because it is a path
+// `variable-declarator-layout.ts` to `path-utils.ts` because it is a path
 // traversal utility.  All AstPath helpers belong in a single focused module.
 
 void describe("findEnclosingFunctionDeclaration", () => {

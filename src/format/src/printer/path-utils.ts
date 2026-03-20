@@ -71,7 +71,7 @@ export function findAncestorNode(path: AstPath<any>, predicate: (node: any) => b
  * Prettier path. This is a layout-only traversal helper for printer context
  * lookups and must not be used for semantic/content rewrites.
  *
- * Previously lived in `function-parameter-naming.ts` alongside doc-fragment
+ * Previously lived in `variable-declarator-layout.ts` alongside doc-fragment
  * joining helpers; moved here because path traversal utilities belong in a
  * single dedicated module (`path-utils.ts`) rather than scattered across
  * printer sub-modules named for unrelated concerns.
