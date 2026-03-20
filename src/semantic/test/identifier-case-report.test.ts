@@ -227,6 +227,7 @@ void describe("identifier case reporting", () => {
             const writeEntry = writes.find((entry) => entry.type === "write");
             assert.ok(writeEntry);
             assert.equal(writeEntry.targetPath, logPath);
+            assert.match(writeEntry.contents, /\n$/u, "expected log payload to retain a trailing newline");
 
             const parsedLog = JSON.parse(writeEntry.contents);
             assert.equal(parsedLog.summary.renameCount, 2);
