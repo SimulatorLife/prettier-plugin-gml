@@ -262,6 +262,13 @@ function boundaryPathSeparatorFor(pathValue: string): string {
     return isWindowsLikeBoundaryPath(pathValue) ? "\\" : "/";
 }
 
+function splitPathSegments(pathValue: string): Array<string> {
+    return pathValue
+        .split(/[\\/]+/u)
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+}
+
 /**
  * Return `true` when `filePath` is the same as or resides within `rootPath`.
  *
@@ -288,4 +295,38 @@ export function isPathWithinBoundary(filePath: string, rootPath: string): boolea
     const separator = boundaryPathSeparatorFor(normalizedRoot);
     const withBoundary = normalizedRoot.endsWith(separator) ? normalizedRoot : `${normalizedRoot}${separator}`;
     return normalizedFile.startsWith(withBoundary);
+}
+
+/**
+ * Determine whether a file path should be excluded based on directory segment
+ * deny-lists with canonical allowed-directory overrides.
+ *
+ * The `filePath` and each entry in `allowedDirectories` are canonicalized via
+ * {@link normalizeBoundaryPath} before boundary comparisons, so symlinks,
+ * trailing separators, and Windows case differences do not create false
+ * negatives. Segment matching remains lexical and case-insensitive by folding
+ * each path segment to lowercase before consulting `excludedDirectories`.
+ *
+ * @param {string} filePath Candidate file path to inspect.
+ * @param {ReadonlySet<string>} excludedDirectories Lower-cased directory names
+ * to exclude when they appear in any segment of `filePath`.
+ * @param {ReadonlyArray<string>} allowedDirectories Canonical boundary roots
+ * that override `excludedDirectories` when `filePath` is contained within one.
+ * @returns {boolean} `true` when `filePath` should be treated as excluded.
+ */
+export function isDirectoryExcludedBySegments(
+    filePath: string,
+    excludedDirectories: ReadonlySet<string>,
+    allowedDirectories: ReadonlyArray<string>
+): boolean {
+    const normalizedFilePath = normalizeBoundaryPath(filePath);
+    const isAllowedOverride = allowedDirectories.some((directory) =>
+        isPathWithinBoundary(normalizedFilePath, directory)
+    );
+    if (isAllowedOverride) {
+        return false;
+    }
+
+    const segments = splitPathSegments(normalizedFilePath);
+    return segments.some((segment) => excludedDirectories.has(segment.toLowerCase()));
 }
