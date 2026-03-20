@@ -149,6 +149,8 @@ interface HotReloadConfig {
  */
 interface InfrastructureConfig {
     abortSignal?: AbortSignal;
+    onWebSocketServerReady?: (server: PatchWebSocketServer) => void;
+    onStatusServerReady?: (server: StatusServerHandle) => void;
 }
 
 /**
@@ -762,6 +764,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         statusHost = "127.0.0.1",
         statusServer: enableStatus = true,
         abortSignal,
+        onWebSocketServerReady,
+        onStatusServerReady,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
@@ -887,6 +891,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.websocketServer = websocketServerController;
+            onWebSocketServerReady?.(websocketServerController);
 
             console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
         } catch (error) {
@@ -942,6 +947,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.statusServer = statusServerController;
+            onStatusServerReady?.(statusServerController);
 
             console.log(`Status server ready at ${statusServerController.url}`);
         } catch (error) {
