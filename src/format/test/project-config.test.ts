@@ -53,3 +53,30 @@ void test("extractProjectFormatOptions preserves explicit logicalOperatorsStyle 
         logicalOperatorsStyle: "keywords"
     });
 });
+
+void test("extractProjectFormatOptions drops project-aware and unknown top-level sections by default", () => {
+    const options = Format.extractProjectFormatOptions({
+        printWidth: 88,
+        useTabs: true,
+        semantic: {
+            index: "sqlite"
+        },
+        transpiler: {
+            hotReload: true
+        },
+        runtimeWrapper: {
+            inject: true
+        },
+        watch: {
+            debounceMs: 50
+        },
+        customWorkspace: {
+            enabled: true
+        }
+    });
+
+    assert.deepEqual(options, {
+        printWidth: 88,
+        useTabs: true
+    });
+});
