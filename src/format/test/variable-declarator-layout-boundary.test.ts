@@ -1,7 +1,7 @@
 /**
  * Enforces the formatter/linter boundary (target-state.md §2.1, §3.2):
  *
- * The format printer's `function-parameter-naming` module must expose only
+ * The format printer's `variable-declarator-layout` module must expose only
  * doc-layout helpers — declarator joining for `VariableDeclaration` nodes.
  * Path traversal helpers (e.g. `findEnclosingFunctionDeclaration`) belong in
  * `path-utils.ts`; semantic content rewrites (parameter renaming, alias
@@ -23,10 +23,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as FunctionParameterNaming from "../src/printer/function-parameter-naming.js";
+import * as VariableDeclaratorLayout from "../src/printer/variable-declarator-layout.js";
 
-void test("function-parameter-naming module only exposes doc-layout helpers", () => {
-    const exports = Object.keys(FunctionParameterNaming).toSorted();
+void test("variable-declarator-layout module only exposes doc-layout helpers", () => {
+    const exports = Object.keys(VariableDeclaratorLayout).toSorted();
 
     // Only the declarator-joining doc-layout helper is permitted in this module.
     // `findEnclosingFunctionDeclaration` was moved to `path-utils.ts` where it
@@ -37,39 +37,39 @@ void test("function-parameter-naming module only exposes doc-layout helpers", ()
     assert.deepStrictEqual(
         exports,
         ["joinDeclaratorPartsWithCommas"],
-        "function-parameter-naming must only export doc-layout helpers — path traversal belongs in path-utils.ts, semantic rewrites in @gmloop/lint"
+        "variable-declarator-layout must only export doc-layout helpers — path traversal belongs in path-utils.ts, semantic rewrites in @gmloop/lint"
     );
 });
 
-void test("function-parameter-naming does not export semantic parameter renaming (getPreferredFunctionParameterName)", () => {
+void test("variable-declarator-layout does not export semantic parameter renaming (getPreferredFunctionParameterName)", () => {
     assert.ok(
-        !("getPreferredFunctionParameterName" in FunctionParameterNaming),
+        !("getPreferredFunctionParameterName" in VariableDeclaratorLayout),
         "getPreferredFunctionParameterName is a semantic content rewrite; it must not live in the format workspace (target-state.md §2.1)"
     );
 });
 
-void test("function-parameter-naming does not export redundant-alias filter (filterKeptDeclarators)", () => {
+void test("variable-declarator-layout does not export redundant-alias filter (filterKeptDeclarators)", () => {
     assert.ok(
-        !("filterKeptDeclarators" in FunctionParameterNaming),
+        !("filterKeptDeclarators" in VariableDeclaratorLayout),
         "filterKeptDeclarators is a structural content rewrite; it must not live in the format workspace (target-state.md §3.2)"
     );
 });
 
-void test("function-parameter-naming does not export argument-initializer inference (resolveArgumentAliasInitializerDoc)", () => {
+void test("variable-declarator-layout does not export argument-initializer inference (resolveArgumentAliasInitializerDoc)", () => {
     assert.ok(
-        !("resolveArgumentAliasInitializerDoc" in FunctionParameterNaming),
+        !("resolveArgumentAliasInitializerDoc" in VariableDeclaratorLayout),
         "resolveArgumentAliasInitializerDoc is a semantic lookup used for content rewriting; it must not live in the format workspace (target-state.md §3.2)"
     );
 });
 
-void test("function-parameter-naming does not export preferred-name resolver (resolvePreferredParameterName)", () => {
+void test("variable-declarator-layout does not export preferred-name resolver (resolvePreferredParameterName)", () => {
     assert.ok(
-        !("resolvePreferredParameterName" in FunctionParameterNaming),
+        !("resolvePreferredParameterName" in VariableDeclaratorLayout),
         "resolvePreferredParameterName is a semantic content rewrite helper; it must not live in the format workspace"
     );
 });
 
-void test("function-parameter-naming does not export parser-workaround (filterMisattachedFunctionDocComments)", () => {
+void test("variable-declarator-layout does not export parser-workaround (filterMisattachedFunctionDocComments)", () => {
     // This function was a formatter-side workaround for comments that Prettier
     // attached to the wrong AST node. It has been correctly migrated to the
     // parser workspace: `@gmloop/parser` →
@@ -80,18 +80,18 @@ void test("function-parameter-naming does not export parser-workaround (filterMi
     // violate target-state.md §3.5 ("isolating dormant migrated semantic
     // transform modules from formatter workspace exports").
     assert.ok(
-        !("filterMisattachedFunctionDocComments" in FunctionParameterNaming),
+        !("filterMisattachedFunctionDocComments" in VariableDeclaratorLayout),
         "filterMisattachedFunctionDocComments was a parser-workaround and must not be re-introduced to the format workspace (target-state.md §3.5)"
     );
 });
 
-void test("function-parameter-naming does not export path-traversal helper (findEnclosingFunctionDeclaration)", () => {
+void test("variable-declarator-layout does not export path-traversal helper (findEnclosingFunctionDeclaration)", () => {
     // `findEnclosingFunctionDeclaration` is a path traversal utility and has
     // been moved to `path-utils.ts`, the canonical home for AstPath helpers.
     // It must not be re-introduced here to avoid mixing doc-layout and
     // path-traversal concerns in the same module.
     assert.ok(
-        !("findEnclosingFunctionDeclaration" in FunctionParameterNaming),
-        "findEnclosingFunctionDeclaration is a path-traversal helper and belongs in path-utils.ts, not function-parameter-naming"
+        !("findEnclosingFunctionDeclaration" in VariableDeclaratorLayout),
+        "findEnclosingFunctionDeclaration is a path-traversal helper and belongs in path-utils.ts, not variable-declarator-layout"
     );
 });

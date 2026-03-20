@@ -37,7 +37,6 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -87,6 +86,7 @@ import {
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
 } from "./type-guards.js";
+import { joinDeclaratorPartsWithCommas } from "./variable-declarator-layout.js";
 
 // TODO: Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
