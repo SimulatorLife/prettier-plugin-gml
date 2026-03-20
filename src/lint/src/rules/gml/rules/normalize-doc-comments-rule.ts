@@ -1074,12 +1074,8 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     return existingParams;
 }
 
-function escapeLiteralForRegExpPattern(value: string): string {
-    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
-}
-
 function updateExistingParamDocWithDefault(docBlock: Array<string>, parameterName: string, defaultVal: string): void {
-    const escapedParameterName = escapeLiteralForRegExpPattern(parameterName);
+    const escapedParameterName = CoreWorkspace.Core.escapeRegExp(parameterName);
     const normalizedDocName = isFunctionDefaultValueText(defaultVal)
         ? `[${parameterName}]`
         : formatOptionalParamDocName(parameterName, defaultVal);
