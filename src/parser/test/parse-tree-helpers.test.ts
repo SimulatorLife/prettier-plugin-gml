@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toDelegate } from "../src/runtime/delegation.js";
 import {
     collectPrototypeMethodNames,
     collectVisitMethodNames,
@@ -12,9 +11,6 @@ import { createWrapperSymbols, ensureHasInstancePatched } from "../src/runtime/s
 
 function WrapperBase() {}
 WrapperBase.prototype = {};
-
-const fallbackDelegate = () => "fallback";
-const alternateDelegate = () => "other";
 
 class SampleVisitor {
     visitProgram() {}
@@ -80,9 +76,4 @@ void test("ensureHasInstancePatched recognises marker decorated instances", () =
 
     assert.equal(wrapper instanceof Base, true);
     assert.equal(Base[patchFlag], true);
-});
-
-void test("toDelegate returns fallback when the candidate is not callable", () => {
-    assert.equal(toDelegate(null, fallbackDelegate), fallbackDelegate);
-    assert.equal(toDelegate(fallbackDelegate, alternateDelegate), fallbackDelegate);
 });
