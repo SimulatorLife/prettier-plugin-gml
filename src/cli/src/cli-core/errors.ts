@@ -252,11 +252,6 @@ function normalizeStackLines(stack: string | undefined): Array<string> | null {
     return lines.some((line) => line.length > 0) ? lines : null;
 }
 
-function resolveNameFromTag(value: unknown): string | null {
-    const tagName = Core.getObjectTagName(value);
-    return tagName ?? null;
-}
-
 function resolveErrorName(error: unknown): string {
     const errorLike = asErrorLike(error);
     const explicitName = Core.toTrimmedString(errorLike?.name);
@@ -264,7 +259,7 @@ function resolveErrorName(error: unknown): string {
         return explicitName;
     }
 
-    const tagName = resolveNameFromTag(error);
+    const tagName = Core.getObjectTagName(error);
     if (tagName) {
         return tagName;
     }
@@ -276,60 +271,35 @@ export function createCliErrorDetails(
     error: unknown,
     { fallbackMessage = "Unknown error" }: { fallbackMessage?: string } = {}
 ): CliErrorDetails {
-    const message = Core.getErrorMessage(error, { fallback: fallbackMessage });
-    const details: CliErrorDetails = {
-        message,
-        name: resolveErrorName(error)
-    };
-
     const code = Core.getErrorCode(error);
-    if (code) {
-        details.code = code;
-    }
-
     const stackLines = normalizeStackLines(asErrorLike(error)?.stack);
-    if (stackLines) {
-        details.stack = stackLines;
-    }
 
-    return details;
+    return {
+        message: Core.getErrorMessage(error, { fallback: fallbackMessage }),
+        name: resolveErrorName(error),
+        ...(code ? { code } : {}),
+        ...(stackLines ? { stack: stackLines } : {})
+    };
 }
 
 function resolveCliErrorUsage(error: unknown): string | null {
-    const errorLike = asErrorLike(error);
-    if (typeof errorLike?.usage === "string") {
-        return errorLike.usage ?? null;
-    }
-
-    return null;
-}
-
-function appendLineIfPresent(lines: Array<string>, value?: string): void {
-    if (!value) {
-        return;
-    }
-
-    lines.push(value);
-}
-
-function appendUsageSection(lines: Array<string>, usage: string | null): void {
-    if (!usage) {
-        return;
-    }
-
-    if (lines.length > 0 && lines.at(-1) !== "") {
-        lines.push("");
-    }
-
-    lines.push(usage);
+    const usage = asErrorLike(error)?.usage;
+    return typeof usage === "string" ? usage : null;
 }
 
 function buildCliErrorLines({ prefix, formattedError, usage }: CliErrorLinesOptions): Array<string> {
     const lines: Array<string> = [];
+    if (prefix) {
+        lines.push(prefix);
+    }
 
-    appendLineIfPresent(lines, prefix);
-    appendLineIfPresent(lines, formattedError);
-    appendUsageSection(lines, usage ?? null);
+    if (formattedError) {
+        lines.push(formattedError);
+    }
+
+    if (usage) {
+        return lines.length > 0 ? [...lines, "", usage] : [usage];
+    }
 
     return lines;
 }
