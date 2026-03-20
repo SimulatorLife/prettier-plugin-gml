@@ -105,6 +105,12 @@ void describe("shared package resolution utilities", () => {
         }
     });
 
+    void it("resolvePackageJsonPath resolves installed workspace packages via the ESM resolver", () => {
+        const packageJsonPath = resolvePackageJsonPath("@gmloop/core", "core");
+
+        assert.strictEqual(path.basename(packageJsonPath), "package.json");
+        assert.strictEqual(packageJsonPath.includes(`${path.sep}src${path.sep}core${path.sep}`), true);
+    });
     void it("resolvePackageJsonPath throws for unknown packages", () => {
         assert.throws(
             () => resolvePackageJsonPath("nonexistent-package-12345", "test"),
