@@ -1,5 +1,0 @@
-{
-  "lintRules": {
-    "gml/optimize-math-expressions": "error"
-  }
-}

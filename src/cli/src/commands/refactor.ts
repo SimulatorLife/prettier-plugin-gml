@@ -2,12 +2,10 @@
  * Refactor command for safe, project-wide code transformations.
  *
  * This command exposes the refactor engine through the CLI, enabling
- * safe renames and other transformations that preserve scope and semantics.
- * It integrates with the semantic analyzer and parser to plan edits that
- * avoid scope capture or shadowing.
+ * safe renames and project-configured codemod execution.
  */
 
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { lstat, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -17,85 +15,105 @@ import { Semantic } from "@gmloop/semantic";
 import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
+import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 
 const { buildProjectIndex } = Semantic;
-const { RefactorEngine, generateRenamePreview, formatRenamePlanReport } = Refactor;
+const {
+    RefactorEngine,
+    formatRenamePlanReport,
+    generateRenamePreview,
+    listConfiguredCodemods,
+    listRegisteredCodemods,
+    normalizeRefactorProjectConfig
+} = Refactor;
+type RegisteredCodemodId = ReturnType<typeof listRegisteredCodemods>[number]["id"];
+type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof Core.loadGmloopProjectConfig>> & {
+    refactor?: ReturnType<typeof normalizeRefactorProjectConfig>;
+};
 
-interface RefactorCommandOptions {
+type RefactorCommandOptions = {
     symbolId?: string;
     oldName?: string;
     newName?: string;
     projectRoot?: string;
+    config?: string;
     dryRun?: boolean;
+    write?: boolean;
+    only?: string;
+    list?: boolean;
     verbose?: boolean;
     checkHotReload?: boolean;
-}
+};
 
-/**
- * Options that have been validated and narrowed for the rename operation.
- */
-interface ValidatedRefactorOptions extends RefactorContext {
+type RefactorContext = {
+    projectRoot: string;
+    verbose: boolean;
+};
+
+type ValidatedRenameOptions = RefactorContext & {
     symbolId?: string;
     oldName?: string;
     newName: string;
     dryRun: boolean;
     checkHotReload: boolean;
+};
+
+type ValidatedCodemodOptions = RefactorContext & {
+    configPath: string;
+    dryRun: boolean;
+    onlyCodemods: Array<RegisteredCodemodId>;
+    list: boolean;
+    targetPaths: Array<string>;
+};
+
+type RefactorCommandIntent =
+    | {
+          mode: "rename";
+          options: ValidatedRenameOptions;
+      }
+    | {
+          mode: "codemod";
+          options: ValidatedCodemodOptions;
+      };
+
+function normalizeRequestedCodemods(onlyOption: string | undefined): Array<RegisteredCodemodId> {
+    if (!onlyOption) {
+        return [];
+    }
+
+    const requestedIds = Core.normalizeStringList(onlyOption, {
+        splitPattern: Core.createListSplitPattern([","]),
+        errorMessage: "--only must be a comma-separated list of codemod ids"
+    });
+    const validCodemodIds = new Set(listRegisteredCodemods().map((codemod) => codemod.id));
+
+    return requestedIds.map((requestedId) => {
+        if (!validCodemodIds.has(requestedId as RegisteredCodemodId)) {
+            throw new Error(`Unknown codemod '${requestedId}'. Valid codemods: ${[...validCodemodIds].join(", ")}`);
+        }
+
+        return requestedId as RegisteredCodemodId;
+    });
 }
 
-interface RefactorContext {
-    projectRoot: string;
-    verbose: boolean;
+function resolveDiscoveredProjectRoot(
+    projectRootOption: string | undefined,
+    configPathOption: string | undefined
+): Promise<string> {
+    return discoverProjectRoot({
+        explicitProjectPath: projectRootOption,
+        configPath: configPathOption
+    });
 }
 
-/**
- * Creates the refactor command for safe code transformations.
- *
- * @returns {Command} Commander command instance
- */
-export function createRefactorCommand(): Command {
-    const command = applyStandardCommandOptions(new Command("refactor"));
-
-    command
-        .description("Perform safe, project-wide code transformations")
-        .addOption(
-            new Option(
-                "--symbol-id <id>",
-                "Exact SCIP-style identifier (e.g., gml/script/my_func, gml/macro/MY_MACRO, gml/var/my_global)"
-            )
-        )
-        .addOption(
-            new Option(
-                "--old-name <name>",
-                "Search for a symbol by its base name. The tool will try to find the correct kind (script, macro, etc.) automatically."
-            )
-        )
-        .addOption(new Option("--new-name <name>", "New name for the symbol").makeOptionMandatory())
-        .addOption(
-            new Option("--project-root <path>", "Root directory of the GameMaker project").default(
-                process.cwd(),
-                "current directory"
-            )
-        )
-        .addOption(new Option("--dry-run", "Show what would be changed without modifying files").default(false))
-        .addOption(new Option("--verbose", "Enable verbose output with detailed diagnostics").default(false))
-        .addOption(
-            new Option("--check-hot-reload", "Validate that the refactored code is compatible with hot reload").default(
-                false
-            )
-        );
-
-    return command;
+function resolveCodemodConfigPath(projectRoot: string, configPathOption: string | undefined): Promise<string> {
+    return resolveExistingGmloopConfigPath(projectRoot, configPathOption);
 }
 
-/**
- * Validates refactor command options and ensures required parameters are provided.
- *
- * @param {RefactorCommandOptions} options - Raw command options from Commander
- * @returns {ValidatedRefactorOptions} Validated and narrowed options
- */
-function validateAndNarrowOptions(options: RefactorCommandOptions): ValidatedRefactorOptions {
+function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
     if (!options.newName) {
         throw new Error("--new-name is required");
     }
@@ -108,12 +126,9 @@ function validateAndNarrowOptions(options: RefactorCommandOptions): ValidatedRef
         throw new Error("Only one of --symbol-id or --old-name should be provided, not both");
     }
 
-    const projectRoot = path.resolve(options.projectRoot ?? process.cwd());
-    const verbose = options.verbose ?? false;
-
     return {
-        projectRoot,
-        verbose,
+        projectRoot: path.resolve(options.projectRoot ?? process.cwd()),
+        verbose: Boolean(options.verbose),
         symbolId: options.symbolId,
         oldName: options.oldName,
         newName: options.newName,
@@ -122,12 +137,92 @@ function validateAndNarrowOptions(options: RefactorCommandOptions): ValidatedRef
     };
 }
 
-/**
- * Performs a symbol rename operation using the refactor engine.
- *
- * @param {ValidatedRefactorOptions} options - Validated refactor options
- */
-async function performRename(options: ValidatedRefactorOptions): Promise<void> {
+async function validateCodemodOptions(
+    options: RefactorCommandOptions,
+    pathArguments: Array<string>
+): Promise<ValidatedCodemodOptions> {
+    const projectRoot = await resolveDiscoveredProjectRoot(options.projectRoot, options.config);
+    const targetPaths = pathArguments.length === 0 ? [projectRoot] : pathArguments.map((entry) => path.resolve(entry));
+
+    return {
+        projectRoot,
+        verbose: Boolean(options.verbose),
+        configPath: await resolveCodemodConfigPath(projectRoot, options.config),
+        dryRun: !options.write,
+        onlyCodemods: normalizeRequestedCodemods(options.only),
+        list: Boolean(options.list),
+        targetPaths
+    };
+}
+
+async function validateRefactorIntent(command: CommanderCommandLike): Promise<RefactorCommandIntent> {
+    const options = command.opts() as RefactorCommandOptions;
+    const [operation, ...remainingArgs] = command.args;
+
+    if (operation === "codemod") {
+        return {
+            mode: "codemod",
+            options: await validateCodemodOptions(options, remainingArgs)
+        };
+    }
+
+    if (operation !== undefined) {
+        throw new Error(`Unknown refactor operation '${operation}'. Supported operations: codemod`);
+    }
+
+    return {
+        mode: "rename",
+        options: validateRenameOptions(options)
+    };
+}
+
+async function collectGmlFilesFromTarget(
+    projectRoot: string,
+    absoluteTargetPath: string,
+    collectedFiles: Set<string>
+): Promise<void> {
+    const stats = await lstat(absoluteTargetPath);
+    if (stats.isDirectory()) {
+        const entries = await readdir(absoluteTargetPath, {
+            withFileTypes: true
+        });
+        await Core.runSequentially(entries, async (entry) => {
+            await collectGmlFilesFromTarget(projectRoot, path.join(absoluteTargetPath, entry.name), collectedFiles);
+        });
+        return;
+    }
+
+    if (!stats.isFile() || path.extname(absoluteTargetPath).toLowerCase() !== ".gml") {
+        return;
+    }
+
+    collectedFiles.add(path.relative(projectRoot, absoluteTargetPath));
+}
+
+async function collectTargetGmlFiles(projectRoot: string, targetPaths: Array<string>): Promise<Array<string>> {
+    const collectedFiles = new Set<string>();
+    await Core.runSequentially(targetPaths, async (targetPath) => {
+        await collectGmlFilesFromTarget(projectRoot, targetPath, collectedFiles);
+    });
+    return [...collectedFiles].sort();
+}
+
+function createRefactorEngineForProject(
+    projectIndex: unknown,
+    projectRoot: string
+): InstanceType<typeof RefactorEngine> {
+    const semantic = new GmlSemanticBridge(projectIndex, projectRoot);
+    const parser = new GmlParserBridge();
+    const formatter = new GmlTranspilerBridge();
+
+    return new RefactorEngine({
+        semantic,
+        parser,
+        formatter
+    });
+}
+
+async function performRename(options: ValidatedRenameOptions): Promise<void> {
     const { projectRoot, verbose, symbolId, oldName, newName, dryRun, checkHotReload } = options;
 
     if (verbose) {
@@ -137,39 +232,29 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
     let targetSymbolId = symbolId;
 
     try {
-        // 1. Initialize semantic analyzer and parse the project
         const projectIndex = await buildProjectIndex(projectRoot, undefined, {
             logger: verbose ? console : undefined
         });
+        const engine = createRefactorEngineForProject(projectIndex, projectRoot);
+        const semantic = engine.semantic as GmlSemanticBridge;
 
-        // 2. Build the refactor engine with semantic context
-        const semantic = new GmlSemanticBridge(projectIndex, projectRoot);
-        const parser = new GmlParserBridge();
-        const formatter = new GmlTranspilerBridge();
-
-        const engine = new RefactorEngine({
-            semantic,
-            parser,
-            formatter
-        });
-
-        // 3. Resolve target symbol if needed
         if (!targetSymbolId && oldName) {
-            if (verbose) console.log(`Searching for symbol matching name: ${oldName}`);
+            if (verbose) {
+                console.log(`Searching for symbol matching name: ${oldName}`);
+            }
 
-            // Try to resolve the symbol ID through the bridge's heuristic
             const resolvedId = semantic.resolveSymbolId(oldName);
             if (resolvedId) {
                 targetSymbolId = resolvedId;
-                if (verbose) console.log(`Resolved symbol ID: ${targetSymbolId}`);
+                if (verbose) {
+                    console.log(`Resolved symbol ID: ${targetSymbolId}`);
+                }
             } else {
-                // Fallback: look for occurrences to see if MAYBE we can find it
                 const occurrences = await engine.gatherSymbolOccurrences(oldName);
                 if (occurrences.length === 0) {
                     throw new Error(`Could not find any symbol named '${oldName}'`);
                 }
 
-                // Heuristic fallback if resolveSymbolId failed but occurrences exist
                 targetSymbolId = `gml/script/${oldName}`;
                 if (verbose) {
                     console.log(`Warning: resolveSymbolId failed but found ${occurrences.length} occurrences.`);
@@ -182,8 +267,9 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
             throw new Error("Could not resolve target symbol ID");
         }
 
-        // 4. Plan the rename with conflict detection
-        if (verbose) console.log(`Planning rename: ${targetSymbolId} → ${newName}`);
+        if (verbose) {
+            console.log(`Planning rename: ${targetSymbolId} → ${newName}`);
+        }
 
         const plan = await engine.prepareRenamePlan(
             {
@@ -195,12 +281,10 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
             }
         );
 
-        // 5. Display results (report/preview)
         console.log(`\n${formatRenamePlanReport(plan)}`);
 
         if (verbose) {
-            const resolvedOldName = plan.analysis.summary.oldName;
-            const preview = generateRenamePreview(plan.workspace, resolvedOldName, newName);
+            const preview = generateRenamePreview(plan.workspace, plan.analysis.summary.oldName, newName);
             console.log("\nDetailed File Changes:");
             for (const file of preview.files) {
                 console.log(`  ${file.filePath}: ${file.editCount} edits`);
@@ -212,24 +296,21 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
             return;
         }
 
-        // 6. Apply edits if not dry-run
         if (dryRun) {
             console.log("\n[DRY RUN] No files were modified.");
-        } else {
-            console.log("\nApplying changes...");
-            // Paths in workspace edits are project-relative, resolve to absolute
-            const resolvePath = (p: string) => path.resolve(projectRoot, p);
-            await engine.applyWorkspaceEdit(plan.workspace, {
-                readFile: (p) => readFile(resolvePath(p), "utf8"),
-                writeFile: (p, c) => writeFile(resolvePath(p), c, "utf8"),
-                renameFile: (oldP, newP) => rename(resolvePath(oldP), resolvePath(newP))
-            });
-            console.log("Success! All files updated.");
+            return;
         }
+
+        console.log("\nApplying changes...");
+        const resolvePath = (filePath: string) => path.resolve(projectRoot, filePath);
+        await engine.applyWorkspaceEdit(plan.workspace, {
+            readFile: (filePath) => readFile(resolvePath(filePath), "utf8"),
+            writeFile: (filePath, content) => writeFile(resolvePath(filePath), content, "utf8"),
+            renameFile: (oldPath, newPath) => rename(resolvePath(oldPath), resolvePath(newPath))
+        });
+        console.log("Success! All files updated.");
     } catch (error) {
         let message = Core.getErrorMessage(error);
-
-        // Improve error message for common symbol lookup failures
         if (message.includes("not found in semantic index")) {
             message =
                 `Symbol '${targetSymbolId || oldName}' was not found in the semantic index. ` +
@@ -241,15 +322,154 @@ async function performRename(options: ValidatedRefactorOptions): Promise<void> {
     }
 }
 
+function formatCodemodSelectionSummary(
+    config: LoadedGmloopProjectConfig,
+    selectedCodemods: Array<RegisteredCodemodId>
+) {
+    return listConfiguredCodemods(config.refactor ?? {}, selectedCodemods).map((codemod) => {
+        const stateLabel = codemod.configured ? "configured" : "not configured";
+        const selectionLabel = codemod.selected ? "selected" : "filtered out";
+        const configLabel = codemod.effectiveConfig === null ? "n/a" : JSON.stringify(codemod.effectiveConfig, null, 2);
+
+        return [
+            `${codemod.id}: ${stateLabel}, ${selectionLabel}`,
+            `  Description: ${codemod.description}`,
+            `  Effective config: ${configLabel}`
+        ].join("\n");
+    });
+}
+
+async function performConfiguredCodemods(options: ValidatedCodemodOptions): Promise<void> {
+    const { projectRoot, verbose, configPath, targetPaths, dryRun, onlyCodemods, list } = options;
+
+    if (verbose) {
+        console.log(`\nInitializing refactor codemod context for project: ${projectRoot}`);
+        console.log(`Loading gmloop config from: ${configPath}`);
+    }
+
+    const rawConfig = await Core.loadGmloopProjectConfig(configPath);
+    const config: LoadedGmloopProjectConfig = Object.freeze({
+        ...rawConfig,
+        refactor: normalizeRefactorProjectConfig(rawConfig.refactor)
+    });
+    const selectedCodemodLines = formatCodemodSelectionSummary(config, onlyCodemods);
+
+    if (list) {
+        console.log(`Project root: ${projectRoot}`);
+        console.log(`Config path: ${configPath}`);
+        for (const line of selectedCodemodLines) {
+            console.log(line);
+        }
+        return;
+    }
+
+    const projectIndex = await buildProjectIndex(projectRoot, undefined, {
+        logger: verbose ? console : undefined
+    });
+    const engine = createRefactorEngineForProject(projectIndex, projectRoot);
+    const gmlFilePaths = await collectTargetGmlFiles(projectRoot, targetPaths);
+    const selectedCodemodIds = listConfiguredCodemods(config.refactor ?? {}, onlyCodemods)
+        .filter((codemod) => codemod.configured && codemod.selected)
+        .map((codemod) => codemod.id);
+
+    if (selectedCodemodIds.length === 0) {
+        console.log("No configured codemods were selected. Nothing to do.");
+        return;
+    }
+
+    if (verbose) {
+        console.log(`Selected codemods: ${selectedCodemodIds.join(", ")}`);
+        console.log(`Selected GML files: ${gmlFilePaths.length}`);
+    }
+
+    const resolvePath = (filePath: string) => path.resolve(projectRoot, filePath);
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot,
+        targetPaths,
+        gmlFilePaths,
+        config: config.refactor ?? {},
+        readFile: (filePath) => readFile(resolvePath(filePath), "utf8"),
+        writeFile: (filePath, content) => writeFile(resolvePath(filePath), content, "utf8"),
+        renameFile: (oldPath, newPath) => rename(resolvePath(oldPath), resolvePath(newPath)),
+        dryRun,
+        onlyCodemods: selectedCodemodIds
+    });
+
+    let encounteredErrors = false;
+    for (const summary of result.summaries) {
+        console.log(`\n[${summary.id}] ${summary.changed ? "changed" : "no changes"}`);
+        if (summary.changedFiles.length > 0) {
+            console.log(`Changed files: ${summary.changedFiles.length}`);
+        }
+        for (const warning of summary.warnings) {
+            console.log(`Warning: ${warning}`);
+        }
+        for (const error of summary.errors) {
+            encounteredErrors = true;
+            console.log(`Error: ${error}`);
+        }
+    }
+
+    if (encounteredErrors) {
+        throw new Error("Configured codemod execution reported one or more errors.");
+    }
+
+    if (dryRun) {
+        console.log("\n[DRY RUN] No files were modified.");
+    } else {
+        console.log("\nSuccess! Configured codemods applied.");
+    }
+}
+
+export function createRefactorCommand(): Command {
+    const command = applyStandardCommandOptions(new Command("refactor"));
+
+    command
+        .description("Perform safe, project-wide code transformations")
+        .argument("[operation]", 'Optional refactor operation, currently "codemod"')
+        .argument("[paths...]", "Optional target paths used by refactor codemod execution")
+        .addOption(
+            new Option(
+                "--symbol-id <id>",
+                "Exact SCIP-style identifier (e.g., gml/script/my_func, gml/macro/MY_MACRO, gml/var/my_global)"
+            )
+        )
+        .addOption(
+            new Option(
+                "--old-name <name>",
+                "Search for a symbol by its base name. The tool will try to find the correct kind (script, macro, etc.) automatically."
+            )
+        )
+        .addOption(new Option("--new-name <name>", "New name for the symbol"))
+        .addOption(new Option("--project-root <path>", "Root directory of the GameMaker project"))
+        .addOption(new Option("--config <path>", "Path to gmloop.json for configured codemod execution"))
+        .addOption(new Option("--dry-run", "Show what would be changed without modifying files").default(false))
+        .addOption(new Option("--write", "Apply configured codemods instead of running in dry-run mode").default(false))
+        .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
+        .addOption(new Option("--list", "List configured codemods and exit").default(false))
+        .addOption(new Option("--verbose", "Enable verbose output with detailed diagnostics").default(false))
+        .addOption(
+            new Option("--check-hot-reload", "Validate that the refactored code is compatible with hot reload").default(
+                false
+            )
+        );
+
+    return command;
+}
+
 /**
- * Executes the refactor command.
- *
- * @param {RefactorCommandOptions} options - Command options
+ * Execute a refactor command intent without installing the CLI-level error
+ * wrapper. Composite workflows use this to compose refactor operations with
+ * other stages while preserving one shared implementation.
  */
-export async function runRefactorCommand(options: RefactorCommandOptions = {}): Promise<void> {
+export async function executeRefactorCommand(command: CommanderCommandLike): Promise<void> {
+    const intent = await validateRefactorIntent(command);
+    await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
+}
+
+export async function runRefactorCommand(command: CommanderCommandLike): Promise<void> {
     try {
-        const validatedOptions = validateAndNarrowOptions(options);
-        await performRename(validatedOptions);
+        await executeRefactorCommand(command);
     } catch (error) {
         const message = Core.getErrorMessage(error, {
             fallback: "Unknown refactor error"

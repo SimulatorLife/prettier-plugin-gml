@@ -9,7 +9,7 @@ import { Core } from "@gmloop/core";
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { GMLParser } from "../src/gml-parser.js";
-import { defaultParserOptions, type ParserOptions } from "../src/types/index.js";
+import { defaultParserOptions, type ParserOptions, type ScopeTracker } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "../../test/input");
@@ -242,6 +242,7 @@ void describe("GameMaker parser fixtures", () => {
 
         assert.equal(parser.options.getComments, true);
         assert.equal(parser.options.getLocations, true);
+        assert.equal(parser.options.attachFunctionDocComments, true);
         assert.equal(parser.options.astFormat, "gml");
     });
 
@@ -476,6 +477,30 @@ void describe("GameMaker parser fixtures", () => {
         assert.match(String(functionDocComment.value), /@function\b/i);
     });
 
+    void it("skips parser-owned @function attachment when disabled", () => {
+        const source = ["/// @function scr_target", "function scr_target() {", "    return 1;", "}", ""].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getComments: true,
+            getLocations: true,
+            simplifyLocations: false,
+            attachFunctionDocComments: false
+        });
+
+        const [functionDeclaration] = ast.body;
+        assert.ok(functionDeclaration?.type === "FunctionDeclaration", "Expected a function declaration target.");
+        assert.ok(
+            !Array.isArray(functionDeclaration.docComments) || functionDeclaration.docComments.length === 0,
+            "Function declaration should not receive parser-owned @function attachments when disabled."
+        );
+
+        assert.ok(Array.isArray(ast.comments), "Expected parser comments to remain available.");
+        const functionTagComment = ast.comments.find(
+            (comment: { value?: unknown }) => typeof comment?.value === "string" && /@function\b/i.test(comment.value)
+        );
+        assert.ok(functionTagComment, "Expected source comment list to retain the @function comment.");
+    });
+
     void it("captures the full range of member access expressions", () => {
         const source = "function demo(arg = namespace.value) {\n  return arg;\n}\n";
         const ast = parseFixture(source, {
@@ -680,5 +705,38 @@ switch (x) {
     void it("allows property access on parenthesized expressions in general", () => {
         const source = "var a = (b + c).d;";
         assert.doesNotThrow(() => GMLParser.parse(source));
+    });
+
+    void it("throws when scope tracking is enabled without a scope tracker factory", () => {
+        const source = "var value = 1;";
+
+        assert.throws(
+            () =>
+                parseFixture(source, {
+                    options: {
+                        scopeTrackerOptions: {
+                            enabled: true,
+                            getIdentifierMetadata: false
+                        }
+                    }
+                }),
+            /Invalid createScopeTracker function\./
+        );
+    });
+
+    void it("ignores an invalid scope tracker factory when scope tracking is disabled", () => {
+        const source = "var value = 1;";
+
+        assert.doesNotThrow(() =>
+            parseFixture(source, {
+                options: {
+                    scopeTrackerOptions: {
+                        enabled: false,
+                        getIdentifierMetadata: false,
+                        createScopeTracker: "not-a-function" as unknown as () => ScopeTracker | null
+                    }
+                }
+            })
+        );
     });
 });

@@ -104,7 +104,7 @@ function normalizeDefineMacroLine(line: string): string {
     const directiveName = directiveParts[0] ?? "";
 
     if (!isValidMacroIdentifier(directiveName)) {
-        return line;
+        return "";
     }
 
     const directiveValueText = directiveCodeText.slice(directiveName.length).trim();
@@ -135,22 +135,22 @@ function normalizeCommentedDirectiveLine(line: string): string {
     return `${leadingWhitespace}#${directive} ${name}`;
 }
 
-function normalizeLegacyBlockKeywordLine(line: string): string {
-    const beginBlockMatch = /^(\s*)begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+function normalizeLegacyBlockKeywordLine(line: string): string | null {
+    const beginBlockMatch = /^(\s*)begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (beginBlockMatch) {
         const indentation = beginBlockMatch[1] ?? "";
         const commentText = beginBlockMatch[2] ?? "";
-        return appendTrailingLineComment(`${indentation}{`, commentText);
+        return commentText.trim().length === 0 ? "" : appendTrailingLineComment(`${indentation}{`, commentText);
     }
 
-    const endBlockMatch = /^(\s*)end\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const endBlockMatch = /^(\s*)end\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (endBlockMatch) {
         const indentation = endBlockMatch[1] ?? "";
         const commentText = endBlockMatch[2] ?? "";
-        return appendTrailingLineComment(`${indentation}}`, commentText);
+        return commentText.trim().length === 0 ? null : appendTrailingLineComment(`${indentation}}`, commentText);
     }
 
-    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (!inlineBeginMatch) {
         return line;
     }
@@ -174,18 +174,26 @@ export function createNormalizeDirectivesRule(definition: GmlRuleDefinition): Ru
                     const text = context.sourceCode.text;
                     const lineEnding = Core.dominantLineEnding(text);
                     const lines = text.split(/\r?\n/u);
-                    const rewrittenLines = lines.map((line, index) => {
-                        let normalized = normalizeDefineMacroLine(line);
-                        normalized = normalizeCommentedDirectiveLine(normalized);
-                        normalized = normalizeLegacyBlockKeywordLine(normalized);
+                    const rewrittenLines = lines
+                        .map((line, index) => {
+                            let normalized: string | null = normalizeDefineMacroLine(line);
+                            if (normalized === null) {
+                                return normalized;
+                            }
+                            normalized = normalizeCommentedDirectiveLine(normalized);
+                            normalized = normalizeLegacyBlockKeywordLine(normalized);
+                            if (normalized === null) {
+                                return normalized;
+                            }
 
-                        const isLastLine = index === lines.length - 1;
-                        if (isLastLine && normalized.endsWith("\n")) {
-                            normalized = normalized.slice(0, -1);
-                        }
+                            const isLastLine = index === lines.length - 1;
+                            if (isLastLine && normalized.endsWith("\n")) {
+                                normalized = normalized.slice(0, -1);
+                            }
 
-                        return normalized;
-                    });
+                            return normalized;
+                        })
+                        .filter((line): line is string => line !== null);
 
                     const rewritten = rewrittenLines.join(lineEnding);
                     reportFullTextRewrite(context, definition.messageId, text, rewritten);

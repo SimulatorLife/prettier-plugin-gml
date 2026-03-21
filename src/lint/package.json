@@ -24,6 +24,7 @@
     "eslint": ">=9.39.0 <10"
   },
   "devDependencies": {
+    "@gmloop/fixture-runner": "workspace:*",
     "eslint": "^9.39.1",
     "eslint-min": "npm:eslint@9.39.0"
   },

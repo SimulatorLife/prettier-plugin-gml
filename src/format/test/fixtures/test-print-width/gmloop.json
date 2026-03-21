@@ -1,0 +1,8 @@
+{
+  "printWidth": 100,
+  "logicalOperatorsStyle": "symbols",
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "lintRules": {
+    "gml/require-control-flow-braces": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform",
+    "comparison": "ignore-whitespace-and-line-endings"
+  }
+}

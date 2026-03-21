@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/normalize-operator-aliases": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}
