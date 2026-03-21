@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, test } from "node:test";
@@ -25,33 +25,14 @@ import type {
 } from "../types.js";
 
 async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, string>> {
-    const files = new Map<string, string>();
+    const relativePaths = await Core.listRelativeFilePathsRecursively(rootPath);
+    const files = await Promise.all(
+        relativePaths.map(
+            async (relativePath) => [relativePath, await readFile(path.join(rootPath, relativePath), "utf8")] as const
+        )
+    );
 
-    async function walk(currentPath: string): Promise<void> {
-        const directoryEntries = await readdir(currentPath, { withFileTypes: true });
-        const sortedEntries = directoryEntries.toSorted((left, right) => left.name.localeCompare(right.name));
-
-        await Promise.all(
-            sortedEntries.map(async (entry) => {
-                const entryPath = path.join(currentPath, entry.name);
-                if (entry.isDirectory()) {
-                    await walk(entryPath);
-                    return;
-                }
-
-                if (!entry.isFile()) {
-                    return;
-                }
-
-                const relativePath = path.relative(rootPath, entryPath).split(path.sep).join("/");
-                files.set(relativePath, await readFile(entryPath, "utf8"));
-            })
-        );
-    }
-
-    await walk(rootPath);
-
-    return new Map([...files.entries()].toSorted(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath)));
+    return new Map(files);
 }
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;

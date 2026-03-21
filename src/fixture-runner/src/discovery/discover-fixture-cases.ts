@@ -1,6 +1,8 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 
+import { Core } from "@gmloop/core";
+
 import { loadFixtureProjectConfig } from "../config/index.js";
 import type { FixtureAssertion, FixtureCase, FixtureComparison, FixtureProjectConfig } from "../types.js";
 
@@ -20,7 +22,7 @@ type FixtureCaseLayoutValidation = {
 };
 
 function normalizeCaseId(rootPath: string, fixturePath: string): string {
-    return path.relative(rootPath, fixturePath).split(path.sep).join("/");
+    return Core.toPosixPath(path.relative(rootPath, fixturePath));
 }
 
 function deriveDefaultAssertion(config: FixtureProjectConfig, fileNames: ReadonlySet<string>): FixtureAssertion {
@@ -48,24 +50,13 @@ function deriveDefaultComparison(config: FixtureProjectConfig): FixtureCompariso
 }
 
 async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {
-    const discoveredCaseDirectories: Array<string> = [];
+    const configFilePaths = await Core.listRelativeFilePathsRecursively(rootPath, {
+        includeFile: ({ entryName }) => entryName === GMLOOP_CONFIG_FILE_NAME
+    });
 
-    async function walk(currentPath: string): Promise<void> {
-        const entries = await readdir(currentPath, { withFileTypes: true });
-        const fileNames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
-
-        if (fileNames.has(GMLOOP_CONFIG_FILE_NAME)) {
-            discoveredCaseDirectories.push(currentPath);
-            return;
-        }
-
-        await Promise.all(
-            entries.filter((entry) => entry.isDirectory()).map((entry) => walk(path.join(currentPath, entry.name)))
-        );
-    }
-
-    await walk(rootPath);
-    return discoveredCaseDirectories.sort((left, right) => left.localeCompare(right));
+    return configFilePaths
+        .map((relativePath) => path.join(rootPath, path.dirname(relativePath)))
+        .toSorted((left, right) => left.localeCompare(right));
 }
 
 function validateFixtureEntries(

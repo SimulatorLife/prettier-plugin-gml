@@ -1,6 +1,7 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { Core } from "@gmloop/core";
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
 import { normalizeRefactorProjectConfig } from "../src/project-config.js";
@@ -129,29 +130,9 @@ async function createFixtureSemanticAnalyzer(projectRoot: string, gmlFilePaths: 
 }
 
 async function collectProjectGmlFiles(projectRoot: string): Promise<Array<string>> {
-    const relativePaths: Array<string> = [];
-
-    async function walk(currentPath: string): Promise<void> {
-        const entries = await readdir(currentPath, { withFileTypes: true });
-        await Promise.all(
-            entries.map(async (entry) => {
-                const entryPath = path.join(currentPath, entry.name);
-                if (entry.isDirectory()) {
-                    await walk(entryPath);
-                    return;
-                }
-
-                if (!entry.isFile() || !entry.name.endsWith(".gml")) {
-                    return;
-                }
-
-                relativePaths.push(path.relative(projectRoot, entryPath).split(path.sep).join("/"));
-            })
-        );
-    }
-
-    await walk(projectRoot);
-    return relativePaths.sort((left, right) => left.localeCompare(right));
+    return await Core.listRelativeFilePathsRecursively(projectRoot, {
+        includeFile: ({ entryName }) => entryName.endsWith(".gml")
+    });
 }
 
 /**
