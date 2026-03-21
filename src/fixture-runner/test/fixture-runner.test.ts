@@ -66,7 +66,7 @@ void test("discoverFixtureCases normalizes directory-per-case fixtures", async (
     }
 });
 
-void test("discoverFixtureCases rejects legacy flat fixture files and unexpected directories", async () => {
+void test("discoverFixtureCases rejects unexpected files and directories", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-layout-"));
     const casePath = path.join(rootPath, "invalid");
     await mkdir(casePath, { recursive: true });
@@ -82,7 +82,7 @@ void test("discoverFixtureCases rejects legacy flat fixture files and unexpected
     try {
         await assert.rejects(
             FixtureRunner.discoverFixtureCases(rootPath),
-            /legacy fixture file "legacy\.output\.gml" is not allowed.*unexpected directory "nested"/su
+            /unexpected file "legacy\.output\.gml".*unexpected directory "nested"/su
         );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
