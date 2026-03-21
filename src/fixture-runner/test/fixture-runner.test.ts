@@ -251,6 +251,54 @@ void test("runFixtureSuite continues collecting failures for profiling mode", as
     }
 });
 
+void test("failed fixture comparisons preserve the adapter changed flag in profiling output", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-failed-changed-"));
+    await createTextFixtureCase(
+        rootPath,
+        "changed-before-compare",
+        {
+            fixture: {
+                kind: "format"
+            }
+        },
+        "input\n",
+        "expected\n"
+    );
+
+    try {
+        const collector = FixtureRunner.createProfileCollector();
+
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                profileCollector: collector,
+                adapter: {
+                    workspaceName: "format",
+                    suiteName: "format fixtures",
+                    supports(kind) {
+                        return kind === "format";
+                    },
+                    async run({ runProfiledStage }) {
+                        return await runProfiledStage("format", async () => ({
+                            resultKind: "text",
+                            outputText: "different\n",
+                            changed: true
+                        }));
+                    }
+                }
+            }),
+            /must match expected text byte-for-byte/u
+        );
+
+        const report = collector.createReport();
+        assert.equal(report.entries.length, 1);
+        assert.equal(report.entries[0]?.status, "failed");
+        assert.equal(report.entries[0]?.changed, true);
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
 void test("runner-owned comparison mode strips doc comment annotations and trims text", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-comparison-"));
     await createTextFixtureCase(
