@@ -7,7 +7,7 @@ import {
     advanceThroughStringLiteral,
     createStringCommentScanState,
     tryStartStringOrComment
-} from "../src/utils/text-scan.js";
+} from "../../src/comments/string-comment-scan.js";
 
 void describe("string-comment scan helpers", () => {
     void it("tracks quoted strings and escapes", () => {
