@@ -97,7 +97,9 @@ export class TempFileStorageBackend implements StorageBackend {
         await writeFile(filePath, content, "utf8");
         this.stats.writes += 1;
         this.stats.spilledEntries = this.pathByKey.size;
-        this.readCacheByKey.delete(key);
+        // Reuse the just-written string for the next read so dry-run overlays do
+        // not immediately allocate a second copy by round-tripping through disk.
+        this.promoteReadCacheEntry(key, { content });
     }
 
     async readEntry(key: string): Promise<string | null> {
@@ -218,8 +220,8 @@ export class TempFileStorageBackend implements StorageBackend {
         this.readCacheByKey.set(key, entry);
 
         while (this.readCacheByKey.size > this.readCacheMaxEntries) {
-            const oldestKey = this.readCacheByKey.keys().next().value;
-            if (!oldestKey) {
+            const oldestKey = this.readCacheByKey.keys().next().value as string | undefined;
+            if (oldestKey === undefined) {
                 break;
             }
 
