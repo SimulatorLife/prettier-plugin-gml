@@ -53,6 +53,14 @@ void describe("watch command", () => {
         assert.ok(matcher.matches("event.YY"));
     });
 
+    void it("normalizes extension arguments that include globs or directory prefixes", () => {
+        const matcher = createExtensionMatcher(["scripts/*.gml", String.raw`objects\enemy.YY`]);
+
+        assert.deepEqual([...matcher.extensions].toSorted(), [".gml", ".yy"]);
+        assert.ok(matcher.matches("example.gml"));
+        assert.ok(matcher.matches("event.yy"));
+    });
+
     void it("counts source lines across newline conventions", () => {
         assert.equal(countSourceLines(""), 1);
         assert.equal(countSourceLines("one"), 1);
