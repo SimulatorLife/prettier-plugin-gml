@@ -10,7 +10,7 @@ function createRuleEntriesCacheKey(ruleEntries: Record<string, unknown>): string
 }
 
 function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
-    const ruleEntries = Lint.createLintRuleEntriesFromProjectConfig(config);
+    const ruleEntries = Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig(config);
     const enabledRuleIds = Object.keys(ruleEntries);
     if (enabledRuleIds.length !== 1) {
         throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRuleIds.length}.`);

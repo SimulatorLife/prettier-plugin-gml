@@ -40,7 +40,10 @@ async function runConfiguredIntegrationRefactorStage(
         gmlFilePaths: ["input.gml"],
         config: Refactor.normalizeRefactorProjectConfig(config.refactor),
         readFile: async (filePath) =>
-            await readFile(path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath), "utf8"),
+            await readFile(
+                path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath),
+                "utf8"
+            ),
         writeFile: async (filePath, content) =>
             await writeFile(
                 path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath),
@@ -64,7 +67,7 @@ export function createIntegrationFixtureAdapter() {
         },
         async run({ fixtureCase, config, inputText, runProfiledStage }) {
             const formatOptions = Format.extractProjectFormatOptions(config);
-            const lintRuleEntries = Lint.createLintRuleEntriesFromProjectConfig(config);
+            const lintRuleEntries = Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig(config);
             let temporaryRefactorWorkspacePath: string | null = null;
 
             try {
@@ -99,10 +102,12 @@ export function createIntegrationFixtureAdapter() {
                     eslintByRuleConfigKey.set(cacheKey, eslint);
                 }
 
-                const [result] = await runProfiledStage("lint", async () =>
-                    await eslint.lintText(refactoredText, {
-                        filePath: `${fixtureCase.caseId}.gml`
-                    })
+                const [result] = await runProfiledStage(
+                    "lint",
+                    async () =>
+                        await eslint.lintText(refactoredText, {
+                            filePath: `${fixtureCase.caseId}.gml`
+                        })
                 );
                 const lintedOutput = result.output ?? refactoredText;
                 const outputText = await runProfiledStage(
