@@ -2,7 +2,8 @@ import { Core } from "@gmloop/core";
 
 const { toTrimmedString } = Core;
 
-const { hasCommentImmediatelyBefore, isDocLikeLeadingLine } = Core;
+const hasCommentImmediatelyBefore: (text: unknown, index: unknown) => boolean = Core.hasCommentImmediatelyBefore;
+const isDocLikeLeadingLine: (value: unknown) => boolean = Core.isDocLikeLeadingLine;
 
 const STRING_TYPE = "string";
 

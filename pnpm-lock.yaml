@@ -17,6 +17,9 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:src/core
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:src/fixture-runner
       '@gmloop/format':
         specifier: workspace:*
         version: link:src/format
@@ -173,6 +176,12 @@ importers:
 
   src/core: {}
 
+  src/fixture-runner:
+    dependencies:
+      '@gmloop/core':
+        specifier: workspace:*
+        version: link:../core
+
   src/format:
     dependencies:
       '@gmloop/core':
@@ -184,6 +193,10 @@ importers:
       prettier:
         specifier: ^3.0.0
         version: 3.6.2
+    devDependencies:
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
 
   src/lint:
     dependencies:
@@ -194,6 +207,9 @@ importers:
         specifier: workspace:*
         version: link:../parser
     devDependencies:
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
       eslint:
         specifier: ^9.39.1
         version: 9.39.2
@@ -221,6 +237,10 @@ importers:
       '@gmloop/semantic':
         specifier: workspace:*
         version: link:../semantic
+    devDependencies:
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
 
   src/runtime-wrapper:
     dependencies:

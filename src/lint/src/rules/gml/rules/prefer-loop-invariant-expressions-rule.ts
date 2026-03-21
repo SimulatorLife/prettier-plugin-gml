@@ -44,12 +44,16 @@ type ExpressionAssessment = Readonly<{
 }>;
 
 type LoopCandidate = Readonly<{
-    loopContext: LoopContainerContext;
     expressionNode: AstNodeWithType;
     expressionStart: number;
     expressionEnd: number;
     preferredHoistName: string;
     score: number;
+}>;
+
+type LoopCandidateAnalysis = Readonly<{
+    bestCandidate: LoopCandidate | null;
+    replacementCandidates: ReadonlyArray<LoopCandidate>;
 }>;
 
 type ParentVisitContext = Readonly<{
@@ -233,67 +237,6 @@ function collectLoopContainerContexts(programNode: unknown): ReadonlyArray<LoopC
     });
 
     return contexts;
-}
-
-function walkNodeWithParentSkippingNestedLoops(rootNode: unknown, visit: (context: ParentVisitContext) => void): void {
-    if (!isAstNodeWithType(rootNode)) {
-        return;
-    }
-
-    const stack: Array<ParentVisitContext> = [{ node: rootNode, parent: null, parentKey: null }];
-    const seen = new WeakSet<object>();
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-        if (!current) {
-            continue;
-        }
-
-        const currentObject = current.node as object;
-        if (seen.has(currentObject)) {
-            continue;
-        }
-
-        seen.add(currentObject);
-        visit(current);
-
-        if (current.node !== rootNode && isLoopNode(current.node)) {
-            continue;
-        }
-
-        for (const key of Object.keys(current.node)) {
-            if (key === "parent") {
-                continue;
-            }
-
-            const value = current.node[key];
-            if (Array.isArray(value)) {
-                for (let index = value.length - 1; index >= 0; index -= 1) {
-                    const child = value[index];
-                    if (!isAstNodeWithType(child)) {
-                        continue;
-                    }
-
-                    stack.push({
-                        node: child,
-                        parent: current.node,
-                        parentKey: key
-                    });
-                }
-                continue;
-            }
-
-            if (!isAstNodeWithType(value)) {
-                continue;
-            }
-
-            stack.push({
-                node: value,
-                parent: current.node,
-                parentKey: key
-            });
-        }
-    }
 }
 
 function collectIdentifierNamesInProgram(programNode: unknown): ReadonlySet<string> {
@@ -713,27 +656,52 @@ function choosePreferredHoistName(
     return "cached_value";
 }
 
-function findBestLoopCandidate(parameters: {
+function collectLoopCandidateAnalysis(parameters: {
     commentTokenRangeIndex: CommentTokenRangeIndex;
     loopContext: LoopContainerContext;
     mutationSummary: LoopMutationSummary;
     assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>;
-}): LoopCandidate | null {
+}): LoopCandidateAnalysis {
     let bestCandidate: LoopCandidate | null = null;
+    const replacementCandidates: LoopCandidate[] = [];
+    const rootNode = parameters.loopContext.loopNode.body;
+    if (!isAstNodeWithType(rootNode)) {
+        return Object.freeze({
+            bestCandidate,
+            replacementCandidates: Object.freeze(replacementCandidates)
+        });
+    }
 
-    walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
+    const stack: ParentVisitContext[] = [{ node: rootNode, parent: null, parentKey: null }];
+    const seen = new WeakSet<object>();
+
+    while (stack.length > 0) {
+        const visitContext = stack.pop();
+        if (!visitContext) {
+            continue;
+        }
+
         const { node, parent, parentKey } = visitContext;
+        const nodeObject = node as object;
+        if (seen.has(nodeObject)) {
+            continue;
+        }
+
+        seen.add(nodeObject);
 
         if (node.type === "ParenthesizedExpression") {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (isDisallowedContextForReplacement(parent, parentKey)) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (shouldSkipGeneratedHoistInitializer(parent, parentKey)) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const expressionStart = getNodeStartIndex(node);
@@ -743,37 +711,44 @@ function findBestLoopCandidate(parameters: {
             typeof expressionEnd !== "number" ||
             expressionEnd <= expressionStart
         ) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const assessment = evaluateExpressionHoistability(node, parameters.mutationSummary, parameters.assessmentCache);
         if (!assessment) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const minimumComplexity = node.type === "TemplateStringExpression" ? 2 : 3;
         if (assessment.complexity < minimumComplexity) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (parameters.mutationSummary.hasImpureCall && assessment.readsMemberAccess) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         if (rangeContainsCommentToken(parameters.commentTokenRangeIndex, expressionStart, expressionEnd)) {
-            return;
+            pushChildNodesForLoopCandidateTraversal(stack, node);
+            continue;
         }
 
         const preferredHoistName = choosePreferredHoistName(parent, parentKey, node);
         const score = assessment.complexity * 1000 + (expressionEnd - expressionStart);
         const candidate: LoopCandidate = {
-            loopContext: parameters.loopContext,
             expressionNode: node,
             expressionStart,
             expressionEnd,
             preferredHoistName,
             score
         };
+
+        replacementCandidates.push(candidate);
+
         if (
             bestCandidate === null ||
             candidate.score > bestCandidate.score ||
@@ -781,71 +756,78 @@ function findBestLoopCandidate(parameters: {
         ) {
             bestCandidate = candidate;
         }
-    });
+    }
 
-    return bestCandidate;
+    return Object.freeze({
+        bestCandidate,
+        replacementCandidates: Object.freeze(replacementCandidates)
+    });
 }
 
-function collectEquivalentLoopReplacementTargets(parameters: {
-    commentTokenRangeIndex: CommentTokenRangeIndex;
-    loopContext: LoopContainerContext;
-    mutationSummary: LoopMutationSummary;
-    targetExpressionNode: AstNodeWithType;
-    assessmentCache: WeakMap<AstNodeRecord, ExpressionAssessment | null>;
-}): ReadonlyArray<LoopReplacementTarget> {
-    const replacementTargets: Array<LoopReplacementTarget> = [];
+function pushChildNodesForLoopCandidateTraversal(stack: ParentVisitContext[], node: AstNodeWithType): void {
+    if (isLoopNode(node)) {
+        return;
+    }
 
-    walkNodeWithParentSkippingNestedLoops(parameters.loopContext.loopNode.body, (visitContext) => {
-        const { node, parent, parentKey } = visitContext;
-
-        if (node.type === "ParenthesizedExpression") {
-            return;
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
         }
 
-        if (isDisallowedContextForReplacement(parent, parentKey)) {
-            return;
+        const value = node[key];
+        if (Array.isArray(value)) {
+            for (let index = value.length - 1; index >= 0; index -= 1) {
+                const child = value[index];
+                if (!isAstNodeWithType(child)) {
+                    continue;
+                }
+
+                stack.push({
+                    node: child,
+                    parent: node,
+                    parentKey: key
+                });
+            }
+
+            continue;
         }
 
-        if (shouldSkipGeneratedHoistInitializer(parent, parentKey)) {
-            return;
+        if (!isAstNodeWithType(value)) {
+            continue;
         }
 
-        if (!areExpressionNodesEquivalentIgnoringParentheses(node, parameters.targetExpressionNode)) {
-            return;
-        }
+        stack.push({
+            node: value,
+            parent: node,
+            parentKey: key
+        });
+    }
+}
 
-        const expressionStart = getNodeStartIndex(node);
-        const expressionEnd = getNodeEndIndex(node);
-        if (
-            typeof expressionStart !== "number" ||
-            typeof expressionEnd !== "number" ||
-            expressionEnd <= expressionStart
-        ) {
-            return;
-        }
+function collectEquivalentLoopReplacementTargets(
+    replacementCandidates: ReadonlyArray<LoopCandidate>,
+    targetExpressionNode: AstNodeWithType
+): ReadonlyArray<LoopReplacementTarget> {
+    const replacementTargets: LoopReplacementTarget[] = [];
 
-        if (rangeContainsCommentToken(parameters.commentTokenRangeIndex, expressionStart, expressionEnd)) {
-            return;
-        }
-
-        if (!evaluateExpressionHoistability(node, parameters.mutationSummary, parameters.assessmentCache)) {
-            return;
+    for (const candidate of replacementCandidates) {
+        if (!areExpressionNodesEquivalentIgnoringParentheses(candidate.expressionNode, targetExpressionNode)) {
+            continue;
         }
 
         replacementTargets.push(
             Object.freeze({
-                expressionStart,
-                expressionEnd
+                expressionStart: candidate.expressionStart,
+                expressionEnd: candidate.expressionEnd
             })
         );
-    });
+    }
 
     return replacementTargets;
 }
 
 function resolveUniqueHoistIdentifierName(parameters: {
     preferredName: string;
-    localIdentifierNames: ReadonlySet<string>;
     normalizedLocalIdentifierNames: ReadonlySet<string>;
 }): string | null {
     const baseName = parameters.preferredName.length > 0 ? parameters.preferredName : "cached_value";
@@ -881,19 +863,19 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                     for (const loopContext of loopContexts) {
                         const mutationSummary = collectLoopMutationSummary(loopContext.loopNode);
                         const assessmentCache = new WeakMap<AstNodeRecord, ExpressionAssessment | null>();
-                        const bestCandidate = findBestLoopCandidate({
+                        const candidateAnalysis = collectLoopCandidateAnalysis({
                             commentTokenRangeIndex,
                             loopContext,
                             mutationSummary,
                             assessmentCache
                         });
+                        const { bestCandidate } = candidateAnalysis;
                         if (!bestCandidate) {
                             continue;
                         }
 
                         const hoistIdentifierName = resolveUniqueHoistIdentifierName({
                             preferredName: bestCandidate.preferredHoistName,
-                            localIdentifierNames,
                             normalizedLocalIdentifierNames
                         });
                         if (!hoistIdentifierName) {
@@ -914,13 +896,10 @@ export function createPreferLoopInvariantExpressionsRule(definition: GmlRuleDefi
                             bestCandidate.expressionStart,
                             bestCandidate.expressionEnd
                         );
-                        const replacementTargets = collectEquivalentLoopReplacementTargets({
-                            commentTokenRangeIndex,
-                            loopContext,
-                            mutationSummary,
-                            targetExpressionNode: bestCandidate.expressionNode,
-                            assessmentCache
-                        });
+                        const replacementTargets = collectEquivalentLoopReplacementTargets(
+                            candidateAnalysis.replacementCandidates,
+                            bestCandidate.expressionNode
+                        );
                         const declarationText =
                             `${indentation}var ${hoistIdentifierName} = ${expressionText};` + `${lineEnding}`;
 

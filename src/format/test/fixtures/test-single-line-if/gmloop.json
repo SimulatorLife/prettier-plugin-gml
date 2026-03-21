@@ -1,0 +1,8 @@
+{
+  "printWidth": 115,
+  "allowInlineControlFlowBlocks": true,
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

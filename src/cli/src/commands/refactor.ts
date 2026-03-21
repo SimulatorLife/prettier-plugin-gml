@@ -18,18 +18,21 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
+import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 
-const { buildProjectIndex, findProjectRoot } = Semantic;
+const { buildProjectIndex } = Semantic;
 const {
     RefactorEngine,
     formatRenamePlanReport,
     generateRenamePreview,
     listConfiguredCodemods,
     listRegisteredCodemods,
-    loadGmloopProjectConfig
+    normalizeRefactorProjectConfig
 } = Refactor;
 type RegisteredCodemodId = ReturnType<typeof listRegisteredCodemods>[number]["id"];
-type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof loadGmloopProjectConfig>>;
+type LoadedGmloopProjectConfig = Awaited<ReturnType<typeof Core.loadGmloopProjectConfig>> & {
+    refactor?: ReturnType<typeof normalizeRefactorProjectConfig>;
+};
 
 type RefactorCommandOptions = {
     symbolId?: string;
@@ -76,15 +79,6 @@ type RefactorCommandIntent =
           options: ValidatedCodemodOptions;
       };
 
-function resolveProjectRootOption(projectRootOption: string | undefined): string | null {
-    if (!projectRootOption) {
-        return null;
-    }
-
-    const resolvedPath = path.resolve(projectRootOption);
-    return resolvedPath.toLowerCase().endsWith(".yyp") ? path.dirname(resolvedPath) : resolvedPath;
-}
-
 function normalizeRequestedCodemods(onlyOption: string | undefined): Array<RegisteredCodemodId> {
     if (!onlyOption) {
         return [];
@@ -105,37 +99,18 @@ function normalizeRequestedCodemods(onlyOption: string | undefined): Array<Regis
     });
 }
 
-async function resolveDiscoveredProjectRoot(
+function resolveDiscoveredProjectRoot(
     projectRootOption: string | undefined,
     configPathOption: string | undefined
 ): Promise<string> {
-    const explicitProjectRoot = resolveProjectRootOption(projectRootOption);
-    if (explicitProjectRoot) {
-        return explicitProjectRoot;
-    }
-
-    if (configPathOption) {
-        return path.dirname(path.resolve(configPathOption));
-    }
-
-    const discoveredProjectRoot = await findProjectRoot({
-        filepath: path.resolve(process.cwd(), "gmloop.json")
+    return discoverProjectRoot({
+        explicitProjectPath: projectRootOption,
+        configPath: configPathOption
     });
-    if (!discoveredProjectRoot) {
-        throw new Error("Could not locate a GameMaker project root. Pass --project-root or run inside a project tree.");
-    }
-
-    return discoveredProjectRoot;
 }
 
-async function resolveCodemodConfigPath(projectRoot: string, configPathOption: string | undefined): Promise<string> {
-    const resolvedPath = configPathOption ? path.resolve(configPathOption) : path.resolve(projectRoot, "gmloop.json");
-    const stats = await lstat(resolvedPath).catch(() => null);
-    if (!stats || !stats.isFile()) {
-        throw new Error(`Could not find gmloop config file at ${resolvedPath}`);
-    }
-
-    return resolvedPath;
+function resolveCodemodConfigPath(projectRoot: string, configPathOption: string | undefined): Promise<string> {
+    return resolveExistingGmloopConfigPath(projectRoot, configPathOption);
 }
 
 function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
@@ -258,7 +233,10 @@ async function performRename(options: ValidatedRenameOptions): Promise<void> {
 
     try {
         const projectIndex = await buildProjectIndex(projectRoot, undefined, {
-            logger: verbose ? console : undefined
+            logger: verbose ? console : undefined,
+            concurrency: {
+                gml: 1
+            }
         });
         const engine = createRefactorEngineForProject(projectIndex, projectRoot);
         const semantic = engine.semantic as GmlSemanticBridge;
@@ -372,7 +350,11 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         console.log(`Loading gmloop config from: ${configPath}`);
     }
 
-    const config = await loadGmloopProjectConfig(configPath);
+    const rawConfig = await Core.loadGmloopProjectConfig(configPath);
+    const config: LoadedGmloopProjectConfig = Object.freeze({
+        ...rawConfig,
+        refactor: normalizeRefactorProjectConfig(rawConfig.refactor)
+    });
     const selectedCodemodLines = formatCodemodSelectionSummary(config, onlyCodemods);
 
     if (list) {
@@ -385,7 +367,10 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     }
 
     const projectIndex = await buildProjectIndex(projectRoot, undefined, {
-        logger: verbose ? console : undefined
+        logger: verbose ? console : undefined,
+        concurrency: {
+            gml: 1
+        }
     });
     const engine = createRefactorEngineForProject(projectIndex, projectRoot);
     const gmlFilePaths = await collectTargetGmlFiles(projectRoot, targetPaths);
@@ -478,11 +463,19 @@ export function createRefactorCommand(): Command {
     return command;
 }
 
+/**
+ * Execute a refactor command intent without installing the CLI-level error
+ * wrapper. Composite workflows use this to compose refactor operations with
+ * other stages while preserving one shared implementation.
+ */
+export async function executeRefactorCommand(command: CommanderCommandLike): Promise<void> {
+    const intent = await validateRefactorIntent(command);
+    await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
+}
+
 export async function runRefactorCommand(command: CommanderCommandLike): Promise<void> {
     try {
-        const intent = await validateRefactorIntent(command);
-
-        await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
+        await executeRefactorCommand(command);
     } catch (error) {
         const message = Core.getErrorMessage(error, {
             fallback: "Unknown refactor error"

@@ -20,7 +20,6 @@ export type {
     FilePreview,
     FileSymbol,
     FileSymbolProvider,
-    GmloopProjectConfig,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
     HotReloadSafetySummary,

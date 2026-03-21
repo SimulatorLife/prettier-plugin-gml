@@ -1,0 +1,6 @@
+{
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

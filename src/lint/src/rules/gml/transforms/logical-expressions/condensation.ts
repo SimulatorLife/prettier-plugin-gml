@@ -13,7 +13,8 @@ const {
     getOrCreateMapEntry,
     isNonEmptyArray,
     toNormalizedLowerCaseString,
-    isObjectLike
+    isObjectLike,
+    getBooleanLiteralValue
 } = Core;
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -146,24 +147,6 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
             return false;
         }
     }
-}
-
-function isBooleanLiteralValue(node, expected) {
-    if (!node || node.type !== "Literal") {
-        return false;
-    }
-
-    const { value } = node;
-    if (typeof value === "boolean") {
-        return value === expected;
-    }
-
-    if (typeof value === "string") {
-        const normalized = toNormalizedLowerCaseString(value);
-        return normalized === (expected ? "true" : "false");
-    }
-
-    return false;
 }
 
 function visit(node, helpers) {
@@ -588,11 +571,17 @@ function resolveSimpleBooleanReturnArgument(
 
     const testNode = Core.unwrapParenthesizedExpression(statement.test) ?? statement.test;
 
-    if (isBooleanLiteralValue(consequentExpression, true) && isBooleanLiteralValue(alternateExpression, false)) {
+    if (
+        getBooleanLiteralValue(consequentExpression, { acceptBooleanPrimitives: true }) === "true" &&
+        getBooleanLiteralValue(alternateExpression, { acceptBooleanPrimitives: true }) === "false"
+    ) {
         return cloneAstNode(testNode);
     }
 
-    if (isBooleanLiteralValue(consequentExpression, false) && isBooleanLiteralValue(alternateExpression, true)) {
+    if (
+        getBooleanLiteralValue(consequentExpression, { acceptBooleanPrimitives: true }) === "false" &&
+        getBooleanLiteralValue(alternateExpression, { acceptBooleanPrimitives: true }) === "true"
+    ) {
         const clone = cloneAstNode(testNode) as {
             start?: unknown;
             end?: unknown;

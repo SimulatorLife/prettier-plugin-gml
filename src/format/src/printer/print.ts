@@ -2357,6 +2357,7 @@ function handleIntermediateTrailingSpacing({
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
     const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const currentStatementIsDelete = Core.isDeleteStatementNode(node);
     const hasSourceBlankLineBeforeNextNode =
         !suppressFollowingEmptyLine &&
         originalText !== null &&
@@ -2462,10 +2463,17 @@ function handleIntermediateTrailingSpacing({
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
         const shouldPreserveSourceGapAfterTrailingComment =
-            currentStatementHasTrailingComment && hasSourceBlankLineBeforeNextNode;
+            currentStatementHasTrailingComment &&
+            hasSourceBlankLineBeforeNextNode &&
+            (currentStatementIsDelete || !isTopLevel);
+        const shouldCollapseTopLevelTrailingCommentGap =
+            isTopLevel && currentStatementHasTrailingComment && !currentStatementIsDelete;
 
         const shouldApplyGenericSourceBlankLineSpacing =
-            !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
+            !shouldCollapseTopLevelTrailingCommentGap &&
+            !nextNodePrintsDocCommentBlock &&
+            !nextNodeHasLeadingComment &&
+            !nextNodeHasCommentGap;
 
         if (
             shouldApplyGenericSourceBlankLineSpacing ||

@@ -1,0 +1,8 @@
+{
+  "printWidth": 200,
+  "bracketSpacing": true,
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

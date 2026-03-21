@@ -5,6 +5,7 @@ import { __lintCommandTest__ } from "../src/commands/lint.js";
 
 const {
     aggregateLintTotals,
+    createRetainedLintResult,
     collectOutOfRootFilePaths,
     formatPathSample,
     formatOutOfRootWarning,
@@ -55,6 +56,36 @@ void test("aggregateLintTotals handles mixed errors, fatal errors, and warnings"
     const totals = aggregateLintTotals(results);
     assert.equal(totals.errorCount, 5); // 1+1 + 0+3
     assert.equal(totals.warningCount, 3); // 2 + 1
+});
+
+void test("createRetainedLintResult drops heavyweight source payloads while preserving reporting fields", () => {
+    const retained = createRetainedLintResult({
+        filePath: "/tmp/example.gml",
+        messages: [],
+        suppressedMessages: [],
+        errorCount: 1,
+        fatalErrorCount: 0,
+        warningCount: 2,
+        fixableErrorCount: 1,
+        fixableWarningCount: 2,
+        usedDeprecatedRules: [],
+        source: "var value = 1;",
+        output: "var value = 2;"
+    } as unknown as import("eslint").ESLint.LintResult);
+
+    assert.deepEqual(retained, {
+        filePath: "/tmp/example.gml",
+        messages: [],
+        suppressedMessages: [],
+        errorCount: 1,
+        fatalErrorCount: 0,
+        warningCount: 2,
+        fixableErrorCount: 1,
+        fixableWarningCount: 2,
+        usedDeprecatedRules: []
+    });
+    assert.equal("source" in retained, false);
+    assert.equal("output" in retained, false);
 });
 
 // ---------------------------------------------------------------------------

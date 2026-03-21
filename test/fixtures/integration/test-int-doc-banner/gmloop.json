@@ -1,0 +1,12 @@
+{
+  "printWidth": 120,
+  "lintRules": {
+    "gml/normalize-doc-comments": "error",
+    "gml/optimize-math-expressions": "error"
+  },
+  "fixture": {
+    "kind": "integration",
+    "assertion": "transform",
+    "comparison": "exact"
+  }
+}

@@ -84,3 +84,45 @@ void test("recommended config auto-fixes prefer-array-push and prefer-increment-
     );
     assert.equal(result.messages.length, 0);
 });
+
+void test("recommended config applies the conservative feather safe subset", async () => {
+    const sourceText = [
+        "enum Fruit {",
+        '    APPLE = "10",',
+        "}",
+        "var flags = fa_readonly + fa_archive;",
+        "var nextRoom = room + 1;",
+        ";;;",
+        'var actor = instance_create_layer(0, 0, "Instances", "obj_player");',
+        "var counter",
+        "all.hp = 0;",
+        ""
+    ].join("\n");
+
+    const eslint = new ESLint({
+        overrideConfigFile: true,
+        fix: true,
+        overrideConfig: createMutableRecommendedConfig()
+    });
+
+    const [result] = await eslint.lintText(sourceText, {
+        filePath: "recommended-config-safe-feather.gml"
+    });
+
+    assert.equal(
+        result.output,
+        [
+            "enum Fruit {",
+            "    APPLE = 10",
+            "}",
+            "var flags = fa_readonly | fa_archive;",
+            "var nextRoom = room_next(room);",
+            'var actor = instance_create_layer(0, 0, "Instances", obj_player);',
+            "var counter;",
+            "with (all) {",
+            "    hp = 0;",
+            "}"
+        ].join("\n")
+    );
+    assert.equal(result.messages.length, 0);
+});

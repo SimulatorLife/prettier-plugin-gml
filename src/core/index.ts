@@ -17,6 +17,7 @@ export type {
     GameMakerAstLocation,
     GameMakerAstNode,
     GlobalIdentifierTracker,
+    GmloopProjectConfig,
     IdentifierRoleManager,
     LiteralNode,
     MutableDocCommentLines,

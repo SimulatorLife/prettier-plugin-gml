@@ -1,0 +1,7 @@
+{
+  "logicalOperatorsStyle": "keywords",
+  "fixture": {
+    "kind": "format",
+    "assertion": "transform"
+  }
+}

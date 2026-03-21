@@ -143,6 +143,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
 
     return result.join("\n");
 }
+
 function ensureTrailingNewline(formatted: string): string {
     return formatted.endsWith("\n") ? formatted : `${formatted}\n`;
 }

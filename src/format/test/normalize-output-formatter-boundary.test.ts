@@ -133,25 +133,22 @@ void test("normalizeFormattedOutput does not collapse blank lines around vertex_
     );
 });
 
-void test("normalizeFormattedOutput does not suppress blank lines before guard comments (semantic inference belongs in lint, not formatter)", () => {
-    // The formatter must not infer whether a `//` comment is a 'guard comment'
-    // (a comment that precedes an `if` statement) by inspecting what follows the
-    // comment in the code. Deciding whether to suppress a blank line based on
-    // the semantic role of a comment — i.e., whether it 'guards' an `if` — is
-    // a content/semantic inference that belongs in @gmloop/lint, not in the
-    // formatter's post-processing pipeline. (target-state.md §2.2, §3.2)
+void test("normalizeFormattedOutput preserves blank lines before guard-comment+if sequences (semantic reasoning belongs in lint)", () => {
+    // The formatter must not remove blank lines before plain `//` comments that
+    // precede `if` statements ("guard comments"). Deciding that a comment is a
+    // "guard" requires inferring a semantic relationship between the comment and
+    // the following control-flow statement, which is content-aware reasoning that
+    // belongs exclusively in @gmloop/lint. (target-state.md §2.2, §3.2)
     //
     // The previously removed `removeBlankLinesBeforeGuardComments` function
-    // violated this contract by checking `isGuardCommentSequence`, which read
-    // the line following a `//` comment to detect `if` statements, then
-    // suppressed any blank line before the guard comment inside a block body.
+    // violated this contract by suppressing blank lines inside blocks when a
+    // plain `//` comment was followed by an `if` statement.
     const input = [
-        "function do_thing() {",
-        "    openChest();",
+        "function example() {",
         "",
-        "    // start checking if we should destroy the open chest",
-        "    if (chest_open) {",
-        "        destroy_chest();",
+        "    // Check if ready",
+        "    if (ready) {",
+        "        return;",
         "    }",
         "}",
         ""
@@ -162,6 +159,6 @@ void test("normalizeFormattedOutput does not suppress blank lines before guard c
     assert.strictEqual(
         result,
         input,
-        "normalizeFormattedOutput must not suppress blank lines before guard comments — inferring guard-comment semantics from code structure belongs in @gmloop/lint (target-state.md §2.2, §3.2)"
+        "normalizeFormattedOutput must not remove blank lines before guard-comment+if sequences — semantic inference of comment roles belongs in @gmloop/lint (target-state.md §2.2, §3.2)"
     );
 });

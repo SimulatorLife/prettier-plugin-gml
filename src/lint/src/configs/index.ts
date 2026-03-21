@@ -2,6 +2,9 @@ import type { LintPluginShape } from "../plugin.js";
 import { featherManifest } from "../rules/feather/manifest.js";
 import { PERFORMANCE_OVERRIDE_RULE_IDS } from "./performance-rule-ids.js";
 
+export { normalizeLintRulesConfig } from "./project-config.js";
+export { createLintRuleEntriesFromProjectConfig } from "./rule-entries.js";
+
 /**
  * Represents a pinned lint flat-config entry exposed by the lint namespace.
  */
@@ -41,8 +44,19 @@ const RECOMMENDED_RULES = Object.freeze({
     "gml/prefer-string-interpolation": "warn",
     "gml/optimize-math-expressions": "warn",
     "gml/require-argument-separators": "error",
+    "gml/normalize-data-structure-accessors": "warn",
+    "gml/require-trailing-optional-defaults": "warn",
     "gml/simplify-real-calls": "warn"
 });
+
+const RECOMMENDED_SAFE_FEATHER_RULES = Object.freeze({
+    "feather/gm1003": "warn",
+    "feather/gm1009": "warn",
+    "feather/gm1033": "warn",
+    "feather/gm1041": "warn",
+    "feather/gm2007": "warn",
+    "feather/gm2020": "warn"
+} satisfies Record<`feather/${string}`, "warn" | "error">);
 
 const FEATHER_RULES: Readonly<Record<`feather/${string}`, "warn" | "error">> = Object.freeze(
     Object.fromEntries(featherManifest.entries.map((entry) => [entry.ruleId, entry.defaultSeverity])) as Record<
@@ -103,6 +117,11 @@ export function createLintConfigsWithPlugins(plugins: LintConfigPluginSet): Lint
             plugins: Object.freeze({ gml: plugins.gmlPlugin }),
             language: "gml/gml",
             rules: RECOMMENDED_RULES
+        }),
+        Object.freeze({
+            files: GML_LINT_FILES_GLOB,
+            plugins: Object.freeze({ feather: plugins.featherPlugin }),
+            rules: RECOMMENDED_SAFE_FEATHER_RULES
         })
     ]);
 

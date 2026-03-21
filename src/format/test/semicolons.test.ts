@@ -11,6 +11,11 @@ void describe("Semicolons helper utilities", () => {
         assert.strictEqual(Semicolons.optionalSemicolon("IfStatement"), "");
     });
 
+    void it("does not treat prototype keys as semicolon node types", () => {
+        assert.strictEqual(Semicolons.optionalSemicolon("__proto__"), "");
+        assert.strictEqual(Semicolons.optionalSemicolon("toString"), "");
+    });
+
     void it("counts trailing blank lines after a given index", () => {
         const text = "foo();\n\n\nbar();";
         const newlineIndex = text.indexOf("\n");
