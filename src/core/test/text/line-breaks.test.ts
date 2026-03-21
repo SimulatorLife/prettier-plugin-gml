@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { dominantLineEnding, getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
+import { dominantLineEnding, getLineBreakCount, getLineBreakSpans, splitLines } from "../../src/text/line-breaks.js";
 
 void describe("line-breaks", () => {
     void describe("splitLines", () => {
