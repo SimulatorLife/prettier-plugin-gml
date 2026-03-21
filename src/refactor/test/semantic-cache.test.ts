@@ -408,6 +408,24 @@ void describe("SemanticQueryCache", () => {
             const stats = cache.getStats();
             assert.equal(stats.size, 2, "Cache should not exceed maxSize");
         });
+        void it("treats maxSize of 0 as a zero-capacity cache", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async () => {
+                    callCount++;
+                    return [];
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, { maxSize: 0 });
+            await cache.getSymbolOccurrences("a");
+            await cache.getSymbolOccurrences("a");
+
+            const stats = cache.getStats();
+            assert.equal(callCount, 2, "A zero-capacity cache should refetch every time");
+            assert.equal(stats.size, 0, "A zero-capacity cache should not retain entries");
+            assert.equal(stats.evictions, 2, "Skipped stores should still count as immediate evictions");
+        });
 
         void it("uses default configuration values", () => {
             const semantic: PartialSemanticAnalyzer = {};
