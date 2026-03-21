@@ -35,37 +35,39 @@ function buildRenameKey(_scopeId, location) {
  * @param options Active plugin options possibly containing rename plan state.
  * @returns The planned identifier rename when available.
  */
-export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | null, options: any) {
-    if (!node || !options) {
+export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | null, options: unknown) {
+    if (!node || !options || typeof options !== "object") {
         return null;
     }
 
-    const renameMap = options.__identifierCaseRenameMap;
+    const optionObject = options as Record<string, unknown>;
+    const renameMap = optionObject.__identifierCaseRenameMap;
     if (!Core.isMapLike(renameMap)) {
         return null;
     }
+    const renameMapEntries = renameMap as Map<unknown, unknown>;
 
     const key = buildRenameKey(node.scopeId ?? null, node.start ?? null);
     if (!key) {
         return null;
     }
 
-    let renameTarget = renameMap.get(key) ?? null;
+    let renameTarget = renameMapEntries.get(key) ?? null;
     if (!renameTarget) {
-        renameTarget = tryResolveRenameTarget(renameMap, key, node, options);
+        renameTarget = tryResolveRenameTarget(renameMapEntries, key, node, optionObject);
     }
 
     if (!renameTarget) {
         return null;
     }
 
-    const planSnapshot = options.__identifierCasePlanSnapshot ?? null;
+    const planSnapshot = optionObject.__identifierCasePlanSnapshot;
 
-    if (options.__identifierCaseDryRun === true) {
+    if (optionObject.__identifierCaseDryRun === true) {
         return null;
     }
 
-    if (planSnapshot?.dryRun === true) {
+    if (planSnapshot && typeof planSnapshot === "object" && "dryRun" in planSnapshot && planSnapshot.dryRun === true) {
         return null;
     }
 
@@ -73,21 +75,13 @@ export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | n
 }
 
 function tryResolveRenameTarget(
-    renameMap: Map<string, unknown>,
+    renameMap: Map<unknown, unknown>,
     key: string,
     node: GameMakerAstNode,
     options: IdentifierCasePlanLookupOptions
 ): unknown {
     try {
         if (typeof renameMap.has === "function" && renameMap.has(key) === false) {
-            const sample = [];
-            let i = 0;
-            for (const k of renameMap.keys()) {
-                sample.push(String(k));
-                i += 1;
-                if (i >= 3) break;
-            }
-
             try {
                 const loc = typeof node.start === "number" ? { index: node.start } : node.start;
                 const fileKey = Core.buildFileLocationKey(options?.filepath ?? null, loc);
