@@ -154,7 +154,7 @@ export class GmlTranspiler {
         }
 
         const lines: string[] = [];
-        for (const statement of (body).body) {
+        for (const statement of body.body) {
             const code = emitter.emit(statement);
             if (!code) {
                 continue;
