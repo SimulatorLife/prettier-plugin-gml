@@ -75,11 +75,11 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
         }
 
         // Track occurrences by kind
-        classification.byKind.set(kind, (classification.byKind.get(kind) ?? 0) + 1);
+        Core.incrementMapValue(classification.byKind, kind);
 
         // Track occurrences by file (skip occurrences without valid paths)
         if (hasValidOccurrencePath(occurrence)) {
-            classification.byFile.set(occurrence.path, (classification.byFile.get(occurrence.path) ?? 0) + 1);
+            Core.incrementMapValue(classification.byFile, occurrence.path);
         }
     }
 
@@ -140,9 +140,7 @@ export function groupOccurrencesByFile(occurrences: Array<SymbolOccurrence>): Ma
             continue;
         }
 
-        const existing = grouped.get(occurrence.path) ?? [];
-        existing.push(occurrence);
-        grouped.set(occurrence.path, existing);
+        Core.getOrCreateMapEntry(grouped, occurrence.path, () => []).push(occurrence);
     }
 
     return grouped;
