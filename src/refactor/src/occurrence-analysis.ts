@@ -140,7 +140,9 @@ export function groupOccurrencesByFile(occurrences: Array<SymbolOccurrence>): Ma
             continue;
         }
 
-        Core.getOrCreateMapEntry(grouped, occurrence.path, () => []).push(occurrence);
+        const existing = grouped.get(occurrence.path) ?? [];
+        existing.push(occurrence);
+        grouped.set(occurrence.path, existing);
     }
 
     return grouped;
