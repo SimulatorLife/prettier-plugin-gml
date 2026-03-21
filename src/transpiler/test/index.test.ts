@@ -63,6 +63,47 @@ await test("transpileScript unwraps function parameters into args assignments", 
     assert.match(result.js_body, /return \(?x \+ y\)?;/);
 });
 
+await test("transpileScript reuses pre-parsed function ASTs with string parameters", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+    const result = transpiler.transpileScript({
+        sourceText: "function test(x, y = 5) { return x + y; }",
+        symbolId: "gml/script/test",
+        ast: {
+            type: "Program",
+            body: [
+                {
+                    type: "FunctionDeclaration",
+                    id: "test",
+                    params: [
+                        "x",
+                        {
+                            type: "DefaultParameter",
+                            left: { type: "Identifier", name: "y" },
+                            right: { type: "Literal", value: 5 }
+                        }
+                    ],
+                    body: {
+                        type: "BlockStatement",
+                        body: [
+                            {
+                                type: "ReturnStatement",
+                                argument: {
+                                    type: "BinaryExpression",
+                                    operator: "+",
+                                    left: { type: "Identifier", name: "x" },
+                                    right: { type: "Identifier", name: "y" }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    });
+
+    assert.equal(result.js_body, "var x = args[0];\nvar y = args[1] === undefined ? 5 : args[1];\nreturn (x + y);");
+});
+
 await test("transpileScript includes source path metadata when provided", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileScript({
