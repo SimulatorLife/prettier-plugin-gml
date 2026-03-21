@@ -80,6 +80,63 @@ void describe("GmlSemanticBridge tests", () => {
         assert.strictEqual(occurrences[0].kind, Refactor.OccurrenceKind.REFERENCE);
     });
 
+    void it("ignores relationship-based script call occurrences when the project index omits call spans", () => {
+        const sourceText = "function consumer_script() {\n    return demo_script();\n}\n";
+        const mockProjectIndex = {
+            relationships: {
+                scriptCalls: [
+                    {
+                        from: {
+                            filePath: "scripts/consumer_script/consumer_script.gml",
+                            scopeId: "scope:consumer"
+                        },
+                        target: {
+                            name: "demo_script"
+                        }
+                    }
+                ]
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const occurrences = bridge.getSymbolOccurrences("demo_script");
+
+        assert.deepEqual(
+            occurrences,
+            [],
+            "Relationship fallback should skip unresolved spans instead of synthesizing a zero-length edit"
+        );
+        assert.strictEqual(findNthIndex(sourceText, "demo_script", 1), 40);
+    });
+
+    void it("ignores entry references when the project index omits their source span", () => {
+        const mockProjectIndex = {
+            identifiers: {
+                scripts: {
+                    consumer_script: {
+                        identifierId: "gml/script/consumer_script",
+                        name: "consumer_script",
+                        declarations: [],
+                        references: [
+                            {
+                                filePath: "scripts/consumer_script/consumer_script.gml",
+                                targetName: "demo_script"
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+
+        assert.deepEqual(
+            bridge.getSymbolOccurrences("demo_script"),
+            [],
+            "Missing reference spans should not produce zero-length edits at the start of the file"
+        );
+    });
+
     void it("hasSymbol should find a nested function symbol", () => {
         const mockProjectIndex = {
             identifiers: {
