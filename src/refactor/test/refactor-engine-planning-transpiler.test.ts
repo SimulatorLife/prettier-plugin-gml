@@ -402,6 +402,42 @@ void test("prepareBatchRenamePlan works without hot reload validation", async ()
     assert.ok(result.batchValidation);
 });
 
+void test("prepareBatchRenamePlan skips per-symbol impact analyses when disabled", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: (name: string) => [
+            {
+                path: `scripts/${name}.gml`,
+                start: 0,
+                end: name.length,
+                scopeId: "scope-1",
+                kind: OccurrenceKind.DEFINITION
+            }
+        ]
+    };
+
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    let analysisCalls = 0;
+    Object.assign(engine, {
+        async analyzeRenameImpact() {
+            analysisCalls += 1;
+            throw new Error("analyzeRenameImpact should not be called when impact analyses are disabled");
+        }
+    });
+
+    const result = await engine.prepareBatchRenamePlan(
+        [
+            { symbolId: "gml/script/scr_test_a", newName: "scr_test_a_new" },
+            { symbolId: "gml/script/scr_test_b", newName: "scr_test_b_new" }
+        ],
+        { includeImpactAnalyses: false }
+    );
+
+    assert.equal(analysisCalls, 0);
+    assert.equal(result.impactAnalyses.size, 0);
+    assert.equal(result.validation.valid, true);
+});
+
 void test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(

@@ -189,5 +189,11 @@ export function countAffectedFiles(occurrences: Array<SymbolOccurrence>): number
     Core.assertArray(occurrences, {
         errorMessage: "countAffectedFiles requires an array of occurrences"
     });
-    return groupOccurrencesByFile(occurrences).size;
+    const files = new Set<string>();
+    for (const occurrence of occurrences) {
+        if (hasValidOccurrencePath(occurrence)) {
+            files.add(occurrence.path);
+        }
+    }
+    return files.size;
 }

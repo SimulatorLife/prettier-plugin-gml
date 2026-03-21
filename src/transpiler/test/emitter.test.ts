@@ -240,6 +240,43 @@ void test("Transpiler.emitJavaScript handles function calls with arguments", () 
     );
 });
 
+void test("GmlToJsEmitter visits builtin call arguments only once", () => {
+    const defaultOracle = Transpiler.createSemanticOracle();
+    const sem: SemanticAnalyzers = Object.assign(Object.create(defaultOracle), {
+        callTargetKind() {
+            return "builtin" as const;
+        }
+    });
+    const emitter = new Transpiler.GmlToJsEmitter(sem);
+    const emitterInternals = emitter as unknown as {
+        visit(node: Parameters<typeof emitter.emit>[0]): string;
+    };
+    const originalVisit = emitterInternals.visit.bind(emitter);
+    let visitedSideEffectArgument = 0;
+
+    emitterInternals.visit = ((node: Parameters<typeof emitter.emit>[0]) => {
+        if (
+            node &&
+            typeof node === "object" &&
+            "type" in node &&
+            (node as { type: string }).type === "SideEffectArgument"
+        ) {
+            visitedSideEffectArgument += 1;
+            return "value";
+        }
+        return originalVisit(node);
+    }) as typeof emitterInternals.visit;
+
+    const result = emitter.emit({
+        type: "CallExpression",
+        object: { type: "Identifier", name: "abs" },
+        arguments: [{ type: "SideEffectArgument" }]
+    } as unknown as Parameters<typeof emitter.emit>[0]);
+
+    assert.equal(result, "abs(value)");
+    assert.equal(visitedSideEffectArgument, 1, "builtin arguments should only be emitted once");
+});
+
 void test("GmlToJsEmitter routes script calls through the wrapper helper", () => {
     const source = "result = scr_attack(target)";
     const parser = new Parser.GMLParser(source, {});

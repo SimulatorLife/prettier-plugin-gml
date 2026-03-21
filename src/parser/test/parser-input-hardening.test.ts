@@ -145,6 +145,18 @@ function test() {
             assert.ok(ast);
             assert.equal(ast.type, "Program");
         });
+
+        void it("should parse large additive call chains without exhausting memory", () => {
+            const repeatedSegments = Array.from(
+                { length: 420 },
+                (_, index) => `string_format(value_${index}, 1, 10)`
+            ).join(" + ");
+            const source = [`function stress_trace() {`, `    return ${repeatedSegments};`, `}`, ""].join("\n");
+
+            const ast = GMLParser.parse(source, { getComments: false });
+            assert.ok(ast);
+            assert.equal(ast.type, "Program");
+        });
     });
 
     void describe("error message clarity", () => {

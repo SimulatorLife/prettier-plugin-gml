@@ -72,3 +72,29 @@ export function setupNestedScopes(tracker: ScopeTracker) {
 
     return { programScope, functionScope };
 }
+
+/**
+ * Declares `name` in `tracker` at the given `line` (default 1).
+ * Convenience wrapper for tests that only care about identity and position,
+ * not exact byte offsets.
+ */
+export function declareAt(tracker: ScopeTracker, name: string, line: number = 1): void {
+    tracker.declare(name, {
+        name,
+        start: { line, column: 0, index: 0 },
+        end: { line, column: name.length, index: name.length }
+    });
+}
+
+/**
+ * Records a reference to `name` in `tracker` at the given `line` (default 2).
+ * Convenience wrapper for tests that only care about identity and position,
+ * not exact byte offsets.
+ */
+export function referenceAt(tracker: ScopeTracker, name: string, line: number = 2): void {
+    tracker.reference(name, {
+        name,
+        start: { line, column: 0, index: 0 },
+        end: { line, column: name.length, index: name.length }
+    });
+}

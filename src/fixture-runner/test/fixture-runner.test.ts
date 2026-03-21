@@ -66,7 +66,7 @@ void test("discoverFixtureCases normalizes directory-per-case fixtures", async (
     }
 });
 
-void test("discoverFixtureCases rejects legacy flat fixture files and unexpected directories", async () => {
+void test("discoverFixtureCases rejects unexpected files and directories", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-layout-"));
     const casePath = path.join(rootPath, "invalid");
     await mkdir(casePath, { recursive: true });
@@ -82,7 +82,28 @@ void test("discoverFixtureCases rejects legacy flat fixture files and unexpected
     try {
         await assert.rejects(
             FixtureRunner.discoverFixtureCases(rootPath),
-            /legacy fixture file "legacy\.output\.gml" is not allowed.*unexpected directory "nested"/su
+            /unexpected file "legacy\.output\.gml".*unexpected directory "nested"/su
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("discoverFixtureCases rejects text fixtures that use the project-tree assertion", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-assertion-"));
+    const casePath = path.join(rootPath, "invalid-assertion");
+    await mkdir(casePath, { recursive: true });
+    await writeFile(
+        path.join(casePath, "gmloop.json"),
+        `${JSON.stringify({ fixture: { kind: "format", assertion: "project-tree" } }, null, 2)}\n`,
+        "utf8"
+    );
+    await writeFile(path.join(casePath, "input.gml"), "var value = 1;\n", "utf8");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.discoverFixtureCases(rootPath),
+            /project-tree assertion is only valid for refactor fixtures/su
         );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
@@ -138,6 +159,9 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
             report.entries[0]?.stages.some((stage) => stage.stageName === "format"),
             true
         );
+        assert.equal(typeof report.entries[0]?.memorySummary.totalHeapUsedDeltaBytes, "number");
+        assert.equal(typeof report.entries[0]?.memorySummary.totalMaxRssDeltaBytes, "number");
+        assert.equal(typeof report.entries[0]?.memorySummary.peakStageHeapUsedDeltaBytes, "number");
         await FixtureRunner.writeJsonProfileReport(report, reportPath);
         const persisted = JSON.parse(await readFile(reportPath, "utf8")) as {
             entries: Array<unknown>;
@@ -145,6 +169,16 @@ void test("runFixtureSuite records profiling metrics and writes reports", async 
             stageAggregates: Array<unknown>;
         };
         assert.equal(persisted.entries.length, 1);
+        const persistedEntry = persisted.entries[0] as {
+            memorySummary?: {
+                totalHeapUsedDeltaBytes?: unknown;
+                totalMaxRssDeltaBytes?: unknown;
+                peakStageHeapUsedDeltaBytes?: unknown;
+            };
+        };
+        assert.equal(typeof persistedEntry.memorySummary?.totalHeapUsedDeltaBytes, "number");
+        assert.equal(typeof persistedEntry.memorySummary?.totalMaxRssDeltaBytes, "number");
+        assert.equal(typeof persistedEntry.memorySummary?.peakStageHeapUsedDeltaBytes, "number");
         assert.equal(persisted.workspaceAggregates.length, 1);
         assert.equal(persisted.stageAggregates.length > 0, true);
         assert.match(FixtureRunner.renderHumanProfileReport(report), /Slowest cases:/u);
@@ -258,7 +292,7 @@ void test("runner-owned comparison mode strips doc comment annotations and trims
     }
 });
 
-void test("lint fixtures default to whitespace-insensitive comparison", async () => {
+void test("fixture cases default to exact comparison", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-lint-comparison-"));
     await createTextFixtureCase(
         rootPath,
@@ -274,21 +308,46 @@ void test("lint fixtures default to whitespace-insensitive comparison", async ()
 
     try {
         const fixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
-        assert.equal(fixtureCases[0]?.comparison, "ignore-whitespace-and-line-endings");
+        assert.equal(fixtureCases[0]?.comparison, "exact");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
 
+void test("integration fixtures with refactor config do not receive a runner-managed working project directory", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-integration-project-"));
+    await createTextFixtureCase(
+        rootPath,
+        "integration-refactor",
+        {
+            refactor: {
+                codemods: {
+                    loopLengthHoisting: false
+                }
+            },
+            fixture: {
+                kind: "integration"
+            }
+        },
+        "var value = 1;\n",
+        "var value = 1;\n"
+    );
+
+    try {
         const result = await FixtureRunner.runFixtureSuite({
             fixtureRoot: rootPath,
             adapter: {
-                workspaceName: "lint",
-                suiteName: "lint fixtures",
+                workspaceName: "integration",
+                suiteName: "integration fixtures",
                 supports(kind) {
-                    return kind === "lint";
+                    return kind === "integration";
                 },
-                async run({ runProfiledStage }) {
-                    return await runProfiledStage("lint", async () => ({
-                        resultKind: "text",
-                        outputText: "var total=1+2;\n",
-                        changed: true
+                async run({ workingProjectDirectoryPath, runProfiledStage }) {
+                    assert.equal(workingProjectDirectoryPath, null);
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text" as const,
+                        outputText: "var value = 1;\n",
+                        changed: false
                     }));
                 }
             }
@@ -296,6 +355,217 @@ void test("lint fixtures default to whitespace-insensitive comparison", async ()
 
         assert.equal(result.executionResults.length, 1);
         assert.deepEqual(result.failures, []);
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runFixtureSuite can target a single case id", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-case-filter-"));
+    await createTextFixtureCase(rootPath, "first", { fixture: { kind: "format" } }, "input\n", "first\n");
+    await createTextFixtureCase(rootPath, "second", { fixture: { kind: "format" } }, "input\n", "second\n");
+
+    try {
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: rootPath,
+            caseIds: ["second"],
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: `${fixtureCase.caseId}\n`,
+                        changed: true
+                    }));
+                }
+            }
+        });
+
+        assert.deepEqual(
+            result.fixtureCases.map((fixtureCase) => fixtureCase.caseId),
+            ["second"]
+        );
+        assert.equal(result.executionResults.length, 1);
+        assert.equal(result.executionResults[0]?.fixtureCase.caseId, "second");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runFixtureSuite can reuse discovered fixture cases", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-discovered-reuse-"));
+    await createTextFixtureCase(rootPath, "first", { fixture: { kind: "format" } }, "input\n", "first\n");
+
+    try {
+        const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const impossibleFixtureRoot = path.join(rootPath, "missing-fixture-root");
+
+        const result = await FixtureRunner.runFixtureSuite({
+            fixtureRoot: impossibleFixtureRoot,
+            discoveredFixtureCases,
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: `${fixtureCase.caseId}\n`,
+                        changed: true
+                    }));
+                }
+            }
+        });
+
+        assert.equal(result.fixtureCases.length, 1);
+        assert.equal(result.executionResults.length, 1);
+        assert.equal(result.executionResults[0]?.fixtureCase.caseId, "first");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runDiscoveredFixtureCase executes a specific pre-discovered case", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-single-case-"));
+    await createTextFixtureCase(rootPath, "target", { fixture: { kind: "format" } }, "input\n", "target\n");
+
+    try {
+        const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const targetFixtureCase = discoveredFixtureCases[0];
+
+        assert.notEqual(targetFixtureCase, undefined);
+
+        const executionResult = await FixtureRunner.runDiscoveredFixtureCase({
+            adapter: {
+                workspaceName: "format",
+                suiteName: "format fixtures",
+                supports(kind) {
+                    return kind === "format";
+                },
+                async run({ fixtureCase, runProfiledStage }) {
+                    return await runProfiledStage("format", async () => ({
+                        resultKind: "text",
+                        outputText: `${fixtureCase.caseId}\n`,
+                        changed: true
+                    }));
+                }
+            },
+            fixtureCase: targetFixtureCase
+        });
+
+        assert.equal(executionResult.fixtureCase.caseId, "target");
+        assert.equal(executionResult.caseResult?.resultKind, "text");
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("runDiscoveredFixtureCase rejects unsupported fixture kinds", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-single-case-kind-"));
+    await createTextFixtureCase(rootPath, "target", { fixture: { kind: "format" } }, "input\n", "target\n");
+
+    try {
+        const discoveredFixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const targetFixtureCase = discoveredFixtureCases[0];
+        assert.notEqual(targetFixtureCase, undefined);
+
+        await assert.rejects(
+            FixtureRunner.runDiscoveredFixtureCase({
+                adapter: {
+                    workspaceName: "lint",
+                    suiteName: "lint fixtures",
+                    supports(kind) {
+                        return kind === "lint";
+                    },
+                    async run({ runProfiledStage }) {
+                        return await runProfiledStage("lint", async () => ({
+                            resultKind: "text",
+                            outputText: "target\n",
+                            changed: false
+                        }));
+                    }
+                },
+                fixtureCase: targetFixtureCase
+            }),
+            /does not support fixture kind/u
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("fixture stage timing rejects duplicate stage names", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-duplicate-stage-"));
+    await createTextFixtureCase(
+        rootPath,
+        "duplicate-stage",
+        { fixture: { kind: "integration" } },
+        "input\n",
+        "input\n"
+    );
+
+    try {
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                adapter: {
+                    workspaceName: "integration",
+                    suiteName: "integration fixtures",
+                    supports(kind) {
+                        return kind === "integration";
+                    },
+                    async run({ runProfiledStage }) {
+                        await runProfiledStage("lint", async () => undefined);
+                        await runProfiledStage("format", async () => undefined);
+                        await runProfiledStage("format", async () => undefined);
+                        return {
+                            resultKind: "text",
+                            outputText: "input\n",
+                            changed: false
+                        };
+                    }
+                }
+            }),
+            /must not run more than once/u
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("fixture stage timing rejects out-of-order stage execution", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-stage-order-"));
+    await createTextFixtureCase(rootPath, "stage-order", { fixture: { kind: "integration" } }, "input\n", "input\n");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                adapter: {
+                    workspaceName: "integration",
+                    suiteName: "integration fixtures",
+                    supports(kind) {
+                        return kind === "integration";
+                    },
+                    async run({ runProfiledStage }) {
+                        await runProfiledStage("format", async () => undefined);
+                        await runProfiledStage("lint", async () => undefined);
+                        return {
+                            resultKind: "text",
+                            outputText: "input\n",
+                            changed: false
+                        };
+                    }
+                }
+            }),
+            /ran out of order/u
+        );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
     }

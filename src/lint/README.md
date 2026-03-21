@@ -141,7 +141,7 @@ comment-bearing statement spans.
 `var value = expression; return value;` to `return expression;` when no comments
 would be dropped and the initializer does not reference the declared identifier.
 
-`require-control-flow-braces` reports unbraced control-flow statements but does not autofix them. Brace insertion is formatter-owned, so the normal remediation path is to run the formatter and let it print the control-flow body as a block.
+`require-control-flow-braces` reports and autofixes unbraced control-flow statements by inserting structural `{ ... }` blocks. It does not depend on the formatter for that rewrite; the formatter remains responsible only for subsequent layout/canonical rendering.
 
 `prefer-struct-literal-assignments` only rewrites contiguous property assignments when they immediately follow an empty struct creation (`var foo = {};` or `foo = {};`). Property writes against existing structs are left unchanged.
 

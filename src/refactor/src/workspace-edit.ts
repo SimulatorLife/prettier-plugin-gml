@@ -26,6 +26,38 @@ export interface MetadataEdit {
 
 export type GroupedTextEdits = Map<string, Array<Pick<TextEdit, "start" | "end" | "newText">>>;
 
+export type WorkspaceEditTelemetry = {
+    textEditCount: number;
+    fileRenameCount: number;
+    metadataEditCount: number;
+    touchedFileCount: number;
+    totalTextBytes: number;
+    highWaterTextBytes: number;
+};
+
+type WorkspaceEditTelemetryState = {
+    totalTextBytes: number;
+    highWaterTextBytes: number;
+    touchedFiles: Set<string>;
+};
+
+const workspaceEditTelemetryState = new WeakMap<WorkspaceEdit, WorkspaceEditTelemetryState>();
+
+function getTelemetryState(workspace: WorkspaceEdit): WorkspaceEditTelemetryState {
+    const existing = workspaceEditTelemetryState.get(workspace);
+    if (existing) {
+        return existing;
+    }
+
+    const created: WorkspaceEditTelemetryState = {
+        totalTextBytes: 0,
+        highWaterTextBytes: 0,
+        touchedFiles: new Set<string>()
+    };
+    workspaceEditTelemetryState.set(workspace, created);
+    return created;
+}
+
 export class WorkspaceEdit {
     readonly edits: Array<TextEdit>;
     readonly fileRenames: Array<FileRename> = [];
@@ -41,18 +73,29 @@ export class WorkspaceEdit {
     }
 
     addEdit(path: string, start: number, end: number, newText: string): void {
+        const telemetryState = getTelemetryState(this);
         this.edits.push({ path, start, end, newText });
+        telemetryState.touchedFiles.add(path);
+        telemetryState.totalTextBytes += Buffer.byteLength(newText, "utf8");
+        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
     }
 
     addFileRename(oldPath: string, newPath: string): void {
+        const telemetryState = getTelemetryState(this);
         this.fileRenames.push({ oldPath, newPath });
+        telemetryState.touchedFiles.add(oldPath);
+        telemetryState.touchedFiles.add(newPath);
     }
 
     /**
      * Queue a full-document metadata rewrite.
      */
     addMetadataEdit(path: string, content: string): void {
+        const telemetryState = getTelemetryState(this);
         this.metadataEdits.push({ path, content });
+        telemetryState.touchedFiles.add(path);
+        telemetryState.totalTextBytes += Buffer.byteLength(content, "utf8");
+        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
     }
 
     groupByFile(): GroupedTextEdits {
@@ -81,6 +124,21 @@ export class WorkspaceEdit {
 
         return grouped;
     }
+}
+
+/**
+ * Return size/counter telemetry collected while building a workspace edit.
+ */
+export function getWorkspaceEditTelemetry(workspace: WorkspaceEdit): WorkspaceEditTelemetry {
+    const telemetryState = getTelemetryState(workspace);
+    return {
+        textEditCount: workspace.edits.length,
+        fileRenameCount: workspace.fileRenames.length,
+        metadataEditCount: workspace.metadataEdits.length,
+        touchedFileCount: telemetryState.touchedFiles.size,
+        totalTextBytes: telemetryState.totalTextBytes,
+        highWaterTextBytes: telemetryState.highWaterTextBytes
+    };
 }
 
 /**
@@ -122,4 +180,62 @@ export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRen
         metadataEdits: Array.isArray(workspace.metadataEdits) ? (workspace.metadataEdits as Array<MetadataEdit>) : [],
         fileRenames: Array.isArray(workspace.fileRenames) ? (workspace.fileRenames as Array<FileRename>) : []
     };
+}
+
+/**
+ * Validate file rename operations queued on a workspace edit.
+ * Rejects ambiguous rename graphs up front so callers cannot apply a workspace
+ * that would depend on execution order or overwrite another pending rename.
+ *
+ * @param fileRenames - File rename operations to validate.
+ * @returns Validation errors describing every invalid rename entry.
+ */
+export function validateFileRenameOperations(fileRenames: ReadonlyArray<FileRename>): Array<string> {
+    const errors: Array<string> = [];
+    const seenSourcePaths = new Set<string>();
+    const seenDestinationPaths = new Set<string>();
+    const sourcePathSet = new Set<string>();
+
+    for (const rename of fileRenames) {
+        sourcePathSet.add(rename.oldPath);
+    }
+
+    for (const rename of fileRenames) {
+        if (typeof rename.oldPath !== "string" || rename.oldPath.length === 0) {
+            errors.push("File rename source path must be a non-empty string");
+        }
+
+        if (typeof rename.newPath !== "string" || rename.newPath.length === 0) {
+            errors.push("File rename destination path must be a non-empty string");
+        }
+
+        if (
+            typeof rename.oldPath === "string" &&
+            typeof rename.newPath === "string" &&
+            rename.oldPath.length > 0 &&
+            rename.newPath.length > 0 &&
+            rename.oldPath === rename.newPath
+        ) {
+            errors.push(`File rename for ${rename.oldPath} must change the path`);
+        }
+
+        if (seenSourcePaths.has(rename.oldPath)) {
+            errors.push(`Duplicate file rename source detected for ${rename.oldPath}`);
+        }
+
+        if (seenDestinationPaths.has(rename.newPath)) {
+            errors.push(`Duplicate file rename destination detected for ${rename.newPath}`);
+        }
+
+        if (sourcePathSet.has(rename.newPath)) {
+            errors.push(
+                `File rename destination ${rename.newPath} is also scheduled as a rename source; rename chains are not supported`
+            );
+        }
+
+        seenSourcePaths.add(rename.oldPath);
+        seenDestinationPaths.add(rename.newPath);
+    }
+
+    return errors;
 }

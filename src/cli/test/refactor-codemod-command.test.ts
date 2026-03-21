@@ -187,6 +187,35 @@ void test("refactor codemod --write applies configured loop-length hoisting chan
     }
 });
 
+void test("refactor infers codemod mode from project config when no rename target is specified", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "demo_script",
+            "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n"
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "--project-root", projectRoot, "--write"]
+        });
+
+        assert.equal(result.exitCode, 0);
+        const updatedSource = await readFile(path.join(projectRoot, "scripts/demo_script/demo_script.gml"), "utf8");
+        assert.match(updatedSource, /var len = array_length\(items\);/);
+        assert.match(result.stdout, /\[loopLengthHoisting\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod target paths restrict which gml files are rewritten", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

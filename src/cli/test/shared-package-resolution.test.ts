@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { readPackageJson, resolveCandidateRoot, resolvePackageJsonPath } from "../src/shared/package-resolution.js";
+import {
+    getPackageJsonStringField,
+    parsePackageJsonContents,
+    readPackageJson,
+    resolveCandidateRoot,
+    resolvePackageJsonPath
+} from "../src/shared/package-resolution.js";
 
 void describe("shared package resolution utilities", () => {
     void it("resolveCandidateRoot returns null for falsy inputs", () => {
@@ -33,6 +39,15 @@ void describe("shared package resolution utilities", () => {
         } finally {
             await fs.rm(tmpDir, { recursive: true, force: true });
         }
+    });
+
+    void it("parsePackageJsonContents validates package payloads reused by sync readers", () => {
+        const packageJson = parsePackageJsonContents(
+            JSON.stringify({ name: "test-package", version: "1.0.0" }),
+            "/tmp/package.json"
+        );
+
+        assert.deepStrictEqual(packageJson, { name: "test-package", version: "1.0.0" });
     });
 
     void it("readPackageJson throws for invalid JSON", async () => {
@@ -105,6 +120,20 @@ void describe("shared package resolution utilities", () => {
         }
     });
 
+    void it("getPackageJsonStringField returns trimmed strings and null for missing fields", () => {
+        const packageJson = { name: "  @gmloop/cli  ", version: "1.2.3" };
+
+        assert.strictEqual(getPackageJsonStringField(packageJson, "name"), "@gmloop/cli");
+        assert.strictEqual(getPackageJsonStringField(packageJson, "private"), null);
+    });
+
+    void it("resolvePackageJsonPath resolves installed workspace packages via the ESM resolver", () => {
+        const packageJsonPath = resolvePackageJsonPath("@gmloop/core", "core");
+
+        assert.strictEqual(path.basename(packageJsonPath), "package.json");
+        assert.strictEqual(packageJsonPath.includes(`${path.sep}src${path.sep}core${path.sep}`), true);
+    });
+  
     void it("resolvePackageJsonPath throws for unknown packages", () => {
         assert.throws(
             () => resolvePackageJsonPath("nonexistent-package-12345", "test"),

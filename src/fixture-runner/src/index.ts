@@ -22,6 +22,7 @@ export type {
     FixtureProfileBudgets,
     FixtureProfileCollector,
     FixtureProfileEntry,
+    FixtureProfileEntryMemorySummary,
     FixtureProfileReport,
     FixtureProjectConfig,
     FixtureProjectConfigMetadata,

@@ -1,5 +1,6 @@
 import { asArray, toArray } from "./array.js";
 import { toFiniteNumber } from "./number.js";
+import { GML_IDENTIFIER_NAME_PATTERN } from "./regexp.js";
 import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
 
 type AssertFunctionOptions = {
@@ -680,4 +681,45 @@ export function restoreProperties<TTarget extends Record<PropertyKey, unknown>, 
             target[key] = snapshot[key] as TTarget[TKey];
         }
     }
+}
+
+/**
+ * Resolves a `ReadonlyMap` of GML identifier names to suffix strings by merging
+ * a set of defaults with optional user-provided overrides.
+ *
+ * Keys that are not valid GML identifiers are silently ignored. A `null` override
+ * value removes the corresponding entry from the defaults. An empty-string override
+ * is also ignored, preserving the default.
+ *
+ * @param defaults Base map of identifier name → suffix string entries.
+ * @param overrides Optional per-identifier overrides; `null` removes an entry.
+ * @returns Merged, validated map.
+ */
+export function resolveIdentifierKeyedSuffixMap(
+    defaults: Readonly<Record<string, string>>,
+    overrides: Readonly<Record<string, string | null>> | undefined
+): ReadonlyMap<string, string> {
+    const suffixMap = new Map<string, string>(Object.entries(defaults));
+    if (!overrides) {
+        return suffixMap;
+    }
+
+    for (const [name, suffix] of Object.entries(overrides)) {
+        if (!GML_IDENTIFIER_NAME_PATTERN.test(name)) {
+            continue;
+        }
+
+        if (suffix === null) {
+            suffixMap.delete(name);
+            continue;
+        }
+
+        if (typeof suffix !== "string" || suffix.length === 0) {
+            continue;
+        }
+
+        suffixMap.set(name, suffix);
+    }
+
+    return suffixMap;
 }

@@ -291,6 +291,41 @@ void describe("GmlSemanticBridge tests", () => {
                     path: "scripts/demo_script/demo_script.yy",
                     name: "demo_script",
                     resourceType: "GMScript"
+                },
+                "paths/pth_enemy_route/pth_enemy_route.yy": {
+                    path: "paths/pth_enemy_route/pth_enemy_route.yy",
+                    name: "pth_enemy_route",
+                    resourceType: "GMPath"
+                },
+                "animcurves/curve_attack_arc/curve_attack_arc.yy": {
+                    path: "animcurves/curve_attack_arc/curve_attack_arc.yy",
+                    name: "curve_attack_arc",
+                    resourceType: "GMAnimCurve"
+                },
+                "sequences/seq_intro/seq_intro.yy": {
+                    path: "sequences/seq_intro/seq_intro.yy",
+                    name: "seq_intro",
+                    resourceType: "GMSequence"
+                },
+                "tilesets/tile_world/tile_world.yy": {
+                    path: "tilesets/tile_world/tile_world.yy",
+                    name: "tile_world",
+                    resourceType: "GMTileSet"
+                },
+                "particlesystems/part_trail/part_trail.yy": {
+                    path: "particlesystems/part_trail/part_trail.yy",
+                    name: "part_trail",
+                    resourceType: "GMParticleSystem"
+                },
+                "notes/note_design/note_design.yy": {
+                    path: "notes/note_design/note_design.yy",
+                    name: "note_design",
+                    resourceType: "GMNote"
+                },
+                "extensions/ext_physics/ext_physics.yy": {
+                    path: "extensions/ext_physics/ext_physics.yy",
+                    name: "ext_physics",
+                    resourceType: "GMExtension"
                 }
             },
             identifiers: {
@@ -433,6 +468,23 @@ void describe("GmlSemanticBridge tests", () => {
         const targets = await bridge.listNamingConventionTargets();
 
         assert.ok(targets.some((target) => target.category === "scriptResourceName" && target.name === "demo_script"));
+        assert.ok(
+            targets.some((target) => target.category === "pathResourceName" && target.name === "pth_enemy_route")
+        );
+        assert.ok(
+            targets.some(
+                (target) => target.category === "animationCurveResourceName" && target.name === "curve_attack_arc"
+            )
+        );
+        assert.ok(targets.some((target) => target.category === "sequenceResourceName" && target.name === "seq_intro"));
+        assert.ok(targets.some((target) => target.category === "tilesetResourceName" && target.name === "tile_world"));
+        assert.ok(
+            targets.some((target) => target.category === "particleSystemResourceName" && target.name === "part_trail")
+        );
+        assert.ok(targets.some((target) => target.category === "noteResourceName" && target.name === "note_design"));
+        assert.ok(
+            targets.some((target) => target.category === "extensionResourceName" && target.name === "ext_physics")
+        );
         assert.ok(
             targets.some((target) => target.category === "constructorFunction" && target.name === "build_widget")
         );

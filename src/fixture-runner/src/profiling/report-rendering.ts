@@ -23,8 +23,8 @@ export function renderHumanProfileReport(report: FixtureProfileReport): string {
     const slowestEntries = [...report.entries].sort((left, right) => right.totalMs - left.totalMs).slice(0, 10);
     const largestHeapEntries = [...report.entries]
         .sort((left, right) => {
-            const leftHeap = left.stages.find((stage) => stage.stageName === "total")?.heapUsedDeltaBytes ?? 0;
-            const rightHeap = right.stages.find((stage) => stage.stageName === "total")?.heapUsedDeltaBytes ?? 0;
+            const leftHeap = left.memorySummary.totalHeapUsedDeltaBytes;
+            const rightHeap = right.memorySummary.totalHeapUsedDeltaBytes;
             return rightHeap - leftHeap;
         })
         .slice(0, 10);
@@ -59,11 +59,7 @@ export function renderHumanProfileReport(report: FixtureProfileReport): string {
         "",
         "Largest heap deltas:",
         ...largestHeapEntries.map((entry) => {
-            const totalStage = entry.stages.find((stage) => stage.stageName === "total");
-            return formatCaseMetricLine(
-                `- ${entry.workspace}/${entry.caseId}`,
-                totalStage?.heapUsedDeltaBytes ?? 0
-            ).concat(" bytes");
+            return `${formatCaseMetricLine(`- ${entry.workspace}/${entry.caseId}`, entry.memorySummary.totalHeapUsedDeltaBytes)} bytes (peak stage: ${formatMetric(entry.memorySummary.peakStageHeapUsedDeltaBytes)} bytes)`;
         }),
         "",
         "Highest CPU user time:",

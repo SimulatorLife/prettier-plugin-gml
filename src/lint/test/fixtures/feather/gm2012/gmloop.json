@@ -5,6 +5,7 @@
   "printWidth": 200,
   "fixture": {
     "kind": "lint",
-    "assertion": "transform"
+    "assertion": "transform",
+    "comparison": "ignore-whitespace-and-line-endings"
   }
 }

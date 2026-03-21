@@ -1063,7 +1063,11 @@ void test("require-control-flow-braces reports inline statements with nested cal
 `;
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 1);
-    assertEquals(result.output, input);
+    assertEquals(
+        result.output,
+        String.raw`if (_starting_font == undefined) { __scribble_error("The default font has not been set\nCheck that you've added fonts to Scribble (scribble_font_add() / scribble_font_add_from_sprite() etc.)"); }
+`
+    );
     assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 33 });
 });
 
@@ -1074,7 +1078,15 @@ void test("require-control-flow-braces reports inline while/for/with statements"
 
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 3);
-    assertEquals(result.output, input);
+    assertEquals(
+        result.output,
+        [
+            "while (alive) { tick(); }",
+            "for (var i = 0; i < 10; i++) { sum += i; }",
+            "with (other) { hp -= 1; }",
+            ""
+        ].join("\n")
+    );
     assert.deepEqual(
         result.messages.map((message) => message.loc),
         [
@@ -1090,7 +1102,10 @@ void test("require-control-flow-braces reports line-only else branches without r
 
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 2);
-    assertEquals(result.output, input);
+    assertEquals(
+        result.output,
+        ["if (a > b)", '    { draw_text(x, y, "ok"); }', "else", "    { do_other(); }", ""].join("\n")
+    );
     assert.deepEqual(
         result.messages.map((message) => message.loc),
         [
@@ -1105,7 +1120,7 @@ void test("require-control-flow-braces reports inline do-until clauses", () => {
 
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 1);
-    assertEquals(result.output, input);
+    assertEquals(result.output, ["do { step(); } until (done);", ""].join("\n"));
     assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 3 });
 });
 
@@ -1125,7 +1140,10 @@ void test("require-control-flow-braces reports repeat statements with nested ind
     const input = 'repeat(_tag_parameter_count-1) _command_string += "," + string(_tag_parameters[_j++]);\n';
     const result = lintWithRule("require-control-flow-braces", input, {});
     assertEquals(result.messages.length, 1);
-    assertEquals(result.output, input);
+    assertEquals(
+        result.output,
+        'repeat(_tag_parameter_count-1) { _command_string += "," + string(_tag_parameters[_j++]); }\n'
+    );
     assert.deepEqual(result.messages[0]?.loc, { line: 1, column: 31 });
 });
 
@@ -1352,6 +1370,13 @@ void test("normalize-operator-aliases does not replace punctuation exclamation m
 void test("normalize-operator-aliases replaces invalid logical keyword 'not' with '!'", () => {
     const input = ["if (not ready) {", "    value = not extra;", "}", ""].join("\n");
     const expected = ["if (! ready) {", "    value = ! extra;", "}", ""].join("\n");
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-operator-aliases leaves uppercase binary aliases unchanged while fixing uppercase NOT", () => {
+    const input = ["if (ready AND NOT done OR extra XOR flag) {", "    finish();", "}", ""].join("\n");
+    const expected = ["if (ready AND ! done OR extra XOR flag) {", "    finish();", "}", ""].join("\n");
     const result = lintWithRule("normalize-operator-aliases", input, {});
     assertEquals(result.output, expected);
 });

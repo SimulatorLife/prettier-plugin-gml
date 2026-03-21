@@ -327,6 +327,20 @@ void test("validateRename accepts metadata-only workspace edits", async () => {
     assert.equal(result.errors.length, 0);
 });
 
+void test("validateRename rejects ambiguous file rename graphs", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addFileRename("scripts/a.gml", "scripts/b.gml");
+    ws.addFileRename("scripts/b.gml", "scripts/c.gml");
+    ws.addFileRename("scripts/d.gml", "scripts/c.gml");
+
+    const result = await engine.validateRename(ws);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((error) => error.includes("rename chains are not supported")));
+    assert.ok(result.errors.some((error) => error.includes("Duplicate file rename destination detected")));
+});
+
 void test("gatherSymbolOccurrences returns empty array without semantic", async () => {
     const engine = new RefactorEngineClass();
     const occurrences = await engine.gatherSymbolOccurrences("test");
@@ -576,6 +590,28 @@ void test("applyWorkspaceEdit applies metadata edits as full-document replacemen
 
     assert.equal(results.get("objects/o_player/o_player.yy"), '{"name":"o_hero"}');
     assert.equal(writes["objects/o_player/o_player.yy"], '{"name":"o_hero"}');
+});
+
+void test("applyWorkspaceEdit can omit result content in write mode", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("test.gml", 0, 3, "new");
+
+    const readFile: WorkspaceReadFile = async () => "old text here";
+    const writes: Record<string, string> = {};
+    const writeFile: WorkspaceWriteFile = async (targetPath, content) => {
+        writes[targetPath] = content;
+    };
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        writeFile,
+        dryRun: false,
+        includeResultContent: false
+    });
+
+    assert.equal(results.get("test.gml"), "");
+    assert.equal(writes["test.gml"], "new text here");
 });
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {

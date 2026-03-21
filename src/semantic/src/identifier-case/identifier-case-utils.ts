@@ -246,17 +246,23 @@ function normalizeReservedPrefixOverrides(overrides) {
 
     const entries = Core.normalizeStringList(Core.toArrayFromIterable(overrides));
 
-    return entries.reduce((acc, item) => {
-        const insertIndex = acc.findIndex((existing) => {
-            const lengthDifference = existing.length - item.length;
-            if (lengthDifference !== 0) {
-                return lengthDifference < 0;
-            }
-            return existing < item;
-        });
-
-        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-    }, []);
+    // Sort descending by length so longer prefixes are tested first, ensuring
+    // correct longest-match semantics. Within equal lengths, sort descending
+    // lexicographically to match the original insertion order.
+    //
+    // The previous insertion-sort-via-reduce created at least one new array per
+    // entry (up to three for mid-array inserts), giving O(n) heap allocations
+    // immediately discarded. Array.sort operates in-place, eliminating all
+    // intermediate arrays and reducing complexity from O(n²) to O(n log n).
+    return entries.sort((a, b) => {
+        const lengthDiff = b.length - a.length;
+        if (lengthDiff !== 0) {
+            return lengthDiff;
+        }
+        // Descending lexicographic: b.localeCompare(a) is positive when b > a,
+        // placing lex-greater prefixes first for consistent longest-match resolution.
+        return b.localeCompare(a);
+    });
 }
 
 function extractReservedPrefixWithOverrides(identifier, overrides) {

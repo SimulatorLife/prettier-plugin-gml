@@ -69,43 +69,41 @@ export function applyManualMathNormalization(ast: any, context: ConvertManualMat
 type SimplificationHandler = (node: any, context: ConvertManualMathTransformOptions | null) => boolean;
 
 const BINARY_SIMPLIFIERS: SimplificationHandler[] = [
-    (node, context) => attemptSimplifyOneMinusFactor(node, context),
-    (node, context) => attemptRemoveMultiplicativeIdentity(node, context),
-    (node, context) => attemptReplaceMultiplicationWithZero(node, context),
-    (node, context) => attemptRemoveAdditiveIdentity(node, context),
-    (node, context) => attemptConvertDegreesToRadians(node, context),
-    (node, context) => attemptSimplifyDivisionByReciprocal(node, context),
-    (node, context) => attemptCancelReciprocalRatios(node, context),
-    (node, context) => attemptSimplifyNegativeDivisionProduct(node, context),
-    (node, context) => attemptCondenseScalarProduct(node, context),
-    (node, context) => attemptCondenseNumericChainWithMultipleBases(node, context),
-    (node, context) => attemptCollectDistributedScalars(node, context),
-    (node, context) => attemptSimplifyLengthdirHalfDifference(node, context),
-    (node, context) => attemptConvertRepeatedPower(node, context),
-    (node, context) => attemptConvertSquare(node, context),
-    (node, context) => attemptConvertMean(node, context),
-    (node, context) => attemptConvertLog2(node, context),
-    (node, context) => attemptConvertLengthDir(node, context),
-    (node, context) => attemptConvertDotProducts(node, context)
+    attemptSimplifyOneMinusFactor,
+    attemptRemoveMultiplicativeIdentity,
+    attemptReplaceMultiplicationWithZero,
+    attemptRemoveAdditiveIdentity,
+    attemptConvertDegreesToRadians,
+    attemptSimplifyDivisionByReciprocal,
+    attemptCancelReciprocalRatios,
+    attemptSimplifyNegativeDivisionProduct,
+    attemptCondenseScalarProduct,
+    attemptCondenseNumericChainWithMultipleBases,
+    attemptCollectDistributedScalars,
+    attemptSimplifyLengthdirHalfDifference,
+    attemptConvertRepeatedPower,
+    attemptConvertSquare,
+    attemptConvertMean,
+    attemptConvertLog2,
+    attemptConvertLengthDir,
+    attemptConvertDotProducts
 ];
 
-const ASSIGNMENT_SIMPLIFIERS: SimplificationHandler[] = [
-    (node, context) => attemptRemoveMultiplicativeIdentityAssignment(node, context)
-];
+const ASSIGNMENT_SIMPLIFIERS: SimplificationHandler[] = [attemptRemoveMultiplicativeIdentityAssignment];
 
 const CALL_SIMPLIFIERS: SimplificationHandler[] = [
-    (node, context) => attemptConvertPointDistanceCall(node, context),
-    (node, context) => attemptConvertPowerToSqrt(node, context),
-    (node, context) => attemptConvertPowerToExp(node, context),
-    (node, context) => attemptConvertPointDirection(node, context),
-    (node) => attemptSimplifyTrigonometricCall(node)
+    attemptConvertPointDistanceCall,
+    attemptConvertPowerToSqrt,
+    attemptConvertPowerToExp,
+    attemptConvertPointDirection,
+    attemptSimplifyTrigonometricCall
 ];
 
 const SCALAR_CONDENSING_SIMPLIFIERS: SimplificationHandler[] = [
-    (node, context) => attemptCondenseSimpleScalarProduct(node, context),
-    (node, context) => attemptCondenseScalarProduct(node, context),
-    (node, context) => attemptCondenseNumericChainWithMultipleBases(node, context),
-    (node, context) => attemptCollectDistributedScalars(node, context)
+    attemptCondenseSimpleScalarProduct,
+    attemptCondenseScalarProduct,
+    attemptCondenseNumericChainWithMultipleBases,
+    attemptCollectDistributedScalars
 ];
 
 function applySimplifiers(
@@ -113,13 +111,7 @@ function applySimplifiers(
     context: ConvertManualMathTransformOptions | null,
     simplifiers: SimplificationHandler[]
 ) {
-    for (const simplifier of simplifiers) {
-        if (simplifier(node, context)) {
-            return true;
-        }
-    }
-
-    return false;
+    return simplifiers.some((simplifier) => simplifier(node, context));
 }
 
 /**

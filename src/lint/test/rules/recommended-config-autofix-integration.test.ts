@@ -113,7 +113,7 @@ void test("recommended config applies the conservative feather safe subset", asy
         result.output,
         [
             "enum Fruit {",
-            "    APPLE = 10,",
+            "    APPLE = 10",
             "}",
             "var flags = fa_readonly | fa_archive;",
             "var nextRoom = room_next(room);",

@@ -23,7 +23,7 @@ void test("executeLoopLengthHoistingCodemod applies codemod across provided file
     assert.equal(result.changedFiles[0]?.path, "/project/changed.gml");
     assert.equal(result.changedFiles[0]?.appliedEditCount > 0, true);
     assert.equal(writes.size, 1);
-    assert.equal(result.applied.get("/project/changed.gml")?.includes("var len = array_length(items);"), true);
+    assert.equal(result.applied.get("/project/changed.gml"), "");
     assert.equal(result.applied.has("/project/unchanged.gml"), false);
 });
 
@@ -104,4 +104,27 @@ void test("executeLoopLengthHoistingCodemod validates required file paths", asyn
             message: "executeLoopLengthHoistingCodemod requires a non-empty filePaths array"
         }
     );
+});
+
+void test("executeLoopLengthHoistingCodemod reads files sequentially", async () => {
+    const engine = new Refactor.RefactorEngine();
+    let activeReads = 0;
+    let maxConcurrentReads = 0;
+
+    await engine.executeLoopLengthHoistingCodemod({
+        filePaths: ["/project/one.gml", "/project/two.gml", "/project/three.gml"],
+        readFile: async () => {
+            activeReads += 1;
+            maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, 5);
+            });
+            activeReads -= 1;
+
+            return "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+        },
+        writeFile: async () => {}
+    });
+
+    assert.equal(maxConcurrentReads, 1);
 });

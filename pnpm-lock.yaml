@@ -187,31 +187,29 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gmloop/fixture-runner':
-        specifier: workspace:*
-        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
       prettier:
         specifier: ^3.0.0
         version: 3.6.2
+    devDependencies:
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
 
   src/lint:
     dependencies:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gmloop/fixture-runner':
-        specifier: workspace:*
-        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
     devDependencies:
-      '@gmloop/format':
+      '@gmloop/fixture-runner':
         specifier: workspace:*
-        version: link:../format
+        version: link:../fixture-runner
       eslint:
         specifier: ^9.39.1
         version: 9.39.2
@@ -233,15 +231,16 @@ importers:
       '@gmloop/core':
         specifier: workspace:*
         version: link:../core
-      '@gmloop/fixture-runner':
-        specifier: workspace:*
-        version: link:../fixture-runner
       '@gmloop/parser':
         specifier: workspace:*
         version: link:../parser
       '@gmloop/semantic':
         specifier: workspace:*
         version: link:../semantic
+    devDependencies:
+      '@gmloop/fixture-runner':
+        specifier: workspace:*
+        version: link:../fixture-runner
 
   src/runtime-wrapper:
     dependencies:

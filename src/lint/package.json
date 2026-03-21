@@ -6,10 +6,6 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./test-support": {
-      "import": "./dist/test/rules/index.js",
-      "types": "./dist/test/rules/index.d.ts"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -22,14 +18,13 @@
   },
   "dependencies": {
     "@gmloop/core": "workspace:*",
-    "@gmloop/fixture-runner": "workspace:*",
     "@gmloop/parser": "workspace:*"
   },
   "peerDependencies": {
     "eslint": ">=9.39.0 <10"
   },
   "devDependencies": {
-    "@gmloop/format": "workspace:*",
+    "@gmloop/fixture-runner": "workspace:*",
     "eslint": "^9.39.1",
     "eslint-min": "npm:eslint@9.39.0"
   },
