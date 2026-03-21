@@ -13,21 +13,50 @@ import {
 } from "../src/modules/hot-reload/inject-runtime.js";
 
 const { HOT_RELOAD_MARKER_START, extractGmWebServerRoot } = __test__;
+const HOT_RELOAD_ASSET_MANIFEST = path.join(".gml-hot-reload", "runtime-wrapper-assets.manifest.json");
 
 async function createTempDir(prefix: string): Promise<string> {
     return fs.mkdtemp(path.join(os.tmpdir(), prefix));
+}
+
+async function createRuntimeWrapperRoot(root: string): Promise<string> {
+    const runtimeRoot = path.join(root, "runtime-wrapper-dist");
+    await fs.mkdir(path.join(runtimeRoot, "src", "runtime"), { recursive: true });
+    await fs.mkdir(path.join(runtimeRoot, "src", "websocket"), { recursive: true });
+    await fs.writeFile(
+        path.join(runtimeRoot, "index.js"),
+        `export const entry = true;
+`,
+        "utf8"
+    );
+    await fs.writeFile(
+        path.join(runtimeRoot, "src", "runtime", "index.js"),
+        `export const createRuntimeWrapper = () => ({});
+export const installScriptCallAdapter = () => {};
+`,
+        "utf8"
+    );
+    await fs.writeFile(
+        path.join(runtimeRoot, "src", "websocket", "index.js"),
+        `export const createWebSocketClient = () => {};
+`,
+        "utf8"
+    );
+    return runtimeRoot;
 }
 
 void describe("prepareHotReloadInjection", () => {
     void it("injects the hot-reload snippet and copies runtime assets", async () => {
         const root = await createTempDir("gml-hot-reload-");
         const outputRoot = path.join(root, "output");
+        const runtimeWrapperRoot = await createRuntimeWrapperRoot(root);
         await fs.mkdir(outputRoot, { recursive: true });
         const indexPath = path.join(outputRoot, "index.html");
         await fs.writeFile(indexPath, "<html><body><h1>Demo</h1></body></html>", "utf8");
 
         const result = await prepareHotReloadInjection({
             html5OutputRoot: outputRoot,
+            runtimeWrapperRoot,
             websocketUrl: "ws://127.0.0.1:9999"
         });
 
@@ -40,12 +69,48 @@ void describe("prepareHotReloadInjection", () => {
         assert.ok(runtimeStats.isFile());
     });
 
+    void it("skips recopying runtime assets when the wrapper manifest is unchanged", async () => {
+        const root = await createTempDir("gml-hot-reload-skip-copy-");
+        const outputRoot = path.join(root, "output");
+        const runtimeWrapperRoot = await createRuntimeWrapperRoot(root);
+        await fs.mkdir(outputRoot, { recursive: true });
+        await fs.writeFile(path.join(outputRoot, "index.html"), "<html><body><h1>Demo</h1></body></html>", "utf8");
+
+        const firstResult = await prepareHotReloadInjection({
+            html5OutputRoot: outputRoot,
+            runtimeWrapperRoot,
+            websocketUrl: "ws://127.0.0.1:9999"
+        });
+        assert.equal(firstResult.copiedAssets, true);
+
+        const runtimeEntry = path.join(firstResult.runtimeWrapperTargetRoot, "index.js");
+        const manifestPath = path.join(outputRoot, HOT_RELOAD_ASSET_MANIFEST);
+        const firstRuntimeStats = await fs.stat(runtimeEntry);
+        const firstManifestContents = await fs.readFile(manifestPath, "utf8");
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        const secondResult = await prepareHotReloadInjection({
+            html5OutputRoot: outputRoot,
+            runtimeWrapperRoot,
+            websocketUrl: "ws://127.0.0.1:9999"
+        });
+
+        const secondRuntimeStats = await fs.stat(runtimeEntry);
+        const secondManifestContents = await fs.readFile(manifestPath, "utf8");
+
+        assert.equal(secondResult.copiedAssets, false);
+        assert.equal(secondRuntimeStats.mtimeMs, firstRuntimeStats.mtimeMs);
+        assert.equal(secondManifestContents, firstManifestContents);
+    });
+
     void it("auto-detects the newest HTML5 output directory", async () => {
         const root = await createTempDir("gml-hot-reload-root-");
         const older = path.join(root, "older");
         const newer = path.join(root, "newer");
         await fs.mkdir(older, { recursive: true });
         await fs.mkdir(newer, { recursive: true });
+        const runtimeWrapperRoot = await createRuntimeWrapperRoot(root);
         await fs.writeFile(path.join(older, "index.html"), "<html></html>", "utf8");
         await fs.writeFile(path.join(newer, "index.html"), "<html></html>", "utf8");
 
@@ -55,7 +120,8 @@ void describe("prepareHotReloadInjection", () => {
         await fs.utimes(path.join(newer, "index.html"), now, now);
 
         const result = await prepareHotReloadInjection({
-            gmTempRoot: root
+            gmTempRoot: root,
+            runtimeWrapperRoot
         });
 
         assert.equal(result.outputRoot, newer);
