@@ -28,6 +28,49 @@ void test("TempFileStorageBackend writes, reads, and deletes entries", async () 
     }
 });
 
+void test("TempFileStorageBackend seeds the read cache from writes to avoid reread churn", async () => {
+    const backend = createTempFileStorageBackend({ readCacheMaxEntries: 2 });
+
+    try {
+        await backend.writeEntry("alpha", "content-a");
+
+        assert.equal(await backend.readEntry("alpha"), "content-a");
+
+        const stats = backend.getStats();
+        assert.equal(stats.cacheHits, 1);
+        assert.equal(stats.cacheMisses, 0);
+    } finally {
+        await backend.dispose();
+    }
+});
+
+void test("TempFileStorageBackend measurement: write-seeded cache avoids repeated spill-file string allocations", async () => {
+    const backend = createTempFileStorageBackend({ readCacheMaxEntries: 1 });
+    const payload = "payload-".repeat(4096);
+    const overwriteCount = 25;
+
+    try {
+        for (let iteration = 0; iteration < overwriteCount; iteration += 1) {
+            await backend.writeEntry("alpha", `${payload}${iteration}`);
+            assert.equal(await backend.readEntry("alpha"), `${payload}${iteration}`);
+        }
+
+        const stats = backend.getStats();
+        const payloadBytes = Buffer.byteLength(`${payload}${overwriteCount - 1}`, "utf8");
+        const historicalColdReadBytes = overwriteCount * payloadBytes;
+        const actualColdReadBytes = stats.cacheMisses * payloadBytes;
+
+        assert.equal(stats.cacheMisses, 0);
+        assert.equal(stats.cacheHits, overwriteCount);
+        assert.ok(
+            historicalColdReadBytes > actualColdReadBytes,
+            `Expected write-seeded cache to avoid cold spill rereads (historical=${historicalColdReadBytes}, actual=${actualColdReadBytes})`
+        );
+    } finally {
+        await backend.dispose();
+    }
+});
+
 void test("TempFileStorageBackend isolates keys that sanitize to the same file prefix", async () => {
     const backend = createTempFileStorageBackend({ readCacheMaxEntries: 2 });
 
@@ -43,8 +86,8 @@ void test("TempFileStorageBackend isolates keys that sanitize to the same file p
     }
 });
 
-void test("TempFileStorageBackend treats externally removed spill files as cache misses", async () => {
-    const backend = createTempFileStorageBackend({ readCacheMaxEntries: 2 });
+void test("TempFileStorageBackend falls back to cache after external spill-file removal and then misses after eviction", async () => {
+    const backend = createTempFileStorageBackend({ readCacheMaxEntries: 1 });
 
     try {
         await backend.writeEntry("external-removal", "payload");
@@ -55,6 +98,9 @@ void test("TempFileStorageBackend treats externally removed spill files as cache
         assert.equal(typeof backingPath, "string");
         await rm(backingPath, { force: true });
 
+        assert.equal(await backend.readEntry("external-removal"), "payload");
+
+        await backend.writeEntry("cache-pressure", "other-payload");
         assert.equal(await backend.readEntry("external-removal"), null);
     } finally {
         await backend.dispose();
