@@ -29,6 +29,8 @@ export interface SemanticCacheConfig {
     /**
      * Maximum number of entries to store per cache type.
      * When exceeded, oldest entries are evicted (FIFO).
+     * A value of `0` keeps the cache active but gives it zero capacity, so
+     * fetched results are returned without being retained.
      * Default: 100
      */
     maxSize?: number;
@@ -318,10 +320,15 @@ export class SemanticQueryCache {
     }
 
     /**
-     * Store a value in the cache with LRU eviction.
+     * Store a value in the cache while respecting the configured capacity.
      * @private
      */
     private setCached<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
+        if (this.config.maxSize <= 0) {
+            this.stats.evictions++;
+            return;
+        }
+
         // Evict oldest entry if cache is full (simple FIFO, not true LRU)
         if (cache.size >= this.config.maxSize) {
             const firstKey = cache.keys().next().value as string | undefined;

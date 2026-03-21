@@ -1079,6 +1079,7 @@ The cache is particularly beneficial for:
 **Cache behavior:**
 
 - Entries are evicted using FIFO when `maxSize` is exceeded
+- Setting `maxSize` to `0` makes the cache zero-capacity: calls still succeed, but fetched results are dropped immediately instead of being retained
 - Entries expire after `ttlMs` milliseconds
 - Each cache type (occurrences, file symbols, dependents, existence) has its own storage
 - The cache is session-scoped and should be created per refactoring workflow
@@ -1379,7 +1380,7 @@ new SemanticQueryCache(semantic, config);
 
 **Configuration:**
 
-- `maxSize` - Maximum entries per cache type (default: 100)
+- `maxSize` - Maximum entries per cache type (default: 100). A value of `0` keeps the cache enabled but gives it zero capacity, so results are returned without being retained.
 - `ttlMs` - Time-to-live in milliseconds (default: 60000)
 - `enabled` - Enable/disable caching (default: true)
 
