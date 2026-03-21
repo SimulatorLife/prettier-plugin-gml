@@ -81,6 +81,13 @@ pnpm run cli -- lint --fix path/to/project
 
 Post-lint config inspections (overlay wiring and processor policy enforcement) also run sequentially per file to bound peak memory usage on very large project scans.
 
+If you use a custom ESLint flat config and enable Feather or performance
+overlay rules, make sure the matching config entry also wires the canonical GML
+plugin and language (`plugins: { gml: Lint.plugin }` and
+`language: "gml/gml"`). Otherwise the CLI now emits an actionable
+`GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` warning that points back to the affected
+files.
+
 `lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
 ### `fix` - Project-Wide Fix Workflow
