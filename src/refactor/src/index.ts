@@ -1,13 +1,13 @@
-import * as BackendsAPI from "./backends/index.js";
-import * as CodemodRegistryAPI from "./codemod-registry.js";
-import * as CodemodsAPI from "./codemods/index.js";
-import * as HotReloadAPI from "./hot-reload.js";
-import * as NamingConventionPolicyAPI from "./naming-convention-policy.js";
-import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
-import * as ProjectAnalysisProviderAPI from "./project-analysis-provider.js";
-import * as ProjectConfigAPI from "./project-config.js";
-import * as RefactorAPI from "./refactor-engine.js";
-import * as RenamePreviewAPI from "./rename-preview.js";
+import * as Backends from "./backends/index.js";
+import * as CodemodRegistry from "./codemod-registry.js";
+import * as Codemods from "./codemods/index.js";
+import * as HotReload from "./hot-reload.js";
+import * as NamingConventionPolicy from "./naming-convention-policy.js";
+import * as OccurrenceAnalysis from "./occurrence-analysis.js";
+import * as ProjectAnalysisProvider from "./project-analysis-provider.js";
+import * as ProjectConfig from "./project-config.js";
+import * as RefactorEngineAPI from "./refactor-engine.js";
+import * as RenamePreview from "./rename-preview.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import {
@@ -24,24 +24,24 @@ import {
     requireSymbolKind,
     SymbolKind
 } from "./types.js";
-import * as ValidationAPI from "./validation.js";
+import * as Validation from "./validation.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
 
 export const Refactor = Object.freeze({
-    ...RefactorAPI,
-    ...ProjectAnalysisProviderAPI,
-    ...ProjectConfigAPI,
-    ...NamingConventionPolicyAPI,
-    ...CodemodRegistryAPI,
-    ...CodemodsAPI,
-    ...BackendsAPI,
+    ...RefactorEngineAPI,
+    ...ProjectAnalysisProvider,
+    ...ProjectConfig,
+    ...NamingConventionPolicy,
+    ...CodemodRegistry,
+    ...Codemods,
+    ...Backends,
     WorkspaceEdit,
     SemanticQueryCache,
     RenameValidationCache,
-    ...OccurrenceAnalysisAPI,
-    ...RenamePreviewAPI,
-    ...ValidationAPI,
-    ...HotReloadAPI,
+    ...OccurrenceAnalysis,
+    ...RenamePreview,
+    ...Validation,
+    ...HotReload,
     ConflictType,
     isConflictType,
     parseConflictType,

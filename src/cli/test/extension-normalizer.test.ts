@@ -18,6 +18,12 @@ void test("normalizeExtensions accepts iterables and removes duplicates", () => 
     assert.deepStrictEqual(result, [".yy", ".gml"]);
 });
 
+void test("normalizeExtensions extracts suffixes from path-like iterable entries", () => {
+    const result = normalizeExtensions(["scripts/player_move.gml", String.raw`objects\enemy.YY`]);
+
+    assert.deepStrictEqual(result, [".gml", ".yy"]);
+});
+
 void test("normalizeExtensions falls back when no valid fragments remain", () => {
     const fallback = [".gml"];
 

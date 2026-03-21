@@ -258,34 +258,28 @@ export function isInsideConstructorFunction(path: any): boolean {
         return false;
     }
 
-    let functionAncestorDepth: number | null = null;
+    let foundEnclosingFunctionDeclaration = false;
 
     for (let depth = 0; ; depth += 1) {
         const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
+        if (!ancestor || ancestor.type === "Program") {
+            return false;
         }
 
-        if (functionAncestorDepth === null && ancestor.type === "FunctionDeclaration") {
-            const functionParent = path.getParentNode(depth + 1);
+        if (ancestor.type === "FunctionDeclaration") {
+            const functionParent = safeGetParentNode(path, depth + 1);
             if (!functionParent || functionParent.type !== "BlockStatement") {
                 return false;
             }
 
-            functionAncestorDepth = depth;
+            foundEnclosingFunctionDeclaration = true;
             continue;
         }
 
         if (ancestor.type === "ConstructorDeclaration") {
-            return functionAncestorDepth !== null;
-        }
-
-        if (ancestor.type === "Program") {
-            break;
+            return foundEnclosingFunctionDeclaration;
         }
     }
-
-    return false;
 }
 
 /**

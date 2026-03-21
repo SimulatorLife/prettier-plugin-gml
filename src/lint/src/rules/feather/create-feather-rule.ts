@@ -20,45 +20,45 @@ type EnumDeclarationMatch = {
 type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
 
 const NON_NEWLINE_WHITESPACE_CHARACTER_CLASS =
-    "[\\t\\v\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
+    String.raw`[\t\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]`;
 
 const ENUM_MEMBER_DECLARATION_PATTERN = new RegExp(
-    `^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\\s*=\\s*(?:[^\\s,][^,\\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))?(?<suffix>\\s*(?:,\\s*)?(?:\\/\\/.*)?)$`,
+    String.raw`^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$`,
     "u"
 );
 
 const DIVISION_BY_ZERO_ASSIGNMENT_PATTERN = new RegExp(
-    `(\\b[A-Za-z_]\\w*\\s*=\\s*(?:[^\\s/;][^;\\n/]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))\\s*\\/\\s*0\\b`,
+    String.raw`(\b[A-Za-z_]\w*\s*=\s*(?:[^\s/;][^;\n/]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))\s*\/\s*0\b`,
     "g"
 );
 
 const LEADING_EQUALS_ARTIFACT_PATTERN = new RegExp(
-    `^=\\s*(?:\\S.*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS});\\s*$`,
+    String.raw`^=\s*(?:\S.*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS});\s*$`,
     "u"
 );
 
 const GPU_ALPHA_TEST_TRUE_SPACING_PATTERN = new RegExp(
-    `(\\bgpu_set_alphatestenable\\s*\\(\\s*true\\s*\\)\\s*;)${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\\n\\s*\\n(\\s*[^\\s])`,
+    String.raw`(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*\n(\s*[^\s])`,
     "g"
 );
 
 const BRACKETED_INDEX_LIST_PATTERN = new RegExp(
-    `\\[(?!\\s*#)([^,\\]\\n]+(?:\\s*,\\s*(?:[^\\s,\\]][^,\\]\\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))+)]`,
+    String.raw`\[(?!\s*#)([^,\]\n]+(?:\s*,\s*(?:[^\s,\]][^,\]\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))+)]`,
     "g"
 );
 
 const VERTEX_BEGIN_WITHOUT_END_PATTERN = new RegExp(
-    `(vertex_begin\\(vb,\\s*format\\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\\n\\s*vertex_position_3d\\([^\\n]+\\);\\s*)`,
+    String.raw`(vertex_begin\(vb,\s*format\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*vertex_position_3d\([^\n]+\);\s*)`,
     "m"
 );
 
 const DUPLICATE_GPU_PUSH_STATE_PATTERN = new RegExp(
-    `gpu_push_state\\(\\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\\n\\s*gpu_push_state\\(\\);`,
+    String.raw`gpu_push_state\(\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*gpu_push_state\(\);`,
     "g"
 );
 
 const DUPLICATE_GPU_POP_STATE_PATTERN = new RegExp(
-    `gpu_pop_state\\(\\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\\n\\s*gpu_pop_state\\(\\);`,
+    String.raw`gpu_pop_state\(\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*gpu_pop_state\(\);`,
     "g"
 );
 

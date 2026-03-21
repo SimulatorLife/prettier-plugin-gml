@@ -589,6 +589,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves blank lines between doc tags instead of inferring description/function grouping", async () => {
+        const source = [
+            "/// @description Build a packet",
+            "",
+            "/// @function build_packet(value)",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build a packet\s*\n\n\/\/\/ @function build_packet\(value\)/m,
+            "Formatter must preserve source blank lines between doc tags; grouping @description with @function is lint-owned doc normalization."
+        );
+    });
+
     void it("does not synthesize empty /// @description tags for undocumented functions", async () => {
         const source = ["function no_docs() {", "    return 1;", "}", ""].join("\n");
         const formatted = await Format.format(source);

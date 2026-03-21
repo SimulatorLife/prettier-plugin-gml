@@ -37,7 +37,6 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -87,6 +86,7 @@ import {
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
 } from "./type-guards.js";
+import { joinDeclaratorPartsWithCommas } from "./variable-declarator-layout.js";
 
 // TODO: Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -367,11 +367,7 @@ function joinDocCommentsPreservingSourceSpacing(
         const currentEntry = docCommentDocs[index];
         const nextEntry = docCommentDocs[index + 1];
         if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
-            if (shouldCollapseDescriptionToFunctionDocGap(docCommentDocs, index)) {
-                parts.push(hardline);
-            } else {
-                parts.push(hardline, hardline);
-            }
+            parts.push(hardline, hardline);
         } else {
             parts.push(hardline);
         }
@@ -393,51 +389,6 @@ function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: un
     }
 
     return /\r?\n[ \t]*\r?\n/u.test(slice);
-}
-
-function resolveDocCommentEntryText(commentEntry: unknown): string | null {
-    if (typeof commentEntry === "string") {
-        return commentEntry;
-    }
-
-    if (Core.isObjectLike(commentEntry)) {
-        const docText = (commentEntry as { _gmlDocText?: unknown })._gmlDocText;
-        if (typeof docText === "string") {
-            return docText;
-        }
-    }
-
-    const rawText = Core.getLineCommentRawText(commentEntry, {});
-    return typeof rawText === STRING_TYPE && rawText.length > 0 ? rawText : null;
-}
-
-function shouldCollapseDescriptionToFunctionDocGap(docCommentDocs: MutableDocCommentLines, leftIndex: number): boolean {
-    const leftText = resolveDocCommentEntryText(docCommentDocs[leftIndex]);
-    const rightText = resolveDocCommentEntryText(docCommentDocs[leftIndex + 1]);
-    if (leftText === null || rightText === null) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@description\b/iu.test(leftText.trim())) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@(?:function|func)\b/iu.test(rightText.trim())) {
-        return false;
-    }
-
-    for (let index = leftIndex + 2; index < docCommentDocs.length; index += 1) {
-        const trailingText = resolveDocCommentEntryText(docCommentDocs[index]);
-        if (trailingText === null) {
-            continue;
-        }
-
-        if (/^\/\/\/\s*@/iu.test(trailingText.trim())) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {

@@ -14,19 +14,6 @@
     "src/refactor",
     "src/fixture-runner"
   ],
-  "config": {
-    "root_path": ".",
-    "format_path": "src/format",
-    "parser_path": "src/parser",
-    "cli_path": "src/cli",
-    "lint_path": "src/lint",
-    "semantic_path": "src/semantic",
-    "transpiler_path": "src/transpiler",
-    "runtime_wrapper_path": "src/runtime-wrapper",
-    "refactor_path": "src/refactor",
-    "core_path": "src/core",
-    "fixture_runner_path": "src/fixture-runner"
-  },
   "type": "module",
   "imports": {
     "#fixture-test/format": "./src/format/dist/test/index.js",

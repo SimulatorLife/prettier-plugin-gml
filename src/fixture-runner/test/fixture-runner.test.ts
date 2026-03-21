@@ -66,7 +66,7 @@ void test("discoverFixtureCases normalizes directory-per-case fixtures", async (
     }
 });
 
-void test("discoverFixtureCases rejects legacy flat fixture files and unexpected directories", async () => {
+void test("discoverFixtureCases rejects unexpected files and directories", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-layout-"));
     const casePath = path.join(rootPath, "invalid");
     await mkdir(casePath, { recursive: true });
@@ -82,7 +82,28 @@ void test("discoverFixtureCases rejects legacy flat fixture files and unexpected
     try {
         await assert.rejects(
             FixtureRunner.discoverFixtureCases(rootPath),
-            /legacy fixture file "legacy\.output\.gml" is not allowed.*unexpected directory "nested"/su
+            /unexpected file "legacy\.output\.gml".*unexpected directory "nested"/su
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("discoverFixtureCases rejects text fixtures that use the project-tree assertion", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-assertion-"));
+    const casePath = path.join(rootPath, "invalid-assertion");
+    await mkdir(casePath, { recursive: true });
+    await writeFile(
+        path.join(casePath, "gmloop.json"),
+        `${JSON.stringify({ fixture: { kind: "format", assertion: "project-tree" } }, null, 2)}\n`,
+        "utf8"
+    );
+    await writeFile(path.join(casePath, "input.gml"), "var value = 1;\n", "utf8");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.discoverFixtureCases(rootPath),
+            /project-tree assertion is only valid for refactor fixtures/su
         );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
