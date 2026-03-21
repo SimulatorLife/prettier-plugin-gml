@@ -8,6 +8,19 @@ import { Refactor } from "@gmloop/refactor";
 
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
+function findNthIndex(sourceText: string, searchText: string, occurrenceNumber: number): number {
+    let searchIndex = -1;
+
+    for (let occurrenceIndex = 0; occurrenceIndex < occurrenceNumber; occurrenceIndex += 1) {
+        searchIndex = sourceText.indexOf(searchText, searchIndex + 1);
+        if (searchIndex === -1) {
+            throw new Error(`Could not find occurrence ${occurrenceNumber} of ${JSON.stringify(searchText)}`);
+        }
+    }
+
+    return searchIndex;
+}
+
 void describe("GmlSemanticBridge tests", () => {
     void it("should find a symbol name in entry declarations even if entry name differs", () => {
         const mockProjectIndex = {
@@ -278,6 +291,41 @@ void describe("GmlSemanticBridge tests", () => {
                     path: "scripts/demo_script/demo_script.yy",
                     name: "demo_script",
                     resourceType: "GMScript"
+                },
+                "paths/pth_enemy_route/pth_enemy_route.yy": {
+                    path: "paths/pth_enemy_route/pth_enemy_route.yy",
+                    name: "pth_enemy_route",
+                    resourceType: "GMPath"
+                },
+                "animcurves/curve_attack_arc/curve_attack_arc.yy": {
+                    path: "animcurves/curve_attack_arc/curve_attack_arc.yy",
+                    name: "curve_attack_arc",
+                    resourceType: "GMAnimCurve"
+                },
+                "sequences/seq_intro/seq_intro.yy": {
+                    path: "sequences/seq_intro/seq_intro.yy",
+                    name: "seq_intro",
+                    resourceType: "GMSequence"
+                },
+                "tilesets/tile_world/tile_world.yy": {
+                    path: "tilesets/tile_world/tile_world.yy",
+                    name: "tile_world",
+                    resourceType: "GMTileSet"
+                },
+                "particlesystems/part_trail/part_trail.yy": {
+                    path: "particlesystems/part_trail/part_trail.yy",
+                    name: "part_trail",
+                    resourceType: "GMParticleSystem"
+                },
+                "notes/note_design/note_design.yy": {
+                    path: "notes/note_design/note_design.yy",
+                    name: "note_design",
+                    resourceType: "GMNote"
+                },
+                "extensions/ext_physics/ext_physics.yy": {
+                    path: "extensions/ext_physics/ext_physics.yy",
+                    name: "ext_physics",
+                    resourceType: "GMExtension"
                 }
             },
             identifiers: {
@@ -421,6 +469,23 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.ok(targets.some((target) => target.category === "scriptResourceName" && target.name === "demo_script"));
         assert.ok(
+            targets.some((target) => target.category === "pathResourceName" && target.name === "pth_enemy_route")
+        );
+        assert.ok(
+            targets.some(
+                (target) => target.category === "animationCurveResourceName" && target.name === "curve_attack_arc"
+            )
+        );
+        assert.ok(targets.some((target) => target.category === "sequenceResourceName" && target.name === "seq_intro"));
+        assert.ok(targets.some((target) => target.category === "tilesetResourceName" && target.name === "tile_world"));
+        assert.ok(
+            targets.some((target) => target.category === "particleSystemResourceName" && target.name === "part_trail")
+        );
+        assert.ok(targets.some((target) => target.category === "noteResourceName" && target.name === "note_design"));
+        assert.ok(
+            targets.some((target) => target.category === "extensionResourceName" && target.name === "ext_physics")
+        );
+        assert.ok(
             targets.some((target) => target.category === "constructorFunction" && target.name === "build_widget")
         );
         assert.ok(targets.some((target) => target.category === "enum" && target.name === "state_enum"));
@@ -439,5 +504,152 @@ void describe("GmlSemanticBridge tests", () => {
             )
         );
         assert.ok(targets.some((target) => target.category === "catchArgument" && target.name === "err_value"));
+    });
+
+    void it("listNamingConventionTargets refines local variables into static and loop-index categories", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-local-categories-"));
+        const relativeFilePath = "scripts/demo_script/demo_script.gml";
+        const absoluteFilePath = path.join(tmpRoot, relativeFilePath);
+        const sourceText = [
+            "function demo_script() {",
+            "    static cache_value = 0;",
+            "    cache_value += 1;",
+            "    var local_value = 1;",
+            "    for (var loop_index = 0; loop_index < 3; loop_index += 1) {",
+            "        local_value += loop_index;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        fs.mkdirSync(path.dirname(absoluteFilePath), { recursive: true });
+        fs.writeFileSync(absoluteFilePath, sourceText, "utf8");
+
+        const cacheDeclarationStart = findNthIndex(sourceText, "cache_value", 1);
+        const cacheReferenceStart = findNthIndex(sourceText, "cache_value", 2);
+        const localDeclarationStart = findNthIndex(sourceText, "local_value", 1);
+        const localReferenceStart = findNthIndex(sourceText, "local_value", 2);
+        const loopDeclarationStart = findNthIndex(sourceText, "loop_index", 1);
+        const loopConditionReferenceStart = findNthIndex(sourceText, "loop_index", 2);
+        const loopUpdateReferenceStart = findNthIndex(sourceText, "loop_index", 3);
+        const loopBodyReferenceStart = findNthIndex(sourceText, "loop_index", 4);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            files: {
+                [relativeFilePath]: {
+                    declarations: [
+                        {
+                            name: "cache_value",
+                            scopeId: "scope:function",
+                            classifications: ["variable"],
+                            start: { index: cacheDeclarationStart },
+                            end: { index: cacheDeclarationStart + "cache_value".length }
+                        },
+                        {
+                            name: "local_value",
+                            scopeId: "scope:function",
+                            classifications: ["variable"],
+                            start: { index: localDeclarationStart },
+                            end: { index: localDeclarationStart + "local_value".length }
+                        },
+                        {
+                            name: "loop_index",
+                            scopeId: "scope:function",
+                            classifications: ["variable"],
+                            start: { index: loopDeclarationStart },
+                            end: { index: loopDeclarationStart + "loop_index".length }
+                        }
+                    ],
+                    references: [
+                        {
+                            name: "cache_value",
+                            scopeId: "scope:function",
+                            start: { index: cacheReferenceStart },
+                            end: { index: cacheReferenceStart + "cache_value".length },
+                            declaration: {
+                                name: "cache_value",
+                                scopeId: "scope:function",
+                                start: { index: cacheDeclarationStart }
+                            }
+                        },
+                        {
+                            name: "local_value",
+                            scopeId: "scope:function",
+                            start: { index: localReferenceStart },
+                            end: { index: localReferenceStart + "local_value".length },
+                            declaration: {
+                                name: "local_value",
+                                scopeId: "scope:function",
+                                start: { index: localDeclarationStart }
+                            }
+                        },
+                        {
+                            name: "loop_index",
+                            scopeId: "scope:function",
+                            start: { index: loopConditionReferenceStart },
+                            end: { index: loopConditionReferenceStart + "loop_index".length },
+                            declaration: {
+                                name: "loop_index",
+                                scopeId: "scope:function",
+                                start: { index: loopDeclarationStart }
+                            }
+                        },
+                        {
+                            name: "loop_index",
+                            scopeId: "scope:function",
+                            start: { index: loopUpdateReferenceStart },
+                            end: { index: loopUpdateReferenceStart + "loop_index".length },
+                            declaration: {
+                                name: "loop_index",
+                                scopeId: "scope:function",
+                                start: { index: loopDeclarationStart }
+                            }
+                        },
+                        {
+                            name: "loop_index",
+                            scopeId: "scope:function",
+                            start: { index: loopBodyReferenceStart },
+                            end: { index: loopBodyReferenceStart + "loop_index".length },
+                            declaration: {
+                                name: "loop_index",
+                                scopeId: "scope:function",
+                                start: { index: loopDeclarationStart }
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets();
+
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "staticVariable" &&
+                    target.name === "cache_value" &&
+                    target.occurrences.length === 2
+            )
+        );
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "localVariable" &&
+                    target.name === "local_value" &&
+                    target.occurrences.length === 2
+            )
+        );
+        assert.ok(
+            targets.some(
+                (target) =>
+                    target.category === "loopIndexVariable" &&
+                    target.name === "loop_index" &&
+                    target.occurrences.length === 4
+            )
+        );
     });
 });

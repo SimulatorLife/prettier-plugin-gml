@@ -6,12 +6,12 @@ import {
     type AstNodeRecord,
     type AstNodeWithType,
     createMeta,
+    findFirstAstNodeBy,
     getLineStartOffset,
     getNodeEndIndex,
     getNodeStartIndex,
     isAstNodeRecord,
     isAstNodeWithType,
-    walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
 
@@ -112,40 +112,21 @@ function containsCommentOutsideInitializer(
 }
 
 function findLineEndOffset(sourceText: string, offset: number): number {
-    let cursor = Math.max(0, offset);
-    while (cursor < sourceText.length && sourceText[cursor] !== "\n" && sourceText[cursor] !== "\r") {
-        cursor += 1;
-    }
-    return cursor;
+    const start = Math.max(0, offset);
+    const relativePos = sourceText.slice(start).search(/[\r\n]/u);
+    return relativePos === -1 ? sourceText.length : start + relativePos;
 }
 
 function readStatementReplacementEndOffset(sourceText: string, statementEndOffset: number): number {
-    let cursor = Math.max(0, statementEndOffset);
-    while (cursor < sourceText.length && (sourceText[cursor] === " " || sourceText[cursor] === "\t")) {
-        cursor += 1;
-    }
-    if (sourceText[cursor] === ";") {
-        cursor += 1;
-    }
-    while (cursor < sourceText.length && (sourceText[cursor] === " " || sourceText[cursor] === "\t")) {
-        cursor += 1;
-    }
-    return cursor;
+    const start = Math.max(0, statementEndOffset);
+    const match = /^[ \t]*;?[ \t]*/u.exec(sourceText.slice(start));
+    return start + (match?.[0].length ?? 0);
 }
 
 function declarationInitializerReferencesIdentifier(initializerNode: unknown, identifierName: string): boolean {
-    let foundIdentifierReference = false;
-    walkAstNodes(initializerNode, (visitedNode) => {
-        if (foundIdentifierReference) {
-            return;
-        }
-
-        if (isIdentifierNode(visitedNode) && visitedNode.name === identifierName) {
-            foundIdentifierReference = true;
-        }
-    });
-
-    return foundIdentifierReference;
+    return (
+        findFirstAstNodeBy(initializerNode, (node) => isIdentifierNode(node) && node.name === identifierName) !== null
+    );
 }
 
 function readSingleDeclarator(variableDeclarationNode: VariableDeclarationNode): VariableDeclaratorNode | null {

@@ -24,6 +24,7 @@ import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -149,6 +150,8 @@ interface HotReloadConfig {
  */
 interface InfrastructureConfig {
     abortSignal?: AbortSignal;
+    onWebSocketServerReady?: (server: PatchWebSocketServer) => void;
+    onStatusServerReady?: (server: StatusServerHandle) => void;
 }
 
 /**
@@ -242,6 +245,9 @@ interface RuntimeContext
         PatchHistory,
         ServerControllers,
         WatchLifecycle {
+    watchRoot: string;
+    extensionMatcher: ExtensionMatcher;
+    maxConcurrentDirs: number;
     scriptNames: Set<string>;
     fileSnapshots: Map<string, number>;
     /** SHA-256 prefix of each file's last-transpiled source text.
@@ -396,10 +402,7 @@ async function runAutoInjectHotReload(
  * logging while providing a case-insensitive predicate for incoming filenames.
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
-    const normalized = extensions.map((ext) => {
-        const withDot = ext.startsWith(".") ? ext : `.${ext}`;
-        return withDot.toLowerCase();
-    });
+    const normalized = normalizeExtensions(extensions);
 
     const normalizedSet = new Set(normalized);
 
@@ -759,6 +762,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         statusHost = "127.0.0.1",
         statusServer: enableStatus = true,
         abortSignal,
+        onWebSocketServerReady,
+        onStatusServerReady,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
@@ -803,6 +808,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     });
     const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
+        watchRoot: normalizedPath,
+        extensionMatcher,
+        maxConcurrentDirs,
         root: null,
         packageName: null,
         packageJson: null,
@@ -881,6 +889,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.websocketServer = websocketServerController;
+            onWebSocketServerReady?.(websocketServerController);
 
             console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
         } catch (error) {
@@ -936,6 +945,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.statusServer = statusServerController;
+            onStatusServerReady?.(statusServerController);
 
             console.log(`Status server ready at ${statusServerController.url}`);
         } catch (error) {
@@ -1373,23 +1383,33 @@ async function handleUnknownFileChanges(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    const entries = Array.from(runtimeContext.fileSnapshots.entries());
-    if (entries.length === 0) {
-        return;
+    const discoveredFilePaths = await collectWatchedFilePaths(
+        runtimeContext.watchRoot,
+        runtimeContext.extensionMatcher,
+        runtimeContext.maxConcurrentDirs
+    );
+    const discoveredFiles = new Set(discoveredFilePaths);
+
+    for (const filePath of runtimeContext.fileSnapshots.keys()) {
+        if (!discoveredFiles.has(filePath)) {
+            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+        }
     }
 
     const changedEntries = await Core.runInParallelWithLimit(
-        entries,
-        async ([filePath, lastModified]) => {
+        discoveredFilePaths,
+        async (filePath) => {
+            const lastModified = runtimeContext.fileSnapshots.get(filePath);
             try {
                 const stats = await stat(filePath);
-                if (stats.mtimeMs <= lastModified) {
+                if (lastModified !== undefined && stats.mtimeMs <= lastModified) {
                     return null;
                 }
 
                 return {
                     filePath,
-                    stats
+                    stats,
+                    eventType: lastModified === undefined ? "rename" : "change"
                 };
             } catch {
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
@@ -1404,7 +1424,7 @@ async function handleUnknownFileChanges(
             return;
         }
 
-        await handleFileChange(entry.filePath, "change", {
+        await handleFileChange(entry.filePath, entry.eventType, {
             verbose,
             quiet,
             runtimeContext,
@@ -1459,7 +1479,7 @@ async function readFileStats(filePath: string): Promise<Stats | null> {
 async function retranspileDependentFiles(
     runtimeContext: RuntimeContext,
     filePath: string,
-    dependentFiles: Array<string>,
+    dependentFiles: ReadonlyArray<string>,
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
@@ -1517,13 +1537,13 @@ async function processTranspileResult(
     }
 
     if (!dependencyUpdate.definitionsChanged) {
-        if (verbose && !quiet && dependencyUpdate.previousDependents.length > 0) {
+        if (verbose && !quiet && dependencyUpdate.affectedDependents.length > 0) {
             console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
         }
         return;
     }
 
-    const dependentFiles = mergeDependentFiles(dependencyUpdate.previousDependents, dependencyUpdate.updatedDependents);
+    const dependentFiles = dependencyUpdate.affectedDependents;
     if (dependentFiles.length === 0) {
         return;
     }
@@ -1537,8 +1557,7 @@ async function processTranspileResult(
 
 interface DependencyUpdateSummary {
     definitionsChanged: boolean;
-    previousDependents: ReadonlyArray<string>;
-    updatedDependents: ReadonlyArray<string>;
+    affectedDependents: ReadonlyArray<string>;
 }
 
 /**
@@ -1554,16 +1573,47 @@ function updateDependencyTrackerForTranspileResult(
     const nextDefinitions = result.symbols ?? [];
     const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
 
+    if (!definitionsChanged) {
+        runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+        runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+
+        return {
+            definitionsChanged,
+            affectedDependents: []
+        };
+    }
+
+    const addedDefinitions = subtractSymbolSets(nextDefinitions, previousDefinitions);
+
     runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
     runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
+    const newlyDependentFiles = runtimeContext.dependencyTracker.getFilesReferencingSymbols(addedDefinitions, filePath);
+
     return {
         definitionsChanged,
-        previousDependents,
-        updatedDependents: definitionsChanged
-            ? runtimeContext.dependencyTracker.getDependentFiles(filePath)
-            : previousDependents
+        affectedDependents: mergeDependentFiles(previousDependents, newlyDependentFiles)
     };
+}
+
+/**
+ * Returns symbols present in `left` that are absent from `right`.
+ */
+function subtractSymbolSets(left: ReadonlyArray<string>, right: ReadonlyArray<string>): Array<string> {
+    if (left.length === 0) {
+        return [];
+    }
+
+    const rightSet = new Set(right);
+    const difference: Array<string> = [];
+
+    for (const symbol of left) {
+        if (!rightSet.has(symbol)) {
+            difference.push(symbol);
+        }
+    }
+
+    return difference;
 }
 
 /**
@@ -1772,6 +1822,37 @@ async function collectScriptNames(
     }
 
     return { scriptNames, fileDataCache };
+}
+
+async function collectWatchedFilePaths(
+    rootPath: string,
+    extensionMatcher: ExtensionMatcher,
+    maxConcurrentDirs: number
+): Promise<Array<string>> {
+    const discoveredFiles: Array<string> = [];
+
+    async function scan(currentPath: string): Promise<void> {
+        const entries = await readdir(currentPath, { withFileTypes: true });
+        const { files, directories } = partitionScannedDirectoryEntries(currentPath, entries, extensionMatcher);
+
+        discoveredFiles.push(...files);
+
+        await Core.runInParallelWithLimit(
+            directories,
+            async (subDirPath) => {
+                await scan(subDirPath);
+            },
+            maxConcurrentDirs
+        );
+    }
+
+    try {
+        await scan(rootPath);
+    } catch {
+        // Fail silently; unknown filename scans should never crash the watcher.
+    }
+
+    return discoveredFiles;
 }
 
 async function addScriptNamesFromFile(

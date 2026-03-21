@@ -8,6 +8,7 @@
       "@gmloop/core": ["src/core/index.ts"],
       "@gmloop/parser": ["src/parser/index.ts"],
       "@gmloop/format": ["src/format/index.ts"],
+      "@gmloop/fixture-runner": ["src/fixture-runner/index.ts"],
       "@gmloop/lint": ["src/lint/index.ts"],
       "@gmloop/semantic": ["src/semantic/index.ts"],
       "@gmloop/transpiler": ["src/transpiler/index.ts"],

@@ -72,8 +72,27 @@ void describe("line-breaks", () => {
             assert.strictEqual(dominantLineEnding("a\r\nb\nc"), "\n");
         });
 
+        void it("ignores bare carriage returns when counting LF-vs-CRLF dominance", () => {
+            assert.strictEqual(dominantLineEnding("a\rb\r\nc\rd\n"), "\n");
+        });
+
+        void it("matches a reference implementation across mixed newline sequences", () => {
+            const text = ["alpha", "\r\n", "beta", "\n", "gamma", "\r", "delta", "\r\n", "epsilon", "\n", "zeta"].join(
+                ""
+            );
+            const expected = computeDominantLineEndingWithReferenceRegex(text);
+
+            assert.strictEqual(dominantLineEnding(text), expected);
+        });
+
         void it("returns LF for text with no line breaks", () => {
             assert.strictEqual(dominantLineEnding("no newlines here"), "\n");
         });
     });
 });
+
+function computeDominantLineEndingWithReferenceRegex(text: string): "\r\n" | "\n" {
+    const crlfCount = (text.match(/\r\n/g) ?? []).length;
+    const lfCount = (text.match(/(?<!\r)\n/g) ?? []).length;
+    return crlfCount > lfCount ? "\r\n" : "\n";
+}

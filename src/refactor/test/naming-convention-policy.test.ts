@@ -112,3 +112,104 @@ void test("evaluateNamingConvention reports reserved affix violations", () => {
     assert.equal(evaluation.suggestedName, "localValue");
     assert.match(evaluation.message ?? "", /reserved prefix/);
 });
+
+void test("evaluateNamingConvention strips banned affixes before applying case style", () => {
+    // Exercises the third-priority branch in stripOneAffixDirection: when the identifier
+    // carries a banned prefix or suffix (not the required one, not an exclusive one), it is
+    // stripped before the core name is case-checked and a suggestion is produced.
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            localVariable: {
+                caseStyle: "camel",
+                bannedPrefixes: ["m_", "_"],
+                bannedSuffixes: ["_t"]
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const withBannedPrefix = Refactor.evaluateNamingConvention("m_player_hp", "localVariable", policy, resolved);
+    assert.equal(withBannedPrefix.compliant, false);
+    assert.equal(withBannedPrefix.suggestedName, "playerHp");
+    assert.match(withBannedPrefix.message ?? "", /banned prefix/);
+
+    const withBannedSuffix = Refactor.evaluateNamingConvention("playerHp_t", "localVariable", policy, resolved);
+    assert.equal(withBannedSuffix.compliant, false);
+    assert.equal(withBannedSuffix.suggestedName, "playerHp");
+    assert.match(withBannedSuffix.message ?? "", /banned suffix/);
+});
+
+void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {
+    assert.throws(
+        () =>
+            Refactor.normalizeNamingConventionPolicy({
+                rules: {
+                    eventHandlerFunction: {
+                        caseStyle: "camel"
+                    }
+                }
+            } as Parameters<typeof Refactor.normalizeNamingConventionPolicy>[0]),
+        /unknown category/
+    );
+});
+
+void test("resolveNamingConventionRules supports separate path and animation-curve categories", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower"
+            },
+            pathResourceName: {
+                prefix: "pth_"
+            },
+            animationCurveResourceName: {
+                prefix: "curve_"
+            }
+        }
+    });
+
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    assert.equal(resolved.pathResourceName?.prefix, "pth_");
+    assert.equal(resolved.animationCurveResourceName?.prefix, "curve_");
+    assert.equal(resolved.pathResourceName?.caseStyle, "lower");
+    assert.equal(resolved.animationCurveResourceName?.caseStyle, "lower");
+});
+
+void test("resolveNamingConventionRules supports sequence, tileset, particle, note, and extension categories", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower"
+            },
+            sequenceResourceName: {
+                prefix: "seq_"
+            },
+            tilesetResourceName: {
+                prefix: "tile_"
+            },
+            particleSystemResourceName: {
+                prefix: "part_"
+            },
+            noteResourceName: {
+                prefix: "note_"
+            },
+            extensionResourceName: {
+                prefix: "ext_"
+            }
+        }
+    });
+
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    assert.equal(resolved.sequenceResourceName?.prefix, "seq_");
+    assert.equal(resolved.tilesetResourceName?.prefix, "tile_");
+    assert.equal(resolved.particleSystemResourceName?.prefix, "part_");
+    assert.equal(resolved.noteResourceName?.prefix, "note_");
+    assert.equal(resolved.extensionResourceName?.prefix, "ext_");
+    assert.equal(resolved.sequenceResourceName?.caseStyle, "lower");
+    assert.equal(resolved.tilesetResourceName?.caseStyle, "lower");
+    assert.equal(resolved.particleSystemResourceName?.caseStyle, "lower");
+    assert.equal(resolved.noteResourceName?.caseStyle, "lower");
+    assert.equal(resolved.extensionResourceName?.caseStyle, "lower");
+});

@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/prefer-hoistable-loop-accessors": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "idempotent"
+  }
+}

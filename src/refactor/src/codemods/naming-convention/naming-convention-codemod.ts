@@ -13,6 +13,10 @@ import type {
 } from "../../types.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 
+function resolveSelectedTargetPath(projectRoot: string, selectedPath: string): string {
+    return path.isAbsolute(selectedPath) ? selectedPath : path.resolve(projectRoot, selectedPath);
+}
+
 function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string>, targetPath: string): boolean {
     if (selectedPaths.length === 0) {
         return true;
@@ -20,7 +24,7 @@ function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string
 
     const absoluteTargetPath = path.resolve(projectRoot, targetPath);
     return selectedPaths.some((selectedPath) => {
-        const absoluteSelectedPath = path.resolve(selectedPath);
+        const absoluteSelectedPath = resolveSelectedTargetPath(projectRoot, selectedPath);
         return (
             absoluteTargetPath === absoluteSelectedPath || Core.isPathInside(absoluteTargetPath, absoluteSelectedPath)
         );
@@ -41,23 +45,6 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     }
 }
 
-function collectLocalScopeNames(targets: ReadonlyArray<NamingConventionTarget>): Map<string, Set<string>> {
-    const namesByScope = new Map<string, Set<string>>();
-
-    for (const target of targets) {
-        if (target.symbolId !== null) {
-            continue;
-        }
-
-        const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
-        const names = namesByScope.get(scopeKey) ?? new Set<string>();
-        names.add(target.name);
-        namesByScope.set(scopeKey, names);
-    }
-
-    return namesByScope;
-}
-
 /**
  * Plan naming-policy-driven edits for the selected project paths.
  */
@@ -67,6 +54,8 @@ export async function planNamingConventionCodemod(
         projectRoot: string;
         config: RefactorProjectConfig;
         targetPaths: Array<string>;
+        gmlFilePaths?: Array<string>;
+        includeTopLevelPlan?: boolean;
     }
 ): Promise<NamingConventionCodemodPlan> {
     const policy = parameters.config.namingConventionPolicy;
@@ -79,6 +68,7 @@ export async function planNamingConventionCodemod(
             ],
             errors: [],
             topLevelRenamePlan: null,
+            topLevelRenameRequests: [],
             localRenameCount: 0
         };
     }
@@ -91,28 +81,72 @@ export async function planNamingConventionCodemod(
             warnings: [],
             errors: ["Naming convention codemod requires semantic.listNamingConventionTargets support."],
             topLevelRenamePlan: null,
+            topLevelRenameRequests: [],
             localRenameCount: 0
         };
     }
 
+    const includeTopLevelPlan = parameters.includeTopLevelPlan !== false;
     const resolvedRules = resolveNamingConventionRules(policy);
-    const allTargets = await semantic.listNamingConventionTargets();
-    const selectedTargets = allTargets.filter((target) =>
-        isPathSelected(parameters.projectRoot, parameters.targetPaths, target.path)
-    );
-    const workspace = new WorkspaceEditClass();
+    let workspace = new WorkspaceEditClass();
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
     const violations: Array<NamingConventionViolation> = [];
-    const localScopeNames = collectLocalScopeNames(selectedTargets);
+    const localScopeNames = new Map<string, Set<string>>();
     const topLevelRenames: Array<{ symbolId: string; newName: string }> = [];
     const seenTopLevelRenames = new Set<string>();
     let localRenameCount = 0;
 
-    for (const target of selectedTargets) {
+    const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) =>
+        isPathSelected(parameters.projectRoot, parameters.targetPaths, filePath)
+    );
+
+    const forEachSelectedTarget = async (
+        visitor: (target: NamingConventionTarget) => void | Promise<void>
+    ): Promise<void> => {
+        if (selectedFilePaths.length > 0) {
+            await Core.runSequentially(selectedFilePaths, async (filePath) => {
+                const relativeResourcePath = filePath.replace(/\.gml$/i, ".yy");
+                const absoluteFilePath = path.resolve(parameters.projectRoot, filePath);
+                const absoluteResourcePath = path.resolve(parameters.projectRoot, relativeResourcePath);
+                const targetsForFile = await semantic.listNamingConventionTargets([
+                    filePath,
+                    absoluteFilePath,
+                    relativeResourcePath,
+                    absoluteResourcePath
+                ]);
+                await Core.runSequentially(targetsForFile, async (target) => {
+                    if (isPathSelected(parameters.projectRoot, parameters.targetPaths, target.path)) {
+                        await visitor(target);
+                    }
+                });
+            });
+            return;
+        }
+
+        const targets = await semantic.listNamingConventionTargets();
+        await Core.runSequentially(targets, async (target) => {
+            if (isPathSelected(parameters.projectRoot, parameters.targetPaths, target.path)) {
+                await visitor(target);
+            }
+        });
+    };
+
+    await forEachSelectedTarget((target) => {
+        if (target.symbolId !== null) {
+            return;
+        }
+
+        const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
+        const names = localScopeNames.get(scopeKey) ?? new Set<string>();
+        names.add(target.name);
+        localScopeNames.set(scopeKey, names);
+    });
+
+    await forEachSelectedTarget((target) => {
         const evaluation = evaluateNamingConvention(target.name, target.category, policy, resolvedRules);
         if (evaluation.compliant || evaluation.message === null) {
-            continue;
+            return;
         }
 
         violations.push({
@@ -126,7 +160,7 @@ export async function planNamingConventionCodemod(
 
         if (evaluation.suggestedName === null || evaluation.suggestedName === target.name) {
             warnings.push(`No automatic rename generated for ${target.category} '${target.name}' in ${target.path}.`);
-            continue;
+            return;
         }
 
         if (target.symbolId !== null) {
@@ -138,7 +172,7 @@ export async function planNamingConventionCodemod(
                     newName: evaluation.suggestedName
                 });
             }
-            continue;
+            return;
         }
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
@@ -148,7 +182,7 @@ export async function planNamingConventionCodemod(
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because the target name already exists in the same scope.`
             );
-            continue;
+            return;
         }
 
         for (const occurrence of target.occurrences) {
@@ -158,14 +192,16 @@ export async function planNamingConventionCodemod(
         existingNames.add(evaluation.suggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
-    }
+    });
 
     let topLevelRenamePlan: NamingConventionCodemodPlan["topLevelRenamePlan"] = null;
-    if (topLevelRenames.length > 0) {
+    if (includeTopLevelPlan && topLevelRenames.length > 0) {
         topLevelRenamePlan = await engine.prepareBatchRenamePlan(topLevelRenames, {
-            validateHotReload: true
+            includeImpactAnalyses: false
         });
-        appendWorkspaceEdits(workspace, topLevelRenamePlan.workspace);
+        const mergedWorkspace = topLevelRenamePlan.workspace;
+        appendWorkspaceEdits(mergedWorkspace, workspace);
+        workspace = mergedWorkspace;
         warnings.push(
             ...topLevelRenamePlan.batchValidation.warnings,
             ...topLevelRenamePlan.validation.warnings,
@@ -184,8 +220,22 @@ export async function planNamingConventionCodemod(
         warnings,
         errors,
         topLevelRenamePlan,
+        topLevelRenameRequests: topLevelRenames,
         localRenameCount
     };
+}
+
+function splitIntoRenameChunks(
+    renames: Array<{ symbolId: string; newName: string }>,
+    chunkSize: number
+): Array<Array<{ symbolId: string; newName: string }>> {
+    const chunks: Array<Array<{ symbolId: string; newName: string }>> = [];
+
+    for (let index = 0; index < renames.length; index += chunkSize) {
+        chunks.push(renames.slice(index, index + chunkSize));
+    }
+
+    return chunks;
 }
 
 /**
@@ -197,16 +247,88 @@ export async function executeNamingConventionCodemod(
         projectRoot: string;
         config: RefactorProjectConfig;
         targetPaths: Array<string>;
+        gmlFilePaths?: Array<string>;
         applyOptions: ApplyWorkspaceEditOptions;
     }
 ): Promise<{
     plan: NamingConventionCodemodPlan;
     applied: Map<string, string>;
 }> {
+    const isDryRun = parameters.applyOptions.dryRun === true;
+
+    if (!isDryRun) {
+        const writeFile = parameters.applyOptions.writeFile;
+        if (typeof writeFile !== "function") {
+            throw new TypeError("Naming convention codemod write mode requires applyOptions.writeFile");
+        }
+
+        const plan = await planNamingConventionCodemod(engine, {
+            projectRoot: parameters.projectRoot,
+            config: parameters.config,
+            targetPaths: parameters.targetPaths,
+            gmlFilePaths: parameters.gmlFilePaths,
+            includeTopLevelPlan: false
+        });
+
+        if (plan.errors.length > 0) {
+            return {
+                plan,
+                applied: new Map()
+            };
+        }
+
+        const applied = new Map<string, string>();
+
+        if (
+            plan.workspace.edits.length > 0 ||
+            plan.workspace.metadataEdits.length > 0 ||
+            plan.workspace.fileRenames.length > 0
+        ) {
+            const localApplied = await engine.applyWorkspaceEdit(plan.workspace, {
+                ...parameters.applyOptions,
+                includeResultContent: false,
+                dryRun: false
+            });
+
+            for (const filePath of localApplied.keys()) {
+                applied.set(filePath, "");
+            }
+        }
+
+        const renameChunks = splitIntoRenameChunks(plan.topLevelRenameRequests, 64);
+        await Core.runSequentially(renameChunks, async (chunk) => {
+            const batchResult = await engine.executeBatchRename({
+                renames: chunk,
+                readFile: parameters.applyOptions.readFile,
+                writeFile,
+                includeResultContent: false,
+                renameFile: parameters.applyOptions.renameFile,
+                deleteFile: parameters.applyOptions.deleteFile
+            });
+
+            for (const filePath of batchResult.applied.keys()) {
+                applied.set(filePath, "");
+            }
+
+            for (const rename of batchResult.fileRenames) {
+                applied.set(rename.oldPath, "");
+                applied.set(rename.newPath, "");
+            }
+
+            engine.clearQueryCaches();
+        });
+
+        return {
+            plan,
+            applied
+        };
+    }
+
     const plan = await planNamingConventionCodemod(engine, {
         projectRoot: parameters.projectRoot,
         config: parameters.config,
-        targetPaths: parameters.targetPaths
+        targetPaths: parameters.targetPaths,
+        gmlFilePaths: parameters.gmlFilePaths
     });
 
     if (plan.errors.length > 0) {
@@ -227,7 +349,10 @@ export async function executeNamingConventionCodemod(
         };
     }
 
-    const applied = await engine.applyWorkspaceEdit(plan.workspace, parameters.applyOptions);
+    const applied = await engine.applyWorkspaceEdit(plan.workspace, {
+        ...parameters.applyOptions,
+        includeResultContent: parameters.applyOptions.dryRun === true
+    });
     return {
         plan,
         applied

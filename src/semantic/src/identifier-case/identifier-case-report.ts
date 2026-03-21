@@ -524,7 +524,12 @@ export function reportIdentifierCasePlan({
                 fsFacade.mkdirSync(directory, { recursive: true });
             }
             if (fsFacade?.writeFileSync) {
-                fsFacade.writeFileSync(logFilePath, `${JSON.stringify(payload, null, 2)}\n`);
+                fsFacade.writeFileSync(
+                    logFilePath,
+                    Core.stringifyJsonForFile(payload, {
+                        space: 2
+                    })
+                );
             }
         } catch (error) {
             warnWithReason(logger, REPORT_NAMESPACE, "Failed to write identifier case report", error);

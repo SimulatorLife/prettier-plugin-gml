@@ -583,6 +583,7 @@ export default class GameMakerASTBuilder {
             "block",
             "ifStatement",
             "variableDeclarationList",
+            "implicitCallStatement",
             "assignmentExpression",
             "callStatement",
             "iterationStatement",
@@ -959,6 +960,10 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#LValueExpression.
     visitLValueExpression(ctx: ParserContext): any {
+        return this.buildLValueExpression(ctx);
+    }
+
+    buildLValueExpression(ctx: ParserContext): any {
         let object = this.visit(ctx.lValueStartExpression());
 
         // accumulate operations
@@ -1003,6 +1008,16 @@ export default class GameMakerASTBuilder {
         return this.visit(ctx.newExpression());
     }
 
+    // Visit a parse tree produced by GameMakerLanguageParser#ImplicitMemberDotLValue.
+    visitImplicitMemberDotLValue(ctx: ParserContext): any {
+        const memberDotLValueNode = this.visitMemberDotLValue(ctx);
+        if (memberDotLValueNode === null) {
+            return null;
+        }
+
+        return memberDotLValueNode;
+    }
+
     // Visit a parse tree produced by GameMakerLanguageParser#MemberIndexLValue.
     visitMemberIndexLValue(ctx: ParserContext): any {
         return this.astNode(ctx, {
@@ -1035,11 +1050,19 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#MemberIndexLValueFinal.
     visitMemberIndexLValueFinal(ctx: ParserContext): any {
-        return this.visitMemberIndexLValue(ctx);
+        return this.visitFinalMemberLValue(ctx, "index");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#MemberDotLValueFinal.
     visitMemberDotLValueFinal(ctx: ParserContext): any {
+        return this.visitFinalMemberLValue(ctx, "dot");
+    }
+
+    visitFinalMemberLValue(ctx: ParserContext, memberKind: "index" | "dot"): any {
+        if (memberKind === "index") {
+            return this.visitMemberIndexLValue(ctx);
+        }
+
         return this.visitMemberDotLValue(ctx);
     }
 
@@ -1055,7 +1078,12 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionOrFunction.
     visitExpressionOrFunction(ctx: ParserContext): any {
-        return this.visitFirstChild(ctx, ["expression", "functionDeclaration", "expressionOrFunction"]);
+        return this.visitFirstChild(ctx, [
+            "assignmentExpression",
+            "expression",
+            "functionDeclaration",
+            "expressionOrFunction"
+        ]);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#TernaryExpression.
@@ -1119,31 +1147,15 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#incDecStatement.
     visitIncDecStatement(ctx: ParserContext): any {
-        if (ctx.preIncDecExpression() !== null) {
-            const result = this.visit(ctx.preIncDecExpression());
-            // The ANTLR grammar models `++i;` statements by reusing the same
-            // visitor path as `++i` expressions, so we receive an
-            // `IncDecExpression` node here. Re-tag it as an
-            // `IncDecStatement` before returning so downstream passes know the
-            // increment/decrement consumed an entire statement slot. The
-            // printers and Feather compatibility transforms (see
-            // `src/format/src/transforms/feather/apply-feather-fixes.js`) only look
-            // for statement-shaped nodes when deciding whether to emit
-            // GameMaker-style semicolons or rewrite postfix updates; leaving
-            // the expression tag in place would quietly bypass those guards and
-            // reintroduce the very regressions they were added to prevent.
+        const incDecExpressionContext = ctx.preIncDecExpression() ?? ctx.postIncDecExpression();
+        if (incDecExpressionContext !== null) {
+            const result = this.visit(incDecExpressionContext);
+            // The ANTLR grammar models `++i;` and `i++;` statements by reusing
+            // expression visitor branches, so re-tag the result as a statement.
             result.type = "IncDecStatement";
             return result;
         }
-        if (ctx.postIncDecExpression() !== null) {
-            const result = this.visit(ctx.postIncDecExpression());
-            // See the note above for the prefix branch: postfix statements also
-            // surface as expression nodes and must be re-tagged so printers,
-            // loop-hoisting analyzers, and Feather fixups continue to recognise
-            // them as standalone statements instead of loose expressions.
-            result.type = "IncDecStatement";
-            return result;
-        }
+
         return null;
     }
 
@@ -1261,13 +1273,42 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#callStatement.
     visitCallStatement(ctx: ParserContext): any {
-        let object: any = null;
-        if (ctx.callableExpression() != null) {
-            object = this.visit(ctx.callableExpression());
+        const object = this.resolveCallStatementObject(ctx);
+
+        return this.astNode(ctx, {
+            type: "CallExpression",
+            object,
+            arguments: this.visit(ctx.arguments())
+        });
+    }
+
+    resolveCallStatementObject(ctx: ParserContext): any {
+        const nestedCallStatement = ctx.callStatement();
+        if (nestedCallStatement === null) {
+            const callableExpression = ctx.callableExpression();
+            if (callableExpression === null) {
+                return null;
+            }
+
+            return this.visit(callableExpression);
         }
-        if (ctx.callStatement() != null) {
-            object = this.visit(ctx.callStatement());
-        }
+
+        return this.visit(nestedCallStatement);
+    }
+
+    // Visit a parse tree produced by GameMakerLanguageParser#implicitCallStatement.
+    visitImplicitCallStatement(ctx: ParserContext): any {
+        const object =
+            ctx.implicitCallStatement() == null
+                ? this.astNode(ctx, {
+                      type: "MemberDotExpression",
+                      object: null,
+                      property: this.withIdentifierRole({ type: "reference", kind: "property" }, () =>
+                          this.visit(ctx.identifier())
+                      )
+                  })
+                : this.visit(ctx.implicitCallStatement());
+
         return this.astNode(ctx, {
             type: "CallExpression",
             object,

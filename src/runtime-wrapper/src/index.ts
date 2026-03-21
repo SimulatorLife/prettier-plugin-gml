@@ -1,10 +1,13 @@
 import * as Runtime from "./runtime/index.js";
+import * as Timing from "./timing/index.js";
 import * as Clients from "./websocket/index.js";
 
 // Export the RuntimeWrapper namespace as the primary public API
 export const RuntimeWrapper = Object.freeze({
     ...Runtime,
-    ...Clients
+    ...Clients,
+    ...Timing,
+    Timing
 });
 
 export type {
@@ -71,3 +74,8 @@ export type {
     WebSocketPatchQueueManager
 } from "./websocket/index.js";
 export * as Clients from "./websocket/index.js";
+// Timing helpers remain available at the workspace root for compatibility, but
+// their implementation now lives in the dedicated timing domain alongside a
+// nested namespace export for consumers that prefer explicit grouping.
+export * as Timing from "./timing/index.js";
+export { getHighResolutionTime, getWallClockTime, measureDuration } from "./timing/index.js";

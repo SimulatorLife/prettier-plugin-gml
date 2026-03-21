@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "feather/gm2031": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

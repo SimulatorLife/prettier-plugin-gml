@@ -87,9 +87,27 @@ export function isRegExpLike(value) {
  * @param {unknown} iterable Candidate value to evaluate.
  * @returns {boolean} `true` when an iterator method is present, otherwise `false`.
  */
-function hasIterator(iterable): boolean {
+function getIterableMethod(iterable): (() => IterableIterator<unknown>) | null {
     const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
-    return typeof method === "function";
+    return typeof method === "function" ? method : null;
+}
+
+function hasIterator(iterable): boolean {
+    return getIterableMethod(iterable) !== null;
+}
+
+function getIterableIterator(iterable): IterableIterator<unknown> | null {
+    const method = getIterableMethod(iterable);
+    if (method === null) {
+        return null;
+    }
+
+    try {
+        const iterator = method.call(iterable);
+        return iterator && typeof iterator[Symbol.iterator] === "function" ? iterator : null;
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -146,25 +164,14 @@ export function hasIterableItems(iterable) {
         return lengthHint > 0;
     }
 
-    // Try to get an iterator method and call it
-    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
-    if (typeof method !== "function") {
+    const iterator = getIterableIterator(iterable);
+    if (iterator === null) {
         return false;
     }
 
-    try {
-        const iterator = method.call(iterable);
-        if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
-            return false;
-        }
-
-        // Check if iterator yields at least one item
-        for (const item of iterator) {
-            void item;
-            return true;
-        }
-    } catch {
-        return false;
+    for (const item of iterator) {
+        void item;
+        return true;
     }
 
     return false;
@@ -186,27 +193,17 @@ export function getIterableSize(iterable) {
         return lengthHint;
     }
 
-    // Try to get an iterator method and call it
-    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values;
-    if (typeof method !== "function") {
+    const iterator = getIterableIterator(iterable);
+    if (iterator === null) {
         return 0;
     }
 
-    try {
-        const iterator = method.call(iterable);
-        if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
-            return 0;
-        }
-
-        let count = 0;
-        for (const item of iterator) {
-            void item;
-            count += 1;
-        }
-        return count;
-    } catch {
-        return 0;
+    let count = 0;
+    for (const item of iterator) {
+        void item;
+        count += 1;
     }
+    return count;
 }
 
 /**
@@ -224,26 +221,16 @@ function resolveMapEntries(candidate) {
         return candidate;
     }
 
-    // Try to extract entries from iterable
-    const method = candidate?.[Symbol.iterator] ?? candidate?.entries ?? candidate?.values;
-    if (typeof method === "function") {
-        try {
-            const iterator = method.call(candidate);
-            if (!iterator || typeof iterator[Symbol.iterator] !== "function") {
+    const iterator = getIterableIterator(candidate);
+    if (iterator !== null) {
+        const entries = [];
+        for (const entry of iterator) {
+            if (!Array.isArray(entry) || entry.length < 2) {
                 return [];
             }
-
-            const entries = [];
-            for (const entry of iterator) {
-                if (!Array.isArray(entry) || entry.length < 2) {
-                    return [];
-                }
-                entries.push([entry[0], entry[1]]);
-            }
-            return entries;
-        } catch {
-            return [];
+            entries.push([entry[0], entry[1]]);
         }
+        return entries;
     }
 
     // Fallback to Object.entries for plain objects

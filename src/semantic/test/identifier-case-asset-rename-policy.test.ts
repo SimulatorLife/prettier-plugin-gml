@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     evaluateIdentifierCaseAssetRenamePolicy,
     IdentifierCaseAssetRenamePolicyReason
-} from "../src/identifier-case/asset-rename-policy.js";
+} from "../src/identifier-case/asset-renames/policy.js";
 
 void describe("identifier case asset rename policy", () => {
     void it("requires explicit opt-in when dry run is enabled", () => {

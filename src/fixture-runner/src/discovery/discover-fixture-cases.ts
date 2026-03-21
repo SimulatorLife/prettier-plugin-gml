@@ -1,0 +1,213 @@
+import { readdir } from "node:fs/promises";
+import path from "node:path";
+
+import { loadFixtureProjectConfig } from "../config/index.js";
+import type { FixtureAssertion, FixtureCase, FixtureComparison, FixtureProjectConfig } from "../types.js";
+
+const GMLOOP_CONFIG_FILE_NAME = "gmloop.json";
+const INPUT_FILE_NAME = "input.gml";
+const EXPECTED_FILE_NAME = "expected.gml";
+const PROJECT_DIRECTORY_NAME = "project";
+const EXPECTED_DIRECTORY_NAME = "expected";
+const TEXT_FIXTURE_KINDS = new Set(["format", "lint", "integration"]);
+
+type FixtureCaseLayoutValidation = {
+    allowedFiles: ReadonlySet<string>;
+    allowedDirectories: ReadonlySet<string>;
+    requiredFiles: ReadonlyArray<string>;
+    requiredDirectories: ReadonlyArray<string>;
+    additionalErrors: ReadonlyArray<string>;
+};
+
+function normalizeCaseId(rootPath: string, fixturePath: string): string {
+    return path.relative(rootPath, fixturePath).split(path.sep).join("/");
+}
+
+function deriveDefaultAssertion(config: FixtureProjectConfig, fileNames: ReadonlySet<string>): FixtureAssertion {
+    if (config.fixture.assertion) {
+        return config.fixture.assertion;
+    }
+
+    if (config.fixture.kind === "refactor") {
+        return "project-tree";
+    }
+
+    if (fileNames.has(EXPECTED_FILE_NAME)) {
+        return "transform";
+    }
+
+    return "idempotent";
+}
+
+function deriveDefaultComparison(config: FixtureProjectConfig): FixtureComparison {
+    if (config.fixture.comparison) {
+        return config.fixture.comparison;
+    }
+
+    return "exact";
+}
+
+async function collectCaseDirectories(rootPath: string): Promise<Array<string>> {
+    const discoveredCaseDirectories: Array<string> = [];
+
+    async function walk(currentPath: string): Promise<void> {
+        const entries = await readdir(currentPath, { withFileTypes: true });
+        const fileNames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
+
+        if (fileNames.has(GMLOOP_CONFIG_FILE_NAME)) {
+            discoveredCaseDirectories.push(currentPath);
+            return;
+        }
+
+        await Promise.all(
+            entries.filter((entry) => entry.isDirectory()).map((entry) => walk(path.join(currentPath, entry.name)))
+        );
+    }
+
+    await walk(rootPath);
+    return discoveredCaseDirectories.sort((left, right) => left.localeCompare(right));
+}
+
+function validateFixtureEntries(
+    fileNames: ReadonlySet<string>,
+    directoryNames: ReadonlySet<string>,
+    validation: FixtureCaseLayoutValidation
+): Array<string> {
+    return [
+        ...validation.additionalErrors,
+        ...validation.requiredFiles
+            .filter((fileName) => !fileNames.has(fileName))
+            .map((fileName) => `missing ${fileName}`),
+        ...validation.requiredDirectories
+            .filter((directoryName) => !directoryNames.has(directoryName))
+            .map((directoryName) => `missing ${directoryName}/ directory`),
+        ...[...fileNames]
+            .filter((fileName) => !validation.allowedFiles.has(fileName))
+            .map((fileName) => `unexpected file ${JSON.stringify(fileName)}`),
+        ...[...directoryNames]
+            .filter((directoryName) => !validation.allowedDirectories.has(directoryName))
+            .map((directoryName) => `unexpected directory ${JSON.stringify(directoryName)}`)
+    ];
+}
+
+function validateTextFixtureCaseLayout(
+    assertion: FixtureAssertion,
+    fileNames: ReadonlySet<string>,
+    directoryNames: ReadonlySet<string>
+): Array<string> {
+    const allowedFiles = new Set([GMLOOP_CONFIG_FILE_NAME, INPUT_FILE_NAME]);
+    const additionalErrors: Array<string> = [];
+
+    if (assertion === "transform" || assertion === "parse-error") {
+        allowedFiles.add(EXPECTED_FILE_NAME);
+    }
+
+    if (assertion === "transform" && !fileNames.has(EXPECTED_FILE_NAME)) {
+        additionalErrors.push(`missing ${EXPECTED_FILE_NAME}`);
+    }
+
+    if (assertion === "idempotent" && fileNames.has(EXPECTED_FILE_NAME)) {
+        additionalErrors.push(`${EXPECTED_FILE_NAME} is not allowed for ${assertion} fixtures`);
+    }
+
+    if (assertion === "project-tree") {
+        additionalErrors.push("project-tree assertion is only valid for refactor fixtures");
+    }
+
+    return validateFixtureEntries(fileNames, directoryNames, {
+        allowedFiles,
+        allowedDirectories: new Set(),
+        requiredFiles: [INPUT_FILE_NAME],
+        requiredDirectories: [],
+        additionalErrors
+    });
+}
+
+function validateRefactorFixtureCaseLayout(
+    assertion: FixtureAssertion,
+    fileNames: ReadonlySet<string>,
+    directoryNames: ReadonlySet<string>
+): Array<string> {
+    return validateFixtureEntries(fileNames, directoryNames, {
+        allowedFiles: new Set([GMLOOP_CONFIG_FILE_NAME]),
+        allowedDirectories: new Set([PROJECT_DIRECTORY_NAME, EXPECTED_DIRECTORY_NAME]),
+        requiredFiles: [],
+        requiredDirectories: [PROJECT_DIRECTORY_NAME, EXPECTED_DIRECTORY_NAME],
+        additionalErrors: assertion === "project-tree" ? [] : ["refactor fixtures must use the project-tree assertion"]
+    });
+}
+
+function isSupportedFixtureKind(kind: string): kind is FixtureCase["kind"] {
+    return kind === "refactor" || TEXT_FIXTURE_KINDS.has(kind);
+}
+
+async function createFixtureCase(rootPath: string, fixturePath: string): Promise<FixtureCase> {
+    const configPath = path.join(fixturePath, GMLOOP_CONFIG_FILE_NAME);
+    const config = await loadFixtureProjectConfig(configPath);
+    const entries = await readdir(fixturePath, { withFileTypes: true });
+    const fileNames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
+    const directoryNames = new Set(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+    const assertion = deriveDefaultAssertion(config, fileNames);
+    const comparison = deriveDefaultComparison(config);
+    const validationErrors =
+        config.fixture.kind === "refactor"
+            ? validateRefactorFixtureCaseLayout(assertion, fileNames, directoryNames)
+            : validateTextFixtureCaseLayout(assertion, fileNames, directoryNames);
+
+    if (!isSupportedFixtureKind(config.fixture.kind)) {
+        validationErrors.push(`unsupported fixture kind ${JSON.stringify(config.fixture.kind)}`);
+    }
+
+    if (validationErrors.length > 0) {
+        throw new Error(`${normalizeCaseId(rootPath, fixturePath)}: ${validationErrors.join(", ")}`);
+    }
+
+    return Object.freeze({
+        caseId: normalizeCaseId(rootPath, fixturePath),
+        fixturePath,
+        configPath,
+        config,
+        kind: config.fixture.kind,
+        assertion,
+        comparison,
+        inputFilePath: config.fixture.kind === "refactor" ? null : path.join(fixturePath, INPUT_FILE_NAME),
+        expectedFilePath:
+            config.fixture.kind === "refactor" || !fileNames.has(EXPECTED_FILE_NAME)
+                ? null
+                : path.join(fixturePath, EXPECTED_FILE_NAME),
+        projectDirectoryPath:
+            config.fixture.kind === "refactor" ? path.join(fixturePath, PROJECT_DIRECTORY_NAME) : null,
+        expectedDirectoryPath:
+            config.fixture.kind === "refactor" ? path.join(fixturePath, EXPECTED_DIRECTORY_NAME) : null
+    });
+}
+
+/**
+ * Discover directory-per-case fixtures rooted at {@link fixtureRoot}.
+ *
+ * @param fixtureRoot Root directory containing fixture case subdirectories.
+ * @returns Normalized fixture case definitions.
+ */
+export async function discoverFixtureCases(fixtureRoot: string): Promise<ReadonlyArray<FixtureCase>> {
+    const caseDirectories = await collectCaseDirectories(fixtureRoot);
+    const settledCases = await Promise.allSettled(
+        caseDirectories.map((fixturePath) => createFixtureCase(fixtureRoot, fixturePath))
+    );
+    const validationErrors = settledCases
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => {
+            if (result.reason instanceof Error) {
+                return result.reason.message;
+            }
+
+            return String(result.reason);
+        });
+    if (validationErrors.length > 0) {
+        throw new Error(`Invalid fixture cases under ${fixtureRoot}:\n- ${validationErrors.join("\n- ")}`);
+    }
+
+    const fixtureCases = settledCases
+        .filter((result): result is PromiseFulfilledResult<FixtureCase> => result.status === "fulfilled")
+        .map((result) => result.value);
+    return Object.freeze(fixtureCases);
+}

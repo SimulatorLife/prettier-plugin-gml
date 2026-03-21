@@ -3,129 +3,128 @@
  */
 import { Core } from "@gmloop/core";
 
+interface CommentLike {
+    _removedByConsolidation?: boolean;
+    _structPropertyTrailing?: boolean;
+    _structPropertyHandled?: boolean;
+    leading?: boolean;
+    trailing?: boolean;
+    placement?: string;
+    leadingChar?: string;
+    enclosingNode?: unknown;
+    precedingNode?: unknown;
+    followingNode?: unknown;
+}
+
+interface CommentTrackerEntry {
+    index: number;
+    comment: CommentLike;
+    consumed: boolean;
+}
+
+function resolveCommentStartIndex(comment: unknown): number | null {
+    const directStartIndex = Core.getCommentBoundaryIndex(comment, "start");
+    if (typeof directStartIndex === "number") {
+        return directStartIndex;
+    }
+
+    const fallbackStartIndex = Core.getNodeStartIndex(comment);
+    return typeof fallbackStartIndex === "number" ? fallbackStartIndex : null;
+}
+
+function createCommentTrackerEntries(sourceComments: ReadonlyArray<unknown>): Array<CommentTrackerEntry> {
+    return sourceComments
+        .flatMap((comment) => {
+            const index = resolveCommentStartIndex(comment);
+            return typeof index === "number" ? [{ index, comment: comment as CommentLike, consumed: false }] : [];
+        })
+        .toSorted((left, right) => left.index - right.index);
+}
+
+function isValidCommentRange(left: number | undefined, right: number | undefined): left is number {
+    return typeof left === "number" && typeof right === "number" && left < right;
+}
+
 /**
  * Keeps a sorted view of comment locations and supports checkpoint/rollback to safely explore rewrites.
  */
 export class CommentTracker {
-    public comments: Array<unknown>;
-    public entries: Array<{
-        index: number;
-        comment: unknown;
-        consumed?: boolean;
-    }>;
+    public comments: Array<CommentLike>;
+    public entries: Array<CommentTrackerEntry>;
 
-    private checkpoints: Array<Array<{ index: number; comment: unknown; consumed?: boolean }>> = [];
+    private checkpoints: Array<Array<CommentTrackerEntry>> = [];
 
     constructor(ownerOrComments: unknown) {
-        // Extract comments from either a raw array or an AST node
-        const sourceComments: readonly unknown[] = Array.isArray(ownerOrComments)
-            ? ownerOrComments
-            : Core.getCommentArray(ownerOrComments);
+        const sourceComments = Array.isArray(ownerOrComments) ? ownerOrComments : Core.getCommentArray(ownerOrComments);
 
-        this.comments = sourceComments as Array<unknown>;
-        this.entries = sourceComments
-            .map((comment) => {
-                // Extract index from comment.start (number or {index: number})
-                const maybeStart = (comment as any)?.start;
-                const index =
-                    typeof maybeStart === "number"
-                        ? maybeStart
-                        : maybeStart && typeof maybeStart.index === "number"
-                          ? maybeStart.index
-                          : Core.getNodeStartIndex(comment);
-                return { index, comment };
-            })
-            .filter((entry) => typeof entry.index === "number")
-            .toSorted((a, b) => a.index - b.index);
+        this.comments = sourceComments as Array<CommentLike>;
+        this.entries = createCommentTrackerEntries(sourceComments);
     }
 
-    // Save the current comment state so we can revert if a rewrite branch fails.
-    checkpoint() {
+    checkpoint(): void {
         this.checkpoints.push(Core.cloneObjectEntries(this.entries));
     }
 
-    // Revert to the last checkpoint when the pending rewrite should be discarded.
-    rollback() {
-        const previous = this.checkpoints.pop();
-        if (previous) {
-            this.entries = previous;
+    rollback(): void {
+        const previousEntries = this.checkpoints.pop();
+        if (previousEntries) {
+            this.entries = previousEntries;
         }
     }
 
-    // Forget the most recent checkpoint when a rewrite succeeds.
-    commit() {
+    commit(): void {
         this.checkpoints.pop();
     }
 
-    hasBetween(left: number, right: number) {
-        if (this.entries.length === 0 || left === undefined || right === undefined || left >= right) {
-            return false;
-        }
-        let index = this.firstGreaterThan(left);
-        while (index < this.entries.length) {
-            const entry = this.entries[index];
-            if (entry.index >= right) {
-                return false;
-            }
-            if (!entry.consumed) {
-                return true;
-            }
-            index++;
-        }
-        return false;
+    hasBetween(left: number | undefined, right: number | undefined): boolean {
+        return this.getUnconsumedEntriesBetween(left, right).length > 0;
     }
 
-    hasAfter(position: number) {
-        if (this.entries.length === 0 || position === undefined) {
+    hasAfter(position: number | undefined): boolean {
+        if (this.entries.length === 0 || typeof position !== "number") {
             return false;
         }
-        let index = this.firstGreaterThan(position);
-        while (index < this.entries.length) {
-            if (!this.entries[index].consumed) {
-                return true;
-            }
-            index++;
-        }
-        return false;
+
+        return this.entries.slice(this.firstGreaterThan(position)).some((entry) => !entry.consumed);
     }
 
-    // Retrieve and remove entries between the provided indices for relocation.
-    takeBetween(left: number, right: number, predicate?: (comment: unknown) => boolean) {
-        if (this.entries.length === 0 || left === undefined) {
+    takeBetween(
+        left: number | undefined,
+        right: number | undefined,
+        predicate?: (comment: unknown) => boolean
+    ): Array<CommentLike> {
+        if (this.entries.length === 0 || typeof left !== "number") {
             return [];
         }
 
-        const upperBound = right === undefined ? Number.POSITIVE_INFINITY : right;
+        const upperBound = typeof right === "number" ? right : Number.POSITIVE_INFINITY;
         if (left >= upperBound) {
             return [];
         }
 
-        const results: Array<unknown> = [];
         const startIndex = this.firstGreaterThan(left);
+        const takenComments: Array<CommentLike> = [];
+        const remainingEntries = this.entries.slice(0, startIndex);
 
-        // Single-pass partition: build a new entries array while collecting matching comments.
-        // Avoids the two-pass collect-indices-then-splice-in-reverse pattern.
-        const remaining = this.entries.slice(0, startIndex);
-
-        for (let i = startIndex; i < this.entries.length; i++) {
-            const entry = this.entries[i];
+        for (const entry of this.entries.slice(startIndex)) {
             if (entry.index >= upperBound) {
-                remaining.push(...this.entries.slice(i));
-                break;
+                remainingEntries.push(entry);
+                continue;
             }
+
             if (predicate && !predicate(entry.comment)) {
-                remaining.push(entry);
-            } else {
-                results.push(entry.comment);
+                remainingEntries.push(entry);
+                continue;
             }
+
+            takenComments.push(entry.comment);
         }
 
-        this.entries = remaining;
-        return results;
+        this.entries = remainingEntries;
+        return takenComments;
     }
 
-    // Binary search helper used to find the next comment index beyond the provided offset.
-    firstGreaterThan(target: number) {
+    firstGreaterThan(target: number): number {
         let low = 0;
         let high = this.entries.length - 1;
         while (low <= high) {
@@ -139,45 +138,19 @@ export class CommentTracker {
         return low;
     }
 
-    // Peek at entries between two offsets without mutating the tracker state.
-    getEntriesBetween(left: number, right: number) {
-        if (this.entries.length === 0 || left === undefined || right === undefined || left >= right) {
-            return [];
-        }
-
-        const startIndex = this.firstGreaterThan(left);
-        const collected = [];
-
-        for (let index = startIndex; index < this.entries.length; index++) {
-            const entry = this.entries[index];
-            if (entry.index >= right) {
-                break;
-            }
-            if (!entry.consumed) {
-                collected.push(entry);
-            }
-        }
-
-        return collected;
+    getEntriesBetween(left: number | undefined, right: number | undefined): Array<CommentTrackerEntry> {
+        return this.getUnconsumedEntriesBetween(left, right);
     }
 
-    consumeEntries(entries: Array<any>) {
-        // Mark the supplied entries as consumed so they are skipped when re-serializing comments.
+    consumeEntries(entries: Array<CommentTrackerEntry | CommentLike | null | undefined>): void {
         for (const entry of entries) {
             if (!entry) {
-                // Defensive: skip nullish values.
                 continue;
             }
 
-            // Support tracker entries ({ index, comment }) and raw comment nodes.
-            const commentNode = entry.comment || entry;
-            if (commentNode) {
-                commentNode._removedByConsolidation = true;
-            }
-
-            const trackerEntry = entry.comment
-                ? entry
-                : this.entries.find((candidate) => candidate && candidate.comment === entry);
+            const trackerEntry = this.findEntryForConsumedComment(entry);
+            const comment = trackerEntry?.comment ?? (entry as CommentLike);
+            comment._removedByConsolidation = true;
 
             if (trackerEntry) {
                 trackerEntry.consumed = true;
@@ -185,22 +158,57 @@ export class CommentTracker {
         }
     }
 
-    removeConsumedComments() {
-        // Drop comments that were marked as consumed during consolidation so the printer ignores them.
+    removeConsumedComments(): void {
         if (this.comments.length === 0) {
             return;
         }
 
         let writeIndex = 0;
-        for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
-            const comment = this.comments[readIndex];
-            if (comment && (comment as any)._removedByConsolidation) {
+        for (const comment of this.comments) {
+            if (comment._removedByConsolidation) {
                 continue;
             }
+
             this.comments[writeIndex] = comment;
-            writeIndex++;
+            writeIndex += 1;
         }
 
         this.comments.length = writeIndex;
+    }
+
+    private getUnconsumedEntriesBetween(
+        left: number | undefined,
+        right: number | undefined
+    ): Array<CommentTrackerEntry> {
+        if (!isValidCommentRange(left, right) || this.entries.length === 0) {
+            return [];
+        }
+
+        const matchingEntries: Array<CommentTrackerEntry> = [];
+        for (const entry of this.entries.slice(this.firstGreaterThan(left))) {
+            if (entry.index >= right) {
+                break;
+            }
+
+            if (!entry.consumed) {
+                matchingEntries.push(entry);
+            }
+        }
+
+        return matchingEntries;
+    }
+
+    private findEntryForConsumedComment(entry: CommentTrackerEntry | CommentLike): CommentTrackerEntry | undefined {
+        if (this.isTrackerEntry(entry)) {
+            return entry;
+        }
+
+        return this.entries.find((candidate) => candidate.comment === entry);
+    }
+
+    private isTrackerEntry(entry: CommentTrackerEntry | CommentLike): entry is CommentTrackerEntry {
+        return (
+            Core.isObjectLike(entry) && typeof (entry as { index?: unknown }).index === "number" && "comment" in entry
+        );
     }
 }

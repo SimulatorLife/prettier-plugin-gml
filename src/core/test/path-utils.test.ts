@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 // Node.js deprecated the legacy assert.equal-style helpers; use the strict
 // variants to ensure consistent comparisons across runtimes.
 import {
+    isDirectoryExcludedBySegments,
     isPathInside,
     isPathWithinBoundary,
     normalizeBoundaryPath,
@@ -157,5 +158,46 @@ void describe("isPathWithinBoundary", () => {
     void it("returns false when either argument is empty", () => {
         assert.strictEqual(isPathWithinBoundary("", "/root"), false);
         assert.strictEqual(isPathWithinBoundary("/root/file.gml", ""), false);
+    });
+});
+
+void describe("isDirectoryExcludedBySegments", () => {
+    void it("flags blocked directory segments", () => {
+        const excludedDirectories = new Set(["vendor", "node_modules"]);
+
+        assert.strictEqual(
+            isDirectoryExcludedBySegments("/workspace/project/src/file.gml", excludedDirectories, []),
+            false
+        );
+        assert.strictEqual(
+            isDirectoryExcludedBySegments("/workspace/project/vendor/file.gml", excludedDirectories, []),
+            true
+        );
+        assert.strictEqual(
+            isDirectoryExcludedBySegments("/workspace/project/node_modules/pkg/index.gml", excludedDirectories, []),
+            true
+        );
+    });
+
+    void it("allows canonical override directories to bypass segment exclusions", () => {
+        const excludedDirectories = new Set(["vendor"]);
+        const allowedDirectories = ["/workspace/project/vendor/GameMaker-Manual"];
+
+        assert.strictEqual(
+            isDirectoryExcludedBySegments(
+                "/workspace/project/vendor/GameMaker-Manual/page.gml",
+                excludedDirectories,
+                allowedDirectories
+            ),
+            false
+        );
+        assert.strictEqual(
+            isDirectoryExcludedBySegments(
+                "/workspace/project/vendor/Other/file.gml",
+                excludedDirectories,
+                allowedDirectories
+            ),
+            true
+        );
     });
 });

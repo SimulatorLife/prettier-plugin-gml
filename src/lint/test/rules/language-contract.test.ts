@@ -287,6 +287,110 @@ void test("strict parse fails while limited recovery succeeds for scientific not
     assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
 });
 
+void test("limited recovery lowercases uppercase logical aliases only for parsing", () => {
+    const source = "if (ready AND NOT done OR extra XOR flag) {\n    finish();\n}\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery succeeds for compound assignments inside control conditions", () => {
+    const source = "if (counter += 1) keep2();\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery wraps bare string literals before .length member access", () => {
+    const source = 'return "my string".length;\n';
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery comments out orphan assignment statements for malformed-safe rule passes", () => {
+    const source = "origin = new Point(0, 0);\n\n= 10;\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery comments out malformed _this multiplication statements for malformed-safe rule passes", () => {
+    const source = "_this * something;\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
+void test("limited recovery appends missing closing braces at end of file", () => {
+    const source = [
+        "function func_args()",
+        "{",
+        "",
+        "",
+        "var _first_parameter = argument[0];",
+        'show_debug_message($"The first parameter is {_first_parameter}");',
+        "return _first_parameter;"
+    ].join("\n");
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
 void test("switch cases expose estree consequent arrays for ESLint code-path analysis", async () => {
     const source = [
         "switch (state) {",
