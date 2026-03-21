@@ -94,17 +94,23 @@ jobs:
         id: node-version
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
+      - name: Read pnpm version from package.json
+        id: pnpm-version
+        run: |
+          echo "version=$(grep '"packageManager": "pnpm@' package.json | cut -d@ -f2 | tr -d '\",')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm (${{ matrix.target }})
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.pnpm-version.outputs.version }}
+          run_install: false
+
       - name: Setup Node (${{ matrix.target }})
         uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.node-version.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enable pnpm via Corepack (${{ matrix.target }})
-        run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Install deps (${{ matrix.target }})
         run: |
@@ -186,17 +192,23 @@ jobs:
         id: node-version-summary
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
+      - name: Read pnpm version from package.json
+        id: pnpm-version-summary
+        run: |
+          echo "version=$(grep '"packageManager": "pnpm@' package.json | cut -d@ -f2 | tr -d '\",')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.pnpm-version-summary.outputs.version }}
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.node-version-summary.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enable pnpm via Corepack (summary)
-        run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Install deps
         run: |
