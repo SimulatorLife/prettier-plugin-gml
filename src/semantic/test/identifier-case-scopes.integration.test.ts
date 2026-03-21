@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { resolveIdentifierCaseFixturesDirectory } from "./identifier-case-test-helpers.js";
 
 type IdentifierIndexEntry = {
     identifierId?: string;
@@ -28,24 +29,8 @@ function valuesAs<T>(record: Record<string, T>): T[] {
 }
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const fixturesDirectory = resolveFixturesDirectory(currentDirectory);
+const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 const scopeFixturePath = path.join(fixturesDirectory, "scope-collisions.gml");
-
-function resolveFixturesDirectory(baseDirectory: string) {
-    const candidates = [
-        path.join(baseDirectory, "identifier-case-fixtures"),
-        path.resolve(baseDirectory, "../../test/identifier-case-fixtures")
-    ];
-    const sampleFixture = "locals.gml";
-
-    for (const candidate of candidates) {
-        if (existsSync(path.join(candidate, sampleFixture))) {
-            return candidate;
-        }
-    }
-
-    return candidates[0];
-}
 
 async function createScopeFixtureProject() {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-scope-tests-"));

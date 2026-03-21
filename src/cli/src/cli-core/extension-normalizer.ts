@@ -24,7 +24,10 @@ function coerceExtensionValue(value: unknown): string | null {
         return null;
     }
 
-    return normalizeExtensionSuffix(cleaned);
+    const extensionCandidate =
+        cleaned.startsWith(".") || !cleaned.includes(".") ? cleaned : path.extname(cleaned) || cleaned;
+
+    return normalizeExtensionSuffix(extensionCandidate);
 }
 
 function splitExtensionInput(value: unknown): Array<string> {
