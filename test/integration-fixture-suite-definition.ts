@@ -1,13 +1,13 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { FixtureRunner } from "@gmloop/fixture-runner";
 
 import { createIntegrationFixtureAdapter } from "./integration-fixture-adapter.js";
 
 function resolveIntegrationFixtureRoot(): string {
-    const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
-    return rawDirectory.includes(`${path.sep}dist${path.sep}`)
-        ? path.resolve(rawDirectory, "..", "fixtures", "integration")
-        : path.resolve(rawDirectory, "fixtures", "integration");
+    return FixtureRunner.resolveFixtureDirectoryFromModuleUrl({
+        moduleUrl: import.meta.url,
+        sourceRelativeSegments: ["fixtures", "integration"],
+        distRelativeSegments: ["..", "fixtures", "integration"]
+    });
 }
 
 /**

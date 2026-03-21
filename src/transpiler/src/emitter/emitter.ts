@@ -387,16 +387,17 @@ export class GmlToJsEmitter {
 
     private visitCallExpression(ast: CallExpressionNode): string {
         const kind = this.callTargetAnalyzer.callTargetKind(ast);
-        const argsList = this.joinArguments(ast.arguments);
 
-        // Fast path: builtin functions
+        // Fast path: builtin functions. Avoid eagerly joining arguments here so
+        // the builtin path only visits each argument once.
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
             if (builtinName && isBuiltinFunction(builtinName)) {
-                const args = this.visitArguments(ast.arguments);
-                return emitBuiltinFunction(builtinName, args);
+                return emitBuiltinFunction(builtinName, this.visitArguments(ast.arguments));
             }
         }
+
+        const argsList = this.joinArguments(ast.arguments);
 
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);

@@ -574,6 +574,9 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 # List configured gmloop.json codemods and effective config
 pnpm run cli -- refactor codemod --list
 
+# Dry-run configured codemods inferred from the project config
+pnpm run cli -- refactor --project-root path/to/project
+
 # Dry-run configured codemods
 pnpm run cli -- refactor codemod
 
@@ -598,6 +601,8 @@ pnpm run cli -- refactor codemod --only namingConvention --write
 - `--write` - Apply configured codemods (default is dry-run)
 - `--only <ids>` - Comma-separated list of configured codemod ids to run
 - `--list` - Print discovered codemods and their effective normalized config
+
+When no rename target is provided, `refactor` will automatically run configured codemods if it can resolve a `gmloop.json` for the project.
 
 **`gmloop.json` refactor config:**
 

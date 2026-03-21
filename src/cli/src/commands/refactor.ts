@@ -113,6 +113,14 @@ function resolveCodemodConfigPath(projectRoot: string, configPathOption: string 
     return resolveExistingGmloopConfigPath(projectRoot, configPathOption);
 }
 
+function hasExplicitRenameIntent(options: RefactorCommandOptions): boolean {
+    return Boolean(options.symbolId || options.oldName || options.newName || options.checkHotReload);
+}
+
+function hasExplicitCodemodIntentHint(options: RefactorCommandOptions): boolean {
+    return Boolean(options.projectRoot || options.config || options.write || options.only || options.list);
+}
+
 function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
     if (!options.newName) {
         throw new Error("--new-name is required");
@@ -170,10 +178,31 @@ async function validateRefactorIntent(command: CommanderCommandLike): Promise<Re
         throw new Error(`Unknown refactor operation '${operation}'. Supported operations: codemod`);
     }
 
-    return {
-        mode: "rename",
-        options: validateRenameOptions(options)
-    };
+    if (hasExplicitRenameIntent(options)) {
+        return {
+            mode: "rename",
+            options: validateRenameOptions(options)
+        };
+    }
+
+    if (hasExplicitCodemodIntentHint(options)) {
+        return {
+            mode: "codemod",
+            options: await validateCodemodOptions(options, remainingArgs)
+        };
+    }
+
+    const inferredCodemodOptions = await validateCodemodOptions(options, remainingArgs).catch(() => null);
+    if (inferredCodemodOptions) {
+        return {
+            mode: "codemod",
+            options: inferredCodemodOptions
+        };
+    }
+
+    throw new Error(
+        "Could not infer refactor mode. Provide --old-name/--symbol-id with --new-name for renames, or run inside a project with gmloop.json to execute configured codemods."
+    );
 }
 
 async function collectGmlFilesFromTarget(
