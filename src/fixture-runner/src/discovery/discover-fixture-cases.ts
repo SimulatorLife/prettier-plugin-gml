@@ -9,6 +9,7 @@ const INPUT_FILE_NAME = "input.gml";
 const EXPECTED_FILE_NAME = "expected.gml";
 const PROJECT_DIRECTORY_NAME = "project";
 const EXPECTED_DIRECTORY_NAME = "expected";
+const TEXT_FIXTURE_KINDS = new Set(["format", "lint", "integration"]);
 const LEGACY_FILE_PATTERNS = [
     // TODO: We should not support legacy fixture file names and should remove this and migrate any remaining legacy fixtures
     /^options\.json$/u,
@@ -17,6 +18,14 @@ const LEGACY_FILE_PATTERNS = [
     /^.+\.input\.gml$/u,
     /^.+\.output\.gml$/u
 ];
+
+type FixtureCaseLayoutValidation = {
+    allowedFiles: ReadonlySet<string>;
+    allowedDirectories: ReadonlySet<string>;
+    requiredFiles: ReadonlyArray<string>;
+    requiredDirectories: ReadonlyArray<string>;
+    additionalErrors: ReadonlyArray<string>;
+};
 
 function normalizeCaseId(rootPath: string, fixturePath: string): string {
     return path.relative(rootPath, fixturePath).split(path.sep).join("/");
@@ -71,43 +80,62 @@ function findLegacyFixtureFiles(fileNames: ReadonlySet<string>): Array<string> {
     return [...fileNames].filter((fileName) => LEGACY_FILE_PATTERNS.some((pattern) => pattern.test(fileName)));
 }
 
+function validateFixtureEntries(
+    fileNames: ReadonlySet<string>,
+    directoryNames: ReadonlySet<string>,
+    validation: FixtureCaseLayoutValidation
+): Array<string> {
+    return [
+        ...validation.additionalErrors,
+        ...validation.requiredFiles
+            .filter((fileName) => !fileNames.has(fileName))
+            .map((fileName) => `missing ${fileName}`),
+        ...validation.requiredDirectories
+            .filter((directoryName) => !directoryNames.has(directoryName))
+            .map((directoryName) => `missing ${directoryName}/ directory`),
+        ...findLegacyFixtureFiles(fileNames).map(
+            (fileName) => `legacy fixture file ${JSON.stringify(fileName)} is not allowed`
+        ),
+        ...[...fileNames]
+            .filter((fileName) => !validation.allowedFiles.has(fileName))
+            .map((fileName) => `unexpected file ${JSON.stringify(fileName)}`),
+        ...[...directoryNames]
+            .filter((directoryName) => !validation.allowedDirectories.has(directoryName))
+            .map((directoryName) => `unexpected directory ${JSON.stringify(directoryName)}`)
+    ];
+}
+
 function validateTextFixtureCaseLayout(
     assertion: FixtureAssertion,
     fileNames: ReadonlySet<string>,
     directoryNames: ReadonlySet<string>
 ): Array<string> {
-    const validationErrors: Array<string> = [];
     const allowedFiles = new Set([GMLOOP_CONFIG_FILE_NAME, INPUT_FILE_NAME]);
+    const additionalErrors: Array<string> = [];
 
     if (assertion === "transform" || assertion === "parse-error") {
         allowedFiles.add(EXPECTED_FILE_NAME);
     }
 
-    if (!fileNames.has(INPUT_FILE_NAME)) {
-        validationErrors.push(`missing ${INPUT_FILE_NAME}`);
-    }
-
     if (assertion === "transform" && !fileNames.has(EXPECTED_FILE_NAME)) {
-        validationErrors.push(`missing ${EXPECTED_FILE_NAME}`);
+        additionalErrors.push(`missing ${EXPECTED_FILE_NAME}`);
     }
 
     if (assertion === "idempotent" && fileNames.has(EXPECTED_FILE_NAME)) {
-        validationErrors.push(`${EXPECTED_FILE_NAME} is not allowed for ${assertion} fixtures`);
+        additionalErrors.push(`${EXPECTED_FILE_NAME} is not allowed for ${assertion} fixtures`);
     }
 
     if (assertion === "project-tree") {
-        validationErrors.push("project-tree assertion is only valid for refactor fixtures");
+        additionalErrors.push("project-tree assertion is only valid for refactor fixtures");
     }
 
-    const unexpectedFiles = [...fileNames].filter((fileName) => !allowedFiles.has(fileName));
-    const legacyFiles = findLegacyFixtureFiles(fileNames);
-    validationErrors.push(
-        ...legacyFiles.map((fileName) => `legacy fixture file ${JSON.stringify(fileName)} is not allowed`),
-        ...unexpectedFiles.map((fileName) => `unexpected file ${JSON.stringify(fileName)}`),
-        ...[...directoryNames].map((directoryName) => `unexpected directory ${JSON.stringify(directoryName)}`)
-    );
-
-    return validationErrors;
+    return validateFixtureEntries(fileNames, directoryNames, {
+        allowedFiles,
+        allowedDirectories: new Set(),
+        requiredFiles: [INPUT_FILE_NAME],
+        requiredDirectories: [],
+        additionalErrors
+    });
 }
 
 function validateRefactorFixtureCaseLayout(
@@ -115,32 +143,17 @@ function validateRefactorFixtureCaseLayout(
     fileNames: ReadonlySet<string>,
     directoryNames: ReadonlySet<string>
 ): Array<string> {
-    const validationErrors: Array<string> = [];
-    const allowedFiles = new Set([GMLOOP_CONFIG_FILE_NAME]);
-    const allowedDirectories = new Set([PROJECT_DIRECTORY_NAME, EXPECTED_DIRECTORY_NAME]);
+    return validateFixtureEntries(fileNames, directoryNames, {
+        allowedFiles: new Set([GMLOOP_CONFIG_FILE_NAME]),
+        allowedDirectories: new Set([PROJECT_DIRECTORY_NAME, EXPECTED_DIRECTORY_NAME]),
+        requiredFiles: [],
+        requiredDirectories: [PROJECT_DIRECTORY_NAME, EXPECTED_DIRECTORY_NAME],
+        additionalErrors: assertion === "project-tree" ? [] : ["refactor fixtures must use the project-tree assertion"]
+    });
+}
 
-    if (assertion !== "project-tree") {
-        validationErrors.push("refactor fixtures must use the project-tree assertion");
-    }
-
-    if (!directoryNames.has(PROJECT_DIRECTORY_NAME)) {
-        validationErrors.push(`missing ${PROJECT_DIRECTORY_NAME}/ directory`);
-    }
-    if (!directoryNames.has(EXPECTED_DIRECTORY_NAME)) {
-        validationErrors.push(`missing ${EXPECTED_DIRECTORY_NAME}/ directory`);
-    }
-
-    const unexpectedFiles = [...fileNames].filter((fileName) => !allowedFiles.has(fileName));
-    const legacyFiles = findLegacyFixtureFiles(fileNames);
-    validationErrors.push(
-        ...legacyFiles.map((fileName) => `legacy fixture file ${JSON.stringify(fileName)} is not allowed`),
-        ...unexpectedFiles.map((fileName) => `unexpected file ${JSON.stringify(fileName)}`),
-        ...[...directoryNames]
-            .filter((directoryName) => !allowedDirectories.has(directoryName))
-            .map((directoryName) => `unexpected directory ${JSON.stringify(directoryName)}`)
-    );
-
-    return validationErrors;
+function isSupportedFixtureKind(kind: string): kind is FixtureCase["kind"] {
+    return kind === "refactor" || TEXT_FIXTURE_KINDS.has(kind);
 }
 
 async function createFixtureCase(rootPath: string, fixturePath: string): Promise<FixtureCase> {
@@ -156,12 +169,7 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
             ? validateRefactorFixtureCaseLayout(assertion, fileNames, directoryNames)
             : validateTextFixtureCaseLayout(assertion, fileNames, directoryNames);
 
-    if (
-        config.fixture.kind !== "refactor" &&
-        config.fixture.kind !== "format" &&
-        config.fixture.kind !== "lint" &&
-        config.fixture.kind !== "integration"
-    ) {
+    if (!isSupportedFixtureKind(config.fixture.kind)) {
         validationErrors.push(`unsupported fixture kind ${JSON.stringify(config.fixture.kind)}`);
     }
 

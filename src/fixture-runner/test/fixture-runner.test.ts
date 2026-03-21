@@ -89,6 +89,27 @@ void test("discoverFixtureCases rejects legacy flat fixture files and unexpected
     }
 });
 
+void test("discoverFixtureCases rejects text fixtures that use the project-tree assertion", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-assertion-"));
+    const casePath = path.join(rootPath, "invalid-assertion");
+    await mkdir(casePath, { recursive: true });
+    await writeFile(
+        path.join(casePath, "gmloop.json"),
+        `${JSON.stringify({ fixture: { kind: "format", assertion: "project-tree" } }, null, 2)}\n`,
+        "utf8"
+    );
+    await writeFile(path.join(casePath, "input.gml"), "var value = 1;\n", "utf8");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.discoverFixtureCases(rootPath),
+            /project-tree assertion is only valid for refactor fixtures/su
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
 void test("runFixtureSuite records profiling metrics and writes reports", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-suite-"));
     const reportPath = path.join(rootPath, "fixture-profile.json");
