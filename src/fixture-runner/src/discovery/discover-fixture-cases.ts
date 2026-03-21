@@ -10,14 +10,6 @@ const EXPECTED_FILE_NAME = "expected.gml";
 const PROJECT_DIRECTORY_NAME = "project";
 const EXPECTED_DIRECTORY_NAME = "expected";
 const TEXT_FIXTURE_KINDS = new Set(["format", "lint", "integration"]);
-const LEGACY_FILE_PATTERNS = [
-    // TODO: We should not support legacy fixture file names and should remove this and migrate any remaining legacy fixtures
-    /^options\.json$/u,
-    /^fixed\.gml$/u,
-    /^input\.fixed\.gml$/u,
-    /^.+\.input\.gml$/u,
-    /^.+\.output\.gml$/u
-];
 
 type FixtureCaseLayoutValidation = {
     allowedFiles: ReadonlySet<string>;
@@ -76,10 +68,6 @@ async function collectCaseDirectories(rootPath: string): Promise<Array<string>> 
     return discoveredCaseDirectories.sort((left, right) => left.localeCompare(right));
 }
 
-function findLegacyFixtureFiles(fileNames: ReadonlySet<string>): Array<string> {
-    return [...fileNames].filter((fileName) => LEGACY_FILE_PATTERNS.some((pattern) => pattern.test(fileName)));
-}
-
 function validateFixtureEntries(
     fileNames: ReadonlySet<string>,
     directoryNames: ReadonlySet<string>,
@@ -93,9 +81,6 @@ function validateFixtureEntries(
         ...validation.requiredDirectories
             .filter((directoryName) => !directoryNames.has(directoryName))
             .map((directoryName) => `missing ${directoryName}/ directory`),
-        ...findLegacyFixtureFiles(fileNames).map(
-            (fileName) => `legacy fixture file ${JSON.stringify(fileName)} is not allowed`
-        ),
         ...[...fileNames]
             .filter((fileName) => !validation.allowedFiles.has(fileName))
             .map((fileName) => `unexpected file ${JSON.stringify(fileName)}`),
