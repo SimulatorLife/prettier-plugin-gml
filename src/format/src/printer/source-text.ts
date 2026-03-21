@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;

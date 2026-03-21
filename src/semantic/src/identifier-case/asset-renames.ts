@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 import {

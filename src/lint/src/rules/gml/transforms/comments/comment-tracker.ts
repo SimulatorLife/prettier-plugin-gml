@@ -1,7 +1,7 @@
 /**
  * Tracks comment ranges so transforms can temporarily re-order or remove statements without losing annotations.
  */
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 /**
  * Keeps a sorted view of comment locations and supports checkpoint/rollback to safely explore rewrites.

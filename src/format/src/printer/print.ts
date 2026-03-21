@@ -15,7 +15,7 @@
  * src/format/src/printer/ or src/core/src/ast/ and import them as needed.
  */
 
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/comment-printer.js";
@@ -38,6 +38,7 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
+import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
     breakParent,
@@ -82,7 +83,6 @@ import {
     isComplexArgumentNode,
     isInlineEmptyBlockComment,
     isInLValueChain,
-    isLogicalComparisonClause,
     isNumericComputationNode,
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
@@ -2237,6 +2237,25 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
     return /\r?\n[ \t]*\r?\n/u.test(betweenText);
 }
 
+function hasTrailingCommentOnStatementLine(node, originalText: string): boolean {
+    const nodeEndIndex = Core.getNodeEndIndex(node);
+    if (typeof nodeEndIndex !== NUMBER_TYPE || nodeEndIndex < 0 || nodeEndIndex >= originalText.length) {
+        return false;
+    }
+
+    let lineEndIndex = nodeEndIndex;
+    while (lineEndIndex < originalText.length) {
+        const character = originalText[lineEndIndex];
+        if (character === "\n" || character === "\r") {
+            break;
+        }
+
+        lineEndIndex += 1;
+    }
+
+    return /\/\/|\/\*/u.test(originalText.slice(nodeEndIndex, lineEndIndex));
+}
+
 function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
     const nodeStartIndex = Core.getNodeStartIndex(node);
     if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
@@ -2341,11 +2360,14 @@ function handleIntermediateTrailingSpacing({
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
     const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const currentStatementIsDelete = Core.isDeleteStatementNode(node);
     const hasSourceBlankLineBeforeNextNode =
         !suppressFollowingEmptyLine &&
         originalText !== null &&
         nextNode != null &&
         hasBlankLineBetweenStatements(node, nextNode, originalText);
+    const currentStatementHasTrailingComment =
+        originalText !== null && hasTrailingCommentOnStatementLine(node, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
@@ -2439,19 +2461,28 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
-        const nextNodePrintsDocCommentBlock =
-            Core.isNonEmptyArray(nextNode?.docComments) || Core.isNonEmptyArray(nextNode?._syntheticDocLines);
+        const nextNodePrintsDocCommentBlock = Core.isNonEmptyArray(nextNode?.docComments);
 
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
+        const shouldPreserveSourceGapAfterTrailingComment =
+            currentStatementHasTrailingComment &&
+            hasSourceBlankLineBeforeNextNode &&
+            (currentStatementIsDelete || !isTopLevel);
+        const shouldCollapseTopLevelTrailingCommentGap =
+            isTopLevel && currentStatementHasTrailingComment && !currentStatementIsDelete;
 
         const shouldApplyGenericSourceBlankLineSpacing =
-            !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
+            !shouldCollapseTopLevelTrailingCommentGap &&
+            !nextNodePrintsDocCommentBlock &&
+            !nextNodeHasLeadingComment &&
+            !nextNodeHasCommentGap;
 
         if (
             shouldApplyGenericSourceBlankLineSpacing ||
             nextNodeHasBlockCommentImmediatelyBefore ||
-            shouldPreserveSourceGapBeforeDocCommentedNode
+            shouldPreserveSourceGapBeforeDocCommentedNode ||
+            shouldPreserveSourceGapAfterTrailingComment
         ) {
             parts.push(hardlineDoc);
         }
@@ -2485,10 +2516,7 @@ function handleTerminalTrailingSpacing({
     const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
-    const hasAttachedDocComment =
-        node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        Core.isNonEmptyArray(node?.docComments) ||
-        Core.isNonEmptyArray(node?._syntheticDocLines);
+    const hasAttachedDocComment = node?.[DOC_COMMENT_OUTPUT_FLAG] === true || Core.isNonEmptyArray(node?.docComments);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&
@@ -3186,92 +3214,6 @@ function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
-function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
-    if (!path || typeof path.getValue !== "function" || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const node = path.getValue();
-    if (!node || node.type !== "IfStatement") {
-        return false;
-    }
-
-    if (node.alternate) {
-        return false;
-    }
-
-    let inlineCandidate = bodyNode ?? null;
-
-    if (inlineCandidate?.type === "BlockStatement") {
-        if (!Array.isArray(inlineCandidate.body) || inlineCandidate.body.length !== 1) {
-            return false;
-        }
-
-        const [onlyStatement] = inlineCandidate.body;
-        if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement?.type)) {
-            return false;
-        }
-
-        if (Core.hasComment(onlyStatement)) {
-            return false;
-        }
-
-        const blockStartLine = inlineCandidate.start?.line;
-        const blockEndLine = inlineCandidate.end?.line;
-        if (blockStartLine === null || blockEndLine === null || blockStartLine !== blockEndLine) {
-            return false;
-        }
-
-        const blockSource = getSourceTextForNode(bodyNode, options);
-        if (typeof blockSource !== STRING_TYPE || !blockSource.includes(";")) {
-            return false;
-        }
-
-        inlineCandidate = onlyStatement;
-    }
-
-    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(inlineCandidate?.type)) {
-        return false;
-    }
-
-    if (Core.hasComment(bodyNode)) {
-        return false;
-    }
-
-    if (inlineCandidate?.type === "ReturnStatement" && inlineCandidate.argument) {
-        return false;
-    }
-
-    const parentNode = safeGetParentNode(path);
-    if (!parentNode || parentNode.type === "Program") {
-        return false;
-    }
-
-    let enclosingFunction = null;
-    for (let depth = 0; ; depth += 1) {
-        const ancestor = safeGetParentNode(path, depth);
-        if (!ancestor) {
-            break;
-        }
-
-        if (Core.isFunctionLikeNode(ancestor)) {
-            enclosingFunction = ancestor;
-            break;
-        }
-    }
-
-    if (!enclosingFunction) {
-        return false;
-    }
-
-    const statementSource = getSourceTextForNode(node, options);
-    if (typeof statementSource === STRING_TYPE && (statementSource.includes("\n") || statementSource.includes("\r"))) {
-        return false;
-    }
-
-    return true;
-}
-
 function wrapInClauseParens(path, print, clauseKey) {
     const clauseNode = path.getValue()?.[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
@@ -3345,16 +3287,15 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
-    const allowSingleLineIfStatements = options?.allowSingleLineIfStatements ?? false;
+    const allowInlineControlFlowBlocks = options?.allowInlineControlFlowBlocks ?? false;
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText === true;
 
-    const allowCollapsedGuardWithOption =
-        allowSingleLineIfStatements && shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
-    const allowCollapsedGuardWithDisabledPolicy =
-        !allowSingleLineIfStatements && shouldInlineGuardWhenDisabled(path, options, bodyNode);
     const allowCollapsedGuard =
-        bodyNode && !clauseIsPreservedCall && (allowCollapsedGuardWithOption || allowCollapsedGuardWithDisabledPolicy);
+        bodyNode &&
+        !clauseIsPreservedCall &&
+        allowInlineControlFlowBlocks &&
+        shouldInlineClauseByPrintWidth(keyword, clauseNode, bodyNode, options);
 
     if (allowCollapsedGuard) {
         let inlineReturnDoc = null;

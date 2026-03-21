@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
 

@@ -27,7 +27,12 @@ var x = 1;
 
         const formatted = await Format.format(input, { parser: "gml" });
         assert.notEqual(formatted, unexpected);
-        assert.equal(formatted, input);
+        // The formatter always adds a trailing newline. The block comment body and
+        // surrounding structure must be preserved verbatim — only a trailing "\n" is
+        // appended. (The old `preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment`
+        // fallback returned source unchanged, but that recovery strategy violated
+        // target-state.md §3.2 and has been removed.)
+        assert.equal(formatted, `${input}\n`);
     });
 
     void it("preserves non-doc top-level multi-line block comments without adding * prefixes", async () => {
@@ -95,7 +100,7 @@ var x = 1;
 
     void it("does not remove duplicate doc-comment lines (deduplication is a lint-only operation)", () => {
         // The formatter must not strip or rewrite doc-comment content — that is a
-        // semantic/content rewrite owned exclusively by the `@gml-modules/lint`
+        // semantic/content rewrite owned exclusively by the `@gmloop/lint`
         // `normalize-doc-comments` rule (target-state.md §2.2, §3.2).
         const input = "/* helper */\n/// @description Foo\n/// @description Foo\nfunction foo() {}\n";
 

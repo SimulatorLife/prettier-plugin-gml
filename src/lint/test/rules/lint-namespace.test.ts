@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals, assertNotEquals } from "../assertions.js";
 
@@ -32,9 +32,15 @@ void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
     }
 
     assertEquals((Lint.ruleIds as Record<string, string>).GmlNoGlobalvar, "gml/no-globalvar");
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlNoLegacyApi, "gml/no-legacy-api");
+    assertEquals((Lint.ruleIds as Record<string, string>).GmlPreferArrayPush, "gml/prefer-array-push");
     assertEquals(
         (Lint.ruleIds as Record<string, string>).GmlPreferCompoundAssignments,
         "gml/prefer-compound-assignments"
+    );
+    assertEquals(
+        (Lint.ruleIds as Record<string, string>).GmlPreferIncrementDecrementOperators,
+        "gml/prefer-increment-decrement-operators"
     );
     assertEquals((Lint.ruleIds as Record<string, string>).GmlPreferDirectReturn, "gml/prefer-direct-return");
     assertEquals((Lint.ruleIds as Record<string, string>).GmlRemoveDefaultComments, "gml/remove-default-comments");
@@ -55,18 +61,44 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
         }
     }
 
-    const [recommended] = Lint.configs.recommended;
-    assertEquals(recommended.language, "gml/gml");
-    assertEquals(recommended.rules["gml/require-argument-separators"], "error");
-    assertEquals(recommended.rules["gml/no-empty-regions"], "warn");
-    assertEquals(recommended.rules["gml/no-scientific-notation"], "warn");
-    assertEquals(recommended.rules["gml/prefer-compound-assignments"], "warn");
-    assertEquals(recommended.rules["gml/prefer-direct-return"], "warn");
-    assertEquals(recommended.rules["gml/prefer-loop-invariant-expressions"], "warn");
-    assertEquals(recommended.rules["gml/remove-default-comments"], "warn");
+    const [recommendedGml, recommendedFeather] = Lint.configs.recommended;
+    assertEquals(recommendedGml.language, "gml/gml");
+    assertEquals(recommendedGml.plugins?.gml, Lint.plugin);
+    assertEquals(recommendedGml.rules["gml/require-argument-separators"], "error");
+    assertEquals(recommendedGml.rules["gml/no-empty-regions"], "warn");
+    assertEquals(recommendedGml.rules["gml/no-legacy-api"], "warn");
+    assertEquals(recommendedGml.rules["gml/no-scientific-notation"], "error");
+    assertEquals(recommendedGml.rules["gml/prefer-array-push"], "warn");
+    assertEquals(recommendedGml.rules["gml/prefer-compound-assignments"], "warn");
+    assertEquals(recommendedGml.rules["gml/prefer-direct-return"], "warn");
+    assertEquals(recommendedGml.rules["gml/prefer-increment-decrement-operators"], "warn");
+    assertEquals(recommendedGml.rules["gml/prefer-loop-invariant-expressions"], "warn");
+    assertEquals(recommendedGml.rules["gml/remove-default-comments"], "warn");
+    assertEquals(recommendedGml.rules["gml/normalize-data-structure-accessors"], "warn");
+    assertEquals(recommendedGml.rules["gml/require-trailing-optional-defaults"], "warn");
+
+    assertEquals(recommendedFeather.plugins?.feather, Lint.featherPlugin);
+    assertEquals(recommendedFeather.language, undefined);
+    assertEquals(recommendedFeather.rules["feather/gm1003"], "warn");
+    assertEquals(recommendedFeather.rules["feather/gm1009"], "warn");
+    assertEquals(recommendedFeather.rules["feather/gm1033"], "warn");
+    assertEquals(recommendedFeather.rules["feather/gm1041"], "warn");
+    assertEquals(recommendedFeather.rules["feather/gm2007"], "warn");
+    assertEquals(recommendedFeather.rules["feather/gm2020"], "warn");
+    assertEquals(Object.keys(recommendedFeather.rules).length, 6);
 
     const [featherOverlay] = Lint.configs.feather;
     assertEquals(featherOverlay.plugins?.feather, Lint.featherPlugin);
+});
+
+void test("feather overlay still exposes the full manifest independently of recommended", () => {
+    const [featherOverlay] = Lint.configs.feather;
+    const manifestRuleIds = Lint.services.featherManifest.entries.map((entry) => entry.ruleId);
+
+    assertEquals(Object.keys(featherOverlay.rules).length, manifestRuleIds.length);
+    for (const ruleId of manifestRuleIds) {
+        assertEquals(featherOverlay.rules[ruleId], "warn", `${ruleId} should remain enabled in configs.feather`);
+    }
 });
 
 void test("semver-sensitive lint constants are pinned", () => {

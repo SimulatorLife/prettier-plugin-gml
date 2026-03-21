@@ -346,6 +346,25 @@ void test("gatherSymbolOccurrences uses semantic analyzer when available", async
     assert.deepEqual(occurrences, mockOccurrences);
 });
 
+void test("gatherSymbolOccurrences de-duplicates identical semantic occurrences", async () => {
+    const duplicatedOccurrences = [
+        { path: "test.gml", start: 0, end: 10, kind: Refactor.OccurrenceKind.DEFINITION },
+        { path: "test.gml", start: 0, end: 11, kind: Refactor.OccurrenceKind.REFERENCE },
+        { path: "test.gml", start: 50, end: 60, kind: Refactor.OccurrenceKind.REFERENCE }
+    ];
+    const mockSemantic = {
+        getSymbolOccurrences: () => duplicatedOccurrences
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const occurrences = await engine.gatherSymbolOccurrences("test");
+
+    assert.deepEqual(occurrences, [
+        { path: "test.gml", start: 0, end: 11, kind: Refactor.OccurrenceKind.REFERENCE },
+        { path: "test.gml", start: 50, end: 60, kind: Refactor.OccurrenceKind.REFERENCE }
+    ]);
+});
+
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
     const engine = new RefactorEngineClass();
     const ws = new WorkspaceEditFactory();

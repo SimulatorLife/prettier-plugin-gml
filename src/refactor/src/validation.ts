@@ -3,7 +3,7 @@
  * Handles conflict detection, circular rename detection, and batch rename validation.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import {
     type ConflictEntry,

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
 import { isProjectManifestPath } from "./constants.js";
@@ -13,12 +13,9 @@ export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
 export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR = "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
 // The identifier-case rollout docs promise an 8 MiB default cache ceiling so
 // teams can size disk allowances ahead of enabling the project index.
-// `docs/legacy-identifier-case-plan.md#project-index-cache-design` explains how
-// exceeding that limit risks unbounded cache growth on large projects, while
-// `docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching` calls out the
-// identifier-case project index cache max-bytes override for installations that
-// consciously trade space for determinism. Keep this baseline in sync with the
-// published guidance so operational runbooks stay trustworthy.
+// Exceeding that limit risks unbounded cache growth on large projects, while
+// Keep this baseline in sync with the published guidance so operational
+// runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
 const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({

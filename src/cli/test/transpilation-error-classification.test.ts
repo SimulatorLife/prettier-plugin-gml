@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { Transpiler } from "@gml-modules/transpiler";
+import { Transpiler } from "@gmloop/transpiler";
 
 import {
     type ErrorCategory,

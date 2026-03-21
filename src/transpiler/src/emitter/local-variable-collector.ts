@@ -12,11 +12,28 @@
  * not to the enclosing event body.
  */
 
-import { Core } from "@gml-modules/core";
-
 import type { ProgramNode } from "./ast.js";
 
 type AnyRecord = Record<string, unknown>;
+
+function enqueueNodeChildren(node: AnyRecord, traversalStack: unknown[]): void {
+    for (const value of Object.values(node)) {
+        if (Array.isArray(value)) {
+            for (let index = value.length - 1; index >= 0; index -= 1) {
+                traversalStack.push(value[index]);
+            }
+            continue;
+        }
+
+        if (value !== null && typeof value === "object") {
+            traversalStack.push(value);
+        }
+    }
+}
+
+function isFunctionScopeBoundary(nodeType: unknown): boolean {
+    return nodeType === "FunctionDeclaration" || nodeType === "ConstructorDeclaration";
+}
 
 /**
  * Extract the declared variable name from a VariableDeclarator node record.
@@ -84,21 +101,25 @@ function collectVarDeclarationNames(node: AnyRecord, out: Set<string>): void {
  */
 export function collectLocalVariables(ast: ProgramNode): ReadonlySet<string> {
     const locals = new Set<string>();
+    const traversalStack: unknown[] = [ast];
 
-    Core.walkAst(ast, (node: AnyRecord, _parent: unknown): boolean => {
-        // Stop descending into nested function scopes. Their var declarations
-        // are local to those functions, not to the enclosing event body.
-        if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
-            return false;
+    while (traversalStack.length > 0) {
+        const current = traversalStack.pop();
+        if (current === null || typeof current !== "object") {
+            continue;
         }
 
-        // Collect names from var declarations.
-        if (node.type === "VariableDeclaration") {
+        const node = current as AnyRecord;
+        const nodeType = node.type;
+        if (isFunctionScopeBoundary(nodeType)) {
+            continue;
+        }
+        if (nodeType === "VariableDeclaration") {
             collectVarDeclarationNames(node, locals);
         }
 
-        return true;
-    });
+        enqueueNodeChildren(node, traversalStack);
+    }
 
     return locals;
 }

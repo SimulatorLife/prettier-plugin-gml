@@ -4,18 +4,18 @@ This package powers GML-native codemods and semantic refactoring transactions, a
 
 ## Ownership Boundaries
 
-`@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**.
+`@gmloop/refactor` is the owner of **Global Transactions (Codemods)**.
 
-- Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
+- Depends on `@gmloop/semantic` for symbol/scope analysis inputs.
 - Owns atomic cross-file edits, metadata updates, and structural migrations.
 - Implements a jscodeshift-like Collection API for GML ASTs.
 - Is the ONLY layer that should decide whether a rename requires cross-file edits or metadata changes.
 
 It does not replace lint or formatter domains:
 
-- `@gml-modules/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
-- `@gml-modules/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
-- `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
+- `@gmloop/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
+- `@gmloop/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
+- `@gmloop/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities
 
@@ -142,7 +142,7 @@ This is essential for:
 Ensure renames maintain semantic consistency across file boundaries:
 
 ```javascript
-import { validateCrossFileConsistency } from "@gml-modules/refactor";
+import { validateCrossFileConsistency } from "@gmloop/refactor";
 
 // Get occurrences for the symbol being renamed
 const occurrences = await engine.gatherSymbolOccurrences("scr_player");
@@ -184,7 +184,7 @@ This validation is particularly useful for:
 Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
 
 ```javascript
-import { validateRenameStructure } from "@gml-modules/refactor";
+import { validateRenameStructure } from "@gmloop/refactor";
 
 // Quick structural validation before planning
 const errors = await validateRenameStructure(
@@ -274,7 +274,7 @@ The method detects:
 Efficiently validate rename safety across multiple scopes for hot reload scenarios:
 
 ```javascript
-import { batchValidateScopeConflicts } from "@gml-modules/refactor";
+import { batchValidateScopeConflicts } from "@gmloop/refactor";
 
 // Get occurrences from semantic analyzer
 const occurrences = await engine.gatherSymbolOccurrences("player_hp");
@@ -314,15 +314,79 @@ Benefits:
 
 ### Naming Convention Enforcement (Policy Config)
 
-The refactor module should support a single naming-policy config that defines
-how each symbol scope/type must be named, then use that policy during validation
-and rename planning.
+Naming policy lives under `refactor.namingConventionPolicy` inside the unified
+project-root `gmloop.json`. The `namingConvention` codemod reads that policy,
+plans top-level renames through the batch rename engine, applies local
+single-file renames directly, and runs hot-reload validation before apply.
 
 #### Contract
 
-- `namingConventionPolicy` is user-authored project config.
+- `gmloop.json` is the project config file.
+- `refactor.namingConventionPolicy` is user-authored project config.
+- `refactor.codemods.namingConvention` enables the codemod.
 - `rule exists => enabled` is the contract.
 - There is no `enabled` property on naming rules. If a rule is present for a category, that category is enabled. If a category is set to `false`, it is disabled even if a parent has a rule.
+
+#### Project Config Shape
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "resource": {
+                    "caseStyle": "lower"
+                },
+                "roomResourceName": {
+                    "prefix": "rm_"
+                },
+                "variable": {
+                    "caseStyle": "camel"
+                },
+                "globalVariable": {
+                    "prefix": "g_",
+                    "caseStyle": "lower_snake"
+                },
+                "loopIndexVariable": false,
+                "callable": {
+                    "caseStyle": "camel"
+                },
+                "macro": {
+                    "caseStyle": "upper_snake"
+                }
+            },
+            "exclusivePrefixes": {
+                "rm_": "roomResourceName"
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
+
+#### CLI Usage
+
+```bash
+# Preview configured codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods for the whole project
+pnpm run cli -- refactor codemod
+
+# Apply only namingConvention to a subset of paths
+pnpm run cli -- refactor codemod scripts/player --only namingConvention --write
+```
 
 #### Policy Shape
 
@@ -359,14 +423,10 @@ type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
     | "constant"
     | "macro";
@@ -427,7 +487,6 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     globalVariable: "variable",
     instanceVariable: "variable",
     staticVariable: "variable",
-    structVariable: "variable",
     argument: "variable",
     catchArgument: "variable",
     loopIndexVariable: "localVariable",
@@ -435,62 +494,17 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     callable: null,
     function: "callable",
     constructorFunction: "callable",
-    eventHandlerFunction: "callable",
-    structMethod: "callable",
-    staticMethod: "callable",
 
-    structDeclaration: null,
-    enum: null,
-    enumMember: null,
-    macro: null
+    typeName: null,
+    structDeclaration: "typeName",
+    enum: "typeName",
+
+    member: null,
+    enumMember: "member",
+
+    constant: null,
+    macro: "constant"
 };
-```
-
-#### Example User-Authored Config
-
-```json
-{
-    "namingConventionPolicy": {
-        "rules": {
-            "resource": {
-                "caseStyle": "lower"
-            },
-            "roomResourceName": {
-                "prefix": "rm_"
-            },
-            "audioResourceName": {
-                "prefix": "snd_"
-            },
-            "variable": {
-                "caseStyle": "camel",
-                "minChars": 2,
-                "maxChars": 32,
-                "bannedPrefixes": ["_"],
-                "bannedSuffixes": ["_"]
-            },
-            "globalVariable": {
-                "prefix": "g_",
-                "caseStyle": "lower_snake"
-            },
-            "loopIndexVariable": false,
-            "callable": {
-                "caseStyle": "camel"
-            },
-            "function": {
-                "prefix": "scr_"
-            },
-            "macro": {
-                "caseStyle": "upper_snake"
-            },
-            "objectResourceName": {
-                "prefix": "obj_"
-            }
-        },
-        "exclusivePrefixes": {
-            "rm_": "roomResourceName"
-        }
-    }
-}
 ```
 
 #### Enforcement Model
@@ -506,6 +520,8 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
 #### Notes
 
+- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.
@@ -991,7 +1007,7 @@ import {
     groupOccurrencesByFile,
     findOccurrencesInFile,
     countAffectedFiles
-} from "@gml-modules/refactor";
+} from "@gmloop/refactor";
 
 // Get only definition sites
 const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
@@ -1027,7 +1043,7 @@ These utilities are particularly useful for:
 The refactor engine supports caching of semantic analyzer queries to optimize batch operations and impact analysis. During complex refactoring workflows, the same semantic data is often queried repeatedly (e.g., symbol occurrences, dependencies). The `SemanticQueryCache` memoizes these results within a session to reduce redundant queries.
 
 ```javascript
-import { SemanticQueryCache } from "@gml-modules/refactor";
+import { SemanticQueryCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const cache = new SemanticQueryCache(semantic, {
@@ -1076,7 +1092,7 @@ The cache is particularly beneficial for:
 The refactor engine also provides a specialized cache for rename validation results. During interactive rename sessions (e.g., IDE rename dialogs), the same symbol-to-name combinations are often validated repeatedly as users type new names. The `RenameValidationCache` caches validation results to provide faster feedback for IDE integrations.
 
 ```javascript
-import { RenameValidationCache } from "@gml-modules/refactor";
+import { RenameValidationCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const validationCache = new RenameValidationCache({

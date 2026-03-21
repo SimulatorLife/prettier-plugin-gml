@@ -7,13 +7,13 @@
  * to decide whether to emit an `@override` doc-comment tag and to copy inherited
  * doc lines from the ancestor static helper.
  *
- * Previously this file lived in `@gml-modules/refactor`
+ * Previously this file lived in `@gmloop/refactor`
  * (`refactor/src/annotate-static-overrides.ts`).  It was relocated here because
  * the refactor workspace owns rename/restructuring transactions, not comment-level
  * AST annotation passes; this transform is a lint-pipeline preprocessing step and
  * must be co-located with the code that reads its output.
  */
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
 const { isObjectLike } = Core;
 

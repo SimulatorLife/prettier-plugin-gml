@@ -4,9 +4,9 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 ## 1. Summary & Objectives
 
-1. **Strict Separation of Concerns**: Split responsibilities into a Prettier-plugin formatter-only workspace (`@gml-modules/format`), an ESLint v9 language+rules workspace (`@gml-modules/lint`), a refactor/codemod workspace (`@gml-modules/refactor`), and shared core utilities (`@gml-modules/core`).
+1. **Strict Separation of Concerns**: Split responsibilities into a Prettier-plugin formatter-only workspace (`/format`), an ESLint v9 language+rules workspace (`/lint`), a refactor/codemod workspace (`/refactor`), and shared core utilities (`/core`).
 2. **Deterministic Formatting**: Keep the formatter deterministic and non-semantic. A Prettier plugin should not be source/content aware in the sense of changing formatting based on semantic meaning or program behavior. The formatter may render or reflow comments but must not interpret comment text to infer documentation structure or upgrade plain comments into documentation comments.
-3. **Linter with Auto-Fixes**: Any non-layout, single-file-scoped rewrites should be handled by the linter's (`@gml-modules/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (e.g., operator aliases, numeric literal formatting) is permitted in the formatter, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
+3. **Linter with Auto-Fixes**: Any non-layout, single-file-scoped rewrites should be handled by the linter's (`/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (e.g., operator aliases, numeric literal formatting) is permitted in the formatter, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 4. **Robust Semantic Analysis**: Implement a semantic layer that annotates the parse tree to power linting, refactoring, and transpilation, using the Sourcegraph Code Intelligence Protocol (SCIP) as the canonical symbol index.
 5. **Live Hot-Reloading**: Enable true hot-loading of GML code, assets, and shaders without restarting the game by transpiling GML to JavaScript on demand and injecting it via a runtime wrapper.
 
@@ -14,13 +14,13 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 ### 2.1 General Ownership
 
-- **Formatter (`@gml-modules/format`)**: Layout-only printing, indentation, wrapping, spacing, semicolon layout, print-width wrapping, logical operator style rendering. Must not synthesize or normalize semantic content. Lexical canonicalization is permitted, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
-- **Linter (`@gml-modules/lint`)**: Semantic/content rewrites, synthetic tag generation, legacy prefix/tag normalization, default placeholder comment cleanup, and local single-file diagnostics and autofix rewrites.
-- **Refactor (`@gml-modules/refactor`)**: Codemod / migration transforms, explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation), project-wide identifier indexing, rename safety, hoist-name generation, and all other project-aware functionality.
-- **Core (`@gml-modules/core`)**: Shared doc-comment helpers, AST metadata utilities, and normalization primitives.
-- **CLI Watcher (`@gml-modules/cli`)**: Monitors the filesystem, coordinates the transpilation pipeline, and manages the WebSocket server.
-- **Transpiler (`@gml-modules/transpiler`)**: Parses GML via ANTLR4, converts GML AST to JS, and generates patch objects.
-- **Runtime Wrapper (`@gml-modules/runtime-wrapper`)**: Injected into the browser; maintains a hot registry of patched functions and overrides GML dispatchers.
+- **Formatter (`/format`)**: Layout-only printing, indentation, wrapping, spacing, semicolon layout, print-width wrapping, logical operator style rendering. Must not synthesize or normalize semantic content. Lexical canonicalization is permitted, but syntactic/semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
+- **Linter (`/lint`)**: Semantic/content rewrites, synthetic tag generation, legacy prefix/tag normalization, default placeholder comment cleanup, and local single-file diagnostics and autofix rewrites.
+- **Refactor (`/refactor`)**: Codemod / migration transforms, explicit rename/refactor transactions (cross-file edits, metadata edits, impact analysis, hot-reload validation), project-wide identifier indexing, rename safety, hoist-name generation, and all other project-aware functionality.
+- **Core (`/core`)**: Shared doc-comment helpers, AST metadata utilities, and normalization primitives.
+- **CLI Watcher (`/cli`)**: Monitors the filesystem, coordinates the transpilation pipeline, and manages the WebSocket server.
+- **Transpiler (`/transpiler`)**: Parses GML via ANTLR4, converts GML AST to JS, and generates patch objects.
+- **Runtime Wrapper (`/runtime-wrapper`)**: Injected into the browser; maintains a hot registry of patched functions and overrides GML dispatchers.
 
 ### 2.2 Doc-Comment Ownership
 
@@ -34,10 +34,10 @@ _Migration Rules:_ Do not add new doc-comment content mutation logic in format p
 
 ### 2.3 Lint/Refactor Overlap Resolution
 
-1. `@gml-modules/lint` is the owner of **Diagnostic Reporting** and **Local Repairs**. It uses a single-file `fix` model for changes that are safe within the local scope.
-2. `@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**. It handles atomic cross-file edits, metadata updates (`.yy`, `.yyp`), and structural migrations.
+1. `/lint` is the owner of **Diagnostic Reporting** and **Local Repairs**. It uses a single-file `fix` model for changes that are safe within the local scope.
+2. `/refactor` is the owner of **Global Transactions (Codemods)**. It handles atomic cross-file edits, metadata updates (`.yy`, `.yyp`), and structural migrations.
 3. If a lint rule requires a change that impacts the project's graph or metadata, it should **report the diagnostic** and **point the user to a refactor command**, rather than attempting a multi-file autofix through ESLint.
-4. Lint must not keep dormant project-index builders, project-root registries, or rename-planning helpers in its source tree; those implementations belong exclusively in `@gml-modules/refactor`.
+4. Lint must not keep dormant project-index builders, project-root registries, or rename-planning helpers in its source tree; those implementations belong exclusively in `/refactor`.
 5. No duplicate capability logic is allowed across lint and refactor surfaces.
 
 ### 2.4 Refactor Tool (Codemod / Migration Transforms)
@@ -45,7 +45,7 @@ _Migration Rules:_ Do not add new doc-comment content mutation logic in format p
 - **Purpose**: Project-wide, sometimes project-aware rewrites that are not “formatting” and not small local lint fixes.
 - **Scope**: Multi-file changes, API migrations, mechanical refactors, structural rewrites, workspace-wide rename/update operations. All project-aware functionality currently in the `lint` workspace should become part of the refactor workspace.
 - **Behavior**: Explicit, opt-in, typically run as a one-off or scripted step; may use project index/symbol info; can be destructive by design but controlled.
-- **Order in pipeline**: codemod → formatter → lint/typecheck/tests.
+- **Order in pipeline**: project-wide write workflows run codemod → lint `--fix` → formatter, followed by typecheck/tests as separate validation steps.
 
 ### 2.5 Non-Goals
 
@@ -70,7 +70,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 1. Formatter may only perform layout and canonical rendering transforms (indentation, wrapping, spacing, parenthesis rendering, trailing delimiters, final newline, `logicalOperatorsStyle` alias canonicalization).
     - _Parentheses_: Formatter may remove redundant syntactic constructs when provably unnecessary (e.g., redundant parentheses), but must not synthesize new syntax for readability or restructuring.
     - _Numeric Literals_: Canonical numeric literal normalization (e.g., `.5` → `0.5`, `5.` → `5`) is permitted as zero-normalization.
-    - _Numeric Literal Ownership Clarification_: Rewriting existing decimal literals that only differ by missing leading/trailing zeros remains formatter-owned behavior (`@gml-modules/format`). Lint rules such as `optimize-math-expressions` must not rewrite those literals in place. Exception: when a lint math optimization folds an expression and synthesizes a new literal result, the synthesized literal should be emitted in formatter-normalized form to avoid follow-up churn (for example, `1. - .5` folding to `0.5`).
+    - _Numeric Literal Ownership Clarification_: Rewriting existing decimal literals that only differ by missing leading/trailing zeros remains formatter-owned behavior (`/format`). Lint rules such as `optimize-math-expressions` must not rewrite those literals in place. Exception: when a lint math optimization folds an expression and synthesizes a new literal result, the synthesized literal should be emitted in formatter-normalized form to avoid follow-up churn (for example, `1. - .5` folding to `0.5`).
 2. Formatter must not perform semantic/content rewrites or syntax repair.
 3. Invalid code handling: Formatter parses strictly. On parse failure, formatter fails and does not mutate source. The formatter must never attempt recovery or fallback printing. Syntax repairs are lint-only (`lint --fix`).
 
@@ -91,7 +91,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 ### 3.5 Implementation Status & Audit Findings (Snapshot 2026-02-17)
 
 - Formatter/linter split migration is largely complete on runtime behavior.
-- Remaining work includes isolating dormant migrated semantic transform modules from formatter workspace exports and continuing to push any project-aware edit planning into `@gml-modules/refactor` rather than `@gml-modules/lint`.
+- Remaining work includes isolating dormant migrated semantic transform modules from formatter workspace exports and continuing to push any project-aware edit planning into `/refactor` rather than `/lint`.
 - Any existing/left-over functionality in the `format` workspace that goes beyond pure layout formatting should be identified and migrated into the `lint` and/or `core` workspaces.
 
 ## 4. Semantic Analysis & Symbol Indexing

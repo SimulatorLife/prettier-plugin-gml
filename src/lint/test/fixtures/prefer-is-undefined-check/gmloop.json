@@ -1,0 +1,9 @@
+{
+  "lintRules": {
+    "gml/prefer-is-undefined-check": "error"
+  },
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform"
+  }
+}

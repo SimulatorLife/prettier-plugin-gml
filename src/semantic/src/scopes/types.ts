@@ -1,4 +1,4 @@
-import { type GameMakerAstLocation } from "@gml-modules/core";
+import { type GameMakerAstLocation } from "@gmloop/core";
 
 /**
  * A location range in the source code.

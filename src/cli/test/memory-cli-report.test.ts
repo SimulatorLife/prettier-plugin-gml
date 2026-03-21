@@ -44,7 +44,8 @@ async function primeMemorySuiteSampleCache() {
         "test",
         "fixtures",
         "integration",
-        "test-int-doc-tags.input.gml"
+        "test-int-doc-tags",
+        "input.gml"
     );
     const formatterSampleContents = await readFile(formatterSamplePath, "utf8");
     memoryTestHelpers.setSampleCacheRecordForTests("formatter:sample", {
@@ -135,7 +136,7 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.strictEqual(typeof formatterSuite.description, "string");
     assert.ok(formatterSuite.description.toLowerCase().includes("format"));
     assert.strictEqual(typeof formatterSuite.sample.path, "string");
-    assert.ok(formatterSuite.sample.path.endsWith("test-int-doc-tags.input.gml"));
+    assert.ok(formatterSuite.sample.path.endsWith("test-int-doc-tags/input.gml"));
     assert.strictEqual(typeof formatterSuite.output.bytes, "number");
     assert.strictEqual(typeof formatterSuite.options.printWidth, "number");
     assert.ok(formatterSuite.memory && typeof formatterSuite.memory === "object");

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { describe, it, mock } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import {
     clearIdentifierCaseDryRunContexts,

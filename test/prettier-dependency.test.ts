@@ -12,15 +12,15 @@ type WorkspacePolicy = {
 };
 
 const TARGET_WORKSPACES: Array<WorkspacePolicy> = [
-    { name: "@gml-modules/core", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/lint", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/parser", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/semantic", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/transpiler", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/runtime-wrapper", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/refactor", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/cli", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
-    { name: "@gml-modules/format", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
+    { name: "@gmloop/core", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/lint", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/parser", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/semantic", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/transpiler", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/runtime-wrapper", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/refactor", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/cli", allowPrettierPeerDep: false, requirePrettierPeerDep: false },
+    { name: "@gmloop/format", allowPrettierPeerDep: true, requirePrettierPeerDep: true }
 ];
 
 const NO_PRETTIER_SECTIONS = ["dependencies", "devDependencies", "optionalDependencies"] as const;
@@ -69,7 +69,7 @@ void describe("prettier workspace dependencies", () => {
 
             for (const dependencyName of FORMATTING_DEPENDENCIES) {
                 const isDeclared = allSections.some((section) => section[dependencyName] !== undefined);
-                if (name === "@gml-modules/format") {
+                if (name === "@gmloop/format") {
                     continue;
                 }
 

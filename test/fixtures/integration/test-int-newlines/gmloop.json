@@ -1,0 +1,8 @@
+{
+  "allowInlineControlFlowBlocks": true,
+  "fixture": {
+    "kind": "integration",
+    "assertion": "idempotent",
+    "comparison": "exact"
+  }
+}

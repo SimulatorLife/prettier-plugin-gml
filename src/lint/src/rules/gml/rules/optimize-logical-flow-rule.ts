@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import { printNodeForAutofix } from "../../../language/print-expression.js";

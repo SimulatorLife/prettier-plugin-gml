@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
@@ -149,6 +149,14 @@ function deduplicatePatchQueueById(patches: Array<unknown>): {
     patches: Array<unknown>;
     duplicateCount: number;
 } {
+    if (patches.length < 2) {
+        return { patches, duplicateCount: 0 };
+    }
+
+    if (!hasDuplicatePatchIds(patches)) {
+        return { patches, duplicateCount: 0 };
+    }
+
     // Walk backward so the first occurrence we encounter for each ID is the
     // most-recent patch that should be retained.
     const seenIds = new Set<string>();
@@ -178,6 +186,29 @@ function deduplicatePatchQueueById(patches: Array<unknown>): {
 
     deduplicatedReversed.reverse();
     return { patches: deduplicatedReversed, duplicateCount };
+}
+
+/**
+ * Fast duplicate check used to skip queue-array reconstruction when every
+ * patch ID is already unique.
+ */
+function hasDuplicatePatchIds(patches: Array<unknown>): boolean {
+    const seenIds = new Set<string>();
+
+    for (const patch of patches) {
+        const id = extractPatchId(patch);
+        if (id === null) {
+            continue;
+        }
+
+        if (seenIds.has(id)) {
+            return true;
+        }
+
+        seenIds.add(id);
+    }
+
+    return false;
 }
 
 /**
