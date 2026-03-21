@@ -220,8 +220,8 @@ export class TempFileStorageBackend implements StorageBackend {
         this.readCacheByKey.set(key, entry);
 
         while (this.readCacheByKey.size > this.readCacheMaxEntries) {
-            const oldestKey = this.readCacheByKey.keys().next().value;
-            if (!oldestKey) {
+            const oldestKey = this.readCacheByKey.keys().next().value as string | undefined;
+            if (oldestKey === undefined) {
                 break;
             }
 

@@ -4,6 +4,26 @@ import test from "node:test";
 
 import { createTempFileStorageBackend } from "../src/backends/index.js";
 
+async function overwriteAndReadEntryRepeatedly(
+    backend: ReturnType<typeof createTempFileStorageBackend>,
+    key: string,
+    payload: string,
+    overwriteCount: number
+): Promise<void> {
+    async function runIteration(iteration: number): Promise<void> {
+        if (iteration >= overwriteCount) {
+            return;
+        }
+
+        const content = `${payload}${iteration}`;
+        await backend.writeEntry(key, content);
+        assert.equal(await backend.readEntry(key), content);
+        await runIteration(iteration + 1);
+    }
+
+    await runIteration(0);
+}
+
 void test("TempFileStorageBackend writes, reads, and deletes entries", async () => {
     const backend = createTempFileStorageBackend({ readCacheMaxEntries: 2 });
 
@@ -50,10 +70,7 @@ void test("TempFileStorageBackend measurement: write-seeded cache avoids repeate
     const overwriteCount = 25;
 
     try {
-        for (let iteration = 0; iteration < overwriteCount; iteration += 1) {
-            await backend.writeEntry("alpha", `${payload}${iteration}`);
-            assert.equal(await backend.readEntry("alpha"), `${payload}${iteration}`);
-        }
+        await overwriteAndReadEntryRepeatedly(backend, "alpha", payload, overwriteCount);
 
         const stats = backend.getStats();
         const payloadBytes = Buffer.byteLength(`${payload}${overwriteCount - 1}`, "utf8");
