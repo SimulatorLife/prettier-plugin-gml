@@ -9,6 +9,7 @@ import type {
     CallTargetAnalyzer,
     CatchClauseNode,
     ConstructorDeclarationNode,
+    ConstructorParentClauseNode,
     DefaultParameterNode,
     DefineStatementNode,
     DeleteStatementNode,
@@ -236,6 +237,9 @@ export class GmlToJsEmitter {
             }
             case "ConstructorDeclaration": {
                 return this.visitConstructorDeclaration(ast);
+            }
+            case "ConstructorParentClause": {
+                return "";
             }
             case "RegionStatement": {
                 return this.visitRegionStatement(ast);
@@ -739,7 +743,8 @@ export class GmlToJsEmitter {
 
     private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
         const id = ast.id ?? "";
-        return this.emitFunctionLike("function", id, ast.params, ast.body);
+        const parentConstructorCall = this.emitConstructorParentCall(ast.parent ?? null);
+        return this.emitFunctionLike("function", id, ast.params, ast.body, parentConstructorCall);
     }
 
     /**
@@ -787,18 +792,63 @@ export class GmlToJsEmitter {
         keyword: string,
         id: string,
         params: ReadonlyArray<GmlNode | string>,
-        body: GmlNode
+        body: GmlNode,
+        prologueStatement = ""
     ): string {
+        const printedBody = this.wrapFunctionLikeBody(body, prologueStatement);
         // Fast path: no parameters
         if (!params || params.length === 0) {
-            return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
+            return `${keyword} ${id}()${printedBody}`;
         }
         // Build parameter list with StringBuilder to avoid sparse array allocation
         const builder = new StringBuilder(params.length);
         for (const param of params) {
             builder.append(typeof param === "string" ? param : this.visit(param));
         }
-        return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+        return `${keyword} ${id}(${builder.toString(", ")})${printedBody}`;
+    }
+
+    private wrapFunctionLikeBody(body: GmlNode, prologueStatement: string): string {
+        if (!prologueStatement) {
+            return wrapConditionalBody(body, this.visitNode);
+        }
+
+        if (body.type !== "BlockStatement") {
+            return `{\n${prologueStatement};\n${this.ensureStatementTermination(this.visit(body))}\n}`;
+        }
+
+        const statements = body.body ?? [];
+        if (statements.length === 0) {
+            return `{\n${prologueStatement};\n}`;
+        }
+
+        const builder = new StringBuilder(statements.length + 2);
+        builder.append("{\n");
+        builder.append(`${prologueStatement};\n`);
+        for (const statement of statements) {
+            const code = this.emit(statement);
+            if (!code) {
+                continue;
+            }
+            builder.append(`${this.ensureStatementTermination(code)}\n`);
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    private emitConstructorParentCall(parentClause: ConstructorParentClauseNode | null): string {
+        if (!parentClause || !parentClause.id) {
+            return "";
+        }
+
+        const parentConstructorName =
+            typeof parentClause.id === "string" ? parentClause.id : this.visit(parentClause.id);
+        if (!parentConstructorName) {
+            return "";
+        }
+
+        const parentArguments = this.joinArguments(parentClause.params ?? []);
+        return `${parentConstructorName}.call(this${parentArguments ? `, ${parentArguments}` : ""})`;
     }
 
     private ensureStatementTermination(code: string): string {
