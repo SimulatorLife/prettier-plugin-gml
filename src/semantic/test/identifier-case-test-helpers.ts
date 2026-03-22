@@ -2,7 +2,7 @@ import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
-import { createTempProjectWorkspace } from "./identifier-case-asset-helpers.js";
+import { createTempProjectWorkspace } from "./test-project-helpers.js";
 
 type ScriptFixtureConfig =
     | string
@@ -81,9 +81,9 @@ export async function createIdentifierCaseProject({
     eventFixture?: string | null;
     projectPrefix?: string;
 }): Promise<IdentifierCaseProject> {
-    const { projectRoot: tempRoot, writeFile } = await createTempProjectWorkspace(projectPrefix);
+    const { projectRoot: tempRoot, writeProjectFile } = await createTempProjectWorkspace(projectPrefix);
 
-    await writeFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
+    await writeProjectFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
     const scripts: IdentifierCaseProject["scripts"] = [];
     const scriptPaths: string[] = [];
@@ -93,14 +93,14 @@ export async function createIdentifierCaseProject({
         const scriptName = typeof config === "string" ? `script_${index}` : (config.name ?? `script_${index}`);
         const fixtureName = typeof config === "string" ? config : config.fixture;
 
-        await writeFile(
+        await writeProjectFile(
             `scripts/${scriptName}/${scriptName}.yy`,
             JSON.stringify({ resourceType: "GMScript", name: scriptName })
         );
 
         const scriptFixturePath = path.join(fixturesDirectory, String(fixtureName));
         const scriptSource = await fs.readFile(scriptFixturePath, "utf8");
-        const scriptPath = await writeFile(`scripts/${scriptName}/${scriptName}.gml`, scriptSource);
+        const scriptPath = await writeProjectFile(`scripts/${scriptName}/${scriptName}.gml`, scriptSource);
 
         const scriptRecord = {
             name: scriptName,
@@ -119,7 +119,7 @@ export async function createIdentifierCaseProject({
         const eventFixturePath = path.join(fixturesDirectory, eventFixture);
         eventSource = await fs.readFile(eventFixturePath, "utf8");
 
-        await writeFile(
+        await writeProjectFile(
             "objects/obj_scope/obj_scope.yy",
             JSON.stringify({
                 resourceType: "GMObject",
@@ -135,7 +135,7 @@ export async function createIdentifierCaseProject({
             })
         );
 
-        eventPath = await writeFile("objects/obj_scope/obj_scope_Create.gml", eventSource);
+        eventPath = await writeProjectFile("objects/obj_scope/obj_scope_Create.gml", eventSource);
     }
 
     const projectIndex = await buildProjectIndex(tempRoot);
