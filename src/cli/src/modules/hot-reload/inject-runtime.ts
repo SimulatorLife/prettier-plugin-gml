@@ -8,7 +8,7 @@ import { Core } from "@gmloop/core";
 
 import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 
-const { getErrorMessageOrFallback, runSequentially } = Core;
+const { getErrorMessageOrFallback, parseJsonWithContext, runSequentially } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
@@ -293,7 +293,9 @@ function isRuntimeWrapperAssetManifestEntry(value: unknown): value is RuntimeWra
 }
 
 function parseRuntimeWrapperAssetManifest(manifestContents: string): RuntimeWrapperAssetManifest | null {
-    const parsed: unknown = JSON.parse(manifestContents);
+    const parsed: unknown = parseJsonWithContext(manifestContents, {
+        description: "runtime wrapper asset manifest"
+    });
     if (!Core.isObjectLike(parsed)) {
         return null;
     }

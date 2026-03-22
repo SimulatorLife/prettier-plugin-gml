@@ -12,8 +12,14 @@ import {
     resolvePackageJsonPath
 } from "../../shared/index.js";
 
-const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } =
-    Core;
+const {
+    assertNonEmptyString,
+    getErrorMessageOrFallback,
+    isFsErrorCode,
+    parseJsonWithContext,
+    resolveContainedRelativePath,
+    toPosixPath
+} = Core;
 
 export interface ManualSourceDescriptor {
     root: string;
@@ -104,7 +110,10 @@ export async function readManualJson(root, relativePath) {
     const contents = await readManualText(root, relativePath);
 
     try {
-        return JSON.parse(contents);
+        return parseJsonWithContext(contents, {
+            source: relativePath,
+            description: "manual asset"
+        });
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         throw new Error(`Manual asset '${relativePath}' did not contain valid JSON. (${message})`);
