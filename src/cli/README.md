@@ -222,6 +222,7 @@ The watch command is optimized for fast startup, especially when working with la
 - **Parallel file scanning** - Script names and symbols are collected using concurrent file I/O, significantly reducing startup time for projects with hundreds of files
 - **Efficient directory traversal** - Files in each directory are processed in parallel while directory traversal happens sequentially to avoid overwhelming the file system
 - **Lazy transpilation** - Initial scan only collects script names; full transpilation happens in the background after the watcher is ready
+- **Targeted dependent invalidation** - When exported symbols change, only files that reference the changed symbol names are retranspiled, avoiding unnecessary downstream work during hot reload
 
 For projects with 50+ GML files, these optimizations reduce watch command startup time by 3-5x compared to sequential processing. The startup time scales linearly with the number of files rather than exponentially, making the watcher practical for even the largest GameMaker projects.
 
