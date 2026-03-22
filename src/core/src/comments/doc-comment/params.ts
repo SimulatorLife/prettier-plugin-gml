@@ -2,6 +2,32 @@ import { defaultDocCommentStringCoercions, type DocCommentStringCoercions } from
 
 const STRING_TYPE = "string";
 
+function unwrapOptionalParamToken(tokenText: string): string {
+    if (!tokenText.startsWith("[")) {
+        return tokenText;
+    }
+
+    let bracketDepth = 0;
+
+    for (const [index, char] of Array.from(tokenText).entries()) {
+        if (char === "[") {
+            bracketDepth += 1;
+            continue;
+        }
+
+        if (char !== "]") {
+            continue;
+        }
+
+        bracketDepth -= 1;
+        if (bracketDepth === 0) {
+            return index > 0 ? tokenText.slice(1, index) : tokenText;
+        }
+    }
+
+    return tokenText;
+}
+
 export function normalizeOptionalParamToken(token: unknown) {
     if (typeof token !== STRING_TYPE) {
         return token;
@@ -65,31 +91,7 @@ export function getCanonicalParamNameFromText(name: unknown): string | null {
         return null;
     }
 
-    let trimmed = (name as string).trim();
-
-    if (trimmed.startsWith("[")) {
-        let depth = 0;
-        let closingIndex = -1;
-
-        let index = 0;
-        for (const char of trimmed) {
-            if (char === "[") {
-                depth += 1;
-            } else if (char === "]") {
-                depth -= 1;
-                if (depth === 0) {
-                    closingIndex = index;
-                    break;
-                }
-            }
-
-            index += 1;
-        }
-
-        if (closingIndex > 0) {
-            trimmed = trimmed.slice(1, closingIndex);
-        }
-    }
+    let trimmed = unwrapOptionalParamToken((name as string).trim());
 
     const equalsIndex = trimmed.indexOf("=");
     if (equalsIndex !== -1) {
