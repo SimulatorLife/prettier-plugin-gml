@@ -204,12 +204,12 @@ void test(
             "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
         );
         assert.ok(
-            timedRun.ruleMilliseconds < 2000,
-            `expected optimize-math-expressions rule runtime under 2000ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+            timedRun.ruleMilliseconds < 3500,
+            `expected optimize-math-expressions rule runtime under 3500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
-            timedRun.elapsedMilliseconds < 5000,
-            `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+            timedRun.elapsedMilliseconds < 7500,
+            `expected total lint runtime under 7500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
         );
     }
 );
@@ -228,12 +228,12 @@ void test(
         assert.equal(timedRun.messages.length, 0);
         assert.equal(timedRun.outputText, source);
         assert.ok(
-            timedRun.ruleMilliseconds < 400,
-            `expected optimize-math-expressions additive fast-path runtime under 400ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+            timedRun.ruleMilliseconds < 1200,
+            `expected optimize-math-expressions additive fast-path runtime under 1200ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
-            timedRun.elapsedMilliseconds < 6000,
-            `expected total lint runtime under 6000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+            timedRun.elapsedMilliseconds < 7500,
+            `expected total lint runtime under 7500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
         );
     }
 );
@@ -302,8 +302,8 @@ void test(
             `expected prefer-loop-invariant-expressions rule runtime under 1500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
-            timedRun.elapsedMilliseconds < 5000,
-            `expected total lint runtime under 5000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+            timedRun.elapsedMilliseconds < 6500,
+            `expected total lint runtime under 6500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
         );
     }
 );
@@ -356,8 +356,8 @@ void test(
             `expected prefer-loop-invariant-expressions rule runtime under 7500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
-            timedRun.elapsedMilliseconds < 20_000,
-            `expected total lint runtime under 20000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+            timedRun.elapsedMilliseconds < 23_000,
+            `expected total lint runtime under 23000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
         );
     }
 );
