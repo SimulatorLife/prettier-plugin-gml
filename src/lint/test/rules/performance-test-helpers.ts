@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { test } from "node:test";
 
 import * as LintWorkspace from "@gmloop/lint";
 import { ESLint, type Linter } from "eslint";
@@ -95,8 +94,8 @@ export function createOutputHash(outputText: string): string {
 }
 
 /**
- * Registers a sequential (non-concurrent) performance test via `node:test`.
+ * Shared `node:test` options for sequential performance tests.
  */
-export function runSequentialPerformanceTest(name: string, implementation: () => Promise<void>): void {
-    void test(name, { concurrency: false }, implementation);
-}
+export const SEQUENTIAL_PERFORMANCE_TEST_OPTIONS = Object.freeze({
+    concurrency: false
+});

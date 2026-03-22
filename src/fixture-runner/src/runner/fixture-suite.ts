@@ -23,7 +23,8 @@ import type {
     FixtureProfileCollector,
     FixtureRunFailure,
     FixtureRunResult,
-    FixtureStageName} from "../types.js";
+    FixtureStageName
+} from "../types.js";
 
 async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, string>> {
     const relativePaths = await Core.listRelativeFilePathsRecursively(rootPath);

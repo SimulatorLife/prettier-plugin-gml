@@ -4,8 +4,8 @@
  * Covers two complementary scenarios:
  * 1. When a file changes without changing its exported symbol set,
  *    dependent files are NOT retranspiled (latency saving).
- * 2. When a file's exported symbol set changes, dependent files ARE
- *    retranspiled so the runtime receives accurate patches.
+ * 2. When a file's exported symbols change, only files that reference the
+ *    changed symbol names are retranspiled.
  */
 
 import assert from "node:assert";
@@ -161,7 +161,7 @@ void describe("Hot reload incremental transpilation", () => {
     });
 });
 
-void describe("Hot reload dependent retranspilation on definition change", () => {
+void describe("Hot reload targeted dependent retranspilation on definition change", () => {
     let testDir: string;
     let baseFile: string;
     let dependentFile: string;
@@ -180,7 +180,7 @@ void describe("Hot reload dependent retranspilation on definition change", () =>
         );
 
         // consumer_defs.gml calls original_func so the dependency tracker registers
-        // base_defs.gml as a dependency.
+        // base_defs.gml as a dependency for the existing exported symbol.
         dependentFile = path.join(testDir, "consumer_defs.gml");
         await writeFile(
             dependentFile,
@@ -197,14 +197,10 @@ void describe("Hot reload dependent retranspilation on definition change", () =>
         }
     });
 
-    // Adding a new exported symbol to the base file changes its definition set, which
-    // causes the dependency tracker to schedule a retranspilation of every file that
-    // references a symbol from base_defs.gml.  The re-transpiled consumer patch is
-    // identical to the initial one (same source, same output), so it is suppressed by
-    // the deduplication check and NOT re-broadcast over WebSocket.  We therefore verify
-    // retranspilation through the status server's `patchCount` field, which increments
-    // for EVERY transpilation – including ones that produce unchanged output.
-    void it("should retranspile dependent files when base file adds a new exported symbol", async () => {
+    // Adding an unrelated exported symbol should not force existing dependents to
+    // retranspile when they do not reference the new name. This keeps the hot-reload
+    // loop focused on concrete symbol deltas and avoids unnecessary recompilation.
+    void it("should skip dependent retranspilation when base file adds an unrelated exported symbol", async () => {
         const statusPort = await findAvailablePort();
         const websocketPort = await findAvailablePort();
         const abortController = new AbortController();
@@ -235,8 +231,8 @@ void describe("Hot reload dependent retranspilation on definition change", () =>
             // Sanity: both base_defs and consumer_defs should have been transpiled.
             assert.ok(initialPatchCount >= 2, `Initial scan should transpile both files (got ${initialPatchCount})`);
 
-            // Rewrite the base file with an additional exported symbol.  This changes
-            // the file's definition set, triggering dependent retranspilation.
+            // Rewrite the base file with an additional exported symbol that the
+            // consumer file does not reference.
             await writeFile(
                 baseFile,
                 `function original_func() {
@@ -249,9 +245,89 @@ function new_exported_func() {
                 "utf8"
             );
 
-            // Wait until at least 2 more transpilations have been recorded:
-            //   1.  base_defs.gml re-transpilation (definitions changed)
-            //   2.  consumer_defs.gml dependent retranspilation
+            // Only the changed definition file should be retranspiled.
+            await waitForStatus(statusUrl, (status) => (status.patchCount ?? 0) >= initialPatchCount + 1, 8000, 50);
+
+            const finalStatus = await fetchStatusPayload(statusUrl);
+            patchCountAfterChange = (finalStatus.patchCount ?? 0) - initialPatchCount;
+        } finally {
+            abortController.abort();
+
+            try {
+                await watchPromise;
+            } catch {
+                // Expected to be aborted
+            }
+        }
+
+        assert.strictEqual(
+            patchCountAfterChange,
+            1,
+            "Adding an unrelated export should retranspile only the changed definition file"
+        );
+    });
+
+    void it("should retranspile a dependent file when a newly added export satisfies its reference", async () => {
+        const statusPort = await findAvailablePort();
+        const websocketPort = await findAvailablePort();
+        const missingReferenceDir = path.join(testDir, "missing-reference");
+        await mkdir(missingReferenceDir, { recursive: true });
+
+        const defsFile = path.join(missingReferenceDir, "defs.gml");
+        const consumerFile = path.join(missingReferenceDir, "consumer.gml");
+
+        await writeFile(
+            defsFile,
+            `function existing_func() {
+    return 1;
+}`,
+            "utf8"
+        );
+
+        await writeFile(
+            consumerFile,
+            `function consume_defs() {
+    return future_func();
+}`,
+            "utf8"
+        );
+
+        const abortController = new AbortController();
+        const statusUrl = `http://127.0.0.1:${statusPort}`;
+
+        const watchPromise = runWatchCommand(missingReferenceDir, {
+            extensions: [".gml"],
+            verbose: false,
+            quiet: true,
+            websocketPort,
+            websocketHost: "127.0.0.1",
+            runtimeServer: false,
+            statusServer: true,
+            statusPort,
+            abortSignal: abortController.signal
+        });
+
+        let patchCountAfterChange: number;
+
+        try {
+            await waitForScanComplete(statusUrl, 10_000, 50);
+
+            const initialStatus = await fetchStatusPayload(statusUrl);
+            const initialPatchCount = initialStatus.patchCount ?? 0;
+            assert.ok(initialPatchCount >= 2, `Initial scan should transpile both files (got ${initialPatchCount})`);
+
+            await writeFile(
+                defsFile,
+                `function existing_func() {
+    return 1;
+}
+
+function future_func() {
+    return 2;
+}`,
+                "utf8"
+            );
+
             await waitForStatus(statusUrl, (status) => (status.patchCount ?? 0) >= initialPatchCount + 2, 8000, 50);
 
             const finalStatus = await fetchStatusPayload(statusUrl);
@@ -266,10 +342,10 @@ function new_exported_func() {
             }
         }
 
-        // Both the changed file and its dependent should have been retranspiled.
-        assert.ok(
-            patchCountAfterChange >= 2,
-            `Expected at least 2 transpilations after the definition change (base + dependent), got ${patchCountAfterChange}`
+        assert.strictEqual(
+            patchCountAfterChange,
+            2,
+            "Adding a newly referenced export should retranspile both the changed file and its waiting consumer"
         );
     });
 });
