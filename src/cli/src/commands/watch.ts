@@ -1569,31 +1569,43 @@ function updateDependencyTrackerForTranspileResult(
     result: TranspilationResult
 ): DependencyUpdateSummary {
     const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
-    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
     const nextDefinitions = result.symbols ?? [];
     const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
 
-    if (!definitionsChanged) {
-        runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
-        runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
+    if (!definitionsChanged) {
         return {
             definitionsChanged,
             affectedDependents: []
         };
     }
 
-    const addedDefinitions = subtractSymbolSets(nextDefinitions, previousDefinitions);
-
-    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
-    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
-
-    const newlyDependentFiles = runtimeContext.dependencyTracker.getFilesReferencingSymbols(addedDefinitions, filePath);
+    const changedDefinitions = resolveChangedDefinitions(previousDefinitions, nextDefinitions);
+    const affectedDependents = runtimeContext.dependencyTracker.getFilesReferencingSymbols(
+        changedDefinitions,
+        filePath
+    );
 
     return {
         definitionsChanged,
-        affectedDependents: mergeDependentFiles(previousDependents, newlyDependentFiles)
+        affectedDependents
     };
+}
+
+/**
+ * Returns the symbol names whose availability changed between two definition sets.
+ * Only files that reference these specific symbols need dependent retranspilation.
+ */
+function resolveChangedDefinitions(
+    previousDefinitions: ReadonlyArray<string>,
+    nextDefinitions: ReadonlyArray<string>
+): Array<string> {
+    return mergeDependentFiles(
+        subtractSymbolSets(previousDefinitions, nextDefinitions),
+        subtractSymbolSets(nextDefinitions, previousDefinitions)
+    );
 }
 
 /**
