@@ -129,7 +129,7 @@ jobs:
           gh issue comment "${ISSUE_NUMBER}" --body "${MESSAGE}" --repo "${REPOSITORY}"
 
       - name: Checkout target commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           # Use the SHA fetched by the validate_pr step (prefer step output to inputs)
@@ -196,19 +196,19 @@ jobs:
         id: read-node-version
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
-
       - name: Use Node from .nvmrc
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.read-node-version.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
+
+      - name: Enable pnpm via Corepack
+        run: |
+          corepack enable
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Install dependencies and build (root/workspaces)
         run: |

@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./string.js";
+import { isNonEmptyString } from "../utils/string.js";
 
 // Shared text utility helpers related to line break detection.
 // This module centralizes line break handling so parser and printer code
@@ -23,11 +23,11 @@ export function getLineBreakSpans(text) {
         return [];
     }
 
-    const spans = [];
+    const spans: Array<{ index: number; length: number }> = [];
 
     LINE_BREAK_PATTERN.lastIndex = 0;
 
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = LINE_BREAK_PATTERN.exec(text))) {
         spans.push({ index: match.index, length: match[0].length });
     }

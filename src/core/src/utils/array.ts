@@ -108,37 +108,6 @@ export function asArray<T>(value: unknown = EMPTY_ARRAY): Array<T> {
 }
 
 /**
- * Copy doc comment metadata flags from a source array to a target array.
- * These flags control formatting behavior for doc comment arrays and should
- * be preserved when arrays are cloned or transformed.
- *
- * @template T
- * @param {Array<T>} source Source array that may contain doc comment flags.
- * @param {Array<T>} target Target array to receive the flags.
- * @returns {Array<T>} The target array (for chaining).
- */
-export function copyDocCommentArrayFlags<T>(source: Array<T>, target: Array<T>): Array<T> {
-    if (!Array.isArray(source) || !Array.isArray(target)) {
-        return target;
-    }
-
-    const src = source as any;
-    const tgt = target as any;
-
-    if (src._preserveDescriptionBreaks === true) {
-        tgt._preserveDescriptionBreaks = true;
-    }
-    if (src._suppressLeadingBlank === true) {
-        tgt._suppressLeadingBlank = true;
-    }
-    if (src._blockCommentDocs === true) {
-        tgt._blockCommentDocs = true;
-    }
-
-    return target;
-}
-
-/**
  * Normalize a candidate array so callers can safely mutate the result without
  * repeating null checks and array guards. When the provided value is already
  * an array, the original reference is returned to preserve identity. All other
@@ -146,9 +115,10 @@ export function copyDocCommentArrayFlags<T>(source: Array<T>, target: Array<T>):
  * site. Callers can opt into shallow cloning when they need to decouple from
  * the original array instance.
  *
- * Note: This function does NOT copy doc comment metadata flags. If you need to
+ * Note: This function does NOT copy doc-comment metadata flags. If you need to
  * preserve `_preserveDescriptionBreaks`, `_suppressLeadingBlank`, or
- * `_blockCommentDocs` flags, call {@link copyDocCommentArrayFlags} on the result.
+ * `_blockCommentDocs` flags, call the doc-comment-specific
+ * `copyDocCommentArrayFlags` helper on the result.
  *
  * @template T
  * @param {Array<T> | null | undefined | ReadonlyArray<T>} value

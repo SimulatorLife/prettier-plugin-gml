@@ -568,6 +568,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves multiline @description continuation indentation while reusing shared core parsing", async () => {
+        const source = [
+            "/// @description Build packet metadata",
+            "/// first line",
+            "///   nested details",
+            "///",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build packet metadata\n\/\/\/ {14}first line\n\/\/\/ {14}nested details\n\/\/\/\n\/\/\/ @param value/m,
+            "Formatter must preserve multiline @description continuation layout without introducing formatter-owned doc-comment normalization."
+        );
+    });
+
     void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
         const source = [
             "/// @description",

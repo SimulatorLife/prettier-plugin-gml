@@ -67,7 +67,7 @@ jobs:
           GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
 
       - name: Checkout (with your token so pushes are yours)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.base_branch }}
           fetch-depth: 0
@@ -129,7 +129,7 @@ jobs:
 
       - name: Prepare Agent instructions
         id: instructions
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PROMPT: ${{ inputs.prompt }}
           PR_BODY: ${{ inputs.pr_body }}
@@ -196,7 +196,7 @@ jobs:
 
       - name: Open PR (authored by your user)
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_TITLE: ${{ inputs.pr_title }}
           BASE_BRANCH: ${{ inputs.base_branch }}
@@ -235,7 +235,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: (Optional) Label the PR (as your user)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ env.PR_NUMBER }}
         with:

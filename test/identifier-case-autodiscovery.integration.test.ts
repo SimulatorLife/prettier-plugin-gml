@@ -1,74 +1,62 @@
-/**
- * Integration test for identifier-case autodiscovery.
- *
- * ARCHITECTURE SMELL: This integration test lives in the 'semantic' package but
- * requires importing the full 'format' package (via Prettier), creating a reverse
- * dependency from a lower layer to a higher layer. The dependency flow should be:
- *   Core ← Parser ← Semantic ← Format
- *
- * Integration tests that exercise the full pipeline (Prettier → Format → Semantic → Parser)
- * should not live inside a workspace that's supposed to be lower in the stack.
- *
- * CURRENT STATE: The test here imports Prettier and the format workspace, formats GML source,
- * and verifies that identifier-case analysis works end-to-end. This forces the
- * 'semantic' package to have a dev-dependency on 'format', which is backwards.
- *
- * RECOMMENDATION: Move all integration tests to a top-level 'test/' directory at the
- * repository root, outside any individual workspace. This directory can depend on
- * all packages and test the full pipeline without creating circular dependencies.
- * The 'semantic' package should only contain unit tests that test its own exports
- * in isolation, using mocked or minimal inputs from lower layers (Core, Parser).
- *
- * WHAT WOULD BREAK: Leaving integration tests in lower-layer packages prevents
- * clean layering, makes it harder to build packages independently, and forces
- * contributors to reason about reverse dependencies during development.
- */
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
-import {
-    createIdentifierCaseProject,
-    getFormat,
-    resolveIdentifierCaseFixturesDirectory
-} from "./identifier-case-test-helpers.js";
+import { Format } from "@gmloop/format";
+import { Semantic } from "@gmloop/semantic";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
+const FIXTURES_DIRECTORY = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../src/semantic/test/identifier-case-fixtures"
+);
 
-async function createTempProject(fixtureFileName = "locals.gml") {
-    const project = await createIdentifierCaseProject({
-        fixturesDirectory,
-        scriptFixtures: [{ name: "demo", fixture: fixtureFileName }],
-        eventFixture: null,
-        projectPrefix: "gml-identifier-case-autodiscovery-"
-    });
+async function createTempProjectWorkspace(prefix: string) {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
 
-    return {
-        projectRoot: project.projectRoot,
-        fixtureSource: project.scriptSources[0],
-        gmlPath: project.scriptPaths[0]
+    const writeFile = async (relativePath: string, contents: string) => {
+        const absolutePath = path.join(projectRoot, relativePath);
+        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+        await fs.writeFile(absolutePath, contents, "utf8");
+        return absolutePath;
     };
+
+    return { projectRoot, writeFile };
 }
 
-async function fileExists(filePath) {
+async function createIdentifierCaseProject(fixtureFileName = "locals.gml") {
+    const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-identifier-case-autodiscovery-");
+
+    await writeFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
+    await writeFile("scripts/demo/demo.yy", JSON.stringify({ resourceType: "GMScript", name: "demo" }));
+
+    const fixturePath = path.join(FIXTURES_DIRECTORY, fixtureFileName);
+    const fixtureSource = await fs.readFile(fixturePath, "utf8");
+    const gmlPath = await writeFile("scripts/demo/demo.gml", fixtureSource);
+
+    await Semantic.buildProjectIndex(projectRoot);
+
+    return { projectRoot, fixtureSource, gmlPath };
+}
+
+async function fileExists(filePath: string) {
     try {
         await fs.stat(filePath);
         return true;
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
             return false;
         }
+
         throw error;
     }
 }
 
 void describe("identifier case project index bootstrap", () => {
     void it("does not apply identifier-case rewrites via formatter autodiscovery", async () => {
-        const { projectRoot, fixtureSource, gmlPath } = await createTempProject();
+        const { projectRoot, fixtureSource, gmlPath } = await createIdentifierCaseProject();
 
         try {
             const baseOptions = {
@@ -84,34 +72,28 @@ void describe("identifier case project index bootstrap", () => {
                 identifierCaseDryRun: false,
                 __identifierCaseDryRun: false
             };
-            const firstRunOptions = { ...baseOptions };
-            const formatWorkspace = await getFormat();
-            const firstOutput = await formatWorkspace.format(fixtureSource, firstRunOptions);
 
+            const firstOutput = await Format.format(fixtureSource, { ...baseOptions });
             assert.ok(firstOutput.includes("counter_value"));
 
             const cacheFilePath = path.join(projectRoot, ".prettier-plugin-gml", "project-index-cache.json");
             assert.equal(await fileExists(cacheFilePath), false);
 
-            const secondRunOptions = {
-                ...baseOptions
-            };
-            const secondOutput = await formatWorkspace.format(firstOutput, secondRunOptions);
+            const secondOutput = await Format.format(firstOutput, { ...baseOptions });
             assert.ok(secondOutput.includes("counter_value"));
         } finally {
-            clearIdentifierCaseOptionStore(gmlPath);
+            Semantic.clearIdentifierCaseOptionStore(gmlPath);
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
 
     void it("keeps identifier-case rewrites disabled when discovery cannot run", async () => {
-        const missBase = path.join(currentDirectory, "../../tmp", "gml-identifier-case-autodiscovery-miss");
-        await fs.mkdir(missBase, { recursive: true });
-        const tempRoot = await fs.mkdtemp(path.join(missBase, "gml-identifier-case-autodiscovery-miss-"));
+        const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-identifier-case-autodiscovery-miss-"));
 
-        let manifestStoreKey;
+        let manifestStoreKey: string | null = null;
+
         try {
-            const fixturePath = path.join(fixturesDirectory, "locals.gml");
+            const fixturePath = path.join(FIXTURES_DIRECTORY, "locals.gml");
             const fixtureSource = await fs.readFile(fixturePath, "utf8");
             const gmlPath = path.join(tempRoot, "scripts/demo.gml");
             manifestStoreKey = gmlPath;
@@ -132,16 +114,20 @@ void describe("identifier case project index bootstrap", () => {
                 __identifierCaseDryRun: false
             };
 
-            const formatWorkspace = await getFormat();
-            const formattedWithoutManifest = await formatWorkspace.format(fixtureSource, optionsWithoutManifest);
+            const formattedWithoutManifest = await Format.format(fixtureSource, optionsWithoutManifest);
             assert.ok(
                 formattedWithoutManifest.includes("counter_value"),
                 "Expected renames to be skipped when no project root is found"
             );
-            const missingStore = getIdentifierCaseOptionStore(manifestStoreKey);
+            const missingStore = Semantic.getIdentifierCaseOptionStore(manifestStoreKey);
             assert.equal(missingStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
 
-            const { projectRoot, gmlPath: discoveredPath, fixtureSource: source } = await createTempProject();
+            const {
+                projectRoot,
+                gmlPath: discoveredPath,
+                fixtureSource: discoveredSource
+            } = await createIdentifierCaseProject();
+
             try {
                 const disabledOptions = {
                     filepath: discoveredPath,
@@ -158,19 +144,19 @@ void describe("identifier case project index bootstrap", () => {
                     __identifierCaseDryRun: false
                 };
 
-                const formattedDisabled = await formatWorkspace.format(source, disabledOptions);
+                const formattedDisabled = await Format.format(discoveredSource, disabledOptions);
                 assert.ok(
                     formattedDisabled.includes("counter_value"),
                     "Expected renames to be disabled when discovery is turned off"
                 );
-                const disabledStore = getIdentifierCaseOptionStore(discoveredPath);
+                const disabledStore = Semantic.getIdentifierCaseOptionStore(discoveredPath);
                 assert.equal(disabledStore?.__identifierCaseProjectIndexBootstrap ?? null, null);
             } finally {
-                clearIdentifierCaseOptionStore(discoveredPath);
+                Semantic.clearIdentifierCaseOptionStore(discoveredPath);
                 await fs.rm(projectRoot, { recursive: true, force: true });
             }
         } finally {
-            clearIdentifierCaseOptionStore(manifestStoreKey);
+            Semantic.clearIdentifierCaseOptionStore(manifestStoreKey);
             await fs.rm(tempRoot, { recursive: true, force: true });
         }
     });
