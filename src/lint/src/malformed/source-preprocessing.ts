@@ -160,78 +160,93 @@ function appendMissingClosingBraces(sourceText: string): string {
  *
  * Skips braces that appear in comments or strings to avoid false positives.
  */
+type BraceScannerState = {
+    depth: number;
+    inSingleLineComment: boolean;
+    inBlockComment: boolean;
+    stringDelimiter: string | null;
+    isEscaped: boolean;
+};
+
 function countUnclosedBraces(sourceText: string): number {
-    let depth = 0;
-    let inSingleLineComment = false;
-    let inBlockComment = false;
-    let stringDelimiter: string | null = null;
-    let isEscaped = false;
+    const state: BraceScannerState = {
+        depth: 0,
+        inSingleLineComment: false,
+        inBlockComment: false,
+        stringDelimiter: null,
+        isEscaped: false
+    };
 
     for (let index = 0; index < sourceText.length; index += 1) {
-        const char = sourceText[index];
-        const nextChar = sourceText[index + 1];
-
-        if (stringDelimiter) {
-            if (isEscaped) {
-                isEscaped = false;
-                continue;
-            }
-
-            if (char === "\\") {
-                isEscaped = true;
-                continue;
-            }
-
-            if (char === stringDelimiter) {
-                stringDelimiter = null;
-            }
-
-            continue;
-        }
-
-        if (inSingleLineComment) {
-            if (char === "\n") {
-                inSingleLineComment = false;
-            }
-
-            continue;
-        }
-
-        if (inBlockComment) {
-            if (char === "*" && nextChar === "/") {
-                inBlockComment = false;
-                index += 1;
-            }
-
-            continue;
-        }
-
-        if (char === "/" && nextChar === "/") {
-            inSingleLineComment = true;
-            index += 1;
-            continue;
-        }
-
-        if (char === "/" && nextChar === "*") {
-            inBlockComment = true;
-            index += 1;
-            continue;
-        }
-
-        if (char === "'" || char === '"') {
-            stringDelimiter = char;
-            continue;
-        }
-
-        if (char === "{") {
-            depth += 1;
-            continue;
-        }
-
-        if (char === "}" && depth > 0) {
-            depth -= 1;
-        }
+        index += consumeBraceScannerCharacter(state, sourceText[index], sourceText[index + 1]);
     }
 
-    return depth;
+    return state.depth;
+}
+
+function consumeBraceScannerCharacter(state: BraceScannerState, char: string, nextChar: string | undefined): number {
+    if (state.stringDelimiter !== null) {
+        return consumeStringCharacter(state, char);
+    }
+
+    if (state.inSingleLineComment) {
+        if (char === "\n") {
+            state.inSingleLineComment = false;
+        }
+
+        return 0;
+    }
+
+    if (state.inBlockComment) {
+        if (char === "*" && nextChar === "/") {
+            state.inBlockComment = false;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (char === "/" && nextChar === "/") {
+        state.inSingleLineComment = true;
+        return 1;
+    }
+
+    if (char === "/" && nextChar === "*") {
+        state.inBlockComment = true;
+        return 1;
+    }
+
+    if (char === "'" || char === '"') {
+        state.stringDelimiter = char;
+        return 0;
+    }
+
+    if (char === "{") {
+        state.depth += 1;
+        return 0;
+    }
+
+    if (char === "}" && state.depth > 0) {
+        state.depth -= 1;
+    }
+
+    return 0;
+}
+
+function consumeStringCharacter(state: BraceScannerState, char: string): number {
+    if (state.isEscaped) {
+        state.isEscaped = false;
+        return 0;
+    }
+
+    if (char === "\\") {
+        state.isEscaped = true;
+        return 0;
+    }
+
+    if (char === state.stringDelimiter) {
+        state.stringDelimiter = null;
+    }
+
+    return 0;
 }
