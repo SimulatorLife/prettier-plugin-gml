@@ -53,39 +53,6 @@ void describe("statement spacing policy", () => {
         );
     });
 
-    void it("enforces padding between divergent return paths", () => {
-        const guardedReturn = {
-            type: "IfStatement",
-            alternate: null,
-            consequent: {
-                type: "BlockStatement",
-                body: [
-                    {
-                        type: "ReturnStatement",
-                        argument: { type: "Literal", value: "true" }
-                    }
-                ]
-            }
-        };
-        const fallbackReturn = {
-            type: "ReturnStatement",
-            argument: { type: "Literal", value: "false" }
-        };
-        const matchingFallback = {
-            type: "ReturnStatement",
-            argument: { type: "Literal", value: "true" }
-        };
-
-        assert.equal(
-            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(guardedReturn, fallbackReturn),
-            true
-        );
-        assert.equal(
-            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(guardedReturn, matchingFallback),
-            false
-        );
-    });
-
     void it("keeps default newline padding behavior", () => {
         assert.equal(
             Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement({

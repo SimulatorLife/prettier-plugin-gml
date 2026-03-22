@@ -70,11 +70,7 @@ import {
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import {
-    shouldAddNewlinesAroundStatement,
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldSuppressEmptyLineBetween
-} from "./statement-spacing-policy.js";
+import { shouldAddNewlinesAroundStatement, shouldSuppressEmptyLineBetween } from "./statement-spacing-policy.js";
 import {
     expressionIsStringLike,
     hasLineBreak,
@@ -2354,16 +2350,12 @@ function handleIntermediateTrailingSpacing({
         hasAutomaticPaddingCapacityWithSuppressionGuard &&
         containerNode?.type === "ConstructorDeclaration" &&
         isStaticFunctionVariableDeclaration(nextNode);
-    const shouldForceEarlyReturnPadding =
-        !suppressFollowingEmptyLine && shouldForceBlankLineBetweenReturnPaths(node, nextNode);
-
     const shouldAddForcedPadding = [
         shouldForceMacroPadding,
         shouldForceLoopSectionPadding,
         shouldForceVariableBlockLoopPadding,
         shouldForceConstructorStaticSectionPadding,
-        forceFollowingEmptyLine && hasAutomaticPaddingCapacity,
-        shouldForceEarlyReturnPadding && hasAutomaticPaddingCapacity
+        forceFollowingEmptyLine && hasAutomaticPaddingCapacity
     ].some(Boolean);
 
     // Suppress the blank line between a #region and an immediately following
