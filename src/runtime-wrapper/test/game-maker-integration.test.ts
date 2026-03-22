@@ -544,6 +544,38 @@ await test("object event patches correctly resolve DrawGUI key (not DrawEvent)",
     }
 });
 
+await test("object event patches correctly resolve DrawEventBegin aliases before DrawEvent", () => {
+    const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
+    const globals = globalThis as Record<string, unknown>;
+    const savedGlobal = globals.gml_Object_oEnemy_DrawEventBegin_0;
+
+    try {
+        function gml_Object_oEnemy_DrawEventBegin_0() {
+            return "original";
+        }
+
+        globals.gml_Object_oEnemy_DrawEventBegin_0 = gml_Object_oEnemy_DrawEventBegin_0;
+
+        const { objectEntry, instanceEntry } = applyEventPatchAndGetEntries(
+            "gml_Object_oEnemy_DrawEventBegin_0",
+            "DrawEventBegin",
+            gml_Object_oEnemy_DrawEventBegin_0
+        );
+
+        const updated = objectEntry.DrawEventBegin;
+        assert.equal(typeof updated, "function", "GMObjects DrawEventBegin should be updated");
+        assert.equal(updated, instanceEntry.DrawEventBegin, "Instance DrawEventBegin should match GMObjects");
+        assert.equal(objectEntry.DrawEvent, undefined, "DrawEvent key must not be set");
+    } finally {
+        if (savedGlobal === undefined) {
+            delete globals.gml_Object_oEnemy_DrawEventBegin_0;
+        } else {
+            globals.gml_Object_oEnemy_DrawEventBegin_0 = savedGlobal;
+        }
+        restoreGlobalProperties(snapshot);
+    }
+});
+
 await test("object event patches correctly resolve DrawEventBegin key", () => {
     const snapshot = snapshotGlobalProperties(runtimeIntegrationPropertyNames);
     const globals = globalThis as Record<string, unknown>;

@@ -41,6 +41,11 @@ type EventMapping = {
     minified: string;
 };
 
+type ObjectEventPrefixMapping = {
+    prefixes: ReadonlyArray<string>;
+    eventKey: string;
+};
+
 const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
     ["PreCreateEvent", { standard: "EVENT_PRE_CREATE", minified: "_qI" }],
     ["CreateEvent", { standard: "EVENT_CREATE", minified: "_rI" }],
@@ -55,6 +60,22 @@ const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
     ["DrawEventEnd", { standard: "EVENT_DRAW_END", minified: "_5G2" }],
     ["DrawGUIBegin", { standard: "EVENT_DRAW_GUI_BEGIN", minified: "_6G2" }],
     ["DrawGUIEnd", { standard: "EVENT_DRAW_GUI_END", minified: "_7G2" }]
+]);
+
+const OBJECT_EVENT_PREFIX_MAPPINGS: ReadonlyArray<ObjectEventPrefixMapping> = Object.freeze([
+    { prefixes: ["PreCreate"], eventKey: "PreCreateEvent" },
+    { prefixes: ["Create"], eventKey: "CreateEvent" },
+    { prefixes: ["CleanUp"], eventKey: "CleanUpEvent" },
+    { prefixes: ["Destroy"], eventKey: "DestroyEvent" },
+    { prefixes: ["StepBegin"], eventKey: "StepBeginEvent" },
+    { prefixes: ["StepEnd"], eventKey: "StepEndEvent" },
+    { prefixes: ["Step"], eventKey: "StepNormalEvent" },
+    { prefixes: ["DrawGUIBegin"], eventKey: "DrawGUIBegin" },
+    { prefixes: ["DrawGUIEnd"], eventKey: "DrawGUIEnd" },
+    { prefixes: ["DrawGUI"], eventKey: "DrawGUI" },
+    { prefixes: ["DrawEventBegin", "DrawBegin"], eventKey: "DrawEventBegin" },
+    { prefixes: ["DrawEventEnd", "DrawEnd"], eventKey: "DrawEventEnd" },
+    { prefixes: ["Draw"], eventKey: "DrawEvent" }
 ]);
 
 // Cached reverse-lookup from script name → index in JSON_game.ScriptNames.
@@ -162,52 +183,10 @@ function resolveNamedFunctionId(runtimeId: string): string | null {
 function resolveObjectEventKey(eventName: string): string | null {
     // More specific prefixes must be checked before their general prefix
     // to avoid incorrect matches (e.g. "StepBegin_0" must not match "Step").
-
-    // Create / PreCreate
-    if (eventName.startsWith("PreCreate")) {
-        return "PreCreateEvent";
-    }
-    if (eventName.startsWith("Create")) {
-        return "CreateEvent";
-    }
-
-    // Destroy / CleanUp
-    if (eventName.startsWith("CleanUp")) {
-        return "CleanUpEvent";
-    }
-    if (eventName.startsWith("Destroy")) {
-        return "DestroyEvent";
-    }
-
-    // Step variants (most specific first)
-    if (eventName.startsWith("StepBegin")) {
-        return "StepBeginEvent";
-    }
-    if (eventName.startsWith("StepEnd")) {
-        return "StepEndEvent";
-    }
-    if (eventName.startsWith("Step")) {
-        return "StepNormalEvent";
-    }
-
-    // Draw variants (most specific first to avoid false "DrawEvent" matches)
-    if (eventName.startsWith("DrawGUIBegin")) {
-        return "DrawGUIBegin";
-    }
-    if (eventName.startsWith("DrawGUIEnd")) {
-        return "DrawGUIEnd";
-    }
-    if (eventName.startsWith("DrawGUI")) {
-        return "DrawGUI";
-    }
-    if (eventName.startsWith("DrawEventBegin") || eventName.startsWith("DrawBegin")) {
-        return "DrawEventBegin";
-    }
-    if (eventName.startsWith("DrawEventEnd") || eventName.startsWith("DrawEnd")) {
-        return "DrawEventEnd";
-    }
-    if (eventName.startsWith("Draw")) {
-        return "DrawEvent";
+    for (const { prefixes, eventKey } of OBJECT_EVENT_PREFIX_MAPPINGS) {
+        if (prefixes.some((prefix) => eventName.startsWith(prefix))) {
+            return eventKey;
+        }
     }
 
     return null;
