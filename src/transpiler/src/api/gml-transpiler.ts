@@ -53,6 +53,7 @@ export interface TranspileEventRequest {
 export interface PatchMetadata {
     readonly timestamp: number;
     readonly sourcePath?: string;
+    readonly dependencies?: Array<string>;
 }
 
 export interface ScriptPatch {
