@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { test } from "node:test";
 
 import {
     buildLoopInvariantStressBatchSource,
     createOutputHash,
     lintSingleRuleWithTiming,
-    runSequentialPerformanceTest,
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     STILE_FIXTURE_URL,
     STILE_OPTIMIZE_MATH_OUTPUT_HASH
 } from "./performance-test-helpers.js";
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions keeps repeated stile rewrites within the cached-normalization budget",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = await readFile(STILE_FIXTURE_URL, "utf8");
         const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source, "stile.gml");
@@ -25,8 +27,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "prefer-loop-invariant-expressions prunes deep invariant subtrees within the stress budget",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildLoopInvariantStressBatchSource(220, 60);
         const timedRun = await lintSingleRuleWithTiming(
@@ -47,8 +50,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions skips pathological giant candidates to stay within memory budget",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const additiveTerms = Array.from({ length: 1200 }, (_, index) => `value_${index}`).join(" + ");
         const source = ["function stress_math() {", `    return (${additiveTerms}) / 3;`, "}", ""].join("\n");

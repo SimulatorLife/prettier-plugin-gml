@@ -15,8 +15,8 @@
  * stable public APIs rather than implementation details.
  *
  * Architectural boundaries:
- * - Core/utils owns: Array, string, object, and AST utilities
- * - Core/comments/doc-comment owns: Doc-comment-specific logic
+ * - Core/utils owns: generic array, string, object, and AST utilities
+ * - Core/comments/doc-comment owns: doc-comment-specific logic and metadata
  * - This facade: Re-exports only the utilities needed by doc-comment code
  *
  * All doc-comment service files should import from this facade, never
@@ -24,14 +24,10 @@
  */
 
 // Array utilities
-export {
-    asArray,
-    compactArray,
-    copyDocCommentArrayFlags,
-    findLastIndex,
-    isNonEmptyArray,
-    toMutableArray
-} from "../../utils/index.js";
+export { asArray, compactArray, findLastIndex, isNonEmptyArray, toMutableArray } from "../../utils/index.js";
+
+// Doc-comment array metadata helpers
+export { copyDocCommentArrayFlags } from "./array-flags.js";
 
 // String utilities
 export {
