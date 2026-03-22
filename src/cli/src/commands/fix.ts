@@ -26,6 +26,12 @@ type ValidatedFixCommandOptions = {
     verbose: boolean;
 };
 
+type FixWorkflowStage = {
+    label: string;
+    failureMessage: string;
+    execute: (options: ValidatedFixCommandOptions) => Promise<void>;
+};
+
 type StubCommandParameters = {
     args: Array<string>;
     options: Record<string, unknown>;
@@ -256,6 +262,45 @@ function createFormatStageCommand(options: ValidatedFixCommandOptions): Commande
     });
 }
 
+function createFixWorkflowStages(): ReadonlyArray<FixWorkflowStage> {
+    return Object.freeze([
+        {
+            label: "1/3 Refactor Codemods",
+            failureMessage: "Refactor codemod stage failed.",
+            execute: async (options) => {
+                await runRefactorCodemodSubprocess(options);
+            }
+        },
+        {
+            label: "2/3 Lint Fixes",
+            failureMessage: "Lint fix stage reported unresolved diagnostics.",
+            execute: async (options) => {
+                await runLintCommand(createLintStageCommand(options));
+            }
+        },
+        {
+            label: "3/3 Format",
+            failureMessage: "Format stage failed.",
+            execute: async (options) => {
+                await runFormatCommand(createFormatStageCommand(options));
+            }
+        }
+    ]);
+}
+
+async function runFixWorkflowStages(options: ValidatedFixCommandOptions): Promise<void> {
+    await createFixWorkflowStages().reduce<Promise<void>>(async (previousStage, workflowStage) => {
+        await previousStage;
+        await runWorkflowStage({
+            label: workflowStage.label,
+            execute: async () => {
+                await workflowStage.execute(options);
+            },
+            failureMessage: workflowStage.failureMessage
+        });
+    }, Promise.resolve());
+}
+
 export function createFixCommand(): Command {
     return applyStandardCommandOptions(
         new Command("fix")
@@ -288,29 +333,7 @@ export async function runFixCommand(command: CommanderCommandLike): Promise<void
 
     console.log(`Project root: ${options.projectRoot}`);
 
-    await runWorkflowStage({
-        label: "1/3 Refactor Codemods",
-        execute: async () => {
-            await runRefactorCodemodSubprocess(options);
-        },
-        failureMessage: "Refactor codemod stage failed."
-    });
-
-    await runWorkflowStage({
-        label: "2/3 Lint Fixes",
-        execute: async () => {
-            await runLintCommand(createLintStageCommand(options));
-        },
-        failureMessage: "Lint fix stage reported unresolved diagnostics."
-    });
-
-    await runWorkflowStage({
-        label: "3/3 Format",
-        execute: async () => {
-            await runFormatCommand(createFormatStageCommand(options));
-        },
-        failureMessage: "Format stage failed."
-    });
+    await runFixWorkflowStages(options);
 
     console.log("\nSuccess! Project codemods, lint fixes, and formatting completed.");
 }
